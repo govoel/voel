@@ -1,0 +1,19 @@
+{
+  "name": "@apricotta/server",
+  "version": "0.0.0",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts"
+  },
+  "dependencies": {
+    "@better-auth/expo": "1.2.2",
+    "better-auth": "1.2.2",
+    "elysia": "1.2.24",
+    "kysely": "0.27.6",
+    "kysely-bun-sqlite": "0.3.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.4"
+  },
+  "module": "src/index.ts"
+}

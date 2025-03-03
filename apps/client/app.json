@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "apricotta",
+    "slug": "apricotta",
+    "version": "1.0.0",
+    "scheme": "apricotta",
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Inter-Bold.otf",
+            "./assets/fonts/Inter-Thin.otf",
+            "./assets/fonts/Inter-Black.otf",
+            "./assets/fonts/Inter-Light.otf",
+            "./assets/fonts/Inter-Italic.otf",
+            "./assets/fonts/Inter-Medium.otf",
+            "./assets/fonts/Inter-Regular.otf",
+            "./assets/fonts/Inter-SemiBold.otf",
+            "./assets/fonts/Inter-ExtraBold.otf",
+            "./assets/fonts/Inter-BoldItalic.otf",
+            "./assets/fonts/Inter-ExtraLight.otf",
+            "./assets/fonts/Inter-ThinItalic.otf",
+            "./assets/fonts/Inter-BlackItalic.otf",
+            "./assets/fonts/Inter-LightItalic.otf",
+            "./assets/fonts/Inter-MediumItalic.otf",
+            "./assets/fonts/Inter-SemiBoldItalic.otf",
+            "./assets/fonts/Inter-ExtraBoldItalic.otf",
+            "./assets/fonts/Inter-ExtraLightItalic.otf"
+          ]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.apricotta"
+    },
+    "android": {
+      "package": "app.apricotta",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    }
+  }
+}
