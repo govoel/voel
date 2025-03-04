@@ -238,16 +238,7 @@ function SignUpTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
       if (res.error) {
         toast.error('Could not sign you up', { description: res.error.message });
       } else {
-        instanceStore.trigger.setCurrentInstance({
-          instanceURL: value.baseURL,
-          userID: res.data.user.id,
-          username: res.data.user.username,
-          email: res.data.user.email,
-          name: res.data.user.name,
-          image: res.data.user.image ?? undefined,
-          authStore: tempAuthStore,
-        });
-        toast.success('Signed up successfully', { description: `Welcome, ${res.data.user.name}` });
+        toast.success('Signed up successfully', { description: 'You may proceed to login.' });
         bottomSheetModalRef.current?.dismiss();
       }
     },
