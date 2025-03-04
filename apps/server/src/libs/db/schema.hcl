@@ -32,6 +32,10 @@ table "user" {
     null = true
     type = text
   }
+  column "displayUsername" {
+    null = true
+    type = text
+  }
   column "role" {
     null = true
     type = text

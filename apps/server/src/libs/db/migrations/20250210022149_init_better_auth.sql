@@ -1,5 +1,5 @@
 -- Create "user" table
-CREATE TABLE `user` (`id` text NOT NULL, `name` text NOT NULL, `email` text NOT NULL, `emailVerified` integer NOT NULL, `image` text NULL, `createdAt` date NOT NULL, `updatedAt` date NOT NULL, `username` text NULL, `role` text NULL, `banned` integer NULL, `banReason` text NULL, `banExpires` date NULL, PRIMARY KEY (`id`));
+CREATE TABLE `user` (`id` text NOT NULL, `name` text NOT NULL, `email` text NOT NULL, `emailVerified` integer NOT NULL, `image` text NULL, `createdAt` date NOT NULL, `updatedAt` date NOT NULL, `username` text NULL, `displayUsername` text NULL, `role` text NULL, `banned` integer NULL, `banReason` text NULL, `banExpires` date NULL, PRIMARY KEY (`id`));
 -- Create index "user_email_unique_idx" to table: "user"
 CREATE UNIQUE INDEX `user_email_unique_idx` ON `user` (`email`);
 -- Create index "user_username_unique_idx" to table: "user"
