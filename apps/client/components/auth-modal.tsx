@@ -5,10 +5,9 @@ import {
   BottomSheetModalProvider,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { useForm } from '@tanstack/react-form';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
-import React from 'react';
+import React, { Dispatch, SetStateAction } from 'react';
 import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
@@ -81,7 +80,7 @@ export function AuthModal() {
             </TabsContent>
 
             <TabsContent value="sign-up">
-              <SignUpTab bottomSheetModalRef={bottomSheetModalRef} />
+              <SignUpTab setTab={setBottomSheetTab} />
             </TabsContent>
           </Tabs>
         </BottomSheetScrollView>
@@ -151,6 +150,7 @@ function SignInTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
               inputMode: 'url',
               autoCorrect: false,
               autoCapitalize: 'none',
+              placeholder: 'http://apricotta.local',
             }}
           />
         )}
@@ -192,7 +192,7 @@ function SignInTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
   );
 }
 
-function SignUpTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<BottomSheetModal> }) {
+function SignUpTab({ setTab }: { setTab: Dispatch<SetStateAction<string>> }) {
   const currentInstanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
 
   const SignUpForm = useAppForm({
@@ -238,8 +238,8 @@ function SignUpTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
       if (res.error) {
         toast.error('Could not sign you up', { description: res.error.message });
       } else {
-        toast.success('Signed up successfully', { description: 'You may proceed to login.' });
-        bottomSheetModalRef.current?.dismiss();
+        toast.success('Signed up successfully', { description: 'You may proceed to sign in.' });
+        setTab('sign-in');
       }
     },
   });
@@ -256,6 +256,7 @@ function SignUpTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
               inputMode: 'url',
               autoCorrect: false,
               autoCapitalize: 'none',
+              placeholder: 'http://apricotta.local',
             }}
           />
         )}

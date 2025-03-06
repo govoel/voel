@@ -1,18 +1,14 @@
-import { Context } from "elysia";
-import { auth } from "./auth";
+import { Context } from 'elysia';
+
+import { auth } from './auth';
 
 const betterAuthView = async (context: Context) => {
-  const BETTER_AUTH_ACCEPT_METHODS = ["POST", "GET"]
+  const BETTER_AUTH_ACCEPT_METHODS = ['POST', 'GET'];
   if (BETTER_AUTH_ACCEPT_METHODS.includes(context.request.method)) {
-    console.log(context.request)
-    const res = await auth.handler(context.request);
-    console.log(res)
-    return res;
+    return auth.handler(context.request);
+  } else {
+    context.error(405);
   }
-  else {
-    console.log('returning 405')
-    context.error(405)
-  }
-}
+};
 
 export default betterAuthView;
