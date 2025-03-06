@@ -10,9 +10,9 @@
   "prConcurrentLimit": 0,
   "timezone": "America/Chicago",
   "schedule": ["* 0-5 * * *"],
-  "labels": ["deps"],
+  "labels": ["dependencies"],
   "packageRules": [{
-    "groupName": "Better Auth monorepo packages",
-    "matchSourceUrls": ["https://github.com/better-auth/better-auth"]
+    "groupName": "better-auth-monorepo",
+    "matchPackageNames": ["/better-auth/"]
   }]
 }
