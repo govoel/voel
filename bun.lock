@@ -12,7 +12,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@apricotta/server": "workspace:*",
-        "@better-auth/expo": "1.2.2",
+        "@better-auth/expo": "1.2.3",
         "@dev-plugins/react-query": "0.1.0",
         "@expo/vector-icons": "14.0.4",
         "@gorhom/bottom-sheet": "5.1.1",
@@ -35,7 +35,7 @@
         "@tanstack/react-store": "0.7.0",
         "@xstate/store": "3.2.0",
         "babel-plugin-module-resolver": "5.0.2",
-        "better-auth": "1.2.2",
+        "better-auth": "1.2.3",
         "class-variance-authority": "0.7.1",
         "expo": "52.0.37",
         "expo-constants": "17.0.7",
@@ -89,8 +89,8 @@
       "name": "@apricotta/server",
       "version": "0.0.0",
       "dependencies": {
-        "@better-auth/expo": "1.2.2",
-        "better-auth": "1.2.2",
+        "@better-auth/expo": "1.2.3",
+        "better-auth": "1.2.3",
         "elysia": "1.2.24",
         "kysely": "0.27.6",
         "kysely-bun-sqlite": "0.3.2",
@@ -377,7 +377,7 @@
 
     "@babel/types": ["@babel/types@7.26.7", "", { "dependencies": { "@babel/helper-string-parser": "^7.25.9", "@babel/helper-validator-identifier": "^7.25.9" } }, "sha512-t8kDRGrKXyp6+tjUh7hw2RLyclsW4TRoRvRHtSyAX9Bb5ldlFh+90YAYY6awRXrlB4G5G2izNeGySpATlFzmOg=="],
 
-    "@better-auth/expo": ["@better-auth/expo@1.2.2", "", { "dependencies": { "better-call": "^1.0.3", "zod": "^3.23.8" }, "peerDependencies": { "better-auth": "1.2.2" } }, "sha512-4yqfB/K1ygyKAlQOgybpDJ6Kn8RNcBVa9wQnKC63L0PlxSXuz2mxYzCAw1J0yK1X8JwBngn6TdVxkzXQVCoEwA=="],
+    "@better-auth/expo": ["@better-auth/expo@1.2.3", "", { "dependencies": { "better-call": "^1.0.3", "zod": "^3.23.8" }, "peerDependencies": { "better-auth": "1.2.3" } }, "sha512-zhotvNpE9uDluj0IUedcz8VfkDNqLTViAAo5iKOZe6kspJjEU5Gjg0nyT8yWuyzJBQ+vXCd7Yya/gT4lTFMrfg=="],
 
     "@better-auth/utils": ["@better-auth/utils@0.2.3", "", { "dependencies": { "uncrypto": "^0.1.3" } }, "sha512-Ap1GaSmo6JYhJhxJOpUB0HobkKPTNzfta+bLV89HfpyCAHN7p8ntCrmNFHNAVD0F6v0mywFVEUg1FUhNCc81Rw=="],
 
@@ -909,7 +909,7 @@
 
     "base64-js": ["base64-js@1.5.1", "", {}, "sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA=="],
 
-    "better-auth": ["better-auth@1.2.2", "", { "dependencies": { "@better-auth/utils": "0.2.3", "@better-fetch/fetch": "^1.1.15", "@noble/ciphers": "^0.6.0", "@noble/hashes": "^1.6.1", "@simplewebauthn/browser": "^13.0.0", "@simplewebauthn/server": "^13.0.0", "better-call": "^1.0.3", "defu": "^6.1.4", "jose": "^5.9.6", "kysely": "^0.27.4", "nanostores": "^0.11.3", "valibot": "1.0.0-beta.15", "zod": "^3.24.1" } }, "sha512-zsynKwkMKeuKq1QQy80zLV9UehcM8yG0fjJSlGsb7oXWwgfgek5RVBptBFckZcq7z1e84WIqDvtypcgXx0xmlg=="],
+    "better-auth": ["better-auth@1.2.3", "", { "dependencies": { "@better-auth/utils": "0.2.3", "@better-fetch/fetch": "^1.1.15", "@noble/ciphers": "^0.6.0", "@noble/hashes": "^1.6.1", "@simplewebauthn/browser": "^13.0.0", "@simplewebauthn/server": "^13.0.0", "better-call": "^1.0.3", "defu": "^6.1.4", "jose": "^5.9.6", "kysely": "^0.27.4", "nanostores": "^0.11.3", "valibot": "1.0.0-beta.15", "zod": "^3.24.1" } }, "sha512-y97/ah2SOWaW81IRg36m7xMSMVl7ATaHie/nhQ0in/reVlEX/6juVPszNqq0gcTwQtFsB8oe15wQKgdf4yHP9Q=="],
 
     "better-call": ["better-call@1.0.4", "", { "dependencies": { "@better-fetch/fetch": "^1.1.4", "rou3": "^0.5.1", "set-cookie-parser": "^2.7.1", "uncrypto": "^0.1.3" } }, "sha512-NdAihYdkS0IOz1mtz8mw1gWacCxR9r921U8YqB+VB6++rt8edMG13vVL16Y4TBL4XkjMK/DUewEsOOFkw9LJYQ=="],
 
@@ -2544,8 +2544,6 @@
     "babel-plugin-jest-hoist/@babel/template": ["@babel/template@7.25.9", "", { "dependencies": { "@babel/code-frame": "^7.25.9", "@babel/parser": "^7.25.9", "@babel/types": "^7.25.9" } }, "sha512-9DGttpmPvIxBb/2uwpVo3dqJ+O6RooAFOS+lB+xDqoE2PVCE8nfoHMdZLpfCQRLwvohzXISPZcgxt80xLfsuwg=="],
 
     "babel-plugin-syntax-hermes-parser/hermes-parser": ["hermes-parser@0.23.1", "", { "dependencies": { "hermes-estree": "0.23.1" } }, "sha512-oxl5h2DkFW83hT4DAUJorpah8ou4yvmweUzLJmmr6YV2cezduCdlil1AvU/a/xSsAFo4WUcNA4GoV5Bvq6JffA=="],
-
-    "better-auth/kysely": ["kysely@0.27.5", "", {}, "sha512-s7hZHcQeSNKpzCkHRm8yA+0JPLjncSWnjb+2TIElwS2JAqYr+Kv3Ess+9KFfJS0C1xcQ1i9NkNHpWwCYpHMWsA=="],
 
     "better-opn/open": ["open@8.4.2", "", { "dependencies": { "define-lazy-prop": "^2.0.0", "is-docker": "^2.1.1", "is-wsl": "^2.2.0" } }, "sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ=="],
 
