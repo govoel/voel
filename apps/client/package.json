@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@apricotta/server": "workspace:*",
-    "@better-auth/expo": "1.2.2",
+    "@better-auth/expo": "1.2.3",
     "@dev-plugins/react-query": "0.1.0",
     "@expo/vector-icons": "14.0.4",
     "@gorhom/bottom-sheet": "5.1.1",
