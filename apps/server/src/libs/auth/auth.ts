@@ -19,7 +19,7 @@ export const auth = betterAuth({
   plugins: [
     expo(),
     username(),
-    admin({ defaultRole: 'under18' }),
+    admin({ defaultRole: 'under18', adminRoles: ['admin'] }),
     {
       id: 'apricotta-init',
       init(ctx) {
