@@ -1,20 +1,15 @@
 import { authModalStore } from './auth-modal';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { NativewindBottomSheetModal } from './ui/bottom-sheet';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { Large } from './ui/typography';
-import {
-  BottomSheetBackdrop,
-  BottomSheetBackdropProps,
-  BottomSheetModal,
-  BottomSheetModalProvider,
-  BottomSheetScrollView,
-} from '@gorhom/bottom-sheet';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
+
+import BottomSheet from '~/components/ui/bottom-sheet';
 
 import api from '~/lib/api';
 import { LogIn } from '~/lib/icons/LogIn';
@@ -73,12 +68,6 @@ export const AccountSelectorAvatar = () => {
 
 export const AccountSelector = () => {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const renderBackdrop = useCallback(
-    (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
-    ),
-    []
-  );
 
   const presentModal = useSelector(accountSelectorModalStore, (s) => s.context.present);
   useEffect(() => {
@@ -88,23 +77,15 @@ export const AccountSelector = () => {
   }, [presentModal]);
 
   return (
-    <BottomSheetModalProvider>
-      <NativewindBottomSheetModal
-        ref={bottomSheetModalRef}
-        backdropComponent={renderBackdrop}
-        backgroundClassName="bg-background"
-        handleIndicatorClassName="bg-foreground">
-        <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-            <Large className="pb-2">Switch account</Large>
-            <AccountList />
-            <Button onPress={() => authModalStore.trigger.presentAuthModal()}>
-              <Text>Add account</Text>
-            </Button>
-          </View>
-        </BottomSheetScrollView>
-      </NativewindBottomSheetModal>
-    </BottomSheetModalProvider>
+    <BottomSheet ref={bottomSheetModalRef}>
+      <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+        <Large className="pb-2">Switch account</Large>
+        <AccountList />
+        <Button onPress={() => authModalStore.trigger.presentAuthModal()}>
+          <Text>Add account</Text>
+        </Button>
+      </View>
+    </BottomSheet>
   );
 };
 

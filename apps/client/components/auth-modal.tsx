@@ -1,18 +1,12 @@
-import {
-  BottomSheetBackdrop,
-  BottomSheetBackdropProps,
-  BottomSheetModal,
-  BottomSheetModalProvider,
-  BottomSheetScrollView,
-} from '@gorhom/bottom-sheet';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import React, { Dispatch, SetStateAction } from 'react';
-import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { RefObject, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
-import { NativewindBottomSheetModal } from '~/components/ui/bottom-sheet';
+import BottomSheet from '~/components/ui/bottom-sheet';
 import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
@@ -32,12 +26,6 @@ export function AuthModal() {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
 
   const [bottomSheetTab, setBottomSheetTab] = useState('sign-in');
-  const renderBackdrop = useCallback(
-    (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
-    ),
-    []
-  );
 
   const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
   const { data, isPending } = useAuthSession(authClient);
@@ -56,36 +44,28 @@ export function AuthModal() {
   }, [presentModal]);
 
   return (
-    <BottomSheetModalProvider>
-      <NativewindBottomSheetModal
-        ref={bottomSheetModalRef}
-        backdropComponent={renderBackdrop}
-        backgroundClassName="bg-background"
-        handleIndicatorClassName="bg-foreground">
-        <BottomSheetScrollView>
-          <Tabs
-            value={bottomSheetTab}
-            onValueChange={setBottomSheetTab}
-            className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
-            <TabsList className="mb-4 w-full flex-row">
-              <TabsTrigger value="sign-in" className="flex-1">
-                <Text>Sign In</Text>
-              </TabsTrigger>
-              <TabsTrigger value="sign-up" className="flex-1">
-                <Text>Sign Up</Text>
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="sign-in">
-              <SignInTab bottomSheetModalRef={bottomSheetModalRef} />
-            </TabsContent>
+    <BottomSheet ref={bottomSheetModalRef}>
+      <Tabs
+        value={bottomSheetTab}
+        onValueChange={setBottomSheetTab}
+        className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
+        <TabsList className="mb-4 w-full flex-row">
+          <TabsTrigger value="sign-in" className="flex-1">
+            <Text>Sign In</Text>
+          </TabsTrigger>
+          <TabsTrigger value="sign-up" className="flex-1">
+            <Text>Sign Up</Text>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="sign-in">
+          <SignInTab bottomSheetModalRef={bottomSheetModalRef} />
+        </TabsContent>
 
-            <TabsContent value="sign-up">
-              <SignUpTab setTab={setBottomSheetTab} />
-            </TabsContent>
-          </Tabs>
-        </BottomSheetScrollView>
-      </NativewindBottomSheetModal>
-    </BottomSheetModalProvider>
+        <TabsContent value="sign-up">
+          <SignUpTab setTab={setBottomSheetTab} />
+        </TabsContent>
+      </Tabs>
+    </BottomSheet>
   );
 }
 
