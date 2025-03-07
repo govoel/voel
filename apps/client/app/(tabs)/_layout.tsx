@@ -1,3 +1,4 @@
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { Tabs } from 'expo-router';
 
 import { AccountSelector } from '~/components/account-selector';
@@ -9,7 +10,7 @@ import { Settings } from '~/lib/icons/Settings';
 
 export default function TabLayout() {
   return (
-    <>
+    <BottomSheetModalProvider>
       <Tabs initialRouteName="(home)" screenOptions={{ headerShown: false }}>
         <Tabs.Screen
           name="library"
@@ -39,6 +40,6 @@ export default function TabLayout() {
 
       <AccountSelector />
       <AuthModal />
-    </>
+    </BottomSheetModalProvider>
   );
 }
