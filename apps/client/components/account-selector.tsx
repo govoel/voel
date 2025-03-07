@@ -1,4 +1,5 @@
 import { authModalStore } from './auth-modal';
+import { Spinner } from './spinner';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
@@ -39,18 +40,25 @@ export const AccountSelectorAvatar = () => {
   const { data, isPending } = useAuthSession(authClient);
   const userInitials = getInitials(data?.user.name ?? '');
 
-  if (isPending) {
-    return null;
-  }
-
   if (!data) {
     return (
-      <Button
-        variant="ghost"
-        size="icon"
-        onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}>
-        <LogIn className="text-foreground" />
-      </Button>
+      <View className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}>
+          <LogIn className="text-foreground" />
+        </Button>
+        {isPending && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
+            className="absolute inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90 rounded-md">
+            <Spinner size={3} />
+          </Button>
+        )}
+      </View>
     );
   }
 
