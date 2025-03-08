@@ -32,7 +32,7 @@
     "@rn-primitives/tooltip": "1.1.0",
     "@rn-primitives/types": "1.1.0",
     "@tanstack/react-form": "1.0.1",
-    "@tanstack/react-query": "5.67.1",
+    "@tanstack/react-query": "5.67.2",
     "@tanstack/react-store": "0.7.0",
     "@xstate/store": "3.2.0",
     "babel-plugin-module-resolver": "5.0.2",
