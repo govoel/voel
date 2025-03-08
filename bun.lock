@@ -75,7 +75,7 @@
         "ajv": "8.17.1",
         "eslint": "8.57.1",
         "eslint-config-expo": "8.0.1",
-        "eslint-config-prettier": "10.0.2",
+        "eslint-config-prettier": "10.1.1",
         "eslint-config-universe": "12.1.0",
         "eslint-plugin-prettier": "5.2.3",
         "eslint-plugin-react-compiler": "beta",
@@ -101,7 +101,7 @@
         "@types/bun": "1.2.4",
         "axios": "1.8.2",
         "eslint": "9.22.0",
-        "eslint-config-prettier": "10.0.2",
+        "eslint-config-prettier": "10.1.1",
         "eslint-plugin-prettier": "5.2.3",
         "globals": "16.0.0",
         "prettier": "3.5.3",
@@ -1179,7 +1179,7 @@
 
     "eslint-config-expo": ["eslint-config-expo@8.0.1", "", { "dependencies": { "@typescript-eslint/eslint-plugin": "^8.9.0", "@typescript-eslint/parser": "^8.9.0", "eslint-import-resolver-typescript": "^3.6.3", "eslint-plugin-expo": "^0.1.0", "eslint-plugin-import": "^2.30.0", "eslint-plugin-react": "^7.36.1", "eslint-plugin-react-hooks": "^4.6.2" }, "peerDependencies": { "eslint": ">=8.10" } }, "sha512-r9PSgkuZk5Q5ALbk1yowYwEIj0oqO/ikRO9TNhpx2DzSOdK65y3urgFI04WYvQzMr9q1fnA62wr9iGfrsmF5pQ=="],
 
-    "eslint-config-prettier": ["eslint-config-prettier@10.0.2", "", { "peerDependencies": { "eslint": ">=7.0.0" }, "bin": { "eslint-config-prettier": "build/bin/cli.js" } }, "sha512-1105/17ZIMjmCOJOPNfVdbXafLCLj3hPmkmB7dLgt7XsQ/zkxSuDerE/xgO3RxoHysR1N1whmquY0lSn2O0VLg=="],
+    "eslint-config-prettier": ["eslint-config-prettier@10.1.1", "", { "peerDependencies": { "eslint": ">=7.0.0" }, "bin": { "eslint-config-prettier": "bin/cli.js" } }, "sha512-4EQQr6wXwS+ZJSzaR5ZCrYgLxqvUjdXctaEtBqHcbkW944B1NQyO4qpdHQbXBONfwxXdkAY81HH4+LUfrg+zPw=="],
 
     "eslint-config-universe": ["eslint-config-universe@12.1.0", "", { "dependencies": { "@typescript-eslint/eslint-plugin": "^6.0.0", "@typescript-eslint/parser": "^6.0.0", "eslint-config-prettier": "^8.8.0", "eslint-plugin-import": "^2.27.5", "eslint-plugin-node": "^11.1.0", "eslint-plugin-prettier": "^5.0.0", "eslint-plugin-react": "^7.32.2", "eslint-plugin-react-hooks": "^4.6.0" }, "peerDependencies": { "eslint": ">=8.10", "prettier": ">=3" }, "optionalPeers": ["prettier"] }, "sha512-nAT0/rcOyYvsy0tY1yq0/BchUQImRCpORONzCvLkjixRBH5CbkMddb/V8ZlOLPgkfu3lp+sByRmSXNfoupTj2w=="],
 
