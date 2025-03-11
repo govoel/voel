@@ -34,7 +34,7 @@
         "@tanstack/react-form": "1.0.2",
         "@tanstack/react-query": "5.67.3",
         "@tanstack/react-store": "0.7.0",
-        "@xstate/store": "3.2.0",
+        "@xstate/store": "3.2.1",
         "babel-plugin-module-resolver": "5.0.2",
         "better-auth": "1.2.3",
         "class-variance-authority": "0.7.1",
@@ -802,7 +802,7 @@
 
     "@xmldom/xmldom": ["@xmldom/xmldom@0.7.13", "", {}, "sha512-lm2GW5PkosIzccsaZIz7tp8cPADSIlIHWDFTR1N0SzfinhhYgeIQjFMz4rYzanCScr3DqQLeomUDArp6MWKm+g=="],
 
-    "@xstate/store": ["@xstate/store@3.2.0", "", { "peerDependencies": { "react": "^18.2.0 || ^19.0.0-0", "solid-js": "^1.7.6" }, "optionalPeers": ["react", "solid-js"] }, "sha512-qkQhWP5uOBivk1sDy39W9cgX39QRonNKwz/qHT6/Ri57ZX8q7A/Ponu8xA7vMbz8dDiUi7/5tmq3Uc4GHXCkPA=="],
+    "@xstate/store": ["@xstate/store@3.2.1", "", { "peerDependencies": { "react": "^18.2.0 || ^19.0.0", "solid-js": "^1.7.6" }, "optionalPeers": ["react", "solid-js"] }, "sha512-6+Dqfvw28SLgCNzDReye5F9/3NcXot9tZ7fUGQtr01kwXoQAUVO2A9Z24+fv3Q8cRlFq7d2PLGiHQ7WCat/9sQ=="],
 
     "@zxing/text-encoding": ["@zxing/text-encoding@0.9.0", "", {}, "sha512-U/4aVJ2mxI0aDNI8Uq0wEhMgY+u4CNtEb0om3+y3+niDAsoTCOB33UF0sxpzqzdqXLqmvc+vZyAt4O8pPdfkwA=="],
 
