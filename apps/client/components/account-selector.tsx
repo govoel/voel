@@ -10,7 +10,7 @@ import { useSelector } from '@xstate/store/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
 
-import BottomSheet from '~/components/ui/bottom-sheet';
+import { BottomSheet } from '~/components/ui/bottom-sheet';
 
 import api from '~/lib/api';
 import { LogIn } from '~/lib/icons/LogIn';

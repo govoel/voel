@@ -7,7 +7,7 @@ import { RefObject, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
-import BottomSheet from '~/components/ui/bottom-sheet';
+import { BottomSheet } from '~/components/ui/bottom-sheet';
 import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
