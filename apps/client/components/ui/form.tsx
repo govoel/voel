@@ -1,6 +1,7 @@
 import { Button } from './button';
 import { Input } from './input';
 import { Label } from './label';
+import { RadioGroupItemWithLabel, RadioGroup as RadioGroupItems } from './radio-group';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import { ComponentPropsWithoutRef, forwardRef } from 'react';
 import { View } from 'react-native';
@@ -56,21 +57,59 @@ function TextField({
   );
 }
 
+function RadioGroup<T extends readonly [] | readonly string[]>({
+  label,
+  optionValues,
+  optionLabels,
+}: {
+  label: string;
+  optionValues: T;
+  optionLabels: { [K in keyof T]: string };
+}) {
+  const field = useFieldContext<string>();
+
+  return (
+    <View className="pb-4">
+      <Label className="pb-2" nativeID={field.name}>
+        {label}
+      </Label>
+      <RadioGroupItems
+        value={field.state.value}
+        onValueChange={field.handleChange}
+        disabled={!field.form.state.isSubmitting}>
+        {optionLabels.map((label, index) => (
+          <RadioGroupItemWithLabel
+            key={index}
+            value={optionValues[index]}
+            label={label}
+            onLabelPress={field.handleChange}
+          />
+        ))}
+      </RadioGroupItems>
+      {field.state.meta.isTouched && field.state.meta.errors.length ? (
+        <FormFieldMessage className="pt-2">
+          {field.state.meta.errors.map((error) => error.message).join(', ')}
+        </FormFieldMessage>
+      ) : null}
+    </View>
+  );
+}
+
 const SubmitButton = forwardRef<
   React.ElementRef<typeof Button>,
-  ComponentPropsWithoutRef<typeof Button>
->((props, ref) => {
+  ComponentPropsWithoutRef<typeof Button> & { viewClassName?: string }
+>(({ viewClassName, disabled, ...props }, ref) => {
   const form = useFormContext();
 
   return (
     <form.Subscribe
       selector={(state) => [state.canSubmit, state.isSubmitting]}
       children={([canSubmit, isSubmitting]) => (
-        <View className="relative">
+        <View className={cn(viewClassName, 'relative')}>
           <Button
             ref={ref}
             {...props}
-            disabled={!canSubmit || isSubmitting}
+            disabled={!canSubmit || isSubmitting || disabled}
             onPress={() => form.handleSubmit()}
           />
 
@@ -94,6 +133,7 @@ export const { useAppForm, withForm } = createFormHook({
   formContext,
   fieldComponents: {
     TextField,
+    RadioGroup,
   },
   formComponents: {
     SubmitButton,
