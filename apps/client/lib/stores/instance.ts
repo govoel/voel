@@ -5,10 +5,6 @@ import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
 
-import { db } from '~/db/client';
-
-import api, { queryClient } from '~/lib/api';
-
 export const createAuthClient = (
   baseURL: string,
   storagePrefix: string,
@@ -67,98 +63,6 @@ export const instanceStore = createStore({
     },
     setError: (context, event: { error: string }) => {
       return { ...context, isPending: false, error: event.error };
-    },
-    setCurrentInstance: (
-      context,
-      event: {
-        instanceURL: string;
-        userID: string;
-        username: string;
-        email: string;
-        name: string;
-        image?: string;
-        authStore: Map<string, string | null>;
-      },
-      enqueue
-    ) => {
-      enqueue.effect(async () => {
-        let instanceID = context.instanceID;
-        if (context.instanceUserID !== event.userID && context.instanceURL !== event.instanceURL) {
-          let instance = await db
-            .selectFrom('accounts')
-            .select(['instanceID as id', 'instanceURL as url', 'userID'])
-            .where('instanceURL', '=', event.instanceURL)
-            .where('userID', '=', event.userID)
-            .executeTakeFirst();
-
-          if (!instance) {
-            instance = await db
-              .insertInto('accounts')
-              .values({
-                instanceURL: event.instanceURL,
-                userID: event.userID,
-                username: event.username,
-                email: event.email,
-                name: event.name,
-                image: event.image,
-              })
-              .returning(['instanceID as id', 'instanceURL as url', 'userID as userID'])
-              .executeTakeFirst();
-
-            if (!instance) {
-              instanceStore.trigger.setError({ error: 'Failed to insert new instance' });
-              return;
-            }
-          } else {
-            await db
-              .updateTable('accounts')
-              .set({
-                username: event.username,
-                email: event.email,
-                name: event.name,
-                image: event.image,
-              })
-              .where('instanceURL', '=', event.instanceURL)
-              .where('userID', '=', event.userID)
-              .executeTakeFirst();
-          }
-
-          instanceID = instance.id.toString();
-        } else {
-          await db
-            .updateTable('accounts')
-            .set({
-              username: event.username,
-              email: event.email,
-              name: event.name,
-              image: event.image,
-            })
-            .where('instanceURL', '=', event.instanceURL)
-            .where('userID', '=', event.userID)
-            .executeTakeFirst();
-        }
-        queryClient.invalidateQueries({ queryKey: api.accounts.list.queryKey });
-
-        SecureStore.setItem('currentInstanceID', instanceID!);
-        SecureStore.setItem('currentInstanceURL', event.instanceURL);
-        SecureStore.setItem('currentInstanceUserID', event.userID);
-
-        for (const [key, value] of event.authStore.entries()) {
-          SecureStore.setItem(`apricotta_${instanceID}${key}`, value ?? '');
-        }
-
-        instanceStore.trigger.recreateAuthInstance({
-          instanceID: instanceID!,
-          instanceUserID: event.userID,
-          instanceURL: event.instanceURL,
-        });
-      });
-
-      return {
-        ...context,
-        isPending: true,
-        error: null,
-      };
     },
   },
 });
