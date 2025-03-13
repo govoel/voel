@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { RefreshCw } from '~/lib/icons/RefreshCw';
 import { cn } from '~/lib/utils';
 
-export default function TitleWithRefetch<TData = unknown, TError = DefaultError>({
+export function TitleWithRefetch<TData = unknown, TError = DefaultError>({
   className,
   refetch,
   isLoading,
