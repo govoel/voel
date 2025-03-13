@@ -1,6 +1,7 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
+import * as SecureStore from 'expo-secure-store';
 import React, { Dispatch, SetStateAction } from 'react';
 import { RefObject, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner-native';
@@ -11,6 +12,9 @@ import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
 
+import { db } from '~/db/client';
+
+import api, { queryClient } from '~/lib/api';
 import { createAuthClient, instanceStore, useAuthSession } from '~/lib/stores/instance';
 
 export const authModalStore = createStore({
@@ -69,8 +73,95 @@ export function AuthModal() {
   );
 }
 
+const switchInstance = async (
+  current: { instanceID: string | null; instanceUserID: string | null; instanceURL: string | null },
+  switchTo: {
+    userID: string;
+    instanceURL: string;
+    username: string;
+    email: string;
+    name: string;
+    image?: string;
+    authStore: Map<string, string | null>;
+  }
+) => {
+  let instanceID = current.instanceID;
+  if (current.instanceUserID !== switchTo.userID && current.instanceURL !== switchTo.instanceURL) {
+    let instance = await db
+      .selectFrom('accounts')
+      .select(['instanceID as id', 'instanceURL as url', 'userID'])
+      .where('instanceURL', '=', switchTo.instanceURL)
+      .where('userID', '=', switchTo.userID)
+      .executeTakeFirst();
+
+    if (!instance) {
+      instance = await db
+        .insertInto('accounts')
+        .values({
+          instanceURL: switchTo.instanceURL,
+          userID: switchTo.userID,
+          username: switchTo.username,
+          email: switchTo.email,
+          name: switchTo.name,
+          image: switchTo.image,
+        })
+        .returning(['instanceID as id', 'instanceURL as url', 'userID as userID'])
+        .executeTakeFirst();
+
+      if (!instance) {
+        instanceStore.trigger.setError({ error: 'Failed to insert new instance' });
+        return;
+      }
+    } else {
+      await db
+        .updateTable('accounts')
+        .set({
+          username: switchTo.username,
+          email: switchTo.email,
+          name: switchTo.name,
+          image: switchTo.image,
+        })
+        .where('instanceURL', '=', switchTo.instanceURL)
+        .where('userID', '=', switchTo.userID)
+        .executeTakeFirst();
+    }
+
+    instanceID = instance.id.toString();
+  } else {
+    await db
+      .updateTable('accounts')
+      .set({
+        username: switchTo.username,
+        email: switchTo.email,
+        name: switchTo.name,
+        image: switchTo.image,
+      })
+      .where('instanceURL', '=', switchTo.instanceURL)
+      .where('userID', '=', switchTo.userID)
+      .executeTakeFirst();
+  }
+
+  queryClient.invalidateQueries({ queryKey: api.accounts.list.queryKey });
+
+  SecureStore.setItem('currentInstanceID', instanceID!);
+  SecureStore.setItem('currentInstanceURL', switchTo.instanceURL);
+  SecureStore.setItem('currentInstanceUserID', switchTo.userID);
+
+  for (const [key, value] of switchTo.authStore.entries()) {
+    SecureStore.setItem(`apricotta_${instanceID}${key}`, value ?? '');
+  }
+
+  instanceStore.trigger.recreateAuthInstance({
+    instanceID: instanceID!,
+    instanceUserID: switchTo.userID,
+    instanceURL: switchTo.instanceURL,
+  });
+};
+
 function SignInTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<BottomSheetModal> }) {
+  const currentInstanceID = useSelector(instanceStore, (state) => state.context.instanceID);
   const currentInstanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const currentInstanceUserID = useSelector(instanceStore, (state) => state.context.instanceUserID);
 
   const SignInForm = useAppForm({
     defaultValues: {
@@ -88,7 +179,7 @@ function SignInTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
           .max(128, 'Password must be at most 128 characters'),
       }),
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value, formApi }) => {
       const tempAuthStore = new Map<string, string | null>();
       const authClient = createAuthClient(value.baseURL, '', {
         getItem: (k) => tempAuthStore.get(k) ?? null,
@@ -99,21 +190,29 @@ function SignInTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
         password: value.password,
       });
       if (res.error) {
-        toast.error('Could not sign you in', { description: res.error.message });
+        toast.error('Could not sign you in', { description: res.error.message || 'Unknown error' });
       } else {
-        instanceStore.trigger.setCurrentInstance({
-          instanceURL: value.baseURL,
-          userID: res.data.user.id,
-          username: res.data.user.username,
-          email: res.data.user.email,
-          name: res.data.user.name,
-          image: res.data.user.image ?? undefined,
-          authStore: tempAuthStore,
-        });
+        await switchInstance(
+          {
+            instanceID: currentInstanceID,
+            instanceUserID: currentInstanceUserID,
+            instanceURL: currentInstanceURL,
+          },
+          {
+            instanceURL: value.baseURL,
+            userID: res.data.user.id,
+            username: res.data.user.username,
+            email: res.data.user.email,
+            name: res.data.user.name,
+            image: res.data.user.image ?? undefined,
+            authStore: tempAuthStore,
+          }
+        );
         toast.success('Signed in successfully', {
-          description: `Welcome back, ${res.data.user.name}`,
+          description: `Welcome back, ${res.data.user.username}`,
         });
         bottomSheetModalRef.current?.dismiss();
+        formApi.reset();
       }
     },
   });
@@ -202,7 +301,7 @@ function SignUpTab({ setTab }: { setTab: Dispatch<SetStateAction<string>> }) {
           path: ['confirmPassword'],
         }),
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value, formApi }) => {
       const tempAuthStore = new Map<string, string | null>();
       const authClient = createAuthClient(value.baseURL, '', {
         getItem: (k) => tempAuthStore.get(k) ?? null,
@@ -216,10 +315,11 @@ function SignUpTab({ setTab }: { setTab: Dispatch<SetStateAction<string>> }) {
       });
 
       if (res.error) {
-        toast.error('Could not sign you up', { description: res.error.message });
+        toast.error('Could not sign you up', { description: res.error.message || 'Unknown error' });
       } else {
         toast.success('Signed up successfully', { description: 'You may proceed to sign in.' });
         setTab('sign-in');
+        formApi.reset();
       }
     },
   });
