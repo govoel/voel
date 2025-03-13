@@ -31,7 +31,7 @@
         "@rn-primitives/tooltip": "1.1.0",
         "@rn-primitives/types": "1.1.0",
         "@shopify/flash-list": "1.7.3",
-        "@tanstack/react-form": "1.0.2",
+        "@tanstack/react-form": "1.0.5",
         "@tanstack/react-query": "5.67.3",
         "@tanstack/react-store": "0.7.0",
         "@xstate/store": "3.2.1",
@@ -714,11 +714,11 @@
 
     "@sinonjs/fake-timers": ["@sinonjs/fake-timers@10.3.0", "", { "dependencies": { "@sinonjs/commons": "^3.0.0" } }, "sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA=="],
 
-    "@tanstack/form-core": ["@tanstack/form-core@1.0.2", "", { "dependencies": { "@tanstack/store": "^0.7.0" } }, "sha512-yHLs/YeWxW6E+VmlcwsTCKWvDXTpzF1REXGsvmjkIwZ4msZcWYac4QZJOpdLy1Cy7e8ftxTcCrrwA9G23OvQ/A=="],
+    "@tanstack/form-core": ["@tanstack/form-core@1.0.5", "", { "dependencies": { "@tanstack/store": "^0.7.0" } }, "sha512-jLwdYKFTfdf9DcNLi9QS6sdHV3NsEsfWR0LHc5qosFfGS8WXQ/EAm8yr88jZyV4gvEO8XE8W2Sf7i4VAZnxxCQ=="],
 
     "@tanstack/query-core": ["@tanstack/query-core@5.67.3", "", {}, "sha512-pq76ObpjcaspAW4OmCbpXLF6BCZP2Zr/J5ztnyizXhSlNe7fIUp0QKZsd0JMkw9aDa+vxDX/OY7N+hjNY/dCGg=="],
 
-    "@tanstack/react-form": ["@tanstack/react-form@1.0.2", "", { "dependencies": { "@remix-run/node": "^2.15.3", "@tanstack/form-core": "1.0.2", "@tanstack/react-store": "^0.7.0", "decode-formdata": "^0.8.0" }, "peerDependencies": { "@tanstack/react-start": "^1.112.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "vinxi": "^0.5.0" }, "optionalPeers": ["@tanstack/react-start", "vinxi"] }, "sha512-DaU/dAEfPaSYI/TIocNk7UOlwgqi17YWST9RYbUwaZ0+OKsNU6sxFZICaU6HKa9Dzrw2QppgWBBLjwcqZf4C7w=="],
+    "@tanstack/react-form": ["@tanstack/react-form@1.0.5", "", { "dependencies": { "@remix-run/node": "^2.15.3", "@tanstack/form-core": "1.0.5", "@tanstack/react-store": "^0.7.0", "decode-formdata": "^0.8.0" }, "peerDependencies": { "@tanstack/react-start": "^1.112.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "vinxi": "^0.5.0" }, "optionalPeers": ["@tanstack/react-start", "vinxi"] }, "sha512-4e9Au0s2Uk7f2nlY0olte5s8k8vZHLjmqvRoVyw+rjzt0clDnryNJu3ZHuOaUcyG0vOG/Ame84q2voyImBKzFQ=="],
 
     "@tanstack/react-query": ["@tanstack/react-query@5.67.3", "", { "dependencies": { "@tanstack/query-core": "5.67.3" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-u/n2HsQeH1vpZIOzB/w2lqKlXUDUKo6BxTdGXSMvNzIq5MHYFckRMVuFABp+QB7RN8LFXWV6X1/oSkuDq+MPIA=="],
 
