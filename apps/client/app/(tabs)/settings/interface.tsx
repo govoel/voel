@@ -30,7 +30,7 @@ export default function InterfaceScreen() {
           <RadioGroupItemWithLabel
             value="system"
             onButtonPress={onLabelPress('system')}
-            buttonClassName="border-b border-foreground/15">
+            buttonClassName="rounded-none border-b border-foreground/15">
             <View className="flex-row gap-x-2">
               <SunMoon className="text-foreground/50" size="20" />
               <Text>System</Text>
@@ -39,13 +39,16 @@ export default function InterfaceScreen() {
           <RadioGroupItemWithLabel
             value="light"
             onButtonPress={onLabelPress('light')}
-            buttonClassName="border-b border-foreground/15">
+            buttonClassName="rounded-none border-b border-foreground/15">
             <View className="flex-row gap-x-2">
               <Sun className="text-foreground/50" size="20" />
               <Text>Light</Text>
             </View>
           </RadioGroupItemWithLabel>
-          <RadioGroupItemWithLabel value="dark" onButtonPress={onLabelPress('dark')}>
+          <RadioGroupItemWithLabel
+            value="dark"
+            onButtonPress={onLabelPress('dark')}
+            buttonClassName="rounded-none">
             <View className="flex-row gap-x-2">
               <MoonStar className="text-foreground/50" size="20" />
               <Text>Dark</Text>
