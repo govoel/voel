@@ -9,7 +9,7 @@ import { toast } from 'sonner-native';
 import { z } from 'zod';
 
 import { Spinner } from '~/components/spinner';
-import TitleWithRefetch from '~/components/title-with-refetch';
+import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
 import { BottomSheet } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
