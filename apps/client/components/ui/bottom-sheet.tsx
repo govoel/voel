@@ -34,4 +34,4 @@ const BottomSheet = forwardRef<BottomSheetModal, { children: React.ReactNode }>(
 );
 BottomSheet.displayName = 'BottomSheet';
 
-export default BottomSheet;
+export { BottomSheet };
