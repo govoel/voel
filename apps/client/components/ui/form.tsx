@@ -2,6 +2,7 @@ import { Button } from './button';
 import { Input } from './input';
 import { Label } from './label';
 import { RadioGroupItemWithLabel, RadioGroup as RadioGroupItems } from './radio-group';
+import { Text } from './text';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import { ComponentPropsWithoutRef, forwardRef } from 'react';
 import { View } from 'react-native';
@@ -76,14 +77,16 @@ function RadioGroup<T extends readonly [] | readonly string[]>({
       <RadioGroupItems
         value={field.state.value}
         onValueChange={field.handleChange}
-        disabled={!field.form.state.isSubmitting}>
+        disabled={!field.form.state.isSubmitting}
+        className="gap-0 divide-y divide-foreground overflow-hidden rounded-md border border-input">
         {optionLabels.map((label, index) => (
           <RadioGroupItemWithLabel
             key={index}
             value={optionValues[index]}
-            label={label}
-            onLabelPress={field.handleChange}
-          />
+            onButtonPress={() => field.handleChange(optionValues[index])}
+            buttonClassName={index === 0 ? 'rounded-none' : 'rounded-none border-t border-input'}>
+            <Text>{label}</Text>
+          </RadioGroupItemWithLabel>
         ))}
       </RadioGroupItems>
       {field.state.meta.isTouched && field.state.meta.errors.length ? (
