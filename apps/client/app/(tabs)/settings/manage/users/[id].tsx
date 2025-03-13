@@ -23,15 +23,7 @@ import { Large } from '~/components/ui/typography';
 
 import { Gavel } from '~/lib/icons/Gavel';
 import { instanceStore } from '~/lib/stores/instance';
-
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-};
+import { getInitials } from '~/lib/utils';
 
 const userRole = z.enum(['under18', 'user', 'admin']);
 
