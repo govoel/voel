@@ -163,7 +163,6 @@ const Account = ({
   instanceURL,
   instanceUserID,
   instanceUsername,
-  instanceEmail,
   instanceName,
   instanceImage,
 }: {
@@ -180,7 +179,7 @@ const Account = ({
     () => createInstanceAuthClient(instanceID.toString(), instanceURL),
     [instanceID, instanceURL]
   );
-  const { data, isPending, error } = useAuthSession(authClient);
+  const { data, isPending } = useAuthSession(authClient);
 
   return (
     <Button

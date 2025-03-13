@@ -5,7 +5,7 @@ import {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
-import { Ref, forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback } from 'react';
 
 export const NativewindBottomSheetModal = cssInterop(BottomSheetModal, {
   className: 'style',
