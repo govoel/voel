@@ -20,16 +20,7 @@ import { Large } from '~/components/ui/typography';
 
 import { ChevronRight } from '~/lib/icons/ChevronRight';
 import { instanceStore, useAuthSession } from '~/lib/stores/instance';
-import { cn } from '~/lib/utils';
-
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-};
+import { cn, getInitials } from '~/lib/utils';
 
 const userRole = z.enum(['under18', 'user', 'admin']);
 

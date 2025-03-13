@@ -15,16 +15,7 @@ import { BottomSheet } from '~/components/ui/bottom-sheet';
 import api from '~/lib/api';
 import { LogIn } from '~/lib/icons/LogIn';
 import { createInstanceAuthClient, instanceStore, useAuthSession } from '~/lib/stores/instance';
-import { cn } from '~/lib/utils';
-
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-};
+import { cn, getInitials } from '~/lib/utils';
 
 export const accountSelectorModalStore = createStore({
   context: {
