@@ -86,7 +86,7 @@ const switchInstance = async (
   }
 ) => {
   let instanceID = current.instanceID;
-  if (current.instanceUserID !== switchTo.userID && current.instanceURL !== switchTo.instanceURL) {
+  if (current.instanceUserID !== switchTo.userID || current.instanceURL !== switchTo.instanceURL) {
     let instance = await db
       .selectFrom('accounts')
       .select(['instanceID as id', 'instanceURL as url', 'userID'])
