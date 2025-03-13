@@ -27,15 +27,17 @@ export default function SettingsIndexScreen() {
       <View className="gap-y-4 p-6">
         {data && (
           <View className="overflow-hidden rounded-md border border-foreground/15">
-            <Button
-              variant="ghost"
-              className="flex-row justify-between rounded-none bg-secondary/40">
-              <View className="flex-row gap-x-2">
-                <UserCog className="text-foreground/50" size="20" />
-                <Text>Profile</Text>
-              </View>
-              <ChevronRight className="text-foreground/50" size="20" />
-            </Button>
+            <Link href="/settings/profile" asChild>
+              <Button
+                variant="ghost"
+                className="flex-row justify-between rounded-none bg-secondary/40">
+                <View className="flex-row gap-x-2">
+                  <UserCog className="text-foreground/50" size="20" />
+                  <Text>Profile</Text>
+                </View>
+                <ChevronRight className="text-foreground/50" size="20" />
+              </Button>
+            </Link>
           </View>
         )}
 
