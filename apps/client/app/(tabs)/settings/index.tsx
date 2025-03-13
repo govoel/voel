@@ -89,15 +89,17 @@ export default function SettingsIndexScreen() {
               </View>
               <ChevronRight className="text-foreground/50" size="20" />
             </Button>
-            <Button
-              variant="ghost"
-              className="flex-row justify-between rounded-none bg-secondary/40">
-              <View className="flex-row gap-x-2">
-                <Users className="text-foreground/50" size="20" />
-                <Text>Manage Users</Text>
-              </View>
-              <ChevronRight className="text-foreground/50" size="20" />
-            </Button>
+            <Link href="/settings/manage/users" asChild>
+              <Button
+                variant="ghost"
+                className="flex-row justify-between rounded-none bg-secondary/40">
+                <View className="flex-row gap-x-2">
+                  <Users className="text-foreground/50" size="20" />
+                  <Text>Manage Users</Text>
+                </View>
+                <ChevronRight className="text-foreground/50" size="20" />
+              </Button>
+            </Link>
           </View>
         )}
 
