@@ -29,9 +29,17 @@ const getInitials = (name: string) => {
 export const accountSelectorModalStore = createStore({
   context: {
     present: 0,
+    dismiss: 0,
   },
   on: {
-    presentAccountSelectorModal: (context) => ({ present: context.present + 1 }),
+    presentAccountSelectorModal: (context) => ({
+      present: context.present + 1,
+      dismiss: context.dismiss,
+    }),
+    dismissAccountSelectorModal: (context) => ({
+      dismiss: context.dismiss + 1,
+      present: context.present,
+    }),
   },
 });
 
@@ -78,11 +86,17 @@ export const AccountSelector = () => {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
 
   const presentModal = useSelector(accountSelectorModalStore, (s) => s.context.present);
+  const dismissModal = useSelector(accountSelectorModalStore, (s) => s.context.dismiss);
   useEffect(() => {
     if (presentModal > 0) {
       bottomSheetModalRef.current?.present();
     }
   }, [presentModal]);
+  useEffect(() => {
+    if (dismissModal > 0) {
+      bottomSheetModalRef.current?.dismiss();
+    }
+  }, [dismissModal]);
 
   return (
     <BottomSheet ref={bottomSheetModalRef}>
@@ -111,7 +125,7 @@ const AccountList = () => {
           <View className="mb-4 overflow-hidden rounded-md border border-foreground/15">
             {accounts.data.map((account, index) => (
               <Account
-                className={index === accounts.data.length - 1 ? 'border-b' : ''}
+                className={index === accounts.data.length - 1 ? '' : 'border-b'}
                 key={account.instanceID}
                 instanceID={account.instanceID}
                 instanceURL={account.instanceURL}
@@ -128,11 +142,19 @@ const AccountList = () => {
     );
   }
 
-  if (accounts.isError) {
-    return <Text>Could not fetch list of accounts: {accounts.error.message}</Text>;
+  if (accounts.error) {
+    return (
+      <View className="mb-4 rounded-md border border-foreground/15 p-4">
+        <Text>Could not fetch list of accounts: {accounts.error.message}</Text>
+      </View>
+    );
   }
 
-  return <Text>Loading...</Text>;
+  return (
+    <View className="flex items-center justify-center mb-4 rounded-md border border-foreground/15 p-12">
+      <Spinner size={10} />
+    </View>
+  );
 };
 
 const Account = ({
@@ -160,25 +182,23 @@ const Account = ({
   );
   const { data, isPending, error } = useAuthSession(authClient);
 
-  if (error) {
-    return <Text>Error: {error.message}</Text>;
-  }
-
   return (
     <Button
       variant="ghost"
       className={cn(
-        'flex-row gap-3 native:h-20 h-16 rounded-none border-foreground/15 bg-secondary/40',
+        'flex-row gap-x-3 native:h-20 h-16 rounded-none border-foreground/15 bg-secondary/40',
         className
       )}
-      onPress={() =>
+      onPress={() => {
         instanceStore.trigger.recreateAuthInstance({
           instanceID: instanceID.toString(),
           instanceURL,
           instanceUserID,
-        })
-      }>
+        });
+        accountSelectorModalStore.trigger.dismissAccountSelectorModal();
+      }}>
       <Avatar
+        className="border border-foreground/15"
         alt={`${isPending ? instanceUsername : (data?.user.name ?? instanceUsername)}'s Avatar`}>
         <AvatarImage
           source={{
