@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 import { readdir } from 'node:fs/promises';
 import { CookieJar } from 'tough-cookie';
@@ -7,9 +7,8 @@ describe('better-auth customizations', () => {
   let api: AxiosInstance;
 
   beforeAll(async () => {
-    console.log('Starting test database setup...');
     process.env.DATABASE_PATH = ':memory:';
-    console.log('Database test path:', process.env.DATABASE_PATH);
+    await import('../..'); // start server
     const { bunDb } = await import('../db');
 
     const files = await readdir('src/libs/db/migrations');
@@ -22,7 +21,6 @@ describe('better-auth customizations', () => {
   });
 
   beforeEach(async () => {
-    const { app } = await import('../..');
     const jar = new CookieJar();
 
     api = axios.create({
