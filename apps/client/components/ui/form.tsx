@@ -65,6 +65,7 @@ function RadioGroup<T extends readonly [] | readonly string[]>({
 }: {
   label: string;
   optionValues: T;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   optionLabels: { [K in keyof T]: string };
 }) {
   const field = useFieldContext<string>();
