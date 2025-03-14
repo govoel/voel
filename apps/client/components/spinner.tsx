@@ -19,6 +19,7 @@ export function Spinner({ size = 10 }: { size?: number }) {
   const animatedStyle3 = useAnimatedStyle(() => ({ transform: [{ translateY: offset3.value }] }));
 
   useEffect(() => {
+    // eslint-disable-next-line
     offset.value = withRepeat(
       withTiming(-offset.value, { duration: 500 }),
       -1,
@@ -46,7 +47,7 @@ export function Spinner({ size = 10 }: { size?: number }) {
         ReduceMotion.Never
       )
     );
-  }, []);
+  });
 
   return (
     <View className="flex-row gap-2">
