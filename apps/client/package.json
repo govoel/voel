@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@apricotta/server": "workspace:*",
-    "@better-auth/expo": "1.2.3",
+    "@better-auth/expo": "1.2.4",
     "@dev-plugins/react-query": "0.1.0",
     "@elysiajs/eden": "1.2.0",
     "@expo/vector-icons": "14.0.4",
@@ -38,7 +38,7 @@
     "@tanstack/react-store": "0.7.0",
     "@xstate/store": "3.2.1",
     "babel-plugin-module-resolver": "5.0.2",
-    "better-auth": "1.2.3",
+    "better-auth": "1.2.4",
     "class-variance-authority": "0.7.1",
     "expo": "52.0.38",
     "expo-constants": "17.0.8",
