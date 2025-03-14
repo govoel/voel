@@ -8,9 +8,9 @@
     "format": "eslint . --fix && prettier . --write"
   },
   "dependencies": {
-    "@better-auth/expo": "1.2.3",
+    "@better-auth/expo": "1.2.4",
     "@t3-oss/env-core": "0.12.0",
-    "better-auth": "1.2.3",
+    "better-auth": "1.2.4",
     "elysia": "1.2.25",
     "kysely": "0.27.6",
     "kysely-bun-sqlite": "0.3.2",
