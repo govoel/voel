@@ -78,7 +78,7 @@
     "@typescript-eslint/parser": "7.18.0",
     "ajv": "8.17.1",
     "elysia": "1.2.25",
-    "eslint": "8.57.1",
+    "eslint": "9.22.0",
     "eslint-config-expo": "8.0.1",
     "eslint-config-prettier": "10.1.1",
     "eslint-config-universe": "12.1.0",
