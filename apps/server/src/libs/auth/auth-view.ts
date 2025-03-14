@@ -1,4 +1,4 @@
-import { Context } from 'elysia';
+import { type Context } from 'elysia';
 
 import { auth } from './auth';
 
