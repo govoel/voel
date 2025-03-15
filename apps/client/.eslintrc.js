@@ -1,5 +1,5 @@
 module.exports = {
-  extends: ['expo', 'prettier'],
+  extends: ['expo', 'prettier', 'plugin:@tanstack/query/recommended'],
   plugins: ['prettier', 'eslint-plugin-react-compiler'],
   rules: {
     'prettier/prettier': 'error',

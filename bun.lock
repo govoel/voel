@@ -70,6 +70,7 @@
       },
       "devDependencies": {
         "@babel/core": "7.26.10",
+        "@tanstack/eslint-plugin-query": "5.68.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
         "@types/bun": "1.2.5",
         "@types/react": "18.3.18",
@@ -722,6 +723,8 @@
     "@sinonjs/fake-timers": ["@sinonjs/fake-timers@10.3.0", "", { "dependencies": { "@sinonjs/commons": "^3.0.0" } }, "sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA=="],
 
     "@t3-oss/env-core": ["@t3-oss/env-core@0.12.0", "", { "peerDependencies": { "typescript": ">=5.0.0", "valibot": "^1.0.0-beta.7 || ^1.0.0", "zod": "^3.24.0" }, "optionalPeers": ["typescript", "valibot", "zod"] }, "sha512-lOPj8d9nJJTt81mMuN9GMk8x5veOt7q9m11OSnCBJhwp1QrL/qR+M8Y467ULBSm9SunosryWNbmQQbgoiMgcdw=="],
+
+    "@tanstack/eslint-plugin-query": ["@tanstack/eslint-plugin-query@5.68.0", "", { "dependencies": { "@typescript-eslint/utils": "^8.18.1" }, "peerDependencies": { "eslint": "^8.57.0 || ^9.0.0" } }, "sha512-w/+y5LILV1GTWBB2R/lKfUzgocKXU1B7O6jipLUJhmxCKPmJFy5zpfR1Vx7c6yCEsQoKcTbhuR/tIy+1sIGaiA=="],
 
     "@tanstack/form-core": ["@tanstack/form-core@1.0.5", "", { "dependencies": { "@tanstack/store": "^0.7.0" } }, "sha512-jLwdYKFTfdf9DcNLi9QS6sdHV3NsEsfWR0LHc5qosFfGS8WXQ/EAm8yr88jZyV4gvEO8XE8W2Sf7i4VAZnxxCQ=="],
 
