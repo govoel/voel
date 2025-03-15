@@ -143,10 +143,6 @@ const switchInstance = async (
 
   queryClient.invalidateQueries({ queryKey: api.accounts.list.queryKey });
 
-  SecureStore.setItem('currentInstanceID', instanceID!);
-  SecureStore.setItem('currentInstanceURL', switchTo.instanceURL);
-  SecureStore.setItem('currentInstanceUserID', switchTo.userID);
-
   for (const [key, value] of switchTo.authStore.entries()) {
     SecureStore.setItem(`apricotta_${instanceID}${key}`, value ?? '');
   }

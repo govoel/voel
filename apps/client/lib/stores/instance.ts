@@ -52,6 +52,10 @@ export const instanceStore = createStore({
         instanceUserID: string;
       }
     ) => {
+      SecureStore.setItem('currentInstanceID', event.instanceID);
+      SecureStore.setItem('currentInstanceURL', event.instanceURL);
+      SecureStore.setItem('currentInstanceUserID', event.instanceUserID);
+
       return {
         isPending: false,
         error: null,
