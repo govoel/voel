@@ -64,8 +64,6 @@ export default function ManageUserScreen() {
         throw new Error('User not found');
       }
 
-      console.log(res.data.users);
-
       return res.data.users[0];
     },
   });
