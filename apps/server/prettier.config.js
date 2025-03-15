@@ -7,7 +7,7 @@ module.exports = {
 
   plugins: ['@trivago/prettier-plugin-sort-imports'],
 
-  importOrder: ['^@trivago/(.*)$', '^@trivago/(.*)$', '^[./]'],
+  importOrder: ['^@/routes/(.*)$', '^@/libs/(.*)$', '^@/middlewares/(.*)$', '^@/(.*)$'],
   importOrderSeparation: true,
   importOrderSortSpecifiers: true,
   importOrderSideEffects: false,
