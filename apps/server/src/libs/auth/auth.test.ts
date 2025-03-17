@@ -8,13 +8,14 @@ describe('better-auth customizations', () => {
 
   beforeAll(async () => {
     process.env.DATABASE_PATH = ':memory:';
-    await import('@/index'); // start server
+    const { default: app } = await import('@/index');
+    Bun.serve(app);
     const { bunDb } = await import('@/libs/db');
 
     const files = await readdir('src/libs/db/migrations');
     for (const file of files) {
       if (file !== 'atlas.sum') {
-        console.log(`Running migration ${file}`);
+        console.log(`Running migration ${file} in database`);
         bunDb.exec(await Bun.file(`src/libs/db/migrations/${file}`).text());
       }
     }

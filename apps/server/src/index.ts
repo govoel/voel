@@ -1,9 +1,15 @@
-import { Elysia } from 'elysia';
+import { Hono } from 'hono';
+import { logger } from 'hono/logger';
 
-import betterAuthView from '@/libs/auth/auth-view';
+import { auth } from '@/libs/auth/auth';
 
 import { env } from '@/env';
 
-export const app = new Elysia().all('/api/auth/*', betterAuthView).listen(env.PORT);
+const app = new Hono()
+  .use(logger())
+  .on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
-console.log(`Server is running at ${app.server?.hostname}:${app.server?.port}`);
+export default {
+  port: env.PORT,
+  fetch: app.fetch,
+};
