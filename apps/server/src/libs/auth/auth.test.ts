@@ -8,8 +8,8 @@ describe('better-auth customizations', () => {
 
   beforeAll(async () => {
     process.env.DATABASE_PATH = ':memory:';
-    await import('../..'); // start server
-    const { bunDb } = await import('../db');
+    await import('@/index'); // start server
+    const { bunDb } = await import('@/libs/db');
 
     const files = await readdir('src/libs/db/migrations');
     for (const file of files) {
@@ -53,7 +53,7 @@ describe('better-auth customizations', () => {
   });
 
   afterEach(async () => {
-    const { bunDb } = await import('../db');
+    const { bunDb } = await import('@/libs/db');
     bunDb.exec('DELETE FROM user');
     bunDb.exec('DELETE FROM account');
     bunDb.exec('DELETE FROM session');

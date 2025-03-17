@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite';
 import { Kysely } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
 
-import { env } from '../../env';
+import { env } from '@/env';
 
 export const bunDb = new Database(env.DATABASE_PATH);
 

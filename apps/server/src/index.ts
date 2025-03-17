@@ -1,11 +1,9 @@
 import { Elysia } from 'elysia';
 
-import { env } from './env';
-import betterAuthView from './libs/auth/auth-view';
+import betterAuthView from '@/libs/auth/auth-view';
 
-export const app = new Elysia()
-  .get('/', () => 'Hello Elysia')
-  .all('/api/auth/*', betterAuthView)
-  .listen(env.PORT);
+import { env } from '@/env';
 
-console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
+export const app = new Elysia().all('/api/auth/*', betterAuthView).listen(env.PORT);
+
+console.log(`Server is running at ${app.server?.hostname}:${app.server?.port}`);

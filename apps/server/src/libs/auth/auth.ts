@@ -3,7 +3,7 @@ import { betterAuth } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { admin, createAuthMiddleware, username } from 'better-auth/plugins';
 
-import { dialect } from '../db';
+import { dialect } from '@/libs/db';
 
 export const auth = betterAuth({
   database: {
