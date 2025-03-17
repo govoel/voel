@@ -8,6 +8,19 @@ updates:
       time: "04:00"
       timezone: America/Chicago
     open-pull-requests-limit: 100
+    groups:
+      better-auth:
+        patterns:
+          - "better-auth"
+          - "@better-auth/*"
+      expo:
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+      typescript-eslint:
+        patterns:
+          - "@typescript-eslint/*"
 
   - package-ecosystem: github-actions
     directory: "/"
