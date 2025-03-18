@@ -18,6 +18,9 @@ updates:
           - "expo"
           - "expo-*"
           - "@expo/*"
+      trpc:
+        patterns:
+          - "@trpc/*"
       typescript-eslint:
         patterns:
           - "@typescript-eslint/*"
