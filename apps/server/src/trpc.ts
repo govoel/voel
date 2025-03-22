@@ -102,7 +102,10 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  */
 export const protectedProcedure = t.procedure.use(timingMiddleware).use(async (opts) => {
   if (!opts.ctx.session) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' });
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'You must be logged in to perform this action.',
+    });
   }
   return opts.next({
     ctx: {
@@ -123,7 +126,10 @@ export const protectedProcedure = t.procedure.use(timingMiddleware).use(async (o
  */
 export const adminProcedure = t.procedure.use(timingMiddleware).use(async (opts) => {
   if (!opts.ctx.session || opts.ctx.session.user.role !== 'admin') {
-    throw new TRPCError({ code: 'FORBIDDEN' });
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'You must be an admin to perform this action.',
+    });
   }
   return opts.next({
     ctx: {
