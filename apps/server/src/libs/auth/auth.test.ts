@@ -1,6 +1,10 @@
 import axios, { type AxiosInstance } from 'axios';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
-import { readdir } from 'node:fs/promises';
+import { FileMigrationProvider } from 'kysely';
+import { Migrator } from 'kysely';
+import { sql } from 'kysely';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { CookieJar } from 'tough-cookie';
 
 describe('better-auth customizations', () => {
@@ -10,15 +14,19 @@ describe('better-auth customizations', () => {
     process.env.DATABASE_PATH = ':memory:';
     const { default: app } = await import('@/index');
     Bun.serve(app);
-    const { bunDb } = await import('@/libs/db');
 
-    const files = await readdir('src/libs/db/migrations');
-    for (const file of files) {
-      if (file !== 'atlas.sum') {
-        console.log(`Running migration ${file} in database`);
-        bunDb.exec(await Bun.file(`src/libs/db/migrations/${file}`).text());
-      }
-    }
+    const { db } = await import('@/libs/db');
+    const migrator = new Migrator({
+      db,
+      provider: new FileMigrationProvider({
+        fs,
+        path,
+        migrationFolder: path.join(__dirname, '..', 'db', 'migrations'),
+      }),
+    });
+    await migrator.migrateToLatest().catch((err) => {
+      console.error('Error while migrating database...', err);
+    });
   });
 
   beforeEach(async () => {
@@ -54,11 +62,11 @@ describe('better-auth customizations', () => {
   });
 
   afterEach(async () => {
-    const { bunDb } = await import('@/libs/db');
-    bunDb.exec('DELETE FROM user');
-    bunDb.exec('DELETE FROM account');
-    bunDb.exec('DELETE FROM session');
-    bunDb.exec('DELETE FROM verification');
+    const { db } = await import('@/libs/db');
+    await sql`delete from user`.execute(db);
+    await sql`delete from account`.execute(db);
+    await sql`delete from session`.execute(db);
+    await sql`delete from verification`.execute(db);
   });
 
   it('should not allow sign up when username is missing', async () => {
