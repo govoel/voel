@@ -1,9 +1,14 @@
-import type { auth } from '@apricotta/server/src/libs/auth/auth';
+import { auth } from '@apricotta/server/src/libs/auth/auth';
+import type { AppRouter } from '@apricotta/server/src/router/root';
 import { expoClient } from '@better-auth/expo/client';
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import { type TRPCOptionsProxy, createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { createStore } from '@xstate/store';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
+
+import { queryClient } from '~/lib/api';
 
 export const createAuthClient = (
   baseURL: string,
@@ -25,10 +30,46 @@ export const createAuthClient = (
     ],
   });
 
+export const createApiInstance = (
+  instanceURL: string,
+  authClient: ReturnType<typeof createInstanceAuthClient>,
+  currentApiInstance?: TRPCOptionsProxy<AppRouter>
+) => {
+  if (currentApiInstance) {
+    queryClient.resetQueries({ queryKey: currentApiInstance.pathKey() });
+  }
+  return createTRPCOptionsProxy<AppRouter>({
+    client: createTRPCClient<AppRouter>({
+      links: [
+        httpBatchLink({
+          url: `${instanceURL}/api/trpc`,
+          headers: () => ({
+            Cookie: authClient.getCookie(),
+          }),
+        }),
+      ],
+    }),
+    queryClient: queryClient,
+  });
+};
+
+export const createInstances = (
+  instanceID: string,
+  instanceURL: string,
+  currentApiInstance?: TRPCOptionsProxy<AppRouter>
+) => {
+  const authInstance = createInstanceAuthClient(instanceID, instanceURL);
+
+  return {
+    authInstance,
+    apiInstance: createApiInstance(instanceURL, authInstance, currentApiInstance),
+  };
+};
+
 export const createInstanceAuthClient = (instanceID: string, instanceURL: string) =>
   createAuthClient(instanceURL, `apricotta_${instanceID}`);
 
-export const useAuthSession = (authClient: ReturnType<typeof createAuthClient>) =>
+export const useAuthSession = (authClient: ReturnType<typeof createInstanceAuthClient>) =>
   authClient.useSession();
 
 export const instanceStore = createStore({
@@ -38,14 +79,14 @@ export const instanceStore = createStore({
     instanceID: SecureStore.getItem('currentInstanceID'),
     instanceURL: SecureStore.getItem('currentInstanceURL'),
     instanceUserID: SecureStore.getItem('currentInstanceUserID'),
-    authInstance: createInstanceAuthClient(
+    ...createInstances(
       SecureStore.getItem('currentInstanceID') ?? '',
       SecureStore.getItem('currentInstanceURL') ?? 'http://apricotta'
     ),
   },
   on: {
     recreateAuthInstance: (
-      _,
+      context,
       event: {
         instanceID: string;
         instanceURL: string;
@@ -62,7 +103,7 @@ export const instanceStore = createStore({
         instanceID: event.instanceID,
         instanceURL: event.instanceURL,
         instanceUserID: event.instanceUserID,
-        authInstance: createInstanceAuthClient(event.instanceID, event.instanceURL),
+        ...createInstances(event.instanceID, event.instanceURL),
       };
     },
     setError: (context, event: { error: string }) => {

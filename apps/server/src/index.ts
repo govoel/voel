@@ -7,6 +7,7 @@ import { appRouter } from '@/router/root';
 import { auth } from '@/libs/auth/auth';
 
 import { env } from '@/env';
+import { createTRPCContext } from '@/trpc';
 
 const app = new Hono()
   .use(logger())
@@ -16,6 +17,7 @@ const app = new Hono()
     trpcServer({
       endpoint: '/api/trpc',
       router: appRouter,
+      createContext: createTRPCContext,
     })
   );
 

@@ -33,6 +33,7 @@ yarn-error.log*
 # database
 **/*.db
 
+# development library directory
 dev_dir
 
 # vercel
