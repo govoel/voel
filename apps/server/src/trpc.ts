@@ -1,7 +1,10 @@
-import { auth } from './libs/auth/auth';
 import { TRPCError, initTRPC } from '@trpc/server';
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { ZodError } from 'zod';
+
+import { auth } from '@/libs/auth/auth';
+
+import { logger } from '@/logger';
 
 /**
  * 1. CONTEXT
@@ -28,7 +31,13 @@ export const createTRPCContext = async (opts: FetchCreateContextFnOptions) => ({
  * errors on the backend.
  */
 const t = initTRPC.context<typeof createTRPCContext>().create({
-  errorFormatter({ shape, error }) {
+  errorFormatter({ shape, error, path, ctx }) {
+    logger.error(
+      `trpc(error) => %s => %s => %s`,
+      path,
+      ctx?.session?.user.username || 'Anonymous',
+      error.message || error.cause || 'Unknown error'
+    );
     return {
       ...shape,
       data: {
@@ -67,20 +76,14 @@ export const createTRPCRouter = t.router;
  * network latency that would occur in production but not in local development.
  */
 const timingMiddleware = t.middleware(async ({ next, path }) => {
-  const start = Date.now();
-
   if (t._config.isDev) {
     // artificial delay in dev
     const waitMs = Math.floor(Math.random() * 400) + 100;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
+    logger.debug(`trpc(timingMiddleware) => %s => artificial delay of %dms added`, path, waitMs);
   }
 
-  const result = await next();
-
-  const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
-
-  return result;
+  return next();
 });
 
 /**

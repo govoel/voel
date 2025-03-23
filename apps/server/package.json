@@ -16,6 +16,8 @@
     "hono": "4.7.4",
     "kysely": "0.27.6",
     "kysely-bun-sqlite": "0.3.2",
+    "pino": "9.6.0",
+    "pino-pretty": "13.0.0",
     "zod": "3.24.2"
   },
   "devDependencies": {
