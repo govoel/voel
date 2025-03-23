@@ -1,0 +1,24 @@
+{
+  "name": "@apricotta/schemas",
+  "private": true,
+  "scripts": {
+    "lint": "eslint . && prettier -c .",
+    "format": "eslint . --fix && prettier . --write"
+  },
+  "module": "index.ts",
+  "devDependencies": {
+    "@eslint/js": "9.22.0",
+    "@trivago/prettier-plugin-sort-imports": "5.2.2",
+    "@types/bun": "1.2.5",
+    "eslint": "9.22.0",
+    "eslint-config-prettier": "10.1.1",
+    "eslint-plugin-prettier": "5.2.3",
+    "globals": "16.0.0",
+    "prettier": "3.5.3",
+    "typescript-eslint": "8.26.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5",
+    "zod": "3.24.2"
+  }
+}
