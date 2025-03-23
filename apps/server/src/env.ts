@@ -9,6 +9,9 @@ export const env = createEnv({
       .pipe(z.number().min(0).max(65535))
       .default('3000'),
     DATABASE_PATH: z.string().min(1),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default(process.env.NODE_ENV === 'production' ? 'error' : 'debug'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
