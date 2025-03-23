@@ -12,6 +12,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@apricotta/schemas": "workspace:*",
     "@apricotta/server": "workspace:*",
     "@better-auth/expo": "1.2.5",
     "@dev-plugins/react-query": "0.2.0",

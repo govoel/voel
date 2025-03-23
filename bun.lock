@@ -11,6 +11,7 @@
       "name": "apricotta",
       "version": "1.0.0",
       "dependencies": {
+        "@apricotta/schemas": "workspace:*",
         "@apricotta/server": "workspace:*",
         "@better-auth/expo": "1.2.5",
         "@dev-plugins/react-query": "0.2.0",
@@ -94,6 +95,7 @@
       "name": "@apricotta/server",
       "version": "0.0.0",
       "dependencies": {
+        "@apricotta/schemas": "workspace:*",
         "@better-auth/expo": "1.2.5",
         "@hono/trpc-server": "0.3.4",
         "@t3-oss/env-core": "0.12.0",
@@ -104,6 +106,7 @@
         "kysely-bun-sqlite": "0.3.2",
         "pino": "9.6.0",
         "pino-pretty": "13.0.0",
+        "xstate": "5.19.2",
         "zod": "3.24.2",
       },
       "devDependencies": {
@@ -155,6 +158,24 @@
       "peerDependencies": {
         "kysely": "0.27.6",
         "typescript": "^5",
+      },
+    },
+    "packages/schemas": {
+      "name": "@apricotta/schemas",
+      "devDependencies": {
+        "@eslint/js": "9.22.0",
+        "@trivago/prettier-plugin-sort-imports": "5.2.2",
+        "@types/bun": "1.2.5",
+        "eslint": "9.22.0",
+        "eslint-config-prettier": "10.1.1",
+        "eslint-plugin-prettier": "5.2.3",
+        "globals": "16.0.0",
+        "prettier": "3.5.3",
+        "typescript-eslint": "8.26.1",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+        "zod": "3.24.2",
       },
     },
   },
@@ -2494,6 +2515,8 @@
     "xml2js": ["xml2js@0.6.0", "", { "dependencies": { "sax": ">=0.6.0", "xmlbuilder": "~11.0.0" } }, "sha512-eLTh0kA8uHceqesPqSE+VvO1CDDJWMwlQfB6LuN6T8w6MaDJ8Txm8P7s5cHD0miF0V+GGTZrDQfxPZQVsur33w=="],
 
     "xmlbuilder": ["xmlbuilder@14.0.0", "", {}, "sha512-ts+B2rSe4fIckR6iquDjsKbQFK2NlUk6iG5nf14mDEyldgoc2nEKZ3jZWMPTxGQwVgToSjt6VGIho1H8/fNFTg=="],
+
+    "xstate": ["xstate@5.19.2", "", {}, "sha512-B8fL2aP0ogn5aviAXFzI5oZseAMqN00fg/TeDa3ZtatyDcViYLIfuQl4y8qmHCiKZgGEzmnTyNtNQL9oeJE2gw=="],
 
     "y18n": ["y18n@5.0.8", "", {}, "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA=="],
 

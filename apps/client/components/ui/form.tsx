@@ -30,15 +30,17 @@ function FormFieldMessage({
 
 function TextField({
   label,
+  className,
   inputProps,
 }: {
   label: string;
+  className?: string;
   inputProps?: ComponentPropsWithoutRef<typeof Input>;
 }) {
   const field = useFieldContext<string>();
 
   return (
-    <View className="pb-4">
+    <View className={cn('pb-4', className)}>
       <Label className="pb-2" nativeID={field.name}>
         {label}
       </Label>

@@ -2,6 +2,8 @@ import { Database, SQLiteError } from 'bun:sqlite';
 import { Kysely } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
 
+import type { DatabaseSchema } from '@/libs/db/schema';
+
 import { env } from '@/env';
 import { logger } from '@/logger';
 
@@ -11,7 +13,7 @@ export const dialect = new BunSqliteDialect({
   database: bunDb,
 });
 
-export const db = new Kysely({
+export const db = new Kysely<DatabaseSchema>({
   dialect,
   log(event) {
     if (logger.isLevelEnabled('debug') && event.level === 'query') {
