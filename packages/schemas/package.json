@@ -7,7 +7,7 @@
   },
   "module": "index.ts",
   "devDependencies": {
-    "@eslint/js": "9.22.0",
+    "@eslint/js": "9.23.0",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
     "@types/bun": "1.2.5",
     "eslint": "9.22.0",
