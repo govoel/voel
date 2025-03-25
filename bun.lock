@@ -160,24 +160,6 @@
         "typescript": "^5",
       },
     },
-    "packages/schemas": {
-      "name": "@apricotta/schemas",
-      "devDependencies": {
-        "@eslint/js": "9.22.0",
-        "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "@types/bun": "1.2.5",
-        "eslint": "9.22.0",
-        "eslint-config-prettier": "10.1.1",
-        "eslint-plugin-prettier": "5.2.3",
-        "globals": "16.0.0",
-        "prettier": "3.5.3",
-        "typescript-eslint": "8.26.1",
-      },
-      "peerDependencies": {
-        "typescript": "^5",
-        "zod": "3.24.2",
-      },
-    },
   },
   "packages": {
     "@0no-co/graphql.web": ["@0no-co/graphql.web@1.0.13", "", { "peerDependencies": { "graphql": "^14.0.0 || ^15.0.0 || ^16.0.0" }, "optionalPeers": ["graphql"] }, "sha512-jqYxOevheVTU1S36ZdzAkJIdvRp2m3OYIG5SEoKDw5NI8eVwkoI0D/Q3DYNGmXCxkA6CQuoa7zvMiDPTLqUNuw=="],

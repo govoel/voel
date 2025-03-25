@@ -68,8 +68,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  await db.schema.dropTable('user').execute();
-  await db.schema.dropTable('session').execute();
-  await db.schema.dropTable('account').execute();
-  await db.schema.dropTable('verification').execute();
+  await db.schema.dropTable('user').ifExists().execute();
+  await db.schema.dropTable('session').ifExists().execute();
+  await db.schema.dropTable('account').ifExists().execute();
+  await db.schema.dropTable('verification').ifExists().execute();
 }
