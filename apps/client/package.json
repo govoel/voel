@@ -83,7 +83,7 @@
     "eslint-config-expo": "8.0.1",
     "eslint-config-prettier": "10.1.1",
     "eslint-config-universe": "12.1.0",
-    "eslint-plugin-prettier": "5.2.3",
+    "eslint-plugin-prettier": "5.2.4",
     "eslint-plugin-react-compiler": "beta",
     "prettier": "3.5.3",
     "prettier-plugin-tailwindcss": "0.6.11",
