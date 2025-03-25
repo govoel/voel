@@ -13,6 +13,10 @@ updates:
         patterns:
           - "better-auth"
           - "@better-auth/*"
+      eslint:
+        patterns:
+          - "@eslint/*"
+          - "eslint"
       expo:
         patterns:
           - "expo"
