@@ -82,7 +82,7 @@
         "eslint-config-expo": "8.0.1",
         "eslint-config-prettier": "10.1.1",
         "eslint-config-universe": "12.1.0",
-        "eslint-plugin-prettier": "5.2.4",
+        "eslint-plugin-prettier": "5.2.5",
         "eslint-plugin-react-compiler": "beta",
         "prettier": "3.5.3",
         "prettier-plugin-tailwindcss": "0.6.11",
@@ -113,7 +113,7 @@
         "axios": "1.8.4",
         "eslint": "9.23.0",
         "eslint-config-prettier": "10.1.1",
-        "eslint-plugin-prettier": "5.2.4",
+        "eslint-plugin-prettier": "5.2.5",
         "globals": "16.0.0",
         "kysely-ctl": "0.12.1",
         "prettier": "3.5.3",
@@ -129,7 +129,7 @@
         "@types/bun": "1.2.5",
         "eslint": "9.23.0",
         "eslint-config-prettier": "10.1.1",
-        "eslint-plugin-prettier": "5.2.4",
+        "eslint-plugin-prettier": "5.2.5",
         "globals": "16.0.0",
         "prettier": "3.5.3",
         "typescript-eslint": "8.28.0",
@@ -1257,7 +1257,7 @@
 
     "eslint-plugin-node": ["eslint-plugin-node@11.1.0", "", { "dependencies": { "eslint-plugin-es": "^3.0.0", "eslint-utils": "^2.0.0", "ignore": "^5.1.1", "minimatch": "^3.0.4", "resolve": "^1.10.1", "semver": "^6.1.0" }, "peerDependencies": { "eslint": ">=5.16.0" } }, "sha512-oUwtPJ1W0SKD0Tr+wqu92c5xuCeQqB3hSCHasn/ZgjFdA9iDGNkNf2Zi9ztY7X+hNuMib23LNGRm6+uN+KLE3g=="],
 
-    "eslint-plugin-prettier": ["eslint-plugin-prettier@5.2.4", "", { "dependencies": { "prettier-linter-helpers": "^1.0.0", "synckit": "^0.10.2" }, "peerDependencies": { "@types/eslint": ">=8.0.0", "eslint": ">=8.0.0", "eslint-config-prettier": "*", "prettier": ">=3.0.0" }, "optionalPeers": ["@types/eslint", "eslint-config-prettier"] }, "sha512-SFtuYmnhwYCtuCDTKPoK+CEzCnEgKTU2qTLwoCxvrC0MFBTIXo1i6hDYOI4cwHaE5GZtlWmTN3YfucYi7KJwPw=="],
+    "eslint-plugin-prettier": ["eslint-plugin-prettier@5.2.5", "", { "dependencies": { "prettier-linter-helpers": "^1.0.0", "synckit": "^0.10.2" }, "peerDependencies": { "@types/eslint": ">=8.0.0", "eslint": ">=8.0.0", "eslint-config-prettier": ">= 7.0.0 <10.0.0 || >=10.1.0", "prettier": ">=3.0.0" }, "optionalPeers": ["@types/eslint", "eslint-config-prettier"] }, "sha512-IKKP8R87pJyMl7WWamLgPkloB16dagPIdd2FjBDbyRYPKo93wS/NbCOPh6gH+ieNLC+XZrhJt/kWj0PS/DFdmg=="],
 
     "eslint-plugin-react": ["eslint-plugin-react@7.37.4", "", { "dependencies": { "array-includes": "^3.1.8", "array.prototype.findlast": "^1.2.5", "array.prototype.flatmap": "^1.3.3", "array.prototype.tosorted": "^1.1.4", "doctrine": "^2.1.0", "es-iterator-helpers": "^1.2.1", "estraverse": "^5.3.0", "hasown": "^2.0.2", "jsx-ast-utils": "^2.4.1 || ^3.0.0", "minimatch": "^3.1.2", "object.entries": "^1.1.8", "object.fromentries": "^2.0.8", "object.values": "^1.2.1", "prop-types": "^15.8.1", "resolve": "^2.0.0-next.5", "semver": "^6.3.1", "string.prototype.matchall": "^4.0.12", "string.prototype.repeat": "^1.0.0" }, "peerDependencies": { "eslint": "^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7" } }, "sha512-BGP0jRmfYyvOyvMoRX/uoUeW+GqNj9y16bPQzqAHf3AYII/tDs+jMN0dBVkl88/OZwNGwrVFxE7riHsXVfy/LQ=="],
 
