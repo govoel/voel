@@ -13,7 +13,7 @@
       "dependencies": {
         "@apricotta/server": "workspace:*",
         "@better-auth/expo": "1.2.5",
-        "@dev-plugins/react-query": "0.1.0",
+        "@dev-plugins/react-query": "0.2.0",
         "@expo/vector-icons": "14.0.4",
         "@gorhom/bottom-sheet": "5.1.2",
         "@op-engineering/op-sqlite": "11.4.8",
@@ -415,7 +415,7 @@
 
     "@better-fetch/fetch": ["@better-fetch/fetch@1.1.18", "", {}, "sha512-rEFOE1MYIsBmoMJtQbl32PGHHXuG2hDxvEd7rUHE0vCBoFQVSDqaVs9hkZEtHCxRoY+CljXKFCOuJ8uxqw1LcA=="],
 
-    "@dev-plugins/react-query": ["@dev-plugins/react-query@0.1.0", "", { "dependencies": { "flatted": "^3.3.1" }, "peerDependencies": { "@tanstack/react-query": "*", "expo": "^52.0.0" } }, "sha512-GZeF9+AHI98DjUuga6YCwbhlq2BpaQ3rGUc7o9weO4oEXNFF7rv2asWpMDdBa0BXvVZjdERSW7HrRx2JAWF+6w=="],
+    "@dev-plugins/react-query": ["@dev-plugins/react-query@0.2.0", "", { "dependencies": { "flatted": "^3.3.1" }, "peerDependencies": { "@tanstack/react-query": "*", "expo": "^52.0.41" } }, "sha512-tbGfXiR4/Pd9V6oJGDqx/YFtNpHJ0jrfLhDnY6k9yZu2e5niuIStDVKDimZ3m+HYXQDw62Ydk5NFa6fcRq4soA=="],
 
     "@egjs/hammerjs": ["@egjs/hammerjs@2.0.17", "", { "dependencies": { "@types/hammerjs": "^2.0.36" } }, "sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A=="],
 
