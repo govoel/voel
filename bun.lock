@@ -4,7 +4,7 @@
     "": {
       "name": "apricotta",
       "devDependencies": {
-        "@types/bun": "1.2.8",
+        "bun-types": "1.2.7",
       },
     },
     "apps/client": {
@@ -109,8 +109,8 @@
       "devDependencies": {
         "@eslint/js": "9.23.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "@types/bun": "1.2.8",
         "axios": "1.8.4",
+        "bun-types": "1.2.7",
         "eslint": "9.23.0",
         "eslint-config-prettier": "10.1.1",
         "eslint-plugin-prettier": "5.2.5",
@@ -126,7 +126,7 @@
       "devDependencies": {
         "@eslint/js": "9.23.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "@types/bun": "1.2.8",
+        "bun-types": "1.2.7",
         "eslint": "9.23.0",
         "eslint-config-prettier": "10.1.1",
         "eslint-plugin-prettier": "5.2.5",
@@ -778,8 +778,6 @@
     "@types/babel__template": ["@types/babel__template@7.4.4", "", { "dependencies": { "@babel/parser": "^7.1.0", "@babel/types": "^7.0.0" } }, "sha512-h/NUaSyG5EyxBIp8YRxo4RMe2/qQgvyowRwVMzhYhBCONbW8PUsg4lkFMrhgZhUe5z3L3MiLDuvyJ/CaPa2A8A=="],
 
     "@types/babel__traverse": ["@types/babel__traverse@7.20.6", "", { "dependencies": { "@babel/types": "^7.20.7" } }, "sha512-r1bzfrm0tomOI8g1SzvCaQHo6Lcv6zu0EA+W2kHrt8dyrHQxGzBBL4kdkzIS+jBMV+EYcMAEAqXqYaLJq5rOZg=="],
-
-    "@types/bun": ["@types/bun@1.2.8", "", { "dependencies": { "bun-types": "1.2.7" } }, "sha512-t8L1RvJVUghW5V+M/fL3Thbxcs0HwNsXsnTEBEfEVqGteiJToOlZ/fyOEaR1kZsNqnu+3XA4RI/qmnX4w6+S+w=="],
 
     "@types/cookie": ["@types/cookie@0.6.0", "", {}, "sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA=="],
 
