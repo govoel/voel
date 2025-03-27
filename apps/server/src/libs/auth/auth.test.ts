@@ -5,7 +5,6 @@ import { Migrator } from 'kysely';
 import { sql } from 'kysely';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { CookieJar } from 'tough-cookie';
 
 describe('better-auth customizations', () => {
   let api: AxiosInstance;
@@ -30,7 +29,7 @@ describe('better-auth customizations', () => {
   });
 
   beforeEach(async () => {
-    const jar = new CookieJar();
+    const jar = new Bun.CookieMap();
 
     api = axios.create({
       baseURL: 'http://localhost:3000',
@@ -41,20 +40,19 @@ describe('better-auth customizations', () => {
     api.interceptors.response.use((response) => {
       const cookies = response.headers['set-cookie'];
       if (cookies) {
-        cookies.forEach((cookie: string) => {
-          jar.setCookieSync(cookie, `${response.config.baseURL}${response.config.url}`);
+        cookies.forEach((cookie) => {
+          jar.set(Bun.Cookie.parse(cookie));
         });
       }
       return response;
     });
 
     api.interceptors.request.use((config) => {
-      const cookies = jar.getCookiesSync(`${config.baseURL}${config.url}`);
-      const cookieHeader = cookies.map((cookie) => cookie.cookieString()).join('; ');
+      const cookies = [...jar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
 
-      if (cookieHeader) {
+      if (cookies.length > 0) {
         config.headers = config.headers || {};
-        config.headers.Cookie = cookieHeader;
+        config.headers.Cookie = cookies;
       }
 
       return config;
