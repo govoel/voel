@@ -42,7 +42,7 @@
     "babel-plugin-module-resolver": "5.0.2",
     "better-auth": "1.2.5",
     "class-variance-authority": "0.7.1",
-    "expo": "52.0.40",
+    "expo": "52.0.41",
     "expo-constants": "17.0.8",
     "expo-dev-client": "~5.0.15",
     "expo-drizzle-studio-plugin": "0.1.2",
