@@ -14,7 +14,7 @@
   "dependencies": {
     "@apricotta/server": "workspace:*",
     "@better-auth/expo": "1.2.5",
-    "@dev-plugins/react-query": "0.1.0",
+    "@dev-plugins/react-query": "0.2.0",
     "@expo/vector-icons": "14.0.4",
     "@gorhom/bottom-sheet": "5.1.2",
     "@op-engineering/op-sqlite": "11.4.8",
