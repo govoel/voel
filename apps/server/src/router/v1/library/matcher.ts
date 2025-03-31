@@ -1,24 +1,29 @@
-import { type Product, getProductByAsin, getProductsBySearch } from '@/router/v1/library/audible';
+import {
+  type AudibleBookSearchResult,
+  getProductByAsin,
+  getProductsBySearch,
+  isProductBook,
+} from '@/router/v1/library/audible';
 import type { AudioFile } from '@/router/v1/library/scanner';
 
 import { scanLogger } from '@/logger';
 
 const matchers = {
-  title: (product: Product, title: string) => {
+  title: (product: AudibleBookSearchResult, title: string) => {
     return (
       typeof product.title === 'string' &&
       product.title.trim().toLowerCase() === title.toLowerCase()
     );
   },
 
-  artist: (product: Product, artist: string) => {
+  artist: (product: AudibleBookSearchResult, artist: string) => {
     return (
       Array.isArray(product.authors) &&
       product.authors.some((author) => author.name.trim().toLowerCase() === artist.toLowerCase())
     );
   },
 
-  publisher: (product: Product, publisher?: string) => {
+  publisher: (product: AudibleBookSearchResult, publisher?: string) => {
     return (
       typeof publisher === 'string' &&
       typeof product.publisher_name === 'string' &&
@@ -26,7 +31,7 @@ const matchers = {
     );
   },
 
-  copyright: (product: Product, copyright?: string) => {
+  copyright: (product: AudibleBookSearchResult, copyright?: string) => {
     return (
       typeof copyright === 'string' &&
       typeof product.copyright === 'string' &&
@@ -34,7 +39,7 @@ const matchers = {
     );
   },
 
-  narrators: (product: Product, narrators?: Set<string>) => {
+  narrators: (product: AudibleBookSearchResult, narrators?: Set<string>) => {
     return (
       narrators instanceof Set &&
       Array.isArray(product.narrators) &&
@@ -54,7 +59,7 @@ const filterStrategies = [
   {
     name: 'title+author+publisher+copyright+narrator',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
@@ -68,7 +73,7 @@ const filterStrategies = [
   {
     name: 'title+author+publisher+copyright',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
@@ -81,7 +86,7 @@ const filterStrategies = [
   {
     name: 'title+author+publisher+narrator',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
@@ -94,7 +99,7 @@ const filterStrategies = [
   {
     name: 'title+author+copyright+narrator',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
@@ -107,7 +112,7 @@ const filterStrategies = [
   {
     name: 'title+author+publisher',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
@@ -119,7 +124,7 @@ const filterStrategies = [
   {
     name: 'title+author+copyright',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
@@ -131,7 +136,7 @@ const filterStrategies = [
   {
     name: 'title+author+narrator',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
@@ -143,7 +148,7 @@ const filterStrategies = [
   {
     name: 'title+author',
     apply: (
-      product: Product,
+      product: AudibleBookSearchResult,
       title: string,
       artist: string,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -179,7 +184,7 @@ const searchStrategies = [
 ] as const;
 
 const processSearchResults = async (
-  products: Product[],
+  products: AudibleBookSearchResult[],
   title: string,
   artist: string,
   metadata: { publisher?: string; copyright?: string; narrator?: Set<string> },
@@ -187,7 +192,7 @@ const processSearchResults = async (
 ) => {
   if (products.length === 1 && products[0]?.asin) {
     const product = await getProductByAsin(products[0].asin);
-    if (product) {
+    if (product && isProductBook(product)) {
       scanLogger.debug(
         "[Match] %s: Found single match for '%s' => %s",
         searchStrategyName,
@@ -205,7 +210,7 @@ const processSearchResults = async (
 
     if (filteredProducts.length === 1 && filteredProducts[0]?.asin) {
       const product = await getProductByAsin(filteredProducts[0].asin);
-      if (product) {
+      if (product && isProductBook(product)) {
         scanLogger.debug(
           "[Match] %s with '%s' filter: Found match for '%s' => %s",
           searchStrategyName,
@@ -249,7 +254,7 @@ const parseMultiAuthorNarrator = (str?: string) => {
   return [str.trim()];
 };
 
-const asinRegex = /(B[\dA-Z]{9}|\d{9}(X|\d))/g;
+const asinRegex = /(?:B[\dA-Z]{9}|\d{9}(?:X|\d))/g;
 
 // get title+author+publisher results from audible
 // local filters
@@ -320,7 +325,7 @@ export const matchAlbumGroup = async (albumGroup: AudioFile) => {
       scanLogger.debug('[Match] Attempting direct ASIN lookup for %s', asin);
       const product = await getProductByAsin(asin);
 
-      if (product) {
+      if (product && isProductBook(product)) {
         scanLogger.debug('[Match] Found direct ASIN match: %s', product.asin);
         return product;
       }
@@ -419,7 +424,7 @@ export const matchAlbumGroup = async (albumGroup: AudioFile) => {
           // Single result from title-only search is a decent match
           if (products.length === 1 && products[0]?.asin) {
             const product = await getProductByAsin(products[0].asin);
-            if (product) {
+            if (product && isProductBook(product)) {
               scanLogger.debug(
                 '[Match] %s: Found single match for: title="%s" => %s',
                 searchStrategy.name,

@@ -1,7 +1,6 @@
 import { $ } from 'bun';
-import type { Stats } from 'node:fs';
 import { realpath } from 'node:fs/promises';
-import { join } from 'node:path';
+import { z } from 'zod';
 
 import { scanLogger } from '@/logger';
 
@@ -27,27 +26,25 @@ const SUPPORTED_AUDIO_EXTENSIONS = new Set([
   'mpeg',
 ]);
 
-const normalizeTagsToLowercase = <T extends Record<string, unknown>>(originalTags: T) => {
-  if (!originalTags) return {};
+const normalizeTagsToLowercase = <V>(originalTags: Record<string, V>) =>
+  Object.entries(originalTags).reduce(
+    (acc, [key, value]) => {
+      const normalizedKey = key.toLowerCase().replace('-', '_');
+      if (!acc[normalizedKey]) {
+        acc[normalizedKey] = value;
+      } else {
+        scanLogger.error(
+          '[Scan] Tag normalization: Duplicate key detected: "%s" => "%s"',
+          key,
+          value
+        );
+      }
+      return acc;
+    },
+    {} as Record<string, V>
+  );
 
-  const normalizedTags = {} as Record<string, unknown>;
-  Object.keys(originalTags).forEach((key) => {
-    const normalizedKey = key.toLowerCase().replace('-', '_');
-    if (!normalizedTags[normalizedKey]) {
-      normalizedTags[normalizedKey] = originalTags[key];
-    } else {
-      scanLogger.error(
-        '[Scan] Tag normalization: Duplicate key detected: "%s" => "%s"',
-        key,
-        originalTags[key]
-      );
-    }
-  });
-
-  return normalizedTags;
-};
-
-const extractTrackNumber = (...possibleTrackTags: unknown[]) => {
+const extractTrackNumber = (...possibleTrackTags: (string | undefined)[]) => {
   for (const tagValue of possibleTrackTags) {
     if (typeof tagValue !== 'string') continue;
 
@@ -68,71 +65,90 @@ const extractTrackNumber = (...possibleTrackTags: unknown[]) => {
   return 0;
 };
 
+const ffprobeSchema = z.object({
+  chapters: z.array(
+    z.object({
+      id: z.coerce.number(),
+      start: z.coerce.number(),
+      end: z.coerce.number(),
+      tags: z.object({ title: z.string() }),
+    })
+  ),
+  format: z.object({
+    start_time: z.coerce.number(),
+    duration: z.coerce.number(),
+    tags: z.record(z.string(), z.string()),
+  }),
+});
+
 export interface AudioFile {
+  metadata: z.infer<typeof ffprobeSchema>;
   path: string;
   realPath: string;
-  stats: Stats;
-  metadata: { format: { tags: Record<string, string> }; stream: unknown[]; chapters?: unknown[] };
   sortMetadata: { discNumber: number; trackNumber: number };
 }
 
-export const getAudioFile = async (filePath: string): Promise<AudioFile | null> => {
+export const getAudioFile = async (importDirPath: string) => {
   try {
-    const fullPath = join(filePath);
-
-    const lastDotIndex = fullPath.lastIndexOf('.');
+    const lastDotIndex = importDirPath.lastIndexOf('.');
     if (lastDotIndex === -1) {
-      scanLogger.debug('[Scan] File skipped (no extension): "%s"', fullPath);
+      scanLogger.debug('[Scan] File skipped (no extension): "%s"', importDirPath);
       return null;
     }
 
-    if (!SUPPORTED_AUDIO_EXTENSIONS.has(fullPath.substring(lastDotIndex + 1).toLowerCase())) {
-      scanLogger.debug('[Scan] File skipped (unsupported extension): "%s"', fullPath);
+    if (!SUPPORTED_AUDIO_EXTENSIONS.has(importDirPath.substring(lastDotIndex + 1).toLowerCase())) {
+      scanLogger.debug('[Scan] File skipped (unsupported extension): "%s"', importDirPath);
       return null;
     }
 
-    const fileStats = await Bun.file(fullPath).stat();
+    const resolvedPath = await realpath(importDirPath);
+    if (importDirPath === resolvedPath) {
+      scanLogger.debug('[Scan] File skipped (not a symlink): "%s"', importDirPath);
+      return null;
+    }
+
+    const fileStats = await Bun.file(resolvedPath).stat();
     if (fileStats.isDirectory()) {
-      scanLogger.debug('[Scan] File skipped (is a directory): "%s"', fullPath);
-      return null;
-    }
-
-    const resolvedPath = await realpath(fullPath);
-    if (fullPath === resolvedPath) {
-      scanLogger.debug('[Scan] File skipped (not a symlink): "%s"', fullPath);
+      scanLogger.debug('[Scan] File skipped (is a directory): "%s"', importDirPath);
       return null;
     }
 
     scanLogger.debug({
       msg: '[Scan] File ok (symlink)',
-      importPath: fullPath,
+      importPath: importDirPath,
       pointsTo: resolvedPath,
     });
 
     const ffprobe =
-      await $`ffprobe -v quiet -print_format json -show_error -show_format -show_chapters -show_streams '${fullPath}'`
+      await $`ffprobe -v quiet -print_format json -show_error -show_format -show_chapters -show_streams '${importDirPath}'`
         .nothrow()
         .quiet();
 
-    const metadata = JSON.parse(new TextDecoder().decode(ffprobe.stdout));
+    const metadataJson = JSON.parse(new TextDecoder().decode(ffprobe.stdout));
 
     if (ffprobe.exitCode !== 0) {
       scanLogger.error(
         '[Scan] Metadata extraction failed with exit code %d for file "%s": %o',
         ffprobe.exitCode,
-        fullPath,
-        metadata
+        importDirPath,
+        metadataJson
       );
       return null;
     }
 
-    if (!('format' in metadata && 'tags' in metadata.format)) {
-      scanLogger.error('[Scan] Metadata extraction failed for file "%s": %o', fullPath, metadata);
+    const metadata = await ffprobeSchema.safeParseAsync(metadataJson);
+
+    if (metadata.error) {
+      scanLogger.error(
+        '[Scan] Metadata extraction failed for file "%s": %o',
+        importDirPath,
+        metadata.error.flatten()
+      );
       return null;
     }
 
-    const normalizedTags = normalizeTagsToLowercase(metadata.format.tags);
-    metadata.format.tags = normalizedTags;
+    const normalizedTags = normalizeTagsToLowercase(metadata.data.format.tags);
+    metadata.data.format.tags = normalizedTags;
 
     const discNumber = extractTrackNumber(
       normalizedTags['discnumber'],
@@ -148,17 +164,16 @@ export const getAudioFile = async (filePath: string): Promise<AudioFile | null> 
       normalizedTags['trk']
     );
 
-    scanLogger.debug('[Scan] Metadata extracted successfully for "%s"', filePath);
+    scanLogger.debug('[Scan] Metadata extracted successfully for "%s"', importDirPath);
 
     return {
-      path: fullPath,
+      path: importDirPath,
       realPath: resolvedPath,
-      stats: fileStats,
-      metadata,
+      metadata: metadata.data,
       sortMetadata: { discNumber, trackNumber },
-    };
+    } satisfies AudioFile;
   } catch (error) {
-    scanLogger.error('[Scan] Error validating audio file "%s": %s', filePath, error);
+    scanLogger.error('[Scan] Error validating audio file "%s": %s', importDirPath, error);
     return null;
   }
 };
