@@ -4,7 +4,7 @@
     "": {
       "name": "apricotta",
       "devDependencies": {
-        "bun-types": "1.2.7",
+        "bun-types": "1.2.8",
       },
     },
     "apps/client": {
@@ -110,7 +110,7 @@
         "@eslint/js": "9.23.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
         "axios": "1.8.4",
-        "bun-types": "1.2.7",
+        "bun-types": "1.2.8",
         "eslint": "9.23.0",
         "eslint-config-prettier": "10.1.1",
         "eslint-plugin-prettier": "5.2.5",
@@ -126,7 +126,7 @@
       "devDependencies": {
         "@eslint/js": "9.23.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "1.2.7",
+        "bun-types": "1.2.8",
         "eslint": "9.23.0",
         "eslint-config-prettier": "10.1.1",
         "eslint-plugin-prettier": "5.2.5",
@@ -991,7 +991,7 @@
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
 
-    "bun-types": ["bun-types@1.2.7", "", { "dependencies": { "@types/node": "*", "@types/ws": "*" } }, "sha512-P4hHhk7kjF99acXqKvltyuMQ2kf/rzIw3ylEDpCxDS9Xa0X0Yp/gJu/vDCucmWpiur5qJ0lwB2bWzOXa2GlHqA=="],
+    "bun-types": ["bun-types@1.2.8", "", { "dependencies": { "@types/node": "*", "@types/ws": "*" } }, "sha512-D5npfxKIGuYe9dTHLK1hi4XFmbMdKYoLrgyd25rrUyCrnyU4ljmQW7vDdonvibKeyU72mZuixIhQ2J+q6uM0Mg=="],
 
     "bytes": ["bytes@3.1.2", "", {}, "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg=="],
 
