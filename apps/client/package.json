@@ -55,7 +55,7 @@
     "expo-system-ui": "4.0.8",
     "expo-web-browser": "14.0.2",
     "kysely": "0.27.6",
-    "lucide-react-native": "0.485.0",
+    "lucide-react-native": "0.486.0",
     "nativewind": "4.1.23",
     "react": "18.3.1",
     "react-dom": "18.3.1",
