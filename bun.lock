@@ -37,7 +37,7 @@
         "@trpc/client": "11.0.1",
         "@trpc/server": "11.0.1",
         "@trpc/tanstack-react-query": "11.0.1",
-        "@xstate/store": "3.4.1",
+        "@xstate/store": "3.4.2",
         "babel-plugin-module-resolver": "5.0.2",
         "better-auth": "1.2.5",
         "class-variance-authority": "0.7.1",
@@ -843,7 +843,7 @@
 
     "@xmldom/xmldom": ["@xmldom/xmldom@0.7.13", "", {}, "sha512-lm2GW5PkosIzccsaZIz7tp8cPADSIlIHWDFTR1N0SzfinhhYgeIQjFMz4rYzanCScr3DqQLeomUDArp6MWKm+g=="],
 
-    "@xstate/store": ["@xstate/store@3.4.1", "", { "peerDependencies": { "react": "^18.2.0 || ^19.0.0", "solid-js": "^1.7.6" }, "optionalPeers": ["react", "solid-js"] }, "sha512-1nAbGGD45QYSe08eUDv/0dVFt0yOlfOJmmYGzw6e/hWQ92ih2cu6Jc6CimkBSFWzNIfQtaPvYhYCHP8GwNqrzw=="],
+    "@xstate/store": ["@xstate/store@3.4.2", "", { "peerDependencies": { "react": "^18.2.0 || ^19.0.0", "solid-js": "^1.7.6" }, "optionalPeers": ["react", "solid-js"] }, "sha512-a1KQ4QCNFmKXnmf/bY/ys/sPzjTVLXFtuNIClyHSygtAP2ZFbK86Wk03QfT1TCuK/7jQ+NC85FyBW6LIJnXN/w=="],
 
     "@zxing/text-encoding": ["@zxing/text-encoding@0.9.0", "", {}, "sha512-U/4aVJ2mxI0aDNI8Uq0wEhMgY+u4CNtEb0om3+y3+niDAsoTCOB33UF0sxpzqzdqXLqmvc+vZyAt4O8pPdfkwA=="],
 
