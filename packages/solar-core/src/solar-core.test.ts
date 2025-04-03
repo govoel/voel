@@ -76,7 +76,7 @@ describe('SolarCore', () => {
   const cases = [
     [
       'INSERT/UPDATE without RETURNING "hack" works (single table)',
-      { trackTables: new Set(['users3']) },
+      { trackTables: new Set(['users3'] as const) },
       [
         {
           query: (db: Kysely<KyselyDB>) =>
@@ -170,7 +170,7 @@ describe('SolarCore', () => {
     ],
     [
       'Should handle INSERTs/UPDATEs correctly (single table)',
-      { trackTables: new Set(['users']) },
+      { trackTables: new Set(['users'] as const) },
       [
         {
           query: (db: Kysely<KyselyDB>) =>
@@ -247,7 +247,7 @@ describe('SolarCore', () => {
     ],
     [
       'Multiple tracked tables',
-      { trackTables: new Set(['users', 'users2']) },
+      { trackTables: new Set(['users', 'users2'] as const) },
       [
         {
           query: (db: Kysely<KyselyDB>) =>
