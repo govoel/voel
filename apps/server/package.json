@@ -27,7 +27,7 @@
     "bun-types": "1.2.8",
     "eslint": "9.23.0",
     "eslint-config-prettier": "10.1.1",
-    "eslint-plugin-prettier": "5.2.5",
+    "eslint-plugin-prettier": "5.2.6",
     "globals": "16.0.0",
     "kysely-ctl": "0.12.1",
     "prettier": "3.5.3",
