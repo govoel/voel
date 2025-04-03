@@ -7,8 +7,7 @@ SolarCore is a powerful plugin for [Kysely](https://github.com/koskimas/kysely) 
 - 🔄 **Real-time database change tracking**: Get notified when data changes in your SQLite database.
 - 🧠 **Smart event emission**: Events are only emitted after successful transactions.
 - 🛡️ **Type-safe**: Full TypeScript support with your database schema.
-- 🔍 **Minimal overhead**: Automatically adds `RETURNING *` to your `INSERT` and `UPDATE` queries to track changes without extra queries (`DELETE` is not supported yet), but preserves the exact format of your query orignal query's results. Whether you use `returning(['id'])`, don't use returning at all, or use column aliases - your query results remain exactly as expected while SolarCore captures the full changed data for events.
-
+- 🔍 **Minimal overhead**: Automatically adds `RETURNING *` to your `INSERT` and `UPDATE` queries to track changes without extra queries (`DELETE` is not supported yet), but preserves the exact format of your original query's results. Whether you use `returning(['id'])`, don't use returning at all, or use column aliases - your query results remain exactly as expected while SolarCore captures the full changed data for events.
 ## Installation
 
 ```bash
