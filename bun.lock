@@ -31,7 +31,7 @@
         "@rn-primitives/tooltip": "1.1.0",
         "@rn-primitives/types": "1.1.0",
         "@shopify/flash-list": "1.7.3",
-        "@tanstack/react-form": "1.2.3",
+        "@tanstack/react-form": "1.2.4",
         "@tanstack/react-query": "5.71.5",
         "@tanstack/react-store": "0.7.0",
         "@trpc/client": "11.0.1",
@@ -771,11 +771,11 @@
 
     "@tanstack/eslint-plugin-query": ["@tanstack/eslint-plugin-query@5.71.5", "", { "dependencies": { "@typescript-eslint/utils": "^8.18.1" }, "peerDependencies": { "eslint": "^8.57.0 || ^9.0.0" } }, "sha512-6EDWMUQc35HEYtZrX4yRP7vBXjUhNLwO0JwLzkV14lNpTlpnPbNUltvgh+cUJBh3awpOuUNNuxTL96BG3azLmw=="],
 
-    "@tanstack/form-core": ["@tanstack/form-core@1.2.3", "", { "dependencies": { "@tanstack/store": "^0.7.0" } }, "sha512-1QWUO4gbqsinlymie5J5y+h5FH1llBmqkfcAVKzWenqNQ2k3PTV5uwaDajIfXpKkGggRFUyLQklJHDlMRu2Lvw=="],
+    "@tanstack/form-core": ["@tanstack/form-core@1.2.4", "", { "dependencies": { "@tanstack/store": "^0.7.0" } }, "sha512-s2augI1yvI9aZYxxElhHhSIDzbkdhQyttW8RpmSGOrnyfk7OMhYCx/OeXsYOaLr0Vp1leVZrk//s4rEDFLf/lA=="],
 
     "@tanstack/query-core": ["@tanstack/query-core@5.71.5", "", {}, "sha512-XOQ5SyjCdwhxyLksGKWSL5poqyEXYPDnsrZAzJm2LgrMm4Yh6VOrfC+IFosXreDw9HNqC11YAMY3HlfHjNzuaA=="],
 
-    "@tanstack/react-form": ["@tanstack/react-form@1.2.3", "", { "dependencies": { "@remix-run/node": "^2.16.2", "@tanstack/form-core": "1.2.3", "@tanstack/react-store": "^0.7.0", "decode-formdata": "^0.9.0" }, "peerDependencies": { "@tanstack/react-start": "^1.112.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "vinxi": "^0.5.0" }, "optionalPeers": ["@tanstack/react-start", "vinxi"] }, "sha512-pWugV/N5PD40k9i9jx9PBTjhM3XaoaSoakE+QiE6zmmgUgoJd6q+5fYyBSNn09EJy2w3b0pIe1Mmy4kS4hdpbA=="],
+    "@tanstack/react-form": ["@tanstack/react-form@1.2.4", "", { "dependencies": { "@remix-run/node": "^2.16.2", "@tanstack/form-core": "1.2.4", "@tanstack/react-store": "^0.7.0", "decode-formdata": "^0.9.0" }, "peerDependencies": { "@tanstack/react-start": "^1.112.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "vinxi": "^0.5.0" }, "optionalPeers": ["@tanstack/react-start", "vinxi"] }, "sha512-WvRNTWZOFZ4mb/cZYUxtnbIsZUcIG+vfjdkPQWLRnCtVTXzzkFoSS3zUUelew7RcbY4cAMDUOCezCBHzh5GNZQ=="],
 
     "@tanstack/react-query": ["@tanstack/react-query@5.71.5", "", { "dependencies": { "@tanstack/query-core": "5.71.5" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-WpxZWy4fDASjY+iAaXB+aY+LC95PQ34W6EWVkjJ0hdzWWbczFnr9nHvHkVDpwdR18I1NO8igNGQJFrLrgyzI8Q=="],
 
