@@ -73,7 +73,7 @@
   },
   "devDependencies": {
     "@babel/core": "7.26.10",
-    "@tanstack/eslint-plugin-query": "5.68.0",
+    "@tanstack/eslint-plugin-query": "5.71.5",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
     "@types/react": "18.3.18",
     "@typescript-eslint/eslint-plugin": "7.18.0",
