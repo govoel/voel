@@ -8,6 +8,7 @@ SolarCore is a powerful plugin for [Kysely](https://github.com/koskimas/kysely) 
 - 🧠 **Smart event emission**: Events are only emitted after successful transactions.
 - 🛡️ **Type-safe**: Full TypeScript support with your database schema.
 - 🔍 **Minimal overhead**: Automatically adds `RETURNING *` to your `INSERT` and `UPDATE` queries to track changes without extra queries (`DELETE` is not supported yet), but preserves the exact format of your original query's results. Whether you use `returning(['id'])`, don't use returning at all, or use column aliases - your query results remain exactly as expected while SolarCore captures the full changed data for events.
+
 ## Installation
 
 ```bash
@@ -19,9 +20,9 @@ bun add @apricotta/solar-core kysely
 ### Basic Setup
 
 ```typescript
+import { SolarCore, SolarCoreDialect } from '@apricotta/solar-core';
 import { Database } from 'bun:sqlite';
 import { Kysely } from 'kysely';
-import { SolarCore, SolarCoreDialect } from '@apricotta/solar-core';
 
 // Define your database schema
 interface DB {
@@ -41,19 +42,19 @@ interface DB {
 // Create a SolarCore instance
 const solarCore = new SolarCore<DB>({
   // Specify which tables to track changes for
-  trackTables: new Set(['users', 'posts'])
+  trackTables: new Set(['users', 'posts']),
 });
 
 // Create a Kysely instance with SolarCore
 const db = new Kysely<DB>({
   dialect: new SolarCoreDialect({
-    database: new Database('my-database.sqlite')
+    database: new Database('my-database.sqlite'),
   }),
   plugins: [solarCore],
   log(event) {
     // Allows SolarCore to detect and work with transactions
     solarCore.transactionDetector(event);
-  }
+  },
 });
 
 // Subscribe to database changes
@@ -67,16 +68,11 @@ solarCore.events.on('update', (payload) => {
 
 ```typescript
 // When you run queries, SolarCore will automatically track changes
-await db.insertInto('users')
-  .values({ name: 'John Doe', email: 'john@example.com' })
-  .execute();
+await db.insertInto('users').values({ name: 'John Doe', email: 'john@example.com' }).execute();
 // The 'update' event will be emitted with the new user data
 
 // Works with all kinds of inserts and updates
-await db.updateTable('users')
-  .set({ name: 'Jane Doe' })
-  .where('id', '=', 1)
-  .execute();
+await db.updateTable('users').set({ name: 'Jane Doe' }).where('id', '=', 1).execute();
 // The 'update' event will be emitted with the updated user data
 ```
 
@@ -85,15 +81,14 @@ await db.updateTable('users')
 ```typescript
 await db.transaction().execute(async (trx) => {
   // Run multiple queries in a transaction
-  await trx.insertInto('users')
-    .values({ name: 'Alice', email: 'alice@example.com' })
-    .execute();
+  await trx.insertInto('users').values({ name: 'Alice', email: 'alice@example.com' }).execute();
 
-  await trx.insertInto('posts')
+  await trx
+    .insertInto('posts')
     .values({
       title: 'Hello World',
       content: 'First post!',
-      userId: 1
+      userId: 1,
     })
     .execute();
 
