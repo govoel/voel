@@ -51,7 +51,7 @@ type SolarCoreQueryId =
     ? PluginTransformQueryArgs['queryId']
     : never;
 
-interface SolarCoreEvents<DB extends Record<string, Record<string, unknown>>> {
+interface SolarCoreEvents<DB> {
   update: (
     payload: {
       [T in keyof DB]: { table: T; rows: DeepReadonly<Selectable<DB[T]>[]> };
@@ -59,7 +59,7 @@ interface SolarCoreEvents<DB extends Record<string, Record<string, unknown>>> {
   ) => void;
 }
 
-export class SolarCore<DB extends Record<string, Record<string, unknown>>> implements KyselyPlugin {
+export class SolarCore<DB> implements KyselyPlugin {
   readonly events: TypedEmitter<SolarCoreEvents<DB>>;
 
   #inTransaction: boolean;
@@ -68,7 +68,7 @@ export class SolarCore<DB extends Record<string, Record<string, unknown>>> imple
     Parameters<SolarCoreEvents<DB>[keyof SolarCoreEvents<DB>]>[0],
   ][];
 
-  #trackTables: Set<string>;
+  #trackTables: Set<keyof DB>;
 
   #transformer: SolarCoreTransformer;
   #transformerVars: Map<'currentQueryId', SolarCoreQueryId>;
@@ -77,7 +77,7 @@ export class SolarCore<DB extends Record<string, Record<string, unknown>>> imple
   #currentOriginalReturning: WeakMap<SolarCoreQueryId, Set<string>>;
   #currentOriginalReturningAlias: WeakMap<SolarCoreQueryId, Set<string>>;
 
-  constructor(opts: { trackTables: Set<string> }) {
+  constructor(opts: { trackTables: Set<keyof DB> }) {
     this.#trackTables = opts.trackTables;
 
     this.events = new EventEmitter() as TypedEmitter<SolarCoreEvents<DB>>;
@@ -108,13 +108,13 @@ export class SolarCore<DB extends Record<string, Record<string, unknown>>> imple
     if (
       InsertQueryNode.is(args.node) &&
       args.node.into &&
-      this.#trackTables.has(args.node.into.table.identifier.name)
+      this.#trackTables.has(args.node.into.table.identifier.name as keyof DB)
     ) {
       this.setUpQuery(args.queryId, args.node.into.table.identifier.name, 'insert');
       return this.#transformer.transformNode(args.node);
     } else if (UpdateQueryNode.is(args.node) && args.node.table) {
       if (TableNode.is(args.node.table)) {
-        if (this.#trackTables.has(args.node.table.table.identifier.name)) {
+        if (this.#trackTables.has(args.node.table.table.identifier.name as keyof DB)) {
           this.setUpQuery(args.queryId, args.node.table.table.identifier.name, 'update');
           return this.#transformer.transformNode(args.node);
         }
@@ -172,7 +172,7 @@ export class SolarCore<DB extends Record<string, Record<string, unknown>>> imple
           ]);
         } else {
           this.events.emit('update', {
-            table: currentTable,
+            table: currentTable as keyof DB,
             rows: listenerRows as unknown as DeepReadonly<Selectable<DB[keyof DB]>[]>,
           });
         }
