@@ -338,7 +338,7 @@ describe('SolarCore', () => {
     ],
   ] as const;
 
-  test.each(cases)('%s', async (name, { trackTables }, queries) => {
+  test.each(cases)('%s', async (_, { trackTables }, queries) => {
     for (let i = 0; i < 2; i++) {
       const listener1 = mock();
       const listener2 = mock();
@@ -405,7 +405,7 @@ describe('SolarCore', () => {
     }
   });
 
-  test.each(cases)('Transaction: %s', async (name, { trackTables }, queries) => {
+  test.each(cases)('Transaction: %s', async (_, { trackTables }, queries) => {
     for (let i = 0; i < 2; i++) {
       const listener1 = mock();
       const listener2 = mock();
@@ -476,7 +476,7 @@ describe('SolarCore', () => {
 
   test.each(cases)(
     'Transaction rollback discards events: %s',
-    async (name, { trackTables }, queries) => {
+    async (_, { trackTables }, queries) => {
       for (let i = 0; i < 2; i++) {
         const listener1 = mock();
         const listener2 = mock();
@@ -552,7 +552,6 @@ describe('SolarCore', () => {
 
     result.name = 'MODIFIED';
 
-    console.log(capturedPayload);
     expect(capturedPayload).toEqual({
       table: 'users',
       rows: [{ id: 1, name: 'modification-test' }],

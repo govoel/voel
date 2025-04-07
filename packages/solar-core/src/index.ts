@@ -1,2 +1,2 @@
 export { SolarCoreDialect } from './dialect';
-export { SolarCore } from './solar-core';
+export { SolarCore, type SolarCoreEvents } from './solar-core';

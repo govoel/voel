@@ -51,7 +51,7 @@ type SolarCoreQueryId =
     ? PluginTransformQueryArgs['queryId']
     : never;
 
-interface SolarCoreEvents<DB> {
+export interface SolarCoreEvents<DB> {
   update: (
     payload: {
       [T in keyof DB]: { table: T; rows: DeepReadonly<Selectable<DB[T]>[]> };
