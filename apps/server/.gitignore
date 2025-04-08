@@ -32,6 +32,8 @@ yarn-error.log*
 
 # database
 **/*.db
+**/*.db-shm
+**/*.db-wal
 
 # development library directory
 dev_dir

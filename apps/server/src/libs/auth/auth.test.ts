@@ -61,10 +61,10 @@ describe('better-auth customizations', () => {
 
   afterEach(async () => {
     const { db } = await import('@/libs/db');
-    await sql`delete from user`.execute(db);
-    await sql`delete from account`.execute(db);
-    await sql`delete from session`.execute(db);
     await sql`delete from verification`.execute(db);
+    await sql`delete from session`.execute(db);
+    await sql`delete from account`.execute(db);
+    await sql`delete from user`.execute(db);
   });
 
   it('should not allow sign up when username is missing', async () => {
