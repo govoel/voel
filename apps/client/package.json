@@ -18,7 +18,7 @@
     "@dev-plugins/react-query": "0.2.0",
     "@expo/vector-icons": "14.0.4",
     "@gorhom/bottom-sheet": "5.1.2",
-    "@op-engineering/op-sqlite": "11.4.9",
+    "@op-engineering/op-sqlite": "12.0.0",
     "@react-navigation/native": "^7.0.14",
     "@rn-primitives/avatar": "1.1.0",
     "@rn-primitives/checkbox": "1.1.0",
