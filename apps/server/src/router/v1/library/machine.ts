@@ -1,4 +1,4 @@
-import type { Insertable } from 'kysely';
+import { type Insertable, NoResultError } from 'kysely';
 import { lstat, readdir, rmdir } from 'node:fs/promises';
 import { dirname, join as pathJoin, sep as pathSep } from 'node:path';
 import TurndownService from 'turndown';
@@ -528,30 +528,89 @@ async function insertBooksIntoDatabase(
         }
 
         if (bookChapters.has(book.asin)) {
-          const audibleChaptersData = bookChapters
-            .get(book.asin)!
-            .chapters.map((chapter) => ({ chapter, parentId: null as number | null }));
+          const currentChapterTableId = await trx
+            .selectFrom('sqlite_sequence')
+            .select('seq')
+            .where('name', '=', 'audiobookChapter')
+            .executeTakeFirstOrThrow()
+            .catch((e) => {
+              if (e instanceof NoResultError) {
+                return { seq: 0 };
+              }
+              throw e;
+            });
 
-          while (audibleChaptersData.length > 0) {
-            const chapterData = audibleChaptersData.shift()!;
-            const insertedChapter = await trx
-              .insertInto('audiobookChapter')
-              .values({
-                bookId: insertedBook.id,
-                parentId: chapterData.parentId,
-                source: 'audible',
-                title: chapterData.chapter.title,
-                duration: chapterData.chapter.length_ms,
-                startOffset: chapterData.chapter.start_offset_ms,
-              })
-              .returning(['id as id'])
-              .executeTakeFirstOrThrow();
+          const flatChapters: {
+            id: number;
+            parentId: number | null;
+            chapter: (typeof audibleChaptersData)[number];
+          }[] = [];
 
-            if (isParentChapter(chapterData.chapter)) {
-              chapterData.chapter.chapters.forEach((chapter) => {
-                audibleChaptersData.push({ chapter, parentId: insertedChapter.id });
+          const audibleChaptersData = bookChapters.get(book.asin)!.chapters;
+          const traverse = (
+            chapter: (typeof audibleChaptersData)[number],
+            parentId: number | null
+          ) => {
+            const currentChapterId = ++currentChapterTableId.seq;
+            flatChapters.push({ id: currentChapterId, parentId, chapter });
+
+            if (isParentChapter(chapter)) {
+              chapter.chapters.forEach((childChapter) => {
+                traverse(childChapter, currentChapterId);
               });
             }
+          };
+
+          for (const chapter of audibleChaptersData) {
+            traverse(chapter, null);
+          }
+
+          const insertedChapters = await trx
+            .insertInto('audiobookChapter')
+            .values(
+              flatChapters.map((chapter) => ({
+                bookId: insertedBook.id,
+                parentId: chapter.parentId,
+                source: 'audible',
+                title: chapter.chapter.title,
+                duration: chapter.chapter.length_ms,
+                startOffset: chapter.chapter.start_offset_ms,
+              }))
+            )
+            .returning(['id as id', 'parentId as parentId'])
+            .execute();
+
+          const insertedChapterIds = insertedChapters.map((chapter) => chapter.id);
+          const flatChapterIds = flatChapters.map((chapter) => chapter.id);
+
+          scanLogger.debug(
+            'Inserted chapter IDs: %d, %o, %o, %o',
+            insertedChapterIds.length,
+            insertedChapterIds,
+            insertedChapterIds.length === flatChapterIds.length,
+            insertedChapterIds.every((e, i) => e === flatChapterIds[i])
+          );
+          scanLogger.debug('Flat chapter IDs: %d, %o', flatChapterIds.length, flatChapterIds);
+
+          if (
+            !(
+              insertedChapterIds.length === flatChapterIds.length &&
+              insertedChapterIds.every((e, i) => e === flatChapterIds[i])
+            )
+          ) {
+            throw new Error('Inserted chapter IDs do not match flat chapter IDs');
+          }
+
+          const insertedParentIds = insertedChapters.map((chapter) => chapter.parentId);
+          const flatParentIds = flatChapters.map((chapter) => chapter.parentId);
+
+          if (
+            !(
+              insertedParentIds.length === flatParentIds.length &&
+              insertedParentIds.every((e, i) => e === flatParentIds[i])
+            )
+          ) {
+            throw new Error('Inserted parent IDs do not match flat parent IDs');
           }
         }
 

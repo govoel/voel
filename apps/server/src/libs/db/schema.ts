@@ -107,6 +107,11 @@ export interface EBookFileTable {
   deletedAt: ColumnType<number | null, never, number>;
 }
 
+export interface SQLiteSequenceTable {
+  name: ColumnType<string, never, never>;
+  seq: ColumnType<number, never, never>;
+}
+
 export interface DatabaseSchema {
   library: LibraryTable;
   author: AuthorTable;
@@ -118,4 +123,5 @@ export interface DatabaseSchema {
   audiobookChapter: AudiobookChapterTable;
   audiobookFile: AudiobookFileTable;
   ebookFile: EBookFileTable;
+  sqlite_sequence: SQLiteSequenceTable;
 }
