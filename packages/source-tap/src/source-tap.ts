@@ -233,6 +233,9 @@ export class SourceTap<DB> implements KyselyPlugin {
 
   transactionDetector(event: LogEvent) {
     if (event.query.sql === 'begin') {
+      // we don't need to check if we are already in a transaction
+      // here because sqlite itself does not support nested transactions
+      // by calling begin again
       this.#inTransaction = true;
     } else if (event.query.sql === 'commit') {
       this.#transactionEvents.forEach((transactionEvent) => {
@@ -243,6 +246,14 @@ export class SourceTap<DB> implements KyselyPlugin {
     } else if (event.query.sql === 'rollback') {
       this.#transactionEvents = [];
       this.#inTransaction = false;
+    } else if (
+      event.query.sql.startsWith('savepoint') ||
+      event.query.sql.startsWith('rollback to') ||
+      event.query.sql.startsWith('release')
+    ) {
+      this.#transactionEvents = [];
+      this.#inTransaction = false;
+      throw new Error('SourceTap does not support nested transactions');
     }
   }
 }
@@ -278,7 +289,7 @@ class SourceTapTransformer extends OperationNodeTransformer {
     };
   }
 
-  protected transformInsertQuery(node: InsertQueryNode): InsertQueryNode {
+  protected override transformInsertQuery(node: InsertQueryNode): InsertQueryNode {
     node = super.transformInsertQuery(node);
 
     if (typeof node.returning === 'undefined') {
@@ -288,7 +299,7 @@ class SourceTapTransformer extends OperationNodeTransformer {
     return node;
   }
 
-  protected transformUpdateQuery(node: UpdateQueryNode): UpdateQueryNode {
+  protected override transformUpdateQuery(node: UpdateQueryNode): UpdateQueryNode {
     node = super.transformUpdateQuery(node);
 
     if (typeof node.returning === 'undefined') {

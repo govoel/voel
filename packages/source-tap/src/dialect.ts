@@ -6,12 +6,15 @@ import {
   type Dialect,
   type DialectAdapter,
   type Driver,
+  IdentifierNode,
   Kysely,
   type QueryCompiler,
   type QueryResult,
+  RawNode,
   SqliteAdapter,
   SqliteIntrospector,
   SqliteQueryCompiler,
+  createQueryId,
 } from 'kysely';
 
 /**
@@ -53,6 +56,13 @@ export class SourceTapDialect implements Dialect {
   }
 }
 
+function parseSavepointCommand(command: string, savepointName: string): RawNode {
+  return RawNode.createWithChildren([
+    RawNode.createWithSql(`${command} `),
+    IdentifierNode.create(savepointName), // ensures savepointName gets sanitized
+  ]);
+}
+
 class SourceTapSqliteDriver implements Driver {
   readonly #config: SourceTapDialectConfig;
   readonly #connectionMutex = new ConnectionMutex();
@@ -91,6 +101,36 @@ class SourceTapSqliteDriver implements Driver {
 
   async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('rollback'));
+  }
+
+  async savepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('savepoint', savepointName), createQueryId())
+    );
+  }
+
+  async rollbackToSavepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('rollback to', savepointName), createQueryId())
+    );
+  }
+
+  async releaseSavepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('release', savepointName), createQueryId())
+    );
   }
 
   async releaseConnection(): Promise<void> {
@@ -211,6 +251,36 @@ class BunSqliteDriver implements Driver {
 
   async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('rollback'));
+  }
+
+  async savepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('savepoint', savepointName), createQueryId())
+    );
+  }
+
+  async rollbackToSavepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('rollback to', savepointName), createQueryId())
+    );
+  }
+
+  async releaseSavepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('release', savepointName), createQueryId())
+    );
   }
 
   async releaseConnection(): Promise<void> {

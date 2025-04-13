@@ -1,6 +1,6 @@
 # SourceTap
 
-SourceTap is a powerful plugin for [Kysely](https://github.com/koskimas/kysely) that provides real-time database change tracking and event emission for SQLite databases in [Bun](https://bun.sh). It allows you to easily subscribe to database changes and react accordingly in your application.
+SourceTap is a powerful plugin for [Kysely](https://github.com/kysely-org/kysely) that provides real-time database change tracking and event emission for SQLite databases in [Bun](https://bun.sh). It allows you to easily subscribe to database changes and react accordingly in your application.
 
 ## Features
 
@@ -8,6 +8,9 @@ SourceTap is a powerful plugin for [Kysely](https://github.com/koskimas/kysely) 
 - 🧠 **Smart event emission**: Events are only emitted after successful transactions.
 - 🛡️ **Type-safe**: Full TypeScript support with your database schema.
 - 🔍 **Minimal overhead**: Automatically adds `RETURNING *` to your `INSERT` and `UPDATE` queries to track changes without extra queries (`DELETE` is not supported yet), but preserves the exact format of your original query's results. Whether you use `returning(['id'])`, don't use returning at all, or use column aliases - your query results remain exactly as expected while SourceTap captures the full changed data for events.
+
+> [!NOTE]
+> SourceTap does not support `DELETE` queries, savepoints, and nested transactions.
 
 ## Installation
 
