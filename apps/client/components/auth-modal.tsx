@@ -12,7 +12,7 @@ import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
 
-import { db } from '~/db/client';
+import { mainDb } from '~/db/client';
 
 import api, { queryClient } from '~/lib/api';
 import { createAuthClient, instanceStore, useAuthSession } from '~/lib/stores/instance';
@@ -87,7 +87,7 @@ const switchInstance = async (
 ) => {
   let instanceID = current.instanceID;
   if (current.instanceUserID !== switchTo.userID || current.instanceURL !== switchTo.instanceURL) {
-    let instance = await db
+    let instance = await mainDb
       .selectFrom('accounts')
       .select(['instanceID as id', 'instanceURL as url', 'userID'])
       .where('instanceURL', '=', switchTo.instanceURL)
@@ -95,7 +95,7 @@ const switchInstance = async (
       .executeTakeFirst();
 
     if (!instance) {
-      instance = await db
+      instance = await mainDb
         .insertInto('accounts')
         .values({
           instanceURL: switchTo.instanceURL,
@@ -113,7 +113,7 @@ const switchInstance = async (
         return;
       }
     } else {
-      await db
+      await mainDb
         .updateTable('accounts')
         .set({
           username: switchTo.username,
@@ -128,7 +128,7 @@ const switchInstance = async (
 
     instanceID = instance.id.toString();
   } else {
-    await db
+    await mainDb
       .updateTable('accounts')
       .set({
         username: switchTo.username,

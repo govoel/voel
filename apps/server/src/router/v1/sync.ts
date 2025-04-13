@@ -158,21 +158,30 @@ export const syncRouter = createTRPCRouter({
           name: 'bookAuthor',
           query: db
             .selectFrom('bookAuthor')
-            .select(['bookId', 'authorId', 'createdAt', 'updatedAt', 'deletedAt'])
+            .select(['id', 'bookId', 'authorId', 'createdAt', 'updatedAt', 'deletedAt'])
             .where('updatedAt', '>=', input.bookAuthor),
         },
         {
           name: 'bookSeries',
           query: db
             .selectFrom('bookSeries')
-            .select(['bookId', 'seriesId', 'label', 'sort', 'createdAt', 'updatedAt', 'deletedAt'])
+            .select([
+              'id',
+              'bookId',
+              'seriesId',
+              'label',
+              'sort',
+              'createdAt',
+              'updatedAt',
+              'deletedAt',
+            ])
             .where('updatedAt', '>=', input.bookSeries),
         },
         {
           name: 'bookContributor',
           query: db
             .selectFrom('bookContributor')
-            .select(['bookId', 'name', 'role', 'createdAt', 'updatedAt', 'deletedAt'])
+            .select(['id', 'bookId', 'name', 'role', 'createdAt', 'updatedAt', 'deletedAt'])
             .where('updatedAt', '>=', input.bookContributor),
         },
         {
@@ -221,10 +230,60 @@ export const syncRouter = createTRPCRouter({
       ] as const;
 
       for (const table of tables) {
-        const stream = table.query.stream();
-
-        for await (const row of stream) {
-          yield { type: 'history' as const, payload: { table: table.name, row } };
+        // if statements for strong type-safety on the client
+        if (table.name === 'library') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'library' as const, row } };
+          }
+        } else if (table.name === 'author') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'author' as const, row } };
+          }
+        } else if (table.name === 'series') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'series' as const, row } };
+          }
+        } else if (table.name === 'book') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'book' as const, row } };
+          }
+        } else if (table.name === 'bookAuthor') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'bookAuthor' as const, row } };
+          }
+        } else if (table.name === 'bookSeries') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'bookSeries' as const, row } };
+          }
+        } else if (table.name === 'bookContributor') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'bookContributor' as const, row } };
+          }
+        } else if (table.name === 'audiobookChapter') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield {
+              type: 'history' as const,
+              payload: { table: 'audiobookChapter' as const, row },
+            };
+          }
+        } else if (table.name === 'audiobookFile') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'audiobookFile' as const, row } };
+          }
+        } else if (table.name === 'ebookFile') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'ebookFile' as const, row } };
+          }
         }
       }
 

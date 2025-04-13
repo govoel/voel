@@ -5,7 +5,7 @@ export interface LibraryTable {
   name: string;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface AuthorTable {
@@ -16,7 +16,7 @@ export interface AuthorTable {
   avatar: string | null;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface SeriesTable {
@@ -26,7 +26,7 @@ export interface SeriesTable {
   summary: string | null;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface BookTable {
@@ -41,34 +41,37 @@ export interface BookTable {
   adultsOnly: 0 | 1;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface BookAuthorTable {
+  id: ColumnType<number, never, never>;
   bookId: number;
   authorId: number;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface BookSeriesTable {
+  id: ColumnType<number, never, never>;
   bookId: number;
   seriesId: number;
   label: string;
   sort: number;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface BookContributorTable {
+  id: ColumnType<number, never, never>;
   bookId: number;
   name: string;
   role: 'narrator' | 'editor' | 'illustrator' | 'translator';
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface AudiobookChapterTable {
@@ -81,7 +84,7 @@ export interface AudiobookChapterTable {
   startOffset: number;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface AudiobookFileTable {
@@ -94,7 +97,7 @@ export interface AudiobookFileTable {
   track: number;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number>;
+  deletedAt: ColumnType<number | null, never, number | null>;
 }
 
 export interface EBookFileTable {

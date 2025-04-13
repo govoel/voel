@@ -4,8 +4,8 @@ import {
 } from '@tanstack/react-query';
 import { Insertable } from 'kysely';
 
-import { db } from '~/db/client';
-import { Database } from '~/db/schema';
+import { mainDb } from '~/db/client';
+import { MainDatabase } from '~/db/schema/main';
 
 const list = {
   queryKey: ['accounts', 'list'],
@@ -15,7 +15,7 @@ const list = {
       networkMode: 'always',
       refetchOnReconnect: true,
       queryFn: () =>
-        db
+        mainDb
           .selectFrom('accounts')
           .select(['instanceID', 'instanceURL', 'userID', 'username', 'email', 'name', 'image'])
           .execute(),
@@ -28,8 +28,8 @@ const add = {
   useMutation: () => {
     return useReactQueryMutation({
       mutationKey: add.mutationKey,
-      mutationFn: (account: Insertable<Database['accounts']>) =>
-        db
+      mutationFn: (account: Insertable<MainDatabase['accounts']>) =>
+        mainDb
           .insertInto('accounts')
           .values(account)
           .onConflict((oc) => oc.doNothing())
