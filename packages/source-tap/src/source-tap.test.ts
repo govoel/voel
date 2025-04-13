@@ -2,8 +2,8 @@ import Database from 'bun:sqlite';
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { type ColumnType, type Generated, Kysely } from 'kysely';
 
-import { BunSqliteDialect, SolarCoreDialect } from './dialect';
-import { SolarCore } from './solar-core';
+import { BunSqliteDialect, SourceTapDialect } from './dialect';
+import { SourceTap } from './source-tap';
 
 type KyselyDB = {
   users: {
@@ -24,28 +24,28 @@ type KyselyDB = {
   };
 };
 
-const createDb = async (solarCore?: SolarCore<KyselyDB>) => {
+const createDb = async (sourceTap?: SourceTap<KyselyDB>) => {
   const db = new Kysely<KyselyDB>({
-    dialect: solarCore
-      ? new SolarCoreDialect({
+    dialect: sourceTap
+      ? new SourceTapDialect({
           database: new Database(':memory:'),
         })
       : new BunSqliteDialect({
           database: new Database(':memory:'),
         }),
-    plugins: solarCore ? [solarCore] : [],
+    plugins: sourceTap ? [sourceTap] : [],
     log(event) {
       if (event.level === 'query') {
         console.log(
-          `${solarCore ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
+          `${sourceTap ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
         );
       } else if (event.level === 'error') {
         console.log(
-          `${solarCore ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
+          `${sourceTap ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
         );
       }
-      if (solarCore) {
-        solarCore?.transactionDetector(event);
+      if (sourceTap) {
+        sourceTap?.transactionDetector(event);
       }
     },
   });
@@ -70,7 +70,7 @@ const createDb = async (solarCore?: SolarCore<KyselyDB>) => {
   return db;
 };
 
-describe('SolarCore', () => {
+describe('SourceTap', () => {
   let db: Awaited<ReturnType<typeof createDb>>;
 
   const cases = [
@@ -344,11 +344,11 @@ describe('SolarCore', () => {
       const listener2 = mock();
       const listener3 = mock();
       if (i === 0) {
-        const solarCore = new SolarCore<KyselyDB>({ trackTables });
-        db = await createDb(solarCore);
-        solarCore.events.on('update', listener1);
-        solarCore.events.on('update', listener2);
-        solarCore.events.on('update', listener3);
+        const sourceTap = new SourceTap<KyselyDB>({ trackTables });
+        db = await createDb(sourceTap);
+        sourceTap.events.on('update', listener1);
+        sourceTap.events.on('update', listener2);
+        sourceTap.events.on('update', listener3);
       } else {
         db = await createDb();
       }
@@ -411,11 +411,11 @@ describe('SolarCore', () => {
       const listener2 = mock();
       const listener3 = mock();
       if (i === 0) {
-        const solarCore = new SolarCore<KyselyDB>({ trackTables });
-        db = await createDb(solarCore);
-        solarCore.events.on('update', listener1);
-        solarCore.events.on('update', listener2);
-        solarCore.events.on('update', listener3);
+        const sourceTap = new SourceTap<KyselyDB>({ trackTables });
+        db = await createDb(sourceTap);
+        sourceTap.events.on('update', listener1);
+        sourceTap.events.on('update', listener2);
+        sourceTap.events.on('update', listener3);
       } else {
         db = await createDb();
       }
@@ -482,11 +482,11 @@ describe('SolarCore', () => {
         const listener2 = mock();
         const listener3 = mock();
         if (i === 0) {
-          const solarCore = new SolarCore<KyselyDB>({ trackTables });
-          db = await createDb(solarCore);
-          solarCore.events.on('update', listener1);
-          solarCore.events.on('update', listener2);
-          solarCore.events.on('update', listener3);
+          const sourceTap = new SourceTap<KyselyDB>({ trackTables });
+          db = await createDb(sourceTap);
+          sourceTap.events.on('update', listener1);
+          sourceTap.events.on('update', listener2);
+          sourceTap.events.on('update', listener3);
         } else {
           db = await createDb();
         }
@@ -534,15 +534,15 @@ describe('SolarCore', () => {
   );
 
   test('Modifying returned data should not affect event listeners', async () => {
-    const solarCore = new SolarCore<KyselyDB>({ trackTables: new Set(['users']) });
-    const db = await createDb(solarCore);
+    const sourceTap = new SourceTap<KyselyDB>({ trackTables: new Set(['users']) });
+    const db = await createDb(sourceTap);
 
     let capturedPayload: unknown;
     const listener = mock((payload) => {
       capturedPayload = payload;
     });
 
-    solarCore.events.on('update', listener);
+    sourceTap.events.on('update', listener);
 
     const result = await db
       .insertInto('users')

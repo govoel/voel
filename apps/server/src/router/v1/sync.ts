@@ -1,7 +1,7 @@
-import type { SolarCoreEvents } from '@apricotta/solar-core';
+import type { SourceTapEvents } from '@apricotta/source-tap';
 import { z } from 'zod';
 
-import { db, solarCore } from '@/libs/db';
+import { db, sourceTap } from '@/libs/db';
 import type { DatabaseSchema } from '@/libs/db/schema';
 
 import { createTRPCRouter, protectedProcedure } from '@/trpc';
@@ -85,15 +85,15 @@ export const syncRouter = createTRPCRouter({
 
       const eventStream = new ReadableStream<{
         type: 'live';
-        payload: Parameters<SolarCoreEvents<DatabaseSchema>['update']>[0];
+        payload: Parameters<SourceTapEvents<DatabaseSchema>['update']>[0];
       }>({
         async start(controller) {
-          const onUpdate: SolarCoreEvents<DatabaseSchema>['update'] = (payload) => {
+          const onUpdate: SourceTapEvents<DatabaseSchema>['update'] = (payload) => {
             controller.enqueue({ type: 'live' as const, payload });
           };
-          solarCore.events.on('update', onUpdate);
+          sourceTap.events.on('update', onUpdate);
           unsubscribe = () => {
-            solarCore.events.off('update', onUpdate);
+            sourceTap.events.off('update', onUpdate);
           };
         },
         cancel() {
