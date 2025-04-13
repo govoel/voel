@@ -1,4 +1,4 @@
-import { SolarCore, SolarCoreDialect } from '@apricotta/solar-core';
+import { SourceTap, SourceTapDialect } from '@apricotta/source-tap';
 import { Database, SQLiteError } from 'bun:sqlite';
 import { CompiledQuery, Kysely } from 'kysely';
 
@@ -9,7 +9,7 @@ import { logger } from '@/logger';
 
 export const bunDb = new Database(env.DATABASE_PATH);
 
-export const solarCore = new SolarCore<DatabaseSchema>({
+export const sourceTap = new SourceTap<DatabaseSchema>({
   trackTables: new Set([
     'library',
     'author',
@@ -24,7 +24,7 @@ export const solarCore = new SolarCore<DatabaseSchema>({
   ]),
 });
 
-export const dialect = new SolarCoreDialect({
+export const dialect = new SourceTapDialect({
   database: bunDb,
   onCreateConnection: async (connection) => {
     connection.executeQuery(CompiledQuery.raw('PRAGMA foreign_keys = ON'));
@@ -35,9 +35,9 @@ export const dialect = new SolarCoreDialect({
 
 export const db = new Kysely<DatabaseSchema>({
   dialect,
-  plugins: [solarCore],
+  plugins: [sourceTap],
   log(event) {
-    solarCore.transactionDetector(event);
+    sourceTap.transactionDetector(event);
     if (logger.isLevelEnabled('debug') && event.level === 'query') {
       logger.debug('dbQuery(%dms) => %s', event.queryDurationMillis.toFixed(2), event.query.sql);
     } else if (event.level === 'error') {
