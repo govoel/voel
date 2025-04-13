@@ -3,7 +3,6 @@ version = 1
 [update]
 always = false
 require_automerge_label = true
-ignored_usernames = ["dependabot"]
 
 [merge]
 method = "squash"
