@@ -570,7 +570,7 @@ describe('SourceTap', () => {
         }
         try {
           await db.transaction().execute(async (trx) => {
-            for (const [i, entry] of queries.entries()) {
+            for (const [j, entry] of queries.entries()) {
               if ('executeTakeFirstOrThrow' in entry) {
                 expect(await entry.query(trx).executeTakeFirstOrThrow()).toEqual(
                   entry.executeTakeFirstOrThrow
@@ -588,7 +588,7 @@ describe('SourceTap', () => {
               expect(listener2).toHaveBeenCalledTimes(0);
               expect(listener3).toHaveBeenCalledTimes(0);
 
-              if (queries.length - 1 === i) {
+              if (queries.length - 1 === j) {
                 throw new Error('Intentionally cause a rollback');
               }
             }
@@ -633,7 +633,7 @@ describe('SourceTap', () => {
         const commitSpy = spyOn(trx, 'commit');
         const rollbackSpy = spyOn(trx, 'rollback');
         try {
-          for (const [i, entry] of queries.entries()) {
+          for (const [j, entry] of queries.entries()) {
             if ('executeTakeFirstOrThrow' in entry) {
               expect(await entry.query(trx).executeTakeFirstOrThrow()).toEqual(
                 entry.executeTakeFirstOrThrow
@@ -651,7 +651,7 @@ describe('SourceTap', () => {
             expect(listener2).toHaveBeenCalledTimes(0);
             expect(listener3).toHaveBeenCalledTimes(0);
 
-            if (queries.length - 1 === i) {
+            if (queries.length - 1 === j) {
               throw new Error('Intentionally cause a rollback');
             }
           }
@@ -701,7 +701,7 @@ describe('SourceTap', () => {
         const commitSpy = spyOn(trx, 'commit');
         const rollbackSpy = spyOn(trx, 'rollback');
         try {
-          for (const [i, entry] of queries.entries()) {
+          for (const [j, entry] of queries.entries()) {
             if ('executeTakeFirstOrThrow' in entry) {
               expect(await entry.query(trx).executeTakeFirstOrThrow()).toEqual(
                 entry.executeTakeFirstOrThrow
@@ -719,7 +719,7 @@ describe('SourceTap', () => {
             expect(listener2).toHaveBeenCalledTimes(0);
             expect(listener3).toHaveBeenCalledTimes(0);
 
-            if (queries.length - 1 === i) {
+            if (queries.length - 1 === j) {
               await trx.savepoint('test').execute();
             }
           }
