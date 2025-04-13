@@ -35,7 +35,7 @@
         "@shopify/flash-list": "1.7.3",
         "@stardazed/streams-text-encoding": "1.0.2",
         "@tanstack/react-form": "1.3.3",
-        "@tanstack/react-query": "5.72.0",
+        "@tanstack/react-query": "5.73.3",
         "@tanstack/react-store": "0.7.0",
         "@trpc/client": "11.1.0",
         "@trpc/server": "11.1.0",
@@ -784,11 +784,11 @@
 
     "@tanstack/form-core": ["@tanstack/form-core@1.3.2", "", { "dependencies": { "@tanstack/store": "^0.7.0" } }, "sha512-hqRLw9EJ8bLJ5zvorGgTI4INcKh1hAtjPRTslwdB529soP8LpguzqWhn7yVV5/c2GcMSlqmpy5NZarkF5Mf54A=="],
 
-    "@tanstack/query-core": ["@tanstack/query-core@5.72.0", "", {}, "sha512-aa3p6Mou++JLLxxxVX9AB9uGeRIGc0JWkw96GASXuMG8K3D+JpYbSFcqXbkGFJ1eX2jKHPurmCBoO43RjjXJCA=="],
+    "@tanstack/query-core": ["@tanstack/query-core@5.73.3", "", {}, "sha512-LUpsgVT3IkvOECdkQ3QD6esczSH71mAzH/LDZ2cu8j6w430v5W0JB1ulzsG8FFwFBd5fm/ePM2DFpg9TucRMgQ=="],
 
     "@tanstack/react-form": ["@tanstack/react-form@1.3.3", "", { "dependencies": { "@tanstack/form-core": "1.3.2", "@tanstack/react-store": "^0.7.0", "decode-formdata": "^0.9.0", "devalue": "^5.1.1" }, "peerDependencies": { "@tanstack/react-start": "^1.112.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "vinxi": "^0.5.0" }, "optionalPeers": ["@tanstack/react-start", "vinxi"] }, "sha512-rjZU6ufaQYbZU9I0uIXUJ1CPQ9M/LFyfpbsgA4oqpX/lLoiCFYsV7tZYVlWMMHkpSr1hhmAywp/8rmCFt14lnw=="],
 
-    "@tanstack/react-query": ["@tanstack/react-query@5.72.0", "", { "dependencies": { "@tanstack/query-core": "5.72.0" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-4Dejq/IiXrPlr/0xxj4H2GbC6KckwfTCoHWbd02+UoIV0laC9yke0d0KegmFdXJA712I6UCuy8WpPM76uuPJ+w=="],
+    "@tanstack/react-query": ["@tanstack/react-query@5.73.3", "", { "dependencies": { "@tanstack/query-core": "5.73.3" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-umsAEsVsSSnrOZrstX/OlctdqkRZm6vPsetmbl241tdNo0jT3s+0bUoof9kCaTsPr/GopPlbJ1OYlrZj4toKzg=="],
 
     "@tanstack/react-store": ["@tanstack/react-store@0.7.0", "", { "dependencies": { "@tanstack/store": "0.7.0", "use-sync-external-store": "^1.4.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-S/Rq17HaGOk+tQHV/yrePMnG1xbsKZIl/VsNWnNXt4XW+tTY8dTlvpJH2ZQ3GRALsusG5K6Q3unAGJ2pd9W/Ng=="],
 
