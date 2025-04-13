@@ -31,6 +31,16 @@ export const createTRPCContext = async (opts: FetchCreateContextFnOptions) => ({
  * errors on the backend.
  */
 const t = initTRPC.context<typeof createTRPCContext>().create({
+  jsonl: {
+    pingMs: 1000,
+  },
+  sse: {
+    enabled: true,
+    ping: {
+      enabled: true,
+      intervalMs: 5000,
+    },
+  },
   errorFormatter({ shape, error, path, ctx }) {
     logger.error(
       `trpc(error) => %s => %s => %s`,

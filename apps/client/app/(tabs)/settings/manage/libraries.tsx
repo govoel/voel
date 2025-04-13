@@ -7,7 +7,6 @@ import { Stack } from 'expo-router';
 import { useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 import { toast } from 'sonner-native';
-import { z } from 'zod';
 
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';

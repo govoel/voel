@@ -1,14 +1,33 @@
 import { auth } from '@apricotta/server/src/libs/auth/auth';
 import type { AppRouter } from '@apricotta/server/src/router/root';
 import { expoClient } from '@better-auth/expo/client';
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import {
+  createTRPCClient,
+  httpBatchStreamLink,
+  httpSubscriptionLink,
+  splitLink,
+} from '@trpc/client';
 import { type TRPCOptionsProxy, createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { createStore } from '@xstate/store';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
+import { fetch as expoFetch } from 'expo/fetch';
+
+import { createInstanceDb } from '~/db/client';
 
 import { queryClient } from '~/lib/api';
+
+import '@azure/core-asynciterator-polyfill';
+
+import { TextDecoderStream } from '@stardazed/streams-text-encoding';
+import { ReadableStream } from 'web-streams-polyfill';
+
+import { ExpoEventSource } from '~/lib/stores/instance/EventSource';
+
+globalThis.TextDecoderStream = globalThis.TextDecoderStream || TextDecoderStream;
+globalThis.ReadableStream = globalThis.ReadableStream || ReadableStream;
+globalThis.EventSource = globalThis.EventSource || ExpoEventSource;
 
 export const createAuthClient = (
   baseURL: string,
@@ -41,10 +60,23 @@ export const createApiInstance = (
   return createTRPCOptionsProxy<AppRouter>({
     client: createTRPCClient<AppRouter>({
       links: [
-        httpBatchLink({
-          url: `${instanceURL}/api/trpc`,
-          headers: () => ({
-            Cookie: authClient.getCookie(),
+        splitLink({
+          condition: (op) => op.type === 'subscription',
+          true: httpSubscriptionLink({
+            EventSource: ExpoEventSource,
+            eventSourceOptions: {
+              headers: {
+                Cookie: authClient.getCookie(),
+              },
+            },
+            url: `${instanceURL}/api/trpc`,
+          }),
+          false: httpBatchStreamLink({
+            url: `${instanceURL}/api/trpc`,
+            headers: () => ({
+              Cookie: authClient.getCookie(),
+            }),
+            fetch: (url, opts) => expoFetch(url, opts),
           }),
         }),
       ],
@@ -58,11 +90,21 @@ export const createInstances = (
   instanceURL: string,
   currentApiInstance?: TRPCOptionsProxy<AppRouter>
 ) => {
+  const instanceIDNum = parseInt(instanceID, 10);
+
+  if (!(typeof instanceIDNum === 'number') || isNaN(instanceIDNum)) {
+    throw new Error(`Invalid instance ID: ${instanceID}`);
+  }
+
   const authInstance = createInstanceAuthClient(instanceID, instanceURL);
+  const apiInstance = createApiInstance(instanceURL, authInstance, currentApiInstance);
+  const { instanceDb, instanceOpDb } = createInstanceDb(instanceIDNum);
 
   return {
     authInstance,
-    apiInstance: createApiInstance(instanceURL, authInstance, currentApiInstance),
+    apiInstance,
+    instanceDb,
+    instanceOpDb,
   };
 };
 
@@ -80,7 +122,7 @@ export const instanceStore = createStore({
     instanceURL: SecureStore.getItem('currentInstanceURL'),
     instanceUserID: SecureStore.getItem('currentInstanceUserID'),
     ...createInstances(
-      SecureStore.getItem('currentInstanceID') ?? '',
+      SecureStore.getItem('currentInstanceID') ?? '0',
       SecureStore.getItem('currentInstanceURL') ?? 'http://apricotta'
     ),
   },
@@ -103,7 +145,7 @@ export const instanceStore = createStore({
         instanceID: event.instanceID,
         instanceURL: event.instanceURL,
         instanceUserID: event.instanceUserID,
-        ...createInstances(event.instanceID, event.instanceURL),
+        ...createInstances(event.instanceID, event.instanceURL, context.apiInstance),
       };
     },
     setError: (context, event: { error: string }) => {

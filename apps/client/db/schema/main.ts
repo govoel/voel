@@ -10,6 +10,6 @@ export interface AccountsTable {
   image?: string;
 }
 
-export interface Database {
+export interface MainDatabase {
   accounts: AccountsTable;
 }
