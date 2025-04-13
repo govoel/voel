@@ -393,7 +393,6 @@ const useSyncSubscriptionOptions = (
         {
           enabled: true,
           onData: async (data) => {
-            console.log('SWEET DATA', data);
             if (data.type === 'history') {
               if (data.payload.table === 'library') {
                 await upsertLibrary(

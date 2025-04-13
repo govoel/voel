@@ -98,7 +98,6 @@ describe('delete empty directories', () => {
 
     const dirsToExist = new Set<string>();
     for (const file of files) {
-      console.log(`File should exist: "${pathJoin(libraryPath, file)}"`);
       expect(await Bun.file(pathJoin(libraryPath, file)).exists()).toBe(true);
       dirsToExist.add(dirname(pathJoin(libraryPath, file)));
     }
@@ -106,7 +105,6 @@ describe('delete empty directories', () => {
     const remainingDirs = await readdir(libraryPath, { recursive: true, withFileTypes: true });
     for (const dir of remainingDirs) {
       if (dir.isDirectory()) {
-        console.log(`Directory should exist: "${pathJoin(dir.parentPath, dir.name)}"`);
         expect(await exists(pathJoin(dir.parentPath, dir.name))).toBe(
           dirsToExist.values().find((v) => v.startsWith(pathJoin(dir.parentPath, dir.name))) !==
             undefined

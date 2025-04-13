@@ -92,7 +92,7 @@ export const createInstances = (
 ) => {
   const instanceIDNum = parseInt(instanceID, 10);
 
-  if (!(typeof instanceIDNum === 'number') || isNaN(instanceIDNum)) {
+  if (isNaN(instanceIDNum)) {
     throw new Error(`Invalid instance ID: ${instanceID}`);
   }
 
