@@ -17,7 +17,7 @@ import {
 /**
  * Config for the SQLite dialect.
  */
-interface SolarCoreDialectConfig {
+interface SourceTapDialectConfig {
   /**
    * An sqlite Database instance or a function that returns one.
    */
@@ -29,15 +29,15 @@ interface SolarCoreDialectConfig {
   onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
 }
 
-export class SolarCoreDialect implements Dialect {
-  readonly #config: SolarCoreDialectConfig;
+export class SourceTapDialect implements Dialect {
+  readonly #config: SourceTapDialectConfig;
 
-  constructor(config: SolarCoreDialectConfig) {
+  constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
   createDriver(): Driver {
-    return new SolarCoreSqliteDriver(this.#config);
+    return new SourceTapSqliteDriver(this.#config);
   }
 
   createQueryCompiler(): QueryCompiler {
@@ -53,21 +53,21 @@ export class SolarCoreDialect implements Dialect {
   }
 }
 
-class SolarCoreSqliteDriver implements Driver {
-  readonly #config: SolarCoreDialectConfig;
+class SourceTapSqliteDriver implements Driver {
+  readonly #config: SourceTapDialectConfig;
   readonly #connectionMutex = new ConnectionMutex();
 
   #db?: Database;
   #connection?: DatabaseConnection;
 
-  constructor(config: SolarCoreDialectConfig) {
+  constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
   async init(): Promise<void> {
     this.#db = this.#config.database;
 
-    this.#connection = new SolarCoreSqliteConnection(this.#db);
+    this.#connection = new SourceTapSqliteConnection(this.#db);
 
     if (this.#config.onCreateConnection) {
       await this.#config.onCreateConnection(this.#connection);
@@ -102,7 +102,7 @@ class SolarCoreSqliteDriver implements Driver {
   }
 }
 
-class SolarCoreSqliteConnection implements DatabaseConnection {
+class SourceTapSqliteConnection implements DatabaseConnection {
   readonly #db: Database;
 
   constructor(db: Database) {
@@ -150,9 +150,9 @@ class SolarCoreSqliteConnection implements DatabaseConnection {
 }
 
 export class BunSqliteDialect implements Dialect {
-  readonly #config: SolarCoreDialectConfig;
+  readonly #config: SourceTapDialectConfig;
 
-  constructor(config: SolarCoreDialectConfig) {
+  constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
@@ -174,13 +174,13 @@ export class BunSqliteDialect implements Dialect {
 }
 
 class BunSqliteDriver implements Driver {
-  readonly #config: SolarCoreDialectConfig;
+  readonly #config: SourceTapDialectConfig;
   readonly #connectionMutex = new ConnectionMutex();
 
   #db?: Database;
   #connection?: DatabaseConnection;
 
-  constructor(config: SolarCoreDialectConfig) {
+  constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 

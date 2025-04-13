@@ -46,12 +46,12 @@ interface TypedEmitter<L extends ListenerSignature<L> = DefaultListener> {
   setMaxListeners(n: number): this;
 }
 
-type SolarCoreQueryId =
+type SourceTapQueryId =
   PluginTransformQueryArgs['queryId'] extends PluginTransformResultArgs['queryId']
     ? PluginTransformQueryArgs['queryId']
     : never;
 
-export interface SolarCoreEvents<DB> {
+export interface SourceTapEvents<DB> {
   update: (
     payload: {
       [T in keyof DB]: { table: T; rows: DeepReadonly<Selectable<DB[T]>[]> };
@@ -59,28 +59,28 @@ export interface SolarCoreEvents<DB> {
   ) => void;
 }
 
-export class SolarCore<DB> implements KyselyPlugin {
-  readonly events: TypedEmitter<SolarCoreEvents<DB>>;
+export class SourceTap<DB> implements KyselyPlugin {
+  readonly events: TypedEmitter<SourceTapEvents<DB>>;
 
   #inTransaction: boolean;
   #transactionEvents: [
-    keyof SolarCoreEvents<DB>,
-    Parameters<SolarCoreEvents<DB>[keyof SolarCoreEvents<DB>]>[0],
+    keyof SourceTapEvents<DB>,
+    Parameters<SourceTapEvents<DB>[keyof SourceTapEvents<DB>]>[0],
   ][];
 
   #trackTables: Set<keyof DB>;
 
-  #transformer: SolarCoreTransformer;
-  #transformerVars: Map<'currentQueryId', SolarCoreQueryId>;
-  #currentTable: WeakMap<SolarCoreQueryId, string>;
-  #currentQueryType: WeakMap<SolarCoreQueryId, 'insert' | 'update'>;
-  #currentOriginalReturning: WeakMap<SolarCoreQueryId, Set<string>>;
-  #currentOriginalReturningAlias: WeakMap<SolarCoreQueryId, Set<string>>;
+  #transformer: SourceTapTransformer;
+  #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
+  #currentTable: WeakMap<SourceTapQueryId, string>;
+  #currentQueryType: WeakMap<SourceTapQueryId, 'insert' | 'update'>;
+  #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
+  #currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>;
 
   constructor(opts: { trackTables: Set<keyof DB> }) {
     this.#trackTables = opts.trackTables;
 
-    this.events = new EventEmitter() as TypedEmitter<SolarCoreEvents<DB>>;
+    this.events = new EventEmitter() as TypedEmitter<SourceTapEvents<DB>>;
 
     this.#inTransaction = false;
     this.#transactionEvents = [];
@@ -91,14 +91,14 @@ export class SolarCore<DB> implements KyselyPlugin {
     this.#currentOriginalReturningAlias = new WeakMap();
 
     this.#transformerVars = new Map();
-    this.#transformer = new SolarCoreTransformer(
+    this.#transformer = new SourceTapTransformer(
       this.#transformerVars,
       this.#currentOriginalReturning,
       this.#currentOriginalReturningAlias
     );
   }
 
-  private setUpQuery(queryId: SolarCoreQueryId, tableName: string, queryType: 'insert' | 'update') {
+  private setUpQuery(queryId: SourceTapQueryId, tableName: string, queryType: 'insert' | 'update') {
     this.#currentTable.set(queryId, tableName);
     this.#currentQueryType.set(queryId, queryType);
     this.#transformerVars.set('currentQueryId', queryId);
@@ -120,14 +120,14 @@ export class SolarCore<DB> implements KyselyPlugin {
         }
       } else {
         throw new Error(
-          `SolarCore transformQuery has an unhandled UpdateQueryNode type: ${args.node.table.kind}`
+          `SourceTap transformQuery has an unhandled UpdateQueryNode type: ${args.node.table.kind}`
         );
       }
     }
     return args.node;
   }
 
-  private cleanUpQuery(queryId: SolarCoreQueryId) {
+  private cleanUpQuery(queryId: SourceTapQueryId) {
     this.#currentTable.delete(queryId);
     this.#currentQueryType.delete(queryId);
     this.#currentOriginalReturning.delete(queryId);
@@ -247,18 +247,18 @@ export class SolarCore<DB> implements KyselyPlugin {
   }
 }
 
-class SolarCoreTransformer extends OperationNodeTransformer {
-  #transformerVars: Map<'currentQueryId', SolarCoreQueryId>;
-  #currentOriginalReturning: WeakMap<SolarCoreQueryId, Set<string>>;
-  #currentOriginalReturningAlias: WeakMap<SolarCoreQueryId, Set<string>>;
+class SourceTapTransformer extends OperationNodeTransformer {
+  #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
+  #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
+  #currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>;
 
   static returningNode = ReturningNode.create([SelectionNode.createSelectAll()]);
   static selectAllNode = SelectionNode.createSelectAll();
 
   constructor(
-    transformerVars: Map<'currentQueryId', SolarCoreQueryId>,
-    currentOriginalReturning: WeakMap<SolarCoreQueryId, Set<string>>,
-    currentOriginalReturningAlias: WeakMap<SolarCoreQueryId, Set<string>>
+    transformerVars: Map<'currentQueryId', SourceTapQueryId>,
+    currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>,
+    currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>
   ) {
     super();
 
@@ -274,7 +274,7 @@ class SolarCoreTransformer extends OperationNodeTransformer {
 
     return {
       ...node,
-      returning: SolarCoreTransformer.returningNode,
+      returning: SourceTapTransformer.returningNode,
     };
   }
 
@@ -314,7 +314,7 @@ class SolarCoreTransformer extends OperationNodeTransformer {
           currentOriginalReturning.add('*');
         } else {
           throw new Error(
-            `SolarCore transformReturning has an unhandled ReferenceNode type: ${node.selection.column}`
+            `SourceTap transformReturning has an unhandled ReferenceNode type: ${node.selection.column}`
           );
         }
       } else if (AliasNode.is(node.selection)) {
@@ -323,14 +323,14 @@ class SolarCoreTransformer extends OperationNodeTransformer {
           currentOriginalReturningAlias.add(node.selection.alias.name);
         } else {
           throw new Error(
-            `SolarCore transformReturning has an unhandled AliasNode type: ${node.selection.alias}`
+            `SourceTap transformReturning has an unhandled AliasNode type: ${node.selection.alias}`
           );
         }
       } else if (SelectAllNode.is(node.selection)) {
         currentOriginalReturning.add('*');
       } else {
         throw new Error(
-          `SolarCore transformReturning has an unhandled SelectionNode type: ${node.selection}`
+          `SourceTap transformReturning has an unhandled SelectionNode type: ${node.selection}`
         );
       }
     }
@@ -344,7 +344,7 @@ class SolarCoreTransformer extends OperationNodeTransformer {
 
     return {
       ...returningNode,
-      selections: [...returningNode.selections, SolarCoreTransformer.selectAllNode],
+      selections: [...returningNode.selections, SourceTapTransformer.selectAllNode],
     };
   }
 }
