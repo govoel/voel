@@ -6,14 +6,17 @@ import {
   Dialect,
   DialectAdapter,
   Driver,
+  IdentifierNode,
   Kysely,
   Migration,
   MigrationProvider,
   QueryCompiler,
   QueryResult,
+  RawNode,
   SqliteAdapter,
   SqliteIntrospector,
   SqliteQueryCompiler,
+  createQueryId,
 } from 'kysely';
 
 export interface OpSqliteDialectConfig {
@@ -23,6 +26,13 @@ export interface OpSqliteDialectConfig {
 
 export function freeze<T>(obj: T): Readonly<T> {
   return Object.freeze(obj);
+}
+
+function parseSavepointCommand(command: string, savepointName: string): RawNode {
+  return RawNode.createWithChildren([
+    RawNode.createWithSql(`${command} `),
+    IdentifierNode.create(savepointName), // ensures savepointName gets sanitized
+  ]);
 }
 
 /**
@@ -117,6 +127,36 @@ export class OpSqliteDriver implements Driver {
 
   async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('rollback'));
+  }
+
+  async savepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('savepoint', savepointName), createQueryId())
+    );
+  }
+
+  async rollbackToSavepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('rollback to', savepointName), createQueryId())
+    );
+  }
+
+  async releaseSavepoint(
+    connection: DatabaseConnection,
+    savepointName: string,
+    compileQuery: QueryCompiler['compileQuery']
+  ): Promise<void> {
+    await connection.executeQuery(
+      compileQuery(parseSavepointCommand('release', savepointName), createQueryId())
+    );
   }
 
   async releaseConnection(): Promise<void> {

@@ -1,5 +1,5 @@
 import Database from 'bun:sqlite';
-import { afterEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import { type ColumnType, type Generated, Kysely } from 'kysely';
 
 import { BunSqliteDialect, SourceTapDialect } from './dialect';
@@ -405,7 +405,7 @@ describe('SourceTap', () => {
     }
   });
 
-  test.each(cases)('Transaction: %s', async (_, { trackTables }, queries) => {
+  test.each(cases)('Transaction (callback): %s', async (_, { trackTables }, queries) => {
     for (let i = 0; i < 2; i++) {
       const listener1 = mock();
       const listener2 = mock();
@@ -474,8 +474,86 @@ describe('SourceTap', () => {
     }
   });
 
+  test.each(cases)('Transaction (variable): %s', async (_, { trackTables }, queries) => {
+    for (let i = 0; i < 2; i++) {
+      const listener1 = mock();
+      const listener2 = mock();
+      const listener3 = mock();
+      if (i === 0) {
+        const sourceTap = new SourceTap<KyselyDB>({ trackTables });
+        db = await createDb(sourceTap);
+        sourceTap.events.on('update', listener1);
+        sourceTap.events.on('update', listener2);
+        sourceTap.events.on('update', listener3);
+      } else {
+        db = await createDb();
+      }
+
+      const trx = await db.startTransaction().execute();
+      const commitSpy = spyOn(trx, 'commit');
+      const rollbackSpy = spyOn(trx, 'rollback');
+      try {
+        for (const entry of queries) {
+          if ('executeTakeFirstOrThrow' in entry) {
+            expect(await entry.query(trx).executeTakeFirstOrThrow()).toEqual(
+              entry.executeTakeFirstOrThrow
+            );
+          } else if ('executeTakeFirst' in entry) {
+            expect(await entry.query(trx).executeTakeFirst()).toEqual(entry.executeTakeFirst);
+          } else if ('execute' in entry) {
+            // @ts-expect-error Kysely doesn't recognize some queries that are valid
+            expect(await entry.query(trx).execute()).toEqual(entry.execute);
+          } else {
+            throw new Error('Invalid query entry');
+          }
+
+          expect(listener1).toHaveBeenCalledTimes(0);
+          expect(listener2).toHaveBeenCalledTimes(0);
+          expect(listener3).toHaveBeenCalledTimes(0);
+        }
+
+        expect(listener1).toHaveBeenCalledTimes(0);
+        expect(listener2).toHaveBeenCalledTimes(0);
+        expect(listener3).toHaveBeenCalledTimes(0);
+        await trx.commit().execute();
+      } catch {
+        await trx.rollback().execute();
+      }
+
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(rollbackSpy).toHaveBeenCalledTimes(0);
+
+      for (const [j, entry] of queries.entries()) {
+        if (i === 0) {
+          if ('listener' in entry) {
+            const listenerCallCount = queries.slice(0, j).filter((q) => 'listener' in q).length + 1;
+            expect(listener1).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
+            expect(listener2).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
+            expect(listener3).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
+          }
+        } else {
+          expect(listener1).toHaveBeenCalledTimes(0);
+          expect(listener2).toHaveBeenCalledTimes(0);
+          expect(listener3).toHaveBeenCalledTimes(0);
+        }
+      }
+
+      if (i === 0) {
+        expect(listener1).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
+        expect(listener2).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
+        expect(listener3).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
+      } else {
+        expect(listener1).toHaveBeenCalledTimes(0);
+        expect(listener2).toHaveBeenCalledTimes(0);
+        expect(listener3).toHaveBeenCalledTimes(0);
+      }
+
+      db.destroy();
+    }
+  });
+
   test.each(cases)(
-    'Transaction rollback discards events: %s',
+    'Transaction (callback) rollback discards events: %s',
     async (_, { trackTables }, queries) => {
       for (let i = 0; i < 2; i++) {
         const listener1 = mock();
@@ -519,11 +597,150 @@ describe('SourceTap', () => {
             expect(listener2).toHaveBeenCalledTimes(0);
             expect(listener3).toHaveBeenCalledTimes(0);
           });
-        } catch {
+        } catch (err) {
+          expect(err).toBeInstanceOf(Error);
+          expect((err as Error).message).toBe('Intentionally cause a rollback');
           expect(listener1).toHaveBeenCalledTimes(0);
           expect(listener2).toHaveBeenCalledTimes(0);
           expect(listener3).toHaveBeenCalledTimes(0);
         }
+
+        expect(listener1).toHaveBeenCalledTimes(0);
+        expect(listener2).toHaveBeenCalledTimes(0);
+        expect(listener3).toHaveBeenCalledTimes(0);
+        db.destroy();
+      }
+    }
+  );
+
+  test.each(cases)(
+    'Transaction (variable) rollback discards events: %s',
+    async (_, { trackTables }, queries) => {
+      for (let i = 0; i < 2; i++) {
+        const listener1 = mock();
+        const listener2 = mock();
+        const listener3 = mock();
+        if (i === 0) {
+          const sourceTap = new SourceTap<KyselyDB>({ trackTables });
+          db = await createDb(sourceTap);
+          sourceTap.events.on('update', listener1);
+          sourceTap.events.on('update', listener2);
+          sourceTap.events.on('update', listener3);
+        } else {
+          db = await createDb();
+        }
+        const trx = await db.startTransaction().execute();
+        const commitSpy = spyOn(trx, 'commit');
+        const rollbackSpy = spyOn(trx, 'rollback');
+        try {
+          for (const [i, entry] of queries.entries()) {
+            if ('executeTakeFirstOrThrow' in entry) {
+              expect(await entry.query(trx).executeTakeFirstOrThrow()).toEqual(
+                entry.executeTakeFirstOrThrow
+              );
+            } else if ('executeTakeFirst' in entry) {
+              expect(await entry.query(trx).executeTakeFirst()).toEqual(entry.executeTakeFirst);
+            } else if ('execute' in entry) {
+              // @ts-expect-error Kysely doesn't recognize some queries that are valid
+              expect(await entry.query(trx).execute()).toEqual(entry.execute);
+            } else {
+              throw new Error('Invalid query entry');
+            }
+
+            expect(listener1).toHaveBeenCalledTimes(0);
+            expect(listener2).toHaveBeenCalledTimes(0);
+            expect(listener3).toHaveBeenCalledTimes(0);
+
+            if (queries.length - 1 === i) {
+              throw new Error('Intentionally cause a rollback');
+            }
+          }
+
+          await trx.commit().execute();
+          expect(listener1).toHaveBeenCalledTimes(0);
+          expect(listener2).toHaveBeenCalledTimes(0);
+          expect(listener3).toHaveBeenCalledTimes(0);
+        } catch (err) {
+          expect(err).toBeInstanceOf(Error);
+          expect((err as Error).message).toBe('Intentionally cause a rollback');
+          await trx.rollback().execute();
+          expect(listener1).toHaveBeenCalledTimes(0);
+          expect(listener2).toHaveBeenCalledTimes(0);
+          expect(listener3).toHaveBeenCalledTimes(0);
+        }
+
+        expect(commitSpy).toHaveBeenCalledTimes(0);
+        expect(rollbackSpy).toHaveBeenCalledTimes(1);
+
+        expect(listener1).toHaveBeenCalledTimes(0);
+        expect(listener2).toHaveBeenCalledTimes(0);
+        expect(listener3).toHaveBeenCalledTimes(0);
+        db.destroy();
+      }
+    }
+  );
+
+  test.each(cases)(
+    'Transaction (variable) savepoint throws an error: %s',
+    async (_, { trackTables }, queries) => {
+      for (let i = 0; i < 2; i++) {
+        const listener1 = mock();
+        const listener2 = mock();
+        const listener3 = mock();
+        if (i === 0) {
+          const sourceTap = new SourceTap<KyselyDB>({ trackTables });
+          db = await createDb(sourceTap);
+          sourceTap.events.on('update', listener1);
+          sourceTap.events.on('update', listener2);
+          sourceTap.events.on('update', listener3);
+        } else {
+          db = await createDb();
+        }
+        const trx = await db.startTransaction().execute();
+        const savepointSpy = spyOn(trx, 'savepoint');
+        const commitSpy = spyOn(trx, 'commit');
+        const rollbackSpy = spyOn(trx, 'rollback');
+        try {
+          for (const [i, entry] of queries.entries()) {
+            if ('executeTakeFirstOrThrow' in entry) {
+              expect(await entry.query(trx).executeTakeFirstOrThrow()).toEqual(
+                entry.executeTakeFirstOrThrow
+              );
+            } else if ('executeTakeFirst' in entry) {
+              expect(await entry.query(trx).executeTakeFirst()).toEqual(entry.executeTakeFirst);
+            } else if ('execute' in entry) {
+              // @ts-expect-error Kysely doesn't recognize some queries that are valid
+              expect(await entry.query(trx).execute()).toEqual(entry.execute);
+            } else {
+              throw new Error('Invalid query entry');
+            }
+
+            expect(listener1).toHaveBeenCalledTimes(0);
+            expect(listener2).toHaveBeenCalledTimes(0);
+            expect(listener3).toHaveBeenCalledTimes(0);
+
+            if (queries.length - 1 === i) {
+              await trx.savepoint('test').execute();
+            }
+          }
+
+          await trx.commit().execute();
+          expect(listener1).toHaveBeenCalledTimes(0);
+          expect(listener2).toHaveBeenCalledTimes(0);
+          expect(listener3).toHaveBeenCalledTimes(0);
+        } catch (err) {
+          expect(err).toBeInstanceOf(Error);
+          expect((err as Error).message).toBe('SourceTap does not support nested transactions');
+          await trx.rollback().execute();
+          expect(listener1).toHaveBeenCalledTimes(0);
+          expect(listener2).toHaveBeenCalledTimes(0);
+          expect(listener3).toHaveBeenCalledTimes(0);
+        }
+
+        // default driver supports nested transactions, but SourceTap does not
+        expect(savepointSpy).toHaveBeenCalledTimes(1);
+        expect(commitSpy).toHaveBeenCalledTimes(i === 1 ? 1 : 0);
+        expect(rollbackSpy).toHaveBeenCalledTimes(i === 1 ? 0 : 1);
 
         expect(listener1).toHaveBeenCalledTimes(0);
         expect(listener2).toHaveBeenCalledTimes(0);

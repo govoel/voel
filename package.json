@@ -11,6 +11,6 @@
     "bun-types": "1.2.9"
   },
   "overrides": {
-    "@better-fetch/fetch": "1.1.17"
+    "kysely": "0.28.0"
   }
 }
