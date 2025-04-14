@@ -329,12 +329,25 @@ class SourceTapTransformer extends OperationNodeTransformer {
           );
         }
       } else if (AliasNode.is(node.selection)) {
-        if (IdentifierNode.is(node.selection.alias)) {
-          currentOriginalReturning.add(node.selection.alias.name);
-          currentOriginalReturningAlias.add(node.selection.alias.name);
+        let columnName: string | null = null;
+        if (ReferenceNode.is(node.selection.node) && ColumnNode.is(node.selection.node.column)) {
+          columnName = node.selection.node.column.column.name;
         } else {
           throw new Error(
-            `SourceTap transformReturning has an unhandled AliasNode type: ${node.selection.alias}`
+            `SourceTap transformReturning has an unhandled AliasNode.node type: ${node.selection.node}`
+          );
+        }
+
+        if (IdentifierNode.is(node.selection.alias)) {
+          currentOriginalReturning.add(node.selection.alias.name);
+          // we need to check that the column does not have the same name as the alias
+          // otherwise transformResults will remove this column from the listeners
+          if (node.selection.alias.name !== columnName) {
+            currentOriginalReturningAlias.add(node.selection.alias.name);
+          }
+        } else {
+          throw new Error(
+            `SourceTap transformReturning has an unhandled AliasNode.alias type: ${node.selection.alias}`
           );
         }
       } else if (SelectAllNode.is(node.selection)) {
