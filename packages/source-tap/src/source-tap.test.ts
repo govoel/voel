@@ -151,11 +151,51 @@ describe('SourceTap', () => {
           ],
         },
         {
+          query: (db: Kysely<KyselyDB>) =>
+            db
+              .insertInto('users3')
+              .values([
+                { uuid: 'four', username: 'test4', name: 'testName4' },
+                { uuid: 'five', username: 'test5', name: 'testName5' },
+              ])
+              .returning(['uuid as uuid', 'username as username', 'name as name']),
+          execute: [
+            { uuid: 'four', username: 'test4', name: 'testName4' },
+            { uuid: 'five', username: 'test5', name: 'testName5' },
+          ],
+          listener: [
+            {
+              table: 'users3',
+              rows: [
+                { uuid: 'four', username: 'test4', name: 'testName4' },
+                { uuid: 'five', username: 'test5', name: 'testName5' },
+              ],
+            },
+          ],
+        },
+        {
+          query: (db: Kysely<KyselyDB>) =>
+            db
+              .updateTable('users3')
+              .set({ name: 'updatedName4' })
+              .where('uuid', '=', 'four')
+              .returning(['uuid as uuid', 'username as username', 'name as name']),
+          execute: [{ uuid: 'four', username: 'test4', name: 'updatedName4' }],
+          listener: [
+            {
+              table: 'users3',
+              rows: [{ uuid: 'four', username: 'test4', name: 'updatedName4' }],
+            },
+          ],
+        },
+        {
           query: (db: Kysely<KyselyDB>) => db.selectFrom('users3').selectAll(),
           execute: [
             { uuid: 'updatedOne', username: 'updated1', name: null },
             { uuid: 'two', username: 'test2', name: 'updatedName2' },
             { uuid: 'three', username: 'test3', name: 'updatedName2' },
+            { uuid: 'four', username: 'test4', name: 'updatedName4' },
+            { uuid: 'five', username: 'test5', name: 'testName5' },
           ],
         },
         {
@@ -163,6 +203,8 @@ describe('SourceTap', () => {
           execute: [
             { rowid: 2, username: 'test2' },
             { rowid: 3, username: 'test3' },
+            { rowid: 4, username: 'test4' },
+            { rowid: 5, username: 'test5' },
             { rowid: 1, username: 'updated1' },
           ],
         },
