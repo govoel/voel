@@ -4,7 +4,7 @@ import { useReactQueryDevTools } from '@dev-plugins/react-query';
 import { DarkTheme, DefaultTheme, Theme, ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Slot, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import {
   colorScheme as nativewindColorScheme,
   useColorScheme as useNativewindColorScheme,

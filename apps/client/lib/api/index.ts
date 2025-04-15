@@ -1,4 +1,5 @@
 import * as accounts from './accounts';
+import * as books from './books';
 import { MutationCache, QueryClient } from '@tanstack/react-query';
 
 export const queryClient = new QueryClient({
@@ -21,4 +22,4 @@ export const queryClient = new QueryClient({
   }),
 });
 
-export default { accounts };
+export default { accounts, books };
