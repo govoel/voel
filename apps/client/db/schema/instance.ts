@@ -19,6 +19,7 @@ export interface AuthorTable<Version extends 'realtime' | 'regular' = 'regular'>
   name: Regularize<ColumnType<string, string, string>, Version>;
   about: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
   avatar: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
+  avatarThumbhash: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
@@ -42,6 +43,7 @@ export interface BookTable<Version extends 'realtime' | 'regular' = 'regular'> {
   title: Regularize<ColumnType<string, string, string>, Version>;
   subtitle: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
   cover: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
+  coverThumbhash: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
   summary: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
   adultsOnly: Regularize<ColumnType<0 | 1, 0 | 1, 0 | 1>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;

@@ -1,6 +1,9 @@
+import axios from 'axios';
 import { type Insertable, NoResultError } from 'kysely';
 import { lstat, readdir, rmdir } from 'node:fs/promises';
 import { dirname, join as pathJoin, sep as pathSep } from 'node:path';
+import sharp from 'sharp';
+import { rgbaToThumbHash } from 'thumbhash';
 import TurndownService from 'turndown';
 import { Actor, createActor, setup } from 'xstate';
 
@@ -197,13 +200,13 @@ function sortAlbumTracks<T extends AudioFile>(albumGroups: Record<string, T[]>) 
 async function identifyBooks<T extends AudioFile>(albumGroups: Record<string, T[]>) {
   const albumGroupKeys = Object.keys(albumGroups);
 
-  const books = (
+  const booksWithoutThumbhashes = (
     await processInBatches(env.MATCHER_BATCH_SIZE, albumGroupKeys, (i) =>
       matchAlbumGroup(albumGroups[i]![0]!)
     )
   )
-    .map((book, i) => ({ ...book, files: albumGroups[albumGroupKeys[i]!]! }))
-    .filter((book, i): book is PromiseFulfilledResult<AudibleBook> & { files: T[] } => {
+    .map((book, i) => ({ ...book, preFilterIndex: i }))
+    .filter((book, i): book is PromiseFulfilledResult<AudibleBook> & { preFilterIndex: number } => {
       if (book.status === 'fulfilled' && book.value !== null) {
         scanLogger.debug(
           'Identified album: %s by %s',
@@ -215,7 +218,21 @@ async function identifyBooks<T extends AudioFile>(albumGroups: Record<string, T[
       scanLogger.warn('Failed to identify album: %s', albumGroupKeys[i]);
       return false;
     })
-    .map((book) => ({ ...book.value, files: book.files }));
+    .map((book) => ({
+      ...book.value,
+      files: albumGroups[albumGroupKeys[book.preFilterIndex]!]!,
+    }));
+
+  const booksThumbhashes = await processInBatches(
+    env.MATCHER_BATCH_SIZE,
+    booksWithoutThumbhashes,
+    (book) => generateThumbhash(book.product_images[500].replace(/\._S[A-Z]+500_\./, '._SL100_.'))
+  );
+
+  const books = booksWithoutThumbhashes.map((book, i) => ({
+    ...book,
+    coverThumbhash: booksThumbhashes[i]!.status === 'fulfilled' ? booksThumbhashes[i]!.value : null,
+  }));
 
   return books;
 }
@@ -242,6 +259,23 @@ async function fetchAuthorsAndSeries(books: AudibleBook[]) {
   };
 }
 
+async function getAuthorByAsinWithThumbhash(asin: string) {
+  const author = await getAuthorByAsin(asin);
+  if (!author) return null;
+
+  const avatarThumbhash = await generateThumbhash(
+    author.avatar.replace(/\._S[A-Z]+500_\./, '._SL100_.')
+  );
+
+  return {
+    asin,
+    name: author.name,
+    about: author.about,
+    avatar: author.avatar,
+    avatarThumbhash,
+  };
+}
+
 async function fetchAuthorDetails(pendingAuthorAsins: Set<string>) {
   const authorAsinsArray = Array.from(pendingAuthorAsins);
   scanLogger.debug('Fetching details for %d unique authors', authorAsinsArray.length);
@@ -249,11 +283,20 @@ async function fetchAuthorDetails(pendingAuthorAsins: Set<string>) {
   const authorResults = await processInBatches(
     env.MATCHER_BATCH_SIZE,
     authorAsinsArray,
-    getAuthorByAsin
+    getAuthorByAsinWithThumbhash
   );
 
-  const authors = new Map<string, { asin: string; name: string; about: string; avatar: string }>();
-  authorResults.forEach((author, i) => {
+  const authors = new Map<
+    string,
+    {
+      asin: string;
+      name: string;
+      about: string;
+      avatar: string;
+      avatarThumbhash: string | null;
+    }
+  >();
+  for (const [i, author] of authorResults.entries()) {
     if (author.status === 'rejected' || (author.status === 'fulfilled' && author.value === null)) {
       scanLogger.warn('Failed to fetch author for ASIN %s', authorAsinsArray[i]);
     } else if (author.value !== null) {
@@ -262,10 +305,11 @@ async function fetchAuthorDetails(pendingAuthorAsins: Set<string>) {
         asin: authorAsinsArray[i]!,
         name: author.value.name,
         about: author.value.about,
-        avatar: author.value.avatar.replace('._SX500_.', '.'),
+        avatar: author.value.avatar.replace(/\._S[A-Z]+500_\./, '.'),
+        avatarThumbhash: author.value.avatarThumbhash,
       });
     }
-  });
+  }
 
   return authors;
 }
@@ -344,7 +388,7 @@ type AllPropsRequired<T> = Required<{ [P in keyof T]: Required<NonNullable<T[P]>
 
 async function insertBooksIntoDatabase(
   library: { id: number },
-  books: (AudibleBook & { files: AudioFile[] })[],
+  books: (AudibleBook & { coverThumbhash: string | null; files: AudioFile[] })[],
   authors: Map<
     string,
     {
@@ -352,6 +396,7 @@ async function insertBooksIntoDatabase(
       name: string;
       about: string;
       avatar: string;
+      avatarThumbhash: string | null;
     }
   >,
   series: Map<
@@ -367,7 +412,7 @@ async function insertBooksIntoDatabase(
 ) {
   for (const book of books) {
     try {
-      const bookToInsert = prepareBookData(book);
+      const bookToInsert = await prepareBookData(book);
 
       const { basic: basicAuthors, complete: completeAuthors } = prepareAuthorData(
         book.authors,
@@ -673,13 +718,35 @@ async function insertBooksIntoDatabase(
   }
 }
 
-function prepareBookData(book: AudibleBook) {
+async function generateThumbhash(imageURL: string) {
+  scanLogger.debug('Generating thumbhash for image %s', imageURL);
+  const imageBuffer = await axios.get(imageURL, { responseType: 'arraybuffer' });
+  const image = sharp(imageBuffer.data).resize({
+    width: 100,
+    height: 100,
+    fit: 'inside',
+    withoutEnlargement: true,
+  });
+  const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  try {
+    const thumbhash = Buffer.from(rgbaToThumbHash(info.width, info.height, data)).toString(
+      'base64'
+    );
+    return thumbhash;
+  } catch (error) {
+    scanLogger.warn('Failed to generate thumbhash for image %s: %s', imageURL, error);
+  }
+  return null;
+}
+
+async function prepareBookData(book: AudibleBook & { coverThumbhash: string | null }) {
   return {
     asin: book.asin,
     type: 'audio',
     title: book.title,
     subtitle: book.subtitle,
-    cover: book.product_images['500'].replace('._SL500_.', '.'),
+    cover: book.product_images['500'].replace(/\._S[A-Z]+500_\./, '.'),
+    coverThumbhash: book.coverThumbhash,
     summary: turndownService.turndown(book.publisher_summary),
     adultsOnly: book.is_adult_product ? 1 : 0,
   } satisfies Insertable<BookTable>;
@@ -689,9 +756,19 @@ type IterableElementType<T extends Iterable<unknown>> = T extends Iterable<infer
 
 function prepareAuthorData(
   authorsFromBook: AudibleBook['authors'],
-  authorsFromAudible: Map<string, { asin: string; name: string; about: string; avatar: string }>
+  authorsFromAudible: Map<
+    string,
+    {
+      asin: string;
+      name: string;
+      about: string;
+      avatar: string;
+      avatarThumbhash: string | null;
+    }
+  >
 ) {
-  const complete: AllPropsRequired<Insertable<AuthorTable>>[] = [];
+  const complete: (AllPropsRequired<Omit<Insertable<AuthorTable>, 'avatarThumbhash'>> &
+    Pick<Insertable<AuthorTable>, 'avatarThumbhash'>)[] = [];
   const basic: Concrete<Insertable<AuthorTable>>[] = [];
 
   for (const author of authorsFromBook) {
