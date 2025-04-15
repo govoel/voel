@@ -35,6 +35,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('name', 'text', (col) => col.notNull())
     .addColumn('about', 'text')
     .addColumn('avatar', 'text')
+    .addColumn('avatarThumbhash', 'text')
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -98,6 +99,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('title', 'text', (col) => col.notNull())
     .addColumn('subtitle', 'text')
     .addColumn('cover', 'text')
+    .addColumn('coverThumbhash', 'text')
     .addColumn('summary', 'text')
     .addColumn('adultsOnly', 'integer', (col) =>
       col

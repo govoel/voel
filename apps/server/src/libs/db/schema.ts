@@ -14,6 +14,7 @@ export interface AuthorTable {
   name: string;
   about: string | null;
   avatar: string | null;
+  avatarThumbhash: string | null;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
   deletedAt: ColumnType<number | null, never, number | null>;
@@ -37,6 +38,7 @@ export interface BookTable {
   title: string;
   subtitle: string | null;
   cover: string | null;
+  coverThumbhash: string | null;
   summary: string | null;
   adultsOnly: 0 | 1;
   createdAt: ColumnType<number, never, never>;
