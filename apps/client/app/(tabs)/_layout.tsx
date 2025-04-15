@@ -9,7 +9,6 @@ import { AuthModal } from '~/components/auth-modal';
 import { Spinner } from '~/components/spinner';
 import { Text } from '~/components/ui/text';
 
-import { mainOpDb } from '~/db/client';
 import { useMigrations } from '~/db/migrations';
 import { useDrizzleStudio } from '~/db/studio';
 
@@ -25,7 +24,7 @@ export default function TabLayout() {
         <SubscriptionProvider>
           <Tabs initialRouteName="(home)" screenOptions={{ headerShown: false }}>
             <Tabs.Screen
-              name="library"
+              name="(library)"
               options={{
                 title: 'Library',
                 tabBarIcon: ({ color, size }) => <Library color={color} size={size} />,
