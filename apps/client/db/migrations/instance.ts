@@ -44,6 +44,7 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .addColumn('name', 'text', (col) => col.notNull())
                 .addColumn('about', 'text')
                 .addColumn('avatar', 'text')
+                .addColumn('avatarThumbhash', 'text')
                 .addColumn('createdAt', 'integer', (col) =>
                   col.defaultTo(sql`(unixepoch())`).notNull()
                 )
@@ -107,6 +108,7 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .addColumn('title', 'text', (col) => col.notNull())
                 .addColumn('subtitle', 'text')
                 .addColumn('cover', 'text')
+                .addColumn('coverThumbhash', 'text')
                 .addColumn('summary', 'text')
                 .addColumn('adultsOnly', 'integer', (col) =>
                   col
