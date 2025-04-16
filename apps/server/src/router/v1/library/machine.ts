@@ -557,8 +557,8 @@ async function insertBooksIntoDatabase(
             .insertInto('audiobookChapter')
             .values(
               book.files[0].metadata.chapters.map((c) => {
-                const startTime = c.start * 1000;
-                const endTime = c.end * 1000;
+                const startTime = c.start_time * 1000;
+                const endTime = c.end_time * 1000;
                 return {
                   bookId: insertedBook.id,
                   parentId: null,

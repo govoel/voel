@@ -69,8 +69,8 @@ const ffprobeSchema = z.object({
   chapters: z.array(
     z.object({
       id: z.coerce.number(),
-      start: z.coerce.number(),
-      end: z.coerce.number(),
+      start_time: z.coerce.number(),
+      end_time: z.coerce.number(),
       tags: z.object({ title: z.string() }),
     })
   ),
