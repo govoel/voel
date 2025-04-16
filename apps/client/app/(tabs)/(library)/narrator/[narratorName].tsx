@@ -1,5 +1,6 @@
 import { useSelector } from '@xstate/store/react';
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import React from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
@@ -8,27 +9,29 @@ import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { Text } from '~/components/ui/text';
-import { Large } from '~/components/ui/typography';
+import { H2, Large, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { instanceStore } from '~/lib/stores/instance';
 
-export default function LibraryScreen() {
+export default function NarratorScreen() {
+  const { narratorName } = useLocalSearchParams<{ narratorName: string }>();
+
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.books.list.useQuery(instanceDb);
+  const { data, error, refetch, isLoading } = api.narrators.getBooks.useQuery(
+    instanceDb,
+    narratorName
+  );
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Library' }} />
+      <Stack.Screen options={{ headerTitle: 'Narrator' }} />
       <ScrollView className="px-6">
         <View className="py-6">
-          <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
-            All Books
-          </TitleWithRefetch>
           {error ? (
             <Card>
               <CardContent className="pt-4">
-                <Large>Error loading books</Large>
+                <Large>Error loading narrator {narratorName}</Large>
                 <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
               </CardContent>
               <CardFooter>
@@ -38,7 +41,17 @@ export default function LibraryScreen() {
               </CardFooter>
             </Card>
           ) : data ? (
-            <BookList books={data} />
+            <>
+              <H2 className="border-0 text-center">{narratorName}</H2>
+              <Small className="text-center">
+                {data.length} {data.length === 1 ? 'book' : 'books'} available
+              </Small>
+
+              <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="pt-4">
+                Books
+              </TitleWithRefetch>
+              <BookList books={data} />
+            </>
           ) : (
             <View className="p-12 justify-center items-center">
               <Spinner size={15} />

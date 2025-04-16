@@ -1,7 +1,7 @@
 import { schemas } from '@apricotta/schemas';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';
@@ -17,13 +17,13 @@ import { useAppForm } from '~/components/ui/form';
 import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
+import api from '~/lib/api';
 import { instanceStore } from '~/lib/stores/instance';
 
 export default function LibraryListScreen() {
   const apiInstance = useSelector(instanceStore, (state) => state.context.apiInstance);
-  const { data, error, refetch, isLoading } = useQuery(
-    apiInstance.v1.library.fetchAll.queryOptions()
-  );
+  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
+  const { data, error, refetch, isLoading } = api.libraries.list.useQuery(instanceDb);
 
   const createLibraryModalRef = useRef<BottomSheetModal>(null);
 

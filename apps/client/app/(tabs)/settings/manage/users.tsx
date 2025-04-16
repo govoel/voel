@@ -171,7 +171,8 @@ export default function UsersListScreen() {
                         ? '/settings/profile'
                         : { pathname: '/settings/manage/users/[id]', params: { id: item.id } }
                     }
-                    asChild>
+                    asChild
+                    push>
                     <Button
                       variant="ghost"
                       className={cn(

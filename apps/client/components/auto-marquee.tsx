@@ -11,6 +11,8 @@ import Animated, {
 
 import { Text } from '~/components/ui/text';
 
+import { cn } from '~/lib/utils';
+
 const AnimatedChild = ({
   index,
   children,
@@ -134,7 +136,9 @@ export const AutoMarquee = memo(
     const [viewWidth, setViewWidth] = useState(0);
 
     return (
-      <View className="w-full" onLayout={(e) => setViewWidth(e.nativeEvent.layout.width)}>
+      <View
+        className={cn('w-full', props.className)}
+        onLayout={(e) => setViewWidth(e.nativeEvent.layout.width)}>
         <View
           style={{ height: 0, alignSelf: 'flex-start' }}
           onLayout={(e) => {

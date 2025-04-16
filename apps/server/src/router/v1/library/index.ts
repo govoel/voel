@@ -88,10 +88,4 @@ export const libraryRouter = createTRPCRouter({
       });
     }
   }),
-  fetchAll: adminProcedure.query(async () => {
-    return await db
-      .selectFrom('library')
-      .select(['id', 'name', 'createdAt', 'updatedAt', 'deletedAt'])
-      .execute();
-  }),
 });
