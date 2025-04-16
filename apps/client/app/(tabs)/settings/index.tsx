@@ -27,7 +27,7 @@ export default function SettingsIndexScreen() {
       <View className="gap-y-4 p-6">
         {data && (
           <View className="overflow-hidden rounded-md border border-foreground/15">
-            <Link href="/settings/profile" asChild>
+            <Link href="/settings/profile" asChild push>
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
@@ -42,7 +42,7 @@ export default function SettingsIndexScreen() {
         )}
 
         <View className="overflow-hidden rounded-md border border-foreground/15">
-          <Link href="/settings/interface" asChild>
+          <Link href="/settings/interface" asChild push>
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
@@ -82,7 +82,7 @@ export default function SettingsIndexScreen() {
               </View>
               <ChevronRight className="text-foreground/50" size="20" />
             </Button>
-            <Link href="/settings/manage/libraries" asChild>
+            <Link href="/settings/manage/libraries" asChild push>
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
@@ -93,7 +93,7 @@ export default function SettingsIndexScreen() {
                 <ChevronRight className="text-foreground/50" size="20" />
               </Button>
             </Link>
-            <Link href="/settings/manage/users" asChild>
+            <Link href="/settings/manage/users" asChild push>
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">

@@ -5,12 +5,9 @@ import { InstanceDatabase } from '~/db/schema/instance';
 
 const list = {
   queryKey: ['books', 'list'],
-  useQuery: (
-    instanceDb: Kysely<InstanceDatabase>,
-    { withAuthors = false }: { withAuthors: boolean }
-  ) => {
+  useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
     return useReactQuery({
-      queryKey: [...list.queryKey, { withAuthors }],
+      queryKey: list.queryKey,
       networkMode: 'always',
       queryFn: async () => {
         let query = instanceDb
@@ -28,38 +25,35 @@ const list = {
             'book.createdAt',
             'book.updatedAt',
           ])
-          .$if(withAuthors, (qb) =>
-            qb
-              .leftJoin('bookAuthor', (join) =>
-                join
-                  .onRef('book.id', '=', 'bookAuthor.bookId')
-                  .on('bookAuthor.deletedAt', 'is', null)
-              )
-              .leftJoin('author', (join) =>
-                join
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-                  .on('author.deletedAt', 'is', null)
-              )
-              .groupBy('book.id')
-              .select((eb) => [
-                eb
-                  .fn<
-                    { id: string; name: string }[]
-                  >('json_group_array', [eb.fn('json_object', [eb.val('id'), eb.ref('author.id'), eb.val('name'), eb.ref('author.name')])])
-                  .as('authors'),
+          .leftJoin('bookAuthor', (join) =>
+            join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
+          )
+          .leftJoin('author', (join) =>
+            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
+          )
+          .groupBy('book.id')
+          .select((eb) => [
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
               ])
-          );
+              .as('authors'),
+          ]);
 
         const results = await query.execute();
 
-        if (withAuthors) {
-          return results.map((result) => ({
-            ...result,
-            authors: result.authors ? JSON.parse(result.authors as unknown as string) : [],
-          }));
-        }
-
-        return results;
+        return results.map((result) => ({
+          ...result,
+          authors: (result.authors ? JSON.parse(result.authors) : []) as Pick<
+            Selectable<InstanceDatabase['author']>,
+            'id' | 'name'
+          >[],
+        }));
       },
     });
   },
@@ -219,6 +213,8 @@ const get = {
                   eb.ref('audiobookFile.track'),
                   eb.val('libraryId'),
                   eb.ref('audiobookFile.libraryId'),
+                  eb.val('path'),
+                  eb.ref('audiobookFile.path'),
                 ]),
               ])
               .as('files'),
@@ -312,7 +308,7 @@ const get = {
           files: result.files
             ? (JSON.parse(result.files) as Pick<
                 Selectable<InstanceDatabase['audiobookFile']>,
-                'id' | 'duration' | 'disc' | 'track' | 'libraryId'
+                'id' | 'duration' | 'disc' | 'track' | 'libraryId' | 'path'
               >[])
             : [],
         };
