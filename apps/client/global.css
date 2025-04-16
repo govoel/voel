@@ -61,6 +61,9 @@
   .font-normal {
     @apply font-inter-regular;
   }
+  .font-italic {
+    @apply font-inter-italic;
+  }
   .font-medium {
     @apply font-inter-medium;
   }
@@ -69,6 +72,9 @@
   }
   .font-bold {
     @apply font-inter-bold;
+  }
+  .font-bolditalic {
+    @apply font-inter-bolditalic;
   }
   .font-extrabold {
     @apply font-inter-extrabold;
