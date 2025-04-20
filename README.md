@@ -1,4 +1,4 @@
-# apricotta
+# voel
 
 To install dependencies:
 

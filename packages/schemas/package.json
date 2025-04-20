@@ -1,5 +1,5 @@
 {
-  "name": "@apricotta/schemas",
+  "name": "@voel/schemas",
   "private": true,
   "scripts": {
     "lint": "eslint . && prettier -c .",

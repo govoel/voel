@@ -1,5 +1,5 @@
 {
-  "name": "@apricotta/source-tap",
+  "name": "@voel/source-tap",
   "type": "module",
   "exports": {
     ".": {

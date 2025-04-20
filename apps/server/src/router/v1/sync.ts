@@ -1,4 +1,4 @@
-import type { SourceTapEvents } from '@apricotta/source-tap';
+import type { SourceTapEvents } from '@voel/source-tap';
 import { z } from 'zod';
 
 import { db, sourceTap } from '@/libs/db';

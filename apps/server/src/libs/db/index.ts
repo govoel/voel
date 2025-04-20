@@ -1,4 +1,4 @@
-import { SourceTap, SourceTapDialect } from '@apricotta/source-tap';
+import { SourceTap, SourceTapDialect } from '@voel/source-tap';
 import { Database, SQLiteError } from 'bun:sqlite';
 import { CompiledQuery, Kysely } from 'kysely';
 
