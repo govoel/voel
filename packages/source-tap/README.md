@@ -15,7 +15,7 @@ SourceTap is a powerful plugin for [Kysely](https://github.com/kysely-org/kysely
 ## Installation
 
 ```bash
-bun add @apricotta/source-tap kysely
+bun add @voel/source-tap kysely
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ bun add @apricotta/source-tap kysely
 ### Basic Setup
 
 ```typescript
-import { SourceTap, SourceTapDialect } from '@apricotta/source-tap';
+import { SourceTap, SourceTapDialect } from '@voel/source-tap';
 import { Database } from 'bun:sqlite';
 import { Kysely } from 'kysely';
 

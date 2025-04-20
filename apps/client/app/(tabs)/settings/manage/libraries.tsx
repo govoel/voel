@@ -1,7 +1,7 @@
-import { schemas } from '@apricotta/schemas';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation } from '@tanstack/react-query';
+import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';

@@ -1,11 +1,12 @@
 {
   "extends": ["expo/tsconfig.base"],
   "compilerOptions": {
+    "moduleResolution": "bundler",
     "strict": true,
     "baseUrl": ".",
     "paths": {
       "~/*": ["*"],
-      "@/*": ["../../node_modules/@apricotta/server/src/*"]
+      "@/*": ["../../node_modules/@voel/server/src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"]

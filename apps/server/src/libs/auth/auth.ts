@@ -15,13 +15,13 @@ export const auth = betterAuth({
     autoSignIn: false,
     disableSignUp: true,
   },
-  trustedOrigins: ['apricotta://'],
+  trustedOrigins: ['voel://'],
   plugins: [
     expo(),
     username(),
     admin({ defaultRole: 'under18', adminRoles: ['admin'] }),
     {
-      id: 'apricotta-init',
+      id: 'voel-init',
       init(ctx) {
         return {
           options: {

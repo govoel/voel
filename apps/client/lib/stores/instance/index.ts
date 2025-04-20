@@ -1,5 +1,3 @@
-import { auth } from '@apricotta/server/src/libs/auth/auth';
-import type { AppRouter } from '@apricotta/server/src/router/root';
 import { expoClient } from '@better-auth/expo/client';
 import {
   createTRPCClient,
@@ -8,6 +6,8 @@ import {
   splitLink,
 } from '@trpc/client';
 import { type TRPCOptionsProxy, createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
+import { auth } from '@voel/server/src/libs/auth/auth';
+import type { AppRouter } from '@voel/server/src/router/root';
 import { createStore } from '@xstate/store';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
@@ -39,7 +39,7 @@ export const createAuthClient = (
     fetchOptions: { credentials: 'include' },
     plugins: [
       expoClient({
-        scheme: 'apricotta',
+        scheme: 'voel',
         storagePrefix: `${storagePrefix}_better_auth`,
         storage,
       }),
@@ -109,7 +109,7 @@ export const createInstances = (
 };
 
 export const createInstanceAuthClient = (instanceID: string, instanceURL: string) =>
-  createAuthClient(instanceURL, `apricotta_${instanceID}`);
+  createAuthClient(instanceURL, `voel_${instanceID}`);
 
 export const useAuthSession = (authClient: ReturnType<typeof createInstanceAuthClient>) =>
   authClient.useSession();
@@ -123,7 +123,7 @@ export const instanceStore = createStore({
     instanceUserID: SecureStore.getItem('currentInstanceUserID'),
     ...createInstances(
       SecureStore.getItem('currentInstanceID') ?? '0',
-      SecureStore.getItem('currentInstanceURL') ?? 'http://apricotta'
+      SecureStore.getItem('currentInstanceURL') ?? 'http://voel.local'
     ),
   },
   on: {

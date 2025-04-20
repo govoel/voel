@@ -144,7 +144,7 @@ const switchInstance = async (
   queryClient.invalidateQueries({ queryKey: api.accounts.list.queryKey });
 
   for (const [key, value] of switchTo.authStore.entries()) {
-    SecureStore.setItem(`apricotta_${instanceID}${key}`, value ?? '');
+    SecureStore.setItem(`voel_${instanceID}${key}`, value ?? '');
   }
 
   instanceStore.trigger.recreateAuthInstance({
@@ -225,7 +225,7 @@ function SignInTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<Bot
               inputMode: 'url',
               autoCorrect: false,
               autoCapitalize: 'none',
-              placeholder: 'http://apricotta.local',
+              placeholder: 'http://voel.local',
             }}
           />
         )}
@@ -332,7 +332,7 @@ function SignUpTab({ setTab }: { setTab: Dispatch<SetStateAction<string>> }) {
               inputMode: 'url',
               autoCorrect: false,
               autoCapitalize: 'none',
-              placeholder: 'http://apricotta.local',
+              placeholder: 'http://voel.local',
             }}
           />
         )}

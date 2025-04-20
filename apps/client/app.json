@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "apricotta",
-    "slug": "apricotta",
-    "version": "1.0.0",
-    "scheme": "apricotta",
+    "name": "Voel",
+    "slug": "voel",
+    "version": "0.0.0-alpha",
+    "scheme": "voel",
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.svg"
     },
     "plugins": [
       "expo-router",
@@ -36,6 +36,18 @@
             "./assets/fonts/Inter-ExtraLightItalic.otf"
           ]
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/icons/splash-icon-dark.png",
+          "dark": {
+            "image": "./assets/icons/splash-icon-light.png",
+            "backgroundColor": "#000000"
+          },
+          "imageWidth": 200
+        }
       ]
     ],
     "experiments": {
@@ -43,7 +55,6 @@
       "tsconfigPaths": true
     },
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
@@ -53,12 +64,18 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.apricotta"
+      "bundleIdentifier": "app.voel",
+      "icon": {
+        "dark": "./assets/icons/ios-dark.png",
+        "light": "./assets/icons/ios-light.png",
+        "tinted": "./assets/icons/ios-tinted.png"
+      }
     },
     "android": {
-      "package": "app.apricotta",
+      "package": "app.voel",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icons/adaptive-icon-bigger.png",
+        "monochromeImage": "./assets/icons/adaptive-icon-bigger.png",
         "backgroundColor": "#ffffff"
       }
     }

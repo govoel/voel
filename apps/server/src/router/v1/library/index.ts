@@ -1,5 +1,5 @@
-import { schemas } from '@apricotta/schemas';
 import { TRPCError } from '@trpc/server';
+import { schemas } from '@voel/schemas';
 import { NoResultError } from 'kysely';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
