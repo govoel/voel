@@ -32,7 +32,7 @@ export default function InterfaceScreen() {
             onButtonPress={onLabelPress('system')}
             buttonClassName="rounded-none border-b border-foreground/15">
             <View className="flex-row gap-x-2">
-              <SunMoon className="text-foreground/50" size="20" />
+              <SunMoon className="text-muted-foreground" size="20" />
               <Text>System</Text>
             </View>
           </RadioGroupItemWithLabel>
@@ -41,7 +41,7 @@ export default function InterfaceScreen() {
             onButtonPress={onLabelPress('light')}
             buttonClassName="rounded-none border-b border-foreground/15">
             <View className="flex-row gap-x-2">
-              <Sun className="text-foreground/50" size="20" />
+              <Sun className="text-muted-foreground" size="20" />
               <Text>Light</Text>
             </View>
           </RadioGroupItemWithLabel>
@@ -50,7 +50,7 @@ export default function InterfaceScreen() {
             onButtonPress={onLabelPress('dark')}
             buttonClassName="rounded-none">
             <View className="flex-row gap-x-2">
-              <MoonStar className="text-foreground/50" size="20" />
+              <MoonStar className="text-muted-foreground" size="20" />
               <Text>Dark</Text>
             </View>
           </RadioGroupItemWithLabel>

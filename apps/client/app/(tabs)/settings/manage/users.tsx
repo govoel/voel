@@ -197,7 +197,7 @@ export default function UsersListScreen() {
                           <Text className="text-muted-foreground">{item.role}</Text>
                         </View>
                       </View>
-                      <ChevronRight className="text-foreground/50" size="20" />
+                      <ChevronRight className="text-muted-foreground" size="20" />
                     </Button>
                   </Link>
                 )}

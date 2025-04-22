@@ -32,10 +32,10 @@ export default function SettingsIndexScreen() {
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
                 <View className="flex-row gap-x-2">
-                  <UserCog className="text-foreground/50" size="20" />
+                  <UserCog className="text-muted-foreground" size="20" />
                   <Text>Profile</Text>
                 </View>
-                <ChevronRight className="text-foreground/50" size="20" />
+                <ChevronRight className="text-muted-foreground" size="20" />
               </Button>
             </Link>
           </View>
@@ -47,27 +47,27 @@ export default function SettingsIndexScreen() {
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
               <View className="flex-row gap-x-2">
-                <Smartphone className="text-foreground/50" size="20" />
+                <Smartphone className="text-muted-foreground" size="20" />
                 <Text>Interface</Text>
               </View>
-              <ChevronRight className="text-foreground/50" size="20" />
+              <ChevronRight className="text-muted-foreground" size="20" />
             </Button>
           </Link>
           <Button
             variant="ghost"
             className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
             <View className="flex-row gap-x-2">
-              <Play className="text-foreground/50" size="20" />
+              <Play className="text-muted-foreground" size="20" />
               <Text>Playback</Text>
             </View>
-            <ChevronRight className="text-foreground/50" size="20" />
+            <ChevronRight className="text-muted-foreground" size="20" />
           </Button>
           <Button variant="ghost" className="flex-row justify-between rounded-none bg-secondary/40">
             <View className="flex-row gap-x-2">
-              <Download className="text-foreground/50" size="20" />
+              <Download className="text-muted-foreground" size="20" />
               <Text>Download</Text>
             </View>
-            <ChevronRight className="text-foreground/50" size="20" />
+            <ChevronRight className="text-muted-foreground" size="20" />
           </Button>
         </View>
 
@@ -77,20 +77,20 @@ export default function SettingsIndexScreen() {
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
               <View className="flex-row gap-x-2">
-                <ServerCog className="text-foreground/50" size="20" />
+                <ServerCog className="text-muted-foreground" size="20" />
                 <Text>Server</Text>
               </View>
-              <ChevronRight className="text-foreground/50" size="20" />
+              <ChevronRight className="text-muted-foreground" size="20" />
             </Button>
             <Link href="/settings/manage/libraries" asChild push>
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
                 <View className="flex-row gap-x-2">
-                  <FolderCog className="text-foreground/50" size="20" />
+                  <FolderCog className="text-muted-foreground" size="20" />
                   <Text>Manage Libraries</Text>
                 </View>
-                <ChevronRight className="text-foreground/50" size="20" />
+                <ChevronRight className="text-muted-foreground" size="20" />
               </Button>
             </Link>
             <Link href="/settings/manage/users" asChild push>
@@ -98,10 +98,10 @@ export default function SettingsIndexScreen() {
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
                 <View className="flex-row gap-x-2">
-                  <Users className="text-foreground/50" size="20" />
+                  <Users className="text-muted-foreground" size="20" />
                   <Text>Manage Users</Text>
                 </View>
-                <ChevronRight className="text-foreground/50" size="20" />
+                <ChevronRight className="text-muted-foreground" size="20" />
               </Button>
             </Link>
           </View>
