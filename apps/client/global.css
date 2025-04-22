@@ -50,36 +50,36 @@
 
 @layer utilities {
   .font-thin {
-    @apply font-inter-thin;
+    @apply font-voel-inter-thin;
   }
   .font-extralight {
-    @apply font-inter-extralight;
+    @apply font-voel-inter-extralight;
   }
   .font-light {
-    @apply font-inter-light;
+    @apply font-voel-inter-light;
   }
   .font-normal {
-    @apply font-inter-regular;
+    @apply font-voel-inter-regular;
   }
   .font-italic {
-    @apply font-inter-italic;
+    @apply font-voel-inter-italic;
   }
   .font-medium {
-    @apply font-inter-medium;
+    @apply font-voel-inter-medium;
   }
   .font-semibold {
-    @apply font-inter-semibold;
+    @apply font-voel-inter-semibold;
   }
   .font-bold {
-    @apply font-inter-bold;
+    @apply font-voel-inter-bold;
   }
   .font-bolditalic {
-    @apply font-inter-bolditalic;
+    @apply font-voel-inter-bolditalic;
   }
   .font-extrabold {
-    @apply font-inter-extrabold;
+    @apply font-voel-inter-extrabold;
   }
   .font-black {
-    @apply font-inter-black;
+    @apply font-voel-inter-black;
   }
 }
