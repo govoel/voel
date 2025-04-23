@@ -20,7 +20,7 @@ const bookSchema = z.object({
     .array(z.object({ asin: z.string(), title: z.string(), sequence: z.string(), url: z.string() }))
     .optional(),
 
-  title: z.string(),
+  title: z.string().trim(),
   subtitle: z.string().optional(),
   copyright: z.string(),
   publisher_name: z.string(),
@@ -44,7 +44,7 @@ const seriesSchema = z.object({
     z.object({
       // not all series provide an asin here
       // asin: z.string(),
-      name: z.string(),
+      name: z.string().trim(),
     })
   ),
   relationships: z.array(
@@ -57,7 +57,7 @@ const seriesSchema = z.object({
     })
   ),
 
-  title: z.string(),
+  title: z.string().trim(),
 
   // not all series provide a summary
   publisher_summary: z.string().optional(),
@@ -167,7 +167,7 @@ const leafChapterSchema = z.object({
   length_ms: z.number(),
   start_offset_ms: z.number(),
   start_offset_sec: z.number(),
-  title: z.string(),
+  title: z.string().trim(),
 });
 
 type LeafChapterSchema = z.infer<typeof leafChapterSchema>;
@@ -181,7 +181,7 @@ const parentChapterSchema: z.ZodType<ParentChapterSchema> = z.lazy(() =>
     length_ms: z.number(),
     start_offset_ms: z.number(),
     start_offset_sec: z.number(),
-    title: z.string(),
+    title: z.string().trim(),
     chapters: z.array(z.union([parentChapterSchema, leafChapterSchema])).optional(),
   })
 );
@@ -242,7 +242,7 @@ export const getChapterByAsin = async (asin: string) => {
 
 const authorResponse = z.object({
   asin: z.string(),
-  name: z.string(),
+  name: z.string().trim(),
   avatar: z.string(),
   about: z.string(),
 });
