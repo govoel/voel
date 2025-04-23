@@ -76,18 +76,27 @@ export interface BookContributorTable {
   deletedAt: ColumnType<number | null, never, number | null>;
 }
 
-export interface AudiobookChapterTable {
+export type AudiobookChapterTable = {
   id: ColumnType<number, never, never>;
   bookId: number;
-  parentId: number | null;
-  source: 'file' | 'audible';
   title: string;
-  duration: number;
-  startOffset: number;
+  durationMs: number;
+  startOffsetMs: number; // when source is 'file', start time is relative to the beginning of the file, absolute otherwise
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
   deletedAt: ColumnType<number | null, never, number | null>;
-}
+} & (
+  | {
+      source: 'file';
+      parentId: null;
+      fileId: number;
+    }
+  | {
+      source: 'audible';
+      parentId: number | null;
+      fileId: null;
+    }
+);
 
 export interface AudiobookFileTable {
   id: ColumnType<number, never, never>;

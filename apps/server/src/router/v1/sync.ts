@@ -192,12 +192,13 @@ export const syncRouter = createTRPCRouter({
             .selectFrom('audiobookChapter')
             .select([
               'id',
-              'bookId',
               'parentId',
+              'bookId',
+              'fileId',
               'source',
               'title',
-              'duration',
-              'startOffset',
+              'durationMs',
+              'startOffsetMs',
               'createdAt',
               'updatedAt',
               'deletedAt',

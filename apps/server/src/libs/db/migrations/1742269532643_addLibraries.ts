@@ -231,48 +231,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
             END;`.execute(db);
 
   await db.schema
-    .createTable('audiobookChapter')
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
-    .addColumn('bookId', 'integer', (col) =>
-      col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
-    )
-    .addColumn('parentId', 'integer', (col) =>
-      col.references('audiobookChapter.id').onDelete('cascade').onUpdate('cascade')
-    )
-    .addColumn('source', 'text', (col) => col.notNull().check(sql`source in ('file', 'audible')`))
-    .addColumn('title', 'text', (col) => col.notNull())
-    .addColumn('duration', 'integer', (col) => col.notNull())
-    .addColumn('startOffset', 'integer', (col) => col.notNull())
-    .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
-    .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
-    .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`STRICT`)
-    .execute();
-
-  await db.schema
-    .createIndex('audiobookChapter_parentId_index')
-    .on('audiobookChapter')
-    .columns(['parentId'])
-    .execute();
-
-  await db.schema
-    .createIndex('audiobookChapter_updatedAt_index')
-    .on('audiobookChapter')
-    .columns(['updatedAt'])
-    .execute();
-
-  await db.schema
-    .createIndex('audiobookChapter_deletedAt_index')
-    .on('audiobookChapter')
-    .columns(['deletedAt'])
-    .execute();
-
-  await sql`CREATE TRIGGER update_audiobookChapter_updatedAt BEFORE UPDATE OF bookId, parentId, source, title, duration, startOffset, deletedAt ON audiobookChapter FOR EACH ROW
-            BEGIN
-              UPDATE audiobookChapter SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
-            END;`.execute(db);
-
-  await db.schema
     .createTable('audiobookFile')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
     .addColumn('libraryId', 'integer', (col) =>
@@ -307,6 +265,55 @@ export async function up(db: Kysely<unknown>): Promise<void> {
             BEGIN
               UPDATE audiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
+
+  await db.schema
+    .createTable('audiobookChapter')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
+    .addColumn('parentId', 'integer', (col) =>
+      col.references('audiobookChapter.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('bookId', 'integer', (col) =>
+      col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('fileId', 'integer', (col) =>
+      col.references('audiobookFile.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('source', 'text', (col) => col.notNull())
+    .addCheckConstraint(
+      'audiobookChapter_source_dependencies_check',
+      sql`(source = 'file' and parentId is null and fileId is not null) or (source = 'audible' and fileId is null)`
+    )
+    .addColumn('title', 'text', (col) => col.notNull())
+    .addColumn('durationMs', 'integer', (col) => col.notNull())
+    .addColumn('startOffsetMs', 'integer', (col) => col.notNull())
+    .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
+    .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`STRICT`)
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookChapter_parentId_index')
+    .on('audiobookChapter')
+    .columns(['parentId'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookChapter_updatedAt_index')
+    .on('audiobookChapter')
+    .columns(['updatedAt'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookChapter_deletedAt_index')
+    .on('audiobookChapter')
+    .columns(['deletedAt'])
+    .execute();
+
+  await sql`CREATE TRIGGER update_audiobookChapter_updatedAt BEFORE UPDATE OF parentId, bookId, fileId, source, title, durationMs, startOffsetMs, deletedAt ON audiobookChapter FOR EACH ROW
+              BEGIN
+                UPDATE audiobookChapter SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
+              END;`.execute(db);
 
   await db.schema
     .createTable('ebookFile')
@@ -355,8 +362,8 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`DROP TRIGGER IF EXISTS update_library_updatedAt;`.execute(db);
 
   await db.schema.dropTable('ebookFile').ifExists().execute();
-  await db.schema.dropTable('audiobookFile').ifExists().execute();
   await db.schema.dropTable('audiobookChapter').ifExists().execute();
+  await db.schema.dropTable('audiobookFile').ifExists().execute();
   await db.schema.dropTable('bookContributor').ifExists().execute();
   await db.schema.dropTable('bookSeries').ifExists().execute();
   await db.schema.dropTable('bookAuthor').ifExists().execute();

@@ -63,7 +63,7 @@ const get = {
   queryKey: ['books', 'get'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
     return useReactQuery({
-      queryKey: [...list.queryKey, { bookId }],
+      queryKey: [...get.queryKey, { bookId }],
       networkMode: 'always',
       queryFn: async () => {
         let authorSubquery = instanceDb
@@ -158,10 +158,10 @@ const get = {
                   eb.ref('audiobookChapter.parentId'),
                   eb.val('title'),
                   eb.ref('audiobookChapter.title'),
-                  eb.val('duration'),
-                  eb.ref('audiobookChapter.duration'),
-                  eb.val('startOffset'),
-                  eb.ref('audiobookChapter.startOffset'),
+                  eb.val('durationMs'),
+                  eb.ref('audiobookChapter.durationMs'),
+                  eb.val('startOffsetMs'),
+                  eb.ref('audiobookChapter.startOffsetMs'),
                 ]),
               ])
               .as('audibleChapters'),
@@ -183,10 +183,10 @@ const get = {
                   eb.ref('audiobookChapter.id'),
                   eb.val('title'),
                   eb.ref('audiobookChapter.title'),
-                  eb.val('duration'),
-                  eb.ref('audiobookChapter.duration'),
-                  eb.val('startOffset'),
-                  eb.ref('audiobookChapter.startOffset'),
+                  eb.val('durationMs'),
+                  eb.ref('audiobookChapter.durationMs'),
+                  eb.val('startOffsetMs'),
+                  eb.ref('audiobookChapter.startOffsetMs'),
                 ]),
               ])
               .as('fileChapters'),
@@ -293,23 +293,29 @@ const get = {
             : [],
           chapters: {
             audible: result.audibleChapters
-              ? (JSON.parse(result.audibleChapters) as Pick<
-                  Selectable<InstanceDatabase['audiobookChapter']>,
-                  'id' | 'parentId' | 'title' | 'duration' | 'startOffset'
-                >[])
+              ? (
+                  JSON.parse(result.audibleChapters) as Pick<
+                    Selectable<InstanceDatabase['audiobookChapter']>,
+                    'id' | 'parentId' | 'title' | 'durationMs' | 'startOffsetMs'
+                  >[]
+                ).sort((a, b) => a.startOffsetMs - b.startOffsetMs)
               : [],
             file: result.fileChapters
-              ? (JSON.parse(result.fileChapters) as Pick<
-                  Selectable<InstanceDatabase['audiobookChapter']>,
-                  'id' | 'title' | 'duration' | 'startOffset'
-                >[])
+              ? (
+                  JSON.parse(result.fileChapters) as Pick<
+                    Selectable<InstanceDatabase['audiobookChapter']>,
+                    'id' | 'title' | 'durationMs' | 'startOffsetMs'
+                  >[]
+                ).sort((a, b) => a.startOffsetMs - b.startOffsetMs)
               : [],
           },
           files: result.files
-            ? (JSON.parse(result.files) as Pick<
-                Selectable<InstanceDatabase['audiobookFile']>,
-                'id' | 'duration' | 'disc' | 'track' | 'libraryId' | 'path'
-              >[])
+            ? (
+                JSON.parse(result.files) as Pick<
+                  Selectable<InstanceDatabase['audiobookFile']>,
+                  'id' | 'duration' | 'disc' | 'track' | 'libraryId' | 'path'
+                >[]
+              ).sort((a, b) => a.disc - b.disc || a.track - b.track)
             : [],
         };
       },

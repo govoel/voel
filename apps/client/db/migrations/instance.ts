@@ -243,49 +243,6 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
-                .createTable('audiobookChapter')
-                .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
-                .addColumn('bookId', 'integer', (col) =>
-                  col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
-                )
-                .addColumn('parentId', 'integer', (col) =>
-                  col.references('audiobookChapter.id').onDelete('cascade').onUpdate('cascade')
-                )
-                .addColumn('source', 'text', (col) =>
-                  col.notNull().check(sql`source in ('file', 'audible')`)
-                )
-                .addColumn('title', 'text', (col) => col.notNull())
-                .addColumn('duration', 'integer', (col) => col.notNull())
-                .addColumn('startOffset', 'integer', (col) => col.notNull())
-                .addColumn('createdAt', 'integer', (col) =>
-                  col.defaultTo(sql`(unixepoch())`).notNull()
-                )
-                .addColumn('updatedAt', 'integer', (col) =>
-                  col.defaultTo(sql`(unixepoch())`).notNull()
-                )
-                .addColumn('deletedAt', 'integer')
-                .modifyEnd(sql`STRICT`)
-                .execute();
-
-              await trx.schema
-                .createIndex('audiobookChapter_parentId_index')
-                .on('audiobookChapter')
-                .columns(['parentId'])
-                .execute();
-
-              await trx.schema
-                .createIndex('audiobookChapter_updatedAt_index')
-                .on('audiobookChapter')
-                .columns(['updatedAt'])
-                .execute();
-
-              await trx.schema
-                .createIndex('audiobookChapter_deletedAt_index')
-                .on('audiobookChapter')
-                .columns(['deletedAt'])
-                .execute();
-
-              await trx.schema
                 .createTable('audiobookFile')
                 .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
                 .addColumn('libraryId', 'integer', (col) =>
@@ -317,6 +274,54 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
               await trx.schema
                 .createIndex('audiobookFile_deletedAt_index')
                 .on('audiobookFile')
+                .columns(['deletedAt'])
+                .execute();
+
+              await trx.schema
+                .createTable('audiobookChapter')
+                .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+                .addColumn('parentId', 'integer', (col) =>
+                  col.references('audiobookChapter.id').onDelete('cascade').onUpdate('cascade')
+                )
+                .addColumn('bookId', 'integer', (col) =>
+                  col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
+                )
+                .addColumn('fileId', 'integer', (col) =>
+                  col.references('audiobookFile.id').onDelete('cascade').onUpdate('cascade')
+                )
+                .addColumn('source', 'text', (col) => col.notNull())
+                .addCheckConstraint(
+                  'audiobookChapter_source_dependencies_check',
+                  sql`(source = 'file' and parentId is null and fileId is not null) or (source = 'audible' and fileId is null)`
+                )
+                .addColumn('title', 'text', (col) => col.notNull())
+                .addColumn('durationMs', 'integer', (col) => col.notNull())
+                .addColumn('startOffsetMs', 'integer', (col) => col.notNull())
+                .addColumn('createdAt', 'integer', (col) =>
+                  col.defaultTo(sql`(unixepoch())`).notNull()
+                )
+                .addColumn('updatedAt', 'integer', (col) =>
+                  col.defaultTo(sql`(unixepoch())`).notNull()
+                )
+                .addColumn('deletedAt', 'integer')
+                .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookChapter_parentId_index')
+                .on('audiobookChapter')
+                .columns(['parentId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookChapter_updatedAt_index')
+                .on('audiobookChapter')
+                .columns(['updatedAt'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookChapter_deletedAt_index')
+                .on('audiobookChapter')
                 .columns(['deletedAt'])
                 .execute();
 
