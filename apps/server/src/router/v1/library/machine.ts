@@ -22,7 +22,7 @@ import { type AudioFile, getAudioFile } from '@/router/v1/library/scanner';
 
 import { db } from '@/libs/db';
 import {
-  AudiobookChapterTable,
+  type AudiobookChapterTable,
   type AuthorTable,
   type BookTable,
   type SeriesTable,
@@ -564,7 +564,7 @@ async function insertBooksIntoDatabase(
               libraryId: library.id,
               bookId: insertedBook.id,
               path: file.realPath,
-              duration: Math.round(file.metadata.format.duration * 1000),
+              durationMs: Math.round(file.metadata.format.duration * 1000),
               disc: file.sortMetadata.discNumber,
               track: file.sortMetadata.trackNumber,
             }))

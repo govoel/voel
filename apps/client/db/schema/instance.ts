@@ -115,7 +115,7 @@ export interface AudiobookFileTable<Version extends 'realtime' | 'regular' = 're
   libraryId: Regularize<ColumnType<number, number, number>, Version>;
   bookId: Regularize<ColumnType<number, number, number>, Version>;
   path: Regularize<ColumnType<string, string, string>, Version>;
-  duration: Regularize<ColumnType<number, number, number>, Version>;
+  durationMs: Regularize<ColumnType<number, number, number>, Version>;
   disc: Regularize<ColumnType<number, number, number>, Version>;
   track: Regularize<ColumnType<number, number, number>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
