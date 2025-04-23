@@ -49,24 +49,22 @@ export const useMigrations = (
   useEffect(() => {
     dispatch({ type: 'migrating' });
     if (opts.type === 'main') {
-      mainDbMigrator
-        .migrateToLatest()
-        .then((results) => {
+      mainDbMigrator.migrateToLatest().then((results) => {
+        if (results.error) {
+          dispatch({ type: 'error', error: results.error });
+        } else {
           dispatch({ type: 'migrated', results });
-        })
-        .catch((error) => {
-          dispatch({ type: 'error', error });
-        });
+        }
+      });
     } else if (opts.type === 'instance') {
       const instanceDbMigrator = createInstanceDbMigrator(opts.db);
-      instanceDbMigrator
-        .migrateToLatest()
-        .then((results) => {
+      instanceDbMigrator.migrateToLatest().then((results) => {
+        if (results.error) {
+          dispatch({ type: 'error', error: results.error });
+        } else {
           dispatch({ type: 'migrated', results });
-        })
-        .catch((error) => {
-          dispatch({ type: 'error', error });
-        });
+        }
+      });
     }
   }, [opts.type, opts.db]);
 
