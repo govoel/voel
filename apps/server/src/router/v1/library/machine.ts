@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { type Insertable, NoResultError } from 'kysely';
 import { lstat, readdir, rmdir } from 'node:fs/promises';
-import { dirname, join as pathJoin, sep as pathSep } from 'node:path';
+import { basename, dirname, extname, join as pathJoin, sep as pathSep } from 'node:path';
 import sharp from 'sharp';
 import { rgbaToThumbHash } from 'thumbhash';
 import TurndownService from 'turndown';
@@ -21,7 +21,12 @@ import { matchAlbumGroup } from '@/router/v1/library/matcher';
 import { type AudioFile, getAudioFile } from '@/router/v1/library/scanner';
 
 import { db } from '@/libs/db';
-import type { AuthorTable, BookTable, SeriesTable } from '@/libs/db/schema';
+import {
+  AudiobookChapterTable,
+  type AuthorTable,
+  type BookTable,
+  type SeriesTable,
+} from '@/libs/db/schema';
 
 import { env } from '@/env';
 import { scanLogger } from '@/logger';
@@ -449,7 +454,7 @@ async function insertBooksIntoDatabase(
 
           if (completeAuthors.length !== completeInsertedAuthors.length) {
             throw new Error(
-              `$${completeInsertedAuthors.length} authors inserted when we expected ${completeAuthors.length} authors to be inserted`
+              `${completeInsertedAuthors.length} authors inserted when we expected ${completeAuthors.length} authors to be inserted`
             );
           }
         }
@@ -470,7 +475,7 @@ async function insertBooksIntoDatabase(
 
         if (insertedAuthors.length === 0 || insertedAuthors.length !== book.authors.length) {
           throw new Error(
-            `$${insertedAuthors.length} authors inserted when we expected ${book.authors.length} authors to be inserted`
+            `${insertedAuthors.length} authors inserted when we expected ${book.authors.length} authors to be inserted`
           );
         }
 
@@ -490,7 +495,7 @@ async function insertBooksIntoDatabase(
 
           if (completeSeries.length !== completeInsertedSeries.length) {
             throw new Error(
-              `$${completeInsertedSeries.length} series inserted when we expected ${completeSeries.length} series to be inserted`
+              `${completeInsertedSeries.length} series inserted when we expected ${completeSeries.length} series to be inserted`
             );
           }
         }
@@ -552,22 +557,71 @@ async function insertBooksIntoDatabase(
           )
           .executeTakeFirstOrThrow();
 
-        if (book.files[0] && book.files[0].metadata.chapters.length > 0) {
+        const insertedFiles = await trx
+          .insertInto('audiobookFile')
+          .values(
+            book.files.map((file) => ({
+              libraryId: library.id,
+              bookId: insertedBook.id,
+              path: file.realPath,
+              duration: Math.round(file.metadata.format.duration * 1000),
+              disc: file.sortMetadata.discNumber,
+              track: file.sortMetadata.trackNumber,
+            }))
+          )
+          .returning(['id as id', 'path as path'])
+          .execute();
+
+        if (insertedFiles.length === 0) {
+          throw new Error(`At least one file should be inserted`);
+        }
+
+        if (insertedFiles.length !== book.files.length) {
+          throw new Error(
+            `${insertedFiles.length} files inserted when we expected ${book.files.length} files to be inserted`
+          );
+        }
+
+        const fileChapters = book.files
+          .map((file, index) =>
+            file.metadata.chapters.map((c) => {
+              const startTime = c.start_time * 1000;
+              const endTime = c.end_time * 1000;
+              return {
+                bookId: insertedBook.id,
+                parentId: null,
+                fileId: insertedFiles[index]!.id,
+                source: 'file' as const,
+                title: c.tags.title,
+                durationMs: Math.round(endTime - startTime),
+                startOffsetMs: Math.round(startTime),
+              };
+            })
+          )
+          .flat();
+
+        if (fileChapters.length > 0) {
           await trx
             .insertInto('audiobookChapter')
             .values(
-              book.files[0].metadata.chapters.map((c) => {
-                const startTime = c.start_time * 1000;
-                const endTime = c.end_time * 1000;
-                return {
-                  bookId: insertedBook.id,
-                  parentId: null,
-                  source: 'file',
-                  title: c.tags.title,
-                  duration: Math.round(endTime - startTime),
-                  startOffset: Math.round(startTime),
-                };
-              })
+              ensureExact<Insertable<AudiobookChapterTable>[], typeof fileChapters>(fileChapters)
+            )
+            .executeTakeFirstOrThrow();
+        } else {
+          await trx
+            .insertInto('audiobookChapter')
+            .values(
+              book.files.map((file, index) => ({
+                bookId: insertedBook.id,
+                parentId: null,
+                fileId: insertedFiles[index]!.id,
+                source: 'file' as const,
+                title:
+                  file.metadata.format.tags?.title ??
+                  basename(file.realPath, extname(file.realPath)),
+                durationMs: Math.round(file.metadata.format.duration * 1000),
+                startOffsetMs: 0,
+              }))
             )
             .executeTakeFirstOrThrow();
         }
@@ -616,10 +670,11 @@ async function insertBooksIntoDatabase(
               flatChapters.map((chapter) => ({
                 bookId: insertedBook.id,
                 parentId: chapter.parentId,
-                source: 'audible',
+                fileId: null,
+                source: 'audible' as const,
                 title: chapter.chapter.title,
-                duration: chapter.chapter.length_ms,
-                startOffset: chapter.chapter.start_offset_ms,
+                durationMs: chapter.chapter.length_ms,
+                startOffsetMs: chapter.chapter.start_offset_ms,
               }))
             )
             .returning(['id as id', 'parentId as parentId'])
@@ -627,15 +682,6 @@ async function insertBooksIntoDatabase(
 
           const insertedChapterIds = insertedChapters.map((chapter) => chapter.id);
           const flatChapterIds = flatChapters.map((chapter) => chapter.id);
-
-          scanLogger.debug(
-            'Inserted chapter IDs: %d, %o, %o, %o',
-            insertedChapterIds.length,
-            insertedChapterIds,
-            insertedChapterIds.length === flatChapterIds.length,
-            insertedChapterIds.every((e, i) => e === flatChapterIds[i])
-          );
-          scanLogger.debug('Flat chapter IDs: %d, %o', flatChapterIds.length, flatChapterIds);
 
           if (
             !(
@@ -658,21 +704,6 @@ async function insertBooksIntoDatabase(
             throw new Error('Inserted parent IDs do not match flat parent IDs');
           }
         }
-
-        await trx
-          .insertInto('audiobookFile')
-          .values(
-            book.files.map((file) => ({
-              libraryId: library.id,
-              bookId: insertedBook.id,
-              path: file.realPath,
-              duration: Math.round(file.metadata.format.duration * 1000),
-              disc: file.sortMetadata.discNumber,
-              track: file.sortMetadata.trackNumber,
-            }))
-          )
-          .returning(['id as id', 'path as path'])
-          .executeTakeFirstOrThrow();
       });
 
       const walkedDeletes = new Set<string>();

@@ -88,21 +88,27 @@ export interface BookContributorTable<Version extends 'realtime' | 'regular' = '
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
 }
 
-export interface AudiobookChapterTable<Version extends 'realtime' | 'regular' = 'regular'> {
+export type AudiobookChapterTable<Version extends 'realtime' | 'regular' = 'regular'> = {
   id: Regularize<ColumnType<number, number, never>, Version>;
   bookId: Regularize<ColumnType<number, number, number>, Version>;
-  parentId: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
-  source: Regularize<
-    ColumnType<'file' | 'audible', 'file' | 'audible', 'file' | 'audible'>,
-    Version
-  >;
   title: Regularize<ColumnType<string, string, string>, Version>;
-  duration: Regularize<ColumnType<number, number, number>, Version>;
-  startOffset: Regularize<ColumnType<number, number, number>, Version>;
+  durationMs: Regularize<ColumnType<number, number, number>, Version>;
+  startOffsetMs: Regularize<ColumnType<number, number, number>, Version>; // when source is 'file', start time is relative to the beginning of the file, absolute otherwise
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
-}
+} & (
+  | {
+      parentId: Regularize<ColumnType<null, null, null>, Version>;
+      fileId: Regularize<ColumnType<number, number, number>, Version>;
+      source: Regularize<ColumnType<'file', 'file', 'file'>, Version>;
+    }
+  | {
+      parentId: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
+      fileId: Regularize<ColumnType<null, null, null>, Version>;
+      source: Regularize<ColumnType<'audible', 'audible', 'audible'>, Version>;
+    }
+);
 
 export interface AudiobookFileTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;

@@ -26,7 +26,7 @@ export default function LibraryScreen() {
             All Books
           </TitleWithRefetch>
           {error ? (
-            <Card>
+            <Card className="mt-4">
               <CardContent className="pt-4">
                 <Large>Error loading books</Large>
                 <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
