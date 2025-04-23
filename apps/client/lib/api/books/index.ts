@@ -205,8 +205,8 @@ const get = {
                 eb.fn<string>('json_object', [
                   eb.val('id'),
                   eb.ref('audiobookFile.id'),
-                  eb.val('duration'),
-                  eb.ref('audiobookFile.duration'),
+                  eb.val('durationMs'),
+                  eb.ref('audiobookFile.durationMs'),
                   eb.val('disc'),
                   eb.ref('audiobookFile.disc'),
                   eb.val('track'),
@@ -313,7 +313,7 @@ const get = {
             ? (
                 JSON.parse(result.files) as Pick<
                   Selectable<InstanceDatabase['audiobookFile']>,
-                  'id' | 'duration' | 'disc' | 'track' | 'libraryId' | 'path'
+                  'id' | 'durationMs' | 'disc' | 'track' | 'libraryId' | 'path'
                 >[]
               ).sort((a, b) => a.disc - b.disc || a.track - b.track)
             : [],

@@ -214,7 +214,7 @@ export const syncRouter = createTRPCRouter({
               'libraryId',
               'bookId',
               'path',
-              'duration',
+              'durationMs',
               'disc',
               'track',
               'createdAt',

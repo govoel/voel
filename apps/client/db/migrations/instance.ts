@@ -252,7 +252,7 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                   col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
                 )
                 .addColumn('path', 'text', (col) => col.notNull())
-                .addColumn('duration', 'integer', (col) => col.notNull())
+                .addColumn('durationMs', 'integer', (col) => col.notNull())
                 .addColumn('disc', 'integer', (col) => col.notNull())
                 .addColumn('track', 'integer', (col) => col.notNull())
                 .addColumn('createdAt', 'integer', (col) =>

@@ -103,7 +103,7 @@ export interface AudiobookFileTable {
   libraryId: number;
   bookId: number;
   path: string;
-  duration: number;
+  durationMs: number;
   disc: number;
   track: number;
   createdAt: ColumnType<number, never, never>;
