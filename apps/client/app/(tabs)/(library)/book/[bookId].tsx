@@ -286,9 +286,7 @@ const BookPlayButton = ({
     }
 
     if (!canUseAudible) {
-      chapters = [];
-
-      book.chapters.file.map((chapter) => ({
+      chapters = book.chapters.file.map((chapter) => ({
         instanceId: instanceID,
         bookId: chapter.bookId,
         fileId: chapter.fileId,

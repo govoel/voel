@@ -1,10 +1,6 @@
 {
-  "platforms": [
-    "android"
-  ],
+  "platforms": ["android"],
   "android": {
-    "modules": [
-      "expo.modules.voel.audio.VoelAudioModule"
-    ]
+    "modules": ["expo.modules.voel.audio.VoelAudioModule"]
   }
 }
