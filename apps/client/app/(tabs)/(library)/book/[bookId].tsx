@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
@@ -29,6 +29,8 @@ import { Timer } from '~/lib/icons/Timer';
 import { UserPen } from '~/lib/icons/UserPen';
 import { instanceStore } from '~/lib/stores/instance';
 import { cn } from '~/lib/utils';
+
+import Player, { type AudioSource, replaceAudioSources } from '~/modules/voel-audio';
 
 const formatTime = (timeMs: number) => {
   const sec = Math.floor(timeMs / 1000);
@@ -99,14 +101,14 @@ export default function BookScreen() {
               <H2 className="border-0 pt-4 text-center">{data.title}</H2>
               <Small className="text-center">{data.subtitle}</Small>
 
-              <Button className="mt-4">
-                <Text>Play</Text>
-              </Button>
+              <BookPlayButton book={data} />
 
               <View className="flex flex-row flex-wrap gap-x-2 items-center pt-4">
                 <Timer className="text-muted-foreground" size={20} />
                 <Badge variant="outline">
-                  <Text>{formatDuration(data.files.reduce((sum, i) => sum + i.duration, 0))}</Text>
+                  <Text>
+                    {formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}
+                  </Text>
                 </Badge>
               </View>
 
@@ -210,6 +212,112 @@ export default function BookScreen() {
   );
 }
 
+const BookPlayButton = ({
+  book,
+}: {
+  book: {
+    id: number;
+    title: string;
+    cover: string | null;
+    authors: { name: string }[];
+    chapters: {
+      audible: {
+        id: number;
+        bookId: number;
+        title: string;
+        startOffsetMs: number;
+        durationMs: number;
+      }[];
+      file: {
+        id: number;
+        bookId: number;
+        fileId: number;
+        title: string;
+        startOffsetMs: number;
+        durationMs: number;
+      }[];
+    };
+    files: { id: number; durationMs: number; disc: number; track: number }[];
+  };
+}) => {
+  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
+  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+
+  const fileEndTimes = useMemo(() => {
+    return book.files.reduce<number[]>((acc, file, index) => {
+      const previousEndTime = index > 0 ? acc[index - 1] : 0;
+      acc.push(previousEndTime + file.durationMs);
+      return acc;
+    }, []);
+  }, [book.files]);
+
+  const audioSources = useMemo(() => {
+    let canUseAudible = book.chapters.audible.length > 0;
+    let chapters: AudioSource[] = [];
+
+    if (canUseAudible) {
+      for (const chapter of book.chapters.audible) {
+        const fileIndex = fileEndTimes.findIndex((endTime) => chapter.startOffsetMs <= endTime);
+        const file = book.files[fileIndex === -1 ? 0 : fileIndex];
+
+        if (!file) {
+          canUseAudible = false;
+          break;
+        }
+
+        const fileAbsoluteStartTime = fileIndex > 0 ? fileEndTimes[fileIndex - 1] : 0;
+        const chapterRelativeStartTime = chapter.startOffsetMs - fileAbsoluteStartTime;
+
+        chapters.push({
+          instanceId: instanceID,
+          bookId: chapter.bookId,
+          fileId: file.id,
+          chapterId: chapter.id,
+          bookTitle: book.title,
+          chapterTitle: chapter.title,
+          author: book.authors.map((author) => author.name).join(', '),
+          fileUri: `${instanceURL}/api/v1/files/${file.id}`,
+          artworkUri: book.cover,
+          startTimeMs: chapterRelativeStartTime,
+          endTimeMs: chapterRelativeStartTime + chapter.durationMs,
+        });
+      }
+    }
+
+    if (!canUseAudible) {
+      chapters = [];
+
+      book.chapters.file.map((chapter) => ({
+        instanceId: instanceID,
+        bookId: chapter.bookId,
+        fileId: chapter.fileId,
+        chapterId: chapter.id,
+        bookTitle: book.title,
+        chapterTitle: chapter.title,
+        author: book.authors.map((author) => author.name).join(', '),
+        fileUri: `${instanceURL}/api/v1/files/${chapter.fileId}`,
+        artworkUri: book.cover,
+        startTimeMs: chapter.startOffsetMs,
+        endTimeMs: chapter.startOffsetMs + chapter.durationMs,
+      }));
+    }
+
+    return chapters;
+  }, [book, instanceURL, instanceID, fileEndTimes]);
+
+  return (
+    <Button
+      className="mt-4"
+      onPress={() => {
+        replaceAudioSources(authInstance.getCookie(), audioSources);
+        Player.play();
+      }}>
+      <Text>Play</Text>
+    </Button>
+  );
+};
+
 const BookChapters = ({
   chapters,
 }: {
@@ -218,10 +326,10 @@ const BookChapters = ({
       id: number;
       parentId: number | null;
       title: string;
-      duration: number;
-      startOffset: number;
+      durationMs: number;
+      startOffsetMs: number;
     }[];
-    file: { id: number; title: string; duration: number; startOffset: number }[];
+    file: { id: number; title: string; durationMs: number; startOffsetMs: number }[];
   };
 }) => {
   const [currentTab, setCurrentTab] = useState('audible');
@@ -249,20 +357,20 @@ const BookChapters = ({
 const ChapterList = ({
   chapters,
 }: {
-  chapters: { id: number; title: string; duration: number; startOffset: number }[];
+  chapters: { id: number; title: string; durationMs: number; startOffsetMs: number }[];
 }) => {
   return (
     <FlashList
-      data={chapters.sort((a, b) => a.startOffset - b.startOffset)}
+      data={chapters}
       renderItem={({ item, index }) => (
         <View className={cn('flex flex-row flex-wrap items-center', index === 0 ? '' : 'mt-4')}>
           <View className="flex flex-row flex-wrap items-center gap-x-2">
             <Button className="h-12 py-1 flex flex-row" variant="outline" size="sm">
               <Play className="text-muted-foreground mr-2" size={16} />
               <View className="border-l border-input pl-2 flex justify-center items-center">
-                <Text>{formatTime(item.startOffset)}</Text>
+                <Text>{formatTime(item.startOffsetMs)}</Text>
                 <Muted className="text-xs font-semibold">
-                  {formatDuration(item.duration, 'short')}
+                  {formatDuration(item.durationMs, 'short')}
                 </Muted>
               </View>
             </Button>
@@ -286,16 +394,16 @@ const ChapterList = ({
 const BookFiles = ({
   files,
 }: {
-  files: { id: number; path: string; disc: number; track: number; duration: number }[];
+  files: { id: number; path: string; disc: number; track: number; durationMs: number }[];
 }) => {
   return (
     <FlashList
-      data={files.sort((a, b) => a.disc - b.disc || a.track - b.track)}
+      data={files}
       renderItem={({ item, index }) => (
         <View className={index === 0 ? '' : 'mb-4'}>
           <View className="flex flex-row flex-wrap gap-x-2" key={`file-${index}`}>
             <Badge variant="outline">
-              <Text>{formatDuration(item.duration)}</Text>
+              <Text>{formatDuration(item.durationMs)}</Text>
             </Badge>
             <Badge variant="outline">
               <Text>Disc {item.disc}</Text>

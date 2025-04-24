@@ -1,5 +1,6 @@
 node_modules/
 .expo/
+.gradle/
 dist/
 npm-debug.*
 *.jks
@@ -11,11 +12,14 @@ npm-debug.*
 web-build/
 # expo router
 expo-env.d.ts
+local.properties
 
 *.db
 
-ios
-android
+/ios
+/android
+
+modules/**/android/build
 
 # macOS
 .DS_Store

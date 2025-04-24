@@ -2,6 +2,7 @@ import { trpcServer } from '@hono/trpc-server';
 import { Hono } from 'hono';
 
 import { appRouter } from '@/router/root';
+import { handler as fileHandler } from '@/router/v1/files';
 
 import { auth } from '@/libs/auth/auth';
 
@@ -23,7 +24,8 @@ const app = new Hono()
       router: appRouter,
       createContext: createTRPCContext,
     })
-  );
+  )
+  .get('/api/v1/files/:id', async (c) => fileHandler(c));
 
 export default {
   port: env.PORT,
