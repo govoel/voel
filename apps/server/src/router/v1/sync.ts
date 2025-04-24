@@ -187,6 +187,24 @@ export const syncRouter = createTRPCRouter({
             .where('updatedAt', '>=', input.bookContributor),
         },
         {
+          name: 'audiobookFile',
+          query: db
+            .selectFrom('audiobookFile')
+            .select([
+              'id',
+              'libraryId',
+              'bookId',
+              'path',
+              'durationMs',
+              'disc',
+              'track',
+              'createdAt',
+              'updatedAt',
+              'deletedAt',
+            ])
+            .where('updatedAt', '>=', input.audiobookFile),
+        },
+        {
           name: 'audiobookChapter',
           query: db
             .selectFrom('audiobookChapter')
@@ -204,24 +222,6 @@ export const syncRouter = createTRPCRouter({
               'deletedAt',
             ])
             .where('updatedAt', '>=', input.audiobookChapter),
-        },
-        {
-          name: 'audiobookFile',
-          query: db
-            .selectFrom('audiobookFile')
-            .select([
-              'id',
-              'libraryId',
-              'bookId',
-              'path',
-              'durationMs',
-              'disc',
-              'track',
-              'createdAt',
-              'updatedAt',
-              'deletedAt',
-            ])
-            .where('updatedAt', '>=', input.audiobookFile),
         },
         {
           name: 'ebookFile',
