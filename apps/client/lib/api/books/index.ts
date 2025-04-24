@@ -156,6 +156,8 @@ const get = {
                   eb.ref('audiobookChapter.id'),
                   eb.val('parentId'),
                   eb.ref('audiobookChapter.parentId'),
+                  eb.val('bookId'),
+                  eb.ref('audiobookChapter.bookId'),
                   eb.val('title'),
                   eb.ref('audiobookChapter.title'),
                   eb.val('durationMs'),
@@ -181,6 +183,10 @@ const get = {
                 eb.fn<string>('json_object', [
                   eb.val('id'),
                   eb.ref('audiobookChapter.id'),
+                  eb.val('bookId'),
+                  eb.ref('audiobookChapter.bookId'),
+                  eb.val('fileId'),
+                  eb.ref('audiobookChapter.fileId'),
                   eb.val('title'),
                   eb.ref('audiobookChapter.title'),
                   eb.val('durationMs'),
@@ -295,16 +301,19 @@ const get = {
             audible: result.audibleChapters
               ? (
                   JSON.parse(result.audibleChapters) as Pick<
-                    Selectable<InstanceDatabase['audiobookChapter']>,
-                    'id' | 'parentId' | 'title' | 'durationMs' | 'startOffsetMs'
+                    Extract<
+                      Selectable<InstanceDatabase['audiobookChapter']>,
+                      { source: 'audible' }
+                    >,
+                    'id' | 'parentId' | 'bookId' | 'title' | 'durationMs' | 'startOffsetMs'
                   >[]
                 ).sort((a, b) => a.startOffsetMs - b.startOffsetMs)
               : [],
             file: result.fileChapters
               ? (
                   JSON.parse(result.fileChapters) as Pick<
-                    Selectable<InstanceDatabase['audiobookChapter']>,
-                    'id' | 'title' | 'durationMs' | 'startOffsetMs'
+                    Extract<Selectable<InstanceDatabase['audiobookChapter']>, { source: 'file' }>,
+                    'id' | 'bookId' | 'fileId' | 'title' | 'durationMs' | 'startOffsetMs'
                   >[]
                 ).sort((a, b) => a.startOffsetMs - b.startOffsetMs)
               : [],

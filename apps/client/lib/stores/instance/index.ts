@@ -25,6 +25,8 @@ import { ReadableStream } from 'web-streams-polyfill';
 
 import { ExpoEventSource } from '~/lib/stores/instance/EventSource';
 
+import Player from '~/modules/voel-audio';
+
 globalThis.TextDecoderStream = globalThis.TextDecoderStream || TextDecoderStream;
 globalThis.ReadableStream = globalThis.ReadableStream || ReadableStream;
 globalThis.EventSource = globalThis.EventSource || ExpoEventSource;
@@ -138,6 +140,7 @@ export const instanceStore = createStore({
       SecureStore.setItem('currentInstanceID', event.instanceID);
       SecureStore.setItem('currentInstanceURL', event.instanceURL);
       SecureStore.setItem('currentInstanceUserID', event.instanceUserID);
+      Player.clearQueue();
 
       return {
         isPending: false,
