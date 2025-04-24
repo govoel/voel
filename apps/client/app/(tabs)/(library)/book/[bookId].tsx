@@ -259,13 +259,13 @@ const BookPlayButton = ({
     if (canUseAudible) {
       for (const chapter of book.chapters.audible) {
         const fileIndex = fileEndTimes.findIndex((endTime) => chapter.startOffsetMs <= endTime);
-        const file = book.files[fileIndex === -1 ? 0 : fileIndex];
 
-        if (!file) {
+        if (fileIndex === -1) {
           canUseAudible = false;
           break;
         }
 
+        const file = book.files[fileIndex];
         const fileAbsoluteStartTime = fileIndex > 0 ? fileEndTimes[fileIndex - 1] : 0;
         const chapterRelativeStartTime = chapter.startOffsetMs - fileAbsoluteStartTime;
 
