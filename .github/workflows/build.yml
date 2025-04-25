@@ -43,12 +43,12 @@ jobs:
         working-directory: ./apps/client/android
         run: chmod +x ./gradlew && NODE_ENV=production ./gradlew assembleRelease --no-daemon -Dorg.gradle.caching=true -Dorg.gradle.configuration-cache=true -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=-Xmx4g
         env:
-          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
+          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
       - name: Build Android Debug App
         working-directory: ./apps/client/android
         run: chmod +x ./gradlew && NODE_ENV=development ./gradlew assembleDebug --no-daemon -Dorg.gradle.caching=true -Dorg.gradle.configuration-cache=true -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=-Xmx4g
         env:
-          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
+          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
       - name: Upload Android App
         uses: actions/upload-artifact@v4
         with:
