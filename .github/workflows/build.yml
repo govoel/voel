@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build-android-app:
-    runs-on: macos-latest
+    runs-on: arc-runner-set
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
