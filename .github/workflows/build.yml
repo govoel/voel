@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build-android-app:
-    runs-on: self-hosted
+    runs-on: macos-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
