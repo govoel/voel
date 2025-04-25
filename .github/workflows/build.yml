@@ -34,7 +34,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'build-tools'
+          packages: ''
       - name: Decode Signing Keystore
         working-directory: apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
