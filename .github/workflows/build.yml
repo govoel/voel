@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  pull_request:
+    branches:
+      - '*'
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  merge_group:
+
+concurrency:
+  # Only cancel in-progress runs for pull_request events
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build-android-app:
+    runs-on: ubuntu-latest
+    container: reactnativecommunity/react-native-android:latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+      - name: Switch to app directory
+        run: cd apps/client
+      - name: Decode secrets
+        env:
+          VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
+        run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
+      - name: Build Android App
+        run: bun run prebuild --platform android && cd android && chmod +x ./gradlew && ./gradlew assembleRelease && ./gradlew assembleDebug
+      - name: Upload Android App
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-app
+          path: app/build/outputs/apk/(release|debug)/**.apk
