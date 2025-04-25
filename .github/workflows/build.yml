@@ -31,8 +31,6 @@ jobs:
           java-version: '17'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
       - name: Decode Signing Keystore
         working-directory: ./apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
@@ -55,6 +53,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-app
-          path: apps/client/android/app/build/outputs/apk/(release|debug)/**.apk
+          path: apps/client/android/app/build/outputs/apk/{release|debug}/*.apk
           if-no-files-found: error
           retention-days: 7
