@@ -47,12 +47,12 @@ jobs:
         run: bun run prebuild --platform android
       - name: Build Android Release App
         working-directory: apps/client/android
-        run: chmod +x ./gradlew && NODE_ENV=production ./gradlew assembleRelease --build-cache -Dorg.gradle.configureondemand=true -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=-Xmx4g -x lintVitalAnalyzeRelease -x prepareLintJarForPublish
+        run: chmod +x ./gradlew && NODE_ENV=production ./gradlew assembleRelease --build-cache --parallel --max-workers=8 -Dorg.gradle.configureondemand=true -x lintVitalAnalyzeRelease -x prepareLintJarForPublish
         env:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
       - name: Build Android Debug App
         working-directory: apps/client/android
-        run: chmod +x ./gradlew && NODE_ENV=development ./gradlew assembleDebug --build-cache -Dorg.gradle.configureondemand=true -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=-Xmx4g
+        run: chmod +x ./gradlew && NODE_ENV=development ./gradlew assembleDebug --build-cache --parallel --max-workers=8 -Dorg.gradle.configureondemand=true
         env:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
       - name: Upload Android App
