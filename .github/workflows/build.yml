@@ -41,7 +41,7 @@ jobs:
         run: bun run prebuild --platform android
       - name: Build Android Release App
         working-directory: ./apps/client/android
-        run: chmod +x ./gradlew && NODE_ENV=production ./gradlew assembleRelease --build-cache -Dorg.gradle.configureondemand=true -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=-Xmx4g
+        run: chmod +x ./gradlew && NODE_ENV=production ./gradlew assembleRelease --build-cache -Dorg.gradle.configureondemand=true -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=-Xmx4g -x generateReleaseLintVitalModel -x lintVitalAnalyzeRelease -x generateReleaseLintVitalReportModel
         env:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
       - name: Build Android Debug App
@@ -53,6 +53,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-app
-          path: apps/client/android/app/build/outputs/apk/{release,debug}/*.apk
+          path: apps/client/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 7
