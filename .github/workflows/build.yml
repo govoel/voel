@@ -18,16 +18,20 @@ concurrency:
 
 jobs:
   build-android-app:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        variant: [debug, release]
+      fail-fast: true
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 'lts/*'
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -35,14 +39,32 @@ jobs:
           java-version: '17'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: ''
+      # - name: Setup Android SDK
+      #   uses: android-actions/setup-android@v3
+      #   with:
+      #     packages: ''
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           create-symlink: true
+          key: ccache-${{ runner.os }}-${{ github.job }}-${{ matrix.variant }}
+      - name: Find Metro Cache
+        id: metro-cache-dir-path
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const os = require('os');
+            const path = require('path');
+            return path.join(os.tmpdir(), 'metro-cache');
+      - name: Restore Metro cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.metro-cache-dir-path.outputs.result }}
+          key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ matrix.variant }}-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-metro-cache-${{ matrix.variant }}-${{ github.base_ref }}
+            ${{ runner.os }}-metro-cache-${{ matrix.variant }}-
       - name: Decode Signing Keystore
         working-directory: apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
@@ -52,6 +74,7 @@ jobs:
         working-directory: apps/client
         run: bun run prebuild --platform android
       - name: Build Android Release App
+        if: ${{ matrix.variant == 'release' }}
         working-directory: apps/client/android
         run: chmod +x ./gradlew && NODE_ENV=production ./gradlew assembleRelease --build-cache --parallel
         env:
@@ -59,6 +82,7 @@ jobs:
           CCACHE_COMPILERCHECK: content
           NDK_CCACHE: /usr/bin/ccache
       - name: Build Android Debug App
+        if: ${{ matrix.variant == 'debug' }}
         working-directory: apps/client/android
         run: chmod +x ./gradlew && NODE_ENV=development ./gradlew assembleDebug --build-cache --parallel
         env:
@@ -68,7 +92,7 @@ jobs:
       - name: Upload Android App
         uses: actions/upload-artifact@v4
         with:
-          name: android-app
-          path: apps/client/android/app/build/outputs/apk/**/*.apk
+          name: android-app-${{ matrix.variant }}
+          path: apps/client/android/app/build/outputs/apk/${{ matrix.variant }}/*.apk
           if-no-files-found: error
           retention-days: 7
