@@ -39,6 +39,8 @@ jobs:
           java-version: '17'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       # - name: Setup Android SDK
       #   uses: android-actions/setup-android@v3
       #   with:
@@ -61,10 +63,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.metro-cache-dir-path.outputs.result }}
-          key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ matrix.variant }}-${{ github.ref }}
+          key: metro-cache-${{ runner.os }}-${{ matrix.variant }}-${{ github.ref }}
           restore-keys: |
-            ${{ runner.os }}-metro-cache-${{ matrix.variant }}-${{ github.base_ref }}
-            ${{ runner.os }}-metro-cache-${{ matrix.variant }}-
+            metro-cache-${{ runner.os }}-${{ matrix.variant }}-${{ github.base_ref }}
+            metro-cache-${{ runner.os }}-${{ matrix.variant }}-
       - name: Decode Signing Keystore
         working-directory: apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
