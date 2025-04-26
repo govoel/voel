@@ -26,6 +26,10 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y fuse-overlayfs
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5.7.0
