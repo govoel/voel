@@ -57,12 +57,14 @@ jobs:
         env:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
           CCACHE_COMPILERCHECK: content
+          NDK_CCACHE: /usr/bin/ccache
       - name: Build Android Debug App
         working-directory: apps/client/android
         run: chmod +x ./gradlew && NODE_ENV=development ./gradlew assembleDebug --build-cache --parallel
         env:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
           CCACHE_COMPILERCHECK: content
+          NDK_CCACHE: /usr/bin/ccache
       - name: Upload Android App
         uses: actions/upload-artifact@v4
         with:
