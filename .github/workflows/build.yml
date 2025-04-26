@@ -32,7 +32,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
       - name: Build image
-        uses: redhat-actions/build-image@v2.13
+        uses: redhat-actions/buildah-build@v2.13
         with:
           layers: false
           tags: ${{ steps.meta.outputs.tags }}
