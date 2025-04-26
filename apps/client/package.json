@@ -43,7 +43,7 @@
     "@trpc/tanstack-react-query": "11.1.1",
     "@voel/schemas": "workspace:*",
     "@voel/server": "workspace:*",
-    "@xstate/store": "3.5.0",
+    "@xstate/store": "3.5.1",
     "babel-plugin-module-resolver": "5.0.2",
     "better-auth": "1.2.7",
     "class-variance-authority": "0.7.1",
