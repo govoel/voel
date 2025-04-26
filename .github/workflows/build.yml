@@ -43,8 +43,6 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           create-symlink: true
-      - name: Set ccache config
-        run: ccache --set-config=compiler_check=content
       - name: Decode Signing Keystore
         working-directory: apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
@@ -58,11 +56,13 @@ jobs:
         run: chmod +x ./gradlew && NODE_ENV=production ./gradlew assembleRelease --build-cache --parallel
         env:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+          CCACHE_COMPILERCHECK: content
       - name: Build Android Debug App
         working-directory: apps/client/android
         run: chmod +x ./gradlew && NODE_ENV=development ./gradlew assembleDebug --build-cache --parallel
         env:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+          CCACHE_COMPILERCHECK: content
       - name: Upload Android App
         uses: actions/upload-artifact@v4
         with:
