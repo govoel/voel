@@ -68,9 +68,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'app.voel.android',
     adaptiveIcon: {
-      foregroundImage: './assets/icons/adaptive-icon-bigger.png',
-      monochromeImage: './assets/icons/adaptive-icon-bigger.png',
-      backgroundColor: '#ffffff',
+      foregroundImage: './assets/icons/adaptive-icon.png',
+      monochromeImage: './assets/icons/adaptive-icon.png',
+      backgroundColor: '#000000',
     },
   },
 });

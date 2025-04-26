@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build-android-app:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         variant: [debug, release]
