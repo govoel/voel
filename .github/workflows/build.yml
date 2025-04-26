@@ -43,6 +43,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           containerfiles: |
             ./Containerfile
+          build-args: |
+            isolation=chroot
       - name: Push image
         uses: redhat-actions/push-to-registry@v2.8
         with:
