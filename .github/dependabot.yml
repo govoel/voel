@@ -36,3 +36,11 @@ updates:
       time: "04:00"
       timezone: America/Chicago
     open-pull-requests-limit: 100
+
+  - package-ecosystem: gradle
+    directory: "/apps/client"
+    schedule:
+      interval: daily
+      time: "04:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 100
