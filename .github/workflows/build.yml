@@ -43,6 +43,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           create-symlink: true
+      - name: Set ccache config
+        run: ccache --set-config=compiler_check=content
       - name: Decode Signing Keystore
         working-directory: apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
