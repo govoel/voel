@@ -1,6 +1,6 @@
 ARG SHARP_VERSION
 
-FROM oven/bun:1 as base
+FROM docker.io/oven/bun:1 as base
 WORKDIR /voel
 
 FROM base as builder
@@ -12,7 +12,7 @@ RUN mkdir -p /sharp && cd /sharp && bun install sharp@$SHARP_VERSION
 FROM scratch
 COPY --from=builder /voel-server /voel-server
 COPY --from=builder /sharp/node_modules /node_modules/
-COPY --from=mwader/static-ffmpeg:latest /ffprobe /usr/local/bin/
+COPY --from=docker.io/mwader/static-ffmpeg:latest /ffprobe /usr/local/bin/
 
 ENV PATH="/usr/local/bin:${PATH}"
 ENV NODE_ENV=production
