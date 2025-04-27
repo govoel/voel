@@ -1,14 +1,22 @@
-FROM oven/bun:1 as builder
-WORKDIR /src
+ARG SHARP_VERSION
 
-COPY . .
+FROM oven/bun:1 as base
+WORKDIR /voel
+
+FROM base as builder
+COPY . /voel
 RUN bun install --frozen-lockfile
-RUN bun build apps/server/src/index.ts --compile --minify --bytecode --sourcemap --target=bun-linux-x64-baseline --outfile /voel-server
+RUN bun build --compile --minify --target bun --bytecode --sourcemap --external sharp --outfile /voel-server /voel/apps/server/src/index.ts
+RUN mkdir -p /sharp && cd /sharp && bun install sharp@$SHARP_VERSION
 
 FROM scratch
 COPY --from=builder /voel-server /voel-server
+COPY --from=builder /sharp/node_modules /node_modules/
 COPY --from=mwader/static-ffmpeg:latest /ffprobe /usr/local/bin/
 
-USER 1001:1001
+ENV PATH="/usr/local/bin:${PATH}"
+ENV NODE_ENV=production
+
+USER bun
 EXPOSE 3000/tcp
-ENTRYPOINT [ "/voel-server" ]
+ENTRYPOINT [ "bun", "run", "/voel/apps/server/src/index.ts" ]

@@ -26,15 +26,15 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y fuse-overlayfs
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5.7.0
         with:
           images: ghcr.io/${{ github.repository }}
+      - name: Get Sharp Version from package.json
+        working-directory: apps/server
+        run: |
+          echo "SHARP_VERSION=$(cat package.json | jq -r '.dependencies.sharp')" >> $GITHUB_ENV
       - name: Build image
         uses: redhat-actions/buildah-build@v2.13
         with:
@@ -44,7 +44,9 @@ jobs:
           containerfiles: |
             ./Containerfile
           build-args: |
-            isolation=chroot
+            SHARP_VERSION=${{ env.SHARP_VERSION }}
+          extra-args: |
+            --storage-driver=vfs
       - name: Push image
         uses: redhat-actions/push-to-registry@v2.8
         with:
