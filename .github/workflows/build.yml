@@ -56,7 +56,7 @@ jobs:
           REGISTRY_USERNAME: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "$REGISTRY_PASSWORD" | buildah login -u $REGISTRY_USERNAME --password-stdin
+          echo "$REGISTRY_PASSWORD" | buildah login ghcr.io -u $REGISTRY_USERNAME --password-stdin
           while IFS= read -r tag; do
             buildah push --storage-driver=vfs $tag docker://$tag
           done <<< $DOCKER_METADATA_OUTPUT_TAGS
