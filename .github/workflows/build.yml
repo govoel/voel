@@ -51,7 +51,6 @@ jobs:
           extra-args: |
             --isolation=chroot
             --storage-driver=vfs
-            --storage-opts=''
       - name: Push image
         env:
           REGISTRY_USERNAME: ${{ github.actor }}
@@ -59,7 +58,7 @@ jobs:
         run: |
           echo "$REGISTRY_PASSWORD" | buildah login -u $REGISTRY_USERNAME --password-stdin
           while IFS= read -r tag; do
-            buildah push --storage-driver=vfs --storage-opts='' $tag docker://$tag
+            buildah push --storage-driver=vfs $tag docker://$tag
           done <<< $DOCKER_METADATA_OUTPUT_TAGS
 
   # android-app:
