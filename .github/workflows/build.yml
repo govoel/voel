@@ -50,12 +50,15 @@ jobs:
             SHARP_VERSION=${{ env.SHARP_VERSION }}
           extra-args: |
             --isolation=chroot
+            --storage-driver=vfs
       - name: Push image
         uses: redhat-actions/push-to-registry@v2.8
         with:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           tags: ${{ steps.meta.outputs.tags }}
+          extra-args: |
+            --storage-driver=vfs
 
   # android-app:
   #   runs-on: self-hosted
