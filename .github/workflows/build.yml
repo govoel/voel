@@ -51,12 +51,11 @@ jobs:
       - name: Push image
         uses: redhat-actions/push-to-registry@v2.8
         with:
-          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          image: ghcr.io/${{ github.repository }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          extra-args: |
+            --storage-driver=vfs
 
   # android-app:
   #   runs-on: self-hosted
