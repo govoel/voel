@@ -35,6 +35,9 @@ jobs:
         working-directory: apps/server
         run: |
           echo "SHARP_VERSION=$(cat package.json | jq -r '.dependencies.sharp')" >> $GITHUB_ENV
+      - name: Clear containers directory
+        run: |
+          rm -rf /var/lib/containers/
       - name: Build image
         uses: redhat-actions/buildah-build@v2.13
         with:
