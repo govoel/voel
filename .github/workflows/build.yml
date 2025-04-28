@@ -1,6 +1,14 @@
 name: Build
 
 on:
+  pull_request:
+    types:
+      - labeled
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - '*'
   push:
     branches:
       - main
@@ -13,8 +21,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-android-app:
+  server:
     runs-on: self-hosted
+    if: (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-server')) || (github.event_name == 'push')
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5.7.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=auto
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr,prefix=pr-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=edge,branch=main
+      - name: Get Sharp Version from package.json
+        working-directory: apps/server
+        run: |
+          echo "SHARP_VERSION=$(cat package.json | jq -r '.dependencies.sharp')" >> $GITHUB_ENV
+      - name: Build image
+        uses: redhat-actions/buildah-build@v2.13
+        with:
+          layers: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          containerfiles: |
+            ./Containerfile
+          build-args: |
+            SHARP_VERSION=${{ env.SHARP_VERSION }}
+          extra-args: |
+            --isolation=chroot
+            --storage-driver=vfs
+      - name: Push image
+        env:
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$REGISTRY_PASSWORD" | buildah login ghcr.io -u $REGISTRY_USERNAME --password-stdin
+          while IFS= read -r tag; do
+            buildah push --storage-driver=vfs $tag docker://$tag
+          done <<< $DOCKER_METADATA_OUTPUT_TAGS
+
+  android-app:
+    runs-on: self-hosted
+    if: (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-android-app')) || (github.event_name == 'push')
     strategy:
       matrix:
         variant: [debug, release]
