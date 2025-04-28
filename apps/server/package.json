@@ -15,7 +15,7 @@
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
     "better-auth": "1.2.7",
-    "hono": "4.7.7",
+    "hono": "4.7.8",
     "kysely": "0.28.2",
     "mime": "4.0.7",
     "pino": "9.6.0",
