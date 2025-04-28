@@ -19,4 +19,4 @@ ENV NODE_ENV=production
 
 USER bun
 EXPOSE 3000/tcp
-ENTRYPOINT [ "bun", "run", "/voel/apps/server/src/index.ts" ]
+ENTRYPOINT [ "/voel-server" ]

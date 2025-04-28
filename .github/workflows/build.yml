@@ -47,6 +47,7 @@ jobs:
             SHARP_VERSION=${{ env.SHARP_VERSION }}
           extra-args: |
             --storage-driver=vfs
+            --isolation=chroot
       - name: Push image
         uses: redhat-actions/push-to-registry@v2.8
         with:
