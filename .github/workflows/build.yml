@@ -51,18 +51,16 @@ jobs:
           extra-args: |
             --isolation=chroot
             --storage-driver=vfs
-      - name: Push image
-        uses: redhat-actions/push-to-registry@v2.8
-        with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          tags: ${{ steps.meta.outputs.tags }}
-          extra-args: |
-            --storage-driver=vfs
             --storage-opts=''
+      - name: Push image
         env:
-          STORAGE_DRIVER: vfs
-          STORAGE_OPTS: ''
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$REGISTRY_PASSWORD" | buildah login -u $REGISTRY_USERNAME --password-stdin
+          while IFS= read -r tag; do
+            buildah push --storage-driver=vfs --storage-opts='' $tag docker://$tag
+          done <<< $DOCKER_METADATA_OUTPUT_TAGS
 
   # android-app:
   #   runs-on: self-hosted
