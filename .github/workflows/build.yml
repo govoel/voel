@@ -53,14 +53,16 @@ jobs:
             --storage-driver=vfs
       - name: Push image
         uses: redhat-actions/push-to-registry@v2.8
-        env:
-          STORAGE_DRIVER: vfs
         with:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           tags: ${{ steps.meta.outputs.tags }}
           extra-args: |
             --storage-driver=vfs
+            --storage-opts=''
+        env:
+          STORAGE_DRIVER: vfs
+          STORAGE_OPTS: ''
 
   # android-app:
   #   runs-on: self-hosted
