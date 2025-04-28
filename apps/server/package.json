@@ -39,7 +39,7 @@
     "kysely-ctl": "0.12.2",
     "prettier": "3.5.3",
     "tough-cookie": "5.1.2",
-    "typescript-eslint": "8.30.1"
+    "typescript-eslint": "8.31.1"
   },
   "module": "src/index.ts"
 }
