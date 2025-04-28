@@ -40,12 +40,14 @@ jobs:
           flavor: |
             latest=auto
           tags: |
-            type=edge,branch=main
             type=sha
             type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr,prefix=pr-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=edge,branch=main
       - name: Get Sharp Version from package.json
         working-directory: apps/server
         run: |
