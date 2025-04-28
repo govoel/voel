@@ -2,6 +2,8 @@ name: Build
 
 on:
   pull_request:
+    types:
+      - labeled
     branches:
       - '*'
   push:
