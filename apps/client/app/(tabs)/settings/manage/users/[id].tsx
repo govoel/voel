@@ -6,10 +6,11 @@ import { useSelector } from '@xstate/store/react';
 import { UserWithRole } from 'better-auth/plugins';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
@@ -84,86 +85,82 @@ export default function ManageUserScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Manage User', headerTitleAlign: 'center' }} />
-      <ScrollView className="px-6">
-        <View className="py-6">
-          <TitleWithRefetch className="pb-4" refetch={user.refetch} isLoading={user.isLoading}>
-            User Info
-          </TitleWithRefetch>
+      <FloatingPlayerDodgingLayout>
+        <TitleWithRefetch className="pb-4" refetch={user.refetch} isLoading={user.isLoading}>
+          User Info
+        </TitleWithRefetch>
 
-          {user.data ? (
-            <Profile user={user.data} />
-          ) : user.error ? (
-            <Card>
-              <CardContent className="pt-4">
-                <Large>Error loading profile</Large>
-                <Text className="text-muted-foreground">
-                  {user.error.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => user.refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-12 justify-center items-center">
-                <Spinner size={15} />
-              </CardContent>
-            </Card>
-          )}
+        {user.data ? (
+          <Profile user={user.data} />
+        ) : user.error ? (
+          <Card>
+            <CardContent className="pt-4">
+              <Large>Error loading profile</Large>
+              <Text className="text-muted-foreground">{user.error.message || 'Unknown error'}</Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => user.refetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-12 justify-center items-center">
+              <Spinner size={15} />
+            </CardContent>
+          </Card>
+        )}
 
-          <TitleWithRefetch
-            className="pt-4"
-            refetch={sessions.refetch}
-            isLoading={sessions.isLoading}>
-            Sessions
-          </TitleWithRefetch>
+        <TitleWithRefetch
+          className="pt-4"
+          refetch={sessions.refetch}
+          isLoading={sessions.isLoading}>
+          Sessions
+        </TitleWithRefetch>
 
-          {sessions.data ? (
-            <FlashList
-              data={sessions.data}
-              keyExtractor={(item) => item.id}
-              estimatedItemSize={10}
-              renderItem={({ item, index }) => (
-                <Session
-                  session={item}
-                  userId={id}
-                  revokeSession={(token) =>
-                    authClient.admin.revokeUserSession({ sessionToken: token })
-                  }
-                />
-              )}
-              ListEmptyComponent={() => (
-                <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-                  <Text className="text-center">No sessions found</Text>
-                </View>
-              )}
-            />
-          ) : sessions.error ? (
-            <Card className="mt-4">
-              <CardContent className="pt-4">
-                <Large>Error loading user's sessions</Large>
-                <Text className="text-muted-foreground">
-                  {sessions.error.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => sessions.refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : (
-            <Card className="mt-4">
-              <CardContent className="p-12 justify-center items-center">
-                <Spinner size={15} />
-              </CardContent>
-            </Card>
-          )}
-        </View>
-      </ScrollView>
+        {sessions.data ? (
+          <FlashList
+            data={sessions.data}
+            keyExtractor={(item) => item.id}
+            estimatedItemSize={10}
+            renderItem={({ item, index }) => (
+              <Session
+                session={item}
+                userId={id}
+                revokeSession={(token) =>
+                  authClient.admin.revokeUserSession({ sessionToken: token })
+                }
+              />
+            )}
+            ListEmptyComponent={() => (
+              <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+                <Text className="text-center">No sessions found</Text>
+              </View>
+            )}
+          />
+        ) : sessions.error ? (
+          <Card className="mt-4">
+            <CardContent className="pt-4">
+              <Large>Error loading user's sessions</Large>
+              <Text className="text-muted-foreground">
+                {sessions.error.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => sessions.refetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : (
+          <Card className="mt-4">
+            <CardContent className="p-12 justify-center items-center">
+              <Spinner size={15} />
+            </CardContent>
+          </Card>
+        )}
+      </FloatingPlayerDodgingLayout>
     </>
   );
 }

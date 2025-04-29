@@ -5,9 +5,10 @@ import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { BottomSheet } from '~/components/ui/bottom-sheet';
@@ -56,55 +57,53 @@ export default function LibraryListScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Manage Libraries', headerTitleAlign: 'center' }} />
-      <ScrollView className="px-6">
-        <View className="py-6">
-          <Button
-            variant="secondary"
-            onPress={() => {
-              createLibraryModalRef.current?.present();
-            }}>
-            <Text>Create New Library</Text>
-          </Button>
-          <TitleWithRefetch className="pt-4" refetch={refetch} isLoading={isLoading}>
-            Libraries
-          </TitleWithRefetch>
-          {error ? (
-            <>
-              <CardContent className="pt-4">
-                <Large>Error loading libraries</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </>
-          ) : data ? (
-            <FlashList
-              data={data}
-              renderItem={({ item, index }) => (
-                <Card className="mt-4">
-                  <CardHeader className="flex-row justify-between items-center">
-                    <Library item={item} />
-                  </CardHeader>
-                </Card>
-              )}
-              keyExtractor={(item) => item.id.toString()}
-              estimatedItemSize={20}
-              ListEmptyComponent={() => (
-                <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-                  <Text className="text-center">No libraries found</Text>
-                </View>
-              )}
-            />
-          ) : (
-            <CardContent className="p-12 justify-center items-center">
-              <Spinner size={15} />
+      <FloatingPlayerDodgingLayout>
+        <Button
+          variant="secondary"
+          onPress={() => {
+            createLibraryModalRef.current?.present();
+          }}>
+          <Text>Create New Library</Text>
+        </Button>
+        <TitleWithRefetch className="pt-4" refetch={refetch} isLoading={isLoading}>
+          Libraries
+        </TitleWithRefetch>
+        {error ? (
+          <>
+            <CardContent className="pt-4">
+              <Large>Error loading libraries</Large>
+              <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
             </CardContent>
-          )}
-        </View>
-      </ScrollView>
+            <CardFooter>
+              <Button className="w-full" onPress={() => refetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </>
+        ) : data ? (
+          <FlashList
+            data={data}
+            renderItem={({ item, index }) => (
+              <Card className="mt-4">
+                <CardHeader className="flex-row justify-between items-center">
+                  <Library item={item} />
+                </CardHeader>
+              </Card>
+            )}
+            keyExtractor={(item) => item.id.toString()}
+            estimatedItemSize={20}
+            ListEmptyComponent={() => (
+              <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+                <Text className="text-center">No libraries found</Text>
+              </View>
+            )}
+          />
+        ) : (
+          <CardContent className="p-12 justify-center items-center">
+            <Spinner size={15} />
+          </CardContent>
+        )}
+      </FloatingPlayerDodgingLayout>
 
       <BottomSheet ref={createLibraryModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">

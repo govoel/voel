@@ -2,9 +2,10 @@ import { FlashList } from '@shopify/flash-list';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
 import {
@@ -74,140 +75,136 @@ export default function BookScreen() {
   return (
     <>
       <Stack.Screen options={{ headerTitle: 'Book' }} />
-      <ScrollView className="px-6">
-        <View className="py-6">
-          {error ? (
-            <Card>
-              <CardContent className="pt-4">
-                <Large>Error loading book {bookId}</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : data ? (
-            <>
-              <AspectRatio ratio={1 / 1} className="mx-12">
-                <Image
-                  className="w-full h-full rounded-md"
-                  source={data.cover}
-                  placeholder={{ thumbhash: data.coverThumbhash }}
-                />
-              </AspectRatio>
+      <FloatingPlayerDodgingLayout>
+        {error ? (
+          <Card>
+            <CardContent className="pt-4">
+              <Large>Error loading book {bookId}</Large>
+              <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => refetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : data ? (
+          <>
+            <AspectRatio ratio={1 / 1} className="mx-12">
+              <Image
+                className="w-full h-full rounded-md"
+                source={data.cover}
+                placeholder={{ thumbhash: data.coverThumbhash }}
+              />
+            </AspectRatio>
 
-              <H2 className="border-0 pt-4 text-center">{data.title}</H2>
-              <Small className="text-center">{data.subtitle}</Small>
+            <H2 className="border-0 pt-4 text-center">{data.title}</H2>
+            <Small className="text-center">{data.subtitle}</Small>
 
-              <BookPlayButton book={data} />
+            <BookPlayButton book={data} />
 
-              <View className="flex flex-row flex-wrap gap-x-2 items-center pt-4">
-                <Timer className="text-muted-foreground" size={20} />
-                <Badge variant="outline">
-                  <Text>
-                    {formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}
-                  </Text>
-                </Badge>
-              </View>
-
-              <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
-                <UserPen className="text-muted-foreground" size={20} />
-                {data.authors.map((author, index) => (
-                  <Link
-                    key={`author-${index}`}
-                    href={{
-                      pathname: '/(tabs)/(library)/author/[authorId]',
-                      params: { authorId: author.id },
-                    }}
-                    push
-                    asChild>
-                    <Badge variant="secondary">
-                      <Text>{author.name}</Text>
-                    </Badge>
-                  </Link>
-                ))}
-              </View>
-
-              <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
-                <MicVocal className="text-muted-foreground" size={20} />
-                {data.contributors.map((contributor, index) =>
-                  contributor.role === 'narrator' ? (
-                    <Link
-                      key={`contributor-narrator-${index}`}
-                      href={{
-                        pathname: '/(tabs)/(library)/narrator/[narratorName]',
-                        params: { narratorName: contributor.name },
-                      }}
-                      push
-                      asChild>
-                      <Badge variant="secondary">
-                        <Text>{contributor.name}</Text>
-                      </Badge>
-                    </Link>
-                  ) : null
-                )}
-              </View>
-
-              <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
-                <BookCopy className="text-muted-foreground" size={20} />
-                {data.series.map((series, index) => (
-                  <Link
-                    key={`series-${index}`}
-                    href={{
-                      pathname: '/(tabs)/(library)/series/[seriesId]',
-                      params: { seriesId: series.id },
-                    }}
-                    push
-                    asChild>
-                    <Badge variant="secondary">
-                      <View className="flex flex-row justify-center items-center">
-                        <Text className="border-r border-muted-foreground/50 pr-1">
-                          {series.label}
-                        </Text>
-                        <Text className="pl-1">{series.name}</Text>
-                      </View>
-                    </Badge>
-                  </Link>
-                ))}
-              </View>
-
-              <View className="pt-4">
-                <ExpandableSummary
-                  summary={data.summary ?? '_A summary is not available for this book._'}
-                  expandText="Expand Summary"
-                  collapseText="Collapse Summary"
-                />
-              </View>
-
-              <Accordion className="pt-4" type="multiple" collapsable>
-                <AccordionItem value="chapters">
-                  <AccordionTrigger>
-                    <Text className="font-semibold">Chapters</Text>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <BookChapters chapters={data.chapters} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="files">
-                  <AccordionTrigger>
-                    <Text className="font-semibold">Files</Text>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <BookFiles files={data.files} />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </>
-          ) : (
-            <View className="p-12 justify-center items-center">
-              <Spinner size={15} />
+            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-4">
+              <Timer className="text-muted-foreground" size={20} />
+              <Badge variant="outline">
+                <Text>{formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}</Text>
+              </Badge>
             </View>
-          )}
-        </View>
-      </ScrollView>
+
+            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
+              <UserPen className="text-muted-foreground" size={20} />
+              {data.authors.map((author, index) => (
+                <Link
+                  key={`author-${index}`}
+                  href={{
+                    pathname: '/(tabs)/(library)/author/[authorId]',
+                    params: { authorId: author.id },
+                  }}
+                  push
+                  asChild>
+                  <Badge variant="secondary">
+                    <Text>{author.name}</Text>
+                  </Badge>
+                </Link>
+              ))}
+            </View>
+
+            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
+              <MicVocal className="text-muted-foreground" size={20} />
+              {data.contributors.map((contributor, index) =>
+                contributor.role === 'narrator' ? (
+                  <Link
+                    key={`contributor-narrator-${index}`}
+                    href={{
+                      pathname: '/(tabs)/(library)/narrator/[narratorName]',
+                      params: { narratorName: contributor.name },
+                    }}
+                    push
+                    asChild>
+                    <Badge variant="secondary">
+                      <Text>{contributor.name}</Text>
+                    </Badge>
+                  </Link>
+                ) : null
+              )}
+            </View>
+
+            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
+              <BookCopy className="text-muted-foreground" size={20} />
+              {data.series.map((series, index) => (
+                <Link
+                  key={`series-${index}`}
+                  href={{
+                    pathname: '/(tabs)/(library)/series/[seriesId]',
+                    params: { seriesId: series.id },
+                  }}
+                  push
+                  asChild>
+                  <Badge variant="secondary">
+                    <View className="flex flex-row justify-center items-center">
+                      <Text className="border-r border-muted-foreground/50 pr-1">
+                        {series.label}
+                      </Text>
+                      <Text className="pl-1">{series.name}</Text>
+                    </View>
+                  </Badge>
+                </Link>
+              ))}
+            </View>
+
+            <View className="pt-4">
+              <ExpandableSummary
+                summary={data.summary ?? '_A summary is not available for this book._'}
+                expandText="Expand Summary"
+                collapseText="Collapse Summary"
+              />
+            </View>
+
+            <Accordion className="pt-4" type="multiple" collapsable>
+              <AccordionItem value="chapters">
+                <AccordionTrigger>
+                  <Text className="font-semibold">Chapters</Text>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <BookChapters chapters={data.chapters} />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="files">
+                <AccordionTrigger>
+                  <Text className="font-semibold">Files</Text>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <BookFiles files={data.files} />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </>
+        ) : (
+          <View className="p-12 justify-center items-center">
+            <Spinner size={15} />
+          </View>
+        )}
+      </FloatingPlayerDodgingLayout>
     </>
   );
 }

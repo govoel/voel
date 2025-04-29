@@ -47,6 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         imageWidth: 200,
       },
     ],
+    ['expo-build-properties', { android: { usesCleartextTraffic: true } }],
     ['./app.plugin'],
   ],
   experiments: {

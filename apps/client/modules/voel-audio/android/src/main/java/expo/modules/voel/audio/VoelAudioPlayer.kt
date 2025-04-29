@@ -129,6 +129,7 @@ class VoelAudioPlayer(
 
         return MediaItem.Builder()
                 .setUri(sourceUri)
+                .setCustomCacheKey("${source.instanceId}_${source.fileUri}")
                 .setMediaMetadata(
                         MediaMetadata.Builder()
                                 .setTitle(source.chapterTitle)
