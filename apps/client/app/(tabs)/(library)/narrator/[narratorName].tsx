@@ -1,9 +1,10 @@
 import { useSelector } from '@xstate/store/react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
@@ -26,39 +27,37 @@ export default function NarratorScreen() {
   return (
     <>
       <Stack.Screen options={{ headerTitle: 'Narrator' }} />
-      <ScrollView className="px-6">
-        <View className="py-6">
-          {error ? (
-            <Card>
-              <CardContent className="pt-4">
-                <Large>Error loading narrator {narratorName}</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : data ? (
-            <>
-              <H2 className="border-0 text-center">{narratorName}</H2>
-              <Small className="text-center">
-                {data.length} {data.length === 1 ? 'book' : 'books'} available
-              </Small>
+      <FloatingPlayerDodgingLayout>
+        {error ? (
+          <Card>
+            <CardContent className="pt-4">
+              <Large>Error loading narrator {narratorName}</Large>
+              <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => refetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : data ? (
+          <>
+            <H2 className="border-0 text-center">{narratorName}</H2>
+            <Small className="text-center">
+              {data.length} {data.length === 1 ? 'book' : 'books'} available
+            </Small>
 
-              <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="pt-4">
-                Books
-              </TitleWithRefetch>
-              <BookList books={data} />
-            </>
-          ) : (
-            <View className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </View>
-          )}
-        </View>
-      </ScrollView>
+            <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="pt-4">
+              Books
+            </TitleWithRefetch>
+            <BookList books={data} />
+          </>
+        ) : (
+          <View className="p-12 justify-center items-center">
+            <Spinner size={15} />
+          </View>
+        )}
+      </FloatingPlayerDodgingLayout>
     </>
   );
 }
