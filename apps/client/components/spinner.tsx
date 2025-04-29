@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
+  Extrapolation,
   ReduceMotion,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -10,18 +12,55 @@ import Animated, {
 } from 'react-native-reanimated';
 
 export function Spinner({ size = 10 }: { size?: number }) {
-  const offset = useSharedValue(size / 1.5);
-  const offset2 = useSharedValue(size / 1.5);
-  const offset3 = useSharedValue(size / 1.5);
+  const offset = useSharedValue(0);
+  const offset2 = useSharedValue(0);
+  const offset3 = useSharedValue(0);
 
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ translateY: offset.value }] }));
-  const animatedStyle2 = useAnimatedStyle(() => ({ transform: [{ translateY: offset2.value }] }));
-  const animatedStyle3 = useAnimatedStyle(() => ({ transform: [{ translateY: offset3.value }] }));
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          offset.value,
+          [0, 1],
+          [-(size / 1.5), size / 1.5],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+  const animatedStyle2 = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          offset2.value,
+          [0, 1],
+          [-size / 1.5, size / 1.5],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+  const animatedStyle3 = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          offset3.value,
+          [0, 1],
+          [-size / 1.5, size / 1.5],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
 
   useEffect(() => {
     // eslint-disable-next-line
+    offset.value = 0;
+    offset2.value = 0;
+    offset3.value = 0;
+
     offset.value = withRepeat(
-      withTiming(-offset.value, { duration: 500 }),
+      withTiming(1, { duration: 500 }),
       -1,
       true,
       () => {},
@@ -29,25 +68,13 @@ export function Spinner({ size = 10 }: { size?: number }) {
     );
     offset2.value = withDelay(
       130,
-      withRepeat(
-        withTiming(-offset2.value, { duration: 500 }),
-        -1,
-        true,
-        () => {},
-        ReduceMotion.Never
-      )
+      withRepeat(withTiming(1, { duration: 500 }), -1, true, () => {}, ReduceMotion.Never)
     );
     offset3.value = withDelay(
       260,
-      withRepeat(
-        withTiming(-offset3.value, { duration: 500 }),
-        -1,
-        true,
-        () => {},
-        ReduceMotion.Never
-      )
+      withRepeat(withTiming(1, { duration: 500 }), -1, true, () => {}, ReduceMotion.Never)
     );
-  });
+  }, [size]);
 
   return (
     <View className="flex-row gap-2">
