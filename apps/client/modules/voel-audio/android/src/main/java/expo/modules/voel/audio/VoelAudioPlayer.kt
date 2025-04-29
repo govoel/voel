@@ -60,13 +60,16 @@ class VoelAudioPlayer(
             intent.action = MediaSessionService.SERVICE_INTERFACE
             context.startService(intent)
         }
+
         val sessionToken =
                 SessionToken(context, ComponentName(context, VoelAudioPlaybackService::class.java))
+
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture.addListener(
                 {
                     controller = controllerFuture.get()
                     addPlayerListeners()
+                    startUpdating()
                 },
                 MoreExecutors.directExecutor()
         )
@@ -109,7 +112,6 @@ class VoelAudioPlayer(
         val mediaSources = createMediaItems(audioSources)
         controller.setMediaItems(mediaSources)
         controller.prepare()
-        startUpdating()
     }
 
     fun createMediaItems(sources: List<AudioSource>): List<MediaItem> {
