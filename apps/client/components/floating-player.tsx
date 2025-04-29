@@ -170,8 +170,8 @@ function FloatingPlayerImpl({
     if (playerStatus?.errorCode !== null) {
       toast.error('Playback failed', {
         description:
-          playerStatus.errorCode in errorMessages
-            ? errorMessages[playerStatus.errorCode]
+          String(playerStatus.errorCode) in errorMessages
+            ? errorMessages[String(playerStatus.errorCode)]
             : `Unknown error (${playerStatus.errorCode})`,
       });
     }
