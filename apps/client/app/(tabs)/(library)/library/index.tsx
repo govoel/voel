@@ -1,8 +1,9 @@
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
@@ -20,32 +21,30 @@ export default function LibraryScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Library' }} />
-      <ScrollView className="px-6">
-        <View className="py-6">
-          <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
-            All Books
-          </TitleWithRefetch>
-          {error ? (
-            <Card className="mt-4">
-              <CardContent className="pt-4">
-                <Large>Error loading books</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : data ? (
-            <BookList books={data} />
-          ) : (
-            <View className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </View>
-          )}
-        </View>
-      </ScrollView>
+      <FloatingPlayerDodgingLayout>
+        <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
+          All Books
+        </TitleWithRefetch>
+        {error ? (
+          <Card className="mt-4">
+            <CardContent className="pt-4">
+              <Large>Error loading books</Large>
+              <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => refetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : data ? (
+          <BookList books={data} />
+        ) : (
+          <View className="p-12 justify-center items-center">
+            <Spinner size={15} />
+          </View>
+        )}
+      </FloatingPlayerDodgingLayout>
     </>
   );
 }

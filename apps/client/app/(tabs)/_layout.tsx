@@ -1,11 +1,12 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useSelector } from '@xstate/store/react';
 import { Tabs } from 'expo-router';
-import React from 'react';
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { AccountSelector, SubscriptionProvider } from '~/components/account-selector';
 import { AuthModal } from '~/components/auth-modal';
+import { FloatingPlayer } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { Text } from '~/components/ui/text';
 
@@ -51,13 +52,15 @@ export default function TabLayout() {
         </SubscriptionProvider>
       </DbMigrator>
 
+      <FloatingPlayer className="absolute bottom-[50]" />
+
       <AccountSelector />
       <AuthModal />
     </BottomSheetModalProvider>
   );
 }
 
-const DbMigrator = ({ children }: { children: React.ReactNode }) => {
+const DbMigrator = ({ children }: { children: ReactNode }) => {
   const mainDbMigration = useMigrations({ type: 'main', db: undefined });
   //useDrizzleStudio(mainOpDb);
 
@@ -80,7 +83,7 @@ const DbMigrator = ({ children }: { children: React.ReactNode }) => {
   return <InstanceDbMigrator>{children}</InstanceDbMigrator>;
 };
 
-const InstanceDbMigrator = ({ children }: { children: React.ReactNode }) => {
+const InstanceDbMigrator = ({ children }: { children: ReactNode }) => {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const instanceOpDb = useSelector(instanceStore, (state) => state.context.instanceOpDb);
   const instanceDbMigration = useMigrations({ type: 'instance', db: instanceDb });

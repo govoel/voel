@@ -2,6 +2,7 @@ import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { RadioGroup, RadioGroupItemWithLabel } from '~/components/ui/radio-group';
 import { Text } from '~/components/ui/text';
 
@@ -19,7 +20,7 @@ export default function InterfaceScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Interface', headerTitleAlign: 'center' }} />
-      <View className="p-6">
+      <FloatingPlayerDodgingLayout>
         <Text className="pb-2 text-foreground/75">Theme</Text>
         <RadioGroup
           value={theme}
@@ -55,7 +56,7 @@ export default function InterfaceScreen() {
             </View>
           </RadioGroupItemWithLabel>
         </RadioGroup>
-      </View>
+      </FloatingPlayerDodgingLayout>
     </>
   );
 }

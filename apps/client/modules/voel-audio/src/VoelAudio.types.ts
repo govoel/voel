@@ -52,6 +52,7 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   removeFromQueue(tracks: AudioSource[]): void;
   getCurrentQueue(): AudioSource[];
   clearQueue(): void;
+  canSkipToNext(): boolean;
   skipToNext(): void;
   skipToPrevious(): void;
   seekTo(seconds: number): void;
