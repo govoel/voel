@@ -58,7 +58,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           containerfiles: |
-            ./Containerfile
+            ./Dockerfile
           build-args: |
             SHARP_VERSION=${{ env.SHARP_VERSION }}
           extra-args: |
