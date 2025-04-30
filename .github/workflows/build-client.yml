@@ -28,7 +28,7 @@ jobs:
           # We don't need to build the client when server changes
           # even though it is in the package.json because only types
           # are imported. A typecheck should be good enough.
-          paths_filter: '["apps/client/**", "packages/schemas/**"]'
+          paths: '["apps/client/**", "packages/schemas/**"]'
           cancel_others: 'false'
           concurrent_skipping: 'never'
           skip_after_successful_duplicate: 'true'
