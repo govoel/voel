@@ -2,23 +2,9 @@ name: Build Client
 
 on:
   pull_request:
-    paths:
-      - 'apps/client/**'
-      # We don't need to build the client when server changes
-      # even though it is in the package.json because only types
-      # are imported. A typecheck should be good enough.
-      # - 'apps/server/**'
-      - 'packages/schemas/**'
     branches:
       - '*'
   push:
-    paths:
-      - 'apps/client/**'
-      # We don't need to build the client when server changes
-      # even though it is in the package.json because only types
-      # are imported. A typecheck should be good enough.
-      # - 'apps/server/**'
-      - 'packages/schemas/**'
     branches:
       - main
     tags:
@@ -30,8 +16,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # we use this so that required checks work properly, and so that PR merge commits don't trigger builds again
+  should-skip:
+    runs-on: self-hosted
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5.3.1
+        with:
+          # We don't need to build the client when server changes
+          # even though it is in the package.json because only types
+          # are imported. A typecheck should be good enough.
+          paths_filter: '["apps/client/**", "packages/schemas/**"]'
+          cancel_others: 'false'
+          concurrent_skipping: 'never'
+          skip_after_successful_duplicate: 'true'
+
   android-app:
     runs-on: self-hosted
+
+    needs:
+      - should-skip
+
+    if: needs.should-skip.outputs.should_skip != 'true'
 
     steps:
       - name: Checkout repo
