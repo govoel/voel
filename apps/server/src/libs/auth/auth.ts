@@ -5,7 +5,10 @@ import { admin, createAuthMiddleware, username } from 'better-auth/plugins';
 
 import { dialect } from '@/libs/db';
 
+import { env } from '@/env';
+
 export const auth = betterAuth({
+  secret: env.AUTH_SECRET,
   database: {
     dialect,
     type: 'sqlite',

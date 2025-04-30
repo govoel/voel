@@ -5,6 +5,7 @@ WORKDIR /voel
 
 FROM base as builder
 COPY . /voel
+ENV NODE_ENV=production
 RUN bun install --filter './apps/server' --frozen-lockfile
 RUN bun build --compile --minify --target bun --format esm --sourcemap --external sharp --outfile /voel-server /voel/apps/server/src/index.ts
 RUN mkdir -p /sharp && cd /sharp && bun install sharp@$SHARP_VERSION
