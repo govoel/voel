@@ -33,9 +33,14 @@ jobs:
   build-server:
     runs-on: self-hosted
 
+    needs:
+      - should-skip
+
     permissions:
       contents: read
       packages: write
+
+    if: needs.should-skip.outputs.should_skip != 'true'
 
     steps:
       - name: Checkout repo
