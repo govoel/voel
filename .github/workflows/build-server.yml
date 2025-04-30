@@ -19,6 +19,8 @@ jobs:
   # we use this so that required checks work properly
   should-skip:
     runs-on: self-hosted
+    permissions:
+      contents: read
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
@@ -36,11 +38,11 @@ jobs:
     needs:
       - should-skip
 
+    if: needs.should-skip.outputs.should_skip != 'true'
+
     permissions:
       contents: read
       packages: write
-
-    if: needs.should-skip.outputs.should_skip != 'true'
 
     steps:
       - name: Checkout repo

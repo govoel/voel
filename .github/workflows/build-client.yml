@@ -19,6 +19,8 @@ jobs:
   # we use this so that required checks work properly, and so that PR merge commits don't trigger builds again
   should-skip:
     runs-on: self-hosted
+    permissions:
+      contents: read
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
