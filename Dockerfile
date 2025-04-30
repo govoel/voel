@@ -6,7 +6,7 @@ WORKDIR /voel
 FROM base as builder
 COPY . /voel
 RUN bun install --filter './apps/server' --frozen-lockfile
-RUN bun build --compile --minify --target bun --bytecode --sourcemap --external sharp --outfile /voel-server /voel/apps/server/src/index.ts
+RUN bun build --compile --minify --target bun --format esm --sourcemap --external sharp --outfile /voel-server /voel/apps/server/src/index.ts
 RUN mkdir -p /sharp && cd /sharp && bun install sharp@$SHARP_VERSION
 
 FROM docker.io/alpine:3.21
