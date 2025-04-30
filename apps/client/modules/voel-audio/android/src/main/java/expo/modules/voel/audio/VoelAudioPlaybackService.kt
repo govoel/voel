@@ -4,12 +4,17 @@ import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import java.io.File
 import okhttp3.OkHttpClient
 
 class VoelAudioPlaybackService : MediaSessionService() {
@@ -48,31 +53,31 @@ class VoelAudioPlaybackService : MediaSessionService() {
                 }
         )
 
-        // TODO: Try using the cache again, maybe after
-        // https://github.com/androidx/media/issues/2214 is fixed
         player =
                 ExoPlayer.Builder(this)
                         .setMediaSourceFactory(
                                 DefaultMediaSourceFactory(
-                                        // CacheDataSource.Factory()
-                                        //         .setCache(
-                                        //                 SimpleCache(
-                                        //                         File(this.cacheDir,
-                                        // "VoelAudioPlaybackServiceCache"),
-                                        //                         LeastRecentlyUsedCacheEvictor(
-                                        //                                 // 1GB
-                                        //                                 1024 * 1024 * 1024L
-                                        //                         ),
-                                        //                         StandaloneDatabaseProvider(this)
-                                        //                 )
-                                        //         )
-                                        //         .setUpstreamDataSourceFactory(
-                                        OkHttpDataSource.Factory(httpClient)
-                                        // )
-                                        // .setFlags(
-                                        //         CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
-                                        // )
-                                        )
+                                        CacheDataSource.Factory()
+                                                .setCache(
+                                                        SimpleCache(
+                                                                File(
+                                                                        this.cacheDir,
+                                                                        "VoelAudioPlaybackServiceCache"
+                                                                ),
+                                                                LeastRecentlyUsedCacheEvictor(
+                                                                        // 1GB
+                                                                        1024 * 1024 * 1024L
+                                                                ),
+                                                                StandaloneDatabaseProvider(this)
+                                                        )
+                                                )
+                                                .setUpstreamDataSourceFactory(
+                                                        OkHttpDataSource.Factory(httpClient)
+                                                )
+                                                .setFlags(
+                                                        CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+                                                )
+                                )
                         )
                         .setUsePlatformDiagnostics(false)
                         .setAudioAttributes(

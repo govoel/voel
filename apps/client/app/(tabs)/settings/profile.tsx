@@ -5,11 +5,12 @@ import { SnapshotFromStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import type { Session as BetterAuthSession } from 'better-auth/types';
 import { Stack } from 'expo-router';
-import React, { useRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useRef } from 'react';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
@@ -34,12 +35,10 @@ export default function ProfileSettingsScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Your Profile', headerTitleAlign: 'center' }} />
-      <ScrollView className="px-6 flex-1">
-        <View className="py-6 flex-1">
-          <Profile />
-          <SessionsList />
-        </View>
-      </ScrollView>
+      <FloatingPlayerDodgingLayout>
+        <Profile />
+        <SessionsList />
+      </FloatingPlayerDodgingLayout>
     </>
   );
 }

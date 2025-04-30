@@ -4,10 +4,11 @@ import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
@@ -122,105 +123,103 @@ export default function UsersListScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Manage Users', headerTitleAlign: 'center' }} />
-      <ScrollView className="px-6">
-        <View className="py-6">
-          <Button
-            variant="secondary"
-            onPress={() => {
-              createUserModalRef.current?.present();
-            }}>
-            <Text>Create New User</Text>
-          </Button>
-          <TitleWithRefetch className="pt-4" refetch={refetch} isLoading={isLoading}>
-            Users
-          </TitleWithRefetch>
-          <Card className="mt-4">
-            {error ? (
-              <>
-                <CardContent className="pt-4">
-                  <Large>Error loading users</Large>
-                  <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-                </CardContent>
-                <CardFooter>
-                  <Button className="w-full" onPress={() => refetch()}>
-                    <Text>Retry</Text>
-                  </Button>
-                </CardFooter>
-              </>
-            ) : session.error ? (
-              <>
-                <CardContent className="pt-4">
-                  <Large>Error loading your session</Large>
-                  <Text className="text-muted-foreground">
-                    {session.error.message || 'Unknown error'}
-                  </Text>
-                </CardContent>
-                <CardFooter>
-                  <Button className="w-full" onPress={() => session.refetch()}>
-                    <Text>Retry</Text>
-                  </Button>
-                </CardFooter>
-              </>
-            ) : data && session.data ? (
-              <FlashList
-                data={allUsers}
-                renderItem={({ item, index }) => (
-                  <Link
-                    href={
-                      session.data?.user.id === item.id
-                        ? '/settings/profile'
-                        : { pathname: '/settings/manage/users/[id]', params: { id: item.id } }
-                    }
-                    asChild
-                    push>
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40',
-                        index !== 0 ? 'border-t border-foreground/15' : ''
-                      )}>
-                      <View className="flex-row gap-x-3 items-center">
-                        <Avatar
-                          className="border border-foreground/15"
-                          alt={`${item.username}'s Avatar`}>
-                          <AvatarImage
-                            source={{
-                              uri: item.image ?? undefined,
-                            }}
-                          />
-                          <AvatarFallback>
-                            <Text>{getInitials(item.name)}</Text>
-                          </AvatarFallback>
-                        </Avatar>
-                        <View>
-                          <Text>{item.username}</Text>
-                          <Text className="text-muted-foreground">{item.role}</Text>
-                        </View>
-                      </View>
-                      <ChevronRight className="text-muted-foreground" size="20" />
-                    </Button>
-                  </Link>
-                )}
-                keyExtractor={(item) => item.id.toString()}
-                onEndReached={handleLoadMore}
-                onEndReachedThreshold={0.5}
-                estimatedItemSize={20}
-                ListFooterComponent={
-                  isFetchingNextPage ? (
-                    <View className="py-4 items-center">
-                      <Spinner size={10} />
-                    </View>
-                  ) : null
-                }
-              />
-            ) : (
-              <CardContent className="p-12 justify-center items-center">
-                <Spinner size={15} />
+      <FloatingPlayerDodgingLayout>
+        <Button
+          variant="secondary"
+          onPress={() => {
+            createUserModalRef.current?.present();
+          }}>
+          <Text>Create New User</Text>
+        </Button>
+        <TitleWithRefetch className="pt-4" refetch={refetch} isLoading={isLoading}>
+          Users
+        </TitleWithRefetch>
+        <Card className="mt-4">
+          {error ? (
+            <>
+              <CardContent className="pt-4">
+                <Large>Error loading users</Large>
+                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
               </CardContent>
-            )}
-          </Card>
-        </View>
-      </ScrollView>
+              <CardFooter>
+                <Button className="w-full" onPress={() => refetch()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </>
+          ) : session.error ? (
+            <>
+              <CardContent className="pt-4">
+                <Large>Error loading your session</Large>
+                <Text className="text-muted-foreground">
+                  {session.error.message || 'Unknown error'}
+                </Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => session.refetch()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </>
+          ) : data && session.data ? (
+            <FlashList
+              data={allUsers}
+              renderItem={({ item, index }) => (
+                <Link
+                  href={
+                    session.data?.user.id === item.id
+                      ? '/settings/profile'
+                      : { pathname: '/settings/manage/users/[id]', params: { id: item.id } }
+                  }
+                  asChild
+                  push>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40',
+                      index !== 0 ? 'border-t border-foreground/15' : ''
+                    )}>
+                    <View className="flex-row gap-x-3 items-center">
+                      <Avatar
+                        className="border border-foreground/15"
+                        alt={`${item.username}'s Avatar`}>
+                        <AvatarImage
+                          source={{
+                            uri: item.image ?? undefined,
+                          }}
+                        />
+                        <AvatarFallback>
+                          <Text>{getInitials(item.name)}</Text>
+                        </AvatarFallback>
+                      </Avatar>
+                      <View>
+                        <Text>{item.username}</Text>
+                        <Text className="text-muted-foreground">{item.role}</Text>
+                      </View>
+                    </View>
+                    <ChevronRight className="text-muted-foreground" size="20" />
+                  </Button>
+                </Link>
+              )}
+              keyExtractor={(item) => item.id.toString()}
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.5}
+              estimatedItemSize={20}
+              ListFooterComponent={
+                isFetchingNextPage ? (
+                  <View className="py-4 items-center">
+                    <Spinner size={10} />
+                  </View>
+                ) : null
+              }
+            />
+          ) : (
+            <CardContent className="p-12 justify-center items-center">
+              <Spinner size={15} />
+            </CardContent>
+          )}
+        </Card>
+      </FloatingPlayerDodgingLayout>
 
       <BottomSheet ref={createUserModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">

@@ -10,6 +10,7 @@ export function iconWithClassName(icon: LucideIcon) {
         opacity: true,
         height: true,
         width: true,
+        fill: true,
       },
     },
   });

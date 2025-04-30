@@ -1,6 +1,7 @@
 import { Button } from './ui/button';
 import { Large } from './ui/typography';
 import { DefaultError, QueryObserverBaseResult } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { RefreshCw } from '~/lib/icons/RefreshCw';
@@ -15,7 +16,7 @@ export function TitleWithRefetch<TData = unknown, TError = DefaultError>({
   className?: string;
   refetch: QueryObserverBaseResult<TData, TError>['refetch'] | (() => void);
   isLoading: QueryObserverBaseResult<TData, TError>['isLoading'];
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <View className={cn('flex flex-row justify-between items-center', className)}>
