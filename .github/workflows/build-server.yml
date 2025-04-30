@@ -2,21 +2,9 @@ name: Build Server
 
 on:
   pull_request:
-    paths:
-      - 'apps/server/**'
-      - 'packages/schemas/**'
-      - 'packages/source-tap/**'
-      - 'Dockerfile'
-      - '.dockerignore'
     branches:
       - '*'
   push:
-    paths:
-      - 'apps/server/**'
-      - 'packages/schemas/**'
-      - 'packages/source-tap/**'
-      - 'Dockerfile'
-      - '.dockerignore'
     branches:
       - main
     tags:
@@ -28,8 +16,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # we use this so that required checks work properly
+  should-skip:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      actions: write
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5.3.1
+        with:
+          paths: '["apps/server/**", "packages/schemas/**", "packages/source-tap/**", "Dockerfile", ".dockerignore"]'
+          cancel_others: 'false'
+          concurrent_skipping: 'never'
+          skip_after_successful_duplicate: 'false'
+
   build-server:
     runs-on: self-hosted
+
+    needs:
+      - should-skip
+
+    if: needs.should-skip.outputs.should_skip != 'true'
 
     permissions:
       contents: read
