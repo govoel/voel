@@ -17,6 +17,5 @@ COPY --from=docker.io/mwader/static-ffmpeg:latest /ffprobe /usr/local/bin/
 ENV PATH="/usr/local/bin:${PATH}"
 ENV NODE_ENV=production
 
-USER bun
 EXPOSE 3000/tcp
 ENTRYPOINT [ "/voel-server" ]
