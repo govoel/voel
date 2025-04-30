@@ -6,7 +6,7 @@ import {
   splitLink,
 } from '@trpc/client';
 import { type TRPCOptionsProxy, createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
-import { auth } from '@voel/server/src/libs/auth/auth';
+import type { auth } from '@voel/server/src/libs/auth/auth';
 import type { AppRouter } from '@voel/server/src/router/root';
 import { createStore } from '@xstate/store';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
