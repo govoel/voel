@@ -1,0 +1,4 @@
+.github
+.zed
+apps/client
+!apps/client/package.json
