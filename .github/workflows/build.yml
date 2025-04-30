@@ -71,6 +71,7 @@ jobs:
         run: |
           echo "$REGISTRY_PASSWORD" | buildah login ghcr.io -u $REGISTRY_USERNAME --password-stdin
           while IFS= read -r tag; do
+            echo "Pushing tag: $tag"
             buildah push --storage-driver=vfs $tag docker://$tag
           done <<< $DOCKER_METADATA_OUTPUT_TAGS
 
