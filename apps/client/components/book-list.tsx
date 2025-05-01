@@ -1,9 +1,8 @@
 import { Badge } from './ui/badge';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, MasonryFlashList } from '@shopify/flash-list';
 import { Link } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { AutoMarquee } from '~/components/auto-marquee';
 import { Image } from '~/components/image';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Text } from '~/components/ui/text';
@@ -25,7 +24,7 @@ export function BookList({
   }[];
 }) {
   return (
-    <FlashList
+    <MasonryFlashList
       data={books}
       numColumns={2}
       renderItem={({ item, index }) => (
@@ -54,25 +53,25 @@ export function BookList({
               ) : null}
             </AspectRatio>
             <View className="pt-2">
-              <AutoMarquee spacing={20} speed={0.75}>
-                <Large className="border-none">{item.title}</Large>
-              </AutoMarquee>
+              <Large className="border-none" numberOfLines={1}>
+                {item.title}
+              </Large>
               {item.authors ? (
-                <AutoMarquee spacing={20} speed={0.75}>
-                  <Muted>{item.authors.map((author) => author.name).join(', ')}</Muted>
-                </AutoMarquee>
+                <Muted numberOfLines={1}>
+                  {item.authors.map((author) => author.name).join(', ')}
+                </Muted>
               ) : null}
               {item.narrators ? (
-                <AutoMarquee spacing={20} speed={0.75}>
-                  <Muted>{item.narrators.map((narrator) => narrator.name).join(', ')}</Muted>
-                </AutoMarquee>
+                <Muted numberOfLines={1}>
+                  {item.narrators.map((narrator) => narrator.name).join(', ')}
+                </Muted>
               ) : null}
             </View>
           </Pressable>
         </Link>
       )}
       keyExtractor={(item) => item.id.toString()}
-      estimatedItemSize={10}
+      estimatedItemSize={200}
       ListEmptyComponent={() => (
         <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
           <Text className="text-center">No books found</Text>
