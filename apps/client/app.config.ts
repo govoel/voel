@@ -2,7 +2,12 @@ import { ConfigContext, ExpoConfig } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Voel',
+  name:
+    process.env.APP_VARIANT === 'development'
+      ? 'Voel (Dev)'
+      : process.env.APP_VARIANT === 'preview'
+        ? 'Voel (Preview)'
+        : 'Voel',
   slug: 'voel',
   scheme: 'voel',
   version: '0.0.0-mvp',
@@ -59,7 +64,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: false,
-    bundleIdentifier: 'app.voel.ios',
+    bundleIdentifier:
+      process.env.APP_VARIANT === 'development'
+        ? 'app.voel.ios'
+        : process.env.APP_VARIANT === 'preview'
+          ? 'app.voel.ios.preview'
+          : 'app.voel.ios',
     icon: {
       dark: './assets/icons/ios-dark.png',
       light: './assets/icons/ios-light.png',
@@ -67,7 +77,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    package: 'app.voel.android',
+    package:
+      process.env.APP_VARIANT === 'development'
+        ? 'app.voel.android.dev'
+        : process.env.APP_VARIANT === 'preview'
+          ? 'app.voel.android.preview'
+          : 'app.voel.android',
     adaptiveIcon: {
       foregroundImage: './assets/icons/adaptive-icon.png',
       monochromeImage: './assets/icons/adaptive-icon.png',

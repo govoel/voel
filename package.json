@@ -11,6 +11,7 @@
     "bun-types": "1.2.11"
   },
   "overrides": {
-    "kysely": "0.28.2"
+    "kysely": "0.28.2",
+    "zod": "3.24.3"
   }
 }
