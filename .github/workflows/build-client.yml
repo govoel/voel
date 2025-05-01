@@ -47,6 +47,9 @@ jobs:
     needs:
       - should-skip
 
+    # Proceed with the job only if the "should-skip" output is not true.
+    # For pull requests, ensure the "build-client" label is present.
+    # For push events, always proceed regardless of labels.
     if: needs.should-skip.outputs.should_skip != 'true' && ((github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-client')) || github.event_name == 'push')
 
     steps:
