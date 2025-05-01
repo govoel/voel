@@ -84,6 +84,7 @@ export function FloatingPlayer({ className }: { className: string }) {
         errorCode: playerStatus.errorCode,
         duration: playerStatus.duration,
         currentTime: playerStatus.currentTime,
+        playbackRate: +playerStatus.playbackRate.toFixed(1),
         playbackState: playerStatus.playbackState,
         timeControlStatus: playerStatus.timeControlStatus,
       }}
@@ -147,6 +148,12 @@ const errorMessages = {
   '7001': 'Failed to process video frame.',
 };
 
+const getNextPlaybackRate = (currentRate: number): number => {
+  const rates = [1, 1.3, 1.5, 1.7, 2];
+  const index = rates.findIndex((rate) => currentRate < rate);
+  return rates[index === -1 ? 0 : index];
+};
+
 function FloatingPlayerImpl({
   className,
   currentTrack,
@@ -158,6 +165,7 @@ function FloatingPlayerImpl({
     errorCode: number | null;
     duration: number;
     currentTime: number;
+    playbackRate: number;
     playbackState: string;
     timeControlStatus: string;
   };
@@ -170,8 +178,8 @@ function FloatingPlayerImpl({
     if (playerStatus?.errorCode !== null) {
       toast.error('Playback failed', {
         description:
-          String(playerStatus.errorCode) in errorMessages
-            ? errorMessages[String(playerStatus.errorCode)]
+          playerStatus.errorCode in errorMessages
+            ? errorMessages[playerStatus.errorCode]
             : `Unknown error (${playerStatus.errorCode})`,
       });
     }
@@ -209,6 +217,14 @@ function FloatingPlayerImpl({
             </View>
           </View>
           <View className="flex-none flex-row items-center justify-center gap-x-1 h-full pr-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => {
+                Player.setPlaybackRate(getNextPlaybackRate(playerStatus.playbackRate));
+              }}>
+              <Text>{playerStatus.playbackRate}x</Text>
+            </Button>
             {playerStatus.playbackState === 'ready' || playerStatus.playbackState === 'idle' ? (
               playerStatus.timeControlStatus === 'paused' ? (
                 <Button variant="ghost" size="icon" onPress={() => Player.play()}>
