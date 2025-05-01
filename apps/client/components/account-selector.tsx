@@ -6,6 +6,7 @@ import { Text } from './ui/text';
 import { Large } from './ui/typography';
 import { AppRouter } from '@/router/root';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { useQueryClient } from '@tanstack/react-query';
 import { TRPCClientErrorLike } from '@trpc/client';
 import { inferRouterOutputs } from '@trpc/server';
 import {
@@ -316,6 +317,7 @@ const useSyncSubscriptionOptions = (
     queryKey: [['dummyWhileRealSubscriptionLoads']],
   });
   const [isPending, setIsPending] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const createSubscription = async () => {
@@ -325,229 +327,258 @@ const useSyncSubscriptionOptions = (
             (
               await instanceDb
                 .selectFrom('library')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           author:
             (
               await instanceDb
                 .selectFrom('author')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           series:
             (
               await instanceDb
                 .selectFrom('series')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           book:
             (
               await instanceDb
                 .selectFrom('book')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           bookAuthor:
             (
               await instanceDb
                 .selectFrom('bookAuthor')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           bookSeries:
             (
               await instanceDb
                 .selectFrom('bookSeries')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           bookContributor:
             (
               await instanceDb
                 .selectFrom('bookContributor')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           audiobookChapter:
             (
               await instanceDb
                 .selectFrom('audiobookChapter')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           audiobookFile:
             (
               await instanceDb
                 .selectFrom('audiobookFile')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
           ebookFile:
             (
               await instanceDb
                 .selectFrom('ebookFile')
                 .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
-                .executeTakeFirst()
-            )?.maxUpdatedAt ?? 0,
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
         },
         {
           enabled: true,
           onData: async (data) => {
-            if (data.type === 'history') {
-              if (data.payload.table === 'library') {
-                await upsertLibrary(
-                  instanceDb,
-                  ensureExact<Insertable<LibraryTable<'realtime'>>[], (typeof data.payload.row)[]>([
-                    data.payload.row,
-                  ])
-                );
-              } else if (data.payload.table === 'author') {
-                await upsertAuthor(
-                  instanceDb,
-                  ensureExact<Insertable<AuthorTable<'realtime'>>[], (typeof data.payload.row)[]>([
-                    data.payload.row,
-                  ])
-                );
-              } else if (data.payload.table === 'series') {
-                await upsertSeries(
-                  instanceDb,
-                  ensureExact<Insertable<SeriesTable<'realtime'>>[], (typeof data.payload.row)[]>([
-                    data.payload.row,
-                  ])
-                );
-              } else if (data.payload.table === 'book') {
-                await upsertBook(
-                  instanceDb,
-                  ensureExact<Insertable<BookTable<'realtime'>>[], (typeof data.payload.row)[]>([
-                    data.payload.row,
-                  ])
-                );
-              } else if (data.payload.table === 'bookAuthor') {
-                await upsertBookAuthor(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<BookAuthorTable<'realtime'>>[],
-                    (typeof data.payload.row)[]
-                  >([data.payload.row])
-                );
-              } else if (data.payload.table === 'bookSeries') {
-                await upsertBookSeries(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<BookSeriesTable<'realtime'>>[],
-                    (typeof data.payload.row)[]
-                  >([data.payload.row])
-                );
-              } else if (data.payload.table === 'bookContributor') {
-                await upsertBookContributor(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<BookContributorTable<'realtime'>>[],
-                    (typeof data.payload.row)[]
-                  >([data.payload.row])
-                );
-              } else if (data.payload.table === 'audiobookChapter') {
-                await upsertAudiobookChapter(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<AudiobookChapterTable<'realtime'>>[],
-                    (typeof data.payload.row)[]
-                  >([data.payload.row])
-                );
-              } else if (data.payload.table === 'audiobookFile') {
-                await upsertAudiobookFile(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<AudiobookFileTable<'realtime'>>[],
-                    (typeof data.payload.row)[]
-                  >([data.payload.row])
-                );
-              } else if (data.payload.table === 'ebookFile') {
-                await upsertEBookFile(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<EBookFileTable<'realtime'>>[],
-                    (typeof data.payload.row)[]
-                  >([data.payload.row])
-                );
+            try {
+              if (data.type === 'history') {
+                if (data.payload.table === 'library') {
+                  await upsertLibrary(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<LibraryTable<'realtime'>>[],
+                      (typeof data.payload.row)[]
+                    >([data.payload.row])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'author') {
+                  await upsertAuthor(
+                    instanceDb,
+                    ensureExact<Insertable<AuthorTable<'realtime'>>[], (typeof data.payload.row)[]>(
+                      [data.payload.row]
+                    )
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'series') {
+                  await upsertSeries(
+                    instanceDb,
+                    ensureExact<Insertable<SeriesTable<'realtime'>>[], (typeof data.payload.row)[]>(
+                      [data.payload.row]
+                    )
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'book') {
+                  await upsertBook(
+                    instanceDb,
+                    ensureExact<Insertable<BookTable<'realtime'>>[], (typeof data.payload.row)[]>([
+                      data.payload.row,
+                    ])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'bookAuthor') {
+                  await upsertBookAuthor(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<BookAuthorTable<'realtime'>>[],
+                      (typeof data.payload.row)[]
+                    >([data.payload.row])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'bookSeries') {
+                  await upsertBookSeries(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<BookSeriesTable<'realtime'>>[],
+                      (typeof data.payload.row)[]
+                    >([data.payload.row])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'bookContributor') {
+                  await upsertBookContributor(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<BookContributorTable<'realtime'>>[],
+                      (typeof data.payload.row)[]
+                    >([data.payload.row])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'audiobookChapter') {
+                  await upsertAudiobookChapter(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<AudiobookChapterTable<'realtime'>>[],
+                      (typeof data.payload.row)[]
+                    >([data.payload.row])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'audiobookFile') {
+                  await upsertAudiobookFile(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<AudiobookFileTable<'realtime'>>[],
+                      (typeof data.payload.row)[]
+                    >([data.payload.row])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'ebookFile') {
+                  await upsertEBookFile(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<EBookFileTable<'realtime'>>[],
+                      (typeof data.payload.row)[]
+                    >([data.payload.row])
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                }
+              } else if (data.type === 'live') {
+                if (data.payload.table === 'library') {
+                  await upsertLibrary(
+                    instanceDb,
+                    ensureExact<Insertable<LibraryTable<'realtime'>>[], typeof data.payload.rows>(
+                      data.payload.rows
+                    )
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'author') {
+                  await upsertAuthor(
+                    instanceDb,
+                    ensureExact<Insertable<AuthorTable<'realtime'>>[], typeof data.payload.rows>(
+                      data.payload.rows
+                    )
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'series') {
+                  await upsertSeries(
+                    instanceDb,
+                    ensureExact<Insertable<SeriesTable<'realtime'>>[], typeof data.payload.rows>(
+                      data.payload.rows
+                    )
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'book') {
+                  await upsertBook(
+                    instanceDb,
+                    ensureExact<Insertable<BookTable<'realtime'>>[], typeof data.payload.rows>(
+                      data.payload.rows
+                    )
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'bookAuthor') {
+                  await upsertBookAuthor(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<BookAuthorTable<'realtime'>>[],
+                      typeof data.payload.rows
+                    >(data.payload.rows)
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'bookSeries') {
+                  await upsertBookSeries(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<BookSeriesTable<'realtime'>>[],
+                      typeof data.payload.rows
+                    >(data.payload.rows)
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'bookContributor') {
+                  await upsertBookContributor(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<BookContributorTable<'realtime'>>[],
+                      typeof data.payload.rows
+                    >(data.payload.rows)
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'audiobookChapter') {
+                  await upsertAudiobookChapter(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<AudiobookChapterTable<'realtime'>>[],
+                      typeof data.payload.rows
+                    >(data.payload.rows)
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'audiobookFile') {
+                  await upsertAudiobookFile(
+                    instanceDb,
+                    ensureExact<
+                      Insertable<AudiobookFileTable<'realtime'>>[],
+                      typeof data.payload.rows
+                    >(data.payload.rows)
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                } else if (data.payload.table === 'ebookFile') {
+                  await upsertEBookFile(
+                    instanceDb,
+                    ensureExact<Insertable<EBookFileTable<'realtime'>>[], typeof data.payload.rows>(
+                      data.payload.rows
+                    )
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                }
               }
-            } else if (data.type === 'live') {
-              if (data.payload.table === 'library') {
-                await upsertLibrary(
-                  instanceDb,
-                  ensureExact<Insertable<LibraryTable<'realtime'>>[], typeof data.payload.rows>(
-                    data.payload.rows
-                  )
-                );
-              } else if (data.payload.table === 'author') {
-                await upsertAuthor(
-                  instanceDb,
-                  ensureExact<Insertable<AuthorTable<'realtime'>>[], typeof data.payload.rows>(
-                    data.payload.rows
-                  )
-                );
-              } else if (data.payload.table === 'series') {
-                await upsertSeries(
-                  instanceDb,
-                  ensureExact<Insertable<SeriesTable<'realtime'>>[], typeof data.payload.rows>(
-                    data.payload.rows
-                  )
-                );
-              } else if (data.payload.table === 'book') {
-                await upsertBook(
-                  instanceDb,
-                  ensureExact<Insertable<BookTable<'realtime'>>[], typeof data.payload.rows>(
-                    data.payload.rows
-                  )
-                );
-              } else if (data.payload.table === 'bookAuthor') {
-                await upsertBookAuthor(
-                  instanceDb,
-                  ensureExact<Insertable<BookAuthorTable<'realtime'>>[], typeof data.payload.rows>(
-                    data.payload.rows
-                  )
-                );
-              } else if (data.payload.table === 'bookSeries') {
-                await upsertBookSeries(
-                  instanceDb,
-                  ensureExact<Insertable<BookSeriesTable<'realtime'>>[], typeof data.payload.rows>(
-                    data.payload.rows
-                  )
-                );
-              } else if (data.payload.table === 'bookContributor') {
-                await upsertBookContributor(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<BookContributorTable<'realtime'>>[],
-                    typeof data.payload.rows
-                  >(data.payload.rows)
-                );
-              } else if (data.payload.table === 'audiobookChapter') {
-                await upsertAudiobookChapter(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<AudiobookChapterTable<'realtime'>>[],
-                    typeof data.payload.rows
-                  >(data.payload.rows)
-                );
-              } else if (data.payload.table === 'audiobookFile') {
-                await upsertAudiobookFile(
-                  instanceDb,
-                  ensureExact<
-                    Insertable<AudiobookFileTable<'realtime'>>[],
-                    typeof data.payload.rows
-                  >(data.payload.rows)
-                );
-              } else if (data.payload.table === 'ebookFile') {
-                await upsertEBookFile(
-                  instanceDb,
-                  ensureExact<Insertable<EBookFileTable<'realtime'>>[], typeof data.payload.rows>(
-                    data.payload.rows
-                  )
-                );
-              }
+            } catch (error) {
+              toast.error(`Error processing ${data.type} data for ${data.payload.table}`, {
+                description: error instanceof Error ? error.message : 'Unknown error',
+              });
             }
           },
         }
