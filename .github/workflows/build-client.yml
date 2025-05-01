@@ -91,13 +91,14 @@ jobs:
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
         env:
           VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
-      - name: Generate Native Module
+      - name: Generate Native Debug Module
         working-directory: apps/client
-        run: bun run prebuild --platform android
+        run: bun run prebuild --platform android --clean
       - name: Build Android Debug App
         working-directory: apps/client/android
         run: chmod +x ./gradlew && ./gradlew assembleDebug --build-cache --parallel
         env:
+          APP_VARIANT: development
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
           CCACHE_COMPILERCHECK: content
           NDK_CCACHE: /usr/bin/ccache
@@ -109,18 +110,22 @@ jobs:
           path: apps/client/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
-      - name: Build Android Release App
+      - name: Generate Native Preview Module
+        working-directory: apps/client
+        run: bun run prebuild:preview --platform android --clean
+      - name: Build Android Preview App
         working-directory: apps/client/android
         run: chmod +x ./gradlew && ./gradlew assembleRelease --build-cache --parallel
         env:
+          APP_VARIANT: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
           CCACHE_COMPILERCHECK: content
           NDK_CCACHE: /usr/bin/ccache
           NODE_ENV: production
-      - name: Upload Release Android App
+      - name: Upload Preview Android App
         uses: actions/upload-artifact@v4
         with:
-          name: android-app-release
+          name: android-app-preview
           path: apps/client/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 7
