@@ -4,7 +4,7 @@ import { Kysely, Selectable } from 'kysely';
 import { InstanceDatabase } from '~/db/schema/instance';
 
 const get = {
-  queryKey: ['series', 'get'],
+  queryKey: ['instance', 'series', 'get'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, seriesId: number) => {
     return useReactQuery({
       queryKey: [...get.queryKey, seriesId],

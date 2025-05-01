@@ -177,12 +177,10 @@ class OpSqliteConnection implements DatabaseConnection {
 
   async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
     const { sql, parameters } = compiledQuery;
-
-    const stmt = this.#db.prepareStatement(sql);
-
-    stmt.bind(parameters as any[]);
-
-    const result = await stmt.execute();
+    // We don't prepare, bind, then execute since there's no benefit,
+    // and because FOREIGN KEY constraint errors causes the app to crash
+    // due to an uncaught exception error in OPSqlite.
+    const result = await this.#db.execute(sql, parameters as any[]);
 
     return {
       rows: result.rows as O[],

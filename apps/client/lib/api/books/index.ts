@@ -4,7 +4,7 @@ import { Kysely, Selectable } from 'kysely';
 import { InstanceDatabase } from '~/db/schema/instance';
 
 const list = {
-  queryKey: ['books', 'list'],
+  queryKey: ['instance', 'book', 'list'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
     return useReactQuery({
       queryKey: list.queryKey,
@@ -32,6 +32,7 @@ const list = {
             join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
           )
           .groupBy('book.id')
+          .orderBy('book.updatedAt', 'desc')
           .select((eb) => [
             eb
               .fn<string>('json_group_array', [
@@ -60,7 +61,7 @@ const list = {
 };
 
 const get = {
-  queryKey: ['books', 'get'],
+  queryKey: ['instance', 'book', 'get'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
     return useReactQuery({
       queryKey: [...get.queryKey, { bookId }],
