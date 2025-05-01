@@ -4,7 +4,7 @@ import { Kysely } from 'kysely';
 import { InstanceDatabase } from '~/db/schema/instance';
 
 const list = {
-  queryKey: ['libraries', 'list'],
+  queryKey: ['instance', 'library', 'list'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
     return useReactQuery({
       queryKey: list.queryKey,
