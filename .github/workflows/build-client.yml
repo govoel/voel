@@ -2,6 +2,11 @@ name: Build Client
 
 on:
   pull_request:
+    types:
+      - labeled
+      - opened
+      - synchronize
+      - reopened
     branches:
       - '*'
   push:
@@ -42,7 +47,7 @@ jobs:
     needs:
       - should-skip
 
-    if: needs.should-skip.outputs.should_skip != 'true'
+    if: needs.should-skip.outputs.should_skip != 'true' && ((github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-client')) || github.event_name == 'push')
 
     steps:
       - name: Checkout repo
