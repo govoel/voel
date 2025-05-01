@@ -103,72 +103,78 @@ export default function BookScreen() {
 
             <BookPlayButton book={data} />
 
-            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-4">
+            <View className="flex flex-row flex-wrap gap-2 items-center pt-4">
               <Timer className="text-muted-foreground" size={20} />
               <Badge variant="outline">
                 <Text>{formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}</Text>
               </Badge>
             </View>
 
-            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
+            <View className="flex flex-row flex-wrap gap-2 items-center pt-2">
               <UserPen className="text-muted-foreground" size={20} />
-              {data.authors.map((author, index) => (
-                <Link
-                  key={`author-${index}`}
-                  href={{
-                    pathname: '/(tabs)/(library)/author/[authorId]',
-                    params: { authorId: author.id },
-                  }}
-                  push
-                  asChild>
-                  <Badge variant="secondary">
-                    <Text>{author.name}</Text>
-                  </Badge>
-                </Link>
-              ))}
-            </View>
-
-            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
-              <MicVocal className="text-muted-foreground" size={20} />
-              {data.contributors.map((contributor, index) =>
-                contributor.role === 'narrator' ? (
+              <View className="flex flex-row flex-wrap gap-2 items-center">
+                {data.authors.map((author, index) => (
                   <Link
-                    key={`contributor-narrator-${index}`}
+                    key={`author-${index}`}
                     href={{
-                      pathname: '/(tabs)/(library)/narrator/[narratorName]',
-                      params: { narratorName: contributor.name },
+                      pathname: '/(tabs)/(library)/author/[authorId]',
+                      params: { authorId: author.id },
                     }}
                     push
                     asChild>
                     <Badge variant="secondary">
-                      <Text>{contributor.name}</Text>
+                      <Text>{author.name}</Text>
                     </Badge>
                   </Link>
-                ) : null
-              )}
+                ))}
+              </View>
             </View>
 
-            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
+            <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
+              <MicVocal className="text-muted-foreground" size={20} />
+              <View className="flex flex-row flex-wrap gap-2 items-center">
+                {data.contributors.map((contributor, index) =>
+                  contributor.role === 'narrator' ? (
+                    <Link
+                      key={`contributor-narrator-${index}`}
+                      href={{
+                        pathname: '/(tabs)/(library)/narrator/[narratorName]',
+                        params: { narratorName: contributor.name },
+                      }}
+                      push
+                      asChild>
+                      <Badge variant="secondary">
+                        <Text>{contributor.name}</Text>
+                      </Badge>
+                    </Link>
+                  ) : null
+                )}
+              </View>
+            </View>
+
+            <View className="flex flex-row flex-wrap gap-2 items-center pt-2">
               <BookCopy className="text-muted-foreground" size={20} />
-              {data.series.map((series, index) => (
-                <Link
-                  key={`series-${index}`}
-                  href={{
-                    pathname: '/(tabs)/(library)/series/[seriesId]',
-                    params: { seriesId: series.id },
-                  }}
-                  push
-                  asChild>
-                  <Badge variant="secondary">
-                    <View className="flex flex-row justify-center items-center">
-                      <Text className="border-r border-muted-foreground/50 pr-1">
-                        {series.label}
-                      </Text>
-                      <Text className="pl-1">{series.name}</Text>
-                    </View>
-                  </Badge>
-                </Link>
-              ))}
+              <View className="flex flex-row flex-wrap gap-2 items-center">
+                {data.series.map((series, index) => (
+                  <Link
+                    key={`series-${index}`}
+                    href={{
+                      pathname: '/(tabs)/(library)/series/[seriesId]',
+                      params: { seriesId: series.id },
+                    }}
+                    push
+                    asChild>
+                    <Badge variant="secondary">
+                      <View className="flex flex-row justify-center items-center">
+                        <Text className="border-r border-muted-foreground/50 pr-1">
+                          {series.label}
+                        </Text>
+                        <Text className="pl-1">{series.name}</Text>
+                      </View>
+                    </Badge>
+                  </Link>
+                ))}
+              </View>
             </View>
 
             <View className="pt-4">
@@ -359,7 +365,7 @@ const ChapterList = ({
       data={chapters}
       renderItem={({ item, index }) => (
         <View className={cn('flex flex-row flex-wrap items-center', index === 0 ? '' : 'mt-4')}>
-          <View className="flex flex-row flex-wrap items-center gap-x-2">
+          <View className="flex flex-row flex-wrap items-center gap-2">
             <Button className="h-12 py-1 flex flex-row" variant="outline" size="sm">
               <Play className="text-muted-foreground mr-2" size={16} />
               <View className="border-l border-input pl-2 flex justify-center items-center">
@@ -376,7 +382,7 @@ const ChapterList = ({
         </View>
       )}
       keyExtractor={(item) => item.id.toString()}
-      estimatedItemSize={20}
+      estimatedItemSize={56}
       ListEmptyComponent={() => (
         <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
           <Text className="text-center">No chapters found</Text>
@@ -396,7 +402,7 @@ const BookFiles = ({
       data={files}
       renderItem={({ item, index }) => (
         <View className={index === 0 ? '' : 'mb-4'}>
-          <View className="flex flex-row flex-wrap gap-x-2" key={`file-${index}`}>
+          <View className="flex flex-row flex-wrap gap-2" key={`file-${index}`}>
             <Badge variant="outline">
               <Text>{formatDuration(item.durationMs)}</Text>
             </Badge>
@@ -411,7 +417,7 @@ const BookFiles = ({
         </View>
       )}
       keyExtractor={(item) => item.id.toString()}
-      estimatedItemSize={20}
+      estimatedItemSize={80}
       ListEmptyComponent={() => (
         <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
           <Text className="text-center">No chapters found</Text>
