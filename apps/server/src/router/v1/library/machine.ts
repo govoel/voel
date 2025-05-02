@@ -24,6 +24,7 @@ import { db } from '@/libs/db';
 import {
   type AudiobookChapterTable,
   type AuthorTable,
+  type BookContributorTable,
   type BookTable,
   type SeriesTable,
 } from '@/libs/db/schema';
@@ -202,6 +203,7 @@ function sortAlbumTracks<T extends AudioFile>(albumGroups: Record<string, T[]>) 
   });
 }
 
+type Author = { asin: string; name: string };
 async function identifyBooks<T extends AudioFile>(albumGroups: Record<string, T[]>) {
   const albumGroupKeys = Object.keys(albumGroups);
 
@@ -234,15 +236,46 @@ async function identifyBooks<T extends AudioFile>(albumGroups: Record<string, T[
     (book) => generateThumbhash(book.product_images[500].replace(/\._S[A-Z]+500_\./, '._SL100_.'))
   );
 
-  const books = booksWithoutThumbhashes.map((book, i) => ({
-    ...book,
-    coverThumbhash: booksThumbhashes[i]!.status === 'fulfilled' ? booksThumbhashes[i]!.value : null,
-  }));
+  const books = booksWithoutThumbhashes.map((book, i) => {
+    const authors: Author[] = [];
+    const contributors: Omit<Insertable<BookContributorTable>, 'bookId'>[] = [];
+
+    for (const author of book.authors) {
+      if (typeof author.asin === 'string') {
+        authors.push({ asin: author.asin, name: author.name });
+      } else if (author.name.endsWith(' - edited by')) {
+        contributors.push({
+          role: 'editor',
+          name: author.name.substring(0, author.name.length - 12),
+        });
+      } else if (author.name.endsWith(' - translated by')) {
+        contributors.push({
+          role: 'translator',
+          name: author.name.substring(0, author.name.length - 16),
+        });
+      } else if (author.name.endsWith(' - translator')) {
+        contributors.push({
+          role: 'translator',
+          name: author.name.substring(0, author.name.length - 13),
+        });
+      } else {
+        scanLogger.warn('Unknown contributor type for ASIN %s: %o', book.asin, author);
+      }
+    }
+
+    return {
+      ...book,
+      authors,
+      contributors,
+      coverThumbhash:
+        booksThumbhashes[i]!.status === 'fulfilled' ? booksThumbhashes[i]!.value : null,
+    };
+  });
 
   return books;
 }
 
-async function fetchAuthorsAndSeries(books: AudibleBook[]) {
+async function fetchAuthorsAndSeries(books: Awaited<ReturnType<typeof identifyBooks>>) {
   const pendingAuthorAsins = new Set<string>();
   const pendingSeriesAsins = new Set<string>();
 
@@ -393,7 +426,7 @@ type AllPropsRequired<T> = Required<{ [P in keyof T]: Required<NonNullable<T[P]>
 
 async function insertBooksIntoDatabase(
   library: { id: number },
-  books: (AudibleBook & { coverThumbhash: string | null; files: AudioFile[] })[],
+  books: Awaited<ReturnType<typeof identifyBooks>>,
   authors: Map<
     string,
     {
@@ -549,11 +582,18 @@ async function insertBooksIntoDatabase(
         await trx
           .insertInto('bookContributor')
           .values(
-            book.narrators.map((n) => ({
-              bookId: insertedBook.id,
-              role: 'narrator',
-              name: n.name,
-            }))
+            [
+              book.narrators.map((i) => ({
+                bookId: insertedBook.id,
+                role: 'narrator' as const,
+                name: i.name,
+              })),
+              book.contributors.map((i) => ({
+                bookId: insertedBook.id,
+                role: i.role,
+                name: i.name,
+              })),
+            ].flat()
           )
           .executeTakeFirstOrThrow();
 
@@ -770,7 +810,7 @@ async function generateThumbhash(imageURL: string) {
   return null;
 }
 
-async function prepareBookData(book: AudibleBook & { coverThumbhash: string | null }) {
+async function prepareBookData(book: Awaited<ReturnType<typeof identifyBooks>>[number]) {
   return {
     asin: book.asin,
     type: 'audio',
@@ -786,7 +826,7 @@ async function prepareBookData(book: AudibleBook & { coverThumbhash: string | nu
 type IterableElementType<T extends Iterable<unknown>> = T extends Iterable<infer E> ? E : never;
 
 function prepareAuthorData(
-  authorsFromBook: AudibleBook['authors'],
+  authorsFromBook: Awaited<ReturnType<typeof identifyBooks>>[number]['authors'],
   authorsFromAudible: Map<
     string,
     {

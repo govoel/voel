@@ -14,7 +14,7 @@ const bookSchema = z.object({
   format_type: z.union([z.literal('abridged'), z.literal('unabridged')]),
   is_adult_product: z.boolean(),
 
-  authors: z.array(z.object({ asin: z.string(), name: z.string() })),
+  authors: z.array(z.object({ asin: z.string().optional(), name: z.string() })),
   narrators: z.array(z.object({ name: z.string() })),
   series: z
     .array(z.object({ asin: z.string(), title: z.string(), sequence: z.string(), url: z.string() }))
