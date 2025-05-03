@@ -551,11 +551,7 @@ async function insertBooksIntoDatabase(
 
         insertedSeries.push(...completeInsertedSeries);
 
-        if (
-          Array.isArray(book.series) &&
-          book.series.length > 0 &&
-          (insertedSeries.length === 0 || insertedSeries.length !== book.series.length)
-        ) {
+        if (Array.isArray(book.series) && insertedSeries.length !== book.series.length) {
           throw new Error(
             `${insertedSeries.length} series inserted when we expected ${book.series.length} series to be inserted`
           );
@@ -571,17 +567,25 @@ async function insertBooksIntoDatabase(
           )
           .executeTakeFirstOrThrow();
 
-        await trx
-          .insertInto('bookSeries')
-          .values(
-            bookSeries.map((i) => ({
-              bookId: insertedBook.id,
-              seriesId: insertedSeries.find((s) => s.asin === i.seriesAsin)!.id,
-              label: i.label,
-              sort: i.sort,
-            }))
-          )
-          .executeTakeFirstOrThrow();
+        if (insertedSeries.length > 0) {
+          const insertedBookSeries = await trx
+            .insertInto('bookSeries')
+            .values(
+              bookSeries.map((i) => ({
+                bookId: insertedBook.id,
+                seriesId: insertedSeries.find((s) => s.asin === i.seriesAsin)!.id,
+                label: i.label,
+                sort: i.sort,
+              }))
+            )
+            .executeTakeFirstOrThrow();
+
+          if (insertedBookSeries.numInsertedOrUpdatedRows !== BigInt(insertedSeries.length)) {
+            throw new Error(
+              `${insertedBookSeries.numInsertedOrUpdatedRows} book series inserted when we expected ${insertedSeries.length} series to be inserted`
+            );
+          }
+        }
 
         await trx
           .insertInto('bookContributor')
