@@ -254,6 +254,36 @@ const parseMultiAuthorNarrator = (str?: string) => {
   return [str.trim()];
 };
 
+const openingBrackets = new Set(['(', '[', '{']);
+const closingBrackets = new Set([')', ']', '}']);
+const correspondingOpeningBrackets = new Map([
+  [')', '('],
+  [']', '['],
+  ['}', '{'],
+]);
+
+const removeEnclosingContent = (str: string) => {
+  const result = [];
+  const stack = [];
+
+  for (const char of str) {
+    if (openingBrackets.has(char)) {
+      // When we see an opening bracket, remember its position
+      stack.push(char);
+    } else if (closingBrackets.has(char)) {
+      // When we see a closing bracket, pop the matching opening bracket
+      if (stack.length && stack[stack.length - 1] === correspondingOpeningBrackets.get(char)!) {
+        stack.pop();
+      }
+    } else if (!stack.length) {
+      // Only add characters to result if we're not inside any brackets
+      result.push(char);
+    }
+  }
+
+  return result.join('').trim().replace(/ {2,}/, ' ');
+};
+
 const asinRegex = /(?:B[\dA-Z]{9}|\d{9}(?:X|\d))/g;
 
 // get title+author+publisher results from audible
@@ -306,6 +336,15 @@ export const matchAlbumGroup = async (albumGroup: AudioFile) => {
       ].filter((i) => i !== undefined)
     ),
   };
+
+  metadata.titles = new Set([
+    ...metadata.titles,
+    ...metadata.titles.values().map((i) => removeEnclosingContent(i)),
+  ]);
+  metadata.artists = new Set([
+    ...metadata.artists,
+    ...metadata.artists.values().map((i) => removeEnclosingContent(i)),
+  ]);
 
   scanLogger.debug({
     msg: '[Match] Metadata extracted',
