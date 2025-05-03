@@ -2,10 +2,10 @@ import {
   useQuery as useReactQuery,
   useMutation as useReactQueryMutation,
 } from '@tanstack/react-query';
-import { Insertable } from 'kysely';
+import type { Insertable } from 'kysely';
 
 import { mainDb } from '~/db/client';
-import { MainDatabase } from '~/db/schema/main';
+import type { MainDatabase } from '~/db/schema/main';
 
 const list = {
   queryKey: ['accounts', 'list'],

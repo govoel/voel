@@ -1,7 +1,7 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
-import { Kysely, Selectable } from 'kysely';
+import { Kysely, type Selectable } from 'kysely';
 
-import { InstanceDatabase } from '~/db/schema/instance';
+import type { InstanceDatabase } from '~/db/schema/instance';
 
 const get = {
   queryKey: ['instance', 'series', 'get'],

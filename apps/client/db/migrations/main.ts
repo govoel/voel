@@ -2,7 +2,7 @@ import { Kysely, Migrator } from 'kysely';
 
 import { mainDb } from '~/db/client';
 import { ExpoMigrationProvider } from '~/db/driver';
-import { MainDatabase } from '~/db/schema/main';
+import type { MainDatabase } from '~/db/schema/main';
 
 export const mainDbMigrator = new Migrator({
   db: mainDb,

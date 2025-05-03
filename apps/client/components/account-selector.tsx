@@ -4,26 +4,26 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { Large } from './ui/typography';
-import { AppRouter } from '@/router/root';
+import type { AppRouter } from '@/router/root';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useQueryClient } from '@tanstack/react-query';
-import { TRPCClientErrorLike } from '@trpc/client';
-import { inferRouterOutputs } from '@trpc/server';
+import type { TRPCClientErrorLike } from '@trpc/client';
+import type { inferRouterOutputs } from '@trpc/server';
 import {
-  TRPCOptionsProxy,
-  TRPCSubscriptionResult,
+  type TRPCOptionsProxy,
+  type TRPCSubscriptionResult,
   useSubscription,
 } from '@trpc/tanstack-react-query';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
-import { Insertable, Kysely } from 'kysely';
-import { ReactNode, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { type Insertable, Kysely } from 'kysely';
+import { type ReactNode, createContext, use, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { BottomSheet } from '~/components/ui/bottom-sheet';
 
-import {
+import type {
   AudiobookChapterTable,
   AudiobookFileTable,
   AuthorTable,
@@ -607,7 +607,7 @@ const SubscriptionContext = createContext<
 >({ isPending: true });
 
 export const useSubscriptionContext = () => {
-  const context = useContext(SubscriptionContext);
+  const context = use(SubscriptionContext);
 
   if (!context) {
     throw new Error('useSubscriptionContext must be used within a SubscriptionProvider');
@@ -623,11 +623,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   const { subscriptionOptions, isPending } = useSyncSubscriptionOptions(apiInstance, instanceDb);
   const data = useSubscription(subscriptionOptions);
 
-  return (
-    <SubscriptionContext.Provider value={{ isPending, data }}>
-      {children}
-    </SubscriptionContext.Provider>
-  );
+  return <SubscriptionContext value={{ isPending, data }}>{children}</SubscriptionContext>;
 };
 
 const LoggedInUserAvatar = ({

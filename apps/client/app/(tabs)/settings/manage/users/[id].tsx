@@ -3,7 +3,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
-import { UserWithRole } from 'better-auth/plugins';
+import type { UserWithRole } from 'better-auth/plugins';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
 import { View } from 'react-native';
@@ -142,7 +142,7 @@ export default function ManageUserScreen() {
         ) : sessions.error ? (
           <Card className="mt-4">
             <CardContent className="pt-4">
-              <Large>Error loading user's sessions</Large>
+              <Large>Error loading user&rsquo;s sessions</Large>
               <Text className="text-muted-foreground">
                 {sessions.error.message || 'Unknown error'}
               </Text>
@@ -357,22 +357,22 @@ const Profile = ({ user }: { user: UserWithRole }) => {
           <AlertTitle>User is banned</AlertTitle>
           {user.banReason && user.banExpires ? (
             <AlertDescription>
-              User was banned with reason "{user.banReason}", and the ban expires on{' '}
+              User was banned with reason &ldquo;{user.banReason}&rdquo;, and the ban expires on{' '}
               {user.banExpires.toLocaleString()}.
             </AlertDescription>
           ) : null}
           {user.banReason && !user.banExpires ? (
             <AlertDescription>
-              User was banned with reason "{user.banReason}", and the ban never expires.
+              User was banned with reason &ldquo;{user.banReason}&rdquo;, and the ban never expires.
             </AlertDescription>
           ) : null}
           {!user.banReason && user.banExpires ? (
             <AlertDescription>
-              User's ban expires on {user.banExpires.toLocaleString()}.
+              User&rsquo;s ban expires on {user.banExpires.toLocaleString()}.
             </AlertDescription>
           ) : null}
           {!user.banReason && !user.banExpires ? (
-            <AlertDescription>User's ban never expires.</AlertDescription>
+            <AlertDescription>User&rsquo;s ban never expires.</AlertDescription>
           ) : null}
         </Alert>
       )}

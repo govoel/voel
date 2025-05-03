@@ -1,7 +1,7 @@
 import { useSelector } from '@xstate/store/react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
 import { ExpandableSummary } from '~/components/expandable-summary';

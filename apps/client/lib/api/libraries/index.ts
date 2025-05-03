@@ -1,7 +1,7 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import { Kysely } from 'kysely';
 
-import { InstanceDatabase } from '~/db/schema/instance';
+import type { InstanceDatabase } from '~/db/schema/instance';
 
 const list = {
   queryKey: ['instance', 'library', 'list'],

@@ -1,9 +1,9 @@
-import { Kysely, MigrationResultSet } from 'kysely';
+import { Kysely, type MigrationResultSet } from 'kysely';
 import { useEffect, useReducer } from 'react';
 
 import { createInstanceDbMigrator } from '~/db/migrations/instance';
 import { mainDbMigrator } from '~/db/migrations/main';
-import { InstanceDatabase } from '~/db/schema/instance';
+import { type InstanceDatabase } from '~/db/schema/instance';
 
 type MigrationState =
   | { status: 'pending'; success: false; results: null; error: null }

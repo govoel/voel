@@ -2,8 +2,14 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import * as SecureStore from 'expo-secure-store';
-import React, { Dispatch, SetStateAction } from 'react';
-import { RefObject, useEffect, useRef, useState } from 'react';
+import React, {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
@@ -154,7 +160,11 @@ const switchInstance = async (
   });
 };
 
-function SignInTab({ bottomSheetModalRef }: { bottomSheetModalRef: RefObject<BottomSheetModal> }) {
+function SignInTab({
+  bottomSheetModalRef,
+}: {
+  bottomSheetModalRef: RefObject<BottomSheetModal | null>;
+}) {
   const currentInstanceID = useSelector(instanceStore, (state) => state.context.instanceID);
   const currentInstanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
   const currentInstanceUserID = useSelector(instanceStore, (state) => state.context.instanceUserID);

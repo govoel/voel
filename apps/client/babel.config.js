@@ -2,21 +2,27 @@ module.exports = function (api) {
   api.cache(true);
 
   return {
-    presets: [['babel-preset-expo', { jsxImportSource: 'nativewind' }], 'nativewind/babel'],
-
-    plugins: [
+    presets: [
       [
-        'module-resolver',
+        'babel-preset-expo',
         {
-          alias: {
-            'better-auth/react': '../../node_modules/better-auth/dist/client/react/index.cjs',
-            'better-auth/client/plugins':
-              '../../node_modules/better-auth/dist/client/plugins/index.cjs',
-            '@better-auth/expo/client': '../../node_modules/@better-auth/expo/dist/client.cjs',
-          },
-          extensions: ['.js', '.jsx', '.ts', '.tsx'],
+          jsxImportSource: 'nativewind',
+          // TODO: zustand needs this, remove when fixed
+          unstable_transformImportMeta: true,
         },
       ],
+      'nativewind/babel',
     ],
+
+    // plugins: [
+    //   [
+    //     'babel-plugin-module-resolver',
+    //     {
+    //       alias: {
+    //         'kysely': '../../node_modules/kysely/dist/cjs/index.js'
+    //       },
+    //     },
+    //   ],
+    // ],
   };
 };

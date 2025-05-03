@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option java_package = "expo.modules.voel.audio.proto";
+option java_multiple_files = true;
+
+message PlaybackProgress {
+  repeated PlaybackProgressEvent events = 1;
+}
+
+message PlaybackProgressEvent {
+  int32 example_counter = 1;
+}

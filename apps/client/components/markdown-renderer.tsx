@@ -1,7 +1,6 @@
 import { Image } from 'expo-image';
-import React, { ReactNode } from 'react';
-import { TouchableHighlight, View } from 'react-native';
-import { Linking } from 'react-native';
+import React, { type ReactNode } from 'react';
+import { Linking, TouchableHighlight, View } from 'react-native';
 import { Renderer } from 'react-native-marked';
 import type { RendererInterface } from 'react-native-marked';
 

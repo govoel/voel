@@ -1,4 +1,4 @@
-import { ConfigContext, ExpoConfig } from 'expo/config';
+import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -15,6 +15,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-secure-store',
+    'expo-web-browser',
     [
       'expo-font',
       {
@@ -77,6 +78,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
+    // TODO: keyboards in @gorhom/bottom-sheet don't work properly
+    // with edge-to-edge enabled
+    edgeToEdgeEnabled: false,
     package:
       process.env.APP_VARIANT === 'development'
         ? 'app.voel.android.dev'

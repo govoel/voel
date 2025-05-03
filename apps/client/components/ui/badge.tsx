@@ -41,20 +41,23 @@ const badgeTextVariants = cva('text-sm font-semibold ', {
 
 type BadgeProps = SlottableViewProps & VariantProps<typeof badgeVariants>;
 
-const Badge = React.forwardRef<React.ElementRef<typeof Slot.View | typeof View>, BadgeProps>(
-  (props, ref) => {
-    const Component = props.asChild ? Slot.View : View;
-    return (
-      <TextClassContext.Provider value={badgeTextVariants({ variant: props.variant })}>
-        <Component
-          className={cn(badgeVariants({ variant: props.variant }), props.className)}
-          {...props}
-          ref={ref}
-        />
-      </TextClassContext.Provider>
-    );
-  }
-);
+const Badge = ({
+  ref,
+  ...props
+}: BadgeProps & {
+  ref?: React.RefObject<React.ComponentRef<typeof Slot.View | typeof View>>;
+}) => {
+  const Component = props.asChild ? Slot.View : View;
+  return (
+    <TextClassContext value={badgeTextVariants({ variant: props.variant })}>
+      <Component
+        className={cn(badgeVariants({ variant: props.variant }), props.className)}
+        {...props}
+        ref={ref}
+      />
+    </TextClassContext>
+  );
+};
 Badge.displayName = 'Badge';
 
 export { Badge, badgeTextVariants, badgeVariants };

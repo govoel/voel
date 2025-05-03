@@ -1,6 +1,6 @@
 import { Button } from './ui/button';
 import { Large } from './ui/typography';
-import { DefaultError, QueryObserverBaseResult } from '@tanstack/react-query';
+import type { DefaultError, QueryObserverBaseResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 

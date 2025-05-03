@@ -1,5 +1,5 @@
 import { Badge } from './ui/badge';
-import { FlashList, MasonryFlashList } from '@shopify/flash-list';
+import { MasonryFlashList } from '@shopify/flash-list';
 import { Link } from 'expo-router';
 import { Pressable, View } from 'react-native';
 

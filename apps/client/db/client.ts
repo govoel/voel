@@ -2,8 +2,8 @@ import { open } from '@op-engineering/op-sqlite';
 import { CompiledQuery, Kysely } from 'kysely';
 
 import { OpSqliteDialect } from '~/db/driver';
-import { InstanceDatabase } from '~/db/schema/instance';
-import { MainDatabase } from '~/db/schema/main';
+import type { InstanceDatabase } from '~/db/schema/instance';
+import type { MainDatabase } from '~/db/schema/main';
 
 export const mainOpDb = open({ location: 'databases', name: 'main.db' });
 

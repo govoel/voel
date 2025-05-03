@@ -1,7 +1,6 @@
 import '~/global.css';
 
-import { useReactQueryDevTools } from '@dev-plugins/react-query';
-import { DarkTheme, DefaultTheme, Theme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -58,8 +57,6 @@ export default function RootLayout() {
 
     return appearanceChangeListener.remove;
   }, []);
-
-  useReactQueryDevTools(queryClient);
 
   return (
     <QueryClientProvider client={queryClient}>

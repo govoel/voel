@@ -1,4 +1,4 @@
-import { AudioSource, AudioStatus, VoelAudioModule } from './VoelAudio.types';
+import { type AudioSource, type AudioStatus, VoelAudioModule } from './VoelAudio.types';
 import { requireNativeModule, useEvent } from 'expo';
 
 // This call loads the native module object from the JSI.
