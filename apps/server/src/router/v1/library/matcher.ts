@@ -281,7 +281,7 @@ const removeEnclosingContent = (str: string) => {
     }
   }
 
-  return result.join('').trim().replace(/ {2,}/, ' ');
+  return result.join('').trim().replace(/ {2,}/g, ' ');
 };
 
 const asinRegex = /(?:B[\dA-Z]{9}|\d{9}(?:X|\d))/g;
