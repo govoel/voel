@@ -88,7 +88,7 @@ export async function deleteEmptyDirectories(libraryName: string) {
     }
   });
 
-  const directoryWithFiles = new Set<string>();
+  const directoryWithFiles = new Set<string>([importPath]);
   directoryEntries.forEach((e) => {
     if ((e.isFile() || e.isSymbolicLink()) && e.name !== '.DS_Store') {
       directoryWithFiles.add(e.parentPath);
