@@ -90,13 +90,15 @@ export default function BookScreen() {
           </Card>
         ) : data ? (
           <>
-            <AspectRatio ratio={1 / 1} className="mx-12">
-              <Image
-                className="w-full h-full rounded-md"
-                source={data.cover}
-                placeholder={{ thumbhash: data.coverThumbhash }}
-              />
-            </AspectRatio>
+            {data.cover ? (
+              <AspectRatio ratio={1 / 1} className="mx-12">
+                <Image
+                  className="w-full h-full rounded-md"
+                  source={data.cover}
+                  placeholder={{ thumbhash: data.coverThumbhash ?? undefined }}
+                />
+              </AspectRatio>
+            ) : null}
 
             <H2 className="border-0 pt-4 text-center">{data.title}</H2>
             <Small className="text-center">{data.subtitle}</Small>
@@ -177,13 +179,15 @@ export default function BookScreen() {
               </View>
             </View>
 
-            <View className="pt-4">
-              <ExpandableSummary
-                summary={data.summary ?? '_A summary is not available for this book._'}
-                expandText="Expand Summary"
-                collapseText="Collapse Summary"
-              />
-            </View>
+            {data.summary ? (
+              <View className="pt-4">
+                <ExpandableSummary
+                  summary={data.summary}
+                  expandText="Expand Summary"
+                  collapseText="Collapse Summary"
+                />
+              </View>
+            ) : null}
 
             <Accordion className="pt-4" type="multiple" collapsable>
               <AccordionItem value="chapters">

@@ -43,15 +43,15 @@ export function BookList({
                 </Badge>
               ) : null}
             </View>
-            <AspectRatio className="flex-1" ratio={1 / 1}>
-              {item.cover ? (
+            {item.cover ? (
+              <AspectRatio className="flex-1" ratio={1 / 1}>
                 <Image
                   className="w-full h-full rounded-md"
                   source={item.cover}
-                  placeholder={{ thumbhash: item.coverThumbhash }}
+                  placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
                 />
-              ) : null}
-            </AspectRatio>
+              </AspectRatio>
+            ) : null}
             <View className="pt-2">
               <Large className="border-none" numberOfLines={1}>
                 {item.title}
