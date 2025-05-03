@@ -798,16 +798,16 @@ async function insertBooksIntoDatabase(
 }
 
 async function generateThumbhash(imageURL: string) {
-  scanLogger.debug('Generating thumbhash for image %s', imageURL);
-  const imageBuffer = await axios.get(imageURL, { responseType: 'arraybuffer' });
-  const image = sharp(imageBuffer.data).resize({
-    width: 100,
-    height: 100,
-    fit: 'inside',
-    withoutEnlargement: true,
-  });
-  const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   try {
+    scanLogger.debug('Generating thumbhash for image %s', imageURL);
+    const imageBuffer = await axios.get(imageURL, { responseType: 'arraybuffer' });
+    const image = sharp(imageBuffer.data).resize({
+      width: 100,
+      height: 100,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+    const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const thumbhash = Buffer.from(rgbaToThumbHash(info.width, info.height, data)).toString(
       'base64'
     );
