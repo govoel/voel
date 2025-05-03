@@ -506,7 +506,11 @@ async function insertBooksIntoDatabase(
 
         insertedAuthors.push(...completeInsertedAuthors);
 
-        if (insertedAuthors.length === 0 || insertedAuthors.length !== book.authors.length) {
+        if (insertedAuthors.length === 0) {
+          throw new Error(
+            `No authors inserted when we expected at least one author to be inserted`
+          );
+        } else if (insertedAuthors.length !== book.authors.length) {
           throw new Error(
             `${insertedAuthors.length} authors inserted when we expected ${book.authors.length} authors to be inserted`
           );
