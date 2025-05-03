@@ -11,12 +11,15 @@ import Animated, {
 
 import { cn } from '~/lib/utils';
 
-const Progress = React.forwardRef<
-  ProgressPrimitive.RootRef,
-  ProgressPrimitive.RootProps & {
-    indicatorClassName?: string;
-  }
->(({ className, value, indicatorClassName, ...props }, ref) => {
+const Progress = ({
+  ref,
+  className,
+  value,
+  indicatorClassName,
+  ...props
+}: ProgressPrimitive.RootProps & { indicatorClassName?: string } & {
+  ref?: React.RefObject<ProgressPrimitive.RootRef>;
+}) => {
   return (
     <ProgressPrimitive.Root
       ref={ref}
@@ -25,7 +28,7 @@ const Progress = React.forwardRef<
       <Indicator value={value} className={indicatorClassName} />
     </ProgressPrimitive.Root>
   );
-});
+};
 Progress.displayName = ProgressPrimitive.Root.displayName;
 
 export { Progress };

@@ -1,8 +1,8 @@
 import {
   CLOSED,
   CONNECTING,
-  EventSourceClient,
-  EventSourceOptions,
+  type EventSourceClient,
+  type EventSourceOptions,
   createEventSource,
 } from 'eventsource-client';
 import { fetch as expoFetch } from 'expo/fetch';

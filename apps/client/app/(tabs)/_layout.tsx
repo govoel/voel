@@ -11,7 +11,6 @@ import { Spinner } from '~/components/spinner';
 import { Text } from '~/components/ui/text';
 
 import { useMigrations } from '~/db/migrations';
-import { useDrizzleStudio } from '~/db/studio';
 
 import { Home } from '~/lib/icons/Home';
 import { Library } from '~/lib/icons/Library';
@@ -62,7 +61,6 @@ export default function TabLayout() {
 
 const DbMigrator = ({ children }: { children: ReactNode }) => {
   const mainDbMigration = useMigrations({ type: 'main', db: undefined });
-  //useDrizzleStudio(mainOpDb);
 
   if (mainDbMigration.status === 'pending') {
     return (
@@ -85,9 +83,7 @@ const DbMigrator = ({ children }: { children: ReactNode }) => {
 
 const InstanceDbMigrator = ({ children }: { children: ReactNode }) => {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceOpDb = useSelector(instanceStore, (state) => state.context.instanceOpDb);
   const instanceDbMigration = useMigrations({ type: 'instance', db: instanceDb });
-  useDrizzleStudio(instanceOpDb);
 
   if (instanceDbMigration.status === 'pending') {
     return (

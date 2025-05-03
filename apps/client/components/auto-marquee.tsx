@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { StyleSheet, TextStyle, View, type ViewStyle } from 'react-native';
+import { StyleSheet, type TextStyle, View, type ViewStyle } from 'react-native';
 import Animated, {
   type SharedValue,
   runOnJS,

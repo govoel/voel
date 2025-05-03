@@ -4,7 +4,7 @@ import { Label } from './label';
 import { RadioGroupItemWithLabel, RadioGroup as RadioGroupItems } from './radio-group';
 import { Text } from './text';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
-import { ComponentPropsWithoutRef, forwardRef } from 'react';
+import { type ComponentPropsWithRef, type ComponentPropsWithoutRef } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 
@@ -67,7 +67,7 @@ function RadioGroup<T extends readonly [] | readonly string[]>({
 }: {
   label: string;
   optionValues: T;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   optionLabels: { [K in keyof T]: string };
 }) {
   const field = useFieldContext<string>();
@@ -101,10 +101,12 @@ function RadioGroup<T extends readonly [] | readonly string[]>({
   );
 }
 
-const SubmitButton = forwardRef<
-  React.ElementRef<typeof Button>,
-  ComponentPropsWithoutRef<typeof Button> & { viewClassName?: string }
->(({ viewClassName, disabled, ...props }, ref) => {
+const SubmitButton = ({
+  ref,
+  viewClassName,
+  disabled,
+  ...props
+}: ComponentPropsWithRef<typeof Button> & { viewClassName?: string }) => {
   const form = useFormContext();
 
   return (
@@ -128,7 +130,7 @@ const SubmitButton = forwardRef<
       )}
     />
   );
-});
+};
 SubmitButton.displayName = 'SubmitButton';
 
 export const { fieldContext, formContext, useFormContext, useFieldContext } =

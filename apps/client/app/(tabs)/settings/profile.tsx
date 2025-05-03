@@ -1,7 +1,7 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { SnapshotFromStore } from '@xstate/store';
+import type { SnapshotFromStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import type { Session as BetterAuthSession } from 'better-auth/types';
 import { Stack } from 'expo-router';

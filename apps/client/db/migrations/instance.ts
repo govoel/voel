@@ -1,7 +1,7 @@
 import { Kysely, Migrator, sql } from 'kysely';
 
 import { ExpoMigrationProvider } from '~/db/driver';
-import { InstanceDatabase } from '~/db/schema/instance';
+import type { InstanceDatabase } from '~/db/schema/instance';
 
 export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =>
   new Migrator({

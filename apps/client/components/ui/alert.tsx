@@ -2,7 +2,7 @@ import { useTheme } from '@react-navigation/native';
 import { type VariantProps, cva } from 'class-variance-authority';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { View, type ViewProps } from 'react-native';
+import { View } from 'react-native';
 
 import { Text } from '~/components/ui/text';
 
@@ -23,15 +23,21 @@ const alertVariants = cva(
   }
 );
 
-const Alert = React.forwardRef<
-  React.ElementRef<typeof View>,
-  ViewProps &
-    VariantProps<typeof alertVariants> & {
-      icon: LucideIcon;
-      iconSize?: number;
-      iconClassName?: string;
-    }
->(({ className, variant, children, icon: Icon, iconSize = 16, iconClassName, ...props }, ref) => {
+const Alert = ({
+  ref,
+  className,
+  variant,
+  children,
+  icon: Icon,
+  iconSize = 16,
+  iconClassName,
+  ...props
+}: React.ComponentPropsWithRef<typeof View> &
+  VariantProps<typeof alertVariants> & {
+    icon: LucideIcon;
+    iconSize?: number;
+    iconClassName?: string;
+  }) => {
   const { colors } = useTheme();
   return (
     <View ref={ref} role="alert" className={alertVariants({ variant, className })} {...props}>
@@ -44,13 +50,16 @@ const Alert = React.forwardRef<
       {children}
     </View>
   );
-});
+};
 Alert.displayName = 'Alert';
 
-const AlertTitle = React.forwardRef<
-  React.ElementRef<typeof Text>,
-  React.ComponentPropsWithoutRef<typeof Text>
->(({ className, ...props }, ref) => (
+const AlertTitle = ({
+  ref,
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof Text> & {
+  ref?: React.RefObject<React.ComponentRef<typeof Text>>;
+}) => (
   <Text
     ref={ref}
     className={cn(
@@ -59,19 +68,22 @@ const AlertTitle = React.forwardRef<
     )}
     {...props}
   />
-));
+);
 AlertTitle.displayName = 'AlertTitle';
 
-const AlertDescription = React.forwardRef<
-  React.ElementRef<typeof Text>,
-  React.ComponentPropsWithoutRef<typeof Text>
->(({ className, ...props }, ref) => (
+const AlertDescription = ({
+  ref,
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof Text> & {
+  ref?: React.RefObject<React.ComponentRef<typeof Text>>;
+}) => (
   <Text
     ref={ref}
     className={cn('pl-7 text-sm leading-relaxed text-foreground', className)}
     {...props}
   />
-));
+);
 AlertDescription.displayName = 'AlertDescription';
 
 export { Alert, AlertDescription, AlertTitle };
