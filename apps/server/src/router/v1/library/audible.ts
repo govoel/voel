@@ -278,10 +278,15 @@ export const getAuthorByAsin = async (asin: string) => {
           'name' in section.model &&
           'profile_image' in section.model &&
           typeof section.model.name.value === 'string' &&
-          typeof section.model.profile_image.url === 'string'
+          (typeof section.model.profile_image.url === 'string' ||
+            typeof section.model.profile_image.lazy_load_url === 'string')
         ) {
           potentialAuthor.name = section.model.name.value;
-          potentialAuthor.avatar = section.model.profile_image.url;
+          if (typeof section.model.profile_image.url === 'string') {
+            potentialAuthor.avatar = section.model.profile_image.url;
+          } else if (typeof section.model.profile_image.lazy_load_url === 'string') {
+            potentialAuthor.avatar = section.model.profile_image.lazy_load_url;
+          }
         } else if ('items' in section.model && Array.isArray(section.model.items)) {
           for (const item of section.model.items) {
             if (
