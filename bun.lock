@@ -61,7 +61,7 @@
         "expo-system-ui": "~5.0.7",
         "expo-web-browser": "~14.1.6",
         "kysely": "0.28.2",
-        "lucide-react-native": "0.503.0",
+        "lucide-react-native": "0.507.0",
         "nativewind": "4.1.23",
         "react": "19.0.0",
         "react-dom": "19.0.0",
@@ -1704,7 +1704,7 @@
 
     "lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
 
-    "lucide-react-native": ["lucide-react-native@0.503.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0", "react-native": "*", "react-native-svg": "^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0" } }, "sha512-7KhfhLuvqSTMhZTlXxcDZK+4843c1mGlxBwd9pKf/zU4ye1l+n5iCrVo3Zz/D4uObwot0zrfxFOQEYx4M9zltg=="],
+    "lucide-react-native": ["lucide-react-native@0.507.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0", "react-native": "*", "react-native-svg": "^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0" } }, "sha512-rAtgSbILIUna0ZONF2IZPDN4Up8an4htrXvUV0vIPIQcwRInwc0r7M0d6QlRvP1A1rofSbRqqdBO4tduEELbwg=="],
 
     "makeerror": ["makeerror@1.0.12", "", { "dependencies": { "tmpl": "1.0.5" } }, "sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg=="],
 
