@@ -20,7 +20,7 @@ export function BookList({
     title: string;
     label?: string;
     authors?: { name: string }[];
-    narrators?: { name: string }[];
+    contributors?: { name: string }[];
   }[];
 }) {
   return (
@@ -61,9 +61,9 @@ export function BookList({
                   {item.authors.map((author) => author.name).join(', ')}
                 </Muted>
               ) : null}
-              {item.narrators ? (
+              {item.contributors ? (
                 <Muted numberOfLines={1}>
-                  {item.narrators.map((narrator) => narrator.name).join(', ')}
+                  {item.contributors.map((contributor) => contributor.name).join(', ')}
                 </Muted>
               ) : null}
             </View>
