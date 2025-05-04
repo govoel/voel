@@ -138,30 +138,32 @@ export default function BookScreen() {
             <Translators contributors={data.contributors} />
             <Editors contributors={data.contributors} />
 
-            <View className="flex flex-row flex-wrap gap-2 items-center pt-2">
-              <BookCopy className="text-muted-foreground" size={20} />
-              <View className="flex flex-row flex-wrap gap-2 items-center">
-                {data.series.map((series, index) => (
-                  <Link
-                    key={`series-${index}`}
-                    href={{
-                      pathname: '/(tabs)/(library)/series/[seriesId]',
-                      params: { seriesId: series.id },
-                    }}
-                    push
-                    asChild>
-                    <Badge variant="secondary">
-                      <View className="flex flex-row justify-center items-center">
-                        <Text className="border-r border-muted-foreground/50 pr-1">
-                          {series.label}
-                        </Text>
-                        <Text className="pl-1">{series.name}</Text>
-                      </View>
-                    </Badge>
-                  </Link>
-                ))}
+            {data.series.length > 0 ? (
+              <View className="flex flex-row flex-wrap gap-2 items-center pt-2">
+                <BookCopy className="text-muted-foreground" size={20} />
+                <View className="flex flex-row flex-wrap gap-2 items-center">
+                  {data.series.map((series, index) => (
+                    <Link
+                      key={`series-${index}`}
+                      href={{
+                        pathname: '/(tabs)/(library)/series/[seriesId]',
+                        params: { seriesId: series.id },
+                      }}
+                      push
+                      asChild>
+                      <Badge variant="secondary">
+                        <View className="flex flex-row justify-center items-center">
+                          <Text className="border-r border-muted-foreground/50 pr-1">
+                            {series.label}
+                          </Text>
+                          <Text className="pl-1">{series.name}</Text>
+                        </View>
+                      </Badge>
+                    </Link>
+                  ))}
+                </View>
               </View>
-            </View>
+            ) : null}
 
             {data.summary ? (
               <View className="pt-4">
@@ -469,7 +471,7 @@ const ChapterList = ({
               </View>
             </Button>
             <View className="flex-1">
-              <Small>{item.title}</Small>
+              <Small className="leading-snug">{item.title}</Small>
             </View>
           </View>
         </View>
@@ -505,7 +507,7 @@ const BookFiles = ({
               <Text>Track {item.track}</Text>
             </Badge>
           </View>
-          <Small className="pt-2">{item.path}</Small>
+          <Small className="pt-2 leading-snug">{item.path}</Small>
         </View>
       )}
       keyExtractor={(item) => item.id.toString()}
