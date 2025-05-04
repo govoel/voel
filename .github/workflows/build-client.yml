@@ -81,7 +81,7 @@ jobs:
           key: ${{ runner.os }}-${{ github.job }}
           restore-keys: |
             ${{ runner.os }}-${{ github.job }}
-            ${{ runner.os }}-
+            ${{ runner.os }}
       - name: Find Metro Cache
         id: metro-cache-dir-path
         uses: actions/github-script@v7
