@@ -15,24 +15,24 @@ import { H2, Large, Small } from '~/components/ui/typography';
 import api from '~/lib/api';
 import { instanceStore } from '~/lib/stores/instance';
 
-export default function NarratorScreen() {
-  const { narratorName } = useLocalSearchParams<{ narratorName: string }>();
+export default function TranslatorScreen() {
+  const { translatorName } = useLocalSearchParams<{ translatorName: string }>();
 
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const { data, error, refetch, isLoading } = api.contributors.getBooks.useQuery(
     instanceDb,
-    narratorName,
-    'narrator'
+    translatorName,
+    'translator'
   );
 
   return (
     <>
-      <Stack.Screen options={{ headerTitle: 'Narrator' }} />
+      <Stack.Screen options={{ headerTitle: 'Translator' }} />
       <FloatingPlayerDodgingLayout>
         {error ? (
           <Card>
             <CardContent className="pt-4">
-              <Large>Error loading narrator {narratorName}</Large>
+              <Large>Error loading translator {translatorName}</Large>
               <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
             </CardContent>
             <CardFooter>
@@ -43,7 +43,7 @@ export default function NarratorScreen() {
           </Card>
         ) : data ? (
           <>
-            <H2 className="border-0 text-center">{narratorName}</H2>
+            <H2 className="border-0 text-center">{translatorName}</H2>
             <Small className="text-center">
               {data.length} {data.length === 1 ? 'book' : 'books'} available
             </Small>

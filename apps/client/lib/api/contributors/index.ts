@@ -1,29 +1,33 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import { Kysely, type Selectable } from 'kysely';
 
-import type { InstanceDatabase } from '~/db/schema/instance';
+import type { BookContributorTable, InstanceDatabase } from '~/db/schema/instance';
 
 const getBooks = {
   queryKey: ['instance', 'bookContributor', 'getBooks'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, narratorName: string) => {
+  useQuery: (
+    instanceDb: Kysely<InstanceDatabase>,
+    contributorName: string,
+    contributorRole: Selectable<BookContributorTable>['role']
+  ) => {
     return useReactQuery({
-      queryKey: [...getBooks.queryKey, narratorName],
+      queryKey: [...getBooks.queryKey, { name: contributorName, role: contributorRole }],
       networkMode: 'always',
       queryFn: async () => {
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
-          .innerJoin('bookContributor as searchNarrator', (join) =>
+          .innerJoin('bookContributor as searchContributor', (join) =>
             join
-              .on('searchNarrator.deletedAt', 'is', null)
-              .on('searchNarrator.role', '=', 'narrator')
-              .on('searchNarrator.name', '=', narratorName)
-              .onRef('book.id', '=', 'searchNarrator.bookId')
+              .on('searchContributor.deletedAt', 'is', null)
+              .on('searchContributor.role', '=', contributorRole)
+              .on('searchContributor.name', '=', contributorName)
+              .onRef('book.id', '=', 'searchContributor.bookId')
           )
           .leftJoin('bookContributor', (join) =>
             join
               .on('bookContributor.deletedAt', 'is', null)
-              .on('bookContributor.role', '=', 'narrator')
+              .on('bookContributor.role', '=', contributorRole)
               .onRef('book.id', '=', 'bookContributor.bookId')
           )
           .groupBy('book.id')
@@ -42,14 +46,14 @@ const getBooks = {
                     eb.ref('bookContributor.name'),
                   ]),
                 ])
-                .as('narrators'),
+                .as('contributors'),
           ]);
 
         const results = await query.execute();
 
         return results.map((result) => ({
           ...result,
-          narrators: JSON.parse(result.narrators) as Pick<
+          contributors: JSON.parse(result.contributors) as Pick<
             Selectable<InstanceDatabase['bookContributor']>,
             'name'
           >[],

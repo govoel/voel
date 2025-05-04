@@ -24,6 +24,8 @@ import { H2, Large, Muted, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { BookCopy } from '~/lib/icons/BookCopy';
+import { FilePenLine } from '~/lib/icons/FilePenLine';
+import { Languages } from '~/lib/icons/Languages';
 import { MicVocal } from '~/lib/icons/MicVocal';
 import { Play } from '~/lib/icons/Play';
 import { Timer } from '~/lib/icons/Timer';
@@ -132,27 +134,9 @@ export default function BookScreen() {
               </View>
             </View>
 
-            <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
-              <MicVocal className="text-muted-foreground" size={20} />
-              <View className="flex flex-row flex-wrap gap-2 items-center">
-                {data.contributors.map((contributor, index) =>
-                  contributor.role === 'narrator' ? (
-                    <Link
-                      key={`contributor-narrator-${index}`}
-                      href={{
-                        pathname: '/(tabs)/(library)/narrator/[narratorName]',
-                        params: { narratorName: contributor.name },
-                      }}
-                      push
-                      asChild>
-                      <Badge variant="secondary">
-                        <Text>{contributor.name}</Text>
-                      </Badge>
-                    </Link>
-                  ) : null
-                )}
-              </View>
-            </View>
+            <Narrators contributors={data.contributors} />
+            <Translators contributors={data.contributors} />
+            <Editors contributors={data.contributors} />
 
             <View className="flex flex-row flex-wrap gap-2 items-center pt-2">
               <BookCopy className="text-muted-foreground" size={20} />
@@ -218,6 +202,111 @@ export default function BookScreen() {
     </>
   );
 }
+
+const Narrators = ({
+  contributors,
+}: {
+  contributors: { role: 'narrator' | 'editor' | 'translator' | 'illustrator'; name: string }[];
+}) => {
+  const narrators = useMemo(
+    () => contributors.filter((contributor) => contributor.role === 'narrator'),
+    [contributors]
+  );
+
+  if (narrators.length === 0) return null;
+
+  return (
+    <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
+      <MicVocal className="text-muted-foreground" size={20} />
+      <View className="flex flex-row flex-wrap gap-2 items-center">
+        {narrators.map((contributor, index) => (
+          <Link
+            key={`contributor-narrator-${index}`}
+            href={{
+              pathname: '/(tabs)/(library)/narrator/[narratorName]',
+              params: { narratorName: contributor.name },
+            }}
+            push
+            asChild>
+            <Badge variant="secondary">
+              <Text>{contributor.name}</Text>
+            </Badge>
+          </Link>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const Editors = ({
+  contributors,
+}: {
+  contributors: { role: 'narrator' | 'editor' | 'translator' | 'illustrator'; name: string }[];
+}) => {
+  const editors = useMemo(
+    () => contributors.filter((contributor) => contributor.role === 'editor'),
+    [contributors]
+  );
+
+  if (editors.length === 0) return null;
+
+  return (
+    <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
+      <FilePenLine className="text-muted-foreground" size={20} />
+      <View className="flex flex-row flex-wrap gap-2 items-center">
+        {editors.map((contributor, index) => (
+          <Link
+            key={`contributor-editor-${index}`}
+            href={{
+              pathname: '/(tabs)/(library)/editor/[editorName]',
+              params: { editorName: contributor.name },
+            }}
+            push
+            asChild>
+            <Badge variant="secondary">
+              <Text>{contributor.name}</Text>
+            </Badge>
+          </Link>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const Translators = ({
+  contributors,
+}: {
+  contributors: { role: 'narrator' | 'editor' | 'translator' | 'illustrator'; name: string }[];
+}) => {
+  const translators = useMemo(
+    () => contributors.filter((contributor) => contributor.role === 'translator'),
+    [contributors]
+  );
+
+  if (translators.length === 0) return null;
+
+  return (
+    <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
+      <Languages className="text-muted-foreground" size={20} />
+      <View className="flex flex-row flex-wrap gap-2 items-center">
+        {translators.map((contributor, index) => (
+          <Link
+            key={`contributor-translator-${index}`}
+            href={{
+              pathname: '/(tabs)/(library)/translator/[translatorName]',
+              params: { translatorName: contributor.name },
+            }}
+            push
+            asChild>
+            <Badge variant="secondary">
+              <Text>{contributor.name}</Text>
+            </Badge>
+          </Link>
+        ))}
+      </View>
+    </View>
+  );
+};
 
 const BookPlayButton = ({
   book,
