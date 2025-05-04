@@ -14,6 +14,7 @@ import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
+import { Badge } from '~/components/ui/badge';
 import { BottomSheet } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
 import {
@@ -426,9 +427,17 @@ export const Session = ({
   return (
     <Card key={session.id} className="mt-4">
       <CardHeader>
-        <CardTitle>
-          {(session.ipAddress ?? '').length > 0 ? session.ipAddress : 'Unknown IP Address'}
-        </CardTitle>
+        <View className="flex flex-row flex-nowrap items-center gap-x-2">
+          <CardTitle>
+            {(session.ipAddress ?? '').length > 0 ? session.ipAddress : 'Unknown IP Address'}
+          </CardTitle>
+
+          {new Date() > session.expiresAt ? (
+            <Badge variant="destructive">
+              <Text>Expired</Text>
+            </Badge>
+          ) : null}
+        </View>
         <CardDescription>
           {(session.userAgent ?? '').length > 0 ? session.userAgent : 'Unknown User Agent'}
         </CardDescription>
