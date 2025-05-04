@@ -1,5 +1,5 @@
 import { Badge } from './ui/badge';
-import { MasonryFlashList } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import { Link } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
@@ -24,7 +24,7 @@ export function BookList({
   }[];
 }) {
   return (
-    <MasonryFlashList
+    <FlashList
       data={books}
       numColumns={2}
       renderItem={({ item, index }) => (
@@ -71,7 +71,6 @@ export function BookList({
         </Link>
       )}
       keyExtractor={(item) => item.id.toString()}
-      estimatedItemSize={200}
       ListEmptyComponent={() => (
         <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
           <Text className="text-center">No books found</Text>

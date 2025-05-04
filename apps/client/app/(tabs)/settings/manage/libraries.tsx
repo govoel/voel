@@ -91,7 +91,6 @@ export default function LibraryListScreen() {
               </Card>
             )}
             keyExtractor={(item) => item.id.toString()}
-            estimatedItemSize={94}
             ListEmptyComponent={() => (
               <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
                 <Text className="text-center">No libraries found</Text>
