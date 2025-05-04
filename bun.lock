@@ -104,7 +104,7 @@
       "dependencies": {
         "@better-auth/expo": "1.2.7",
         "@hono/trpc-server": "0.3.4",
-        "@t3-oss/env-core": "0.13.0",
+        "@t3-oss/env-core": "0.13.4",
         "@trpc/server": "11.1.2",
         "@voel/schemas": "workspace:*",
         "@voel/source-tap": "workspace:*",
@@ -750,7 +750,7 @@
 
     "@stardazed/streams-text-encoding": ["@stardazed/streams-text-encoding@1.0.2", "", {}, "sha512-f2Z15BId3t44a/u21yYSGXFAkCyKocmAyduoAy7swnZ4xIfbaZlOWsgly/jDNNOuj6hYQN72UaBRe3Z/tOHfqg=="],
 
-    "@t3-oss/env-core": ["@t3-oss/env-core@0.13.0", "", { "peerDependencies": { "arktype": "^2.1.0", "typescript": ">=5.0.0", "valibot": "^1.0.0-beta.7 || ^1.0.0", "zod": "^3.24.0 || ^4.0.0-beta.0" }, "optionalPeers": ["typescript", "valibot", "zod"] }, "sha512-bV7LAvwoeyigLXyjBnlgbKb8S9l+E29uSzWtU1GJYuKMQ6qF9dvFbjakkgoxR+tXFoxg7aGbg8DdEfwNihvF8Q=="],
+    "@t3-oss/env-core": ["@t3-oss/env-core@0.13.4", "", { "peerDependencies": { "arktype": "^2.1.0", "typescript": ">=5.0.0", "valibot": "^1.0.0-beta.7 || ^1.0.0", "zod": "^3.24.0 || ^4.0.0-beta.0" }, "optionalPeers": ["typescript", "valibot", "zod"] }, "sha512-zVOiYO0+CF7EnBScz8s0O5JnJLPTU0lrUi8qhKXfIxIJXvI/jcppSiXXsEJwfB4A6XZawY/Wg/EQGKANi/aPmQ=="],
 
     "@tanstack/eslint-plugin-query": ["@tanstack/eslint-plugin-query@5.74.7", "", { "dependencies": { "@typescript-eslint/utils": "^8.18.1" }, "peerDependencies": { "eslint": "^8.57.0 || ^9.0.0" } }, "sha512-EeHuaaYiCOD+XOGyB7LMNEx9OEByAa5lkgP+S3ZggjKJpmIO6iRWeoIYYDKo2F8uc3qXcVhTfC7pn7NddQiNtA=="],
 
