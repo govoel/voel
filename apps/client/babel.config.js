@@ -7,8 +7,6 @@ module.exports = function (api) {
         'babel-preset-expo',
         {
           jsxImportSource: 'nativewind',
-          // TODO: zustand needs this, remove when fixed
-          unstable_transformImportMeta: true,
         },
       ],
       'nativewind/babel',
