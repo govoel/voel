@@ -45,26 +45,30 @@ export default function AuthorScreen() {
           </Card>
         ) : data ? (
           <>
-            <AspectRatio ratio={1 / 1} className="mx-20">
-              <Image
-                className="w-full h-full rounded-md"
-                source={data.avatar}
-                placeholder={{ thumbhash: data.avatarThumbhash }}
-              />
-            </AspectRatio>
+            {data.avatar ? (
+              <AspectRatio ratio={1 / 1} className="mx-20">
+                <Image
+                  className="w-full h-full rounded-md"
+                  source={data.avatar}
+                  placeholder={{ thumbhash: data.avatarThumbhash ?? undefined }}
+                />
+              </AspectRatio>
+            ) : null}
 
             <H2 className="border-0 pt-4 text-center">{data.name}</H2>
             <Small className="text-center">
               {data.books.length} {data.books.length === 1 ? 'book' : 'books'} available
             </Small>
 
-            <View className="pt-4">
-              <ExpandableSummary
-                summary={data.about ?? '_About is not available for this author._'}
-                expandText="Expand About"
-                collapseText="Collapse About"
-              />
-            </View>
+            {data.about ? (
+              <View className="pt-4">
+                <ExpandableSummary
+                  summary={data.about}
+                  expandText="Expand About"
+                  collapseText="Collapse About"
+                />
+              </View>
+            ) : null}
 
             <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="pt-4">
               Books

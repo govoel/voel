@@ -201,12 +201,14 @@ function FloatingPlayerImpl({
       <View className="rounded-md bg-muted overflow-hidden">
         <View className="flex-row items-center justify-stretch w-full flex-nowrap p-2">
           <View className="flex-1 flex-row items-center justify-center gap-x-2">
-            <AspectRatio ratio={1 / 1} className="h-12">
-              <Image
-                className="w-full h-full rounded-md"
-                source={{ uri: currentTrack?.artworkUri }}
-              />
-            </AspectRatio>
+            {currentTrack.artworkUri ? (
+              <AspectRatio ratio={1 / 1} className="h-12">
+                <Image
+                  className="w-full h-full rounded-md"
+                  source={{ uri: currentTrack.artworkUri }}
+                />
+              </AspectRatio>
+            ) : null}
             <View className="flex-1">
               <AutoMarquee spacing={20} speed={0.75}>
                 <Text>{currentTrack?.chapterTitle}</Text>
