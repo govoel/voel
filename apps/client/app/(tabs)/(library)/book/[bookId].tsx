@@ -475,7 +475,6 @@ const ChapterList = ({
         </View>
       )}
       keyExtractor={(item) => item.id.toString()}
-      estimatedItemSize={56}
       ListEmptyComponent={() => (
         <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
           <Text className="text-center">No chapters found</Text>
@@ -510,7 +509,6 @@ const BookFiles = ({
         </View>
       )}
       keyExtractor={(item) => item.id.toString()}
-      estimatedItemSize={80}
       ListEmptyComponent={() => (
         <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
           <Text className="text-center">No chapters found</Text>

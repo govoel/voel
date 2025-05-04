@@ -204,7 +204,6 @@ export default function UsersListScreen() {
               keyExtractor={(item) => item.id.toString()}
               onEndReached={handleLoadMore}
               onEndReachedThreshold={0.5}
-              estimatedItemSize={84}
               ListFooterComponent={
                 isFetchingNextPage ? (
                   <View className="py-4 items-center">

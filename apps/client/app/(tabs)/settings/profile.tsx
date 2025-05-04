@@ -326,7 +326,6 @@ const SessionsList = () => {
         <FlashList
           data={sessions.data}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={172}
           renderItem={({ item, index }) => (
             <Session
               session={item}
