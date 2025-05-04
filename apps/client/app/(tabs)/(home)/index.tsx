@@ -12,9 +12,7 @@ export default function HomeScreen() {
     <>
       <Stack.Screen options={{ title: 'Home' }} />
       <FloatingPlayerDodgingLayout>
-        <Text>Player Status:</Text>
         <Text>{JSON.stringify(playerStatus, null, 2)}</Text>
-        <Text>Player Queue:</Text>
         <Text>{JSON.stringify(Player.getCurrentQueue(), null, 2)}</Text>
       </FloatingPlayerDodgingLayout>
     </>

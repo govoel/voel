@@ -75,10 +75,13 @@ jobs:
         with:
           packages: ''
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2.17
+        uses: hendrikmuhs/ccache-action@v1.2.18
         with:
           create-symlink: true
           key: ${{ runner.os }}-${{ github.job }}
+          restore-keys: |
+            ${{ runner.os }}-${{ github.job }}
+            ${{ runner.os }}-
       - name: Find Metro Cache
         id: metro-cache-dir-path
         uses: actions/github-script@v7
