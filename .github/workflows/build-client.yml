@@ -75,16 +75,33 @@ jobs:
         with:
           packages: ''
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2.18
+        run: |
+          apt-get update && apt-get install -y ccache
+          echo "Configuring ccache..."
+          /usr/bin/ccache --set-config=cache_dir='$GITHUB_WORKSPACE/.ccache'
+          /usr/bin/ccache --set-config=compression=true
+          ln -s /usr/bin/ccache /usr/local/bin/gcc
+          ln -s /usr/bin/ccache /usr/local/bin/g++
+          ln -s /usr/bin/ccache /usr/local/bin/cc
+          ln -s /usr/bin/ccache /usr/local/bin/c++
+          ln -s /usr/bin/ccache /usr/local/bin/clang
+          ln -s /usr/bin/ccache /usr/local/bin/clang++
+          ln -s /usr/bin/ccache /usr/local/bin/emcc
+          ln -s /usr/bin/ccache /usr/local/bin/em++
+          echo "Cccache config:"
+          /usr/bin/ccache -p
+          echo "Zeroing ccache stats..."
+          /usr/bin/ccache -z
+      - name: Restore ccache
+        uses: actions/cache@v4
         with:
-          create-symlink: true
-          append-timestamp: false
-          key: ${{ runner.os }}-${{ github.job }}-${{ github.ref }}
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
           restore-keys: |
-            ${{ runner.os }}-${{ github.job }}-${{ github.ref }}
-            ${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}
-            ${{ runner.os }}-${{ github.job }}-
-            ${{ runner.os }}-
+            ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
+            ccache-${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}
+            ccache-${{ runner.os }}-${{ github.job }}-
+            ccache-${{ runner.os }}-
       - name: Find Metro Cache
         id: metro-cache-dir-path
         uses: actions/github-script@v7
@@ -146,3 +163,8 @@ jobs:
           path: apps/client/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Ccache stats
+        if: always()
+        run: |
+          /usr/bin/ccache -s
+          /usr/bin/ccache --version
