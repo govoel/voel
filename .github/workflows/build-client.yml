@@ -87,14 +87,14 @@ jobs:
           ln -s /usr/bin/ccache /usr/local/bin/clang++
           ln -s /usr/bin/ccache /usr/local/bin/emcc
           ln -s /usr/bin/ccache /usr/local/bin/em++
-          echo "Cccache config:"
+          echo "ccache config:"
           /usr/bin/ccache -p
           echo "Zeroing ccache stats..."
           /usr/bin/ccache -z
       - name: Restore ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: ~/.cache/ccache
           key: ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
           restore-keys: |
             ccache-${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}
