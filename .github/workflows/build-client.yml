@@ -79,6 +79,7 @@ jobs:
           apt-get update && apt-get install -y ccache
           echo "Configuring ccache..."
           /usr/bin/ccache --set-config=compression=true
+          /usr/bin/ccache --set-config=compiler_check=content
           ln -s /usr/bin/ccache /usr/local/bin/gcc
           ln -s /usr/bin/ccache /usr/local/bin/g++
           ln -s /usr/bin/ccache /usr/local/bin/cc
@@ -128,7 +129,6 @@ jobs:
         env:
           APP_VARIANT: development
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          CCACHE_COMPILERCHECK: content
           NDK_CCACHE: /usr/bin/ccache
           NODE_ENV: development
       - name: Upload Debug Android App
@@ -147,7 +147,6 @@ jobs:
         env:
           APP_VARIANT: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          CCACHE_COMPILERCHECK: content
           NDK_CCACHE: /usr/bin/ccache
           NODE_ENV: production
       - name: Upload Preview Android App
