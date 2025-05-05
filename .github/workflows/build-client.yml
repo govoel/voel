@@ -98,7 +98,6 @@ jobs:
           path: ${{ github.workspace }}/.ccache
           key: ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
             ccache-${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}
             ccache-${{ runner.os }}-${{ github.job }}-
             ccache-${{ runner.os }}-
@@ -117,7 +116,6 @@ jobs:
           path: ${{ steps.metro-cache-dir-path.outputs.result }}
           key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
           restore-keys: |
-            metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
             metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}
             metro-cache-${{ runner.os }}-${{ github.job }}-
       - name: Decode Signing Keystore
@@ -130,7 +128,7 @@ jobs:
         run: bun run prebuild --platform android --clean
       - name: Build Android Debug App
         working-directory: apps/client/android
-        run: chmod +x ./gradlew && ./gradlew assembleDebug --build-cache --parallel
+        run: chmod +x ./gradlew && ./gradlew assembleDebug --build-cache --parallel --stacktrace
         env:
           APP_VARIANT: development
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
@@ -149,7 +147,7 @@ jobs:
         run: bun run prebuild:preview --platform android --clean
       - name: Build Android Preview App
         working-directory: apps/client/android
-        run: chmod +x ./gradlew && ./gradlew assembleRelease --build-cache --parallel
+        run: chmod +x ./gradlew && ./gradlew assembleRelease --build-cache --parallel --stacktrace
         env:
           APP_VARIANT: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
