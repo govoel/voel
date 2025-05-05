@@ -95,11 +95,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
+          key: ccache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}
             ccache-${{ runner.os }}-${{ github.job }}-
-            ccache-${{ runner.os }}-
       - name: Find Metro Cache
         id: metro-cache-dir-path
         uses: actions/github-script@v7
@@ -113,9 +111,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.metro-cache-dir-path.outputs.result }}
-          key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}
+          key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}
             metro-cache-${{ runner.os }}-${{ github.job }}-
       - name: Decode Signing Keystore
         working-directory: apps/client

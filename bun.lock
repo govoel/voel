@@ -35,7 +35,7 @@
         "@shopify/flash-list": "2.0.0-alpha.10",
         "@stardazed/streams-text-encoding": "1.0.2",
         "@tanstack/react-form": "1.9.0",
-        "@tanstack/react-query": "5.75.1",
+        "@tanstack/react-query": "5.75.2",
         "@trpc/client": "11.1.2",
         "@trpc/server": "11.1.2",
         "@trpc/tanstack-react-query": "11.1.2",
@@ -77,7 +77,7 @@
         "tailwind-merge": "3.2.0",
         "tailwindcss-animate": "1.0.7",
         "web-streams-polyfill": "^4.1.0",
-        "zod": "3.24.3",
+        "zod": "3.24.4",
       },
       "devDependencies": {
         "@babel/core": "7.27.1",
@@ -117,7 +117,7 @@
         "thumbhash": "0.1.1",
         "turndown": "7.2.0",
         "xstate": "5.19.2",
-        "zod": "3.24.3",
+        "zod": "3.24.4",
       },
       "devDependencies": {
         "@eslint/js": "9.26.0",
@@ -761,7 +761,7 @@
 
     "@tanstack/react-form": ["@tanstack/react-form@1.9.0", "", { "dependencies": { "@tanstack/form-core": "1.9.0", "@tanstack/react-store": "^0.7.0", "decode-formdata": "^0.9.0", "devalue": "^5.1.1" }, "peerDependencies": { "@tanstack/react-start": "^1.112.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "vinxi": "^0.5.0" }, "optionalPeers": ["@tanstack/react-start", "vinxi"] }, "sha512-jbd3QsohonHF93750uuFLTcv1pZeMOmfKP5kZu/VIwc3aZ1Y6NRsesx/CBhdPZD79ApCPZ7WfUmsKMLIER29gw=="],
 
-    "@tanstack/react-query": ["@tanstack/react-query@5.75.1", "", { "dependencies": { "@tanstack/query-core": "5.75.0" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-tN+gG+eXCHYm+VpmdXUP1rfE9LUrRzgYozTkBZtJV1/WFM3vwWNKQC8G6b2RKcs+2cPg+hdToZHZfjL3bF4yIQ=="],
+    "@tanstack/react-query": ["@tanstack/react-query@5.75.2", "", { "dependencies": { "@tanstack/query-core": "5.75.0" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-8F8VOsWUfSkCFoi62O9HSZT9jDgg28Ln8Z2dYKfRo/O2A0sgvr0uxTuNoon3PPXoDuHofv5V3elBI1M2Gh1MPg=="],
 
     "@tanstack/react-store": ["@tanstack/react-store@0.7.0", "", { "dependencies": { "@tanstack/store": "0.7.0", "use-sync-external-store": "^1.4.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-S/Rq17HaGOk+tQHV/yrePMnG1xbsKZIl/VsNWnNXt4XW+tTY8dTlvpJH2ZQ3GRALsusG5K6Q3unAGJ2pd9W/Ng=="],
 
