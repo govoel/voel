@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "devDependencies": {
-    "bun-types": "1.2.11"
+    "bun-types": "1.2.12"
   },
   "overrides": {
     "kysely": "0.28.2",
