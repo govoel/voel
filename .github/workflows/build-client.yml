@@ -163,5 +163,5 @@ jobs:
       - name: Ccache stats
         if: always()
         run: |
-          /usr/bin/ccache -s
+          /usr/bin/ccache --show-stats --verbose
           /usr/bin/ccache --version
