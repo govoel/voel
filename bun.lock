@@ -4,7 +4,7 @@
     "": {
       "name": "voel",
       "devDependencies": {
-        "bun-types": "1.2.11",
+        "bun-types": "1.2.12",
       },
     },
     "apps/client": {
@@ -13,8 +13,8 @@
       "dependencies": {
         "@azure/core-asynciterator-polyfill": "1.0.2",
         "@better-auth/expo": "1.2.7",
-        "@gorhom/bottom-sheet": "5.1.2",
-        "@op-engineering/op-sqlite": "12.0.2",
+        "@gorhom/bottom-sheet": "5.1.4",
+        "@op-engineering/op-sqlite": "13.0.0",
         "@react-navigation/native": "^7.1.6",
         "@rn-primitives/accordion": "1.1.0",
         "@rn-primitives/aspect-ratio": "1.1.0",
@@ -35,7 +35,7 @@
         "@shopify/flash-list": "2.0.0-alpha.10",
         "@stardazed/streams-text-encoding": "1.0.2",
         "@tanstack/react-form": "1.9.0",
-        "@tanstack/react-query": "5.75.1",
+        "@tanstack/react-query": "5.75.2",
         "@trpc/client": "11.1.2",
         "@trpc/server": "11.1.2",
         "@trpc/tanstack-react-query": "11.1.2",
@@ -77,7 +77,7 @@
         "tailwind-merge": "3.2.0",
         "tailwindcss-animate": "1.0.7",
         "web-streams-polyfill": "^4.1.0",
-        "zod": "3.24.3",
+        "zod": "3.24.4",
       },
       "devDependencies": {
         "@babel/core": "7.27.1",
@@ -117,14 +117,14 @@
         "thumbhash": "0.1.1",
         "turndown": "7.2.0",
         "xstate": "5.19.2",
-        "zod": "3.24.3",
+        "zod": "3.24.4",
       },
       "devDependencies": {
         "@eslint/js": "9.26.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
         "@types/turndown": "5.0.5",
         "axios": "1.9.0",
-        "bun-types": "1.2.11",
+        "bun-types": "1.2.12",
         "eslint": "9.26.0",
         "eslint-config-prettier": "10.1.2",
         "eslint-plugin-prettier": "5.2.6",
@@ -140,7 +140,7 @@
       "devDependencies": {
         "@eslint/js": "9.26.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "1.2.11",
+        "bun-types": "1.2.12",
         "eslint": "9.26.0",
         "eslint-config-prettier": "10.1.2",
         "eslint-plugin-prettier": "5.2.6",
@@ -158,7 +158,7 @@
       "devDependencies": {
         "@eslint/js": "9.26.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "1.2.11",
+        "bun-types": "1.2.12",
         "eslint": "9.26.0",
         "eslint-config-prettier": "10.1.2",
         "eslint-plugin-prettier": "5.2.6",
@@ -459,7 +459,7 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.9", "", {}, "sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg=="],
 
-    "@gorhom/bottom-sheet": ["@gorhom/bottom-sheet@5.1.2", "", { "dependencies": { "@gorhom/portal": "1.0.14", "invariant": "^2.2.4" }, "peerDependencies": { "@types/react": "*", "@types/react-native": "*", "react": "*", "react-native": "*", "react-native-gesture-handler": ">=2.16.1", "react-native-reanimated": ">=3.16.0" }, "optionalPeers": ["@types/react", "@types/react-native"] }, "sha512-5np8oL2krqAsVKLRE4YmtkZkyZeFiitoki72bEpVhZb8SRTNuAEeSbP3noq5srKpcRsboCr7uI+xmMyrWUd9kw=="],
+    "@gorhom/bottom-sheet": ["@gorhom/bottom-sheet@5.1.4", "", { "dependencies": { "@gorhom/portal": "1.0.14", "invariant": "^2.2.4" }, "peerDependencies": { "@types/react": "*", "@types/react-native": "*", "react": "*", "react-native": "*", "react-native-gesture-handler": ">=2.16.1", "react-native-reanimated": ">=3.16.0" }, "optionalPeers": ["@types/react", "@types/react-native"] }, "sha512-A49fbCLL3wxDhGvEsMzHDpBF+BqVCbXHEhLJo9plPSAxNjjPJFzJ65axj95R38+iqML0gmXyawpZ45PD4EEMAw=="],
 
     "@gorhom/portal": ["@gorhom/portal@1.0.14", "", { "dependencies": { "nanoid": "^3.3.1" }, "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-MXyL4xvCjmgaORr/rtryDNFy3kU4qUbKlwtQqqsygd0xX3mhKjOLn6mQK8wfu0RkoE0pBE0nAasRoHua+/QZ7A=="],
 
@@ -573,7 +573,7 @@
 
     "@nolyfill/is-core-module": ["@nolyfill/is-core-module@1.0.39", "", {}, "sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA=="],
 
-    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@12.0.2", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-XWdoW0GHZzExa8YcJXw1tldK8eP1eg3u5jUcyWi8+YDRNkincZ/sTJknlBLXTDElkSG+5RV9JPcxBgcVsEwmZA=="],
+    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@13.0.0", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-9dEml4/YLtImq/Dld5/bafAfppxLx3HBRG6oN3y+WHPYk8iCVG+NLXUgTRwE8BSZrGl6xH6u3OaY/T1xnXXDmw=="],
 
     "@peculiar/asn1-android": ["@peculiar/asn1-android@2.3.16", "", { "dependencies": { "@peculiar/asn1-schema": "^2.3.15", "asn1js": "^3.0.5", "tslib": "^2.8.1" } }, "sha512-a1viIv3bIahXNssrOIkXZIlI2ePpZaNmR30d4aBL99mu2rO+mT9D6zBsp7H6eROWGtmwv0Ionp5olJurIo09dw=="],
 
@@ -761,7 +761,7 @@
 
     "@tanstack/react-form": ["@tanstack/react-form@1.9.0", "", { "dependencies": { "@tanstack/form-core": "1.9.0", "@tanstack/react-store": "^0.7.0", "decode-formdata": "^0.9.0", "devalue": "^5.1.1" }, "peerDependencies": { "@tanstack/react-start": "^1.112.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "vinxi": "^0.5.0" }, "optionalPeers": ["@tanstack/react-start", "vinxi"] }, "sha512-jbd3QsohonHF93750uuFLTcv1pZeMOmfKP5kZu/VIwc3aZ1Y6NRsesx/CBhdPZD79ApCPZ7WfUmsKMLIER29gw=="],
 
-    "@tanstack/react-query": ["@tanstack/react-query@5.75.1", "", { "dependencies": { "@tanstack/query-core": "5.75.0" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-tN+gG+eXCHYm+VpmdXUP1rfE9LUrRzgYozTkBZtJV1/WFM3vwWNKQC8G6b2RKcs+2cPg+hdToZHZfjL3bF4yIQ=="],
+    "@tanstack/react-query": ["@tanstack/react-query@5.75.2", "", { "dependencies": { "@tanstack/query-core": "5.75.0" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-8F8VOsWUfSkCFoi62O9HSZT9jDgg28Ln8Z2dYKfRo/O2A0sgvr0uxTuNoon3PPXoDuHofv5V3elBI1M2Gh1MPg=="],
 
     "@tanstack/react-store": ["@tanstack/react-store@0.7.0", "", { "dependencies": { "@tanstack/store": "0.7.0", "use-sync-external-store": "^1.4.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-S/Rq17HaGOk+tQHV/yrePMnG1xbsKZIl/VsNWnNXt4XW+tTY8dTlvpJH2ZQ3GRALsusG5K6Q3unAGJ2pd9W/Ng=="],
 
@@ -1007,7 +1007,7 @@
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
 
-    "bun-types": ["bun-types@1.2.11", "", { "dependencies": { "@types/node": "*" } }, "sha512-dbkp5Lo8HDrXkLrONm6bk+yiiYQSntvFUzQp0v3pzTAsXk6FtgVMjdQ+lzFNVAmQFUkPQZ3WMZqH5tTo+Dp/IA=="],
+    "bun-types": ["bun-types@1.2.12", "", { "dependencies": { "@types/node": "*" } }, "sha512-tvWMx5vPqbRXgE8WUZI94iS1xAYs8bkqESR9cxBB1Wi+urvfTrF1uzuDgBHFAdO0+d2lmsbG3HmeKMvUyj6pWA=="],
 
     "bytes": ["bytes@3.1.2", "", {}, "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg=="],
 
