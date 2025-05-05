@@ -77,6 +77,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2.18
         with:
+          verbose: 2
           create-symlink: true
           key: ${{ runner.os }}-${{ github.job }}
           restore-keys: |
