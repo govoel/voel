@@ -96,7 +96,7 @@
     "ajv": "8.17.1",
     "eslint": "^9.26.0",
     "eslint-config-expo": "~9.2.0",
-    "eslint-config-prettier": "10.1.2",
+    "eslint-config-prettier": "10.1.3",
     "eslint-plugin-prettier": "5.2.6",
     "eslint-plugin-react-compiler": "^19.1.0-rc.1",
     "expo-atlas": "^0.4.0",
