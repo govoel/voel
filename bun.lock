@@ -14,7 +14,7 @@
         "@azure/core-asynciterator-polyfill": "1.0.2",
         "@better-auth/expo": "1.2.7",
         "@gorhom/bottom-sheet": "5.1.4",
-        "@op-engineering/op-sqlite": "13.0.0",
+        "@op-engineering/op-sqlite": "13.0.1",
         "@react-navigation/native": "^7.1.6",
         "@rn-primitives/accordion": "1.1.0",
         "@rn-primitives/aspect-ratio": "1.1.0",
@@ -573,7 +573,7 @@
 
     "@nolyfill/is-core-module": ["@nolyfill/is-core-module@1.0.39", "", {}, "sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA=="],
 
-    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@13.0.0", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-9dEml4/YLtImq/Dld5/bafAfppxLx3HBRG6oN3y+WHPYk8iCVG+NLXUgTRwE8BSZrGl6xH6u3OaY/T1xnXXDmw=="],
+    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@13.0.1", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-gXK6JhKLFTbAoKCog6G8QLBMcKzGlOinh+UXbRu0CA/2bp+laRkx7hDShj8I77oyxfSPPoraDDkQJFemmMZ2aw=="],
 
     "@peculiar/asn1-android": ["@peculiar/asn1-android@2.3.16", "", { "dependencies": { "@peculiar/asn1-schema": "^2.3.15", "asn1js": "^3.0.5", "tslib": "^2.8.1" } }, "sha512-a1viIv3bIahXNssrOIkXZIlI2ePpZaNmR30d4aBL99mu2rO+mT9D6zBsp7H6eROWGtmwv0Ionp5olJurIo09dw=="],
 
