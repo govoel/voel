@@ -133,7 +133,7 @@ jobs:
           name: android-app-debug
           path: apps/client/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: ${{ github.event_name == 'push' && '7' || '1' }}
       - name: Generate Native Preview Module
         working-directory: apps/client
         run: bun run prebuild:preview --platform android --clean
@@ -152,4 +152,4 @@ jobs:
           name: android-app-preview
           path: apps/client/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: ${{ github.event_name == 'push' && '7' || '1' }}
