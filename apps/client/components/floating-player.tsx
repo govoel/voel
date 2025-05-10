@@ -210,10 +210,10 @@ function FloatingPlayerImpl({
               </AspectRatio>
             ) : null}
             <View className="flex-1">
-              <AutoMarquee spacing={20} speed={0.75}>
+              <AutoMarquee spacing={20} speed={0.3}>
                 <Text>{currentTrack?.chapterTitle}</Text>
               </AutoMarquee>
-              <AutoMarquee spacing={20} speed={0.75}>
+              <AutoMarquee spacing={20} speed={0.3}>
                 <Muted>{currentTrack?.author}</Muted>
               </AutoMarquee>
             </View>
