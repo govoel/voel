@@ -1,0 +1,29 @@
+name: Packages Maintenance
+
+on:
+  pull_request:
+    branches:
+      - '*'
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+concurrency:
+  # Only cancel in-progress runs for pull_request events, this prevents canceling workflows against main or tags
+  # A pull_request will reuse the same group thus enabling cancellation, all others receive a unique run_id
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all except latest 10 package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: voel
+          package-type: container
+          min-versions-to-keep: 10
+          ignore-versions: '^(edge)$'
