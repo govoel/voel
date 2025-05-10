@@ -93,8 +93,6 @@ jobs:
       - name: Configure ccache
         run: |
           /usr/bin/ccache --set-config=compiler_check="%compiler% --version"
-      - name: ccache settings
-        run: |
           /usr/bin/ccache -p
       - name: Find Metro Cache
         id: metro-cache-dir-path
