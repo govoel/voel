@@ -227,20 +227,18 @@ function FloatingPlayerImpl({
               }}>
               <Text>{playerStatus.playbackRate}x</Text>
             </Button>
-            {playerStatus.playbackState === 'ready' || playerStatus.playbackState === 'idle' ? (
-              playerStatus.timeControlStatus === 'paused' ? (
-                <Button variant="ghost" size="icon" onPress={() => Player.play()}>
-                  <Play className="h-full text-transparent fill-foreground group-active:opacity-80" />
-                </Button>
-              ) : (
-                <Button variant="ghost" size="icon" onPress={() => Player.pause()}>
-                  <Pause className="h-full text-transparent fill-foreground group-active:opacity-80" />
-                </Button>
-              )
-            ) : (
+            {playerStatus.playbackState === 'buffering' ? (
               <View className="h-10 w-10 flex items-center justify-center">
                 <Spinner size={4} />
               </View>
+            ) : playerStatus.timeControlStatus === 'paused' ? (
+              <Button variant="ghost" size="icon" onPress={() => Player.play()}>
+                <Play className="h-full text-transparent fill-foreground group-active:opacity-80" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" onPress={() => Player.pause()}>
+                <Pause className="h-full text-transparent fill-foreground group-active:opacity-80" />
+              </Button>
             )}
             <Button
               variant="ghost"
