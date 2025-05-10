@@ -86,7 +86,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2.18
         with:
-          create-symlink: true
+          create-symlink: false
           key: ${{ runner.os }}-${{ github.job }}
         env:
           CCACHE_DIR: ${{ steps.ccache-dir-path.outputs.result }}
