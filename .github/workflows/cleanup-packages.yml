@@ -1,14 +1,9 @@
 name: Cleanup Packages
 
 on:
-  pull_request:
-    branches:
-      - '*'
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'
 
 concurrency:
   # Only cancel in-progress runs for pull_request events, this prevents canceling workflows against main or tags
@@ -18,7 +13,7 @@ concurrency:
 
 jobs:
   cleanup-packages:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     permissions:
       packages: write
