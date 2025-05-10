@@ -120,8 +120,10 @@ jobs:
         env:
           APP_VARIANT: development
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          CCACHE_COMPILERCHECK: content
+          USE_CCACHE: 1
           NDK_CCACHE: /usr/bin/ccache
+          CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: development
       - name: Upload Debug Android App
         uses: actions/upload-artifact@v4
@@ -139,8 +141,10 @@ jobs:
         env:
           APP_VARIANT: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          CCACHE_COMPILERCHECK: content
+          USE_CCACHE: 1
           NDK_CCACHE: /usr/bin/ccache
+          CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: production
       - name: Upload Preview Android App
         uses: actions/upload-artifact@v4
