@@ -124,7 +124,7 @@ jobs:
         env:
           APP_VARIANT: development
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          # NDK_CCACHE: /usr/bin/ccache
+          NDK_CCACHE: /usr/bin/ccache
           # CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
           # CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: development
@@ -144,7 +144,7 @@ jobs:
         env:
           APP_VARIANT: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          # NDK_CCACHE: /usr/bin/ccache
+          NDK_CCACHE: /usr/bin/ccache
           # CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
           # CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: production
