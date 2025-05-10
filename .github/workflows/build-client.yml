@@ -92,7 +92,7 @@ jobs:
           CCACHE_DIR: ${{ steps.ccache-dir-path.outputs.result }}
       - name: Configure ccache
         run: |
-          /usr/bin/ccache --set-config=compiler_check="%compiler% --version"
+          /usr/bin/ccache --set-config=compiler_check=content
           /usr/bin/ccache -p
       - name: Find Metro Cache
         id: metro-cache-dir-path
@@ -124,9 +124,9 @@ jobs:
         env:
           APP_VARIANT: development
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          NDK_CCACHE: /usr/bin/ccache
-          CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
+          # NDK_CCACHE: /usr/bin/ccache
+          # CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
+          # CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: development
       - name: Upload Debug Android App
         uses: actions/upload-artifact@v4
@@ -144,9 +144,9 @@ jobs:
         env:
           APP_VARIANT: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          NDK_CCACHE: /usr/bin/ccache
-          CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
+          # NDK_CCACHE: /usr/bin/ccache
+          # CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
+          # CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: production
       - name: Upload Preview Android App
         uses: actions/upload-artifact@v4
