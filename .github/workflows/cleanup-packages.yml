@@ -1,4 +1,4 @@
-name: Packages Maintenance
+name: Cleanup Packages
 
 on:
   pull_request:
@@ -17,8 +17,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  cleanup-packages:
     runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+
     steps:
       - name: Delete all except latest 10 package versions
         uses: actions/delete-package-versions@v5
