@@ -34,7 +34,7 @@ jobs:
           skip_after_successful_duplicate: 'false'
 
   build-server:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     needs:
       - should-skip
@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      - name: Extract metadata (tags, labels)
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5.7.0
         with:
@@ -56,7 +56,7 @@ jobs:
           flavor: |
             latest=auto
           tags: |
-            type=sha
+            ${{ github.event_name == 'pull_request' && format('type=sha,prefix=pr-{0}-sha-', github.event.pull_request.number) || 'type=sha' }}
             type=ref,event=tag
             type=ref,event=pr,prefix=pr-
             type=semver,pattern={{version}}

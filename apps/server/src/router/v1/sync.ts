@@ -75,8 +75,8 @@ export const syncRouter = createTRPCRouter({
         bookAuthor: z.number(),
         bookSeries: z.number(),
         bookContributor: z.number(),
-        audiobookChapter: z.number(),
         audiobookFile: z.number(),
+        audiobookChapter: z.number(),
         ebookFile: z.number(),
       })
     )
@@ -269,6 +269,11 @@ export const syncRouter = createTRPCRouter({
           for await (const row of stream) {
             yield { type: 'history' as const, payload: { table: 'bookContributor' as const, row } };
           }
+        } else if (table.name === 'audiobookFile') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'audiobookFile' as const, row } };
+          }
         } else if (table.name === 'audiobookChapter') {
           const stream = table.query.stream();
           for await (const row of stream) {
@@ -277,11 +282,6 @@ export const syncRouter = createTRPCRouter({
               payload: { table: 'audiobookChapter' as const, row },
             };
           }
-        } else if (table.name === 'audiobookFile') {
-          const stream = table.query.stream();
-          for await (const row of stream) {
-            yield { type: 'history' as const, payload: { table: 'audiobookFile' as const, row } };
-          }
         } else if (table.name === 'ebookFile') {
           const stream = table.query.stream();
           for await (const row of stream) {
@@ -289,6 +289,8 @@ export const syncRouter = createTRPCRouter({
           }
         }
       }
+
+      yield { type: 'historyComplete' as const };
 
       for await (const payload of eventIterator) {
         yield payload;
