@@ -83,7 +83,7 @@
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0",
     "sonner-native": "0.19.0",
-    "tailwind-merge": "3.2.0",
+    "tailwind-merge": "3.3.0",
     "tailwindcss-animate": "1.0.7",
     "web-streams-polyfill": "^4.1.0",
     "zod": "3.24.4"
