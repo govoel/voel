@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import type { SourceTapEvents } from '@voel/source-tap';
 import { z } from 'zod';
 
@@ -78,9 +79,10 @@ export const syncRouter = createTRPCRouter({
         audiobookFile: z.number(),
         audiobookChapter: z.number(),
         ebookFile: z.number(),
+        playbackHistory: z.number(),
       })
     )
-    .subscription(async function* ({ input, signal }) {
+    .subscription(async function* ({ ctx, input, signal }) {
       let unsubscribe = () => {};
 
       const eventStream = new ReadableStream<{
@@ -89,7 +91,17 @@ export const syncRouter = createTRPCRouter({
       }>({
         async start(controller) {
           const onUpdate: SourceTapEvents<DatabaseSchema>['update'] = (payload) => {
-            controller.enqueue({ type: 'live' as const, payload });
+            if (payload.table === 'playbackHistory') {
+              const userRows = payload.rows.filter((row) => row.userId === ctx.user.id);
+              if (userRows.length > 0) {
+                controller.enqueue({
+                  type: 'live' as const,
+                  payload: { table: 'playbackHistory', rows: userRows },
+                });
+              }
+            } else {
+              controller.enqueue({ type: 'live' as const, payload });
+            }
           };
           sourceTap.events.on('update', onUpdate);
           unsubscribe = () => {
@@ -230,6 +242,24 @@ export const syncRouter = createTRPCRouter({
             .select(['id', 'libraryId', 'bookId', 'path', 'createdAt', 'updatedAt', 'deletedAt'])
             .where('updatedAt', '>=', input.ebookFile),
         },
+        {
+          name: 'playbackHistory',
+          query: db
+            .selectFrom('playbackHistory')
+            .select([
+              'id',
+              'userId',
+              'type',
+              'bookId',
+              'positionMs',
+              'eventTimestampMs',
+              'createdAt',
+              'updatedAt',
+              'deletedAt',
+            ])
+            .where('userId', '=', ctx.user.id)
+            .where('updatedAt', '>=', input.playbackHistory),
+        },
       ] as const;
 
       for (const table of tables) {
@@ -287,6 +317,11 @@ export const syncRouter = createTRPCRouter({
           for await (const row of stream) {
             yield { type: 'history' as const, payload: { table: 'ebookFile' as const, row } };
           }
+        } else if (table.name === 'playbackHistory') {
+          const stream = table.query.stream();
+          for await (const row of stream) {
+            yield { type: 'history' as const, payload: { table: 'playbackHistory' as const, row } };
+          }
         }
       }
 
@@ -295,5 +330,48 @@ export const syncRouter = createTRPCRouter({
       for await (const payload of eventIterator) {
         yield payload;
       }
+    }),
+
+  playbackHistory: protectedProcedure
+    .input(
+      z.array(
+        z.object({
+          type: z.number(),
+          bookId: z.number(),
+          positionMs: z.number(),
+          eventTimestampMs: z.number(),
+        })
+      )
+    )
+    .mutation(async ({ ctx, input }) => {
+      const insertedHistory = await db
+        .insertInto('playbackHistory')
+        .values(
+          input.map((event) => ({
+            userId: ctx.user.id,
+            type: event.type,
+            bookId: event.bookId,
+            positionMs: event.positionMs,
+            eventTimestampMs: event.eventTimestampMs,
+          }))
+        )
+        .onConflict((oc) =>
+          oc
+            // purely so RETURNING works correctly
+            .doUpdateSet({ deletedAt: (eb) => eb.ref('excluded.deletedAt') })
+        )
+        .returning(['eventTimestampMs as eventTimestampMs'])
+        .execute()
+        .catch((err) => {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `An error occurred while updating playback history: ${err.message}. Please try again later.`,
+          });
+        });
+
+      return insertedHistory.reduce(
+        (max, current) => Math.max(max, current.eventTimestampMs),
+        -Infinity
+      );
     }),
 });

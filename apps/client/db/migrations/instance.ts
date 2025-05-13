@@ -356,6 +356,41 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .on('ebookFile')
                 .columns(['deletedAt'])
                 .execute();
+
+              await trx.schema
+                .createTable('playbackHistory')
+                .ifNotExists()
+                .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
+                .addColumn('userId', 'text')
+                .addColumn('type', 'integer', (col) =>
+                  col.notNull().check(sql`type in (1002, 1003, 1004, 1005, 1006, 1007)`)
+                )
+                .addColumn('bookId', 'integer', (col) =>
+                  col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
+                )
+                .addColumn('positionMs', 'integer', (col) => col.notNull())
+                .addColumn('eventTimestampMs', 'integer', (col) => col.notNull())
+                .addColumn('createdAt', 'integer', (col) =>
+                  col.defaultTo(sql`(unixepoch())`).notNull()
+                )
+                .addColumn('updatedAt', 'integer', (col) =>
+                  col.defaultTo(sql`(unixepoch())`).notNull()
+                )
+                .addColumn('deletedAt', 'integer')
+                .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await trx.schema
+                .createIndex('playbackHistory_updatedAt_index')
+                .on('playbackHistory')
+                .columns(['updatedAt'])
+                .execute();
+
+              await trx.schema
+                .createIndex('playbackHistory_deletedAt_index')
+                .on('playbackHistory')
+                .columns(['deletedAt'])
+                .execute();
             });
           },
         },

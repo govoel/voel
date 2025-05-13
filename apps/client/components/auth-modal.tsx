@@ -1,4 +1,4 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import * as SecureStore from 'expo-secure-store';
@@ -20,7 +20,8 @@ import { Text } from '~/components/ui/text';
 
 import { mainDb } from '~/db/client';
 
-import api, { queryClient } from '~/lib/api';
+import api from '~/lib/api';
+import { queryClient } from '~/lib/api/query-client';
 import { createAuthClient, instanceStore, useAuthSession } from '~/lib/stores/instance';
 
 export const authModalStore = createStore({

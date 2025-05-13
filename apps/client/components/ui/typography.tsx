@@ -246,7 +246,10 @@ const Muted = ({
   const Component = asChild ? Slot.Text : RNText;
   return (
     <Component
-      className={cn('text-sm text-muted-foreground web:select-text', className)}
+      className={cn(
+        'text-sm font-voel-inter-regular text-muted-foreground web:select-text',
+        className
+      )}
       ref={ref}
       {...props}
     />

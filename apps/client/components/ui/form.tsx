@@ -1,4 +1,4 @@
-import { Button } from './button';
+import { ButtonWithLoading } from './button';
 import { Input } from './input';
 import { Label } from './label';
 import { RadioGroupItemWithLabel, RadioGroup as RadioGroupItems } from './radio-group';
@@ -7,8 +7,6 @@ import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import { type ComponentPropsWithRef, type ComponentPropsWithoutRef } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
-
-import { Spinner } from '~/components/spinner';
 
 import { cn } from '~/lib/utils';
 
@@ -106,27 +104,20 @@ const SubmitButton = ({
   viewClassName,
   disabled,
   ...props
-}: ComponentPropsWithRef<typeof Button> & { viewClassName?: string }) => {
+}: ComponentPropsWithRef<typeof ButtonWithLoading> & { viewClassName?: string }) => {
   const form = useFormContext();
 
   return (
     <form.Subscribe
       selector={(state) => [state.canSubmit, state.isSubmitting]}
       children={([canSubmit, isSubmitting]) => (
-        <View className={cn(viewClassName, 'relative')}>
-          <Button
-            ref={ref}
-            {...props}
-            disabled={!canSubmit || isSubmitting || disabled}
-            onPress={() => form.handleSubmit()}
-          />
-
-          {isSubmitting && (
-            <View className="absolute inset-0 flex items-center justify-center w-full h-full bg-muted/80 rounded-md">
-              <Spinner size={6} />
-            </View>
-          )}
-        </View>
+        <ButtonWithLoading
+          ref={ref}
+          {...props}
+          disabled={!canSubmit || isSubmitting || disabled}
+          onPress={() => form.handleSubmit()}
+          isLoading={isSubmitting}
+        />
       )}
     />
   );

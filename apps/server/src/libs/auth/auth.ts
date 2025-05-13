@@ -22,7 +22,7 @@ export const auth = betterAuth({
   plugins: [
     expo(),
     username(),
-    admin({ defaultRole: 'under18', adminRoles: ['admin'] }),
+    admin({ defaultRole: 'under18' as const, adminRoles: ['admin'] as const }),
     {
       id: 'voel-init',
       init(ctx) {

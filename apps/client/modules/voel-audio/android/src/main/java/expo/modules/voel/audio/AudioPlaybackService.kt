@@ -3,6 +3,11 @@ package expo.modules.voel.audio
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingSimpleBasePlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.Timeline
+import androidx.media3.common.util.Clock
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.CacheDataSource
@@ -14,12 +19,19 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.google.common.util.concurrent.ListenableFuture
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 class VoelAudioPlaybackService : MediaSessionService() {
     lateinit var player: ExoPlayer
     var mediaSession: MediaSession? = null
+    private val playbackHistoryJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.IO + playbackHistoryJob)
 
     companion object {
         @Volatile private var cookie: String? = null
@@ -90,7 +102,82 @@ class VoelAudioPlaybackService : MediaSessionService() {
                         )
                         .build()
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        val forwardingPlayer =
+                object : ForwardingSimpleBasePlayer(player) {
+                    override fun handleSeek(
+                            mediaItemIndex: Int,
+                            positionMs: Long,
+                            seekCommand: Int
+                    ): ListenableFuture<*> {
+                        recordPosition(player, EVENT_TYPE_SEEK_START)
+                        val superReturn = super.handleSeek(mediaItemIndex, positionMs, seekCommand)
+                        recordPosition(player, EVENT_TYPE_SEEK_END)
+                        return superReturn
+                    }
+
+                    override fun handleSetPlayWhenReady(
+                            playWhenReady: Boolean
+                    ): ListenableFuture<*> {
+                        val superReturn = super.handleSetPlayWhenReady(playWhenReady)
+                        recordPosition(
+                                player,
+                                if (playWhenReady) EVENT_TYPE_PLAY else EVENT_TYPE_PAUSE
+                        )
+                        return superReturn
+                    }
+
+                    override fun handleRelease(): ListenableFuture<*> {
+                        recordPosition(player, EVENT_TYPE_SESSION_END)
+                        return super.handleRelease()
+                    }
+
+                    override fun handleSetMediaItems(
+                            mediaItems: MutableList<MediaItem>,
+                            startIndex: Int,
+                            startPositionMs: Long
+                    ): ListenableFuture<*> {
+                        recordPosition(player, EVENT_TYPE_BOOK_CHANGE)
+                        return super.handleSetMediaItems(mediaItems, startIndex, startPositionMs)
+                    }
+                }
+
+        mediaSession = MediaSession.Builder(this, forwardingPlayer).build()
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun recordPosition(player: Player, eventType: Int) {
+        if (player.mediaItemCount > 0 && player.mediaItemCount >= player.currentMediaItemIndex) {
+            val eventTime = Clock.DEFAULT.currentTimeMillis()
+
+            val currentMediaItem = player.getMediaItemAt(player.currentMediaItemIndex)
+            val instanceId = currentMediaItem.mediaMetadata.extras!!.getString("instanceId")!!
+            val bookId = currentMediaItem.mediaMetadata.extras!!.getLong("bookId")
+
+            var absolutePositionMs = player.currentPosition
+            val window = Timeline.Window()
+            for (i in 0 until player.currentMediaItemIndex) {
+                player.currentTimeline.getWindow(i, window)
+                absolutePositionMs +=
+                        if (window.durationMs == C.TIME_UNSET) {
+                            window.mediaItem.clippingConfiguration.endPositionMs -
+                                    window.mediaItem.clippingConfiguration.startPositionMs
+                        } else window.durationMs
+            }
+
+            val event =
+                    PlaybackHistory(
+                            id = null,
+                            bookId = bookId,
+                            type = eventType,
+                            positionMs = absolutePositionMs,
+                            eventTimestampMs = eventTime
+                    )
+
+            serviceScope.launch {
+                val db = PlaybackHistoryDatabase.getDatabase(applicationContext, instanceId)
+                db.playbackHistoryDao().insert(event)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -99,6 +186,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
             release()
             mediaSession = null
         }
+        playbackHistoryJob.cancel()
         super.onDestroy()
     }
 

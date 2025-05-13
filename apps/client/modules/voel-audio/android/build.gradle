@@ -1,7 +1,31 @@
+buildscript {
+  ext {
+    boolish = { value ->
+      return value.toString().toBoolean()
+    }
+    getKspVersion = {
+      if (rootProject.hasProperty("kspVersion")) {
+        return rootProject["kspVersion"]
+      }
+
+      return "2.0.21-1.0.27"
+    }
+  }
+
+  repositories {
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:${getKspVersion()}"
+  }
+}
+
 apply plugin: 'com.android.library'
+apply plugin: 'com.google.devtools.ksp'
 
 group = 'expo.modules.voel.audio'
-version = '0.6.3'
+version = '0.0.0'
 
 def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
 apply from: expoModulesCorePlugin
@@ -35,7 +59,7 @@ android {
   namespace "expo.modules.voel.audio"
   defaultConfig {
     versionCode 1
-    versionName "0.6.3"
+    versionName "0.0.0"
   }
   lintOptions {
     abortOnError false
@@ -48,7 +72,6 @@ repositories {
 
 dependencies {
   implementation 'androidx.appcompat:appcompat:1.7.0'
-  implementation 'androidx.datastore:datastore:1.1.5'
 
   def androidxMedia3Version = "1.6.1"
   implementation "androidx.media3:media3-session:${androidxMedia3Version}"
@@ -57,4 +80,8 @@ dependencies {
   implementation("androidx.media3:media3-datasource-okhttp:${androidxMedia3Version}")
   implementation("androidx.media3:media3-exoplayer-hls:${androidxMedia3Version}")
   implementation("androidx.media3:media3-exoplayer-smoothstreaming:${androidxMedia3Version}")
+
+  def roomVersion = "2.7.1"
+  implementation("androidx.room:room-runtime:${roomVersion}")
+  ksp("androidx.room:room-compiler:${roomVersion}")
 }

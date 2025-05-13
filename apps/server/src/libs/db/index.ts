@@ -21,6 +21,7 @@ export const sourceTap = new SourceTap<DatabaseSchema>({
     'audiobookChapter',
     'audiobookFile',
     'ebookFile',
+    'playbackHistory',
   ]),
 });
 
