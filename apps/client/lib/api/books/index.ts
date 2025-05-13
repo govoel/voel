@@ -1,7 +1,13 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
+import { useSelector } from '@xstate/store/react';
 import { Kysely, type Selectable } from 'kysely';
+import { useEffect, useState } from 'react';
+
+import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
 
 import type { InstanceDatabase } from '~/db/schema/instance';
+
+import { instanceStore } from '~/lib/stores/instance';
 
 const list = {
   queryKey: ['instance', 'book', 'list'],
@@ -333,4 +339,122 @@ const get = {
   },
 };
 
-export { list, get };
+const getPlaybackPosition = {
+  queryKey: ['instance', 'book', 'getPlaybackPosition'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
+    const playbackHistory = usePlaybackHistoryContext();
+    const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+
+    const { data } = useReactQuery({
+      queryKey: [...getPlaybackPosition.queryKey, { bookId }],
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = await instanceDb
+          .selectFrom('playbackHistory')
+          .where('bookId', '=', bookId)
+          .where('deletedAt', 'is', null)
+          .select(['positionMs', 'eventTimestampMs'])
+          .orderBy('eventTimestampMs', 'desc')
+          // we order by type because often seek start and seek end have the same eventTimestampMs
+          .orderBy('type', 'desc')
+          .limit(1)
+          .executeTakeFirst();
+
+        return {
+          positionMs: query?.positionMs ?? 0,
+          eventTimestampMs: query?.eventTimestampMs ?? 0,
+        };
+      },
+    });
+
+    const [currentPlaybackPosition, setCurrentPlaybackPosition] = useState<number>(0);
+
+    useEffect(() => {
+      if (playbackHistory.instanceID === instanceID) {
+        const bookPlaybackHistory = playbackHistory.events.filter(
+          (event) => event.bookId === bookId
+        );
+        if (data) {
+          if (
+            bookPlaybackHistory.length > 0 &&
+            bookPlaybackHistory[0].eventTimestampMs > data.eventTimestampMs
+          ) {
+            setCurrentPlaybackPosition(Math.max(bookPlaybackHistory[0].positionMs, 0));
+          } else {
+            setCurrentPlaybackPosition(Math.max(data.positionMs, 0));
+          }
+        } else {
+          setCurrentPlaybackPosition(
+            Math.max(
+              bookPlaybackHistory.length > 0 ? bookPlaybackHistory[0].positionMs : -Infinity,
+              0
+            )
+          );
+        }
+      } else {
+        setCurrentPlaybackPosition(Math.max(data?.positionMs ?? 0, 0));
+      }
+    }, [instanceID, bookId, data, playbackHistory]);
+
+    return currentPlaybackPosition;
+  },
+};
+
+const getPlaybackHistory = {
+  queryKey: ['instance', 'book', 'getPlaybackHistory'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
+    const localPlaybackHistory = usePlaybackHistoryContext();
+    const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+
+    const dbPlaybackHistory = useReactQuery({
+      queryKey: [...getPlaybackHistory.queryKey, { bookId }],
+      networkMode: 'always',
+      queryFn: async () =>
+        instanceDb
+          .selectFrom('playbackHistory')
+          .where('bookId', '=', bookId)
+          .where('deletedAt', 'is', null)
+          .select(['id', 'type', 'bookId', 'positionMs', 'eventTimestampMs'])
+          .orderBy('eventTimestampMs', 'desc')
+          // we order by type because often seek start and seek end have the same eventTimestampMs
+          .orderBy('type', 'desc')
+          .execute(),
+    });
+
+    const [mergedPlaybackHistory, setMergedPlaybackHistory] = useState<
+      {
+        source: 'local' | 'db';
+        id: number;
+        type: number;
+        bookId: number;
+        positionMs: number;
+        eventTimestampMs: number;
+      }[]
+    >([]);
+
+    useEffect(() => {
+      if (localPlaybackHistory.instanceID === instanceID) {
+        const localBookPlaybackHistory = localPlaybackHistory.events.filter(
+          (event) => event.bookId === bookId
+        );
+        setMergedPlaybackHistory(
+          [
+            ...localBookPlaybackHistory.map((event) => ({ ...event, source: 'local' as const })),
+            ...(dbPlaybackHistory.data?.map((event) => ({ ...event, source: 'db' as const })) ??
+              []),
+          ]
+            .flat()
+            .sort((a, b) => b.eventTimestampMs - a.eventTimestampMs || b.type - a.type)
+        );
+      } else {
+        setMergedPlaybackHistory(
+          dbPlaybackHistory.data?.map((event) => ({ ...event, source: 'db' as const })) ?? []
+        );
+      }
+    }, [instanceID, bookId, dbPlaybackHistory.data, localPlaybackHistory]);
+
+    return { ...dbPlaybackHistory, mergedPlaybackHistory };
+  },
+};
+
+export { list, get, getPlaybackPosition, getPlaybackHistory };

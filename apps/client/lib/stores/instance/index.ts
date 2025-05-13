@@ -16,7 +16,7 @@ import { fetch as expoFetch } from 'expo/fetch';
 
 import { createInstanceDb } from '~/db/client';
 
-import { queryClient } from '~/lib/api';
+import { queryClient } from '~/lib/api/query-client';
 
 import '@azure/core-asynciterator-polyfill';
 
