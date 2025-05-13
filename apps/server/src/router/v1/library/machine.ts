@@ -764,6 +764,7 @@ async function insertBooksIntoDatabase(
           continue;
         }
         const stat = await lstat(audiobookFile.path);
+        let walkedDeletePerformed = false;
         if (stat.isSymbolicLink()) {
           scanLogger.debug('Will delete imported symlink "%s"', audiobookFile.path);
           await Bun.file(audiobookFile.path).delete();
@@ -778,12 +779,15 @@ async function insertBooksIntoDatabase(
               scanLogger.debug('Will delete imported symlink "%s" found by walking up', parentPath);
               await Bun.file(parentPath).delete();
               walkedDeletes.add(parentPath);
+              walkedDeletePerformed = true;
               break;
             }
             currentPath = parentPath;
           }
         }
-        scanLogger.warn('Did not delete imported file "%s"', audiobookFile.path);
+        if (!walkedDeletePerformed) {
+          scanLogger.warn('Did not delete imported file "%s"', audiobookFile.path);
+        }
       }
 
       scanLogger.debug('Successfully inserted book "%s"', book.title);
