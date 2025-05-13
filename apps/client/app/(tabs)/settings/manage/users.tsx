@@ -1,10 +1,9 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
-import { View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
@@ -162,8 +161,10 @@ export default function UsersListScreen() {
               </CardFooter>
             </>
           ) : data && session.data ? (
-            <FlashList
+            <FlatList
               data={allUsers}
+              keyExtractor={(item) => item.id.toString()}
+              scrollEnabled={false}
               renderItem={({ item, index }) => (
                 <Link
                   href={
@@ -201,7 +202,6 @@ export default function UsersListScreen() {
                   </Button>
                 </Link>
               )}
-              keyExtractor={(item) => item.id.toString()}
               onEndReached={handleLoadMore}
               onEndReachedThreshold={0.5}
               ListFooterComponent={
