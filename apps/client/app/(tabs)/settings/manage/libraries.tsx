@@ -1,11 +1,10 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
 import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';
-import { View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
@@ -68,7 +67,25 @@ export default function LibraryListScreen() {
         <TitleWithRefetch className="pt-4" refetch={refetch} isLoading={isLoading}>
           Libraries
         </TitleWithRefetch>
-        {error ? (
+        {data ? (
+          <FlatList
+            data={data}
+            keyExtractor={(item) => item.id.toString()}
+            scrollEnabled={false}
+            renderItem={({ item, index }) => (
+              <Card className="mt-4">
+                <CardHeader className="flex-row justify-between items-center">
+                  <Library item={item} />
+                </CardHeader>
+              </Card>
+            )}
+            ListEmptyComponent={() => (
+              <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+                <Text className="text-center">No libraries found</Text>
+              </View>
+            )}
+          />
+        ) : error ? (
           <>
             <CardContent className="pt-4">
               <Large>Error loading libraries</Large>
@@ -80,23 +97,6 @@ export default function LibraryListScreen() {
               </Button>
             </CardFooter>
           </>
-        ) : data ? (
-          <FlashList
-            data={data}
-            renderItem={({ item, index }) => (
-              <Card className="mt-4">
-                <CardHeader className="flex-row justify-between items-center">
-                  <Library item={item} />
-                </CardHeader>
-              </Card>
-            )}
-            keyExtractor={(item) => item.id.toString()}
-            ListEmptyComponent={() => (
-              <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-                <Text className="text-center">No libraries found</Text>
-              </View>
-            )}
-          />
         ) : (
           <CardContent className="p-12 justify-center items-center">
             <Spinner size={15} />

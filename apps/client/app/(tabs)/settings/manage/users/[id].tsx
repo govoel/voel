@@ -1,12 +1,11 @@
 import { Session } from '../../profile';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
 import type { UserWithRole } from 'better-auth/plugins';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
-import { View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
@@ -120,10 +119,11 @@ export default function ManageUserScreen() {
         </TitleWithRefetch>
 
         {sessions.data ? (
-          <FlashList
+          <FlatList
             data={sessions.data}
             keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
+            scrollEnabled={false}
+            renderItem={({ item }) => (
               <Session
                 session={item}
                 userId={id}
@@ -396,6 +396,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
           <Button
             className="w-full"
             variant="secondary"
+            size="sm"
             onPress={() => {
               setRoleModalRef.current?.present();
             }}>
@@ -405,6 +406,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
             <Button
               className="w-full"
               variant="secondary"
+              size="sm"
               onPress={() => {
                 unbanUserModalRef.current?.present();
               }}>
@@ -414,6 +416,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
             <Button
               className="w-full"
               variant="secondary"
+              size="sm"
               onPress={() => {
                 banUserModalRef.current?.present();
               }}>
@@ -423,6 +426,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
           <Button
             className="w-full"
             variant="secondary"
+            size="sm"
             onPress={() => {
               changePasswordModalRef.current?.present();
             }}>
@@ -430,7 +434,8 @@ const Profile = ({ user }: { user: UserWithRole }) => {
           </Button>
           <Button
             className="w-full"
-            variant="secondary"
+            variant="destructive"
+            size="sm"
             onPress={() => {
               deleteUserModalRef.current?.present();
             }}>

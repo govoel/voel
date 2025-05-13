@@ -1,9 +1,8 @@
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { FlatList, View } from 'react-native';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
@@ -108,9 +107,11 @@ export default function BookScreen() {
             ) : null}
 
             <H2 className="border-0 pt-4 text-center">{data.title}</H2>
-            <Small className="text-center leading-snug">{data.subtitle}</Small>
+            {data.subtitle ? (
+              <Small className="text-center leading-snug pb-2">{data.subtitle}</Small>
+            ) : null}
 
-            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
+            <View className="flex flex-row flex-wrap gap-x-2 items-center">
               <BookPlayButton bookId={data.id} />
               <PlaybackHistory bookId={data.id} />
             </View>
@@ -446,7 +447,7 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
             instanceURL ?? 'http://voel.local'
           );
         }}>
-        {currentPlaybackPosition >= 0 ? (
+        {currentPlaybackPosition > 0 ? (
           <Text>Play from {formatTime(currentPlaybackPosition)}</Text>
         ) : (
           <Text>Play from beginning</Text>
@@ -524,79 +525,81 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
               </Button>
             </Alert>
           ) : null}
-          {mergedPlaybackHistory.length === 0 ? (
-            <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-              <Text className="text-center">No playback history found</Text>
-            </View>
-          ) : (
-            mergedPlaybackHistory.map((event, index) => (
-              <View key={`${event.source}-${event.id}`} className="mb-1">
-                <View className="flex flex-row items-center gap-x-2">
-                  {book ? (
-                    <Button
-                      className="h-12 py-1 flex flex-row"
-                      variant="outline"
-                      size="sm"
-                      onPress={() => {
-                        playBookFrom(
-                          book,
-                          event.positionMs,
-                          authInstance.getCookie(),
-                          instanceID ?? '0',
-                          instanceURL ?? 'http://voel.local'
-                        );
-                      }}>
-                      <Play className="text-muted-foreground mr-2" size={16} />
-                      <View className="border-l border-input pl-2 flex justify-center items-center">
-                        <Text>{formatTime(event.positionMs)}</Text>
-                      </View>
-                    </Button>
-                  ) : bookError ? (
-                    <Button
-                      className="h-12 py-1 flex flex-row"
-                      variant="destructive"
-                      size="sm"
-                      onPress={() => {
-                        refetchBook();
-                      }}>
-                      <OctagonAlert className="text-red-200 mr-2" size={16} />
-                      <View className="border-l border-input pl-2 flex justify-center items-center">
-                        <Text>Couldn&rsquo;t load book</Text>
-                        <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
-                      </View>
-                    </Button>
-                  ) : (
-                    <ButtonWithLoading
-                      className="h-12 w-24 py-1 flex flex-row"
-                      variant="outline"
-                      size="sm"
-                      disabled={isBookLoading}
-                      isLoading={isBookLoading}
-                    />
-                  )}
-                  <View>
-                    <View className="flex flex-row items-center gap-x-2">
-                      <Text>
-                        {event.type === 1002
-                          ? 'Begin Playback'
-                          : event.type === 1003 || event.type === 1006 || event.type === 1007
-                            ? 'Pause'
-                            : event.type === 1004
-                              ? 'Seek From'
-                              : event.type === 1005
-                                ? 'Seeked To'
-                                : 'Unknown Event'}
-                      </Text>
-                      <Badge variant="outline">
-                        <Text>{event.source === 'local' ? 'Local' : 'Database'}</Text>
-                      </Badge>
+          <FlatList
+            data={mergedPlaybackHistory}
+            keyExtractor={(item) => `${item.source}-${item.id}`}
+            scrollEnabled={false}
+            renderItem={({ item, index }) => (
+              <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
+                {book ? (
+                  <Button
+                    className="h-12 py-1 flex flex-row"
+                    variant="outline"
+                    size="sm"
+                    onPress={() => {
+                      playBookFrom(
+                        book,
+                        item.positionMs,
+                        authInstance.getCookie(),
+                        instanceID ?? '0',
+                        instanceURL ?? 'http://voel.local'
+                      );
+                    }}>
+                    <Play className="text-muted-foreground mr-2" size={16} />
+                    <View className="border-l border-input pl-2 flex justify-center items-center">
+                      <Text>{formatTime(item.positionMs)}</Text>
                     </View>
-                    <Muted>{new Date(event.eventTimestampMs).toLocaleString()}</Muted>
+                  </Button>
+                ) : bookError ? (
+                  <Button
+                    className="h-12 py-1 flex flex-row"
+                    variant="destructive"
+                    size="sm"
+                    onPress={() => {
+                      refetchBook();
+                    }}>
+                    <OctagonAlert className="text-red-200 mr-2" size={16} />
+                    <View className="border-l border-input pl-2 flex justify-center items-center">
+                      <Text>Couldn&rsquo;t load book</Text>
+                      <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
+                    </View>
+                  </Button>
+                ) : (
+                  <ButtonWithLoading
+                    className="h-12 w-24 py-1 flex flex-row"
+                    variant="outline"
+                    size="sm"
+                    disabled={isBookLoading}
+                    isLoading={isBookLoading}
+                  />
+                )}
+                <View>
+                  <View className="flex flex-row items-center gap-x-2">
+                    <Text>
+                      {item.type === 1002
+                        ? 'Begin Playback'
+                        : item.type === 1003 || item.type === 1006 || item.type === 1007
+                          ? 'Pause'
+                          : item.type === 1004
+                            ? 'Seek From'
+                            : item.type === 1005
+                              ? 'Seeked To'
+                              : 'Unknown Event'}
+                    </Text>
+                    <Badge variant="outline">
+                      <Text>{item.source === 'local' ? 'Local' : 'Database'}</Text>
+                    </Badge>
                   </View>
+                  <Muted>{new Date(item.eventTimestampMs).toLocaleString()}</Muted>
                 </View>
               </View>
-            ))
-          )}
+            )}
+            ListEmptyComponent={
+              <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+                <Text className="text-center">No playback history found</Text>
+              </View>
+            }
+          />
         </View>
       </BottomSheet>
     </>
@@ -660,8 +663,10 @@ const ChapterList = ({
   } = api.books.get.useQuery(instanceDb, bookId);
 
   return (
-    <FlashList
+    <FlatList
       data={chapters}
+      keyExtractor={(item) => item.id.toString()}
+      scrollEnabled={false}
       renderItem={({ item, index }) => (
         <View className={cn('flex flex-row flex-wrap items-center', index === 0 ? '' : 'mt-4')}>
           <View className="flex flex-row flex-wrap items-center gap-2">
@@ -716,7 +721,6 @@ const ChapterList = ({
           </View>
         </View>
       )}
-      keyExtractor={(item) => item.id.toString()}
       ListEmptyComponent={() => (
         <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
           <Text className="text-center">No chapters found</Text>
@@ -732,28 +736,31 @@ const BookFiles = ({
   files: { id: number; path: string; disc: number; track: number; durationMs: number }[];
 }) => {
   return (
-    <FlashList
+    <FlatList
       data={files}
-      renderItem={({ item, index }) => (
-        <View className={index === 0 ? '' : 'mb-4'}>
-          <View className="flex flex-row flex-wrap gap-2" key={`file-${index}`}>
-            <Badge variant="outline">
-              <Text>{formatDuration(item.durationMs)}</Text>
-            </Badge>
-            <Badge variant="outline">
-              <Text>Disc {item.disc}</Text>
-            </Badge>
-            <Badge variant="outline">
-              <Text>Track {item.track}</Text>
-            </Badge>
-          </View>
-          <Small className="pt-2 leading-snug">{item.path}</Small>
-        </View>
-      )}
       keyExtractor={(item) => item.id.toString()}
+      scrollEnabled={false}
+      renderItem={({ item, index }) => (
+        <Card className={index === 0 ? '' : 'mt-4'}>
+          <CardContent className="px-4 py-2">
+            <View className="flex flex-row flex-wrap gap-2">
+              <Badge variant="outline">
+                <Text>{formatDuration(item.durationMs)}</Text>
+              </Badge>
+              <Badge variant="outline">
+                <Text>Disc {item.disc}</Text>
+              </Badge>
+              <Badge variant="outline">
+                <Text>Track {item.track}</Text>
+              </Badge>
+            </View>
+            <Small className="pt-2 leading-snug">{item.path}</Small>
+          </CardContent>
+        </Card>
+      )}
       ListEmptyComponent={() => (
         <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
-          <Text className="text-center">No chapters found</Text>
+          <Text className="text-center">No files found</Text>
         </View>
       )}
     />

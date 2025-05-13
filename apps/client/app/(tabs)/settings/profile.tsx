@@ -1,12 +1,11 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { SnapshotFromStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import type { Session as BetterAuthSession } from 'better-auth/types';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';
-import { View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
@@ -171,12 +170,14 @@ const Profile = () => {
             <Button
               className="w-full"
               variant="secondary"
+              size="sm"
               onPress={() => editProfileModalRef.current?.present()}>
               <Text className="text-secondary-foreground">Edit Profile</Text>
             </Button>
             <Button
               className="w-full"
               variant="secondary"
+              size="sm"
               onPress={() => changePasswordModalRef.current?.present()}>
               <Text>Change Password</Text>
             </Button>
@@ -324,10 +325,11 @@ const SessionsList = () => {
       </TitleWithRefetch>
 
       {sessions.data && currentSession ? (
-        <FlashList
+        <FlatList
           data={sessions.data}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
+          scrollEnabled={false}
+          renderItem={({ item }) => (
             <Session
               session={item}
               userId={currentSession.user.id}
@@ -446,18 +448,17 @@ export const Session = ({
         <Text>Created at: {session.createdAt.toLocaleString()}</Text>
         <Text>Updated at: {session.updatedAt.toLocaleString()}</Text>
         <Text>Expires at: {session.expiresAt.toLocaleString()}</Text>
+        <View className="mt-4">
+          <RevokeSessionForm.AppForm>
+            <RevokeSessionForm.SubmitButton
+              variant="secondary"
+              size="sm"
+              disabled={currentSessionToken === session.token}>
+              <Text>Revoke Session</Text>
+            </RevokeSessionForm.SubmitButton>
+          </RevokeSessionForm.AppForm>
+        </View>
       </CardContent>
-      <CardFooter>
-        <RevokeSessionForm.AppForm>
-          <RevokeSessionForm.SubmitButton
-            viewClassName="w-full"
-            className="w-full"
-            variant="secondary"
-            disabled={currentSessionToken === session.token}>
-            <Text>Revoke Session</Text>
-          </RevokeSessionForm.SubmitButton>
-        </RevokeSessionForm.AppForm>
-      </CardFooter>
     </Card>
   );
 };

@@ -1,7 +1,6 @@
 import { Badge } from './ui/badge';
-import { FlashList } from '@shopify/flash-list';
 import { Link } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { FlatList, Pressable, View } from 'react-native';
 
 import { Image } from '~/components/image';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
@@ -24,8 +23,10 @@ export function BookList({
   }[];
 }) {
   return (
-    <FlashList
+    <FlatList
       data={books}
+      keyExtractor={(item) => item.id.toString()}
+      scrollEnabled={false}
       numColumns={2}
       renderItem={({ item, index }) => (
         <Link
@@ -35,7 +36,7 @@ export function BookList({
           }}
           asChild
           push>
-          <Pressable className={cn('w-full pt-4', index % 2 === 0 ? 'pr-2' : 'pl-2')}>
+          <Pressable className={cn('w-1/2 pt-4', index % 2 === 0 ? 'pr-2' : 'pl-2')}>
             <View className="flex flex-row items-center pb-2">
               {item.label ? (
                 <Badge variant="outline">
@@ -44,7 +45,7 @@ export function BookList({
               ) : null}
             </View>
             {item.cover ? (
-              <AspectRatio className="flex-1" ratio={1 / 1}>
+              <AspectRatio ratio={1 / 1}>
                 <Image
                   className="w-full h-full rounded-md"
                   source={item.cover}
@@ -70,7 +71,6 @@ export function BookList({
           </Pressable>
         </Link>
       )}
-      keyExtractor={(item) => item.id.toString()}
       ListEmptyComponent={() => (
         <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
           <Text className="text-center">No books found</Text>
