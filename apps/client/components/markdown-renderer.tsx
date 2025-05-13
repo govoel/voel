@@ -54,11 +54,17 @@ class CustomRenderer extends Renderer implements RendererInterface {
   }
 
   strong(children: string | ReactNode[]): ReactNode {
-    return this._getTextNode(children, 'group font-bold group-[.font-italic]:font-bolditalic');
+    return this._getTextNode(
+      children,
+      'group font-semibold group-[.font-italic]:font-semibolditalic'
+    );
   }
 
   em(children: string | ReactNode[]): ReactNode {
-    return this._getTextNode(children, 'group font-italic group-[.font-bold]:font-bolditalic');
+    return this._getTextNode(
+      children,
+      'group font-italic group-[.font-semibold]:font-semibolditalic'
+    );
   }
 
   br(): ReactNode {
