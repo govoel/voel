@@ -92,7 +92,6 @@ export const syncRouter = createTRPCRouter({
         async start(controller) {
           const onUpdate: SourceTapEvents<DatabaseSchema>['update'] = (payload) => {
             if (payload.table === 'playbackHistory') {
-              console.log('Playback history updated', payload.rows);
               const userRows = payload.rows.filter((row) => row.userId === ctx.user.id);
               if (userRows.length > 0) {
                 controller.enqueue({

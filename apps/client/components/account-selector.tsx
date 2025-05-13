@@ -295,7 +295,6 @@ const upsertPlaybackHistory = (
   db: Kysely<InstanceDatabase<'regular'>>,
   rows: Insertable<PlaybackHistoryTable<'realtime'>>[]
 ) => {
-  console.log('got playbackHistory');
   return (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
     .insertInto('playbackHistory')
     .values(rows)
