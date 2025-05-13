@@ -73,7 +73,12 @@ const ThemeAndPortalLayout = () => {
   return (
     <ThemeProvider value={nativeWindColorScheme === 'dark' ? DARK_THEME : LIGHT_THEME}>
       <Stack screenOptions={{ headerShown: false }} />
-      <Toaster />
+      <Toaster
+        toastOptions={{
+          titleStyle: { fontFamily: 'Voel-Inter-SemiBold' },
+          descriptionStyle: { fontFamily: 'Voel-Inter-Regular' },
+        }}
+      />
       <PortalHost />
     </ThemeProvider>
   );
