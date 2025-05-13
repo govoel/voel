@@ -3,15 +3,19 @@ package expo.modules.voel.audio
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
-import expo.modules.kotlin.functions.Queues
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlin.math.min
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class VoelAudioModule : Module() {
     lateinit var player: VoelAudioPlayer
+
+    private var currentPlaybackHistoryUpdateInstanceID: String? = null
+    private var playbackHistoryUpdateJob: Job? = null
 
     override fun definition() = ModuleDefinition {
         Name("VoelAudio")
@@ -28,7 +32,9 @@ class VoelAudioModule : Module() {
             }
         }
 
-        Events("playbackStatusUpdate")
+        OnDestroy { runOnMain { playbackHistoryUpdateJob?.cancel() } }
+
+        Events("playbackStatusUpdate", "playbackHistoryUpdate")
 
         Property("isBuffering") {
             runOnMain { player.controller.playbackState == Player.STATE_BUFFERING }
@@ -60,6 +66,52 @@ class VoelAudioModule : Module() {
             player.setVolume(value)
         }
 
+        Function("startPlaybackHistoryUpdates") { instanceID: String ->
+            if (currentPlaybackHistoryUpdateInstanceID != instanceID) {
+                playbackHistoryUpdateJob?.cancel()
+                val db =
+                        PlaybackHistoryDatabase.getDatabase(
+                                appContext.throwingActivity.applicationContext,
+                                instanceID
+                        )
+
+                playbackHistoryUpdateJob =
+                        appContext.mainQueue.launch {
+                            db.playbackHistoryDao().getAll().collect { events ->
+                                sendEvent(
+                                        "playbackHistoryUpdate",
+                                        mapOf(
+                                                "instanceID" to instanceID,
+                                                "events" to
+                                                        events.map { event ->
+                                                            mapOf(
+                                                                    "id" to event.id,
+                                                                    "type" to event.type,
+                                                                    "bookId" to event.bookId,
+                                                                    "positionMs" to
+                                                                            event.positionMs,
+                                                                    "eventTimestampMs" to
+                                                                            event.eventTimestampMs
+                                                            )
+                                                        }
+                                        )
+                                )
+                            }
+                        }
+                currentPlaybackHistoryUpdateInstanceID = instanceID
+            }
+        }
+
+        AsyncFunction("deletePlaybackHistoryOlderThan") Coroutine
+                { instanceId: String, timestamp: Long ->
+                    val db =
+                            PlaybackHistoryDatabase.getDatabase(
+                                    appContext.throwingActivity.applicationContext,
+                                    instanceId
+                            )
+                    return@Coroutine db.playbackHistoryDao().deleteEventsOlderThan(timestamp)
+                }
+
         Function("play") { runOnMain { player.controller.play() } }
 
         Function("pause") { runOnMain { player.controller.pause() } }
@@ -74,7 +126,6 @@ class VoelAudioModule : Module() {
                 ) {
                     val wasPlaying = player.controller.isPlaying
                     if (sources.isNotEmpty()) {
-                        player.controller.clearMediaItems()
                         player.setAudioSources(sources)
                         if (wasPlaying) {
                             player.controller.play()
@@ -88,13 +139,13 @@ class VoelAudioModule : Module() {
             runOnMain {
                 if (player.controller.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)
                 ) {
-                    val wasPlaying = player.controller.isPlaying
+                    //                    val wasPlaying = player.controller.isPlaying
                     if (sources.isNotEmpty()) {
-                        player.controller.clearMediaItems()
+                        //                        player.controller.clearMediaItems()
                         player.setAudioSources(sources)
-                        if (wasPlaying) {
-                            player.controller.play()
-                        }
+                        //                        if (wasPlaying) {
+                        //                            player.controller.play()
+                        //                        }
                     }
                 }
             }
@@ -191,10 +242,16 @@ class VoelAudioModule : Module() {
             }
         }
 
-        AsyncFunction("seekTo") { seekTime: Double ->
-                    player.controller.seekTo((seekTime * 1000L).toLong())
+        Function("seekTo") { mediaItemIndex: Int, positionMs: Long ->
+            runOnMain {
+                if (player.controller.availableCommands.contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                ) {
+                    if (mediaItemIndex >= 0 && mediaItemIndex < player.controller.mediaItemCount) {
+                        player.controller.seekTo(mediaItemIndex, positionMs)
+                    }
                 }
-                .runOnQueue(Queues.MAIN)
+            }
+        }
 
         Function("setPlaybackRate") { rate: Float ->
             appContext.mainQueue.launch {

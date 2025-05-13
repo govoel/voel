@@ -1,7 +1,8 @@
 import { type VariantProps, cva } from 'class-variance-authority';
 import * as React from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, View } from 'react-native';
 
+import { Spinner } from '~/components/spinner';
 import { TextClassContext } from '~/components/ui/text';
 
 import { cn } from '~/lib/utils';
@@ -91,5 +92,29 @@ const Button = ({
 };
 Button.displayName = 'Button';
 
-export { Button, buttonTextVariants, buttonVariants };
+const ButtonWithLoading = ({
+  ref,
+  viewClassName,
+  isLoading = false,
+  ...props
+}: ButtonProps & {
+  ref?: React.RefObject<React.ComponentRef<typeof Pressable>>;
+  viewClassName?: string;
+  isLoading?: boolean;
+}) => {
+  return (
+    <View className={cn(viewClassName, 'relative')}>
+      <Button ref={ref} {...props} />
+
+      {isLoading && (
+        <View className="absolute inset-0 flex items-center justify-center w-full h-full bg-muted/80 rounded-md">
+          <Spinner size={6} />
+        </View>
+      )}
+    </View>
+  );
+};
+ButtonWithLoading.displayName = 'ButtonWithLoading';
+
+export { Button, ButtonWithLoading, buttonTextVariants, buttonVariants };
 export type { ButtonProps };

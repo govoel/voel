@@ -32,6 +32,19 @@ export type AudioStatus = {
   errorCode: number | null;
 };
 
+export type PlaybackHistory = {
+  id: number;
+  type: number;
+  bookId: number;
+  positionMs: number;
+  eventTimestampMs: number;
+};
+
+export type PlaybackHistoryUpdateEvent = {
+  instanceID: string;
+  events: PlaybackHistory[];
+};
+
 export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   setCookie(cookie: string): void;
   isBuffering: boolean;
@@ -55,10 +68,13 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   canSkipToNext(): boolean;
   skipToNext(): void;
   skipToPrevious(): void;
-  seekTo(seconds: number): void;
+  seekTo(mediaItemIndex: number, positionMs: number): void;
   setPlaybackRate(rate: number): void;
+  startPlaybackHistoryUpdates(instanceID: string): void;
+  deletePlaybackHistoryOlderThan(instanceID: string, timestamp: number): Promise<void>;
 }
 
 export type AudioEvents = {
   playbackStatusUpdate(status: AudioStatus): void;
+  playbackHistoryUpdate(events: PlaybackHistoryUpdateEvent): void;
 };

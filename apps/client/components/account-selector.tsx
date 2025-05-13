@@ -1,13 +1,13 @@
-import type { AppRouter } from '@/router/root';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useQueryClient } from '@tanstack/react-query';
-import type { TRPCClientErrorLike } from '@trpc/client';
+import { type TRPCClientErrorLike } from '@trpc/client';
 import type { inferRouterOutputs } from '@trpc/server';
 import {
   type TRPCOptionsProxy,
   type TRPCSubscriptionResult,
   useSubscription,
 } from '@trpc/tanstack-react-query';
+import type { AppRouter } from '@voel/server/src/router/root';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import { type Insertable, Kysely, Transaction } from 'kysely';
@@ -34,6 +34,7 @@ import type {
   EBookFileTable,
   InstanceDatabase,
   LibraryTable,
+  PlaybackHistoryTable,
   SeriesTable,
 } from '~/db/schema/instance';
 
@@ -290,6 +291,29 @@ const upsertEBookFile = (
     )
     .execute();
 
+const upsertPlaybackHistory = (
+  db: Kysely<InstanceDatabase<'regular'>>,
+  rows: Insertable<PlaybackHistoryTable<'realtime'>>[]
+) => {
+  console.log('got playbackHistory');
+  return (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
+    .insertInto('playbackHistory')
+    .values(rows)
+    .onConflict((oc) =>
+      oc.columns(['id']).doUpdateSet({
+        userId: (eb) => eb.ref('excluded.userId'),
+        type: (eb) => eb.ref('excluded.type'),
+        bookId: (eb) => eb.ref('excluded.bookId'),
+        positionMs: (eb) => eb.ref('excluded.positionMs'),
+        eventTimestampMs: (eb) => eb.ref('excluded.eventTimestampMs'),
+        createdAt: (eb) => eb.ref('excluded.createdAt'),
+        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
+        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
+      })
+    )
+    .execute();
+};
+
 const flushHistoryData = async (
   trx: Transaction<InstanceDatabase<'regular'>>,
   history: {
@@ -304,6 +328,7 @@ const flushHistoryData = async (
     audiobookFile: Insertable<AudiobookFileTable<'realtime'>>[];
     audiobookChapter: Insertable<AudiobookChapterTable<'realtime'>>[];
     ebookFile: Insertable<EBookFileTable<'realtime'>>[];
+    playbackHistory: Insertable<PlaybackHistoryTable<'realtime'>>[];
   }
 ) => {
   if (history.library.length > 0) {
@@ -336,6 +361,9 @@ const flushHistoryData = async (
   if (history.ebookFile.length > 0) {
     await upsertEBookFile(trx, history.ebookFile);
   }
+  if (history.playbackHistory.length > 0) {
+    await upsertPlaybackHistory(trx, history.playbackHistory);
+  }
   history.library = [];
   history.author = [];
   history.series = [];
@@ -346,6 +374,7 @@ const flushHistoryData = async (
   history.audiobookFile = [];
   history.audiobookChapter = [];
   history.ebookFile = [];
+  history.playbackHistory = [];
   history.rowCount = 0;
 };
 
@@ -393,6 +422,7 @@ const useSyncSubscriptionOptions = (
       audiobookFile: [] as Insertable<AudiobookFileTable<'realtime'>>[],
       audiobookChapter: [] as Insertable<AudiobookChapterTable<'realtime'>>[],
       ebookFile: [] as Insertable<EBookFileTable<'realtime'>>[],
+      playbackHistory: [] as Insertable<PlaybackHistoryTable<'realtime'>>[],
     };
 
     const createSubscription = async () => {
@@ -465,7 +495,14 @@ const useSyncSubscriptionOptions = (
             (
               await instanceDb
                 .selectFrom('ebookFile')
-                .select((eb) => eb.fn.max('updatedAt').as('maxUpdatedAt'))
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
+                .executeTakeFirstOrThrow()
+            ).maxUpdatedAt ?? 0,
+          playbackHistory:
+            (
+              await instanceDb
+                .selectFrom('playbackHistory')
+                .select((eb) => eb.fn.max<number | null>('updatedAt').as('maxUpdatedAt'))
                 .executeTakeFirstOrThrow()
             ).maxUpdatedAt ?? 0,
         },
@@ -538,6 +575,13 @@ const useSyncSubscriptionOptions = (
                       ensureExact<Insertable<EBookFileTable<'realtime'>>, typeof data.payload.row>(
                         data.payload.row
                       )
+                    );
+                  } else if (data.payload.table === 'playbackHistory') {
+                    historyData.playbackHistory.push(
+                      ensureExact<
+                        Insertable<PlaybackHistoryTable<'realtime'>>,
+                        typeof data.payload.row
+                      >(data.payload.row)
                     );
                   }
 
@@ -639,6 +683,15 @@ const useSyncSubscriptionOptions = (
                       >(data.payload.rows)
                     );
                     queryClient.invalidateQueries({ queryKey: ['instance'] });
+                  } else if (data.payload.table === 'playbackHistory') {
+                    await upsertPlaybackHistory(
+                      instanceDb,
+                      ensureExact<
+                        Insertable<PlaybackHistoryTable<'realtime'>>[],
+                        typeof data.payload.rows
+                      >(data.payload.rows)
+                    );
+                    queryClient.invalidateQueries({ queryKey: ['instance'] });
                   }
                 }
               } catch (error) {
@@ -671,10 +724,14 @@ export type AsyncIterableYield<T> = T extends AsyncIterable<infer U> ? U : T;
 const SubscriptionContext = createContext<
   | {
       isPending: false;
-      data: TRPCSubscriptionResult<
+      status: TRPCSubscriptionResult<
         AsyncIterableYield<inferRouterOutputs<AppRouter>['v1']['sync']['subscribe']>,
         TRPCClientErrorLike<AppRouter>
-      >;
+      >['status'];
+      error: TRPCSubscriptionResult<
+        AsyncIterableYield<inferRouterOutputs<AppRouter>['v1']['sync']['subscribe']>,
+        TRPCClientErrorLike<AppRouter>
+      >['error'];
     }
   | { isPending: true }
 >({ isPending: true });
@@ -696,7 +753,11 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   const { subscriptionOptions, isPending } = useSyncSubscriptionOptions(apiInstance, instanceDb);
   const data = useSubscription(subscriptionOptions);
 
-  return <SubscriptionContext value={{ isPending, data }}>{children}</SubscriptionContext>;
+  return (
+    <SubscriptionContext value={{ isPending, status: data.status, error: data.error }}>
+      {children}
+    </SubscriptionContext>
+  );
 };
 
 const LoggedInUserAvatar = ({
@@ -709,9 +770,9 @@ const LoggedInUserAvatar = ({
   const subscription = useSubscriptionContext();
 
   useEffect(() => {
-    if (!subscription.isPending && subscription.data.status === 'error') {
+    if (!subscription.isPending && subscription.status === 'error') {
       toast.error('Error while subscribing to realtime changes', {
-        description: subscription.data.error?.message ?? 'Unknown error',
+        description: subscription.error?.message ?? 'Unknown error',
       });
     }
   }, [subscription]);
@@ -722,9 +783,9 @@ const LoggedInUserAvatar = ({
         'relative border-2 rounded-full',
         subscription.isPending
           ? 'border-foreground'
-          : subscription.data.status === 'idle' || subscription.data.status === 'error'
+          : subscription.status === 'idle' || subscription.status === 'error'
             ? 'border-red-500'
-            : subscription.data.status === 'pending'
+            : subscription.status === 'pending'
               ? 'border-green-500'
               : 'border-foreground'
       )}>

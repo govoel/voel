@@ -1,7 +1,8 @@
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
@@ -14,9 +15,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '~/components/ui/accordion';
+import { Alert, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
+import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { Button, ButtonWithLoading } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
@@ -25,8 +28,10 @@ import { H2, Large, Muted, Small } from '~/components/ui/typography';
 import api from '~/lib/api';
 import { BookCopy } from '~/lib/icons/BookCopy';
 import { FilePenLine } from '~/lib/icons/FilePenLine';
+import { History } from '~/lib/icons/History';
 import { Languages } from '~/lib/icons/Languages';
 import { MicVocal } from '~/lib/icons/MicVocal';
+import { OctagonAlert } from '~/lib/icons/OctagonAlert';
 import { Play } from '~/lib/icons/Play';
 import { Timer } from '~/lib/icons/Timer';
 import { UserPen } from '~/lib/icons/UserPen';
@@ -41,7 +46,7 @@ const formatTime = (timeMs: number) => {
   const m = Math.floor((sec % 3600) / 60);
   const h = Math.floor(sec / 3600);
 
-  return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 const formatDuration = (durationMs: number, type: 'short' | 'long' = 'long') => {
@@ -103,9 +108,12 @@ export default function BookScreen() {
             ) : null}
 
             <H2 className="border-0 pt-4 text-center">{data.title}</H2>
-            <Small className="text-center">{data.subtitle}</Small>
+            <Small className="text-center leading-snug">{data.subtitle}</Small>
 
-            <BookPlayButton book={data} />
+            <View className="flex flex-row flex-wrap gap-x-2 items-center pt-2">
+              <BookPlayButton bookId={data.id} />
+              <PlaybackHistory bookId={data.id} />
+            </View>
 
             <View className="flex flex-row flex-wrap gap-2 items-center pt-4">
               <Timer className="text-muted-foreground" size={20} />
@@ -153,10 +161,10 @@ export default function BookScreen() {
                       asChild>
                       <Badge variant="secondary">
                         <View className="flex flex-row justify-center items-center">
-                          <Text className="border-r border-muted-foreground/50 pr-1">
+                          <Text className="border-r border-muted-foreground/50 pr-2">
                             {series.label}
                           </Text>
-                          <Text className="pl-1">{series.name}</Text>
+                          <Text className="pl-2">{series.name}</Text>
                         </View>
                       </Badge>
                     </Link>
@@ -181,7 +189,7 @@ export default function BookScreen() {
                   <Text className="font-semibold">Chapters</Text>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <BookChapters chapters={data.chapters} />
+                  <BookChapters bookId={data.id} chapters={data.chapters} />
                 </AccordionContent>
               </AccordionItem>
 
@@ -310,9 +318,7 @@ const Translators = ({
   );
 };
 
-const BookPlayButton = ({
-  book,
-}: {
+const playBookFrom = (
   book: {
     id: number;
     title: string;
@@ -335,88 +341,273 @@ const BookPlayButton = ({
         durationMs: number;
       }[];
     };
-    files: { id: number; durationMs: number; disc: number; track: number }[];
-  };
-}) => {
-  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
-  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+    files: { id: number; durationMs: number }[];
+  },
+  absolutePositionMs: number,
+  authCookie: string,
+  instanceID: string,
+  instanceURL: string
+) => {
+  const fileEndTimes = book.files.reduce((acc, file, index) => {
+    const previousEndTime = index > 0 ? acc[index - 1] : 0;
+    acc.push(previousEndTime + file.durationMs);
+    return acc;
+  }, [] as number[]);
 
-  const fileEndTimes = useMemo(() => {
-    return book.files.reduce<number[]>((acc, file, index) => {
-      const previousEndTime = index > 0 ? acc[index - 1] : 0;
-      acc.push(previousEndTime + file.durationMs);
-      return acc;
-    }, []);
-  }, [book.files]);
+  let canUseAudible = book.chapters.audible.length > 0;
+  let chapters: AudioSource[] = [];
 
-  const audioSources = useMemo(() => {
-    let canUseAudible = book.chapters.audible.length > 0;
-    let chapters: AudioSource[] = [];
+  if (canUseAudible) {
+    for (const chapter of book.chapters.audible) {
+      const fileIndex = fileEndTimes.findIndex((endTime) => chapter.startOffsetMs <= endTime);
 
-    if (canUseAudible) {
-      for (const chapter of book.chapters.audible) {
-        const fileIndex = fileEndTimes.findIndex((endTime) => chapter.startOffsetMs <= endTime);
-
-        if (fileIndex === -1) {
-          canUseAudible = false;
-          break;
-        }
-
-        const file = book.files[fileIndex];
-        const fileAbsoluteStartTime = fileIndex > 0 ? fileEndTimes[fileIndex - 1] : 0;
-        const chapterRelativeStartTime = chapter.startOffsetMs - fileAbsoluteStartTime;
-
-        chapters.push({
-          instanceId: instanceID,
-          bookId: chapter.bookId,
-          fileId: file.id,
-          chapterId: chapter.id,
-          bookTitle: book.title,
-          chapterTitle: chapter.title,
-          author: book.authors.map((author) => author.name).join(', '),
-          fileUri: `${instanceURL}/api/v1/files/${file.id}`,
-          artworkUri: book.cover,
-          startTimeMs: chapterRelativeStartTime,
-          endTimeMs: chapterRelativeStartTime + chapter.durationMs,
-        });
+      if (fileIndex === -1) {
+        canUseAudible = false;
+        break;
       }
-    }
 
-    if (!canUseAudible) {
-      chapters = book.chapters.file.map((chapter) => ({
+      const file = book.files[fileIndex];
+      const fileAbsoluteStartTime = fileIndex > 0 ? fileEndTimes[fileIndex - 1] : 0;
+      const chapterRelativeStartTime = chapter.startOffsetMs - fileAbsoluteStartTime;
+
+      chapters.push({
         instanceId: instanceID,
         bookId: chapter.bookId,
-        fileId: chapter.fileId,
+        fileId: file.id,
         chapterId: chapter.id,
         bookTitle: book.title,
         chapterTitle: chapter.title,
         author: book.authors.map((author) => author.name).join(', '),
-        fileUri: `${instanceURL}/api/v1/files/${chapter.fileId}`,
+        fileUri: `${instanceURL}/api/v1/files/${file.id}`,
         artworkUri: book.cover,
-        startTimeMs: chapter.startOffsetMs,
-        endTimeMs: chapter.startOffsetMs + chapter.durationMs,
-      }));
+        startTimeMs: chapterRelativeStartTime,
+        endTimeMs: chapterRelativeStartTime + chapter.durationMs,
+      });
+    }
+  }
+
+  if (!canUseAudible) {
+    chapters = book.chapters.file.map((chapter) => ({
+      instanceId: instanceID,
+      bookId: chapter.bookId,
+      fileId: chapter.fileId,
+      chapterId: chapter.id,
+      bookTitle: book.title,
+      chapterTitle: chapter.title,
+      author: book.authors.map((author) => author.name).join(', '),
+      fileUri: `${instanceURL}/api/v1/files/${chapter.fileId}`,
+      artworkUri: book.cover,
+      startTimeMs: chapter.startOffsetMs,
+      endTimeMs: chapter.startOffsetMs + chapter.durationMs,
+    }));
+  }
+
+  replaceAudioSources(authCookie, chapters);
+
+  if (absolutePositionMs > 0) {
+    let startFromChapter = 0;
+    for (const [index, chapter] of chapters.entries()) {
+      if (chapter.startTimeMs > absolutePositionMs) {
+        startFromChapter = index - 1;
+        break;
+      }
     }
 
-    return chapters;
-  }, [book, instanceURL, instanceID, fileEndTimes]);
+    Player.seekTo(startFromChapter, absolutePositionMs - chapters[startFromChapter].startTimeMs);
+    Player.play();
+  } else {
+    Player.play();
+  }
+};
+
+const BookPlayButton = ({ bookId }: { bookId: number }) => {
+  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
+  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
+  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const {
+    data: book,
+    isLoading: isBookLoading,
+    error: bookError,
+    refetch: refetchBook,
+  } = api.books.get.useQuery(instanceDb, bookId);
+  const currentPlaybackPosition = api.books.getPlaybackPosition.useQuery(instanceDb, bookId);
+
+  if (book) {
+    return (
+      <Button
+        className="mt-4 flex-1"
+        onPress={() => {
+          playBookFrom(
+            book,
+            currentPlaybackPosition,
+            authInstance.getCookie(),
+            instanceID ?? '0',
+            instanceURL ?? 'http://voel.local'
+          );
+        }}>
+        {currentPlaybackPosition >= 0 ? (
+          <Text>Play from {formatTime(currentPlaybackPosition)}</Text>
+        ) : (
+          <Text>Play from beginning</Text>
+        )}
+      </Button>
+    );
+  }
+
+  if (bookError) {
+    return (
+      <Button
+        variant="destructive"
+        className="mt-4 flex-1"
+        onPress={() => {
+          refetchBook();
+        }}>
+        <Text>Couldn&rsquo;t load book. Click to try again.</Text>
+      </Button>
+    );
+  }
 
   return (
-    <Button
-      className="mt-4"
-      onPress={() => {
-        replaceAudioSources(authInstance.getCookie(), audioSources);
-        Player.play();
-      }}>
+    <ButtonWithLoading
+      viewClassName="mt-4 flex-1"
+      disabled={isBookLoading}
+      isLoading={isBookLoading}>
       <Text>Play</Text>
-    </Button>
+    </ButtonWithLoading>
+  );
+};
+
+const PlaybackHistory = ({ bookId }: { bookId: number }) => {
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
+  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
+  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const {
+    data: book,
+    isLoading: isBookLoading,
+    error: bookError,
+    refetch: refetchBook,
+  } = api.books.get.useQuery(instanceDb, bookId);
+  const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(
+    instanceDb,
+    bookId
+  );
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        className="text-secondary-foreground"
+        onPress={() => {
+          bottomSheetModalRef.current?.present();
+        }}>
+        <History className="text-secondary-foreground" size="20" />
+      </Button>
+
+      <BottomSheet ref={bottomSheetModalRef} snapPoints={['50%']}>
+        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <Large className="pb-2">Playback History</Large>
+          {error ? (
+            <Alert className="mb-2" icon={OctagonAlert} variant="destructive">
+              <AlertTitle className="pb-2">
+                Failed to fetch playback history from the database
+              </AlertTitle>
+              <Button
+                size="sm"
+                variant="destructive"
+                onPress={() => {
+                  refetch();
+                }}>
+                <Text>Refetch</Text>
+              </Button>
+            </Alert>
+          ) : null}
+          {mergedPlaybackHistory.length === 0 ? (
+            <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+              <Text className="text-center">No playback history found</Text>
+            </View>
+          ) : (
+            mergedPlaybackHistory.map((event, index) => (
+              <View key={`${event.source}-${event.id}`} className="mb-1">
+                <View className="flex flex-row items-center gap-x-2">
+                  {book ? (
+                    <Button
+                      className="h-12 py-1 flex flex-row"
+                      variant="outline"
+                      size="sm"
+                      onPress={() => {
+                        playBookFrom(
+                          book,
+                          event.positionMs,
+                          authInstance.getCookie(),
+                          instanceID ?? '0',
+                          instanceURL ?? 'http://voel.local'
+                        );
+                      }}>
+                      <Play className="text-muted-foreground mr-2" size={16} />
+                      <View className="border-l border-input pl-2 flex justify-center items-center">
+                        <Text>{formatTime(event.positionMs)}</Text>
+                      </View>
+                    </Button>
+                  ) : bookError ? (
+                    <Button
+                      className="h-12 py-1 flex flex-row"
+                      variant="destructive"
+                      size="sm"
+                      onPress={() => {
+                        refetchBook();
+                      }}>
+                      <OctagonAlert className="text-red-200 mr-2" size={16} />
+                      <View className="border-l border-input pl-2 flex justify-center items-center">
+                        <Text>Couldn&rsquo;t load book</Text>
+                        <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
+                      </View>
+                    </Button>
+                  ) : (
+                    <ButtonWithLoading
+                      className="h-12 w-24 py-1 flex flex-row"
+                      variant="outline"
+                      size="sm"
+                      disabled={isBookLoading}
+                      isLoading={isBookLoading}
+                    />
+                  )}
+                  <View>
+                    <View className="flex flex-row items-center gap-x-2">
+                      <Text>
+                        {event.type === 1002
+                          ? 'Begin Playback'
+                          : event.type === 1003 || event.type === 1006 || event.type === 1007
+                            ? 'Pause'
+                            : event.type === 1004
+                              ? 'Seek From'
+                              : event.type === 1005
+                                ? 'Seeked To'
+                                : 'Unknown Event'}
+                      </Text>
+                      <Badge variant="outline">
+                        <Text>{event.source === 'local' ? 'Local' : 'Database'}</Text>
+                      </Badge>
+                    </View>
+                    <Muted>{new Date(event.eventTimestampMs).toLocaleString()}</Muted>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      </BottomSheet>
+    </>
   );
 };
 
 const BookChapters = ({
+  bookId,
   chapters,
 }: {
+  bookId: number;
   chapters: {
     audible: {
       id: number;
@@ -441,35 +632,84 @@ const BookChapters = ({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="audible">
-        <ChapterList chapters={chapters.audible} />
+        <ChapterList bookId={bookId} chapters={chapters.audible} />
       </TabsContent>
       <TabsContent value="file">
-        <ChapterList chapters={chapters.file} />
+        <ChapterList bookId={bookId} chapters={chapters.file} />
       </TabsContent>
     </Tabs>
   );
 };
 
 const ChapterList = ({
+  bookId,
   chapters,
 }: {
+  bookId: number;
   chapters: { id: number; title: string; durationMs: number; startOffsetMs: number }[];
 }) => {
+  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
+  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
+  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const {
+    data: book,
+    isLoading: isBookLoading,
+    error: bookError,
+    refetch: refetchBook,
+  } = api.books.get.useQuery(instanceDb, bookId);
+
   return (
     <FlashList
       data={chapters}
       renderItem={({ item, index }) => (
         <View className={cn('flex flex-row flex-wrap items-center', index === 0 ? '' : 'mt-4')}>
           <View className="flex flex-row flex-wrap items-center gap-2">
-            <Button className="h-12 py-1 flex flex-row" variant="outline" size="sm">
-              <Play className="text-muted-foreground mr-2" size={16} />
-              <View className="border-l border-input pl-2 flex justify-center items-center">
-                <Text>{formatTime(item.startOffsetMs)}</Text>
-                <Muted className="text-xs font-semibold">
-                  {formatDuration(item.durationMs, 'short')}
-                </Muted>
-              </View>
-            </Button>
+            {book ? (
+              <Button
+                className="h-12 py-1 flex flex-row"
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  playBookFrom(
+                    book,
+                    item.startOffsetMs,
+                    authInstance.getCookie(),
+                    instanceID ?? '0',
+                    instanceURL ?? 'http://voel.local'
+                  );
+                }}>
+                <Play className="text-muted-foreground mr-2" size={16} />
+                <View className="border-l border-input pl-2 flex justify-center items-center">
+                  <Text>{formatTime(item.startOffsetMs)}</Text>
+                  <Muted className="text-xs font-semibold">
+                    {formatDuration(item.durationMs, 'short')}
+                  </Muted>
+                </View>
+              </Button>
+            ) : bookError ? (
+              <Button
+                className="h-12 py-1 flex flex-row"
+                variant="destructive"
+                size="sm"
+                onPress={() => {
+                  refetchBook();
+                }}>
+                <OctagonAlert className="text-red-200 mr-2" size={16} />
+                <View className="border-l border-input pl-2 flex justify-center items-center">
+                  <Text>Couldn&rsquo;t load book</Text>
+                  <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
+                </View>
+              </Button>
+            ) : (
+              <ButtonWithLoading
+                className="h-12 w-24 py-1 flex flex-row"
+                variant="outline"
+                size="sm"
+                disabled={isBookLoading}
+                isLoading={isBookLoading}
+              />
+            )}
             <View className="flex-1">
               <Small className="leading-snug">{item.title}</Small>
             </View>

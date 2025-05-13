@@ -14,7 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
-import { queryClient } from '~/lib/api';
+import { queryClient } from '~/lib/api/query-client';
 import { NAV_THEME } from '~/lib/constants';
 import { themeStore } from '~/lib/stores/color-scheme';
 

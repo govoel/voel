@@ -7,6 +7,7 @@ import { View } from 'react-native';
 import { AccountSelector, SubscriptionProvider } from '~/components/account-selector';
 import { AuthModal } from '~/components/auth-modal';
 import { FloatingPlayer } from '~/components/floating-player';
+import { PlaybackHistoryProvider } from '~/components/playback-history-provider';
 import { Spinner } from '~/components/spinner';
 import { Text } from '~/components/ui/text';
 
@@ -22,32 +23,34 @@ export default function TabLayout() {
     <BottomSheetModalProvider>
       <DbMigrator>
         <SubscriptionProvider>
-          <Tabs initialRouteName="(home)" screenOptions={{ headerShown: false }}>
-            <Tabs.Screen
-              name="(library)"
-              options={{
-                title: 'Library',
-                tabBarIcon: ({ color, size }) => <Library color={color} size={size} />,
-                tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
-              }}
-            />
-            <Tabs.Screen
-              name="(home)"
-              options={{
-                title: 'Home',
-                tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
-                tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
-              }}
-            />
-            <Tabs.Screen
-              name="settings"
-              options={{
-                title: 'Settings',
-                tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
-                tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
-              }}
-            />
-          </Tabs>
+          <PlaybackHistoryProvider>
+            <Tabs initialRouteName="(home)" screenOptions={{ headerShown: false }}>
+              <Tabs.Screen
+                name="(library)"
+                options={{
+                  title: 'Library',
+                  tabBarIcon: ({ color, size }) => <Library color={color} size={size} />,
+                  tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
+                }}
+              />
+              <Tabs.Screen
+                name="(home)"
+                options={{
+                  title: 'Home',
+                  tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+                  tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
+                }}
+              />
+              <Tabs.Screen
+                name="settings"
+                options={{
+                  title: 'Settings',
+                  tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
+                  tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
+                }}
+              />
+            </Tabs>
+          </PlaybackHistoryProvider>
         </SubscriptionProvider>
       </DbMigrator>
 

@@ -121,6 +121,18 @@ export interface EBookFileTable {
   deletedAt: ColumnType<number | null, never, number>;
 }
 
+export interface PlaybackHistoryTable {
+  id: ColumnType<number, never, never>;
+  userId: ColumnType<string, string, never>;
+  type: ColumnType<number, number, never>;
+  bookId: ColumnType<number, number, never>;
+  positionMs: ColumnType<number, number, never>;
+  eventTimestampMs: ColumnType<number, number, never>;
+  createdAt: ColumnType<number, never, never>;
+  updatedAt: ColumnType<number, never, never>;
+  deletedAt: ColumnType<number | null, never, number>;
+}
+
 export interface SQLiteSequenceTable {
   name: ColumnType<string, never, never>;
   seq: ColumnType<number, never, never>;
@@ -137,5 +149,6 @@ export interface DatabaseSchema {
   audiobookChapter: AudiobookChapterTable;
   audiobookFile: AudiobookFileTable;
   ebookFile: EBookFileTable;
+  playbackHistory: PlaybackHistoryTable;
   sqlite_sequence: SQLiteSequenceTable;
 }
