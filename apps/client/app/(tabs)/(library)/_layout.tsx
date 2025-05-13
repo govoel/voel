@@ -7,7 +7,7 @@ export default function SettingsLayout() {
     <Stack
       screenOptions={{
         headerTitleAlign: 'center',
-        headerTitleStyle: { fontFamily: 'Inter-SemiBold' },
+        headerTitleStyle: { fontFamily: 'Voel-Inter-SemiBold' },
         headerRight: () => <AccountSelectorAvatar />,
       }}
     />

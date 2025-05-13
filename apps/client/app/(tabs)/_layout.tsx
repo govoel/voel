@@ -30,7 +30,7 @@ export default function TabLayout() {
                 options={{
                   title: 'Library',
                   tabBarIcon: ({ color, size }) => <Library color={color} size={size} />,
-                  tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
+                  tabBarLabelStyle: { fontFamily: 'Voel-Inter-Regular' },
                 }}
               />
               <Tabs.Screen
@@ -38,7 +38,7 @@ export default function TabLayout() {
                 options={{
                   title: 'Home',
                   tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
-                  tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
+                  tabBarLabelStyle: { fontFamily: 'Voel-Inter-Regular' },
                 }}
               />
               <Tabs.Screen
@@ -46,7 +46,7 @@ export default function TabLayout() {
                 options={{
                   title: 'Settings',
                   tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
-                  tabBarLabelStyle: { fontFamily: 'Inter-Regular' },
+                  tabBarLabelStyle: { fontFamily: 'Voel-Inter-Regular' },
                 }}
               />
             </Tabs>
