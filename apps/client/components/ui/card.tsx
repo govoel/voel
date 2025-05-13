@@ -59,7 +59,13 @@ const CardDescription = ({
   ...props
 }: TextProps & {
   ref?: React.RefObject<TextRef>;
-}) => <Text ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />;
+}) => (
+  <Text
+    ref={ref}
+    className={cn('text-sm text-muted-foreground font-normal', className)}
+    {...props}
+  />
+);
 CardDescription.displayName = 'CardDescription';
 
 const CardContent = ({
