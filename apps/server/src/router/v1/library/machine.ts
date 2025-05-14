@@ -144,13 +144,9 @@ async function extractAudioFilesMetadata(libraryName: string) {
       if (file.status === 'fulfilled') {
         if (file.value !== null) {
           return true;
-        } else {
-          scanLogger.warn(
-            'Failed to process file "%s" in "%s"',
-            fileEntries[i]!.name,
-            fileEntries[i]!.parentPath
-          );
         }
+        // we don't want to log the error if the file is null,
+        // because that means the file was skipped on purpose
       } else {
         scanLogger.warn(
           'Error while processing file "%s" in "%s": %s',
