@@ -141,14 +141,24 @@ async function extractAudioFilesMetadata(libraryName: string) {
     )
   )
     .filter((file, i): file is PromiseFulfilledResult<AudioFile> => {
-      if (file.status === 'fulfilled' && file.value !== null) {
-        return true;
+      if (file.status === 'fulfilled') {
+        if (file.value !== null) {
+          return true;
+        } else {
+          scanLogger.warn(
+            'Failed to process file "%s" in "%s"',
+            fileEntries[i]!.name,
+            fileEntries[i]!.parentPath
+          );
+        }
+      } else {
+        scanLogger.warn(
+          'Error while processing file "%s" in "%s": %s',
+          fileEntries[i]!.name,
+          fileEntries[i]!.parentPath,
+          file.reason
+        );
       }
-      scanLogger.warn(
-        'Failed to process file %s in %s',
-        fileEntries[i]!.name,
-        fileEntries[i]!.parentPath
-      );
       return false;
     })
     .map((i) => i.value);
@@ -448,6 +458,7 @@ async function insertBooksIntoDatabase(
   >,
   bookChapters: Map<string, AudibleChapters>
 ) {
+  let bookInsertCount = 0;
   for (const book of books) {
     try {
       const bookToInsert = await prepareBookData(book);
@@ -793,6 +804,7 @@ async function insertBooksIntoDatabase(
       }
 
       scanLogger.debug('Successfully inserted book "%s"', book.title);
+      bookInsertCount += 1;
     } catch (error) {
       scanLogger.error(
         'Failed to insert book %s: %s',
@@ -801,6 +813,8 @@ async function insertBooksIntoDatabase(
       );
     }
   }
+
+  return bookInsertCount;
 }
 
 async function generateThumbhash(imageURL: string) {
@@ -961,16 +975,23 @@ const libraryMachine = setup({
 
         const bookChapters = await fetchBookChapters(books);
 
-        await insertBooksIntoDatabase(context, books, authors, series, bookChapters);
+        const bookInsertCount = await insertBooksIntoDatabase(
+          context,
+          books,
+          authors,
+          series,
+          bookChapters
+        );
 
         await deleteEmptyDirectories(context.name);
 
         scanLogger.debug('Library scan complete: %s', context.name);
         scanLogger.debug(
-          'Summary: %d files, %d albums, %d identified books',
+          'Summary: %d files, %d albums, %d identified books, %d inserted books',
           audioFiles.length,
           Object.keys(albumGroups).length,
-          books.length
+          books.length,
+          bookInsertCount
         );
       } catch (error) {
         scanLogger.error('Error during library scan: %o', error);
