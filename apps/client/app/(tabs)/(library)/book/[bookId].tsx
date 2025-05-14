@@ -361,7 +361,6 @@ const playBookFrom = (
   if (canUseAudible && book.chapters.audible.length > 0) {
     for (const chapter of book.chapters.audible) {
       const startFileIndex = fileEndTimes.findIndex((endTime) => chapter.startOffsetMs <= endTime);
-      console.log('startFileIndex', chapter.startOffsetMs, startFileIndex);
 
       if (startFileIndex === -1) {
         canUseAudible = false;
@@ -400,17 +399,6 @@ const playBookFrom = (
         endTimeMs: startFileRelativeChapterStartTime + chapter.durationMs,
       });
     }
-    chapters.forEach((c) =>
-      console.log(
-        c.chapterTitle,
-        c.fileDurations.map((f) => formatTime(f)),
-        formatTime(c.startTimeMs),
-        formatTime(c.endTimeMs),
-        c.fileDurations,
-        c.startTimeMs,
-        c.endTimeMs
-      )
-    );
   }
 
   if (!canUseAudible) {
@@ -436,7 +424,6 @@ const playBookFrom = (
     let startFromChapter = 0;
     let durationSoFar = 0;
     for (const [index, chapter] of chapters.entries()) {
-      // this is wrong, startTimeMs is relative to file
       if (durationSoFar + (chapter.endTimeMs - chapter.startTimeMs) > absolutePositionMs) {
         startFromChapter = index;
         break;
