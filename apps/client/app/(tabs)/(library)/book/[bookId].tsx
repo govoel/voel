@@ -347,7 +347,8 @@ const playBookFrom = (
   absolutePositionMs: number,
   authCookie: string,
   instanceID: string,
-  instanceURL: string
+  instanceURL: string,
+  canUseAudible: boolean = true
 ) => {
   const fileEndTimes = book.files.reduce((acc, file, index) => {
     const previousEndTime = index > 0 ? acc[index - 1] : 0;
@@ -355,48 +356,74 @@ const playBookFrom = (
     return acc;
   }, [] as number[]);
 
-  let canUseAudible = book.chapters.audible.length > 0;
-  let chapters: AudioSource[] = [];
+  let chapters: (AudioSource & { endTimeMs: number })[] = [];
 
-  if (canUseAudible) {
+  if (canUseAudible && book.chapters.audible.length > 0) {
     for (const chapter of book.chapters.audible) {
-      const fileIndex = fileEndTimes.findIndex((endTime) => chapter.startOffsetMs <= endTime);
+      const startFileIndex = fileEndTimes.findIndex((endTime) => chapter.startOffsetMs <= endTime);
+      console.log('startFileIndex', chapter.startOffsetMs, startFileIndex);
 
-      if (fileIndex === -1) {
+      if (startFileIndex === -1) {
         canUseAudible = false;
         break;
       }
 
-      const file = book.files[fileIndex];
-      const fileAbsoluteStartTime = fileIndex > 0 ? fileEndTimes[fileIndex - 1] : 0;
-      const chapterRelativeStartTime = chapter.startOffsetMs - fileAbsoluteStartTime;
+      const chapterEndTime = chapter.startOffsetMs + chapter.durationMs;
+      let endFileIndex = fileEndTimes.findIndex((endTime) => chapterEndTime <= endTime);
+      if (endFileIndex === -1) {
+        endFileIndex = fileEndTimes.length - 1;
+      }
+
+      const fileAbsoluteStartTime = startFileIndex > 0 ? fileEndTimes[startFileIndex - 1] : 0;
+      const startFileRelativeChapterStartTime = chapter.startOffsetMs - fileAbsoluteStartTime;
+
+      const chapterFileIds = Array.from(
+        { length: endFileIndex - (startFileIndex - 1) },
+        (e, i) => ({
+          fileArrayIndex: i + startFileIndex,
+          fileId: i + startFileIndex + book.files[0].id,
+        })
+      );
 
       chapters.push({
         instanceId: instanceID,
         bookId: chapter.bookId,
-        fileId: file.id,
         chapterId: chapter.id,
         bookTitle: book.title,
         chapterTitle: chapter.title,
         author: book.authors.map((author) => author.name).join(', '),
-        fileUri: `${instanceURL}/api/v1/files/${file.id}`,
+        fileIds: chapterFileIds.map((e) => e.fileId),
+        fileUris: chapterFileIds.map((e) => `${instanceURL}/api/v1/files/${e.fileId}`),
+        fileDurations: chapterFileIds.map((e) => book.files[e.fileArrayIndex].durationMs),
         artworkUri: book.cover,
-        startTimeMs: chapterRelativeStartTime,
-        endTimeMs: chapterRelativeStartTime + chapter.durationMs,
+        startTimeMs: startFileRelativeChapterStartTime,
+        endTimeMs: startFileRelativeChapterStartTime + chapter.durationMs,
       });
     }
+    chapters.forEach((c) =>
+      console.log(
+        c.chapterTitle,
+        c.fileDurations.map((f) => formatTime(f)),
+        formatTime(c.startTimeMs),
+        formatTime(c.endTimeMs),
+        c.fileDurations,
+        c.startTimeMs,
+        c.endTimeMs
+      )
+    );
   }
 
   if (!canUseAudible) {
     chapters = book.chapters.file.map((chapter) => ({
       instanceId: instanceID,
       bookId: chapter.bookId,
-      fileId: chapter.fileId,
       chapterId: chapter.id,
       bookTitle: book.title,
       chapterTitle: chapter.title,
       author: book.authors.map((author) => author.name).join(', '),
-      fileUri: `${instanceURL}/api/v1/files/${chapter.fileId}`,
+      fileIds: [chapter.fileId],
+      fileUris: [`${instanceURL}/api/v1/files/${chapter.fileId}`],
+      fileDurations: [chapter.durationMs],
       artworkUri: book.cover,
       startTimeMs: chapter.startOffsetMs,
       endTimeMs: chapter.startOffsetMs + chapter.durationMs,
@@ -407,14 +434,18 @@ const playBookFrom = (
 
   if (absolutePositionMs > 0) {
     let startFromChapter = 0;
+    let durationSoFar = 0;
     for (const [index, chapter] of chapters.entries()) {
-      if (chapter.startTimeMs > absolutePositionMs) {
-        startFromChapter = index - 1;
+      // this is wrong, startTimeMs is relative to file
+      if (durationSoFar + (chapter.endTimeMs - chapter.startTimeMs) > absolutePositionMs) {
+        startFromChapter = index;
         break;
+      } else {
+        durationSoFar += chapter.endTimeMs - chapter.startTimeMs;
       }
     }
 
-    Player.seekTo(startFromChapter, absolutePositionMs - chapters[startFromChapter].startTimeMs);
+    Player.seekTo(startFromChapter, absolutePositionMs - durationSoFar);
     Player.play();
   } else {
     Player.play();
@@ -635,10 +666,10 @@ const BookChapters = ({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="audible">
-        <ChapterList bookId={bookId} chapters={chapters.audible} />
+        <ChapterList source="audible" bookId={bookId} chapters={chapters.audible} />
       </TabsContent>
       <TabsContent value="file">
-        <ChapterList bookId={bookId} chapters={chapters.file} />
+        <ChapterList source="file" bookId={bookId} chapters={chapters.file} />
       </TabsContent>
     </Tabs>
   );
@@ -647,9 +678,11 @@ const BookChapters = ({
 const ChapterList = ({
   bookId,
   chapters,
+  source,
 }: {
   bookId: number;
   chapters: { id: number; title: string; durationMs: number; startOffsetMs: number }[];
+  source: 'audible' | 'file';
 }) => {
   const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
@@ -661,6 +694,18 @@ const ChapterList = ({
     error: bookError,
     refetch: refetchBook,
   } = api.books.get.useQuery(instanceDb, bookId);
+
+  const fileEndTimes = useMemo(
+    () =>
+      source === 'file' && book?.files
+        ? book.files.reduce((acc, file, index) => {
+            const previousEndTime = index > 0 ? acc[index - 1] : 0;
+            acc.push(previousEndTime + file.durationMs);
+            return acc;
+          }, [] as number[])
+        : [],
+    [source, book?.files]
+  );
 
   return (
     <FlatList
@@ -678,15 +723,28 @@ const ChapterList = ({
                 onPress={() => {
                   playBookFrom(
                     book,
-                    item.startOffsetMs,
+                    source === 'audible'
+                      ? item.startOffsetMs
+                      : index === 0
+                        ? 0
+                        : fileEndTimes[index - 1],
                     authInstance.getCookie(),
                     instanceID ?? '0',
-                    instanceURL ?? 'http://voel.local'
+                    instanceURL ?? 'http://voel.local',
+                    source === 'audible'
                   );
                 }}>
                 <Play className="text-muted-foreground mr-2" size={16} />
                 <View className="border-l border-input pl-2 flex justify-center items-center">
-                  <Text>{formatTime(item.startOffsetMs)}</Text>
+                  <Text>
+                    {formatTime(
+                      source === 'audible'
+                        ? item.startOffsetMs
+                        : index === 0
+                          ? 0
+                          : fileEndTimes[index - 1]
+                    )}
+                  </Text>
                   <Muted className="text-xs font-semibold">
                     {formatDuration(item.durationMs, 'short')}
                   </Muted>

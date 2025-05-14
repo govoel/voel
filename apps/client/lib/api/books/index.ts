@@ -210,9 +210,9 @@ const get = {
         let filesSubquery = instanceDb
           .selectFrom('audiobookFile')
           .where('audiobookFile.deletedAt', 'is', null)
-          .where('audiobookFile.id', '=', bookId)
+          .where('audiobookFile.bookId', '=', bookId)
           .select((eb) => [
-            'audiobookFile.id as bookId',
+            'audiobookFile.bookId as bookId',
             eb
               .fn<string>('json_group_array', [
                 eb.fn<string>('json_object', [
@@ -232,7 +232,7 @@ const get = {
               ])
               .as('files'),
           ])
-          .groupBy('audiobookFile.id')
+          .groupBy('audiobookFile.bookId')
           .as('fileData');
 
         let query = instanceDb

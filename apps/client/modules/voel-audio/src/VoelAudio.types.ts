@@ -3,12 +3,13 @@ import { NativeModule } from 'expo';
 export type AudioSource = {
   instanceId: string | null;
   bookId: number;
-  fileId: number;
   chapterId: number;
   bookTitle: string;
   chapterTitle: string;
   author: string;
-  fileUri: string;
+  fileIds: number[];
+  fileUris: string[];
+  fileDurations: number[];
   artworkUri: string | null;
   startTimeMs: number;
   endTimeMs: number | null;
