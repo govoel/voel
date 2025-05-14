@@ -244,7 +244,7 @@ const authorResponse = z.object({
   asin: z.string(),
   name: z.string().trim(),
   avatar: z.string(),
-  about: z.string(),
+  about: z.string().nullable(),
 });
 
 export type AudibleAuthor = z.infer<typeof authorResponse>;

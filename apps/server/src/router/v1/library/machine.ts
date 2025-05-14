@@ -329,7 +329,7 @@ async function fetchAuthorDetails(pendingAuthorAsins: Set<string>) {
     {
       asin: string;
       name: string;
-      about: string;
+      about: string | null;
       avatar: string;
       avatarThumbhash: string | null;
     }
@@ -432,7 +432,7 @@ async function insertBooksIntoDatabase(
     {
       asin: string;
       name: string;
-      about: string;
+      about: string | null;
       avatar: string;
       avatarThumbhash: string | null;
     }
@@ -630,6 +630,8 @@ async function insertBooksIntoDatabase(
           );
         }
 
+        // if source is file, startOffsetMs is relative to the fileId
+        // if source is audible, startOffsetMs is absolute
         const fileChapters = book.files
           .map((file, index) =>
             file.metadata.chapters.map((c) => {
@@ -844,14 +846,14 @@ function prepareAuthorData(
     {
       asin: string;
       name: string;
-      about: string;
+      about: string | null;
       avatar: string;
       avatarThumbhash: string | null;
     }
   >
 ) {
-  const complete: (AllPropsRequired<Omit<Insertable<AuthorTable>, 'avatarThumbhash'>> &
-    Pick<Insertable<AuthorTable>, 'avatarThumbhash'>)[] = [];
+  const complete: (AllPropsRequired<Omit<Insertable<AuthorTable>, 'avatarThumbhash' | 'about'>> &
+    Pick<Insertable<AuthorTable>, 'avatarThumbhash' | 'about'>)[] = [];
   const basic: Concrete<Insertable<AuthorTable>>[] = [];
 
   for (const author of authorsFromBook) {
