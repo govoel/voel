@@ -27,7 +27,11 @@ export function usePlaybackHistory(instanceID: string): PlaybackHistoryUpdateEve
   useEffect(() => {
     NativeVoelAudioModule.startPlaybackHistoryUpdates(instanceID);
   }, [instanceID]);
-  return useEvent(NativeVoelAudioModule, 'playbackHistoryUpdate', { instanceID, events: [] });
+  return useEvent(
+    NativeVoelAudioModule,
+    'playbackHistoryUpdate',
+    NativeVoelAudioModule.lastPlaybackHistoryEvent(instanceID)
+  );
 }
 
 export async function deletePlaybackHistoryOlderThen(

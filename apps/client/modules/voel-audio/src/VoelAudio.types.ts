@@ -71,6 +71,7 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   skipToPrevious(): void;
   seekTo(mediaItemIndex: number, positionMs: number): void;
   setPlaybackRate(rate: number): void;
+  lastPlaybackHistoryEvent(instanceID: string): PlaybackHistoryUpdateEvent;
   startPlaybackHistoryUpdates(instanceID: string): void;
   deletePlaybackHistoryOlderThan(instanceID: string, timestamp: number): Promise<void>;
 }
