@@ -14,6 +14,7 @@ import kotlin.math.min
 class VoelAudioModule : Module() {
   lateinit var player: VoelAudioPlayer
 
+  private lateinit var lastPlaybackHistoryEvent: Map<String, Any>
   private var currentPlaybackHistoryUpdateInstanceID: String? = null
   private var playbackHistoryUpdateJob: Job? = null
 
@@ -66,6 +67,17 @@ class VoelAudioModule : Module() {
       player.setVolume(value)
     }
 
+    Function("lastPlaybackHistoryEvent") {instanceID: String ->
+      if (::lastPlaybackHistoryEvent.isInitialized && lastPlaybackHistoryEvent["instanceID"] == instanceID) {
+        lastPlaybackHistoryEvent
+      } else {
+        mapOf(
+          "instanceID" to instanceID,
+          "events" to emptyArray<Map<String, Any>>()
+        )
+      }
+    }
+
     Function("startPlaybackHistoryUpdates") { instanceID: String ->
       if (currentPlaybackHistoryUpdateInstanceID != instanceID) {
         playbackHistoryUpdateJob?.cancel()
@@ -78,23 +90,24 @@ class VoelAudioModule : Module() {
         playbackHistoryUpdateJob =
           appContext.mainQueue.launch {
             db.playbackHistoryDao().getAll().collect { events ->
+              lastPlaybackHistoryEvent = mapOf(
+                "instanceID" to instanceID,
+                "events" to
+                    events.map { event ->
+                      mapOf(
+                        "id" to event.id,
+                        "type" to event.type,
+                        "bookId" to event.bookId,
+                        "positionMs" to
+                            event.positionMs,
+                        "eventTimestampMs" to
+                            event.eventTimestampMs
+                      )
+                    }
+              )
               sendEvent(
                 "playbackHistoryUpdate",
-                mapOf(
-                  "instanceID" to instanceID,
-                  "events" to
-                      events.map { event ->
-                        mapOf(
-                          "id" to event.id,
-                          "type" to event.type,
-                          "bookId" to event.bookId,
-                          "positionMs" to
-                              event.positionMs,
-                          "eventTimestampMs" to
-                              event.eventTimestampMs
-                        )
-                      }
-                )
+                lastPlaybackHistoryEvent
               )
             }
           }
