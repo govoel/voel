@@ -12,7 +12,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.math.min
 
 class VoelAudioModule : Module() {
-  lateinit var player: VoelAudioPlayer
+  private lateinit var player: VoelAudioPlayer
 
   private lateinit var lastPlaybackHistoryEvent: Map<String, Any>
   private var currentPlaybackHistoryUpdateInstanceID: String? = null
@@ -41,7 +41,7 @@ class VoelAudioModule : Module() {
       runOnMain { player.controller.playbackState == Player.STATE_BUFFERING }
     }
 
-    Property("currentState") { player.currentStatus() }
+    Property("currentStatus") { runOnMain { player.currentStatus() } }
 
     Property("isLoaded") { runOnMain { player.controller.playbackState == Player.STATE_READY } }
 
@@ -67,7 +67,7 @@ class VoelAudioModule : Module() {
       player.setVolume(value)
     }
 
-    Function("lastPlaybackHistoryEvent") {instanceID: String ->
+    Function("getLastPlaybackHistoryEvent") {instanceID: String ->
       if (::lastPlaybackHistoryEvent.isInitialized && lastPlaybackHistoryEvent["instanceID"] == instanceID) {
         lastPlaybackHistoryEvent
       } else {
@@ -135,28 +135,15 @@ class VoelAudioModule : Module() {
       runOnMain { VoelAudioPlaybackService.setCookie(cookie) }
     }
 
-    Function("replace") { sources: List<AudioSource> ->
+    Function("replace") { sources: List<AudioSource>, startIndex: Int, startPositionMs: Long ->
       runOnMain {
         if (player.controller.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)
         ) {
           if (sources.isNotEmpty()) {
-            player.setAudioSources(sources)
-          }
-        }
-      }
-    }
-
-    Function("setQueue") { sources: List<AudioSource> ->
-      runOnMain {
-        if (player.controller.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)
-        ) {
-          //                    val wasPlaying = player.controller.isPlaying
-          if (sources.isNotEmpty()) {
-            //                        player.controller.clearMediaItems()
-            player.setAudioSources(sources)
-            //                        if (wasPlaying) {
-            //                            player.controller.play()
-            //                        }
+            player.setAudioSources(sources, startIndex, startPositionMs)
+            if (!player.controller.isPlaying) {
+              player.controller.play()
+            }
           }
         }
       }
@@ -202,14 +189,6 @@ class VoelAudioModule : Module() {
       }
     }
 
-    Function("getCurrentQueueIndex") {
-      runOnMain {
-        if (player.controller.availableCommands.contains(Player.COMMAND_GET_TIMELINE)) {
-          player.controller.currentMediaItemIndex
-        }
-      }
-    }
-
     Function("clearQueue") {
       runOnMain {
         if (player.controller.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)
@@ -245,28 +224,6 @@ class VoelAudioModule : Module() {
       runOnMain {
         if (player.controller.availableCommands.contains(Player.COMMAND_SEEK_TO_PREVIOUS)) {
           player.controller.seekToPreviousMediaItem()
-        }
-      }
-    }
-
-    Function("skipToQueueIndex") { index: Int ->
-      runOnMain {
-        if (player.controller.availableCommands.contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
-        ) {
-          if (index >= 0 && index < player.controller.mediaItemCount) {
-            player.controller.seekTo(index, 0)
-          }
-        }
-      }
-    }
-
-    Function("seekTo") { mediaItemIndex: Int, positionMs: Long ->
-      runOnMain {
-        if (player.controller.availableCommands.contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
-        ) {
-          if (mediaItemIndex >= 0 && mediaItemIndex < player.controller.mediaItemCount) {
-            player.controller.seekTo(mediaItemIndex, positionMs)
-          }
         }
       }
     }

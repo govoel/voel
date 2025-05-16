@@ -37,15 +37,19 @@ import { UserPen } from '~/lib/icons/UserPen';
 import { instanceStore } from '~/lib/stores/instance';
 import { cn } from '~/lib/utils';
 
-import Player, { type AudioSource, replaceAudioSources } from '~/modules/voel-audio';
+import { type AudioSource, replaceAudioSources } from '~/modules/voel-audio';
 
 const formatTime = (timeMs: number) => {
-  const sec = Math.floor(timeMs / 1000);
-  const s = sec % 60;
-  const m = Math.floor((sec % 3600) / 60);
-  const h = Math.floor(sec / 3600);
+  if (timeMs > 999) {
+    const sec = Math.floor(timeMs / 1000);
+    const s = sec % 60;
+    const m = Math.floor((sec % 3600) / 60);
+    const h = Math.floor(sec / 3600);
 
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  } else {
+    return `${timeMs} ms`;
+  }
 };
 
 const formatDuration = (durationMs: number, type: 'short' | 'long' = 'long') => {
@@ -418,8 +422,6 @@ const playBookFrom = (
     }));
   }
 
-  replaceAudioSources(authCookie, chapters);
-
   if (absolutePositionMs > 0) {
     let startFromChapter = 0;
     let durationSoFar = 0;
@@ -432,10 +434,9 @@ const playBookFrom = (
       }
     }
 
-    Player.seekTo(startFromChapter, absolutePositionMs - durationSoFar);
-    Player.play();
+    replaceAudioSources(authCookie, chapters, startFromChapter, absolutePositionMs - durationSoFar);
   } else {
-    Player.play();
+    replaceAudioSources(authCookie, chapters, 0, 0);
   }
 };
 
@@ -729,7 +730,9 @@ const ChapterList = ({
                         ? item.startOffsetMs
                         : index === 0
                           ? 0
-                          : fileEndTimes[index - 1]
+                          : item.startOffsetMs === 0
+                            ? fileEndTimes[index - 1]
+                            : item.startOffsetMs
                     )}
                   </Text>
                   <Muted className="text-xs font-semibold">

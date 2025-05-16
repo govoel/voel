@@ -47,7 +47,6 @@ export type PlaybackHistoryUpdateEvent = {
 };
 
 export declare class VoelAudioModule extends NativeModule<AudioEvents> {
-  setCookie(cookie: string): void;
   isBuffering: boolean;
   currentStatus: AudioStatus;
   isLoaded: boolean;
@@ -58,22 +57,19 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   duration: number;
   playbackRate: number;
   volume: number;
+  getLastPlaybackHistoryEvent(instanceID: string): PlaybackHistoryUpdateEvent;
+  startPlaybackHistoryUpdates(instanceID: string): void;
+  deletePlaybackHistoryOlderThan(instanceID: string, timestamp: number): Promise<void>;
   play(): void;
   pause(): void;
-  replace(sources: AudioSource[]): void;
-  setQueue(sources: AudioSource[]): void;
-  addToQueue(sources: AudioSource[]): void;
-  removeFromQueue(tracks: AudioSource[]): void;
+  setCookie(cookie: string): void;
+  replace(sources: AudioSource[], startIndex: number, startPositionMs: number): void;
   getCurrentQueue(): AudioSource[];
   clearQueue(): void;
   canSkipToNext(): boolean;
   skipToNext(): void;
   skipToPrevious(): void;
-  seekTo(mediaItemIndex: number, positionMs: number): void;
   setPlaybackRate(rate: number): void;
-  lastPlaybackHistoryEvent(instanceID: string): PlaybackHistoryUpdateEvent;
-  startPlaybackHistoryUpdates(instanceID: string): void;
-  deletePlaybackHistoryOlderThan(instanceID: string, timestamp: number): Promise<void>;
 }
 
 export type AudioEvents = {
