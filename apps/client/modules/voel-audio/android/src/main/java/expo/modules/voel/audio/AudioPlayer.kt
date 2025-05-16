@@ -36,7 +36,6 @@ class VoelAudioPlayer(
   private val emitEvent: (String, Map<String, Any?>) -> Unit
 ) : AutoCloseable, SharedObject(appContext) {
   var preservesPitch = true
-  var isPaused = false
   var isMuted = false
   var previousVolume = 1f
 
@@ -84,35 +83,13 @@ class VoelAudioPlayer(
     }
   }
 
-  fun removeFromQueue(mediaItems: List<MediaItem>) {
-    val urisToRemove = mediaItems.mapNotNull { it.localConfiguration?.uri?.toString() }.toSet()
-
-    val indicesToRemove = mutableListOf<Int>()
-
-    for (i in 0 until controller.mediaItemCount) {
-      val uri = controller.getMediaItemAt(i).localConfiguration?.uri?.toString() ?: continue
-      if (uri in urisToRemove) {
-        indicesToRemove.add(i)
-      }
-    }
-
-    // Remove items from the end to avoid index shifting
-    for (index in indicesToRemove.sortedDescending()) {
-      controller.removeMediaItem(index)
-    }
-
-    if (controller.mediaItemCount == 0) {
-      controller.stop()
-    }
-  }
-
-  fun setAudioSources(audioSources: List<AudioSource>) {
+  fun setAudioSources(audioSources: List<AudioSource>, startIndex: Int, startPositionMs: Long) {
     val mediaSources = createMediaItems(audioSources)
-    controller.setMediaItems(mediaSources)
+    controller.setMediaItems(mediaSources, startIndex, startPositionMs)
     controller.prepare()
   }
 
-  fun createMediaItems(sources: List<AudioSource>): List<MediaItem> {
+  private fun createMediaItems(sources: List<AudioSource>): List<MediaItem> {
     return sources.map { source -> createMediaItem(source) }
   }
 
@@ -163,7 +140,7 @@ class VoelAudioPlayer(
       emitEvent("playbackStatusUpdate", body)
     }
 
-  fun startUpdating() {
+  private fun startUpdating() {
     updateJob?.cancel()
     updateJob =
       flow {

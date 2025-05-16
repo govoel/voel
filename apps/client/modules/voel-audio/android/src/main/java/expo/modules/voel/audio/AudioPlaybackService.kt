@@ -25,6 +25,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,11 +34,11 @@ import okhttp3.OkHttpClient
 import java.io.File
 
 class VoelAudioPlaybackService : MediaSessionService() {
-  lateinit var mediaSourceFactory: DefaultMediaSourceFactory
+  private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
   lateinit var exoPlayer: ExoPlayer
-  var mediaSession: MediaSession? = null
-  private val playbackHistoryJob = SupervisorJob()
-  private val serviceScope = CoroutineScope(Dispatchers.IO + playbackHistoryJob)
+  private var mediaSession: MediaSession? = null
+  private lateinit var playbackHistoryJob: CompletableJob
+  private lateinit var serviceScope: CoroutineScope
 
   companion object {
     @Volatile
@@ -65,6 +66,9 @@ class VoelAudioPlaybackService : MediaSessionService() {
   @OptIn(UnstableApi::class)
   override fun onCreate() {
     super.onCreate()
+
+    playbackHistoryJob = SupervisorJob()
+    serviceScope = CoroutineScope(Dispatchers.IO + playbackHistoryJob)
 
     setMediaNotificationProvider(
       DefaultMediaNotificationProvider.Builder(this).build().apply {

@@ -18,9 +18,14 @@ export function useAudioPlayerStatus(): AudioStatus {
   );
 }
 
-export function replaceAudioSources(cookie: string, sources: AudioSource[]) {
+export function replaceAudioSources(
+  cookie: string,
+  sources: AudioSource[],
+  startIndex: number,
+  startPositionMs: number
+) {
   NativeVoelAudioModule.setCookie(cookie);
-  NativeVoelAudioModule.replace(sources);
+  NativeVoelAudioModule.replace(sources, startIndex, startPositionMs);
 }
 
 export function usePlaybackHistory(instanceID: string): PlaybackHistoryUpdateEvent {
@@ -30,7 +35,7 @@ export function usePlaybackHistory(instanceID: string): PlaybackHistoryUpdateEve
   return useEvent(
     NativeVoelAudioModule,
     'playbackHistoryUpdate',
-    NativeVoelAudioModule.lastPlaybackHistoryEvent(instanceID)
+    NativeVoelAudioModule.getLastPlaybackHistoryEvent(instanceID)
   );
 }
 
