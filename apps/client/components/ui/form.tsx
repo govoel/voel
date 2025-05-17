@@ -1,12 +1,16 @@
-import { ButtonWithLoading } from './button';
-import { Input } from './input';
-import { Label } from './label';
-import { RadioGroupItemWithLabel, RadioGroup as RadioGroupItems } from './radio-group';
-import { Text } from './text';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import { type ComponentPropsWithRef, type ComponentPropsWithoutRef } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+
+import { ButtonWithLoading } from '~/components/ui/button';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import {
+  RadioGroupItemWithLabel,
+  RadioGroup as RadioGroupItems,
+} from '~/components/ui/radio-group';
+import { Text } from '~/components/ui/text';
 
 import { cn } from '~/lib/utils';
 

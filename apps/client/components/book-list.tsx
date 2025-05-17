@@ -1,9 +1,9 @@
-import { Badge } from './ui/badge';
 import { Link } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
 import { Image } from '~/components/image';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
+import { Badge } from '~/components/ui/badge';
 import { Text } from '~/components/ui/text';
 import { Large, Muted } from '~/components/ui/typography';
 

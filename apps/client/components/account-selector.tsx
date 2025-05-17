@@ -1,4 +1,4 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { type TRPCClientErrorLike } from '@trpc/client';
 import type { inferRouterOutputs } from '@trpc/server';
@@ -18,7 +18,7 @@ import { toast } from 'sonner-native';
 import { authModalStore } from '~/components/auth-modal';
 import { Spinner } from '~/components/spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
-import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
 import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
@@ -813,7 +813,7 @@ const LoggedInUserAvatar = ({
 };
 
 export const AccountSelector = () => {
-  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
 
   const presentModal = useSelector(accountSelectorModalStore, (s) => s.context.present);
   const dismissModal = useSelector(accountSelectorModalStore, (s) => s.context.dismiss);
@@ -829,7 +829,7 @@ export const AccountSelector = () => {
   }, [dismissModal]);
 
   return (
-    <BottomSheet ref={bottomSheetModalRef}>
+    <BottomSheetModal ref={bottomSheetModalRef}>
       <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
         <Large className="pb-2">Switch account</Large>
         <AccountList />
@@ -837,7 +837,7 @@ export const AccountSelector = () => {
           <Text>Add account</Text>
         </Button>
       </View>
-    </BottomSheet>
+    </BottomSheetModal>
   );
 };
 

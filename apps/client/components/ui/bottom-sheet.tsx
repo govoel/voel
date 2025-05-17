@@ -1,4 +1,4 @@
-import {
+import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
   BottomSheetModal,
@@ -7,24 +7,24 @@ import {
 import { cssInterop } from 'nativewind';
 import { type ComponentProps, type ReactNode, useCallback } from 'react';
 
-export const NativewindBottomSheetModal = cssInterop(BottomSheetModal, {
+const NativewindBottomSheetModal = cssInterop(BottomSheetModal, {
   className: 'style',
   backgroundClassName: 'backgroundStyle',
   handleIndicatorClassName: 'handleIndicatorStyle',
 });
 
-export const NativewindBottomSheetBackdrop = cssInterop(BottomSheetBackdrop, {
+const NativewindBottomSheetBackdrop = cssInterop(BottomSheetBackdrop, {
   className: 'style',
 });
 
-const BottomSheet = ({
+function BottomSheetModalImpl({
   ref,
   children,
   ...props
 }: {
   ref?: React.RefObject<BottomSheetModal | null>;
   children: ReactNode;
-} & ComponentProps<typeof BottomSheetModal>) => {
+} & ComponentProps<typeof BottomSheetModal>) {
   const renderBackdrop = useCallback(
     (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
       <NativewindBottomSheetBackdrop
@@ -46,7 +46,43 @@ const BottomSheet = ({
       <BottomSheetScrollView>{children}</BottomSheetScrollView>
     </NativewindBottomSheetModal>
   );
-};
-BottomSheet.displayName = 'BottomSheet';
+}
 
-export { BottomSheet };
+const NativewindBottomSheet = cssInterop(BottomSheet, {
+  className: 'style',
+  backgroundClassName: 'backgroundStyle',
+  handleIndicatorClassName: 'handleIndicatorStyle',
+});
+
+function BottomSheetImpl({
+  ref,
+  children,
+  ...props
+}: {
+  ref?: React.RefObject<BottomSheetModal | null>;
+  children: ReactNode;
+} & ComponentProps<typeof BottomSheetModal>) {
+  const renderBackdrop = useCallback(
+    (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
+      <NativewindBottomSheetBackdrop
+        {...props}
+        className="bg-secondary/70"
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+      />
+    ),
+    []
+  );
+  return (
+    <NativewindBottomSheet
+      ref={ref}
+      {...props}
+      backdropComponent={renderBackdrop}
+      backgroundClassName="bg-background"
+      handleIndicatorClassName="bg-foreground">
+      <BottomSheetScrollView>{children}</BottomSheetScrollView>
+    </NativewindBottomSheet>
+  );
+}
+
+export { BottomSheetModalImpl as BottomSheetModal, BottomSheetImpl as BottomSheet };

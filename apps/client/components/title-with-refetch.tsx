@@ -1,8 +1,9 @@
-import { Button } from './ui/button';
-import { Large } from './ui/typography';
 import type { DefaultError, QueryObserverBaseResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
+
+import { Button } from '~/components/ui/button';
+import { Large } from '~/components/ui/typography';
 
 import { RefreshCw } from '~/lib/icons/RefreshCw';
 import { cn } from '~/lib/utils';
