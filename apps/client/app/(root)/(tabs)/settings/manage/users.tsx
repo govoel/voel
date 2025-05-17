@@ -1,4 +1,4 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack } from 'expo-router';
@@ -11,7 +11,7 @@ import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
-import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { useAppForm } from '~/components/ui/form';
@@ -57,7 +57,7 @@ export default function UsersListScreen() {
     }
   };
 
-  const createUserModalRef = useRef<BottomSheetModal>(null);
+  const createUserModalRef = useRef<BottomSheetModalType>(null);
 
   const createUserMutation = useMutation({
     mutationKey: ['users', 'createUser'],
@@ -220,7 +220,7 @@ export default function UsersListScreen() {
         </Card>
       </FloatingPlayerDodgingLayout>
 
-      <BottomSheet ref={createUserModalRef}>
+      <BottomSheetModal ref={createUserModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Create New User</Large>
           <CreateUserForm.AppForm>
@@ -311,7 +311,7 @@ export default function UsersListScreen() {
             </CreateUserForm.SubmitButton>
           </CreateUserForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
     </>
   );
 }

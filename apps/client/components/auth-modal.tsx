@@ -1,4 +1,4 @@
-import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import * as SecureStore from 'expo-secure-store';
@@ -13,7 +13,7 @@ import React, {
 import { toast } from 'sonner-native';
 import { z } from 'zod';
 
-import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
@@ -34,7 +34,7 @@ export const authModalStore = createStore({
 });
 
 export function AuthModal() {
-  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
 
   const [bottomSheetTab, setBottomSheetTab] = useState('sign-in');
 
@@ -55,7 +55,7 @@ export function AuthModal() {
   }, [presentModal]);
 
   return (
-    <BottomSheet ref={bottomSheetModalRef}>
+    <BottomSheetModal ref={bottomSheetModalRef}>
       <Tabs
         value={bottomSheetTab}
         onValueChange={setBottomSheetTab}
@@ -76,7 +76,7 @@ export function AuthModal() {
           <SignUpTab setTab={setBottomSheetTab} />
         </TabsContent>
       </Tabs>
-    </BottomSheet>
+    </BottomSheetModal>
   );
 }
 

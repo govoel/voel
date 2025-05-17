@@ -1,60 +1,35 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useSelector } from '@xstate/store/react';
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { AccountSelector, SubscriptionProvider } from '~/components/account-selector';
 import { AuthModal } from '~/components/auth-modal';
-import { FloatingPlayer } from '~/components/floating-player';
 import { PlaybackHistoryProvider } from '~/components/playback-history-provider';
 import { Spinner } from '~/components/spinner';
 import { Text } from '~/components/ui/text';
 
 import { useMigrations } from '~/db/migrations';
 
-import { Home } from '~/lib/icons/Home';
-import { Library } from '~/lib/icons/Library';
-import { Settings } from '~/lib/icons/Settings';
 import { instanceStore } from '~/lib/stores/instance';
 
-export default function TabLayout() {
+export default function RootLayout() {
   return (
     <BottomSheetModalProvider>
       <DbMigrator>
         <SubscriptionProvider>
           <PlaybackHistoryProvider>
-            <Tabs initialRouteName="(home)" screenOptions={{ headerShown: false }}>
-              <Tabs.Screen
-                name="(library)"
-                options={{
-                  title: 'Library',
-                  tabBarIcon: ({ color, size }) => <Library color={color} size={size} />,
-                  tabBarLabelStyle: { fontFamily: 'Voel-Inter-Regular' },
-                }}
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="player"
+                options={{ presentation: 'transparentModal', animation: 'none' }}
               />
-              <Tabs.Screen
-                name="(home)"
-                options={{
-                  title: 'Home',
-                  tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
-                  tabBarLabelStyle: { fontFamily: 'Voel-Inter-Regular' },
-                }}
-              />
-              <Tabs.Screen
-                name="settings"
-                options={{
-                  title: 'Settings',
-                  tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
-                  tabBarLabelStyle: { fontFamily: 'Voel-Inter-Regular' },
-                }}
-              />
-            </Tabs>
+            </Stack>
           </PlaybackHistoryProvider>
         </SubscriptionProvider>
       </DbMigrator>
-
-      <FloatingPlayer className="absolute bottom-[50]" />
 
       <AccountSelector />
       <AuthModal />

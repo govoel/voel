@@ -1,4 +1,4 @@
-import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
@@ -17,7 +17,7 @@ import {
 import { Alert, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
-import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button, ButtonWithLoading } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
@@ -40,16 +40,12 @@ import { cn } from '~/lib/utils';
 import { type AudioSource, replaceAudioSources } from '~/modules/voel-audio';
 
 const formatTime = (timeMs: number) => {
-  if (timeMs > 999) {
-    const sec = Math.floor(timeMs / 1000);
-    const s = sec % 60;
-    const m = Math.floor((sec % 3600) / 60);
-    const h = Math.floor(sec / 3600);
+  const sec = Math.floor(timeMs / 1000);
+  const s = sec % 60;
+  const m = Math.floor((sec % 3600) / 60);
+  const h = Math.floor(sec / 3600);
 
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  } else {
-    return `${timeMs} ms`;
-  }
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 const formatDuration = (durationMs: number, type: 'short' | 'long' = 'long') => {
@@ -499,7 +495,7 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
 };
 
 const PlaybackHistory = ({ bookId }: { bookId: number }) => {
-  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
   const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
@@ -526,7 +522,7 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
         <History className="text-secondary-foreground" size="20" />
       </Button>
 
-      <BottomSheet ref={bottomSheetModalRef} snapPoints={['50%']}>
+      <BottomSheetModal ref={bottomSheetModalRef} snapPoints={['50%']}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Playback History</Large>
           {error ? (
@@ -620,7 +616,7 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
             }
           />
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
     </>
   );
 };

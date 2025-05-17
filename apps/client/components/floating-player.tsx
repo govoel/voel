@@ -1,9 +1,10 @@
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import { Image } from 'expo-image';
+import { Link } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -73,22 +74,24 @@ export function FloatingPlayer({ className }: { className: string }) {
   if (!playerStatus || !currentTrack) return null;
 
   return (
-    <FloatingPlayerImpl
-      className={className}
-      currentTrack={{
-        artworkUri: currentTrack.artworkUri,
-        chapterTitle: currentTrack.chapterTitle,
-        author: currentTrack.author,
-      }}
-      playerStatus={{
-        errorCode: playerStatus.errorCode,
-        duration: playerStatus.duration,
-        currentTime: playerStatus.currentTime,
-        playbackRate: +playerStatus.playbackRate.toFixed(1),
-        playbackState: playerStatus.playbackState,
-        timeControlStatus: playerStatus.timeControlStatus,
-      }}
-    />
+    <>
+      <FloatingPlayerImpl
+        className={className}
+        currentTrack={{
+          artworkUri: currentTrack.artworkUri,
+          chapterTitle: currentTrack.chapterTitle,
+          author: currentTrack.author,
+        }}
+        playerStatus={{
+          errorCode: playerStatus.errorCode,
+          duration: playerStatus.duration,
+          currentTime: playerStatus.currentTime,
+          playbackRate: +playerStatus.playbackRate.toFixed(1),
+          playbackState: playerStatus.playbackState,
+          timeControlStatus: playerStatus.timeControlStatus,
+        }}
+      />
+    </>
   );
 }
 
@@ -199,56 +202,58 @@ function FloatingPlayerImpl({
   return (
     <View className={cn(className, 'w-full px-4 py-2 bg-transparent')}>
       <View className="rounded-md bg-muted overflow-hidden">
-        <View className="flex-row items-center justify-stretch w-full flex-nowrap p-2">
-          <View className="flex-1 flex-row items-center justify-center gap-x-2">
-            {currentTrack.artworkUri ? (
-              <AspectRatio ratio={1 / 1} className="h-12">
-                <Image
-                  className="w-full h-full rounded-md"
-                  source={{ uri: currentTrack.artworkUri }}
-                />
-              </AspectRatio>
-            ) : null}
-            <View className="flex-1">
-              <AutoMarquee spacing={20} speed={0.3}>
-                <Text>{currentTrack?.chapterTitle}</Text>
-              </AutoMarquee>
-              <AutoMarquee spacing={20} speed={0.3}>
-                <Muted>{currentTrack?.author}</Muted>
-              </AutoMarquee>
-            </View>
-          </View>
-          <View className="flex-none flex-row items-center justify-center gap-x-1 h-full pr-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={() => {
-                Player.setPlaybackRate(getNextPlaybackRate(playerStatus.playbackRate));
-              }}>
-              <Text>{playerStatus.playbackRate}x</Text>
-            </Button>
-            {playerStatus.playbackState === 'buffering' ? (
-              <View className="h-10 w-10 flex items-center justify-center">
-                <Spinner size={4} />
+        <Link href="/(root)/player" asChild>
+          <Pressable className="flex-row items-center justify-stretch w-full flex-nowrap p-2">
+            <View className="flex-1 flex-row items-center justify-center gap-x-2">
+              {currentTrack.artworkUri ? (
+                <AspectRatio ratio={1 / 1} className="h-12">
+                  <Image
+                    className="w-full h-full rounded-md"
+                    source={{ uri: currentTrack.artworkUri }}
+                  />
+                </AspectRatio>
+              ) : null}
+              <View className="flex-1">
+                <AutoMarquee spacing={20} speed={0.3}>
+                  <Text>{currentTrack?.chapterTitle}</Text>
+                </AutoMarquee>
+                <AutoMarquee spacing={20} speed={0.3}>
+                  <Muted>{currentTrack?.author}</Muted>
+                </AutoMarquee>
               </View>
-            ) : playerStatus.timeControlStatus === 'paused' ? (
-              <Button variant="ghost" size="icon" onPress={() => Player.play()}>
-                <Play className="h-full text-transparent fill-foreground group-active:opacity-80" />
+            </View>
+            <View className="flex-none flex-row items-center justify-center gap-x-1 h-full pr-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => {
+                  Player.setPlaybackRate(getNextPlaybackRate(playerStatus.playbackRate));
+                }}>
+                <Text>{playerStatus.playbackRate}x</Text>
               </Button>
-            ) : (
-              <Button variant="ghost" size="icon" onPress={() => Player.pause()}>
-                <Pause className="h-full text-transparent fill-foreground group-active:opacity-80" />
+              {playerStatus.playbackState === 'buffering' ? (
+                <View className="h-10 w-10 flex items-center justify-center">
+                  <Spinner size={4} />
+                </View>
+              ) : playerStatus.timeControlStatus === 'paused' ? (
+                <Button variant="ghost" size="icon" onPress={() => Player.play()}>
+                  <Play className="h-full text-transparent fill-foreground group-active:opacity-80" />
+                </Button>
+              ) : (
+                <Button variant="ghost" size="icon" onPress={() => Player.pause()}>
+                  <Pause className="h-full text-transparent fill-foreground group-active:opacity-80" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => Player.skipToNext()}
+                disabled={!Player.canSkipToNext()}>
+                <SkipForward className="h-full text-foreground fill-foreground group-active:opacity-80" />
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={() => Player.skipToNext()}
-              disabled={!Player.canSkipToNext()}>
-              <SkipForward className="h-full text-foreground fill-foreground group-active:opacity-80" />
-            </Button>
-          </View>
-        </View>
+            </View>
+          </Pressable>
+        </Link>
         <Animated.View className="h-1 bg-foreground/80" style={animatedProgress}></Animated.View>
       </View>
     </View>

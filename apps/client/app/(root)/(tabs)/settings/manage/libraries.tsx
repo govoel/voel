@@ -1,4 +1,4 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
@@ -10,7 +10,7 @@ import { toast } from 'sonner-native';
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
-import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '~/components/ui/card';
 import { useAppForm } from '~/components/ui/form';
@@ -25,7 +25,7 @@ export default function LibraryListScreen() {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const { data, error, refetch, isLoading } = api.libraries.list.useQuery(instanceDb);
 
-  const createLibraryModalRef = useRef<BottomSheetModal>(null);
+  const createLibraryModalRef = useRef<BottomSheetModalType>(null);
 
   const createLibraryMutation = useMutation(
     apiInstance.v1.library.create.mutationOptions({
@@ -104,7 +104,7 @@ export default function LibraryListScreen() {
         )}
       </FloatingPlayerDodgingLayout>
 
-      <BottomSheet ref={createLibraryModalRef}>
+      <BottomSheetModal ref={createLibraryModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Create New Library</Large>
           <CreateLibraryForm.AppForm>
@@ -127,7 +127,7 @@ export default function LibraryListScreen() {
             </CreateLibraryForm.SubmitButton>
           </CreateLibraryForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
     </>
   );
 }

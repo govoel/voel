@@ -1,4 +1,4 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { SnapshotFromStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
@@ -14,7 +14,7 @@ import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
 import { Badge } from '~/components/ui/badge';
-import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
 import {
   Card,
@@ -44,8 +44,8 @@ export default function ProfileSettingsScreen() {
 }
 
 const Profile = () => {
-  const editProfileModalRef = useRef<BottomSheetModal>(null);
-  const changePasswordModalRef = useRef<BottomSheetModal>(null);
+  const editProfileModalRef = useRef<BottomSheetModalType>(null);
+  const changePasswordModalRef = useRef<BottomSheetModalType>(null);
   const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
   const { data, error, refetch, isPending } = useAuthSession(authClient);
 
@@ -203,7 +203,7 @@ const Profile = () => {
         </Card>
       )}
 
-      <BottomSheet ref={editProfileModalRef}>
+      <BottomSheetModal ref={editProfileModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Edit Profile</Large>
           <EditProfileForm.AppForm>
@@ -239,9 +239,9 @@ const Profile = () => {
             </EditProfileForm.SubmitButton>
           </EditProfileForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
 
-      <BottomSheet ref={changePasswordModalRef}>
+      <BottomSheetModal ref={changePasswordModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Change Password</Large>
 
@@ -296,7 +296,7 @@ const Profile = () => {
             </ChangePasswordForm.SubmitButton>
           </ChangePasswordForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
     </>
   );
 };

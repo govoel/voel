@@ -1,5 +1,5 @@
 import { Session } from '../../profile';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
 import type { UserWithRole } from 'better-auth/plugins';
@@ -14,7 +14,7 @@ import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
-import { BottomSheet } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { useAppForm } from '~/components/ui/form';
@@ -169,7 +169,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const setRoleModalRef = useRef<BottomSheetModal>(null);
+  const setRoleModalRef = useRef<BottomSheetModalType>(null);
   const setRoleMutation = useMutation({
     mutationKey: ['users', user.id, 'setRole'],
     mutationFn: async (role: z.infer<typeof userRole>) => {
@@ -205,7 +205,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
     },
   });
 
-  const banUserModalRef = useRef<BottomSheetModal>(null);
+  const banUserModalRef = useRef<BottomSheetModalType>(null);
   const banUserMutation = useMutation({
     mutationKey: ['users', user.id, 'ban'],
     mutationFn: async ({
@@ -245,7 +245,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
     },
   });
 
-  const unbanUserModalRef = useRef<BottomSheetModal>(null);
+  const unbanUserModalRef = useRef<BottomSheetModalType>(null);
   const unbanUserMutation = useMutation({
     mutationKey: ['users', user.id, 'unban'],
     mutationFn: async () => {
@@ -273,7 +273,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
     },
   });
 
-  const changePasswordModalRef = useRef<BottomSheetModal>(null);
+  const changePasswordModalRef = useRef<BottomSheetModalType>(null);
   const changePasswordMutation = useMutation({
     mutationKey: ['users', user.id, 'changePassword'],
     mutationFn: async (newPassword: string) => {
@@ -319,7 +319,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
     },
   });
 
-  const deleteUserModalRef = useRef<BottomSheetModal>(null);
+  const deleteUserModalRef = useRef<BottomSheetModalType>(null);
   const deleteUserMutation = useMutation({
     mutationKey: ['users', 'delete'],
     mutationFn: async () => {
@@ -444,7 +444,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
         </CardFooter>
       </Card>
 
-      <BottomSheet ref={setRoleModalRef}>
+      <BottomSheetModal ref={setRoleModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Set Role</Large>
           <SetRoleForm.AppForm>
@@ -463,9 +463,9 @@ const Profile = ({ user }: { user: UserWithRole }) => {
             </SetRoleForm.SubmitButton>
           </SetRoleForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
 
-      <BottomSheet ref={banUserModalRef}>
+      <BottomSheetModal ref={banUserModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Ban User</Large>
 
@@ -498,9 +498,9 @@ const Profile = ({ user }: { user: UserWithRole }) => {
             </BanUserForm.SubmitButton>
           </BanUserForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
 
-      <BottomSheet ref={unbanUserModalRef}>
+      <BottomSheetModal ref={unbanUserModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Unban User</Large>
           <Text className="pb-4">Are you sure you want to unban this user?</Text>
@@ -510,9 +510,9 @@ const Profile = ({ user }: { user: UserWithRole }) => {
             </UnbanUserForm.SubmitButton>
           </UnbanUserForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
 
-      <BottomSheet ref={changePasswordModalRef}>
+      <BottomSheetModal ref={changePasswordModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Change Password</Large>
 
@@ -552,9 +552,9 @@ const Profile = ({ user }: { user: UserWithRole }) => {
             </ChangePasswordForm.SubmitButton>
           </ChangePasswordForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
 
-      <BottomSheet ref={deleteUserModalRef}>
+      <BottomSheetModal ref={deleteUserModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Delete User</Large>
 
@@ -566,7 +566,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
             </DeleteUserForm.SubmitButton>
           </DeleteUserForm.AppForm>
         </View>
-      </BottomSheet>
+      </BottomSheetModal>
     </>
   );
 };

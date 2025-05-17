@@ -1,6 +1,7 @@
-import { Button } from './button';
 import * as RadioGroupPrimitive from '@rn-primitives/radio-group';
 import { View } from 'react-native';
+
+import { Button } from '~/components/ui/button';
 
 import { cn } from '~/lib/utils';
 
