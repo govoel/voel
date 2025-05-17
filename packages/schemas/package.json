@@ -7,10 +7,10 @@
   },
   "module": "index.ts",
   "devDependencies": {
-    "@eslint/js": "9.26.0",
+    "@eslint/js": "9.27.0",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
     "bun-types": "1.2.13",
-    "eslint": "9.26.0",
+    "eslint": "9.27.0",
     "eslint-config-prettier": "10.1.5",
     "eslint-plugin-prettier": "5.4.0",
     "globals": "16.1.0",
