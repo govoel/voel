@@ -14,10 +14,6 @@ export const migrator = new Migrator({
         up: (await import('@/libs/db/migrations/1742269532643_addLibraries')).up,
         down: (await import('@/libs/db/migrations/1742269532643_addLibraries')).down,
       },
-      '1746849481031_addPlaybackHistory': {
-        up: (await import('@/libs/db/migrations/1746849481031_addPlaybackHistory')).up,
-        down: (await import('@/libs/db/migrations/1746849481031_addPlaybackHistory')).down,
-      },
     }),
   },
 });
