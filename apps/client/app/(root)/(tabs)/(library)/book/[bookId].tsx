@@ -130,7 +130,7 @@ export default function BookScreen() {
                   <Link
                     key={`author-${index}`}
                     href={{
-                      pathname: '/(tabs)/(library)/author/[authorId]',
+                      pathname: '/author/[authorId]',
                       params: { authorId: author.id },
                     }}
                     push
@@ -155,7 +155,7 @@ export default function BookScreen() {
                     <Link
                       key={`series-${index}`}
                       href={{
-                        pathname: '/(tabs)/(library)/series/[seriesId]',
+                        pathname: '/series/[seriesId]',
                         params: { seriesId: series.id },
                       }}
                       push
@@ -234,7 +234,7 @@ const Narrators = ({
           <Link
             key={`contributor-narrator-${index}`}
             href={{
-              pathname: '/(tabs)/(library)/narrator/[narratorName]',
+              pathname: '/narrator/[narratorName]',
               params: { narratorName: contributor.name },
             }}
             push
@@ -269,7 +269,7 @@ const Editors = ({
           <Link
             key={`contributor-editor-${index}`}
             href={{
-              pathname: '/(tabs)/(library)/editor/[editorName]',
+              pathname: '/editor/[editorName]',
               params: { editorName: contributor.name },
             }}
             push
@@ -304,7 +304,7 @@ const Translators = ({
           <Link
             key={`contributor-translator-${index}`}
             href={{
-              pathname: '/(tabs)/(library)/translator/[translatorName]',
+              pathname: '/translator/[translatorName]',
               params: { translatorName: contributor.name },
             }}
             push
@@ -402,12 +402,15 @@ const playBookFrom = (
   }
 
   if (!canUseAudible) {
-    chapters = book.chapters.file.map((chapter) => ({
+    chapters = book.chapters.file.map((chapter, index) => ({
       instanceId: instanceID,
       bookId: chapter.bookId,
       chapterId: chapter.id,
       bookTitle: book.title,
-      chapterTitle: chapter.title,
+      chapterTitle:
+        typeof chapter.title === 'string' && chapter.title.length > 0
+          ? chapter.title
+          : `Untitled chapter #${index + 1}`,
       author: book.authors.map((author) => author.name).join(', '),
       fileIds: [chapter.fileId],
       fileUris: [`${instanceURL}/api/v1/files/${chapter.fileId}`],
@@ -679,16 +682,16 @@ const ChapterList = ({
     refetch: refetchBook,
   } = api.books.get.useQuery(instanceDb, bookId);
 
-  const fileEndTimes = useMemo(
+  const chapterEndTimes = useMemo(
     () =>
-      source === 'file' && book?.files
-        ? book.files.reduce((acc, file, index) => {
+      source === 'file'
+        ? chapters.reduce((acc, chapter, index) => {
             const previousEndTime = index > 0 ? acc[index - 1] : 0;
-            acc.push(previousEndTime + file.durationMs);
+            acc.push(previousEndTime + chapter.durationMs);
             return acc;
           }, [] as number[])
         : [],
-    [source, book?.files]
+    [source, chapters]
   );
 
   return (
@@ -711,7 +714,7 @@ const ChapterList = ({
                       ? item.startOffsetMs
                       : index === 0
                         ? 0
-                        : fileEndTimes[index - 1],
+                        : chapterEndTimes[index - 1],
                     authInstance.getCookie(),
                     instanceID ?? '0',
                     instanceURL ?? 'http://voel.local',
@@ -726,9 +729,7 @@ const ChapterList = ({
                         ? item.startOffsetMs
                         : index === 0
                           ? 0
-                          : item.startOffsetMs === 0
-                            ? fileEndTimes[index - 1]
-                            : item.startOffsetMs
+                          : chapterEndTimes[index - 1]
                     )}
                   </Text>
                   <Muted className="text-xs font-semibold">
@@ -760,7 +761,13 @@ const ChapterList = ({
               />
             )}
             <View className="flex-1">
-              <Small className="leading-snug">{item.title}</Small>
+              {typeof item.title === 'string' && item.title.length > 0 ? (
+                <Small className="leading-snug">{item.title}</Small>
+              ) : (
+                <Small className="leading-snug font-mediumitalic">
+                  Untitled chapter #{index + 1}
+                </Small>
+              )}
             </View>
           </View>
         </View>

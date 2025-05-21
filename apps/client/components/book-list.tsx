@@ -31,7 +31,7 @@ export function BookList({
       renderItem={({ item, index }) => (
         <Link
           href={{
-            pathname: '/(tabs)/(library)/book/[bookId]',
+            pathname: '/book/[bookId]',
             params: { bookId: item.id },
           }}
           asChild

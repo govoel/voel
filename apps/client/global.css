@@ -67,8 +67,14 @@
   .font-medium {
     @apply font-voel-inter-medium;
   }
+  .font-mediumitalic {
+    @apply font-voel-inter-mediumitalic;
+  }
   .font-semibold {
     @apply font-voel-inter-semibold;
+  }
+  .font-semibolditalic {
+    @apply font-voel-inter-semibolditalic;
   }
   .font-bold {
     @apply font-voel-inter-bold;
