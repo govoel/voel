@@ -202,7 +202,7 @@ function FloatingPlayerImpl({
   return (
     <View className={cn(className, 'w-full px-4 py-2 bg-transparent')}>
       <View className="rounded-md bg-muted overflow-hidden">
-        <Link href="/(root)/player" asChild>
+        <Link href="/player" asChild push>
           <Pressable className="flex-row items-center justify-stretch w-full flex-nowrap p-2">
             <View className="flex-1 flex-row items-center justify-center gap-x-2">
               {currentTrack.artworkUri ? (
