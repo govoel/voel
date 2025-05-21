@@ -130,7 +130,7 @@ export default function BookScreen() {
                   <Link
                     key={`author-${index}`}
                     href={{
-                      pathname: '/(tabs)/(library)/author/[authorId]',
+                      pathname: '/author/[authorId]',
                       params: { authorId: author.id },
                     }}
                     push
@@ -155,7 +155,7 @@ export default function BookScreen() {
                     <Link
                       key={`series-${index}`}
                       href={{
-                        pathname: '/(tabs)/(library)/series/[seriesId]',
+                        pathname: '/series/[seriesId]',
                         params: { seriesId: series.id },
                       }}
                       push
@@ -234,7 +234,7 @@ const Narrators = ({
           <Link
             key={`contributor-narrator-${index}`}
             href={{
-              pathname: '/(tabs)/(library)/narrator/[narratorName]',
+              pathname: '/narrator/[narratorName]',
               params: { narratorName: contributor.name },
             }}
             push
@@ -269,7 +269,7 @@ const Editors = ({
           <Link
             key={`contributor-editor-${index}`}
             href={{
-              pathname: '/(tabs)/(library)/editor/[editorName]',
+              pathname: '/editor/[editorName]',
               params: { editorName: contributor.name },
             }}
             push
@@ -304,7 +304,7 @@ const Translators = ({
           <Link
             key={`contributor-translator-${index}`}
             href={{
-              pathname: '/(tabs)/(library)/translator/[translatorName]',
+              pathname: '/translator/[translatorName]',
               params: { translatorName: contributor.name },
             }}
             push
