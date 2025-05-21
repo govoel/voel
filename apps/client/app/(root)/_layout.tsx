@@ -28,11 +28,11 @@ export default function RootLayout() {
               />
             </Stack>
           </PlaybackHistoryProvider>
+
+          <AccountSelector />
+          <AuthModal />
         </SubscriptionProvider>
       </DbMigrator>
-
-      <AccountSelector />
-      <AuthModal />
     </BottomSheetModalProvider>
   );
 }
