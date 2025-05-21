@@ -27,7 +27,7 @@
     "@react-navigation/native": "^7.1.6",
     "@rn-primitives/accordion": "1.1.0",
     "@rn-primitives/aspect-ratio": "1.1.0",
-    "@rn-primitives/avatar": "1.1.0",
+    "@rn-primitives/avatar": "1.2.0",
     "@rn-primitives/checkbox": "1.1.0",
     "@rn-primitives/collapsible": "^1.1.0",
     "@rn-primitives/dropdown-menu": "1.1.0",
