@@ -97,9 +97,9 @@ class VoelAudioPlayer(
   private fun createMediaItem(source: AudioSource): MediaItem {
     return MediaItem.Builder()
       .apply {
-        if (source.fileUris.size == 1) {
-          setUri(source.fileUris[0].toUri())
-          setCustomCacheKey("${source.instanceId}_${source.fileUris[0]}")
+        if (source.files.size == 1) {
+          setUri(source.files.first().uri.toUri())
+          setCustomCacheKey("${source.instanceId}-${source.files.first().id}")
         } else {
           setUri(Uri.EMPTY)
         }
@@ -117,9 +117,7 @@ class VoelAudioPlayer(
               putString("instanceId", source.instanceId)
               putLong("bookId", source.bookId)
               putLong("chapterId", source.chapterId)
-              putLongArray("fileIds", source.fileIds)
-              putStringArrayList("fileUris", source.fileUris)
-              putLongArray("fileDurations", source.fileDurations)
+              putParcelableArray("files", source.files)
             }
           )
           .build()
@@ -137,7 +135,7 @@ class VoelAudioPlayer(
     withContext(Dispatchers.Main) {
       val data = currentStatus()
       val body = map?.let { data + it } ?: data
-      emitEvent("playbackStatusUpdate", body)
+      emitEvent(AUDIO_EVENT_PLAYBACK_STATUS_UPDATE, body)
     }
 
   private fun startUpdating() {

@@ -343,7 +343,7 @@ const getPlaybackPosition = {
   queryKey: ['instance', 'book', 'getPlaybackPosition'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
     const playbackHistory = usePlaybackHistoryContext();
-    const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+    const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
 
     const { data } = useReactQuery({
       queryKey: [...getPlaybackPosition.queryKey, { bookId }],
@@ -370,7 +370,7 @@ const getPlaybackPosition = {
     const [currentPlaybackPosition, setCurrentPlaybackPosition] = useState<number>(0);
 
     useEffect(() => {
-      if (playbackHistory.instanceID === instanceID) {
+      if (playbackHistory.instanceId === instanceId) {
         const bookPlaybackHistory = playbackHistory.events.filter(
           (event) => event.bookId === bookId
         );
@@ -394,7 +394,7 @@ const getPlaybackPosition = {
       } else {
         setCurrentPlaybackPosition(Math.max(data?.positionMs ?? 0, 0));
       }
-    }, [instanceID, bookId, data, playbackHistory]);
+    }, [instanceId, bookId, data, playbackHistory]);
 
     return currentPlaybackPosition;
   },
@@ -404,7 +404,7 @@ const getPlaybackHistory = {
   queryKey: ['instance', 'book', 'getPlaybackHistory'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
     const localPlaybackHistory = usePlaybackHistoryContext();
-    const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+    const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
 
     const dbPlaybackHistory = useReactQuery({
       queryKey: [...getPlaybackHistory.queryKey, { bookId }],
@@ -433,7 +433,7 @@ const getPlaybackHistory = {
     >([]);
 
     useEffect(() => {
-      if (localPlaybackHistory.instanceID === instanceID) {
+      if (localPlaybackHistory.instanceId === instanceId) {
         const localBookPlaybackHistory = localPlaybackHistory.events.filter(
           (event) => event.bookId === bookId
         );
@@ -451,7 +451,7 @@ const getPlaybackHistory = {
           dbPlaybackHistory.data?.map((event) => ({ ...event, source: 'db' as const })) ?? []
         );
       }
-    }, [instanceID, bookId, dbPlaybackHistory.data, localPlaybackHistory]);
+    }, [instanceId, bookId, dbPlaybackHistory.data, localPlaybackHistory]);
 
     return { ...dbPlaybackHistory, mergedPlaybackHistory };
   },

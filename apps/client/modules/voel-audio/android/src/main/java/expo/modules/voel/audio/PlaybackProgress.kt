@@ -23,48 +23,50 @@ const val EVENT_TYPE_SESSION_END = 1007
 
 @Database(version = 1, entities = [PlaybackHistory::class])
 abstract class PlaybackHistoryDatabase : RoomDatabase() {
-    abstract fun playbackHistoryDao(): PlaybackHistoryDao
+  abstract fun playbackHistoryDao(): PlaybackHistoryDao
 
-    companion object {
-        @Volatile private var instances = mutableMapOf<String, PlaybackHistoryDatabase>()
+  companion object {
+    @Volatile
+    private var instances = mutableMapOf<String, PlaybackHistoryDatabase>()
 
-        fun getDatabase(context: Context, instanceId: String): PlaybackHistoryDatabase {
-            return instances[instanceId]
-                    ?: synchronized(this) {
-                        val instanceDb =
-                                Room.databaseBuilder(
-                                                context.applicationContext,
-                                                PlaybackHistoryDatabase::class.java,
-                                                "VoelPlaybackHistory-${instanceId}"
-                                        )
-                                        .build()
-                        instances[instanceId] = instanceDb
-                        return instanceDb
-                    }
+    fun getDatabase(context: Context, instanceId: String): PlaybackHistoryDatabase {
+      return instances[instanceId]
+        ?: synchronized(this) {
+          val instanceDb =
+            Room.databaseBuilder(
+              context.applicationContext,
+              PlaybackHistoryDatabase::class.java,
+              "VoelPlaybackHistory-${instanceId}.db"
+            )
+              .build()
+          instances[instanceId] = instanceDb
+          return instanceDb
         }
     }
+  }
 }
 
 @Entity(tableName = "playbackHistory")
 data class PlaybackHistory(
-        @PrimaryKey(autoGenerate = true) val id: Int?,
-        @ColumnInfo(name = "type") val type: Int,
-        @ColumnInfo(name = "bookId") val bookId: Long,
-        @ColumnInfo(name = "positionMs") val positionMs: Long,
-        @ColumnInfo(name = "eventTimestampMs") val eventTimestampMs: Long
+  @PrimaryKey(autoGenerate = true) val id: Int?,
+  @ColumnInfo(name = "type") val type: Int,
+  @ColumnInfo(name = "bookId") val bookId: Long,
+  @ColumnInfo(name = "positionMs") val positionMs: Long,
+  @ColumnInfo(name = "eventTimestampMs") val eventTimestampMs: Long
 )
 
 @Dao
 interface PlaybackHistoryDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(vararg event: PlaybackHistory)
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insert(vararg event: PlaybackHistory)
 
-    @Delete suspend fun delete(vararg event: PlaybackHistory)
+  @Delete
+  suspend fun delete(vararg event: PlaybackHistory)
 
-    @Query("DELETE FROM playbackHistory WHERE eventTimestampMs <= :timestamp")
-    suspend fun deleteEventsOlderThan(timestamp: Long)
+  @Query("DELETE FROM playbackHistory WHERE eventTimestampMs <= :timestamp")
+  suspend fun deleteEventsOlderThan(timestamp: Long)
 
-    // we order by type because often seek start and seek end have the same eventTimestampMs
-    @Query("SELECT * FROM playbackHistory ORDER BY eventTimestampMs DESC, type DESC")
-    fun getAll(): Flow<List<PlaybackHistory>>
+  // we order by type because often seek start and seek end have the same eventTimestampMs
+  @Query("SELECT * FROM playbackHistory ORDER BY eventTimestampMs DESC, type DESC")
+  fun getAll(): Flow<List<PlaybackHistory>>
 }

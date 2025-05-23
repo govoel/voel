@@ -26,6 +26,7 @@ import { H2, Large, Muted, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { BookCopy } from '~/lib/icons/BookCopy';
+import { Download } from '~/lib/icons/Download';
 import { FilePenLine } from '~/lib/icons/FilePenLine';
 import { History } from '~/lib/icons/History';
 import { Languages } from '~/lib/icons/Languages';
@@ -37,7 +38,7 @@ import { UserPen } from '~/lib/icons/UserPen';
 import { instanceStore } from '~/lib/stores/instance';
 import { cn } from '~/lib/utils';
 
-import { type AudioSource, replaceAudioSources } from '~/modules/voel-audio';
+import Player, { type AudioSource, replaceAudioSources } from '~/modules/voel-audio';
 
 const formatTime = (timeMs: number) => {
   const sec = Math.floor(timeMs / 1000);
@@ -75,7 +76,10 @@ const formatDuration = (durationMs: number, type: 'short' | 'long' = 'long') => 
 export default function BookScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
 
+  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
+  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
   const { data, error, refetch } = api.books.get.useQuery(instanceDb, parseInt(bookId, 10));
 
   return (
@@ -112,8 +116,24 @@ export default function BookScreen() {
             ) : null}
 
             <View className="flex flex-row flex-wrap gap-x-2 items-center">
-              <BookPlayButton bookId={data.id} />
+              <Button
+                variant="secondary"
+                className="text-secondary-foreground"
+                onPress={() => {
+                  Player.setCookie(authInstance.getCookie());
+                  Player.addDownloads(
+                    instanceId ?? '0',
+                    data.files.map((file) => ({
+                      id: file.id,
+                      uri: `${instanceURL}/api/v1/files/${file.id}`,
+                      filePath: file.path,
+                    }))
+                  );
+                }}>
+                <Download className="text-secondary-foreground" size="20" />
+              </Button>
               <PlaybackHistory bookId={data.id} />
+              <BookPlayButton bookId={data.id} />
             </View>
 
             <View className="flex flex-row flex-wrap gap-2 items-center pt-4">
@@ -346,7 +366,7 @@ const playBookFrom = (
   },
   absolutePositionMs: number,
   authCookie: string,
-  instanceID: string,
+  instanceId: string,
   instanceURL: string,
   canUseAudible: boolean = true
 ) => {
@@ -385,15 +405,17 @@ const playBookFrom = (
       );
 
       chapters.push({
-        instanceId: instanceID,
+        instanceId: instanceId,
         bookId: chapter.bookId,
         chapterId: chapter.id,
         bookTitle: book.title,
         chapterTitle: chapter.title,
         author: book.authors.map((author) => author.name).join(', '),
-        fileIds: chapterFileIds.map((e) => e.fileId),
-        fileUris: chapterFileIds.map((e) => `${instanceURL}/api/v1/files/${e.fileId}`),
-        fileDurations: chapterFileIds.map((e) => book.files[e.fileArrayIndex].durationMs),
+        files: chapterFileIds.map((e) => ({
+          id: e.fileId,
+          uri: `${instanceURL}/api/v1/files/${e.fileId}`,
+          durationMs: book.files[e.fileArrayIndex].durationMs,
+        })),
         artworkUri: book.cover,
         startTimeMs: startFileRelativeChapterStartTime,
         endTimeMs: startFileRelativeChapterStartTime + chapter.durationMs,
@@ -403,7 +425,7 @@ const playBookFrom = (
 
   if (!canUseAudible) {
     chapters = book.chapters.file.map((chapter, index) => ({
-      instanceId: instanceID,
+      instanceId: instanceId,
       bookId: chapter.bookId,
       chapterId: chapter.id,
       bookTitle: book.title,
@@ -412,9 +434,13 @@ const playBookFrom = (
           ? chapter.title
           : `Untitled chapter #${index + 1}`,
       author: book.authors.map((author) => author.name).join(', '),
-      fileIds: [chapter.fileId],
-      fileUris: [`${instanceURL}/api/v1/files/${chapter.fileId}`],
-      fileDurations: [chapter.durationMs],
+      files: [
+        {
+          id: chapter.fileId,
+          uri: `${instanceURL}/api/v1/files/${chapter.fileId}`,
+          durationMs: chapter.durationMs,
+        },
+      ],
       artworkUri: book.cover,
       startTimeMs: chapter.startOffsetMs,
       endTimeMs: chapter.startOffsetMs + chapter.durationMs,
@@ -442,7 +468,7 @@ const playBookFrom = (
 const BookPlayButton = ({ bookId }: { bookId: number }) => {
   const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
   const {
     data: book,
@@ -461,7 +487,7 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
             book,
             currentPlaybackPosition,
             authInstance.getCookie(),
-            instanceID ?? '0',
+            instanceId ?? '0',
             instanceURL ?? 'http://voel.local'
           );
         }}>
@@ -501,7 +527,7 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
   const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
   const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
   const {
     data: book,
@@ -559,7 +585,7 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
                         book,
                         item.positionMs,
                         authInstance.getCookie(),
-                        instanceID ?? '0',
+                        instanceId ?? '0',
                         instanceURL ?? 'http://voel.local'
                       );
                     }}>
@@ -673,7 +699,7 @@ const ChapterList = ({
 }) => {
   const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
   const {
     data: book,
@@ -716,7 +742,7 @@ const ChapterList = ({
                         ? 0
                         : chapterEndTimes[index - 1],
                     authInstance.getCookie(),
-                    instanceID ?? '0',
+                    instanceId ?? '0',
                     instanceURL ?? 'http://voel.local',
                     source === 'audible'
                   );

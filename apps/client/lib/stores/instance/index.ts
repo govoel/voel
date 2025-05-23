@@ -29,7 +29,6 @@ import Player from '~/modules/voel-audio';
 
 globalThis.TextDecoderStream = globalThis.TextDecoderStream || TextDecoderStream;
 globalThis.ReadableStream = globalThis.ReadableStream || ReadableStream;
-globalThis.EventSource = globalThis.EventSource || ExpoEventSource;
 
 export const createAuthClient = (
   baseURL: string,
@@ -88,19 +87,19 @@ export const createApiInstance = (
 };
 
 export const createInstances = (
-  instanceID: string,
+  instanceId: string,
   instanceURL: string,
   currentApiInstance?: TRPCOptionsProxy<AppRouter>
 ) => {
-  const instanceIDNum = parseInt(instanceID, 10);
+  const instanceIdNum = parseInt(instanceId, 10);
 
-  if (isNaN(instanceIDNum)) {
-    throw new Error(`Invalid instance ID: ${instanceID}`);
+  if (isNaN(instanceIdNum)) {
+    throw new Error(`Invalid instance ID: ${instanceId}`);
   }
 
-  const authInstance = createInstanceAuthClient(instanceID, instanceURL);
+  const authInstance = createInstanceAuthClient(instanceId, instanceURL);
   const apiInstance = createApiInstance(instanceURL, authInstance, currentApiInstance);
-  const { instanceDb, instanceOpDb } = createInstanceDb(instanceIDNum);
+  const { instanceDb, instanceOpDb } = createInstanceDb(instanceIdNum);
 
   return {
     authInstance,
@@ -110,8 +109,8 @@ export const createInstances = (
   };
 };
 
-export const createInstanceAuthClient = (instanceID: string, instanceURL: string) =>
-  createAuthClient(instanceURL, `voel_${instanceID}`);
+export const createInstanceAuthClient = (instanceId: string, instanceURL: string) =>
+  createAuthClient(instanceURL, `voel_${instanceId}`);
 
 export const useAuthSession = (authClient: ReturnType<typeof createInstanceAuthClient>) =>
   authClient.useSession();
@@ -120,11 +119,11 @@ export const instanceStore = createStore({
   context: {
     isPending: false,
     error: null as string | null,
-    instanceID: SecureStore.getItem('currentInstanceID'),
+    instanceId: SecureStore.getItem('currentInstanceId'),
     instanceURL: SecureStore.getItem('currentInstanceURL'),
-    instanceUserID: SecureStore.getItem('currentInstanceUserID'),
+    instanceUserId: SecureStore.getItem('currentInstanceUserId'),
     ...createInstances(
-      SecureStore.getItem('currentInstanceID') ?? '0',
+      SecureStore.getItem('currentInstanceId') ?? '0',
       SecureStore.getItem('currentInstanceURL') ?? 'http://voel.local'
     ),
   },
@@ -132,23 +131,23 @@ export const instanceStore = createStore({
     recreateAuthInstance: (
       context,
       event: {
-        instanceID: string;
+        instanceId: string;
         instanceURL: string;
-        instanceUserID: string;
+        instanceUserId: string;
       }
     ) => {
-      SecureStore.setItem('currentInstanceID', event.instanceID);
+      SecureStore.setItem('currentInstanceId', event.instanceId);
       SecureStore.setItem('currentInstanceURL', event.instanceURL);
-      SecureStore.setItem('currentInstanceUserID', event.instanceUserID);
+      SecureStore.setItem('currentInstanceUserId', event.instanceUserId);
       Player.clearQueue();
 
       return {
         isPending: false,
         error: null,
-        instanceID: event.instanceID,
+        instanceId: event.instanceId,
         instanceURL: event.instanceURL,
-        instanceUserID: event.instanceUserID,
-        ...createInstances(event.instanceID, event.instanceURL, context.apiInstance),
+        instanceUserId: event.instanceUserId,
+        ...createInstances(event.instanceId, event.instanceURL, context.apiInstance),
       };
     },
     setError: (context, event: { error: string }) => {

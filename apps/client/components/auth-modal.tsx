@@ -81,9 +81,9 @@ export function AuthModal() {
 }
 
 const switchInstance = async (
-  current: { instanceID: string | null; instanceUserID: string | null; instanceURL: string | null },
+  current: { instanceId: string | null; instanceUserId: string | null; instanceURL: string | null },
   switchTo: {
-    userID: string;
+    userId: string;
     instanceURL: string;
     username: string;
     email: string;
@@ -92,13 +92,13 @@ const switchInstance = async (
     authStore: Map<string, string | null>;
   }
 ) => {
-  let instanceID = current.instanceID;
-  if (current.instanceUserID !== switchTo.userID || current.instanceURL !== switchTo.instanceURL) {
+  let instanceId = current.instanceId;
+  if (current.instanceUserId !== switchTo.userId || current.instanceURL !== switchTo.instanceURL) {
     let instance = await mainDb
       .selectFrom('accounts')
-      .select(['instanceID as id', 'instanceURL as url', 'userID'])
+      .select(['instanceId as id', 'instanceURL as url', 'userId'])
       .where('instanceURL', '=', switchTo.instanceURL)
-      .where('userID', '=', switchTo.userID)
+      .where('userId', '=', switchTo.userId)
       .executeTakeFirst();
 
     if (!instance) {
@@ -106,13 +106,13 @@ const switchInstance = async (
         .insertInto('accounts')
         .values({
           instanceURL: switchTo.instanceURL,
-          userID: switchTo.userID,
+          userId: switchTo.userId,
           username: switchTo.username,
           email: switchTo.email,
           name: switchTo.name,
           image: switchTo.image,
         })
-        .returning(['instanceID as id', 'instanceURL as url', 'userID as userID'])
+        .returning(['instanceId as id', 'instanceURL as url', 'userId as userId'])
         .executeTakeFirst();
 
       if (!instance) {
@@ -129,11 +129,11 @@ const switchInstance = async (
           image: switchTo.image,
         })
         .where('instanceURL', '=', switchTo.instanceURL)
-        .where('userID', '=', switchTo.userID)
+        .where('userId', '=', switchTo.userId)
         .executeTakeFirst();
     }
 
-    instanceID = instance.id.toString();
+    instanceId = instance.id.toString();
   } else {
     await mainDb
       .updateTable('accounts')
@@ -144,19 +144,19 @@ const switchInstance = async (
         image: switchTo.image,
       })
       .where('instanceURL', '=', switchTo.instanceURL)
-      .where('userID', '=', switchTo.userID)
+      .where('userId', '=', switchTo.userId)
       .executeTakeFirst();
   }
 
   queryClient.invalidateQueries({ queryKey: api.accounts.list.queryKey });
 
   for (const [key, value] of switchTo.authStore.entries()) {
-    SecureStore.setItem(`voel_${instanceID}${key}`, value ?? '');
+    SecureStore.setItem(`voel_${instanceId}${key}`, value ?? '');
   }
 
   instanceStore.trigger.recreateAuthInstance({
-    instanceID: instanceID!,
-    instanceUserID: switchTo.userID,
+    instanceId: instanceId!,
+    instanceUserId: switchTo.userId,
     instanceURL: switchTo.instanceURL,
   });
 };
@@ -166,9 +166,9 @@ function SignInTab({
 }: {
   bottomSheetModalRef: RefObject<BottomSheetModal | null>;
 }) {
-  const currentInstanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const currentInstanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const currentInstanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
-  const currentInstanceUserID = useSelector(instanceStore, (state) => state.context.instanceUserID);
+  const currentInstanceUserId = useSelector(instanceStore, (state) => state.context.instanceUserId);
 
   const SignInForm = useAppForm({
     defaultValues: {
@@ -201,13 +201,13 @@ function SignInTab({
       } else {
         await switchInstance(
           {
-            instanceID: currentInstanceID,
-            instanceUserID: currentInstanceUserID,
+            instanceId: currentInstanceId,
+            instanceUserId: currentInstanceUserId,
             instanceURL: currentInstanceURL,
           },
           {
             instanceURL: value.baseURL,
-            userID: res.data.user.id,
+            userId: res.data.user.id,
             username: res.data.user.username,
             email: res.data.user.email,
             name: res.data.user.name,

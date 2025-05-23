@@ -1,5 +1,6 @@
 package expo.modules.voel.audio
 
+import android.os.Build
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
@@ -10,10 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.Clock
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ClippingMediaSource
@@ -30,8 +28,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import java.io.File
+
+const val AUDIO_FILES_DOWNLOAD_PATH = "VoelAudioDownloadCache"
+const val AUDIO_CACHE_STREAM_PATH = "VoelAudioStreamCache"
 
 class VoelAudioPlaybackService : MediaSessionService() {
   private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
@@ -39,29 +38,6 @@ class VoelAudioPlaybackService : MediaSessionService() {
   private var mediaSession: MediaSession? = null
   private lateinit var playbackHistoryJob: CompletableJob
   private lateinit var serviceScope: CoroutineScope
-
-  companion object {
-    @Volatile
-    private var cookie: String? = null
-
-    private val httpClient: OkHttpClient by lazy {
-      OkHttpClient.Builder()
-        .addInterceptor { chain ->
-          cookie?.let {
-            val originalRequest = chain.request()
-            val newRequest =
-              originalRequest.newBuilder().header("Cookie", it).build()
-            chain.proceed(newRequest)
-          }
-            ?: run { chain.proceed(chain.request()) }
-        }
-        .build()
-    }
-
-    fun setCookie(cookie: String) {
-      this.cookie = cookie
-    }
-  }
 
   @OptIn(UnstableApi::class)
   override fun onCreate() {
@@ -80,20 +56,18 @@ class VoelAudioPlaybackService : MediaSessionService() {
       DefaultMediaSourceFactory(
         CacheDataSource.Factory()
           .setCache(
-            SimpleCache(
-              File(
-                this.cacheDir,
-                "VoelAudioPlaybackServiceCache"
-              ),
-              LeastRecentlyUsedCacheEvictor(
-                // 1GB
-                1024 * 1024 * 1024L
-              ),
-              StandaloneDatabaseProvider(this)
-            )
+            AudioSingletonHolder.getDownloadSimpleCache(this)
           )
-          .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(httpClient))
+          .setCacheWriteDataSinkFactory(null)
           .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+          .setUpstreamDataSourceFactory(
+            CacheDataSource.Factory()
+              .setCache(
+                AudioSingletonHolder.getStreamSimpleCache(this)
+              )
+              .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(AudioSingletonHolder.httpClient))
+              .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+          )
       )
 
     exoPlayer =
@@ -165,44 +139,56 @@ class VoelAudioPlaybackService : MediaSessionService() {
   @OptIn(UnstableApi::class)
   private fun createMediaSources(mediaItems: MutableList<MediaItem>): List<MediaSource> {
     return mediaItems.map { mediaItem ->
-      val fileUris =
-        mediaItem.mediaMetadata.extras!!.getStringArrayList(
-          "fileUris"
-        )!!
+      val files =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+          mediaItem.mediaMetadata.extras!!.getParcelableArray("files", AudioFile::class.java)!!
+        } else {
+          @Suppress("UNCHECKED_CAST")
+          mediaItem.mediaMetadata.extras!!.getParcelableArray("files")!! as Array<AudioFile>
+        }
 
-      if (fileUris.size < 2) {
+      if (files.size < 2) {
         mediaSourceFactory.createMediaSource(mediaItem)
       } else {
-        val instanceId = mediaItem.mediaMetadata.extras!!.getString("instanceId")
-        val fileDurations = mediaItem.mediaMetadata.extras!!.getLongArray("fileDurations")!!
+        val instanceId =
+          mediaItem.mediaMetadata.extras!!.getString("instanceId")
+        ConcatenatingMediaSource2.Builder()
+          .apply {
+            files.mapIndexed { index, file ->
+              val concatMediaSource =
+                mediaSourceFactory.createMediaSource(
+                  MediaItem.Builder()
+                    .setUri(file.uri.toUri())
+                    .setCustomCacheKey(
+                      "${instanceId}-${file.id}"
+                    )
+                    .build()
+                )
 
-        ConcatenatingMediaSource2.Builder().apply {
-          fileUris.mapIndexed { index, fileUri ->
-            val concatMediaSource = mediaSourceFactory.createMediaSource(
-              MediaItem.Builder().setUri(fileUri.toUri())
-                .setCustomCacheKey("${instanceId}_${fileUri}").build()
-            )
+              if (index == 0 || index == files.size - 1) {
+                val clipStartPositionMs =
+                  if (index == 0)
+                    mediaItem.clippingConfiguration.startPositionMs
+                  else 0
+                val clipEndPositionMs =
+                  if (index == 0) file.durationMs
+                  else mediaItem.clippingConfiguration.endPositionMs - (files.sumOf { it.durationMs } - files.last().durationMs)
 
-            if (index == 0 || index == fileUris.size - 1) {
-              val clipStartPositionMs =
-                if (index == 0) mediaItem.clippingConfiguration.startPositionMs else 0
-              val clipEndPositionMs =
-                if (index == 0) fileDurations[0] else mediaItem.clippingConfiguration.endPositionMs - (fileDurations.sum() - fileDurations.last())
-
-              add(
-                ClippingMediaSource.Builder(concatMediaSource)
-                  .setStartPositionMs(clipStartPositionMs)
-                  .setEndPositionMs(clipEndPositionMs)
-                  .build(),
-                clipEndPositionMs - clipStartPositionMs
-              )
-            } else {
-              add(concatMediaSource, fileDurations[index])
+                add(
+                  ClippingMediaSource.Builder(concatMediaSource)
+                    .setStartPositionMs(clipStartPositionMs)
+                    .setEndPositionMs(clipEndPositionMs)
+                    .build(),
+                  clipEndPositionMs - clipStartPositionMs
+                )
+              } else {
+                add(concatMediaSource, file.durationMs)
+              }
             }
-          }
 
-          setMediaItem(mediaItem)
-        }.build()
+            setMediaItem(mediaItem)
+          }
+          .build()
       }
     }
   }
