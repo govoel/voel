@@ -8,7 +8,7 @@ import { instanceStore } from '~/lib/stores/instance';
 import Player, { type PlaybackHistoryUpdateEvent, usePlaybackHistory } from '~/modules/voel-audio';
 
 const PlaybackHistoryContext = createContext<PlaybackHistoryUpdateEvent>({
-  instanceID: '0',
+  instanceId: '0',
   events: [],
 });
 
@@ -23,14 +23,15 @@ export const usePlaybackHistoryContext = () => {
 };
 
 export const PlaybackHistoryProvider = ({ children }: { children: ReactNode }) => {
-  const instanceID = useSelector(instanceStore, (state) => state.context.instanceID);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const apiInstance = useSelector(instanceStore, (state) => state.context.apiInstance);
 
-  const playbackHistory = usePlaybackHistory(instanceID ?? '0');
-  const { mutate: playbackHistoryMutation } = useMutation(
+  const playbackHistory = usePlaybackHistory(instanceId ?? '0');
+  const { mutate: playbackHistoryMutation, reset: playbackHistoryMutationReset } = useMutation(
     apiInstance.v1.sync.playbackHistory.mutationOptions({
+      retry: Infinity,
       onSuccess: async (data) => {
-        Player.deletePlaybackHistoryOlderThan(instanceID ?? '0', data);
+        Player.deletePlaybackHistoryOlderThan(instanceId ?? '0', data);
       },
       onError: async (error) => {
         if (!error?.message.includes('java.net.ConnectException')) {
@@ -43,18 +44,19 @@ export const PlaybackHistoryProvider = ({ children }: { children: ReactNode }) =
   );
 
   useEffect(() => {
+    playbackHistoryMutationReset();
     if (
-      playbackHistory.instanceID !== '0' &&
-      playbackHistory.instanceID === instanceID &&
+      playbackHistory.instanceId !== '0' &&
+      playbackHistory.instanceId === instanceId &&
       playbackHistory.events.length > 0
     ) {
       playbackHistoryMutation(playbackHistory.events);
     }
-  }, [playbackHistory, instanceID, playbackHistoryMutation]);
+  }, [playbackHistory, instanceId, playbackHistoryMutation, playbackHistoryMutationReset]);
 
   return (
     <PlaybackHistoryContext
-      value={{ instanceID: playbackHistory.instanceID, events: playbackHistory.events }}>
+      value={{ instanceId: playbackHistory.instanceId, events: playbackHistory.events }}>
       {children}
     </PlaybackHistoryContext>
   );

@@ -1,8 +1,14 @@
 package expo.modules.voel.audio
 
+import android.os.Build
+import androidx.annotation.OptIn
+import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.offline.DownloadRequest
+import androidx.media3.exoplayer.offline.DownloadService
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -11,13 +17,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.math.min
 
+const val AUDIO_EVENT_PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
+const val AUDIO_EVENT_PLAYBACK_HISTORY_UPDATE = "playbackHistoryUpdate"
+
 class VoelAudioModule : Module() {
   private lateinit var player: VoelAudioPlayer
 
   private lateinit var lastPlaybackHistoryEvent: Map<String, Any>
-  private var currentPlaybackHistoryUpdateInstanceID: String? = null
+  private var currentPlaybackHistoryUpdateInstanceId: String? = null
   private var playbackHistoryUpdateJob: Job? = null
 
+  @OptIn(UnstableApi::class)
   override fun definition() = ModuleDefinition {
     Name("VoelAudio")
 
@@ -35,7 +45,7 @@ class VoelAudioModule : Module() {
 
     OnDestroy { runOnMain { playbackHistoryUpdateJob?.cancel() } }
 
-    Events("playbackStatusUpdate", "playbackHistoryUpdate")
+    Events(AUDIO_EVENT_PLAYBACK_STATUS_UPDATE, AUDIO_EVENT_PLAYBACK_HISTORY_UPDATE)
 
     Property("isBuffering") {
       runOnMain { player.controller.playbackState == Player.STATE_BUFFERING }
@@ -67,51 +77,51 @@ class VoelAudioModule : Module() {
       player.setVolume(value)
     }
 
-    Function("getLastPlaybackHistoryEvent") {instanceID: String ->
-      if (::lastPlaybackHistoryEvent.isInitialized && lastPlaybackHistoryEvent["instanceID"] == instanceID) {
+    Function("getLastPlaybackHistoryEvent") { instanceId: String ->
+      if (::lastPlaybackHistoryEvent.isInitialized &&
+        lastPlaybackHistoryEvent["instanceId"] == instanceId
+      ) {
         lastPlaybackHistoryEvent
       } else {
-        mapOf(
-          "instanceID" to instanceID,
-          "events" to emptyArray<Map<String, Any>>()
-        )
+        mapOf("instanceId" to instanceId, "events" to emptyArray<Map<String, Any>>())
       }
     }
 
-    Function("startPlaybackHistoryUpdates") { instanceID: String ->
-      if (currentPlaybackHistoryUpdateInstanceID != instanceID) {
+    Function("startPlaybackHistoryUpdates") { instanceId: String ->
+      if (currentPlaybackHistoryUpdateInstanceId != instanceId) {
         playbackHistoryUpdateJob?.cancel()
         val db =
           PlaybackHistoryDatabase.getDatabase(
             appContext.throwingActivity.applicationContext,
-            instanceID
+            instanceId
           )
 
         playbackHistoryUpdateJob =
           appContext.mainQueue.launch {
             db.playbackHistoryDao().getAll().collect { events ->
-              lastPlaybackHistoryEvent = mapOf(
-                "instanceID" to instanceID,
-                "events" to
-                    events.map { event ->
-                      mapOf(
-                        "id" to event.id,
-                        "type" to event.type,
-                        "bookId" to event.bookId,
-                        "positionMs" to
-                            event.positionMs,
-                        "eventTimestampMs" to
-                            event.eventTimestampMs
-                      )
-                    }
-              )
+              lastPlaybackHistoryEvent =
+                mapOf(
+                  "instanceId" to instanceId,
+                  "events" to
+                      events.map { event ->
+                        mapOf(
+                          "id" to event.id,
+                          "type" to event.type,
+                          "bookId" to event.bookId,
+                          "positionMs" to
+                              event.positionMs,
+                          "eventTimestampMs" to
+                              event.eventTimestampMs
+                        )
+                      }
+                )
               sendEvent(
-                "playbackHistoryUpdate",
+                AUDIO_EVENT_PLAYBACK_HISTORY_UPDATE,
                 lastPlaybackHistoryEvent
               )
             }
           }
-        currentPlaybackHistoryUpdateInstanceID = instanceID
+        currentPlaybackHistoryUpdateInstanceId = instanceId
       }
     }
 
@@ -132,7 +142,7 @@ class VoelAudioModule : Module() {
     Function("pause") { runOnMain { player.controller.pause() } }
 
     Function("setCookie") { cookie: String ->
-      runOnMain { VoelAudioPlaybackService.setCookie(cookie) }
+      runOnMain { AudioSingletonHolder.setCookie(cookie) }
     }
 
     Function("replace") { sources: List<AudioSource>, startIndex: Int, startPositionMs: Long ->
@@ -159,20 +169,23 @@ class VoelAudioModule : Module() {
               instanceId =
                 mediaItem.mediaMetadata.extras!!.getString("instanceId"),
               bookId = mediaItem.mediaMetadata.extras!!.getLong("bookId"),
-              fileIds =
-                mediaItem.mediaMetadata.extras!!.getLongArray("fileIds")!!,
               chapterId = mediaItem.mediaMetadata.extras!!.getLong("chapterId"),
               bookTitle = mediaItem.mediaMetadata.albumTitle!!.toString(),
               chapterTitle = mediaItem.mediaMetadata.title!!.toString(),
               author = mediaItem.mediaMetadata.artist!!.toString(),
-              fileUris =
-                mediaItem.mediaMetadata.extras!!.getStringArrayList(
-                  "fileUris"
-                )!!,
-              fileDurations =
-                mediaItem.mediaMetadata.extras!!.getLongArray(
-                  "fileDurations"
-                )!!,
+              files =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                  mediaItem.mediaMetadata.extras!!.getParcelableArray(
+                    "files",
+                    AudioFile::class.java
+                  )!!
+                else {
+                  @Suppress("UNCHECKED_CAST")
+                  mediaItem.mediaMetadata.extras!!.getParcelableArray(
+                    "files"
+                  )!! as
+                      Array<AudioFile>
+                },
               artworkUri = mediaItem.mediaMetadata.artworkUri?.toString(),
               startTimeMs = mediaItem.clippingConfiguration.startPositionMs,
               endTimeMs =
@@ -233,6 +246,31 @@ class VoelAudioModule : Module() {
         val playbackRate = if (rate < 0) 0f else min(rate, 2.0f)
         val pitch = if (player.preservesPitch) 1f else playbackRate
         player.controller.playbackParameters = PlaybackParameters(playbackRate, pitch)
+      }
+    }
+
+    Function("addDownloads") { instanceId: String, files: List<AudioDownload> ->
+      files.map { file ->
+        DownloadService.sendAddDownload(
+          appContext.throwingActivity.applicationContext,
+          VoelAudioDownloadService::class.java,
+          DownloadRequest.Builder("${instanceId}-${file.id}", file.uri.toUri())
+            .setCustomCacheKey("${instanceId}-${file.id}")
+            .setData(file.filePath.encodeToByteArray())
+            .build(),
+          false
+        )
+      }
+    }
+
+    Function("removeDownloads") { instanceId: String, fileIds: LongArray ->
+      fileIds.map { fileId ->
+        DownloadService.sendRemoveDownload(
+          appContext.throwingActivity.applicationContext,
+          VoelAudioDownloadService::class.java,
+          "${instanceId}-${fileId}",
+          false
+        )
       }
     }
   }

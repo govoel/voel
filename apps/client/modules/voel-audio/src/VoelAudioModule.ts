@@ -28,14 +28,14 @@ export function replaceAudioSources(
   NativeVoelAudioModule.replace(sources, startIndex, startPositionMs);
 }
 
-export function usePlaybackHistory(instanceID: string): PlaybackHistoryUpdateEvent {
+export function usePlaybackHistory(instanceId: string): PlaybackHistoryUpdateEvent {
   useEffect(() => {
-    NativeVoelAudioModule.startPlaybackHistoryUpdates(instanceID);
-  }, [instanceID]);
+    NativeVoelAudioModule.startPlaybackHistoryUpdates(instanceId);
+  }, [instanceId]);
   return useEvent(
     NativeVoelAudioModule,
     'playbackHistoryUpdate',
-    NativeVoelAudioModule.getLastPlaybackHistoryEvent(instanceID)
+    NativeVoelAudioModule.getLastPlaybackHistoryEvent(instanceId)
   );
 }
 

@@ -17,7 +17,7 @@ const list = {
       queryFn: () =>
         mainDb
           .selectFrom('accounts')
-          .select(['instanceID', 'instanceURL', 'userID', 'username', 'email', 'name', 'image'])
+          .select(['instanceId', 'instanceURL', 'userId', 'username', 'email', 'name', 'image'])
           .execute(),
     });
   },
@@ -34,9 +34,9 @@ const add = {
           .values(account)
           .onConflict((oc) => oc.doNothing())
           .returning([
-            'instanceID as instanceID',
+            'instanceId as instanceId',
             'instanceURL as instanceURL',
-            'userID as userID',
+            'userId as userId',
             'username as username',
             'email as email',
             'name as name',
@@ -47,4 +47,21 @@ const add = {
   },
 };
 
-export { list, add };
+const get = {
+  queryKey: ['accounts', 'get'],
+  useQuery: (instanceId: string) => {
+    return useReactQuery({
+      queryKey: [...get.queryKey, instanceId],
+      networkMode: 'always',
+      refetchOnReconnect: true,
+      queryFn: () =>
+        mainDb
+          .selectFrom('accounts')
+          .select(['instanceId', 'instanceURL', 'userId', 'username', 'email', 'name', 'image'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow(),
+    });
+  },
+};
+
+export { list, add, get };

@@ -5,7 +5,7 @@ import { OpSqliteDialect } from '~/db/driver';
 import type { InstanceDatabase } from '~/db/schema/instance';
 import type { MainDatabase } from '~/db/schema/main';
 
-export const mainOpDb = open({ location: 'databases', name: 'main.db' });
+export const mainOpDb = open({ name: 'VoelMain.db' });
 
 const dialect = new OpSqliteDialect({
   database: mainOpDb,
@@ -19,7 +19,7 @@ const dialect = new OpSqliteDialect({
 export const mainDb = new Kysely<MainDatabase>({ dialect });
 
 export const createInstanceDb = (instanceId: number) => {
-  const instanceOpDb = open({ location: 'databases/instances', name: `${instanceId}.db` });
+  const instanceOpDb = open({ name: `VoelInstance-${instanceId}.db` });
 
   const instanceDialect = new OpSqliteDialect({
     database: instanceOpDb,

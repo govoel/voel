@@ -1,23 +1,17 @@
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
 
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
-import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
 import { Text } from '~/components/ui/text';
 
-import { useAudioPlayerStatus } from '~/modules/voel-audio';
-
 export default function HomeScreen() {
-  const playerStatus = useAudioPlayerStatus();
-  const playbackHistory = usePlaybackHistoryContext();
-
   return (
     <>
       <Stack.Screen options={{ title: 'Home' }} />
       <FloatingPlayerDodgingLayout>
-        <Text>Player Status:</Text>
-        <Text>{JSON.stringify(playerStatus, null, 2)}</Text>
-        <Text>Playback History:</Text>
-        <Text>{JSON.stringify(playbackHistory, null, 2)}</Text>
+        <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+          <Text className="text-center">Coming soon</Text>
+        </View>
       </FloatingPlayerDodgingLayout>
     </>
   );

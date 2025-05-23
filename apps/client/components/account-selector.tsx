@@ -62,9 +62,11 @@ export const accountSelectorModalStore = createStore({
 
 export const AccountSelectorAvatar = () => {
   const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
-  const { data, isPending } = useAuthSession(authClient);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+  const { data: localAccountData } = api.accounts.get.useQuery(instanceId ?? '0');
+  const { data: authSessionData, isPending: authSessionIsPending } = useAuthSession(authClient);
 
-  if (!data) {
+  if (!localAccountData) {
     return (
       <View className="relative">
         <Button
@@ -73,7 +75,7 @@ export const AccountSelectorAvatar = () => {
           onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}>
           <LogIn className="text-foreground" />
         </Button>
-        {isPending && (
+        {authSessionIsPending && (
           <Button
             variant="ghost"
             size="icon"
@@ -86,7 +88,28 @@ export const AccountSelectorAvatar = () => {
     );
   }
 
-  return <LoggedInUserAvatar user={{ name: data.user.name, image: data.user.image }} />;
+  if (!authSessionData) {
+    return (
+      <View className="relative">
+        <LoggedInUserAvatar user={{ name: localAccountData.name, image: localAccountData.image }} />
+        {authSessionIsPending && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
+            className="absolute inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90 rounded-md">
+            <Spinner size={3} />
+          </Button>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <LoggedInUserAvatar
+      user={{ name: authSessionData.user.name, image: authSessionData.user.image }}
+    />
+  );
 };
 
 const upsertLibrary = (
@@ -856,10 +879,10 @@ const AccountList = () => {
             {accounts.data.map((account, index) => (
               <Account
                 className={index === accounts.data.length - 1 ? '' : 'border-b'}
-                key={account.instanceID}
-                instanceID={account.instanceID}
+                key={account.instanceId}
+                instanceId={account.instanceId}
                 instanceURL={account.instanceURL}
-                instanceUserID={account.userID}
+                instanceUserId={account.userId}
                 instanceUsername={account.username}
                 instanceEmail={account.email}
                 instanceName={account.name}
@@ -889,25 +912,25 @@ const AccountList = () => {
 
 const Account = ({
   className,
-  instanceID,
+  instanceId,
   instanceURL,
-  instanceUserID,
+  instanceUserId,
   instanceUsername,
   instanceName,
   instanceImage,
 }: {
   className?: string;
-  instanceID: number;
+  instanceId: number;
   instanceURL: string;
-  instanceUserID: string;
+  instanceUserId: string;
   instanceUsername: string;
   instanceEmail: string;
   instanceName: string;
   instanceImage?: string;
 }) => {
   const authClient = useMemo(
-    () => createInstanceAuthClient(instanceID.toString(), instanceURL),
-    [instanceID, instanceURL]
+    () => createInstanceAuthClient(instanceId.toString(), instanceURL),
+    [instanceId, instanceURL]
   );
   const { data, isPending } = useAuthSession(authClient);
 
@@ -920,9 +943,9 @@ const Account = ({
       )}
       onPress={() => {
         instanceStore.trigger.recreateAuthInstance({
-          instanceID: instanceID.toString(),
+          instanceId: instanceId.toString(),
           instanceURL,
-          instanceUserID,
+          instanceUserId,
         });
         accountSelectorModalStore.trigger.dismissAccountSelectorModal();
       }}>
