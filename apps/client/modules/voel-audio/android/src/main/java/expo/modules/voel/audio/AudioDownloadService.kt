@@ -49,7 +49,6 @@ class VoelAudioDownloadService :
   override fun onCreate() {
     super.onCreate()
 
-    dlManager.maxParallelDownloads = 3
     dlManager.addListener(object : DownloadManager.Listener {
       var nextNotificationId = 2
 
