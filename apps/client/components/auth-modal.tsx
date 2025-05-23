@@ -164,7 +164,7 @@ const switchInstance = async (
 function SignInTab({
   bottomSheetModalRef,
 }: {
-  bottomSheetModalRef: RefObject<BottomSheetModal | null>;
+  bottomSheetModalRef: RefObject<BottomSheetModalType | null>;
 }) {
   const currentInstanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const currentInstanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
