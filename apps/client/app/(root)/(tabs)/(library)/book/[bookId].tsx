@@ -216,7 +216,7 @@ export default function BookScreen() {
 
               <AccordionItem value="files">
                 <AccordionTrigger>
-                  <Text className="font-semibold">Files</Text>
+                  <Text className="font-semibold">Files ({data.files.length})</Text>
                 </AccordionTrigger>
                 <AccordionContent>
                   <BookFiles files={data.files} />
@@ -672,10 +672,10 @@ const BookChapters = ({
     <Tabs value={currentTab} onValueChange={setCurrentTab}>
       <TabsList className="mb-4 w-full flex-row">
         <TabsTrigger value="audible" className="flex-1">
-          <Text>Audible</Text>
+          <Text>Audible ({chapters.audible.length})</Text>
         </TabsTrigger>
         <TabsTrigger value="file" className="flex-1">
-          <Text>File</Text>
+          <Text>File ({chapters.file.length})</Text>
         </TabsTrigger>
       </TabsList>
       <TabsContent value="audible">
