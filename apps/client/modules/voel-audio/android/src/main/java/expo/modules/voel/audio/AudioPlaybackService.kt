@@ -29,9 +29,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-const val AUDIO_FILES_DOWNLOAD_PATH = "VoelAudioDownloadCache"
-const val AUDIO_CACHE_STREAM_PATH = "VoelAudioStreamCache"
-
 class VoelAudioPlaybackService : MediaSessionService() {
   private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
   lateinit var exoPlayer: ExoPlayer
