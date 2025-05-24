@@ -83,7 +83,7 @@ export default function PlayerScreen() {
               disabled={!Player.canSkipToPrevious()}>
               <SkipBack className="h-full text-foreground fill-foreground group-active:opacity-80" />
             </Button>
-            {playerStatus.playbackState === 'ready' ? (
+            {playerStatus.playbackState === 'buffering' ? (
               <View className="h-10 w-10 flex items-center justify-center">
                 <Spinner size={5} />
               </View>

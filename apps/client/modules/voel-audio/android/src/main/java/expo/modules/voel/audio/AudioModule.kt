@@ -222,6 +222,16 @@ class VoelAudioModule : Module() {
       }
     }
 
+    Function("canSkipToPrevious") {
+      runOnMain {
+        if (player.controller.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) {
+          player.controller.hasPreviousMediaItem()
+        } else {
+          false
+        }
+      }
+    }
+
     Function("skipToNext") {
       runOnMain {
         if (player.controller.availableCommands.contains(
