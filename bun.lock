@@ -129,7 +129,7 @@
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.4.0",
         "globals": "16.1.0",
-        "kysely-ctl": "0.13.0",
+        "kysely-ctl": "0.13.1",
         "prettier": "3.5.3",
         "tough-cookie": "5.1.2",
         "typescript-eslint": "8.32.1",
@@ -1635,7 +1635,7 @@
 
     "kysely": ["kysely@0.28.2", "", {}, "sha512-4YAVLoF0Sf0UTqlhgQMFU9iQECdah7n+13ANkiuVfRvlK+uI0Etbgd7bVP36dKlG+NXWbhGua8vnGt+sdhvT7A=="],
 
-    "kysely-ctl": ["kysely-ctl@0.13.0", "", { "dependencies": { "c12": "^3.0.4", "citty": "^0.1.6", "consola": "^3.4.2", "jiti": "^2.4.2", "nypm": "^0.6.0", "ofetch": "^1.4.1", "pathe": "^2.0.3", "pkg-types": "^2.1.0", "std-env": "^3.9.0" }, "peerDependencies": { "kysely": ">=0.18.1 <0.29.0", "kysely-postgres-js": "^2" }, "optionalPeers": ["kysely-postgres-js"], "bin": { "kysely": "dist/bin.js" } }, "sha512-BhOWbbmcoQBo5hBTRt4XX7idO0nIIpJ0sYyDGTOV3zL/NWT9trYOXHa4G37I9WpSI5HgyaSdkXlCxmwj0ru6ew=="],
+    "kysely-ctl": ["kysely-ctl@0.13.1", "", { "dependencies": { "c12": "^3.0.4", "citty": "^0.1.6", "consola": "^3.4.2", "jiti": "^2.4.2", "nypm": "^0.6.0", "ofetch": "^1.4.1", "pathe": "^2.0.3", "pkg-types": "^2.1.0", "std-env": "^3.9.0" }, "peerDependencies": { "kysely": ">=0.18.1 <0.29.0", "kysely-postgres-js": "^2" }, "optionalPeers": ["kysely-postgres-js"], "bin": { "kysely": "dist/bin.js" } }, "sha512-DhTgpt1ru3Y74rI8O3IRLJ5HV09vMSz4q2KEeqaUX0GYMB09zO1KsdwSsF+ZMa8bHeS4F4J3Vjfbc4ulJQ1r0A=="],
 
     "lan-network": ["lan-network@0.1.6", "", { "bin": { "lan-network": "dist/lan-network-cli.js" } }, "sha512-0qPYjNoD89v+bfhkIqFBYGBAof1xhxLqjX8bkNN1kQdP81UHpZw5TDXgEjwB+X2iCFGQmzF8TRmvg4vQcykyDA=="],
 
