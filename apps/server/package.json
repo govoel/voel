@@ -10,7 +10,7 @@
   "dependencies": {
     "@better-auth/expo": "1.2.8",
     "@hono/trpc-server": "0.3.4",
-    "@t3-oss/env-core": "0.13.4",
+    "@t3-oss/env-core": "0.13.6",
     "@trpc/server": "11.1.2",
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
