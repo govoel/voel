@@ -24,7 +24,7 @@
     "thumbhash": "0.1.1",
     "turndown": "7.2.0",
     "xstate": "5.19.3",
-    "zod": "3.24.4"
+    "zod": "3.25.36"
   },
   "devDependencies": {
     "@eslint/js": "9.27.0",
