@@ -7,18 +7,18 @@
   },
   "module": "index.ts",
   "devDependencies": {
-    "@eslint/js": "9.27.0",
+    "@eslint/js": "9.28.0",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
-    "bun-types": "1.2.14",
-    "eslint": "9.27.0",
+    "bun-types": "1.2.15",
+    "eslint": "9.28.0",
     "eslint-config-prettier": "10.1.5",
-    "eslint-plugin-prettier": "5.4.0",
-    "globals": "16.1.0",
+    "eslint-plugin-prettier": "5.4.1",
+    "globals": "16.2.0",
     "prettier": "3.5.3",
-    "typescript-eslint": "8.32.1"
+    "typescript-eslint": "8.33.1"
   },
   "peerDependencies": {
     "typescript": "^5",
-    "zod": "3.24.2"
+    "zod": "3.25.55"
   }
 }
