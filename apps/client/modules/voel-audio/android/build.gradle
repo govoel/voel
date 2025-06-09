@@ -72,7 +72,7 @@ repositories {
 }
 
 dependencies {
-  implementation 'androidx.appcompat:appcompat:1.7.0'
+  implementation 'androidx.appcompat:appcompat:1.7.1'
 
   def androidxMedia3Version = "1.7.1"
   implementation "androidx.media3:media3-session:${androidxMedia3Version}"
