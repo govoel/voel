@@ -10,7 +10,7 @@
   "dependencies": {
     "@better-auth/expo": "1.2.8",
     "@hono/trpc-server": "0.3.4",
-    "@t3-oss/env-core": "0.13.6",
+    "@t3-oss/env-core": "0.13.7",
     "@trpc/server": "11.3.1",
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
@@ -24,7 +24,7 @@
     "thumbhash": "0.1.1",
     "turndown": "7.2.0",
     "xstate": "5.19.4",
-    "zod": "3.25.55"
+    "zod": "3.25.56"
   },
   "devDependencies": {
     "@eslint/js": "9.28.0",
@@ -39,7 +39,7 @@
     "kysely-ctl": "0.13.1",
     "prettier": "3.5.3",
     "tough-cookie": "5.1.2",
-    "typescript-eslint": "8.33.1"
+    "typescript-eslint": "8.34.0"
   },
   "module": "src/index.ts"
 }
