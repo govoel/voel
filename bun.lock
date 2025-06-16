@@ -123,7 +123,7 @@
         "@eslint/js": "9.28.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
         "@types/turndown": "5.0.5",
-        "axios": "1.9.0",
+        "axios": "1.10.0",
         "bun-types": "1.2.15",
         "eslint": "9.28.0",
         "eslint-config-prettier": "10.1.5",
@@ -941,7 +941,7 @@
 
     "available-typed-arrays": ["available-typed-arrays@1.0.7", "", { "dependencies": { "possible-typed-array-names": "^1.0.0" } }, "sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ=="],
 
-    "axios": ["axios@1.9.0", "", { "dependencies": { "follow-redirects": "^1.15.6", "form-data": "^4.0.0", "proxy-from-env": "^1.1.0" } }, "sha512-re4CqKTJaURpzbLHtIi6XpDv20/CnpXOtjRY5/CU32L8gU8ek9UIivcfvSWvmKEngmVbrUtPpdDwWDWL7DNHvg=="],
+    "axios": ["axios@1.10.0", "", { "dependencies": { "follow-redirects": "^1.15.6", "form-data": "^4.0.0", "proxy-from-env": "^1.1.0" } }, "sha512-/1xYAC4MP/HEG+3duIhFr4ZQXR4sQXOIe+o6sdqzeykGLx6Upp/1p8MHqhINOvGeP7xyNHe7tsiJByc4SSVUxw=="],
 
     "babel-jest": ["babel-jest@29.7.0", "", { "dependencies": { "@jest/transform": "^29.7.0", "@types/babel__core": "^7.1.14", "babel-plugin-istanbul": "^6.1.1", "babel-preset-jest": "^29.6.3", "chalk": "^4.0.0", "graceful-fs": "^4.2.9", "slash": "^3.0.0" }, "peerDependencies": { "@babel/core": "^7.8.0" } }, "sha512-BrvGY3xZSwEcCzKvKsCi2GgHqDqsYkOP4/by5xCgIwGXQxIEh+8ew3gmrE1y7XRR6LHZIj6yLYnUi/mm2KXKBg=="],
 
