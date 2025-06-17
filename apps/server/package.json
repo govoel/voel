@@ -11,7 +11,7 @@
     "@better-auth/expo": "1.2.9",
     "@hono/trpc-server": "0.3.4",
     "@t3-oss/env-core": "0.13.8",
-    "@trpc/server": "11.4.1",
+    "@trpc/server": "11.3.1",
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
     "better-auth": "1.2.9",
