@@ -20,9 +20,12 @@ export type AudioFile = {
 };
 
 export type AudioDownload = {
-  id: number;
   uri: string;
+  fileId: number;
   filePath: string;
+  bookId: number;
+  bookTitle: string;
+  bookAuthors: string;
 };
 
 export type AudioStatus = {
@@ -41,6 +44,20 @@ export type AudioStatus = {
   playbackRate: number;
   shouldCorrectPitch: boolean;
   errorCode: number | null;
+};
+
+export type AudioDownloadStatus = {
+  id: string;
+  state: number;
+  paused: boolean;
+  bytesDownloaded: number;
+  percentDownloaded: number;
+  contentLength: number;
+  failureReason: number;
+  isTerminalState: boolean;
+  stopReason: number;
+  startTimeMs: number;
+  updateTimeMs: number;
 };
 
 export type PlaybackHistory = {
@@ -80,11 +97,27 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   skipToNext(): void;
   skipToPrevious(): void;
   setPlaybackRate(rate: number): void;
+  startDownloadUpdates(): void;
+  getDownload(fileId: string): AudioDownloadStatus | null;
+  getDownloads(instanceId: string, fileIds: string[]): Record<string, AudioDownloadStatus>;
+  getAllDownloads(instanceId: string): Record<string, AudioDownloadStatus>;
   addDownloads(instanceId: string, files: AudioDownload[]): void;
   removeDownloads(instanceId: string, fileIds: number[]): void;
+  pauseDownloads(): void;
+  resumeDownloads(): void;
 }
 
 export type AudioEvents = {
   playbackStatusUpdate(status: AudioStatus): void;
   playbackHistoryUpdate(events: PlaybackHistoryUpdateEvent): void;
+  downloadStatusUpdate(events: {
+    events: (
+      | ({ type: 'changed' } & AudioDownloadStatus)
+      | ({ type: 'removed' } & Pick<AudioDownloadStatus, 'id'>)
+      | ({ type: 'progress' } & Pick<
+          AudioDownloadStatus,
+          'id' | 'bytesDownloaded' | 'contentLength' | 'percentDownloaded'
+        >)
+    )[];
+  }): void;
 };

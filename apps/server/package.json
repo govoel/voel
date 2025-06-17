@@ -8,13 +8,13 @@
     "format": "eslint . --fix && prettier . --write"
   },
   "dependencies": {
-    "@better-auth/expo": "1.2.8",
+    "@better-auth/expo": "1.2.9",
     "@hono/trpc-server": "0.3.4",
-    "@t3-oss/env-core": "0.13.7",
-    "@trpc/server": "11.3.1",
+    "@t3-oss/env-core": "0.13.8",
+    "@trpc/server": "11.4.1",
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
-    "better-auth": "1.2.8",
+    "better-auth": "1.2.9",
     "hono": "4.7.11",
     "kysely": "0.28.2",
     "mime": "4.0.7",
@@ -24,22 +24,22 @@
     "thumbhash": "0.1.1",
     "turndown": "7.2.0",
     "xstate": "5.19.4",
-    "zod": "3.25.56"
+    "zod": "3.25.67"
   },
   "devDependencies": {
-    "@eslint/js": "9.28.0",
+    "@eslint/js": "9.29.0",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
     "@types/turndown": "5.0.5",
-    "axios": "1.9.0",
-    "bun-types": "1.2.15",
-    "eslint": "9.28.0",
+    "axios": "1.10.0",
+    "bun-types": "1.2.16",
+    "eslint": "9.29.0",
     "eslint-config-prettier": "10.1.5",
-    "eslint-plugin-prettier": "5.4.1",
+    "eslint-plugin-prettier": "5.5.0",
     "globals": "16.2.0",
     "kysely-ctl": "0.13.1",
     "prettier": "3.5.3",
     "tough-cookie": "5.1.2",
-    "typescript-eslint": "8.34.0"
+    "typescript-eslint": "8.34.1"
   },
   "module": "src/index.ts"
 }

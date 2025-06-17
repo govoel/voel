@@ -52,17 +52,15 @@ class VoelAudioPlaybackService : MediaSessionService() {
     mediaSourceFactory =
       DefaultMediaSourceFactory(
         CacheDataSource.Factory()
-          .setCache(
-            AudioSingletonHolder.getDownloadSimpleCache(this)
-          )
+          .setCache(AudioSingletonHolder.getDownloadSimpleCache(this))
           .setCacheWriteDataSinkFactory(null)
           .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
           .setUpstreamDataSourceFactory(
             CacheDataSource.Factory()
-              .setCache(
-                AudioSingletonHolder.getStreamSimpleCache(this)
+              .setCache(AudioSingletonHolder.getStreamSimpleCache(this))
+              .setUpstreamDataSourceFactory(
+                OkHttpDataSource.Factory(AudioSingletonHolder.httpClient)
               )
-              .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(AudioSingletonHolder.httpClient))
               .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
           )
       )
@@ -77,7 +75,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
             .setUsage(C.USAGE_MEDIA)
             .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_ALL)
             .build(),
-          true
+          true,
         )
         .build()
 
@@ -85,7 +83,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
       object : ForwardingSimpleBasePlayer(exoPlayer) {
         override fun handleAddMediaItems(
           index: Int,
-          mediaItems: MutableList<MediaItem>
+          mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<*> {
           exoPlayer.addMediaSources(index, createMediaSources(mediaItems))
           return Futures.immediateVoidFuture()
@@ -94,7 +92,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
         override fun handleSetMediaItems(
           mediaItems: MutableList<MediaItem>,
           startIndex: Int,
-          startPositionMs: Long
+          startPositionMs: Long,
         ): ListenableFuture<*> {
           val mediaSources = createMediaSources(mediaItems)
           recordPosition(player, EVENT_TYPE_BOOK_CHANGE)
@@ -105,7 +103,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
         override fun handleSeek(
           mediaItemIndex: Int,
           positionMs: Long,
-          seekCommand: Int
+          seekCommand: Int,
         ): ListenableFuture<*> {
           recordPosition(player, EVENT_TYPE_SEEK_START)
           val superReturn = super.handleSeek(mediaItemIndex, positionMs, seekCommand)
@@ -113,14 +111,9 @@ class VoelAudioPlaybackService : MediaSessionService() {
           return superReturn
         }
 
-        override fun handleSetPlayWhenReady(
-          playWhenReady: Boolean
-        ): ListenableFuture<*> {
+        override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
           val superReturn = super.handleSetPlayWhenReady(playWhenReady)
-          recordPosition(
-            player,
-            if (playWhenReady) EVENT_TYPE_PLAY else EVENT_TYPE_PAUSE
-          )
+          recordPosition(player, if (playWhenReady) EVENT_TYPE_PLAY else EVENT_TYPE_PAUSE)
           return superReturn
         }
 
@@ -147,8 +140,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
       if (files.size < 2) {
         mediaSourceFactory.createMediaSource(mediaItem)
       } else {
-        val instanceId =
-          mediaItem.mediaMetadata.extras!!.getString("instanceId")
+        val instanceId = mediaItem.mediaMetadata.extras!!.getString("instanceId")
         ConcatenatingMediaSource2.Builder()
           .apply {
             files.mapIndexed { index, file ->
@@ -156,27 +148,25 @@ class VoelAudioPlaybackService : MediaSessionService() {
                 mediaSourceFactory.createMediaSource(
                   MediaItem.Builder()
                     .setUri(file.uri.toUri())
-                    .setCustomCacheKey(
-                      "${instanceId}-${file.id}"
-                    )
+                    .setCustomCacheKey("${instanceId}-${file.id}")
                     .build()
                 )
 
               if (index == 0 || index == files.size - 1) {
                 val clipStartPositionMs =
-                  if (index == 0)
-                    mediaItem.clippingConfiguration.startPositionMs
-                  else 0
+                  if (index == 0) mediaItem.clippingConfiguration.startPositionMs else 0
                 val clipEndPositionMs =
                   if (index == 0) file.durationMs
-                  else mediaItem.clippingConfiguration.endPositionMs - (files.sumOf { it.durationMs } - files.last().durationMs)
+                  else
+                    mediaItem.clippingConfiguration.endPositionMs -
+                      (files.sumOf { it.durationMs } - files.last().durationMs)
 
                 add(
                   ClippingMediaSource.Builder(concatMediaSource)
                     .setStartPositionMs(clipStartPositionMs)
                     .setEndPositionMs(clipEndPositionMs)
                     .build(),
-                  clipEndPositionMs - clipStartPositionMs
+                  clipEndPositionMs - clipStartPositionMs,
                 )
               } else {
                 add(concatMediaSource, file.durationMs)
@@ -206,7 +196,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
         absolutePositionMs +=
           if (window.durationMs == C.TIME_UNSET) {
             window.mediaItem.clippingConfiguration.endPositionMs -
-                window.mediaItem.clippingConfiguration.startPositionMs
+              window.mediaItem.clippingConfiguration.startPositionMs
           } else window.durationMs
       }
 
@@ -216,7 +206,7 @@ class VoelAudioPlaybackService : MediaSessionService() {
           bookId = bookId,
           type = eventType,
           positionMs = absolutePositionMs,
-          eventTimestampMs = eventTime
+          eventTimestampMs = eventTime,
         )
 
       serviceScope.launch {

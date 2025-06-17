@@ -1,0 +1,148 @@
+import { useSelector } from '@xstate/store/react';
+import { Link, Stack } from 'expo-router';
+import { useState } from 'react';
+import { FlatList, View } from 'react-native';
+
+import { AutoMarquee } from '~/components/auto-marquee';
+import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { Image } from '~/components/image';
+import { Spinner } from '~/components/spinner';
+import { TitleWithRefetch } from '~/components/title-with-refetch';
+import { AspectRatio } from '~/components/ui/aspect-ratio';
+import { Button, ButtonWithLoading } from '~/components/ui/button';
+import { Card, CardContent, CardFooter } from '~/components/ui/card';
+import { Text } from '~/components/ui/text';
+import { Large, Muted } from '~/components/ui/typography';
+
+import api from '~/lib/api';
+import { ChevronRight } from '~/lib/icons/ChevronRight';
+import { instanceStore } from '~/lib/stores/instance';
+import { cn, formatBytes } from '~/lib/utils';
+
+import Player, { useDownloadStatus } from '~/modules/voel-audio';
+
+export default function SettingsDownloadsScreen() {
+  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
+  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+  const downloads = useDownloadStatus(instanceId ?? '0');
+
+  const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
+  const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
+
+  const { data, error, refetch, isLoading } = api.books.getByFileIds.useQuery(
+    instanceDb,
+    Object.keys(downloads)
+  );
+
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Downloads' }} />
+      <FloatingPlayerDodgingLayout>
+        <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
+          All Downloads
+        </TitleWithRefetch>
+        {Object.values(downloads).some((d) => !d.isTerminalState) ? (
+          Object.values(downloads).some((d) => d.paused) ? (
+            <ButtonWithLoading
+              viewClassName="mt-2"
+              variant="secondary"
+              isLoading={isResumeDownloadsLoading}
+              onPress={() => {
+                Player.setCookie(authInstance.getCookie());
+                Player.resumeDownloads();
+                setIsResumeDownloadsLoading(true);
+                setIsPauseDownloadsLoading(false);
+              }}>
+              <Text>Resume all downloads</Text>
+            </ButtonWithLoading>
+          ) : (
+            <ButtonWithLoading
+              viewClassName="mt-2"
+              variant="secondary"
+              isLoading={isPauseDownloadsLoading}
+              onPress={() => {
+                Player.pauseDownloads();
+                setIsPauseDownloadsLoading(true);
+                setIsResumeDownloadsLoading(false);
+              }}>
+              <Text>Pause all downloads</Text>
+            </ButtonWithLoading>
+          )
+        ) : null}
+        <Card className="mt-4">
+          {error ? (
+            <>
+              <CardContent className="pt-4">
+                <Large>Error loading books</Large>
+                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => refetch()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </>
+          ) : data ? (
+            <FlatList
+              data={data}
+              keyExtractor={(item) => `download-book-${item.id}`}
+              scrollEnabled={false}
+              renderItem={({ item, index }) => (
+                <Link
+                  href={{
+                    pathname: '/(root)/(tabs)/(library)/book/[bookId]',
+                    params: { bookId: item.id },
+                  }}
+                  asChild
+                  push>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40',
+                      index !== 0 ? 'border-t border-foreground/15' : ''
+                    )}>
+                    <View className="flex-1 flex-row items-center justify-center gap-x-2">
+                      <AspectRatio ratio={1 / 1} className="h-full">
+                        <Image
+                          className="h-full w-full rounded-md"
+                          source={{
+                            uri: item.cover ?? undefined,
+                            thumbhash: item.coverThumbhash ?? undefined,
+                          }}
+                        />
+                      </AspectRatio>
+                      <View className="flex-1">
+                        <AutoMarquee spacing={20} speed={0.3}>
+                          <Text>{item.title}</Text>
+                        </AutoMarquee>
+                        <AutoMarquee spacing={20} speed={0.3}>
+                          <Muted>{item.authors.map((author) => author.name).join(', ')}</Muted>
+                        </AutoMarquee>
+                        <Muted>
+                          {formatBytes(
+                            item.files.reduce((a, c) => a + downloads[c.id].bytesDownloaded, 0)
+                          )}
+                        </Muted>
+                      </View>
+                    </View>
+                    <ChevronRight className="ml-2 text-muted-foreground" size={20} />
+                  </Button>
+                </Link>
+              )}
+              ListEmptyComponent={
+                <View className="flex flex-col items-center justify-center p-8">
+                  <Text className="text-center">No downloads found</Text>
+                </View>
+              }
+            />
+          ) : (
+            <CardContent className="p-12 justify-center items-center">
+              <Spinner size={15} />
+            </CardContent>
+          )}
+        </Card>
+      </FloatingPlayerDodgingLayout>
+    </>
+  );
+}

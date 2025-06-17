@@ -5,16 +5,16 @@
 {
   "languages": {
     "Kotlin": {
-      "format_on_save": "language_server"
-    }
-  },
-  "lsp": {
-    "kotlin-language-server": {
-      "settings": {
-        "compiler": {
-          "jvm": {
-            "target": "17"
-          }
+      "language_servers": ["kotlin-lsp"],
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "ktfmt",
+          "arguments": [
+            "--google-style",
+            "--stdin-name={buffer_path}",
+            "-"
+          ]
         }
       }
     }

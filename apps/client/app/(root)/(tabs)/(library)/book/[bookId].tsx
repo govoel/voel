@@ -1,8 +1,10 @@
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { cssInterop } from 'nativewind';
 import { useMemo, useRef, useState } from 'react';
 import { FlatList, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
@@ -20,13 +22,13 @@ import { Badge } from '~/components/ui/badge';
 import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button, ButtonWithLoading } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
+import { Progress } from '~/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
 import { H2, Large, Muted, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { BookCopy } from '~/lib/icons/BookCopy';
-import { Download } from '~/lib/icons/Download';
 import { FilePenLine } from '~/lib/icons/FilePenLine';
 import { History } from '~/lib/icons/History';
 import { Languages } from '~/lib/icons/Languages';
@@ -36,50 +38,20 @@ import { Play } from '~/lib/icons/Play';
 import { Timer } from '~/lib/icons/Timer';
 import { UserPen } from '~/lib/icons/UserPen';
 import { instanceStore } from '~/lib/stores/instance';
-import { cn } from '~/lib/utils';
+import { cn, formatBytes, formatDuration, formatTime } from '~/lib/utils';
 
-import Player, { type AudioSource, replaceAudioSources } from '~/modules/voel-audio';
+import Player, {
+  type AudioSource,
+  replaceAudioSources,
+  useDownloadStatus,
+} from '~/modules/voel-audio';
 
-const formatTime = (timeMs: number) => {
-  const sec = Math.floor(timeMs / 1000);
-  const s = sec % 60;
-  const m = Math.floor((sec % 3600) / 60);
-  const h = Math.floor(sec / 3600);
-
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
-
-const formatDuration = (durationMs: number, type: 'short' | 'long' = 'long') => {
-  const sec = Math.floor(durationMs / 1000);
-  const s = sec % 60;
-  const m = Math.floor((sec % 3600) / 60);
-  const h = Math.floor(sec / 3600);
-
-  if (type === 'short') {
-    const str = [h > 0 ? `${h}h` : null, m > 0 ? `${m}m` : null, s > 0 ? `${s}s` : null]
-      .filter((i) => i !== null)
-      .join(' ');
-
-    if (str.length > 0) return str;
-    return `${durationMs}ms`;
-  }
-
-  const str = [h > 0 ? `${h} hrs` : null, m > 0 ? `${m} min` : null, s > 0 ? `${s} sec` : null]
-    .filter((i) => i !== null)
-    .join(' ');
-
-  if (str.length > 0) return str;
-
-  return `${durationMs} ms`;
-};
+const SvgInterop = cssInterop(Svg, { className: 'style' });
 
 export default function BookScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
 
-  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
   const { data, error, refetch } = api.books.get.useQuery(instanceDb, parseInt(bookId, 10));
 
   return (
@@ -116,22 +88,14 @@ export default function BookScreen() {
             ) : null}
 
             <View className="flex flex-row flex-wrap gap-x-2 items-center">
-              <Button
-                variant="secondary"
-                className="text-secondary-foreground"
-                onPress={() => {
-                  Player.setCookie(authInstance.getCookie());
-                  Player.addDownloads(
-                    instanceId ?? '0',
-                    data.files.map((file) => ({
-                      id: file.id,
-                      uri: `${instanceURL}/api/v1/files/${file.id}`,
-                      filePath: file.path,
-                    }))
-                  );
-                }}>
-                <Download className="text-secondary-foreground" size="20" />
-              </Button>
+              <ManageDownloads
+                book={{
+                  id: data.id,
+                  title: data.title,
+                  authors: data.authors.map((a) => a.name).join(', '),
+                }}
+                files={data.files}
+              />
               <PlaybackHistory bookId={data.id} />
               <BookPlayButton bookId={data.id} />
             </View>
@@ -211,15 +175,6 @@ export default function BookScreen() {
                 </AccordionTrigger>
                 <AccordionContent>
                   <BookChapters bookId={data.id} chapters={data.chapters} />
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="files">
-                <AccordionTrigger>
-                  <Text className="font-semibold">Files ({data.files.length})</Text>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <BookFiles files={data.files} />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -465,6 +420,242 @@ const playBookFrom = (
   }
 };
 
+const ManageDownloads = ({
+  book,
+  files,
+}: {
+  book: { id: number; title: string; authors: string };
+  files: { id: number; path: string; disc: number; track: number; durationMs: number }[];
+}) => {
+  const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
+  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+
+  const [isRemoveDownloadsLoading, setIsRemoveDownloadsLoading] = useState(false);
+  const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
+  const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
+  const [isDownloadFilesLoading, setIsDownloadFilesLoading] = useState(false);
+
+  const downloads = useDownloadStatus(
+    instanceId ?? '0',
+    files.map((file) => file.id)
+  );
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        className="text-secondary-foreground w-10 native:w-12 p-0 native:p-0"
+        onPress={() => {
+          bottomSheetModalRef.current?.present();
+        }}>
+        <View className="absolute inset-0 flex justify-center items-center">
+          <SvgInterop
+            className="text-muted-foreground/20"
+            width={24}
+            height={24}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round">
+            <Circle cx="50%" cy="50%" r="10" />
+          </SvgInterop>
+        </View>
+        <SvgInterop
+          className="text-secondary-foreground"
+          width={24}
+          height={24}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.75}
+          strokeLinecap="round"
+          strokeLinejoin="round">
+          <Circle
+            cx="50%"
+            cy="50%"
+            r="10"
+            strokeWidth={3}
+            strokeDasharray={2 * Math.PI * 10}
+            strokeDashoffset={
+              2 *
+              Math.PI *
+              10 *
+              (1 -
+                Object.values(downloads).reduce(
+                  (a, c) => a + (c.contentLength === -1 ? 0 : c.bytesDownloaded / c.contentLength),
+                  0
+                ) /
+                  files.length)
+            }
+            transform="rotate(-90 12 12)"
+          />
+          <Path d="M12 8v8" />
+          <Path d="m8 12 4 4 4-4" />
+        </SvgInterop>
+      </Button>
+
+      <BottomSheetModal ref={bottomSheetModalRef} snapPoints={['95%']}>
+        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <Large>Manage Downloads</Large>
+          <Muted className="text-sm mb-4">
+            {formatBytes(Object.values(downloads).reduce((a, c) => a + c.bytesDownloaded, 0))}{' '}
+            downloaded
+          </Muted>
+
+          {Object.keys(downloads).length > 0 ? (
+            <>
+              <ButtonWithLoading
+                viewClassName="mb-1"
+                variant="destructive"
+                isLoading={isRemoveDownloadsLoading}
+                onPress={() => {
+                  Player.removeDownloads(
+                    instanceId ?? '0',
+                    files.map((file) => file.id)
+                  );
+                  setIsRemoveDownloadsLoading(true);
+                  setIsResumeDownloadsLoading(false);
+                  setIsPauseDownloadsLoading(false);
+                  setIsDownloadFilesLoading(false);
+                }}>
+                <Text>Delete book files</Text>
+              </ButtonWithLoading>
+              {Object.values(downloads).some((d) => d.paused) ? (
+                <ButtonWithLoading
+                  viewClassName="mb-1"
+                  variant="secondary"
+                  isLoading={isResumeDownloadsLoading}
+                  onPress={() => {
+                    Player.setCookie(authInstance.getCookie());
+                    Player.resumeDownloads();
+                    setIsResumeDownloadsLoading(true);
+                    setIsRemoveDownloadsLoading(false);
+                    setIsPauseDownloadsLoading(false);
+                    setIsDownloadFilesLoading(false);
+                  }}>
+                  <Text>Resume all downloads</Text>
+                </ButtonWithLoading>
+              ) : (
+                <ButtonWithLoading
+                  viewClassName="mb-1"
+                  variant="secondary"
+                  isLoading={isPauseDownloadsLoading}
+                  onPress={() => {
+                    Player.pauseDownloads();
+                    setIsPauseDownloadsLoading(true);
+                    setIsResumeDownloadsLoading(false);
+                    setIsRemoveDownloadsLoading(false);
+                    setIsDownloadFilesLoading(false);
+                  }}>
+                  <Text>Pause all downloads</Text>
+                </ButtonWithLoading>
+              )}
+            </>
+          ) : (
+            <ButtonWithLoading
+              viewClassName="mb-1"
+              variant="secondary"
+              isLoading={isDownloadFilesLoading}
+              onPress={() => {
+                Player.setCookie(authInstance.getCookie());
+                Player.addDownloads(
+                  instanceId ?? '0',
+                  files.map((file) => ({
+                    uri: `${instanceURL}/api/v1/files/${file.id}`,
+                    fileId: file.id,
+                    filePath: file.path,
+                    bookId: book.id,
+                    bookTitle: book.title,
+                    bookAuthors: book.authors,
+                  }))
+                );
+                setIsDownloadFilesLoading(true);
+                setIsPauseDownloadsLoading(false);
+                setIsResumeDownloadsLoading(false);
+                setIsRemoveDownloadsLoading(false);
+              }}>
+              <Text>Download all files</Text>
+            </ButtonWithLoading>
+          )}
+
+          <FlatList
+            data={files}
+            keyExtractor={(item) => item.id.toString()}
+            scrollEnabled={false}
+            renderItem={({ item, index }) => (
+              <Card className={index === 0 ? '' : 'mt-4'}>
+                <CardContent className="px-4 py-2">
+                  <View className="flex flex-row flex-wrap gap-2">
+                    <Badge variant="outline">
+                      <Text>{formatDuration(item.durationMs)}</Text>
+                    </Badge>
+                    <Badge variant="outline">
+                      <Text>Disc {item.disc}</Text>
+                    </Badge>
+                    <Badge variant="outline">
+                      <Text>Track {item.track}</Text>
+                    </Badge>
+                  </View>
+                  <Small className="pt-2 leading-snug">{item.path}</Small>
+                  {item.id in downloads ? (
+                    <>
+                      <Progress
+                        className="mt-2"
+                        value={
+                          downloads[item.id].contentLength === -1
+                            ? 0
+                            : (downloads[item.id].bytesDownloaded /
+                                downloads[item.id].contentLength) *
+                              100
+                        }
+                      />
+                      <Small className="mt-2 text-center leading-snug">
+                        {downloads[item.id].state === 0
+                          ? 'Queued'
+                          : downloads[item.id].state === 1
+                            ? 'Stopped'
+                            : downloads[item.id].state === 2
+                              ? 'In progress'
+                              : downloads[item.id].state === 3
+                                ? 'Completed'
+                                : downloads[item.id].state === 4
+                                  ? 'Failed'
+                                  : downloads[item.id].state === 5
+                                    ? 'Removing'
+                                    : downloads[item.id].state === 6
+                                      ? 'Restarting'
+                                      : ''}{' '}
+                        / {formatBytes(downloads[item.id].bytesDownloaded)} /{' '}
+                        {downloads[item.id].contentLength === -1
+                          ? 0.0
+                          : (
+                              (downloads[item.id].bytesDownloaded /
+                                downloads[item.id].contentLength) *
+                              100
+                            ).toFixed(2)}
+                        %
+                      </Small>
+                    </>
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
+            ListEmptyComponent={() => (
+              <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
+                <Text className="text-center">No files found</Text>
+              </View>
+            )}
+          />
+        </View>
+      </BottomSheetModal>
+    </>
+  );
+};
+
 const BookPlayButton = ({ bookId }: { bookId: number }) => {
   const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
@@ -544,7 +735,7 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
     <>
       <Button
         variant="secondary"
-        className="text-secondary-foreground"
+        className="text-secondary-foreground w-10 native:w-12 p-0 native:p-0"
         onPress={() => {
           bottomSheetModalRef.current?.present();
         }}>
@@ -801,43 +992,6 @@ const ChapterList = ({
       ListEmptyComponent={() => (
         <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
           <Text className="text-center">No chapters found</Text>
-        </View>
-      )}
-    />
-  );
-};
-
-const BookFiles = ({
-  files,
-}: {
-  files: { id: number; path: string; disc: number; track: number; durationMs: number }[];
-}) => {
-  return (
-    <FlatList
-      data={files}
-      keyExtractor={(item) => item.id.toString()}
-      scrollEnabled={false}
-      renderItem={({ item, index }) => (
-        <Card className={index === 0 ? '' : 'mt-4'}>
-          <CardContent className="px-4 py-2">
-            <View className="flex flex-row flex-wrap gap-2">
-              <Badge variant="outline">
-                <Text>{formatDuration(item.durationMs)}</Text>
-              </Badge>
-              <Badge variant="outline">
-                <Text>Disc {item.disc}</Text>
-              </Badge>
-              <Badge variant="outline">
-                <Text>Track {item.track}</Text>
-              </Badge>
-            </View>
-            <Small className="pt-2 leading-snug">{item.path}</Small>
-          </CardContent>
-        </Card>
-      )}
-      ListEmptyComponent={() => (
-        <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
-          <Text className="text-center">No files found</Text>
         </View>
       )}
     />

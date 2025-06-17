@@ -92,7 +92,7 @@ const get = {
                   eb.val('avatar'),
                   eb.ref('author.avatar'),
                   eb.val('avatarThumbhash'),
-                  eb.val('author.avatarThumbhash'),
+                  eb.ref('author.avatarThumbhash'),
                 ]),
               ])
               .as('authors'),
@@ -457,4 +457,118 @@ const getPlaybackHistory = {
   },
 };
 
-export { list, get, getPlaybackPosition, getPlaybackHistory };
+const getByFileIds = {
+  queryKey: ['instance', 'book', 'getByFileIds'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>, fileIds: string[]) => {
+    return useReactQuery({
+      queryKey: [...getByFileIds.queryKey, { fileIds }],
+      networkMode: 'always',
+      queryFn: async () => {
+        // we don't filter by deletedAt on purpose to allow the UI to show a cleanup button
+        let authorSubquery = instanceDb
+          .selectFrom('bookAuthor')
+          .innerJoin('author', (join) => join.onRef('author.id', '=', 'bookAuthor.authorId'))
+          .select((eb) => [
+            'bookAuthor.bookId',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn<string>('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                  eb.val('avatar'),
+                  eb.ref('author.avatar'),
+                  eb.val('avatarThumbhash'),
+                  eb.ref('author.avatarThumbhash'),
+                  eb.val('deletedAt'),
+                  eb.ref('author.deletedAt'),
+                ]),
+              ])
+              .as('authors'),
+          ])
+          .groupBy('bookAuthor.bookId')
+          .as('authorData');
+
+        let filesSubquery = instanceDb
+          .selectFrom('audiobookFile')
+          .select((eb) => [
+            'audiobookFile.bookId as bookId',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn<string>('json_object', [
+                  eb.val('id'),
+                  eb.ref('audiobookFile.id'),
+                  eb.val('durationMs'),
+                  eb.ref('audiobookFile.durationMs'),
+                  eb.val('disc'),
+                  eb.ref('audiobookFile.disc'),
+                  eb.val('track'),
+                  eb.ref('audiobookFile.track'),
+                  eb.val('libraryId'),
+                  eb.ref('audiobookFile.libraryId'),
+                  eb.val('path'),
+                  eb.ref('audiobookFile.path'),
+                  eb.val('deletedAt'),
+                  eb.ref('audiobookFile.deletedAt'),
+                ]),
+              ])
+              .as('files'),
+          ])
+          .groupBy('audiobookFile.bookId')
+          .as('fileData');
+
+        let query = instanceDb
+          .with('searchFiles', (db) =>
+            db
+              .selectFrom('audiobookFile')
+              .where('audiobookFile.id', 'in', fileIds)
+              .select(['audiobookFile.bookId'])
+              .distinct()
+          )
+          .selectFrom('book')
+          .select([
+            'book.id',
+            'book.asin',
+            'book.title',
+            'book.subtitle',
+            'book.cover',
+            'book.coverThumbhash',
+            'book.summary',
+            'book.adultsOnly',
+            'book.createdAt',
+            'book.updatedAt',
+            'book.deletedAt',
+          ])
+          .where((eb) =>
+            eb.and([eb('book.id', 'in', eb.selectFrom('searchFiles').select('searchFiles.bookId'))])
+          )
+          .leftJoin(filesSubquery, (join) => join.onRef('book.id', '=', 'fileData.bookId'))
+          .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
+          .select(['authorData.authors', 'fileData.files']);
+
+        const results = await query.execute();
+
+        return results.map((result) => ({
+          ...result,
+          authors: result.authors
+            ? (JSON.parse(result.authors) as Pick<
+                Selectable<InstanceDatabase['author']>,
+                'id' | 'name' | 'avatar' | 'avatarThumbhash' | 'deletedAt'
+              >[])
+            : [],
+          files: result.files
+            ? (
+                JSON.parse(result.files) as Pick<
+                  Selectable<InstanceDatabase['audiobookFile']>,
+                  'id' | 'durationMs' | 'disc' | 'track' | 'libraryId' | 'path' | 'deletedAt'
+                >[]
+              ).sort((a, b) => a.disc - b.disc || a.track - b.track)
+            : [],
+        }));
+      },
+    });
+  },
+};
+
+export { list, get, getPlaybackPosition, getPlaybackHistory, getByFileIds };

@@ -29,13 +29,13 @@ const RadioGroupItem = ({
     <RadioGroupPrimitive.Item
       ref={ref}
       className={cn(
-        'native:h-[18] native:w-[18] aspect-square h-[16px] w-[16px] items-center justify-center rounded-full border border-primary text-primary web:ring-offset-background web:focus:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
+        'native:h-[18] native:w-[18] aspect-square h-[16px] w-[16px] items-center justify-center rounded-full border border-muted-foreground text-muted-foreground web:ring-offset-background web:focus:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
         props.disabled && 'opacity-50 web:cursor-not-allowed',
         className
       )}
       {...props}>
       <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-        <View className="native:h-[10] native:w-[10] aspect-square h-[9px] w-[9px] rounded-full bg-primary" />
+        <View className="native:h-[10] native:w-[10] aspect-square h-[9px] w-[9px] rounded-full bg-muted-foreground" />
       </RadioGroupPrimitive.Indicator>
     </RadioGroupPrimitive.Item>
   );
