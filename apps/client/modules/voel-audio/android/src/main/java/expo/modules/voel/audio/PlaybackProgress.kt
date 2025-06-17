@@ -26,18 +26,17 @@ abstract class PlaybackHistoryDatabase : RoomDatabase() {
   abstract fun playbackHistoryDao(): PlaybackHistoryDao
 
   companion object {
-    @Volatile
-    private var instances = mutableMapOf<String, PlaybackHistoryDatabase>()
+    @Volatile private var instances = mutableMapOf<String, PlaybackHistoryDatabase>()
 
     fun getDatabase(context: Context, instanceId: String): PlaybackHistoryDatabase {
       return instances[instanceId]
         ?: synchronized(this) {
           val instanceDb =
             Room.databaseBuilder(
-              context.applicationContext,
-              PlaybackHistoryDatabase::class.java,
-              "VoelPlaybackHistory-${instanceId}.db"
-            )
+                context.applicationContext,
+                PlaybackHistoryDatabase::class.java,
+                "VoelPlaybackHistory-${instanceId}.db",
+              )
               .build()
           instances[instanceId] = instanceDb
           return instanceDb
@@ -52,16 +51,14 @@ data class PlaybackHistory(
   @ColumnInfo(name = "type") val type: Int,
   @ColumnInfo(name = "bookId") val bookId: Long,
   @ColumnInfo(name = "positionMs") val positionMs: Long,
-  @ColumnInfo(name = "eventTimestampMs") val eventTimestampMs: Long
+  @ColumnInfo(name = "eventTimestampMs") val eventTimestampMs: Long,
 )
 
 @Dao
 interface PlaybackHistoryDao {
-  @Insert(onConflict = OnConflictStrategy.REPLACE)
-  suspend fun insert(vararg event: PlaybackHistory)
+  @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insert(vararg event: PlaybackHistory)
 
-  @Delete
-  suspend fun delete(vararg event: PlaybackHistory)
+  @Delete suspend fun delete(vararg event: PlaybackHistory)
 
   @Query("DELETE FROM playbackHistory WHERE eventTimestampMs <= :timestamp")
   suspend fun deleteEventsOlderThan(timestamp: Long)

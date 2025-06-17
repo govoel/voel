@@ -33,7 +33,7 @@ class VoelAudioPlayer(
   val context: Context,
   appContext: AppContext,
   private val updateInterval: Double,
-  private val emitEvent: (String, Map<String, Any?>) -> Unit
+  private val emitEvent: (String, Map<String, Any?>) -> Unit,
 ) : AutoCloseable, SharedObject(appContext) {
   var preservesPitch = true
   var isMuted = false
@@ -48,6 +48,7 @@ class VoelAudioPlayer(
 
   val currentTime
     get() = controller.currentPosition / 1000f
+
   val duration
     get() = if (controller.duration != C.TIME_UNSET) controller.duration / 1000f else 0L
 
@@ -68,7 +69,7 @@ class VoelAudioPlayer(
         addPlayerListeners()
         startUpdating()
       },
-      MoreExecutors.directExecutor()
+      MoreExecutors.directExecutor(),
     )
   }
 
@@ -142,11 +143,11 @@ class VoelAudioPlayer(
     updateJob?.cancel()
     updateJob =
       flow {
-        while (true) {
-          emit(Unit)
-          delay(updateInterval.toLong())
+          while (true) {
+            emit(Unit)
+            delay(updateInterval.toLong())
+          }
         }
-      }
         .onEach { sendPlayerUpdate() }
         .launchIn(playerScope)
   }
@@ -165,12 +166,7 @@ class VoelAudioPlayer(
 
         override fun onPlaybackStateChanged(playbackState: Int) {
           playerScope.launch {
-            sendPlayerUpdate(
-              mapOf(
-                "playbackState" to
-                    playbackStateToString(playbackState)
-              )
-            )
+            sendPlayerUpdate(mapOf("playbackState" to playbackStateToString(playbackState)))
           }
         }
 
@@ -219,12 +215,11 @@ class VoelAudioPlayer(
       "playing" to controller.isPlaying,
       "loop" to isLooping,
       "didJustFinish" to (controller.playbackState == Player.STATE_ENDED),
-      "isLoaded" to
-          if (controller.playbackState == Player.STATE_ENDED) true else isLoaded,
+      "isLoaded" to if (controller.playbackState == Player.STATE_ENDED) true else isLoaded,
       "playbackRate" to controller.playbackParameters.speed,
       "shouldCorrectPitch" to preservesPitch,
       "isBuffering" to isBuffering,
-      "errorCode" to controller.getPlayerError()?.errorCode
+      "errorCode" to controller.getPlayerError()?.errorCode,
     )
   }
 }

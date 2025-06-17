@@ -63,13 +63,17 @@ export default function SettingsIndexScreen() {
             </View>
             <ChevronRight className="text-muted-foreground" size="20" />
           </Button>
-          <Button variant="ghost" className="flex-row justify-between rounded-none bg-secondary/40">
-            <View className="flex-row gap-x-2">
-              <Download className="text-muted-foreground" size="20" />
-              <Text>Download</Text>
-            </View>
-            <ChevronRight className="text-muted-foreground" size="20" />
-          </Button>
+          <Link href="/settings/downloads" asChild push>
+            <Button
+              variant="ghost"
+              className="flex-row justify-between rounded-none bg-secondary/40">
+              <View className="flex-row gap-x-2">
+                <Download className="text-muted-foreground" size="20" />
+                <Text>Downloads</Text>
+              </View>
+              <ChevronRight className="text-muted-foreground" size="20" />
+            </Button>
+          </Link>
         </View>
 
         {data && data.user.role === 'admin' && (
