@@ -49,10 +49,10 @@ export default function SettingsDownloadsScreen() {
               variant="secondary"
               isLoading={isResumeDownloadsLoading}
               onPress={() => {
-                Player.setCookie(authInstance.getCookie());
-                Player.resumeDownloads();
                 setIsResumeDownloadsLoading(true);
                 setIsPauseDownloadsLoading(false);
+                Player.setCookie(authInstance.getCookie());
+                Player.resumeDownloads();
               }}>
               <Text>Resume all downloads</Text>
             </ButtonWithLoading>
@@ -62,9 +62,9 @@ export default function SettingsDownloadsScreen() {
               variant="secondary"
               isLoading={isPauseDownloadsLoading}
               onPress={() => {
-                Player.pauseDownloads();
                 setIsPauseDownloadsLoading(true);
                 setIsResumeDownloadsLoading(false);
+                Player.pauseDownloads();
               }}>
               <Text>Pause all downloads</Text>
             </ButtonWithLoading>
