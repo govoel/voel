@@ -404,37 +404,23 @@ class VoelAudioModule : Module() {
     }
 
     Function("addDownloads") { instanceId: String, files: List<AudioDownload> ->
-      appContext.reactContext?.let {
+      appContext.reactContext?.let { context ->
         if (
-          it.applicationContext.applicationInfo.targetSdkVersion >= Build.VERSION_CODES.TIRAMISU &&
+          context.applicationContext.applicationInfo.targetSdkVersion >=
+            Build.VERSION_CODES.TIRAMISU &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !NotificationManagerCompat.from(it).areNotificationsEnabled()
+            !NotificationManagerCompat.from(context).areNotificationsEnabled()
         ) {
-          appContext.permissions?.askForPermissions(null, Manifest.permission.POST_NOTIFICATIONS)
-        }
-      }
-      files.map { file ->
-        val downloadId = "${instanceId}-${file.fileId}"
-
-        DownloadService.sendAddDownload(
-          appContext.throwingActivity.applicationContext,
-          VoelAudioDownloadService::class.java,
-          DownloadRequest.Builder(downloadId, file.uri.toUri())
-            .setCustomCacheKey(downloadId)
-            .setData(
-              AudioDownloadData(
-                  instanceId = instanceId,
-                  fileId = file.fileId,
-                  bookId = file.bookId,
-                  bookTitle = file.bookTitle,
-                  bookAuthors = file.bookAuthors,
-                )
-                .toByteArray()
+          appContext.permissions?.let { permissionManager ->
+            permissionManager.askForPermissions(
+              { sendAddDownloads(instanceId, files) },
+              Manifest.permission.POST_NOTIFICATIONS,
             )
-            .build(),
-          false,
-        )
-      }
+          } ?: run { sendAddDownloads(instanceId, files) }
+        } else {
+          sendAddDownloads(instanceId, files)
+        }
+      } ?: run { sendAddDownloads(instanceId, files) }
     }
 
     Function("resumeDownloads") {
@@ -462,6 +448,32 @@ class VoelAudioModule : Module() {
           false,
         )
       }
+    }
+  }
+
+  @OptIn(UnstableApi::class)
+  private fun sendAddDownloads(instanceId: String, files: List<AudioDownload>) {
+    files.forEach { file ->
+      val downloadId = "${instanceId}-${file.fileId}"
+
+      DownloadService.sendAddDownload(
+        appContext.throwingActivity.applicationContext,
+        VoelAudioDownloadService::class.java,
+        DownloadRequest.Builder(downloadId, file.uri.toUri())
+          .setCustomCacheKey(downloadId)
+          .setData(
+            AudioDownloadData(
+                instanceId = instanceId,
+                fileId = file.fileId,
+                bookId = file.bookId,
+                bookTitle = file.bookTitle,
+                bookAuthors = file.bookAuthors,
+              )
+              .toByteArray()
+          )
+          .build(),
+        false,
+      )
     }
   }
 
