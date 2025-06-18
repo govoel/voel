@@ -679,7 +679,7 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
             currentPlaybackPosition,
             authInstance.getCookie(),
             instanceId ?? '0',
-            instanceURL ?? 'http://voel.local'
+            instanceURL ?? 'http://0.0.0.0'
           );
         }}>
         {currentPlaybackPosition > 0 ? (
@@ -777,7 +777,7 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
                         item.positionMs,
                         authInstance.getCookie(),
                         instanceId ?? '0',
-                        instanceURL ?? 'http://voel.local'
+                        instanceURL ?? 'http://0.0.0.0'
                       );
                     }}>
                     <Play className="text-muted-foreground mr-2" size={16} />
@@ -934,7 +934,7 @@ const ChapterList = ({
                         : chapterEndTimes[index - 1],
                     authInstance.getCookie(),
                     instanceId ?? '0',
-                    instanceURL ?? 'http://voel.local',
+                    instanceURL ?? 'http://0.0.0.0',
                     source === 'audible'
                   );
                 }}>
