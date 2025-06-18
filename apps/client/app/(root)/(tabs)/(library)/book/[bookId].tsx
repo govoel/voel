@@ -513,14 +513,14 @@ const ManageDownloads = ({
                 variant="destructive"
                 isLoading={isRemoveDownloadsLoading}
                 onPress={() => {
-                  Player.removeDownloads(
-                    instanceId ?? '0',
-                    files.map((file) => file.id)
-                  );
                   setIsRemoveDownloadsLoading(true);
                   setIsResumeDownloadsLoading(false);
                   setIsPauseDownloadsLoading(false);
                   setIsDownloadFilesLoading(false);
+                  Player.removeDownloads(
+                    instanceId ?? '0',
+                    files.map((file) => file.id)
+                  );
                 }}>
                 <Text>Delete book files</Text>
               </ButtonWithLoading>
@@ -530,12 +530,12 @@ const ManageDownloads = ({
                   variant="secondary"
                   isLoading={isResumeDownloadsLoading}
                   onPress={() => {
-                    Player.setCookie(authInstance.getCookie());
-                    Player.resumeDownloads();
                     setIsResumeDownloadsLoading(true);
                     setIsRemoveDownloadsLoading(false);
                     setIsPauseDownloadsLoading(false);
                     setIsDownloadFilesLoading(false);
+                    Player.setCookie(authInstance.getCookie());
+                    Player.resumeDownloads();
                   }}>
                   <Text>Resume all downloads</Text>
                 </ButtonWithLoading>
@@ -545,11 +545,11 @@ const ManageDownloads = ({
                   variant="secondary"
                   isLoading={isPauseDownloadsLoading}
                   onPress={() => {
-                    Player.pauseDownloads();
                     setIsPauseDownloadsLoading(true);
                     setIsResumeDownloadsLoading(false);
                     setIsRemoveDownloadsLoading(false);
                     setIsDownloadFilesLoading(false);
+                    Player.pauseDownloads();
                   }}>
                   <Text>Pause all downloads</Text>
                 </ButtonWithLoading>
@@ -561,6 +561,10 @@ const ManageDownloads = ({
               variant="secondary"
               isLoading={isDownloadFilesLoading}
               onPress={() => {
+                setIsDownloadFilesLoading(true);
+                setIsPauseDownloadsLoading(false);
+                setIsResumeDownloadsLoading(false);
+                setIsRemoveDownloadsLoading(false);
                 Player.setCookie(authInstance.getCookie());
                 Player.addDownloads(
                   instanceId ?? '0',
@@ -573,10 +577,6 @@ const ManageDownloads = ({
                     bookAuthors: book.authors,
                   }))
                 );
-                setIsDownloadFilesLoading(true);
-                setIsPauseDownloadsLoading(false);
-                setIsResumeDownloadsLoading(false);
-                setIsRemoveDownloadsLoading(false);
               }}>
               <Text>Download all files</Text>
             </ButtonWithLoading>
