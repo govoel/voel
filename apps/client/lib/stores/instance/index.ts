@@ -124,7 +124,7 @@ export const instanceStore = createStore({
     instanceUserId: SecureStore.getItem('currentInstanceUserId'),
     ...createInstances(
       SecureStore.getItem('currentInstanceId') ?? '0',
-      SecureStore.getItem('currentInstanceURL') ?? 'http://voel.local'
+      SecureStore.getItem('currentInstanceURL') ?? 'http://0.0.0.0'
     ),
   },
   on: {
