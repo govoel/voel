@@ -1,4 +1,7 @@
-import { useQuery as useReactQuery } from '@tanstack/react-query';
+import {
+  useInfiniteQuery as useInfiniteReactQuery,
+  useQuery as useReactQuery,
+} from '@tanstack/react-query';
 import { useSelector } from '@xstate/store/react';
 import { Kysely, type Selectable } from 'kysely';
 import { useEffect, useState } from 'react';
@@ -62,6 +65,89 @@ const list = {
           >[],
         }));
       },
+    });
+  },
+  useInfinteQuery: (instanceDb: Kysely<InstanceDatabase>, pageSize: number = 10) => {
+    return useInfiniteReactQuery({
+      queryKey: [...list.queryKey, 'infinite', { pageSize }],
+      networkMode: 'always',
+      initialPageParam: null as { lastUpdatedAt: number; lastId: number } | null,
+      queryFn: async ({ pageParam }) => {
+        let query = instanceDb
+          .selectFrom('book')
+          .where('book.deletedAt', 'is', null)
+          .select([
+            'book.id',
+            'book.asin',
+            'book.title',
+            'book.subtitle',
+            'book.cover',
+            'book.coverThumbhash',
+            'book.summary',
+            'book.adultsOnly',
+            'book.createdAt',
+            'book.updatedAt',
+          ])
+          .leftJoin('bookAuthor', (join) =>
+            join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
+          )
+          .leftJoin('author', (join) =>
+            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
+          )
+          .groupBy('book.id')
+          .orderBy('book.updatedAt', 'desc')
+          .orderBy('book.id', 'desc')
+          .limit(pageSize + 1)
+          .select((eb) => [
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
+              ])
+              .as('authors'),
+          ]);
+
+        if (pageParam) {
+          query = query.where((eb) =>
+            eb.or([
+              eb('book.updatedAt', '<', pageParam.lastUpdatedAt),
+              eb.and([
+                eb('book.updatedAt', '=', pageParam.lastUpdatedAt),
+                eb('book.id', '<', pageParam.lastId),
+              ]),
+            ])
+          );
+        }
+
+        const results = await query.execute();
+
+        const hasNextPage = results.length > pageSize;
+
+        if (hasNextPage) {
+          results.length -= 1;
+        }
+
+        return {
+          items: results.map((result) => ({
+            ...result,
+            authors: (result.authors ? JSON.parse(result.authors) : []) as Pick<
+              Selectable<InstanceDatabase['author']>,
+              'id' | 'name'
+            >[],
+          })),
+          nextCursor: hasNextPage
+            ? {
+                lastUpdatedAt: results[results.length - 1].updatedAt,
+                lastId: results[results.length - 1].id,
+              }
+            : null,
+        };
+      },
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
     });
   },
 };
