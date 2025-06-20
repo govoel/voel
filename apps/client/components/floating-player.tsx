@@ -204,9 +204,9 @@ function FloatingPlayerImpl({
       <View className="rounded-md bg-muted overflow-hidden">
         <Link href="/player" asChild push>
           <Pressable className="flex-row items-center justify-stretch w-full flex-nowrap p-2">
-            <View className="flex-1 flex-row items-center justify-center gap-x-2">
+            <View className="flex-1 flex-row items-center justify-center gap-x-2 max-h-12">
               {currentTrack.artworkUri ? (
-                <AspectRatio ratio={1 / 1} className="h-12">
+                <AspectRatio ratio={1 / 1} className="h-full">
                   <Image
                     className="w-full h-full rounded-md"
                     source={{ uri: currentTrack.artworkUri }}
@@ -222,7 +222,7 @@ function FloatingPlayerImpl({
                 </AutoMarquee>
               </View>
             </View>
-            <View className="flex-none flex-row items-center justify-center gap-x-1 h-full pr-1">
+            <View className="flex-none flex-row items-center justify-center gap-x-1 h-full pr-1 pl-2">
               <Button
                 variant="ghost"
                 size="icon"
