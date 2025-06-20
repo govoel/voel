@@ -1,6 +1,7 @@
 package expo.modules.voel.audio
 
 import android.os.Build
+import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
@@ -18,9 +19,15 @@ import androidx.media3.exoplayer.source.ClippingMediaSource
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSession.ConnectionResult
+import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CompletableJob
@@ -29,6 +36,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+const val AUDIO_SESSION_COMMAND_STOP_PLAYBACK = "STOP_PLAYBACK"
+const val AUDIO_SESSION_COMMAND_SET_PLAYBACK_SPEED = "SET_PLAYBACK_SPEED"
+
+@UnstableApi
 class VoelAudioPlaybackService : MediaSessionService() {
   private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
   lateinit var exoPlayer: ExoPlayer
@@ -121,9 +132,122 @@ class VoelAudioPlaybackService : MediaSessionService() {
           recordPosition(player, EVENT_TYPE_SESSION_END)
           return super.handleRelease()
         }
+
+        override fun handleStop(): ListenableFuture<*> {
+          recordPosition(player, EVENT_TYPE_SESSION_END)
+          return super.handleStop()
+        }
       }
 
-    mediaSession = MediaSession.Builder(this, forwardingPlayer).build()
+    mediaSession =
+      MediaSession.Builder(this, forwardingPlayer)
+        .setMediaButtonPreferences(
+          ImmutableList.of(getPlaybackSpeedButton(exoPlayer.playbackParameters.speed), stopButton)
+        )
+        .setCallback(CustomMediaSessionCallback())
+        .build()
+  }
+
+  companion object {
+    val stopButton =
+      CommandButton.Builder(CommandButton.ICON_STOP)
+        .setDisplayName("Stop Playback")
+        .setSessionCommand(SessionCommand(AUDIO_SESSION_COMMAND_STOP_PLAYBACK, Bundle.EMPTY))
+        .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+        .build()
+  }
+
+  private fun getPlaybackSpeedButton(speed: Float): CommandButton {
+    val playbackSpeedIcon =
+      if (speed < 0.6f) {
+        CommandButton.ICON_PLAYBACK_SPEED_0_5
+      } else if (speed < 0.9f) {
+        CommandButton.ICON_PLAYBACK_SPEED_0_8
+      } else if (speed < 1.1f) {
+        CommandButton.ICON_PLAYBACK_SPEED_1_0
+      } else if (speed < 1.3f) {
+        CommandButton.ICON_PLAYBACK_SPEED_1_2
+      } else if (speed < 1.6f) {
+        CommandButton.ICON_PLAYBACK_SPEED_1_5
+      } else if (speed < 1.9f) {
+        CommandButton.ICON_PLAYBACK_SPEED_1_8
+      } else if (speed < 2.1f) {
+        CommandButton.ICON_PLAYBACK_SPEED_2_0
+      } else {
+        CommandButton.ICON_PLAYBACK_SPEED
+      }
+
+    return CommandButton.Builder(playbackSpeedIcon)
+      .setDisplayName("Playback Speed")
+      .setSessionCommand(SessionCommand(AUDIO_SESSION_COMMAND_SET_PLAYBACK_SPEED, Bundle.EMPTY))
+      .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+      .build()
+  }
+
+  private inner class CustomMediaSessionCallback : MediaSession.Callback {
+    @OptIn(UnstableApi::class)
+    override fun onConnect(
+      session: MediaSession,
+      controller: MediaSession.ControllerInfo,
+    ): MediaSession.ConnectionResult {
+      return AcceptedResultBuilder(session)
+        .setAvailableSessionCommands(
+          ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+            .add(SessionCommand(AUDIO_SESSION_COMMAND_STOP_PLAYBACK, Bundle.EMPTY))
+            .add(SessionCommand(AUDIO_SESSION_COMMAND_SET_PLAYBACK_SPEED, Bundle.EMPTY))
+            .build()
+        )
+        .build()
+    }
+
+    @OptIn(UnstableApi::class)
+    override fun onCustomCommand(
+      session: MediaSession,
+      controller: MediaSession.ControllerInfo,
+      customCommand: SessionCommand,
+      args: Bundle,
+    ): ListenableFuture<SessionResult> {
+      if (
+        customCommand.customAction == AUDIO_SESSION_COMMAND_STOP_PLAYBACK &&
+          session.player.availableCommands.contains(Player.COMMAND_STOP) &&
+          session.player.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+      ) {
+        session.player.stop()
+        session.player.clearMediaItems()
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+      } else if (
+        customCommand.customAction == AUDIO_SESSION_COMMAND_SET_PLAYBACK_SPEED &&
+          session.player.availableCommands.contains(Player.COMMAND_SET_SPEED_AND_PITCH)
+      ) {
+        // don't use exact values to avoid floating point precision issues
+        if (session.player.playbackParameters.speed < 0.6f) {
+          session.player.setPlaybackSpeed(0.8f)
+        } else if (session.player.playbackParameters.speed < 0.9f) {
+          session.player.setPlaybackSpeed(1.0f)
+        } else if (session.player.playbackParameters.speed < 1.1f) {
+          session.player.setPlaybackSpeed(1.2f)
+        } else if (session.player.playbackParameters.speed < 1.3f) {
+          session.player.setPlaybackSpeed(1.5f)
+        } else if (session.player.playbackParameters.speed < 1.6f) {
+          session.player.setPlaybackSpeed(1.8f)
+        } else if (session.player.playbackParameters.speed < 1.9f) {
+          session.player.setPlaybackSpeed(2.0f)
+        } else if (session.player.playbackParameters.speed < 2.1f) {
+          session.player.setPlaybackSpeed(0.5f)
+        } else {
+          session.player.setPlaybackSpeed(1.0f)
+        }
+
+        session.setMediaButtonPreferences(
+          ImmutableList.of(
+            getPlaybackSpeedButton(session.player.playbackParameters.speed),
+            stopButton,
+          )
+        )
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+      }
+      return super.onCustomCommand(session, controller, customCommand, args)
+    }
   }
 
   @OptIn(UnstableApi::class)
