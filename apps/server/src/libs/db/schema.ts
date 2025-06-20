@@ -128,6 +128,7 @@ export interface PlaybackHistoryTable {
   bookId: ColumnType<number, number, never>;
   positionMs: ColumnType<number, number, never>;
   eventTimestampMs: ColumnType<number, number, never>;
+  sessionId: ColumnType<string, string, never>;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
   deletedAt: ColumnType<number | null, never, number>;

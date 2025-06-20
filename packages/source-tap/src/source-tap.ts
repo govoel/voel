@@ -54,7 +54,7 @@ type SourceTapQueryId =
 export interface SourceTapEvents<DB> {
   update: (
     payload: {
-      [T in keyof DB]: { table: T; rows: DeepReadonly<Selectable<DB[T]>[]> };
+      [T in keyof DB]: { table: T; rows: Selectable<DB[T]>[] };
     }[keyof DB]
   ) => void;
 }
@@ -167,13 +167,13 @@ export class SourceTap<DB> implements KyselyPlugin {
             'update',
             {
               table: currentTable as keyof DB,
-              rows: listenerRows as unknown as DeepReadonly<Selectable<DB[keyof DB]>[]>,
+              rows: listenerRows as Selectable<DB[keyof DB]>[],
             },
           ]);
         } else {
           this.events.emit('update', {
             table: currentTable as keyof DB,
-            rows: listenerRows as unknown as DeepReadonly<Selectable<DB[keyof DB]>[]>,
+            rows: listenerRows as Selectable<DB[keyof DB]>[],
           });
         }
       }
@@ -372,41 +372,3 @@ class SourceTapTransformer extends OperationNodeTransformer {
     };
   }
 }
-
-type AnyArray<Type = unknown> = Array<Type> | ReadonlyArray<Type>;
-type Primitive = string | number | boolean | bigint | symbol | undefined | null;
-type Builtin = Primitive | Date | Error | RegExp;
-type IsTuple<Type> = Type extends readonly unknown[]
-  ? unknown[] extends Type
-    ? never
-    : Type
-  : never;
-type IsAny<Type> = 0 extends 1 & Type ? true : false;
-type IsUnknown<Type> = IsAny<Type> extends true ? false : unknown extends Type ? true : false;
-
-type DeepReadonly<Type> =
-  Type extends Exclude<Builtin, Error>
-    ? Type
-    : Type extends Map<infer Keys, infer Values>
-      ? ReadonlyMap<DeepReadonly<Keys>, DeepReadonly<Values>>
-      : Type extends ReadonlyMap<infer Keys, infer Values>
-        ? ReadonlyMap<DeepReadonly<Keys>, DeepReadonly<Values>>
-        : Type extends WeakMap<infer Keys, infer Values>
-          ? WeakMap<DeepReadonly<Keys>, DeepReadonly<Values>>
-          : Type extends Set<infer Values>
-            ? ReadonlySet<DeepReadonly<Values>>
-            : Type extends ReadonlySet<infer Values>
-              ? ReadonlySet<DeepReadonly<Values>>
-              : Type extends WeakSet<infer Values>
-                ? WeakSet<DeepReadonly<Values>>
-                : Type extends Promise<infer Value>
-                  ? Promise<DeepReadonly<Value>>
-                  : Type extends AnyArray<infer Values>
-                    ? Type extends IsTuple<Type>
-                      ? { readonly [Key in keyof Type]: DeepReadonly<Type[Key]> }
-                      : ReadonlyArray<DeepReadonly<Values>>
-                    : Type extends object
-                      ? { readonly [Key in keyof Type]: DeepReadonly<Type[Key]> }
-                      : IsUnknown<Type> extends true
-                        ? unknown
-                        : Readonly<Type>;

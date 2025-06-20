@@ -370,6 +370,7 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 )
                 .addColumn('positionMs', 'integer', (col) => col.notNull())
                 .addColumn('eventTimestampMs', 'integer', (col) => col.notNull())
+                .addColumn('sessionId', 'text', (col) => col.notNull())
                 .addColumn('createdAt', 'integer', (col) =>
                   col.defaultTo(sql`(unixepoch())`).notNull()
                 )

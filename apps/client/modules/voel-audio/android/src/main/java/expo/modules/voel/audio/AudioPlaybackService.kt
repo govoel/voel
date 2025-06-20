@@ -2,6 +2,7 @@ package expo.modules.voel.audio
 
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
@@ -30,6 +31,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import java.util.UUID
 import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +48,8 @@ class VoelAudioPlaybackService : MediaSessionService() {
   private var mediaSession: MediaSession? = null
   private lateinit var playbackHistoryJob: CompletableJob
   private lateinit var serviceScope: CoroutineScope
+
+  private val sessionId = UUID.randomUUID().toString()
 
   @OptIn(UnstableApi::class)
   override fun onCreate() {
@@ -331,10 +335,12 @@ class VoelAudioPlaybackService : MediaSessionService() {
           type = eventType,
           positionMs = absolutePositionMs,
           eventTimestampMs = eventTime,
+          sessionId = sessionId,
         )
 
       serviceScope.launch {
         val db = PlaybackHistoryDatabase.getDatabase(applicationContext, instanceId)
+        Log.d("VoelAudioPlaybackService", "${mediaSession?.id} -> Recording event: $event")
         db.playbackHistoryDao().insert(event)
       }
     }

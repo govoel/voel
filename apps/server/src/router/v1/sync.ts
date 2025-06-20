@@ -253,6 +253,7 @@ export const syncRouter = createTRPCRouter({
               'bookId',
               'positionMs',
               'eventTimestampMs',
+              'sessionId',
               'createdAt',
               'updatedAt',
               'deletedAt',
@@ -340,6 +341,7 @@ export const syncRouter = createTRPCRouter({
           bookId: z.number(),
           positionMs: z.number(),
           eventTimestampMs: z.number(),
+          sessionId: z.string(),
         })
       )
     )
@@ -353,6 +355,7 @@ export const syncRouter = createTRPCRouter({
             bookId: event.bookId,
             positionMs: event.positionMs,
             eventTimestampMs: event.eventTimestampMs,
+            sessionId: event.sessionId,
           }))
         )
         .onConflict((oc) =>
