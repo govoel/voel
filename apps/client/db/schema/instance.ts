@@ -140,6 +140,7 @@ export interface PlaybackHistoryTable<Version extends 'realtime' | 'regular' = '
   bookId: Regularize<ColumnType<number, number, number>, Version>;
   positionMs: Regularize<ColumnType<number, number, number>, Version>;
   eventTimestampMs: Regularize<ColumnType<number, number, number>, Version>;
+  sessionId: Regularize<ColumnType<string, string, string>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;

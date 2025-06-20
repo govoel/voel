@@ -328,6 +328,7 @@ const upsertPlaybackHistory = (
         bookId: (eb) => eb.ref('excluded.bookId'),
         positionMs: (eb) => eb.ref('excluded.positionMs'),
         eventTimestampMs: (eb) => eb.ref('excluded.eventTimestampMs'),
+        sessionId: (eb) => eb.ref('excluded.sessionId'),
         createdAt: (eb) => eb.ref('excluded.createdAt'),
         updatedAt: (eb) => eb.ref('excluded.updatedAt'),
         deletedAt: (eb) => eb.ref('excluded.deletedAt'),

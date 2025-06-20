@@ -363,13 +363,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addColumn('positionMs', 'integer', (col) => col.notNull())
     .addColumn('eventTimestampMs', 'integer', (col) => col.notNull())
-    .addUniqueConstraint('playbackHistory_userId_type_bookId_positionMs_eventTimestampMs_unique', [
-      'userId',
-      'type',
-      'bookId',
-      'positionMs',
-      'eventTimestampMs',
-    ])
+    .addColumn('sessionId', 'integer', (col) => col.notNull())
+    .addUniqueConstraint(
+      'playbackHistory_userId_type_bookId_positionMs_eventTimestampMs_sessionId_unique',
+      ['userId', 'type', 'bookId', 'positionMs', 'eventTimestampMs', 'sessionId']
+    )
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -388,7 +386,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER update_playbackHistory_updatedAt BEFORE UPDATE OF id, userId, type, bookId, positionMs, eventTimestampMs, deletedAt ON playbackHistory FOR EACH ROW
+  await sql`CREATE TRIGGER update_playbackHistory_updatedAt BEFORE UPDATE OF id, userId, type, bookId, positionMs, eventTimestampMs, sessionId, deletedAt ON playbackHistory FOR EACH ROW
               BEGIN
                 UPDATE playbackHistory SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
               END;`.execute(db);

@@ -52,6 +52,7 @@ data class PlaybackHistory(
   @ColumnInfo(name = "bookId") val bookId: Long,
   @ColumnInfo(name = "positionMs") val positionMs: Long,
   @ColumnInfo(name = "eventTimestampMs") val eventTimestampMs: Long,
+  @ColumnInfo(name = "sessionId") val sessionId: String,
 )
 
 @Dao

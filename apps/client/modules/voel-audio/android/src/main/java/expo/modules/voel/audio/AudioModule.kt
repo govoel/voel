@@ -17,6 +17,7 @@ import expo.modules.core.utilities.ifNull
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,7 +27,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlin.math.min
 
 const val AUDIO_EVENT_PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
 const val AUDIO_EVENT_PLAYBACK_HISTORY_UPDATE = "playbackHistoryUpdate"
@@ -137,6 +137,7 @@ class VoelAudioModule : Module() {
                         "bookId" to event.bookId,
                         "positionMs" to event.positionMs,
                         "eventTimestampMs" to event.eventTimestampMs,
+                        "sessionId" to event.sessionId,
                       )
                     },
                 )

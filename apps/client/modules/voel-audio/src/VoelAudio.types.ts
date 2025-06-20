@@ -66,6 +66,7 @@ export type PlaybackHistory = {
   bookId: number;
   positionMs: number;
   eventTimestampMs: number;
+  sessionId: string;
 };
 
 export type PlaybackHistoryUpdateEvent = {

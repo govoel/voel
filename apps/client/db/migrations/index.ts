@@ -51,7 +51,10 @@ export const useMigrations = (
     if (opts.type === 'main') {
       mainDbMigrator.migrateToLatest().then((results) => {
         if (results.error) {
-          dispatch({ type: 'error', error: results.error });
+          dispatch({
+            type: 'error',
+            error: results.error instanceof Error ? results.error : new Error('Unknown error'),
+          });
         } else {
           dispatch({ type: 'migrated', results });
         }
@@ -60,7 +63,10 @@ export const useMigrations = (
       const instanceDbMigrator = createInstanceDbMigrator(opts.db);
       instanceDbMigrator.migrateToLatest().then((results) => {
         if (results.error) {
-          dispatch({ type: 'error', error: results.error });
+          dispatch({
+            type: 'error',
+            error: results.error instanceof Error ? results.error : new Error('Unknown error'),
+          });
         } else {
           dispatch({ type: 'migrated', results });
         }
