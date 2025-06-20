@@ -363,7 +363,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addColumn('positionMs', 'integer', (col) => col.notNull())
     .addColumn('eventTimestampMs', 'integer', (col) => col.notNull())
-    .addColumn('sessionId', 'integer', (col) => col.notNull())
+    .addColumn('sessionId', 'text', (col) => col.notNull())
     .addUniqueConstraint(
       'playbackHistory_userId_type_bookId_positionMs_eventTimestampMs_sessionId_unique',
       ['userId', 'type', 'bookId', 'positionMs', 'eventTimestampMs', 'sessionId']
