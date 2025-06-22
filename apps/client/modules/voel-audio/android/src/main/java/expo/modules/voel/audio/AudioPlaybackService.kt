@@ -9,6 +9,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingSimpleBasePlayer
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.Clock
@@ -150,6 +151,17 @@ class VoelAudioPlaybackService : MediaSessionService() {
         )
         .setCallback(CustomMediaSessionCallback())
         .build()
+
+    forwardingPlayer.addListener(
+      object : Player.Listener {
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+          mediaSession?.setMediaButtonPreferences(
+            ImmutableList.of(getPlaybackSpeedButton(playbackParameters.speed), stopButton)
+          )
+          super.onPlaybackParametersChanged(playbackParameters)
+        }
+      }
+    )
   }
 
   companion object {
@@ -241,13 +253,6 @@ class VoelAudioPlaybackService : MediaSessionService() {
         } else {
           session.player.setPlaybackSpeed(1.0f)
         }
-
-        session.setMediaButtonPreferences(
-          ImmutableList.of(
-            getPlaybackSpeedButton(session.player.playbackParameters.speed),
-            stopButton,
-          )
-        )
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
       }
       return super.onCustomCommand(session, controller, customCommand, args)
