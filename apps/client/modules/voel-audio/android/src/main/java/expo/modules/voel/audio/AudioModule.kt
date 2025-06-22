@@ -258,6 +258,24 @@ class VoelAudioModule : Module() {
       }
     }
 
+    Function("seekToInCurrentMediaItem") { positionMs: Long ->
+      runOnMain {
+        if (
+          player.controller.availableCommands.contains(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+        ) {
+          player.controller.seekTo(positionMs)
+        }
+      }
+    }
+
+    Function("seekToMediaItem") { mediaItemIndex: Int, positionMs: Long ->
+      runOnMain {
+        if (player.controller.availableCommands.contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM)) {
+          player.controller.seekTo(mediaItemIndex, positionMs)
+        }
+      }
+    }
+
     Function("setPlaybackRate") { rate: Float ->
       appContext.mainQueue.launch {
         val playbackRate = if (rate < 0) 0f else min(rate, 2.0f)

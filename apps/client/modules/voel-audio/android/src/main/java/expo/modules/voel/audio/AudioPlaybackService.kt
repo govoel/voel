@@ -2,7 +2,6 @@ package expo.modules.voel.audio
 
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
@@ -175,19 +174,19 @@ class VoelAudioPlaybackService : MediaSessionService() {
 
   private fun getPlaybackSpeedButton(speed: Float): CommandButton {
     val playbackSpeedIcon =
-      if (speed < 0.6f) {
+      if (speed in 0.45f..0.55f) {
         CommandButton.ICON_PLAYBACK_SPEED_0_5
-      } else if (speed < 0.9f) {
+      } else if (speed in 0.75f..0.85f) {
         CommandButton.ICON_PLAYBACK_SPEED_0_8
-      } else if (speed < 1.1f) {
+      } else if (speed in 0.95f..1.05f) {
         CommandButton.ICON_PLAYBACK_SPEED_1_0
-      } else if (speed < 1.3f) {
+      } else if (speed in 1.15f..1.25f) {
         CommandButton.ICON_PLAYBACK_SPEED_1_2
-      } else if (speed < 1.6f) {
+      } else if (speed in 1.45f..1.55f) {
         CommandButton.ICON_PLAYBACK_SPEED_1_5
-      } else if (speed < 1.9f) {
+      } else if (speed in 1.75f..1.85f) {
         CommandButton.ICON_PLAYBACK_SPEED_1_8
-      } else if (speed < 2.1f) {
+      } else if (speed in 1.95f..2.05f) {
         CommandButton.ICON_PLAYBACK_SPEED_2_0
       } else {
         CommandButton.ICON_PLAYBACK_SPEED
@@ -345,7 +344,6 @@ class VoelAudioPlaybackService : MediaSessionService() {
 
       serviceScope.launch {
         val db = PlaybackHistoryDatabase.getDatabase(applicationContext, instanceId)
-        Log.d("VoelAudioPlaybackService", "${mediaSession?.id} -> Recording event: $event")
         db.playbackHistoryDao().insert(event)
       }
     }
