@@ -97,6 +97,8 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   canSkipToNext(): boolean;
   skipToNext(): void;
   skipToPrevious(): void;
+  seekToInCurrentMediaItem(positionMs: number): void;
+  seekToMediaItem(mediaItemIndex: number, positionMs: number): void;
   setPlaybackRate(rate: number): void;
   startDownloadUpdates(): void;
   getDownload(fileId: string): AudioDownloadStatus | null;
