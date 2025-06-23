@@ -23,7 +23,7 @@
     "@azure/core-asynciterator-polyfill": "1.0.2",
     "@better-auth/expo": "1.2.10",
     "@gorhom/bottom-sheet": "5.1.6",
-    "@op-engineering/op-sqlite": "14.0.4",
+    "@op-engineering/op-sqlite": "14.1.1",
     "@react-native-community/slider": "5.0.0",
     "@react-navigation/native": "^7.1.6",
     "@rn-primitives/accordion": "1.2.0",
