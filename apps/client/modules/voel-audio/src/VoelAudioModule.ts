@@ -5,9 +5,12 @@ import {
   type PlaybackHistoryUpdateEvent,
   VoelAudioModule,
 } from './VoelAudio.types';
+import { useQuery as useReactQuery } from '@tanstack/react-query';
 import { requireNativeModule, useEvent, useEventListener } from 'expo';
 import { produce } from 'immer';
 import { useEffect, useMemo, useState } from 'react';
+
+import { queryClient } from '~/lib/api/query-client';
 
 // This call loads the native module object from the JSI.
 const NativeVoelAudioModule = requireNativeModule<VoelAudioModule>('VoelAudio');
@@ -48,24 +51,25 @@ export async function deletePlaybackHistoryOlderThen(
   return NativeVoelAudioModule.deletePlaybackHistoryOlderThan(instanceId, timestamp);
 }
 
-export function useDownloadStatus(
-  instanceId: string,
-  fileIds: number[] = []
-): Record<string, AudioDownloadStatus> {
-  const fileIdsString = fileIds.join(',');
-  const stringifiedFileIds = useMemo(() => {
-    return fileIds.map((id) => id.toString());
-  }, [fileIdsString]);
-
-  const [downloads, setDownloads] = useState(() => {
-    return fileIds.length === 0
-      ? NativeVoelAudioModule.getAllDownloads(instanceId)
-      : NativeVoelAudioModule.getDownloads(instanceId, stringifiedFileIds);
+export function useDownloadStatus(instanceId: string, fileIds: number[] = []) {
+  const query = useReactQuery({
+    queryKey: ['downloadsStatus', { instanceId, fileIds }],
+    queryFn: () => {
+      if (fileIds.length === 0) {
+        return NativeVoelAudioModule.getAllDownloads(instanceId);
+      } else {
+        return NativeVoelAudioModule.getDownloads(
+          instanceId,
+          fileIds.map((id) => id.toString())
+        );
+      }
+    },
   });
 
   useEventListener(NativeVoelAudioModule, 'downloadStatusUpdate', ({ events }) => {
-    setDownloads(
-      produce((draft) => {
+    queryClient.setQueryData(
+      ['downloadsStatus', { instanceId, fileIds }],
+      produce((draft: Record<string, AudioDownloadStatus>) => {
         for (const event of events) {
           if (event.id.startsWith(`${instanceId}-`)) {
             const downloadId = event.id.split('-').pop();
@@ -89,10 +93,7 @@ export function useDownloadStatus(
                 draft[downloadId].stopReason = event.stopReason;
                 draft[downloadId].startTimeMs = event.startTimeMs;
                 draft[downloadId].updateTimeMs = event.updateTimeMs;
-              } else if (
-                stringifiedFileIds.includes(downloadId) ||
-                stringifiedFileIds.length === 0
-              ) {
+              } else if (fileIds.includes(parseInt(downloadId, 10)) || fileIds.length === 0) {
                 draft[downloadId] = {
                   id: event.id,
                   state: event.state,
@@ -124,15 +125,7 @@ export function useDownloadStatus(
     NativeVoelAudioModule.startDownloadUpdates();
   }, []);
 
-  useEffect(() => {
-    setDownloads(
-      stringifiedFileIds.length === 0
-        ? NativeVoelAudioModule.getAllDownloads(instanceId)
-        : NativeVoelAudioModule.getDownloads(instanceId, stringifiedFileIds)
-    );
-  }, [instanceId, stringifiedFileIds]);
-
-  return downloads;
+  return query;
 }
 
 export default NativeVoelAudioModule;

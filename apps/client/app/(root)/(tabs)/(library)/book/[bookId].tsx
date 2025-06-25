@@ -437,14 +437,21 @@ const ManageDownloads = ({
   const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
   const [isDownloadFilesLoading, setIsDownloadFilesLoading] = useState(false);
 
-  const downloads = useDownloadStatus(
+  const {
+    data: downloads,
+    error,
+    isLoading,
+    refetch: refetchDownloadsStatus,
+  } = useDownloadStatus(
     instanceId ?? '0',
     files.map((file) => file.id)
   );
 
   return (
     <>
-      <Button
+      <ButtonWithLoading
+        isLoading={isLoading}
+        spinnerSize={3}
         variant="secondary"
         className="text-secondary-foreground w-10 native:w-12 p-0 native:p-0"
         onPress={() => {
@@ -452,7 +459,7 @@ const ManageDownloads = ({
         }}>
         <View className="absolute inset-0 flex justify-center items-center">
           <SvgInterop
-            className="text-muted-foreground/20"
+            className={cn(error ? 'text-red-300/20' : 'text-muted-foreground/30')}
             width={24}
             height={24}
             viewBox="0 0 24 24"
@@ -464,49 +471,67 @@ const ManageDownloads = ({
             <Circle cx="50%" cy="50%" r="10" />
           </SvgInterop>
         </View>
-        <SvgInterop
-          className="text-secondary-foreground"
-          width={24}
-          height={24}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.75}
-          strokeLinecap="round"
-          strokeLinejoin="round">
-          <Circle
-            cx="50%"
-            cy="50%"
-            r="10"
-            strokeWidth={3}
-            strokeDasharray={2 * Math.PI * 10}
-            strokeDashoffset={
-              2 *
-              Math.PI *
-              10 *
-              (1 -
-                Object.values(downloads).reduce(
-                  (a, c) => a + (c.contentLength === -1 ? 0 : c.bytesDownloaded / c.contentLength),
-                  0
-                ) /
-                  files.length)
-            }
-            transform="rotate(-90 12 12)"
-          />
-          <Path d="M12 8v8" />
-          <Path d="m8 12 4 4 4-4" />
-        </SvgInterop>
-      </Button>
+        {downloads && (
+          <SvgInterop
+            className={cn(error ? 'text-red-300' : 'text-secondary-foreground')}
+            width={24}
+            height={24}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round">
+            <Circle
+              cx="50%"
+              cy="50%"
+              r="10"
+              strokeWidth={3}
+              strokeDasharray={2 * Math.PI * 10}
+              strokeDashoffset={
+                2 *
+                Math.PI *
+                10 *
+                (1 -
+                  Object.values(downloads).reduce(
+                    (a, c) =>
+                      a + (c.contentLength === -1 ? 0 : c.bytesDownloaded / c.contentLength),
+                    0
+                  ) /
+                    files.length)
+              }
+              transform="rotate(-90 12 12)"
+            />
+            <Path d="M12 8v8" />
+            <Path d="m8 12 4 4 4-4" />
+          </SvgInterop>
+        )}
+      </ButtonWithLoading>
 
       <BottomSheetModal ref={bottomSheetModalRef} snapPoints={['95%']}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large>Manage Downloads</Large>
-          <Muted className="text-sm mb-4">
-            {formatBytes(Object.values(downloads).reduce((a, c) => a + c.bytesDownloaded, 0))}{' '}
-            downloaded
-          </Muted>
+          {downloads ? (
+            <Muted className="text-sm mb-4">
+              {formatBytes(Object.values(downloads).reduce((a, c) => a + c.bytesDownloaded, 0))}{' '}
+              downloaded
+            </Muted>
+          ) : isLoading ? (
+            <Muted className="text-sm mb-4">Loading...</Muted>
+          ) : error ? (
+            <Button
+              variant="destructive"
+              onPress={() => {
+                refetchDownloadsStatus();
+              }}>
+              <View className="pl-2 flex justify-center items-center">
+                <Text>Couldn&rsquo;t load downloads status</Text>
+                <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
+              </View>
+            </Button>
+          ) : null}
 
-          {Object.keys(downloads).length > 0 ? (
+          {downloads && Object.keys(downloads).length > 0 ? (
             <>
               <ButtonWithLoading
                 viewClassName="mb-1"
@@ -581,7 +606,6 @@ const ManageDownloads = ({
               <Text>Download all files</Text>
             </ButtonWithLoading>
           )}
-
           <FlatList
             data={files}
             keyExtractor={(item) => item.id.toString()}
@@ -601,7 +625,7 @@ const ManageDownloads = ({
                     </Badge>
                   </View>
                   <Small className="pt-2 leading-snug">{item.path}</Small>
-                  {item.id in downloads ? (
+                  {downloads && item.id in downloads ? (
                     <>
                       <Progress
                         className="mt-2"
@@ -794,7 +818,7 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
                       refetchBook();
                     }}>
                     <OctagonAlert className="text-red-200 mr-2" size={16} />
-                    <View className="border-l border-input pl-2 flex justify-center items-center">
+                    <View className="border-l border-red-300 pl-2 flex justify-center items-center">
                       <Text>Couldn&rsquo;t load book</Text>
                       <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
                     </View>
@@ -963,7 +987,7 @@ const ChapterList = ({
                   refetchBook();
                 }}>
                 <OctagonAlert className="text-red-200 mr-2" size={16} />
-                <View className="border-l border-input pl-2 flex justify-center items-center">
+                <View className="border-l border-red-300 pl-2 flex justify-center items-center">
                   <Text>Couldn&rsquo;t load book</Text>
                   <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
                 </View>

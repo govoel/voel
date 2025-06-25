@@ -102,8 +102,8 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   setPlaybackRate(rate: number): void;
   startDownloadUpdates(): void;
   getDownload(fileId: string): AudioDownloadStatus | null;
-  getDownloads(instanceId: string, fileIds: string[]): Record<string, AudioDownloadStatus>;
-  getAllDownloads(instanceId: string): Record<string, AudioDownloadStatus>;
+  getDownloads(instanceId: string, fileIds: string[]): Promise<Record<string, AudioDownloadStatus>>;
+  getAllDownloads(instanceId: string): Promise<Record<string, AudioDownloadStatus>>;
   addDownloads(instanceId: string, files: AudioDownload[]): void;
   removeDownloads(instanceId: string, fileIds: number[]): void;
   pauseDownloads(): void;
