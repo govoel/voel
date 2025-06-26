@@ -54,7 +54,6 @@ export function Spinner({ size = 10 }: { size?: number }) {
   }));
 
   useEffect(() => {
-    // eslint-disable-next-line
     offset.value = 0;
     offset2.value = 0;
     offset3.value = 0;

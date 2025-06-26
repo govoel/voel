@@ -25,14 +25,18 @@ export default function SettingsDownloadsScreen() {
   const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const downloads = useDownloadStatus(instanceId ?? '0');
+  const {
+    data: downloads,
+    error: downloadError,
+    refetch: refetchDownloadsStatus,
+  } = useDownloadStatus(instanceId ?? '0');
 
   const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
   const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
 
   const { data, error, refetch, isLoading } = api.books.getByFileIds.useQuery(
     instanceDb,
-    Object.keys(downloads)
+    Object.keys(downloads ?? {})
   );
 
   return (
@@ -42,7 +46,7 @@ export default function SettingsDownloadsScreen() {
         <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
           All Downloads
         </TitleWithRefetch>
-        {Object.values(downloads).some((d) => !d.isTerminalState) ? (
+        {downloads && Object.values(downloads).some((d) => !d.isTerminalState) ? (
           Object.values(downloads).some((d) => d.paused) ? (
             <ButtonWithLoading
               viewClassName="mt-2"
@@ -70,6 +74,7 @@ export default function SettingsDownloadsScreen() {
             </ButtonWithLoading>
           )
         ) : null}
+
         <Card className="mt-4">
           {error ? (
             <>
@@ -83,7 +88,21 @@ export default function SettingsDownloadsScreen() {
                 </Button>
               </CardFooter>
             </>
-          ) : data ? (
+          ) : downloadError ? (
+            <>
+              <CardContent className="pt-4">
+                <Large>Error loading downloads</Large>
+                <Text className="text-muted-foreground">
+                  {downloadError.message || 'Unknown error'}
+                </Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => refetchDownloadsStatus()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </>
+          ) : data && downloads ? (
             <FlatList
               data={data}
               keyExtractor={(item) => `download-book-${item.id}`}

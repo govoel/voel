@@ -96,19 +96,21 @@ const ButtonWithLoading = ({
   ref,
   viewClassName,
   isLoading = false,
+  spinnerSize = 6,
   ...props
 }: ButtonProps & {
   ref?: React.RefObject<React.ComponentRef<typeof Pressable>>;
   viewClassName?: string;
   isLoading?: boolean;
+  spinnerSize?: number;
 }) => {
   return (
     <View className={cn(viewClassName, 'relative')}>
       <Button ref={ref} {...props} />
 
       {isLoading && (
-        <View className="absolute inset-0 flex items-center justify-center w-full h-full bg-muted/80 rounded-md">
-          <Spinner size={6} />
+        <View className="absolute inset-0 flex items-center justify-center w-full bg-muted/80 rounded-md">
+          <Spinner size={spinnerSize} />
         </View>
       )}
     </View>

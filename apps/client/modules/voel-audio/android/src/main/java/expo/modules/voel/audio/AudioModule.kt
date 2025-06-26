@@ -347,59 +347,61 @@ class VoelAudioModule : Module() {
       }
     }
 
-    Function("getAllDownloads") { instanceId: String ->
-      val downloads = mutableMapOf<String, AudioDownloadStatus>()
-      val downloadManager =
-        AudioSingletonHolder.getDownloadManager(appContext.throwingActivity.applicationContext)
-      val downloadCursor = downloadManager.downloadIndex.getDownloads()
-      while (downloadCursor.moveToNext()) {
-        if (downloadCursor.download.request.id.startsWith("${instanceId}-")) {
-          downloads[downloadCursor.download.request.id.removePrefix("${instanceId}-")] =
-            AudioDownloadStatus(
-              id = downloadCursor.download.request.id,
-              state = downloadCursor.download.state,
-              paused = downloadManager.downloadsPaused,
-              bytesDownloaded = downloadCursor.download.bytesDownloaded,
-              percentDownloaded = downloadCursor.download.percentDownloaded,
-              contentLength = downloadCursor.download.contentLength,
-              failureReason = downloadCursor.download.failureReason,
-              isTerminalState = downloadCursor.download.isTerminalState,
-              stopReason = downloadCursor.download.stopReason,
-              startTimeMs = downloadCursor.download.startTimeMs,
-              updateTimeMs = downloadCursor.download.updateTimeMs,
-            )
+    AsyncFunction("getAllDownloads") Coroutine
+      { instanceId: String ->
+        val downloads = mutableMapOf<String, AudioDownloadStatus>()
+        val downloadManager =
+          AudioSingletonHolder.getDownloadManager(appContext.throwingActivity.applicationContext)
+        val downloadCursor = downloadManager.downloadIndex.getDownloads()
+        while (downloadCursor.moveToNext()) {
+          if (downloadCursor.download.request.id.startsWith("${instanceId}-")) {
+            downloads[downloadCursor.download.request.id.removePrefix("${instanceId}-")] =
+              AudioDownloadStatus(
+                id = downloadCursor.download.request.id,
+                state = downloadCursor.download.state,
+                paused = downloadManager.downloadsPaused,
+                bytesDownloaded = downloadCursor.download.bytesDownloaded,
+                percentDownloaded = downloadCursor.download.percentDownloaded,
+                contentLength = downloadCursor.download.contentLength,
+                failureReason = downloadCursor.download.failureReason,
+                isTerminalState = downloadCursor.download.isTerminalState,
+                stopReason = downloadCursor.download.stopReason,
+                startTimeMs = downloadCursor.download.startTimeMs,
+                updateTimeMs = downloadCursor.download.updateTimeMs,
+              )
+          }
         }
+
+        return@Coroutine downloads
       }
 
-      return@Function downloads
-    }
+    AsyncFunction("getDownloads") Coroutine
+      { instanceId: String, fileIds: Array<String> ->
+        val downloads = mutableMapOf<String, AudioDownloadStatus>()
+        val downloadManager =
+          AudioSingletonHolder.getDownloadManager(appContext.throwingActivity.applicationContext)
 
-    Function("getDownloads") { instanceId: String, fileIds: Array<String> ->
-      val downloads = mutableMapOf<String, AudioDownloadStatus>()
-      val downloadManager =
-        AudioSingletonHolder.getDownloadManager(appContext.throwingActivity.applicationContext)
-
-      fileIds.forEach { fileId ->
-        downloadManager.downloadIndex.getDownload("${instanceId}-${fileId}")?.let { download ->
-          downloads[download.request.id.removePrefix("${instanceId}-")] =
-            AudioDownloadStatus(
-              id = download.request.id,
-              state = download.state,
-              paused = downloadManager.downloadsPaused,
-              bytesDownloaded = download.bytesDownloaded,
-              percentDownloaded = download.percentDownloaded,
-              contentLength = download.contentLength,
-              failureReason = download.failureReason,
-              isTerminalState = download.isTerminalState,
-              stopReason = download.stopReason,
-              startTimeMs = download.startTimeMs,
-              updateTimeMs = download.updateTimeMs,
-            )
+        fileIds.forEach { fileId ->
+          downloadManager.downloadIndex.getDownload("${instanceId}-${fileId}")?.let { download ->
+            downloads[download.request.id.removePrefix("${instanceId}-")] =
+              AudioDownloadStatus(
+                id = download.request.id,
+                state = download.state,
+                paused = downloadManager.downloadsPaused,
+                bytesDownloaded = download.bytesDownloaded,
+                percentDownloaded = download.percentDownloaded,
+                contentLength = download.contentLength,
+                failureReason = download.failureReason,
+                isTerminalState = download.isTerminalState,
+                stopReason = download.stopReason,
+                startTimeMs = download.startTimeMs,
+                updateTimeMs = download.updateTimeMs,
+              )
+          }
         }
-      }
 
-      return@Function downloads
-    }
+        return@Coroutine downloads
+      }
 
     Function("getDownload") { id: String ->
       val downloadManager =
