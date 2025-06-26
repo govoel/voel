@@ -17,7 +17,6 @@ import expo.modules.core.utilities.ifNull
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,11 +26,13 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlin.math.min
 
 const val AUDIO_EVENT_PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
 const val AUDIO_EVENT_PLAYBACK_HISTORY_UPDATE = "playbackHistoryUpdate"
 const val AUDIO_EVENT_DOWNLOAD_STATUS_UPDATE = "downloadStatusUpdate"
 
+@UnstableApi
 class VoelAudioModule : Module() {
   private lateinit var player: VoelAudioPlayer
 
@@ -39,6 +40,7 @@ class VoelAudioModule : Module() {
   private var currentPlaybackHistoryUpdateInstanceId: String? = null
   private var playbackHistoryUpdateJob: Job? = null
 
+  private var downloadManagerListener: DownloadManager.Listener? = null
   private val downloadUpdateLock = Any()
   private var downloadUpdatesStarted: Boolean = false
   private var downloadUpdateEvents = mutableSetOf<Map<String, Any>>()
@@ -65,6 +67,11 @@ class VoelAudioModule : Module() {
       runOnMain {
         playbackHistoryUpdateJob?.cancel()
         downloadUpdateJob?.cancel()
+
+        downloadManagerListener?.let { listener ->
+          AudioSingletonHolder.getDownloadManager(appContext.throwingActivity.applicationContext)
+            .removeListener(listener)
+        }
       }
     }
 
@@ -293,24 +300,29 @@ class VoelAudioModule : Module() {
                 appContext.throwingActivity.applicationContext
               )
 
-            downloadManager.addListener(
-              object : DownloadManager.Listener {
-                override fun onDownloadRemoved(
-                  downloadManager: DownloadManager,
-                  download: Download,
-                ) {
-                  queueDownloadUpdateEvent("removed", download)
+            downloadManagerListener.ifNull {
+              val listener =
+                object : DownloadManager.Listener {
+                  override fun onDownloadRemoved(
+                    downloadManager: DownloadManager,
+                    download: Download,
+                  ) {
+                    queueDownloadUpdateEvent("removed", download)
+                  }
+
+                  override fun onDownloadChanged(
+                    downloadManager: DownloadManager,
+                    download: Download,
+                    finalException: Exception?,
+                  ) {
+                    queueDownloadUpdateEvent("changed", download)
+                  }
                 }
 
-                override fun onDownloadChanged(
-                  downloadManager: DownloadManager,
-                  download: Download,
-                  finalException: Exception?,
-                ) {
-                  queueDownloadUpdateEvent("changed", download)
-                }
-              }
-            )
+              downloadManager.addListener(listener)
+
+              downloadManagerListener = listener
+            }
 
             downloadUpdateJob.ifNull {
               downloadUpdateJob =
@@ -352,27 +364,44 @@ class VoelAudioModule : Module() {
         val downloads = mutableMapOf<String, AudioDownloadStatus>()
         val downloadManager =
           AudioSingletonHolder.getDownloadManager(appContext.throwingActivity.applicationContext)
-        val downloadCursor = downloadManager.downloadIndex.getDownloads()
-        while (downloadCursor.moveToNext()) {
-          if (downloadCursor.download.request.id.startsWith("${instanceId}-")) {
-            downloads[downloadCursor.download.request.id.removePrefix("${instanceId}-")] =
-              AudioDownloadStatus(
-                id = downloadCursor.download.request.id,
-                state = downloadCursor.download.state,
-                paused = downloadManager.downloadsPaused,
-                bytesDownloaded = downloadCursor.download.bytesDownloaded,
-                percentDownloaded = downloadCursor.download.percentDownloaded,
-                contentLength = downloadCursor.download.contentLength,
-                failureReason = downloadCursor.download.failureReason,
-                isTerminalState = downloadCursor.download.isTerminalState,
-                stopReason = downloadCursor.download.stopReason,
-                startTimeMs = downloadCursor.download.startTimeMs,
-                updateTimeMs = downloadCursor.download.updateTimeMs,
-              )
+        downloadManager.downloadIndex.getDownloads().use { downloadCursor ->
+          while (downloadCursor.moveToNext()) {
+            if (downloadCursor.download.request.id.startsWith("${instanceId}-")) {
+              downloads[downloadCursor.download.request.id.removePrefix("${instanceId}-")] =
+                AudioDownloadStatus(
+                  id = downloadCursor.download.request.id,
+                  state = downloadCursor.download.state,
+                  paused = downloadManager.downloadsPaused,
+                  bytesDownloaded = downloadCursor.download.bytesDownloaded,
+                  percentDownloaded = downloadCursor.download.percentDownloaded,
+                  contentLength = downloadCursor.download.contentLength,
+                  failureReason = downloadCursor.download.failureReason,
+                  isTerminalState = downloadCursor.download.isTerminalState,
+                  stopReason = downloadCursor.download.stopReason,
+                  startTimeMs = downloadCursor.download.startTimeMs,
+                  updateTimeMs = downloadCursor.download.updateTimeMs,
+                )
+            }
           }
         }
 
         return@Coroutine downloads
+      }
+
+    AsyncFunction("getAllDownloadIds") Coroutine
+      { instanceId: String ->
+        val downloadManager =
+          AudioSingletonHolder.getDownloadManager(appContext.throwingActivity.applicationContext)
+        val fileIds = mutableSetOf<String>()
+        downloadManager.downloadIndex.getDownloads().use { downloadCursor ->
+          while (downloadCursor.moveToNext()) {
+            if (downloadCursor.download.request.id.startsWith("${instanceId}-")) {
+              fileIds.add(downloadCursor.download.request.id.removePrefix("${instanceId}-"))
+            }
+          }
+        }
+
+        return@Coroutine fileIds
       }
 
     AsyncFunction("getDownloads") Coroutine
