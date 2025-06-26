@@ -1,5 +1,6 @@
 import '~/global.css';
 
+import { useReactQueryDevTools } from '@dev-plugins/react-query';
 import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -34,6 +35,8 @@ export {
 
 export default function RootLayout() {
   const hasMounted = useRef(false);
+
+  useReactQueryDevTools(queryClient);
 
   useLayoutEffect(() => {
     if (hasMounted.current) {
