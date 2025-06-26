@@ -103,6 +103,7 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   startDownloadUpdates(): void;
   getDownload(fileId: string): AudioDownloadStatus | null;
   getDownloads(instanceId: string, fileIds: string[]): Promise<Record<string, AudioDownloadStatus>>;
+  getAllDownloadIds(instanceId: string): Promise<string[]>;
   getAllDownloads(instanceId: string): Promise<Record<string, AudioDownloadStatus>>;
   addDownloads(instanceId: string, files: AudioDownload[]): void;
   removeDownloads(instanceId: string, fileIds: number[]): void;

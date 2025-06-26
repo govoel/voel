@@ -647,4 +647,11 @@ const getByFileIds = {
   },
 };
 
-export { list, get, getPlaybackPosition, getPlaybackHistory, getByFileIds };
+export {
+  list,
+  list as listRecentlyAdded,
+  get,
+  getPlaybackPosition,
+  getPlaybackHistory,
+  getByFileIds,
+};

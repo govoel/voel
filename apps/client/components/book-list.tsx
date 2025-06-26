@@ -11,6 +11,8 @@ import { cn } from '~/lib/utils';
 
 export function BookList({
   books,
+  direction = 'vertical',
+  className,
 }: {
   books: {
     id: number;
@@ -21,13 +23,17 @@ export function BookList({
     authors?: { name: string }[];
     contributors?: { name: string }[];
   }[];
+  direction?: 'horizontal' | 'vertical';
+  className?: string;
 }) {
   return (
     <FlatList
+      className={className}
       data={books}
       keyExtractor={(item) => item.id.toString()}
-      scrollEnabled={false}
-      numColumns={2}
+      scrollEnabled={direction === 'horizontal'}
+      horizontal={direction === 'horizontal'}
+      numColumns={direction === 'vertical' ? 2 : undefined}
       renderItem={({ item, index }) => (
         <Link
           href={{
@@ -36,7 +42,12 @@ export function BookList({
           }}
           asChild
           push>
-          <Pressable className={cn('w-1/2 pt-4', index % 2 === 0 ? 'pr-2' : 'pl-2')}>
+          <Pressable
+            className={cn(
+              'h-full',
+              direction === 'vertical' ? 'pt-4 w-1/2' : 'w-48',
+              direction === 'vertical' ? (index % 2 === 0 ? 'pr-2' : 'pl-2') : 'mr-4 mb-2'
+            )}>
             <View className="flex flex-row items-center pb-2">
               {item.label ? (
                 <Badge variant="outline">
