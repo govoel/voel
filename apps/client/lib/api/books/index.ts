@@ -601,17 +601,11 @@ const getByFileIds = {
               ])
               .as('files'),
           ])
+          .where('audiobookFile.id', 'in', fileIds)
           .groupBy('audiobookFile.bookId')
           .as('fileData');
 
-        let query = instanceDb
-          .with('searchFiles', (db) =>
-            db
-              .selectFrom('audiobookFile')
-              .where('audiobookFile.id', 'in', fileIds)
-              .select(['audiobookFile.bookId'])
-              .distinct()
-          )
+        const results = await instanceDb
           .selectFrom('book')
           .select([
             'book.id',
@@ -626,14 +620,10 @@ const getByFileIds = {
             'book.updatedAt',
             'book.deletedAt',
           ])
-          .where((eb) =>
-            eb.and([eb('book.id', 'in', eb.selectFrom('searchFiles').select('searchFiles.bookId'))])
-          )
-          .leftJoin(filesSubquery, (join) => join.onRef('book.id', '=', 'fileData.bookId'))
+          .innerJoin(filesSubquery, (join) => join.onRef('book.id', '=', 'fileData.bookId'))
           .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
-          .select(['authorData.authors', 'fileData.files']);
-
-        const results = await query.execute();
+          .select(['authorData.authors', 'fileData.files'])
+          .execute();
 
         return results.map((result) => ({
           ...result,

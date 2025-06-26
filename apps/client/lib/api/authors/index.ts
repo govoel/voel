@@ -54,6 +54,7 @@ const get = {
           .where('author.id', '=', authorId)
           .where('author.deletedAt', 'is', null)
           .crossJoin('booksWithAuthors')
+          .limit(1)
           .select([
             'author.id',
             'author.name',
