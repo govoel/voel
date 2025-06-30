@@ -1,4 +1,3 @@
-import { baseFilesSQLQuery } from '../books';
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import type { Kysely, Selectable } from 'kysely';
 
@@ -11,6 +10,7 @@ const getAvailableOffline = {
   useQuery: (instanceDb: Kysely<InstanceDatabase>, instanceId: string) => {
     return useReactQuery({
       queryKey: [...getAvailableOffline.queryKey, instanceId],
+      networkMode: 'always',
       queryFn: async () => {
         const downloadIds = await AudioModule.getAllDownloadIds(instanceId);
 
@@ -108,6 +108,7 @@ const getContinueListening = {
   useQuery: (instanceDb: Kysely<InstanceDatabase>, instanceId: string) => {
     return useReactQuery({
       queryKey: [...getContinueListening.queryKey, instanceId],
+      networkMode: 'always',
       queryFn: async () => {
         let query = instanceDb
           .with('playbackHistoryBooks', (db) =>
