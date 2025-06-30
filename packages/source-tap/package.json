@@ -12,14 +12,14 @@
   "types": "./src/index.ts",
   "module": "src/index.ts",
   "devDependencies": {
-    "@eslint/js": "9.29.0",
+    "@eslint/js": "9.30.0",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
     "bun-types": "1.2.17",
-    "eslint": "9.29.0",
+    "eslint": "9.30.0",
     "eslint-config-prettier": "10.1.5",
     "eslint-plugin-prettier": "5.5.1",
     "globals": "16.2.0",
-    "prettier": "3.6.1",
+    "prettier": "3.6.2",
     "typescript-eslint": "8.35.0"
   },
   "peerDependencies": {
