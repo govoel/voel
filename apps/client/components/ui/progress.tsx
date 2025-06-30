@@ -39,7 +39,7 @@ function Indicator({ value, className }: { value: number | undefined | null; cla
   const indicator = useAnimatedStyle(() => {
     return {
       width: withSpring(
-        `${interpolate(progress.value, [0, 100], [1, 100], Extrapolation.CLAMP)}%`,
+        `${interpolate(progress.value, [0, 100], [0, 100], Extrapolation.CLAMP)}%`,
         { overshootClamping: true }
       ),
     };
