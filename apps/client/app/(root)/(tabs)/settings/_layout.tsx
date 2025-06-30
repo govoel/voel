@@ -2,7 +2,11 @@ import { Stack } from 'expo-router';
 
 import { AccountSelectorAvatar } from '~/components/account-selector';
 
-export default function LibraryLayout() {
+export const unstable_settings = {
+  anchor: 'index',
+};
+
+export default function SettingsLayout() {
   return (
     <Stack
       screenOptions={{
