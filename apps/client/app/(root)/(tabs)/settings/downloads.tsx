@@ -114,7 +114,8 @@ export default function SettingsDownloadsScreen() {
                     params: { bookId: item.id },
                   }}
                   asChild
-                  push>
+                  push
+                  withAnchor>
                   <Button
                     variant="ghost"
                     className={cn(

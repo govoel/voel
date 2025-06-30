@@ -41,7 +41,8 @@ export function BookList({
             params: { bookId: item.id },
           }}
           asChild
-          push>
+          push
+          withAnchor>
           <Pressable
             className={cn(
               'h-full',

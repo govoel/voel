@@ -2,10 +2,13 @@ import { Stack } from 'expo-router';
 
 import { AccountSelectorAvatar } from '~/components/account-selector';
 
-export default function SettingsLayout() {
+export const unstable_settings = {
+  anchor: 'index',
+};
+
+export default function LibraryLayout() {
   return (
     <Stack
-      initialRouteName="index"
       screenOptions={{
         headerTitleAlign: 'center',
         headerTitleStyle: { fontFamily: 'Voel-Inter-SemiBold' },
