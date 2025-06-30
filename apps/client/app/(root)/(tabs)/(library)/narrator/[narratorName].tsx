@@ -19,7 +19,7 @@ export default function NarratorScreen() {
   const { narratorName } = useLocalSearchParams<{ narratorName: string }>();
 
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.contributors.getBooks.useQuery(
+  const { data, error, refetch, isLoading } = api.contributors.listBooks.useQuery(
     instanceDb,
     narratorName,
     'narrator'

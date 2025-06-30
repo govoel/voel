@@ -8,7 +8,7 @@ import {
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import { requireNativeModule, useEvent, useEventListener } from 'expo';
 import { produce } from 'immer';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 
 import { queryClient } from '~/lib/api/query-client';
 

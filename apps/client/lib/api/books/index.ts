@@ -20,6 +20,18 @@ const list = {
       networkMode: 'always',
       queryFn: async () => {
         let query = instanceDb
+          .with('playbackHistoryBooks', (db) =>
+            db
+              .selectFrom('playbackHistory')
+              .where('deletedAt', 'is', null)
+              .select(({ fn }) => [
+                'id',
+                'bookId',
+                'positionMs',
+                fn.max('updatedAt').as('updatedAt'),
+              ])
+              .groupBy('playbackHistory.bookId')
+          )
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
           .select([
@@ -40,6 +52,14 @@ const list = {
           .leftJoin('author', (join) =>
             join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
           )
+          .leftJoin('audiobookFile', (join) =>
+            join
+              .onRef('audiobookFile.bookId', '=', 'book.id')
+              .on('audiobookFile.deletedAt', 'is', null)
+          )
+          .leftJoin('playbackHistoryBooks', (join) =>
+            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          )
           .groupBy('book.id')
           .orderBy('book.updatedAt', 'desc')
           .select((eb) => [
@@ -53,6 +73,13 @@ const list = {
                 ]),
               ])
               .as('authors'),
+            eb.fn
+              .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
+              .as('totalDurationMs'),
+            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn
+              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
+              .as('playbackPositionUpdatedAt'),
           ]);
 
         const results = await query.execute();

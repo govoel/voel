@@ -1,3 +1,6 @@
+import { usePlaybackHistoryContext } from './playback-history-provider';
+import { Progress } from './ui/progress';
+import { useSelector } from '@xstate/store/react';
 import { Link } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
@@ -7,7 +10,49 @@ import { Badge } from '~/components/ui/badge';
 import { Text } from '~/components/ui/text';
 import { Large, Muted } from '~/components/ui/typography';
 
+import { instanceStore } from '~/lib/stores/instance';
 import { cn } from '~/lib/utils';
+
+function PlaybackProgress({
+  bookId,
+  playbackPositionMs,
+  playbackPositionUpdatedAt,
+  totalDurationMs,
+}: {
+  bookId: number;
+  playbackPositionMs: number | undefined;
+  playbackPositionUpdatedAt: number | undefined;
+  totalDurationMs: number | undefined;
+}) {
+  const localPlaybackHistory = usePlaybackHistoryContext();
+  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+
+  if (localPlaybackHistory.instanceId === instanceId) {
+    const bookEvents = localPlaybackHistory.events.filter((event) => event.bookId === bookId);
+
+    if (bookEvents.length > 0) {
+      const firstEvent = bookEvents[0];
+      if (firstEvent.eventTimestampMs > (playbackPositionUpdatedAt ?? 0)) {
+        return (
+          <Progress
+            className="h-2 rounded-b-md rounded-t-none"
+            value={(firstEvent.positionMs / (totalDurationMs ?? 0)) * 100}
+          />
+        );
+      }
+    }
+  }
+
+  if (playbackPositionMs === undefined || totalDurationMs === undefined || totalDurationMs < 0)
+    return null;
+
+  return (
+    <Progress
+      className="h-2 rounded-b-md rounded-t-none"
+      value={(playbackPositionMs / totalDurationMs) * 100}
+    />
+  );
+}
 
 export function BookList({
   books,
@@ -22,6 +67,9 @@ export function BookList({
     label?: string;
     authors?: { name: string }[];
     contributors?: { name: string }[];
+    totalDurationMs?: number;
+    playbackPositionMs?: number;
+    playbackPositionUpdatedAt?: number;
   }[];
   direction?: 'horizontal' | 'vertical';
   className?: string;
@@ -56,13 +104,26 @@ export function BookList({
               ) : null}
             </View>
             {item.cover ? (
-              <AspectRatio ratio={1 / 1}>
-                <Image
-                  className="w-full h-full rounded-md"
-                  source={item.cover}
-                  placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
+              <>
+                <AspectRatio ratio={1 / 1}>
+                  <Image
+                    className={cn(
+                      'w-full h-full',
+                      item.totalDurationMs && item.totalDurationMs > 0
+                        ? 'rounded-t-md'
+                        : 'rounded-md'
+                    )}
+                    source={item.cover}
+                    placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
+                  />
+                </AspectRatio>
+                <PlaybackProgress
+                  bookId={item.id}
+                  playbackPositionMs={item.playbackPositionMs}
+                  playbackPositionUpdatedAt={item.playbackPositionUpdatedAt}
+                  totalDurationMs={item.totalDurationMs}
                 />
-              </AspectRatio>
+              </>
             ) : null}
             <View className="pt-2">
               <Large className="border-none" numberOfLines={1}>

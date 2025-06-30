@@ -44,32 +44,24 @@ const getAvailableOffline = {
           .selectFrom('audiobookFile')
           .select((eb) => [
             'audiobookFile.bookId as bookId',
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn<string>('json_object', [
-                  eb.val('id'),
-                  eb.ref('audiobookFile.id'),
-                  eb.val('durationMs'),
-                  eb.ref('audiobookFile.durationMs'),
-                  eb.val('disc'),
-                  eb.ref('audiobookFile.disc'),
-                  eb.val('track'),
-                  eb.ref('audiobookFile.track'),
-                  eb.val('libraryId'),
-                  eb.ref('audiobookFile.libraryId'),
-                  eb.val('path'),
-                  eb.ref('audiobookFile.path'),
-                  eb.val('deletedAt'),
-                  eb.ref('audiobookFile.deletedAt'),
-                ]),
-              ])
-              .as('files'),
+            eb.fn.sum('audiobookFile.durationMs').as('durationMs'),
           ])
           .where('audiobookFile.id', 'in', downloadIds)
           .groupBy('audiobookFile.bookId')
           .as('fileData');
 
         const results = await instanceDb
+          .with('playbackHistoryBooks', (db) =>
+            db
+              .selectFrom('playbackHistory')
+              .select(({ fn }) => [
+                'id',
+                'bookId',
+                'positionMs',
+                fn.max('updatedAt').as('updatedAt'),
+              ])
+              .groupBy('playbackHistory.bookId')
+          )
           .selectFrom('book')
           .select([
             'book.id',
@@ -86,7 +78,20 @@ const getAvailableOffline = {
           ])
           .innerJoin(filesSubquery, (join) => join.onRef('book.id', '=', 'fileData.bookId'))
           .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
-          .select(['authorData.authors'])
+          .leftJoin('playbackHistoryBooks', (join) =>
+            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          )
+          .select((eb) => [
+            'authorData.authors',
+            eb.fn
+              .coalesce(eb.fn.sum<number | null>('fileData.durationMs'), eb.lit(0))
+              .as('totalDurationMs'),
+            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn
+              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
+              .as('playbackPositionUpdatedAt'),
+          ])
+          .groupBy('book.id')
           .execute();
 
         return results.map((result) => ({
@@ -118,10 +123,10 @@ const getContinueListening = {
               .select(({ fn }) => [
                 'id',
                 'bookId',
-                'updatedAt',
+                'positionMs',
                 fn.max('updatedAt').as('updatedAt'),
               ])
-              .groupBy(['playbackHistory.bookId'])
+              .groupBy('playbackHistory.bookId')
           )
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -146,6 +151,11 @@ const getContinueListening = {
           .leftJoin('author', (join) =>
             join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
           )
+          .leftJoin('audiobookFile', (join) =>
+            join
+              .onRef('audiobookFile.bookId', '=', 'book.id')
+              .on('audiobookFile.deletedAt', 'is', null)
+          )
           .groupBy('book.id')
           .orderBy('playbackHistoryBooks.updatedAt', 'desc')
           .select((eb) => [
@@ -159,6 +169,13 @@ const getContinueListening = {
                 ]),
               ])
               .as('authors'),
+            eb.fn
+              .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
+              .as('totalDurationMs'),
+            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn
+              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
+              .as('playbackPositionUpdatedAt'),
           ]);
 
         const results = await query.execute();

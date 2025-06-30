@@ -19,7 +19,7 @@ export default function TranslatorScreen() {
   const { translatorName } = useLocalSearchParams<{ translatorName: string }>();
 
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.contributors.getBooks.useQuery(
+  const { data, error, refetch, isLoading } = api.contributors.listBooks.useQuery(
     instanceDb,
     translatorName,
     'translator'
