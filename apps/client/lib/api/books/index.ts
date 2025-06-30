@@ -269,8 +269,8 @@ const get = {
           .where('audiobookChapter.bookId', '=', bookId)
           .select((eb) => [
             'audiobookChapter.bookId',
-            eb
-              .fn<string>('json_group_array', [
+            eb.fn
+              .agg<string>('json_group_array', [
                 eb.fn<string>('json_object', [
                   eb.val('id'),
                   eb.ref('audiobookChapter.id'),
@@ -286,6 +286,7 @@ const get = {
                   eb.ref('audiobookChapter.startOffsetMs'),
                 ]),
               ])
+              .orderBy('audiobookChapter.startOffsetMs', 'asc')
               .as('audibleChapters'),
           ])
           .groupBy('audiobookChapter.bookId')
@@ -298,8 +299,8 @@ const get = {
           .where('audiobookChapter.bookId', '=', bookId)
           .select((eb) => [
             'audiobookChapter.bookId',
-            eb
-              .fn<string>('json_group_array', [
+            eb.fn
+              .agg<string>('json_group_array', [
                 eb.fn<string>('json_object', [
                   eb.val('id'),
                   eb.ref('audiobookChapter.id'),
@@ -315,6 +316,7 @@ const get = {
                   eb.ref('audiobookChapter.startOffsetMs'),
                 ]),
               ])
+              .orderBy('audiobookChapter.startOffsetMs', 'asc')
               .as('fileChapters'),
           ])
           .groupBy('audiobookChapter.bookId')
@@ -326,8 +328,8 @@ const get = {
           .where('audiobookFile.bookId', '=', bookId)
           .select((eb) => [
             'audiobookFile.bookId as bookId',
-            eb
-              .fn<string>('json_group_array', [
+            eb.fn
+              .agg<string>('json_group_array', [
                 eb.fn<string>('json_object', [
                   eb.val('id'),
                   eb.ref('audiobookFile.id'),
@@ -343,6 +345,8 @@ const get = {
                   eb.ref('audiobookFile.path'),
                 ]),
               ])
+              .orderBy('audiobookFile.disc', 'asc')
+              .orderBy('audiobookFile.track', 'asc')
               .as('files'),
           ])
           .groupBy('audiobookFile.bookId')
@@ -419,32 +423,23 @@ const get = {
             : [],
           chapters: {
             audible: result.audibleChapters
-              ? (
-                  JSON.parse(result.audibleChapters) as Pick<
-                    Extract<
-                      Selectable<InstanceDatabase['audiobookChapter']>,
-                      { source: 'audible' }
-                    >,
-                    'id' | 'parentId' | 'bookId' | 'title' | 'durationMs' | 'startOffsetMs'
-                  >[]
-                ).sort((a, b) => a.startOffsetMs - b.startOffsetMs)
+              ? (JSON.parse(result.audibleChapters) as Pick<
+                  Extract<Selectable<InstanceDatabase['audiobookChapter']>, { source: 'audible' }>,
+                  'id' | 'parentId' | 'bookId' | 'title' | 'durationMs' | 'startOffsetMs'
+                >[])
               : [],
             file: result.fileChapters
-              ? (
-                  JSON.parse(result.fileChapters) as Pick<
-                    Extract<Selectable<InstanceDatabase['audiobookChapter']>, { source: 'file' }>,
-                    'id' | 'bookId' | 'fileId' | 'title' | 'durationMs' | 'startOffsetMs'
-                  >[]
-                ).sort((a, b) => a.startOffsetMs - b.startOffsetMs)
+              ? (JSON.parse(result.fileChapters) as Pick<
+                  Extract<Selectable<InstanceDatabase['audiobookChapter']>, { source: 'file' }>,
+                  'id' | 'bookId' | 'fileId' | 'title' | 'durationMs' | 'startOffsetMs'
+                >[])
               : [],
           },
           files: result.files
-            ? (
-                JSON.parse(result.files) as Pick<
-                  Selectable<InstanceDatabase['audiobookFile']>,
-                  'id' | 'durationMs' | 'disc' | 'track' | 'libraryId' | 'path'
-                >[]
-              ).sort((a, b) => a.disc - b.disc || a.track - b.track)
+            ? (JSON.parse(result.files) as Pick<
+                Selectable<InstanceDatabase['audiobookFile']>,
+                'id' | 'durationMs' | 'disc' | 'track' | 'libraryId' | 'path'
+              >[])
             : [],
         };
       },
@@ -607,25 +602,12 @@ const getByFileIds = {
           .selectFrom('audiobookFile')
           .select((eb) => [
             'audiobookFile.bookId as bookId',
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn<string>('json_object', [
-                  eb.val('id'),
-                  eb.ref('audiobookFile.id'),
-                  eb.val('durationMs'),
-                  eb.ref('audiobookFile.durationMs'),
-                  eb.val('disc'),
-                  eb.ref('audiobookFile.disc'),
-                  eb.val('track'),
-                  eb.ref('audiobookFile.track'),
-                  eb.val('libraryId'),
-                  eb.ref('audiobookFile.libraryId'),
-                  eb.val('path'),
-                  eb.ref('audiobookFile.path'),
-                  eb.val('deletedAt'),
-                  eb.ref('audiobookFile.deletedAt'),
-                ]),
+            eb.fn
+              .agg<string>('json_group_array', [
+                eb.fn<string>('json_object', [eb.val('id'), eb.ref('audiobookFile.id')]),
               ])
+              .orderBy('audiobookFile.disc', 'asc')
+              .orderBy('audiobookFile.track', 'asc')
               .as('files'),
           ])
           .where('audiobookFile.id', 'in', fileIds)
@@ -661,12 +643,10 @@ const getByFileIds = {
               >[])
             : [],
           files: result.files
-            ? (
-                JSON.parse(result.files) as Pick<
-                  Selectable<InstanceDatabase['audiobookFile']>,
-                  'id' | 'durationMs' | 'disc' | 'track' | 'libraryId' | 'path' | 'deletedAt'
-                >[]
-              ).sort((a, b) => a.disc - b.disc || a.track - b.track)
+            ? (JSON.parse(result.files) as Pick<
+                Selectable<InstanceDatabase['audiobookFile']>,
+                'id'
+              >[])
             : [],
         }));
       },

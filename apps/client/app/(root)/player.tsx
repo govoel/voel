@@ -2,7 +2,7 @@ import { type BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sh
 import Slider from '@react-native-community/slider';
 import { Link, useRouter } from 'expo-router';
 import { useUnstableNativeVariable } from 'nativewind';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { FlatList, Platform, View } from 'react-native';
 
 import { AutoMarquee } from '~/components/auto-marquee';
@@ -29,14 +29,13 @@ import Player, { type AudioSource, useAudioPlayerStatus } from '~/modules/voel-a
 const getTotalPlayedMs = (
   currentQueue: AudioSource[],
   currentQueueIndex: number | null,
-  currentTime: number,
-  sliderValue: number | null
+  currentTimeMs: number
 ) =>
   currentQueue.reduce(
     (sum, e, i) =>
       sum +
       ((currentQueueIndex ?? 0) === i
-        ? (sliderValue ?? currentTime * 1000)
+        ? currentTimeMs
         : i > (currentQueueIndex ?? 0)
           ? 0
           : (e.endTimeMs ?? 0) - e.startTimeMs),
@@ -55,30 +54,14 @@ export default function PlayerScreen() {
 
   const [sliderValue, setSliderValue] = useState<number | null>(null);
 
-  const [totalPlayedMs, setTotalPlayedMs] = useState<number>(
-    getTotalPlayedMs(
-      currentQueue,
-      playerStatus.currentQueueIndex,
-      playerStatus.currentTime,
-      sliderValue
-    )
+  const currentTimeMs = sliderValue ?? playerStatus.currentTime * 1000;
+
+  const totalPlayedMs = getTotalPlayedMs(
+    currentQueue,
+    playerStatus.currentQueueIndex,
+    currentTimeMs
   );
-  const [totalDurationMs, setTotalDurationMs] = useState<number>(getTotalDurationMs(currentQueue));
-
-  useEffect(() => {
-    setTotalPlayedMs(
-      getTotalPlayedMs(
-        currentQueue,
-        playerStatus.currentQueueIndex,
-        playerStatus.currentTime,
-        sliderValue
-      )
-    );
-  }, [currentQueue, playerStatus.currentQueueIndex, playerStatus.currentTime, sliderValue]);
-
-  useEffect(() => {
-    setTotalDurationMs(getTotalDurationMs(currentQueue));
-  }, [currentQueue]);
+  const totalDurationMs = getTotalDurationMs(currentQueue);
 
   const chapterBottomSheetModalRef = useRef<BottomSheetModalType>(null);
 
@@ -153,7 +136,7 @@ export default function PlayerScreen() {
               }}
             />
             <View className="flex flex-row justify-between">
-              <Muted>{formatTime(sliderValue ?? playerStatus.currentTime * 1000)}</Muted>
+              <Muted>{formatTime(currentTimeMs)}</Muted>
               <Muted>{formatTime(playerStatus.duration * 1000)}</Muted>
             </View>
           </View>
