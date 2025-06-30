@@ -11,50 +11,9 @@ const get = {
       networkMode: 'always',
       queryFn: async () => {
         let query = instanceDb
-          .with('booksWithAuthors', (db) =>
-            db
-              .selectFrom('book')
-              .where('book.deletedAt', 'is', null)
-              .innerJoin('bookAuthor as searchAuthor', (join) =>
-                join
-                  .on('searchAuthor.authorId', '=', authorId)
-                  .on('searchAuthor.deletedAt', 'is', null)
-                  .onRef('book.id', '=', 'searchAuthor.bookId')
-              )
-              .leftJoin('bookAuthor', (join) =>
-                join
-                  .on('bookAuthor.deletedAt', 'is', null)
-                  .onRef('book.id', '=', 'bookAuthor.bookId')
-              )
-              .leftJoin('author', (join) =>
-                join
-                  .on('author.deletedAt', 'is', null)
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-              )
-              .groupBy('book.id')
-              .select([
-                'book.id',
-                'book.title',
-                'book.cover',
-                'book.coverThumbhash',
-                (eb) =>
-                  eb
-                    .fn<string>('json_group_array', [
-                      eb.fn('json_object', [
-                        eb.val('id'),
-                        eb.ref('author.id'),
-                        eb.val('name'),
-                        eb.ref('author.name'),
-                      ]),
-                    ])
-                    .as('authors'),
-              ])
-          )
           .selectFrom('author')
           .where('author.id', '=', authorId)
           .where('author.deletedAt', 'is', null)
-          .crossJoin('booksWithAuthors')
-          .limit(1)
           .select([
             'author.id',
             'author.name',
@@ -63,45 +22,93 @@ const get = {
             'author.about',
             'author.createdAt',
             'author.updatedAt',
-            (eb) =>
-              eb
-                .fn<string>('json_group_array', [
-                  eb.fn('json_object', [
-                    eb.val('id'),
-                    eb.ref('booksWithAuthors.id'),
-                    eb.val('title'),
-                    eb.ref('booksWithAuthors.title'),
-                    eb.val('cover'),
-                    eb.ref('booksWithAuthors.cover'),
-                    eb.val('coverThumbhash'),
-                    eb.ref('booksWithAuthors.coverThumbhash'),
-                    eb.val('authors'),
-                    eb.ref('booksWithAuthors.authors'),
-                  ]),
-                ])
-                .as('books'),
           ]);
 
-        const results = await query.executeTakeFirstOrThrow();
-
-        return {
-          ...results,
-          books: (
-            JSON.parse(results.books) as (Pick<
-              Selectable<InstanceDatabase['book']>,
-              'id' | 'title' | 'cover' | 'coverThumbhash'
-            > & { authors: string })[]
-          ).map((book) => ({
-            ...book,
-            authors: JSON.parse(book.authors) as Pick<
-              Selectable<InstanceDatabase['author']>,
-              'id' | 'name'
-            >[],
-          })),
-        };
+        return await query.executeTakeFirstOrThrow();
       },
     });
   },
 };
 
-export { get };
+const listBooks = {
+  queryKey: ['instance', 'author', 'listBooks'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>, authorId: number) => {
+    return useReactQuery({
+      queryKey: [...listBooks.queryKey, authorId],
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = instanceDb
+          .with('playbackHistoryBooks', (db) =>
+            db
+              .selectFrom('playbackHistory')
+              .where('deletedAt', 'is', null)
+              .select(({ fn }) => [
+                'id',
+                'bookId',
+                'positionMs',
+                fn.max('updatedAt').as('updatedAt'),
+              ])
+              .groupBy('playbackHistory.bookId')
+          )
+          .selectFrom('book')
+          .where('book.deletedAt', 'is', null)
+          .innerJoin('bookAuthor as searchAuthor', (join) =>
+            join
+              .on('searchAuthor.authorId', '=', authorId)
+              .on('searchAuthor.deletedAt', 'is', null)
+              .onRef('book.id', '=', 'searchAuthor.bookId')
+          )
+          .leftJoin('bookAuthor', (join) =>
+            join.on('bookAuthor.deletedAt', 'is', null).onRef('book.id', '=', 'bookAuthor.bookId')
+          )
+          .leftJoin('author', (join) =>
+            join.on('author.deletedAt', 'is', null).onRef('author.id', '=', 'bookAuthor.authorId')
+          )
+          .leftJoin('audiobookFile', (join) =>
+            join
+              .onRef('audiobookFile.bookId', '=', 'book.id')
+              .on('audiobookFile.deletedAt', 'is', null)
+          )
+          .leftJoin('playbackHistoryBooks', (join) =>
+            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          )
+          .groupBy('book.id')
+          .select((eb) => [
+            'book.id',
+            'book.title',
+            'book.cover',
+            'book.coverThumbhash',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
+              ])
+              .as('authors'),
+            eb.fn
+              .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
+              .as('totalDurationMs'),
+            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn
+              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
+              .as('playbackPositionUpdatedAt'),
+          ]);
+
+        const results = await query.execute();
+
+        return results.map((result) => ({
+          ...result,
+          authors: JSON.parse(result.authors) as Pick<
+            Selectable<InstanceDatabase['author']>,
+            'id' | 'name'
+          >[],
+        }));
+      },
+    });
+  },
+};
+
+export { get, listBooks };

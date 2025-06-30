@@ -22,58 +22,90 @@ export default function AuthorScreen() {
   const { authorId } = useLocalSearchParams<{ authorId: string }>();
 
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.authors.get.useQuery(
-    instanceDb,
-    parseInt(authorId, 10)
-  );
+  const {
+    data: author,
+    error: authorError,
+    refetch: authorRefetch,
+  } = api.authors.get.useQuery(instanceDb, parseInt(authorId, 10));
+
+  const {
+    data: books,
+    error: booksError,
+    refetch: booksRefetch,
+    isLoading: booksLoading,
+  } = api.authors.listBooks.useQuery(instanceDb, parseInt(authorId, 10));
 
   return (
     <>
       <Stack.Screen options={{ headerTitle: 'Author' }} />
       <FloatingPlayerDodgingLayout>
-        {error ? (
+        {authorError ? (
           <Card>
             <CardContent className="pt-4">
               <Large>Error loading author {authorId}</Large>
-              <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+              <Text className="text-muted-foreground">
+                {authorError.message || 'Unknown error'}
+              </Text>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onPress={() => refetch()}>
+              <Button className="w-full" onPress={() => authorRefetch()}>
                 <Text>Retry</Text>
               </Button>
             </CardFooter>
           </Card>
-        ) : data ? (
+        ) : author ? (
           <>
-            {data.avatar ? (
+            {author.avatar ? (
               <AspectRatio ratio={1 / 1} className="mx-20">
                 <Image
                   className="w-full h-full rounded-md"
-                  source={data.avatar}
-                  placeholder={{ thumbhash: data.avatarThumbhash ?? undefined }}
+                  source={author.avatar}
+                  placeholder={{ thumbhash: author.avatarThumbhash ?? undefined }}
                 />
               </AspectRatio>
             ) : null}
 
-            <H2 className="border-0 pt-4 text-center">{data.name}</H2>
-            <Small className="text-center">
-              {data.books.length} {data.books.length === 1 ? 'book' : 'books'} available
-            </Small>
+            <H2 className="border-0 pt-4 text-center">{author.name}</H2>
+            {books && (
+              <Small className="text-center">
+                {books.length} {books.length === 1 ? 'book' : 'books'} available
+              </Small>
+            )}
 
-            {data.about ? (
+            {author.about ? (
               <View className="pt-4">
                 <ExpandableSummary
-                  summary={data.about}
+                  summary={author.about}
                   expandText="Expand About"
                   collapseText="Collapse About"
                 />
               </View>
             ) : null}
+          </>
+        ) : (
+          <View className="p-12 justify-center items-center">
+            <Spinner size={15} />
+          </View>
+        )}
 
-            <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="pt-4">
+        {booksError ? (
+          <Card>
+            <CardContent className="pt-4">
+              <Large>Error loading author&rsquo;s books</Large>
+              <Text className="text-muted-foreground">{booksError.message || 'Unknown error'}</Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => authorRefetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : books ? (
+          <>
+            <TitleWithRefetch refetch={booksRefetch} isLoading={booksLoading} className="pt-4">
               Books
             </TitleWithRefetch>
-            <BookList books={data.books} />
+            <BookList books={books} />
           </>
         ) : (
           <View className="p-12 justify-center items-center">

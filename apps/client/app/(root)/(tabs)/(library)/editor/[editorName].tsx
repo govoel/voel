@@ -19,7 +19,7 @@ export default function EditorScreen() {
   const { editorName } = useLocalSearchParams<{ editorName: string }>();
 
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.contributors.getBooks.useQuery(
+  const { data, error, refetch, isLoading } = api.contributors.listBooks.useQuery(
     instanceDb,
     editorName,
     'editor'
