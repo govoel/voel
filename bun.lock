@@ -4,7 +4,7 @@
     "": {
       "name": "voel",
       "devDependencies": {
-        "bun-types": "catalog:",
+        "bun-types": "1.2.17",
       },
     },
     "apps/client": {
@@ -79,7 +79,7 @@
         "tailwind-merge": "3.3.1",
         "tailwindcss-animate": "1.0.7",
         "web-streams-polyfill": "^4.1.0",
-        "zod": "catalog:",
+        "zod": "3.25.69",
       },
       "devDependencies": {
         "@babel/core": "7.28.0",
@@ -119,14 +119,14 @@
         "thumbhash": "0.1.1",
         "turndown": "7.2.0",
         "xstate": "5.20.0",
-        "zod": "catalog:",
+        "zod": "3.25.69",
       },
       "devDependencies": {
         "@eslint/js": "9.30.1",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
         "@types/turndown": "5.0.5",
         "axios": "1.10.0",
-        "bun-types": "catalog:",
+        "bun-types": "1.2.17",
         "eslint": "9.30.1",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -142,7 +142,7 @@
       "devDependencies": {
         "@eslint/js": "9.30.1",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "catalog:",
+        "bun-types": "1.2.17",
         "eslint": "9.30.1",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -152,7 +152,7 @@
       },
       "peerDependencies": {
         "typescript": "^5",
-        "zod": "catalog:",
+        "zod": "3.25.69",
       },
     },
     "packages/source-tap": {
@@ -160,7 +160,7 @@
       "devDependencies": {
         "@eslint/js": "9.30.1",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "catalog:",
+        "bun-types": "1.2.17",
         "eslint": "9.30.1",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -173,10 +173,6 @@
         "typescript": "^5",
       },
     },
-  },
-  "catalog": {
-    "bun-types": "1.2.17",
-    "zod": "3.25.69",
   },
   "packages": {
     "@0no-co/graphql.web": ["@0no-co/graphql.web@1.1.2", "", { "peerDependencies": { "graphql": "^14.0.0 || ^15.0.0 || ^16.0.0" }, "optionalPeers": ["graphql"] }, "sha512-N2NGsU5FLBhT8NZ+3l2YrzZSHITjNXNuDhC4iDiikv0IujaJ0Xc6xIxQZ/Ek3Cb+rgPjnLHYyJm11tInuJn+cw=="],

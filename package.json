@@ -7,13 +7,9 @@
     "packages": [
       "apps/*",
       "packages/*"
-    ],
-    "catalog": {
-      "bun-types": "1.2.17",
-      "zod": "3.25.69"
-    }
+    ]
   },
   "devDependencies": {
-    "bun-types": "catalog:"
+    "bun-types": "1.2.17"
   }
 }
