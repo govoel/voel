@@ -3,12 +3,10 @@
   "private": true,
   "module": "index.ts",
   "type": "module",
-  "workspaces": {
-    "packages": [
-      "apps/*",
-      "packages/*"
-    ]
-  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "devDependencies": {
     "bun-types": "1.2.17"
   }
