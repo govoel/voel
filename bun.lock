@@ -4,7 +4,7 @@
     "": {
       "name": "voel",
       "devDependencies": {
-        "bun-types": "1.2.17",
+        "bun-types": "1.2.18",
       },
     },
     "apps/client": {
@@ -126,7 +126,7 @@
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
         "@types/turndown": "5.0.5",
         "axios": "1.10.0",
-        "bun-types": "1.2.17",
+        "bun-types": "1.2.18",
         "eslint": "9.30.1",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -142,7 +142,7 @@
       "devDependencies": {
         "@eslint/js": "9.30.1",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "1.2.17",
+        "bun-types": "1.2.18",
         "eslint": "9.30.1",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -160,7 +160,7 @@
       "devDependencies": {
         "@eslint/js": "9.30.1",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "1.2.17",
+        "bun-types": "1.2.18",
         "eslint": "9.30.1",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -1009,7 +1009,7 @@
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
 
-    "bun-types": ["bun-types@1.2.17", "", { "dependencies": { "@types/node": "*" } }, "sha512-ElC7ItwT3SCQwYZDYoAH+q6KT4Fxjl8DtZ6qDulUFBmXA8YB4xo+l54J9ZJN+k2pphfn9vk7kfubeSd5QfTVJQ=="],
+    "bun-types": ["bun-types@1.2.18", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-04+Eha5NP7Z0A9YgDAzMk5PHR16ZuLVa83b26kH5+cp1qZW4F6FmAURngE7INf4tKOvCE69vYvDEwoNl1tGiWw=="],
 
     "bytes": ["bytes@3.1.2", "", {}, "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg=="],
 
