@@ -17,7 +17,7 @@ import { instanceStore } from '~/lib/stores/instance';
 export default function AvailableOfflineScreen() {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const { data, error, refetch, isLoading } = api.feeds.getAvailableOffline.useQuery(
+  const { data, error, refetch, isFetching } = api.feeds.getAvailableOffline.useQuery(
     instanceDb,
     instanceId ?? '0'
   );
@@ -26,7 +26,7 @@ export default function AvailableOfflineScreen() {
     <>
       <Stack.Screen options={{ title: 'Available Offline' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
           Available Offline
         </TitleWithRefetch>
         {error ? (

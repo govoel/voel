@@ -32,7 +32,7 @@ export default function AuthorScreen() {
     data: books,
     error: booksError,
     refetch: booksRefetch,
-    isLoading: booksLoading,
+    isFetching: booksFetching,
   } = api.authors.listBooks.useQuery(instanceDb, parseInt(authorId, 10));
 
   return (
@@ -102,7 +102,10 @@ export default function AuthorScreen() {
           </Card>
         ) : books ? (
           <>
-            <TitleWithRefetch refetch={booksRefetch} isLoading={booksLoading} className="mt-4 mb-2">
+            <TitleWithRefetch
+              refetch={booksRefetch}
+              isFetching={booksFetching}
+              className="mt-4 mb-2">
               Books
             </TitleWithRefetch>
             <BookList books={books} />

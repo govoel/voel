@@ -27,7 +27,7 @@ const userRole = z.enum(['under18', 'user', 'admin']);
 export default function UsersListScreen() {
   const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
   const session = useAuthSession(authClient);
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isLoading, error } =
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isFetching, error } =
     useInfiniteQuery({
       queryKey: ['users'],
       queryFn: async ({ pageParam }) => {
@@ -130,7 +130,7 @@ export default function UsersListScreen() {
           }}>
           <Text>Create New User</Text>
         </Button>
-        <TitleWithRefetch className="pt-4" refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="pt-4" refetch={refetch} isFetching={isFetching}>
           Users
         </TitleWithRefetch>
         <Card className="mt-4">

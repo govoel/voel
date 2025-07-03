@@ -30,7 +30,7 @@ export default function SeriesScreen() {
     data: books,
     error: booksError,
     refetch: booksRefetch,
-    isLoading: booksLoading,
+    isFetching: booksIsFetching,
   } = api.series.listBooks.useQuery(instanceDb, parseInt(seriesId, 10));
 
   return (
@@ -88,7 +88,10 @@ export default function SeriesScreen() {
           </Card>
         ) : books ? (
           <>
-            <TitleWithRefetch refetch={booksRefetch} isLoading={booksLoading} className="mt-4 mb-2">
+            <TitleWithRefetch
+              refetch={booksRefetch}
+              isFetching={booksIsFetching}
+              className="mt-4 mb-2">
               Books
             </TitleWithRefetch>
             <BookList books={books} />

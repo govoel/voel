@@ -43,7 +43,12 @@ export default function ManageUserScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
 
-  const user = useQuery({
+  const {
+    data: user,
+    refetch: userRefetch,
+    isFetching: userIsFetching,
+    error: userError,
+  } = useQuery({
     queryKey: ['users', id],
     queryFn: async () => {
       const res = await authClient.admin.listUsers({
@@ -68,7 +73,12 @@ export default function ManageUserScreen() {
     },
   });
 
-  const sessions = useQuery({
+  const {
+    data: sessions,
+    refetch: sessionsRefetch,
+    isFetching: sessionsIsFetching,
+    error: sessionsError,
+  } = useQuery({
     queryKey: ['sessions', id],
     queryFn: async () => {
       const res = await authClient.admin.listUserSessions({ userId: id });
@@ -85,20 +95,20 @@ export default function ManageUserScreen() {
     <>
       <Stack.Screen options={{ title: 'Manage User', headerTitleAlign: 'center' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch className="pb-4" refetch={user.refetch} isLoading={user.isLoading}>
+        <TitleWithRefetch className="pb-4" refetch={userRefetch} isFetching={userIsFetching}>
           User Info
         </TitleWithRefetch>
 
-        {user.data ? (
-          <Profile user={user.data} />
-        ) : user.error ? (
+        {user ? (
+          <Profile user={user} />
+        ) : userError ? (
           <Card>
             <CardContent className="pt-4">
               <Large>Error loading profile</Large>
-              <Text className="text-muted-foreground">{user.error.message || 'Unknown error'}</Text>
+              <Text className="text-muted-foreground">{userError.message || 'Unknown error'}</Text>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onPress={() => user.refetch()}>
+              <Button className="w-full" onPress={() => userRefetch()}>
                 <Text>Retry</Text>
               </Button>
             </CardFooter>
@@ -113,14 +123,14 @@ export default function ManageUserScreen() {
 
         <TitleWithRefetch
           className="pt-4"
-          refetch={sessions.refetch}
-          isLoading={sessions.isLoading}>
+          refetch={sessionsRefetch}
+          isFetching={sessionsIsFetching}>
           Sessions
         </TitleWithRefetch>
 
-        {sessions.data ? (
+        {sessions ? (
           <FlatList
-            data={sessions.data}
+            data={sessions}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
             renderItem={({ item }) => (
@@ -138,16 +148,16 @@ export default function ManageUserScreen() {
               </View>
             )}
           />
-        ) : sessions.error ? (
+        ) : sessionsError ? (
           <Card className="mt-4">
             <CardContent className="pt-4">
               <Large>Error loading user&rsquo;s sessions</Large>
               <Text className="text-muted-foreground">
-                {sessions.error.message || 'Unknown error'}
+                {sessionsError.message || 'Unknown error'}
               </Text>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onPress={() => sessions.refetch()}>
+              <Button className="w-full" onPress={() => sessionsRefetch()}>
                 <Text>Retry</Text>
               </Button>
             </CardFooter>

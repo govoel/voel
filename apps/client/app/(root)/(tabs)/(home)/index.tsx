@@ -23,6 +23,7 @@ export default function HomeScreen() {
     data: availableOffline,
     refetch: refetchAvailableOffline,
     isLoading: isAvailableOfflineLoading,
+    isFetching: isAvailableOfflineFetching,
     error: availableOfflineError,
   } = api.feeds.getAvailableOffline.useQuery(instanceDb, instanceId ?? '0');
 
@@ -30,6 +31,7 @@ export default function HomeScreen() {
     data: recentlyAdded,
     refetch: refetchRecentlyAdded,
     isLoading: isRecentlyAddedLoading,
+    isFetching: isRecentlyAddedFetching,
     error: recentlyAddedError,
   } = api.books.listRecentlyAdded.useQuery(instanceDb);
 
@@ -37,6 +39,7 @@ export default function HomeScreen() {
     data: continueListening,
     refetch: refetchContinueListening,
     isLoading: isContinueListeningLoading,
+    isFetching: isContinueListeningFetching,
     error: continueListeningError,
   } = api.feeds.getContinueListening.useQuery(instanceDb, instanceId ?? '0');
 
@@ -55,7 +58,7 @@ export default function HomeScreen() {
                 <TitleWithRefetch
                   className="-ml-3 mb-2"
                   refetch={refetchContinueListening}
-                  isLoading={isContinueListeningLoading}>
+                  isFetching={isContinueListeningFetching}>
                   <Link href="/feed/continue-listening" asChild push>
                     <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
                       <Large>Continue Listening</Large>
@@ -92,7 +95,7 @@ export default function HomeScreen() {
                 <TitleWithRefetch
                   className="-ml-3 mb-2"
                   refetch={refetchRecentlyAdded}
-                  isLoading={isRecentlyAddedLoading}>
+                  isFetching={isRecentlyAddedFetching}>
                   <Link href="/feed/recently-added" asChild push>
                     <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
                       <Large>Recently Added</Large>
@@ -126,7 +129,7 @@ export default function HomeScreen() {
                 <TitleWithRefetch
                   className="-ml-3 mb-2"
                   refetch={refetchAvailableOffline}
-                  isLoading={isAvailableOfflineLoading}>
+                  isFetching={isAvailableOfflineFetching}>
                   <Link href="/feed/available-offline" asChild push>
                     <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
                       <Large>Available Offline</Large>

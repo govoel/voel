@@ -17,7 +17,7 @@ import { instanceStore } from '~/lib/stores/instance';
 export default function ContinueListeningScreen() {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const { data, error, refetch, isLoading } = api.feeds.getContinueListening.useQuery(
+  const { data, error, refetch, isFetching } = api.feeds.getContinueListening.useQuery(
     instanceDb,
     instanceId ?? '0'
   );
@@ -26,7 +26,7 @@ export default function ContinueListeningScreen() {
     <>
       <Stack.Screen options={{ title: 'Continue Listening' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
           Continue Listening
         </TitleWithRefetch>
         {error ? (

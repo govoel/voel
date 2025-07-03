@@ -34,7 +34,7 @@ export default function SettingsDownloadsScreen() {
   const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
   const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
 
-  const { data, error, refetch, isLoading } = api.books.getByFileIds.useQuery(
+  const { data, error, refetch, isFetching } = api.books.getByFileIds.useQuery(
     instanceDb,
     Object.keys(downloads ?? {})
   );
@@ -43,7 +43,7 @@ export default function SettingsDownloadsScreen() {
     <>
       <Stack.Screen options={{ title: 'Downloads' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch refetch={refetch} isFetching={isFetching}>
           All Downloads
         </TitleWithRefetch>
         {downloads && Object.values(downloads).some((d) => !d.isTerminalState) ? (
