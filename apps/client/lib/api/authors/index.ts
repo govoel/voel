@@ -3,6 +3,39 @@ import { Kysely, type Selectable } from 'kysely';
 
 import type { InstanceDatabase } from '~/db/schema/instance';
 
+const list = {
+  queryKey: ['instance', 'author', 'list'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
+    return useReactQuery({
+      queryKey: list.queryKey,
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = instanceDb
+          .selectFrom('author')
+          .where('author.deletedAt', 'is', null)
+          .select([
+            'author.id',
+            'author.name',
+            'author.avatar',
+            'author.avatarThumbhash',
+            'author.createdAt',
+            'author.updatedAt',
+          ])
+          .leftJoin('bookAuthor', (join) =>
+            join
+              .onRef('author.id', '=', 'bookAuthor.authorId')
+              .on('bookAuthor.deletedAt', 'is', null)
+          )
+          .select((eb) => [eb.fn.count<number>('bookAuthor.bookId').as('bookCount')])
+          .groupBy('author.id')
+          .orderBy('author.updatedAt', 'desc');
+
+        return await query.execute();
+      },
+    });
+  },
+};
+
 const get = {
   queryKey: ['instance', 'author', 'get'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, authorId: number) => {
@@ -111,4 +144,4 @@ const listBooks = {
   },
 };
 
-export { get, listBooks };
+export { list, get, listBooks };

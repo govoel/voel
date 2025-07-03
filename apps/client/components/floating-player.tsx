@@ -175,6 +175,9 @@ function FloatingPlayerImpl({
 }) {
   useEffect(() => {
     floatingPlayerStore.trigger.setIsActive({ isActive: true });
+    return () => {
+      floatingPlayerStore.trigger.setIsActive({ isActive: false });
+    };
   }, []);
 
   useEffect(() => {

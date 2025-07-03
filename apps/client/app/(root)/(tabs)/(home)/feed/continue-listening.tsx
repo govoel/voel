@@ -26,7 +26,7 @@ export default function ContinueListeningScreen() {
     <>
       <Stack.Screen options={{ title: 'Continue Listening' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
           Continue Listening
         </TitleWithRefetch>
         {error ? (

@@ -26,7 +26,7 @@ export default function AvailableOfflineScreen() {
     <>
       <Stack.Screen options={{ title: 'Available Offline' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
           Available Offline
         </TitleWithRefetch>
         {error ? (
