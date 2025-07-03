@@ -67,7 +67,7 @@ export default function HomeScreen() {
                 {continueListening ? (
                   <BookList books={continueListening} direction="horizontal" className="mb-2" />
                 ) : continueListeningError ? (
-                  <Card className="mt-2 mb-4">
+                  <Card className="mb-4">
                     <CardContent className="pt-4">
                       <Large>Error loading books</Large>
                       <Text className="text-muted-foreground">
@@ -104,7 +104,7 @@ export default function HomeScreen() {
                 {recentlyAdded ? (
                   <BookList books={recentlyAdded} direction="horizontal" className="mb-2" />
                 ) : recentlyAddedError ? (
-                  <Card className="mt-2 mb-4">
+                  <Card className="mb-4">
                     <CardContent className="pt-4">
                       <Large>Error loading books</Large>
                       <Text className="text-muted-foreground">
@@ -138,7 +138,7 @@ export default function HomeScreen() {
                 {availableOffline ? (
                   <BookList books={availableOffline} direction="horizontal" className="mb-2" />
                 ) : availableOfflineError ? (
-                  <Card className="mt-2 mb-4">
+                  <Card className="mb-4">
                     <CardContent className="pt-4">
                       <Large>Error loading books</Large>
                       <Text className="text-muted-foreground">
