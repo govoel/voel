@@ -88,7 +88,7 @@
     "tailwind-merge": "3.3.1",
     "tailwindcss-animate": "1.0.7",
     "web-streams-polyfill": "^4.1.0",
-    "zod": "3.25.69"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@babel/core": "7.28.0",

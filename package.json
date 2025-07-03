@@ -3,11 +3,17 @@
   "private": true,
   "module": "index.ts",
   "type": "module",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "bun-types": "1.2.17",
+      "zod": "3.25.69"
+    }
+  },
   "devDependencies": {
-    "bun-types": "1.2.17"
+    "bun-types": "catalog:"
   }
 }
