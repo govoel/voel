@@ -79,7 +79,7 @@
         "tailwind-merge": "3.3.1",
         "tailwindcss-animate": "1.0.7",
         "web-streams-polyfill": "^4.1.0",
-        "zod": "3.25.69",
+        "zod": "3.25.71",
       },
       "devDependencies": {
         "@babel/core": "7.28.0",
@@ -119,7 +119,7 @@
         "thumbhash": "0.1.1",
         "turndown": "7.2.0",
         "xstate": "5.20.0",
-        "zod": "3.25.69",
+        "zod": "3.25.71",
       },
       "devDependencies": {
         "@eslint/js": "9.30.1",
@@ -152,7 +152,7 @@
       },
       "peerDependencies": {
         "typescript": "^5",
-        "zod": "3.25.69",
+        "zod": "3.25.71",
       },
     },
     "packages/source-tap": {
@@ -2407,7 +2407,7 @@
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 
-    "zod": ["zod@3.25.69", "", {}, "sha512-cjUx+boz8dfYGssYKLGNTF5VUF6NETpcZCDTN3knhUUXQTAAvErzRhV3pgeCZm2YsL4HOwtEHPonlsshPu2I0A=="],
+    "zod": ["zod@3.25.71", "", {}, "sha512-BsBc/NPk7h8WsUWYWYL+BajcJPY8YhjelaWu2NMLuzgraKAz4Lb4/6K11g9jpuDetjMiqhZ6YaexFLOC0Ogi3Q=="],
 
     "zod-validation-error": ["zod-validation-error@3.4.0", "", { "peerDependencies": { "zod": "^3.18.0" } }, "sha512-ZOPR9SVY6Pb2qqO5XHt+MkkTRxGXb4EVtnjc9JpXUOtUB1T9Ru7mZOT361AN3MsetVe7R0a1KZshJDZdgp9miQ=="],
 
