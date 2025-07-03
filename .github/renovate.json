@@ -5,11 +5,11 @@
     "group:expoMonorepo",
     "group:eslintMonorepo"
   ],
-  "rangeStrategy": "pin",
+  "rangeStrategy": "auto",
   "prHourlyLimit": 0,
   "prConcurrentLimit": 0,
   "timezone": "America/Chicago",
-  "schedule": ["* 0-5 * * *"],
+  "schedule": ["at any time"],
   "labels": ["dependencies"],
   "packageRules": [{
     "groupName": "better-auth-monorepo",
