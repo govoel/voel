@@ -1,7 +1,7 @@
 import * as TabsPrimitive from '@rn-primitives/tabs';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { AuthorList } from '~/components/author-list';
@@ -30,12 +30,20 @@ export default function LibraryScreen() {
     (state) => state.context.isActive
   );
 
+  const scrollViewRef = useRef<ScrollView>(null);
+
   return (
     <>
       <Stack.Screen options={{ title: 'Library' }} />
       <View className="flex-1">
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1">
-          <ScrollView className="px-6">
+        <Tabs
+          value={currentTab}
+          onValueChange={(value) => {
+            scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+            setCurrentTab(value);
+          }}
+          className="flex-1">
+          <ScrollView className="px-6" ref={scrollViewRef}>
             <View className={floatingPlayerIsActive ? 'pb-40 pt-6' : 'pb-20 pt-6'}>
               <TabsContent value="search">
                 <Input placeholder="Search..." autoFocus />
@@ -61,7 +69,6 @@ export default function LibraryScreen() {
               floatingPlayerIsActive ? 'bottom-[75]' : 'bottom-[10]'
             )}>
             <TabsList className="w-full flex-row">
-              <SearchTabsTrigger />
               <TabsTrigger value="authors" className="flex-1">
                 <Text>Authors</Text>
               </TabsTrigger>
@@ -71,6 +78,7 @@ export default function LibraryScreen() {
               <TabsTrigger value="series" className="flex-1">
                 <Text>Series</Text>
               </TabsTrigger>
+              <SearchTabsTrigger />
             </TabsList>
           </View>
         </Tabs>
@@ -102,7 +110,7 @@ const BookTab = () => {
         All Books
       </TitleWithRefetch>
       {error ? (
-        <Card className="mt-4">
+        <Card>
           <CardContent className="pt-4">
             <Large>Error loading books</Large>
             <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
@@ -134,7 +142,7 @@ const AuthorTab = () => {
         All Authors
       </TitleWithRefetch>
       {error ? (
-        <Card className="mt-4">
+        <Card>
           <CardContent className="pt-4">
             <Large>Error loading authors</Large>
             <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
@@ -166,7 +174,7 @@ const SeriesTab = () => {
         All Series
       </TitleWithRefetch>
       {error ? (
-        <Card className="mt-4">
+        <Card>
           <CardContent className="pt-4">
             <Large>Error loading series</Large>
             <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>

@@ -30,7 +30,7 @@ export default function AvailableOfflineScreen() {
           Available Offline
         </TitleWithRefetch>
         {error ? (
-          <Card className="mt-4">
+          <Card>
             <CardContent className="pt-4">
               <Large>Error loading books</Large>
               <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
