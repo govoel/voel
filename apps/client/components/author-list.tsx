@@ -24,6 +24,14 @@ export function AuthorList({
   direction?: 'horizontal' | 'vertical';
   className?: string;
 }) {
+  if (authors.length === 0) {
+    return (
+      <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+        <Text className="text-center">No authors found</Text>
+      </View>
+    );
+  }
+
   return (
     <FlatList
       className={className}
@@ -80,11 +88,6 @@ export function AuthorList({
             </View>
           </Pressable>
         </Link>
-      )}
-      ListEmptyComponent={() => (
-        <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-          <Text className="text-center">No authors found</Text>
-        </View>
       )}
     />
   );
