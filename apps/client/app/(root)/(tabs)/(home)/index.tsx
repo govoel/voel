@@ -53,7 +53,7 @@ export default function HomeScreen() {
             {!isContinueListeningLoading ? (
               <>
                 <TitleWithRefetch
-                  className="-ml-3"
+                  className="-ml-3 mb-2"
                   refetch={refetchContinueListening}
                   isLoading={isContinueListeningLoading}>
                   <Link href="/feed/continue-listening" asChild push>
@@ -90,7 +90,7 @@ export default function HomeScreen() {
             {!isRecentlyAddedLoading ? (
               <>
                 <TitleWithRefetch
-                  className="-ml-3"
+                  className="-ml-3 mb-2"
                   refetch={refetchRecentlyAdded}
                   isLoading={isRecentlyAddedLoading}>
                   <Link href="/feed/recently-added" asChild push>
@@ -124,7 +124,7 @@ export default function HomeScreen() {
             {!isAvailableOfflineLoading ? (
               <>
                 <TitleWithRefetch
-                  className="-ml-3"
+                  className="-ml-3 mb-2"
                   refetch={refetchAvailableOffline}
                   isLoading={isAvailableOfflineLoading}>
                   <Link href="/feed/available-offline" asChild push>

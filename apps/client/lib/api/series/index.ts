@@ -3,6 +3,57 @@ import { Kysely, type Selectable } from 'kysely';
 
 import type { InstanceDatabase } from '~/db/schema/instance';
 
+const list = {
+  queryKey: ['instance', 'series', 'list'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
+    return useReactQuery({
+      queryKey: list.queryKey,
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = instanceDb
+          .selectFrom('series')
+          .where('series.deletedAt', 'is', null)
+          .select(['series.id', 'series.name', 'series.createdAt', 'series.updatedAt'])
+          .leftJoin('bookSeries', (join) =>
+            join
+              .onRef('series.id', '=', 'bookSeries.seriesId')
+              .on('bookSeries.deletedAt', 'is', null)
+          )
+          .leftJoin('book', (join) =>
+            join.onRef('book.id', '=', 'bookSeries.bookId').on('book.deletedAt', 'is', null)
+          )
+          .select((eb) => [
+            eb.fn
+              .agg<string>('json_group_array', [
+                eb.fn('json_object', [
+                  eb.val('id'),
+                  eb.ref('book.id'),
+                  eb.val('cover'),
+                  eb.ref('book.cover'),
+                  eb.val('coverThumbhash'),
+                  eb.ref('book.coverThumbhash'),
+                ]),
+              ])
+              .orderBy('bookSeries.sort', 'asc')
+              .as('books'),
+          ])
+          .groupBy('series.id')
+          .orderBy('series.updatedAt', 'desc');
+
+        const results = await query.execute();
+
+        return results.map((result) => ({
+          ...result,
+          books: JSON.parse(result.books) as Pick<
+            Selectable<InstanceDatabase['book']>,
+            'id' | 'cover' | 'coverThumbhash'
+          >[],
+        }));
+      },
+    });
+  },
+};
+
 const get = {
   queryKey: ['instance', 'series', 'get'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, seriesId: number) => {
@@ -87,4 +138,4 @@ const listBooks = {
   },
 };
 
-export { get, listBooks };
+export { list, get, listBooks };

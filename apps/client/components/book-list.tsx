@@ -94,38 +94,34 @@ export function BookList({
           <Pressable
             className={cn(
               'h-full',
-              direction === 'vertical' ? 'pt-4 w-1/2' : 'w-48',
+              direction === 'vertical' ? (index > 1 ? 'pt-4 w-1/2' : 'w-1/2') : 'w-48',
               direction === 'vertical' ? (index % 2 === 0 ? 'pr-2' : 'pl-2') : 'mr-4 mb-2'
             )}>
-            <View className="flex flex-row items-center pb-2">
-              {item.label ? (
+            {item.label ? (
+              <View className="flex flex-row items-center pb-2">
                 <Badge variant="outline">
                   <Text>{item.label}</Text>
                 </Badge>
-              ) : null}
-            </View>
-            {item.cover ? (
-              <>
-                <AspectRatio ratio={1 / 1}>
-                  <Image
-                    className={cn(
-                      'w-full h-full',
-                      item.totalDurationMs && item.totalDurationMs > 0
-                        ? 'rounded-t-md'
-                        : 'rounded-md'
-                    )}
-                    source={item.cover}
-                    placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
-                  />
-                </AspectRatio>
-                <PlaybackProgress
-                  bookId={item.id}
-                  playbackPositionMs={item.playbackPositionMs}
-                  playbackPositionUpdatedAt={item.playbackPositionUpdatedAt}
-                  totalDurationMs={item.totalDurationMs}
-                />
-              </>
+              </View>
             ) : null}
+            <AspectRatio ratio={1 / 1}>
+              {item.cover ? (
+                <Image
+                  className={cn(
+                    'w-full h-full',
+                    item.totalDurationMs && item.totalDurationMs > 0 ? 'rounded-t-md' : 'rounded-md'
+                  )}
+                  source={item.cover}
+                  placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
+                />
+              ) : null}
+            </AspectRatio>
+            <PlaybackProgress
+              bookId={item.id}
+              playbackPositionMs={item.playbackPositionMs}
+              playbackPositionUpdatedAt={item.playbackPositionUpdatedAt}
+              totalDurationMs={item.totalDurationMs}
+            />
             <View className="pt-2">
               <Large className="border-none" numberOfLines={1}>
                 {item.title}

@@ -22,7 +22,7 @@ export default function RecentlyAddedScreen() {
     <>
       <Stack.Screen options={{ title: 'Recently Added' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
           Recently Added
         </TitleWithRefetch>
         {error ? (

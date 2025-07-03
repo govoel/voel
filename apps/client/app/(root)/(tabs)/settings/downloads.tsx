@@ -110,7 +110,7 @@ export default function SettingsDownloadsScreen() {
               renderItem={({ item, index }) => (
                 <Link
                   href={{
-                    pathname: '/(root)/(tabs)/(library)/book/[bookId]',
+                    pathname: '/book/[bookId]',
                     params: { bookId: item.id },
                   }}
                   asChild

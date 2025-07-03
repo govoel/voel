@@ -88,7 +88,7 @@ export default function SeriesScreen() {
           </Card>
         ) : books ? (
           <>
-            <TitleWithRefetch refetch={booksRefetch} isLoading={booksLoading} className="pt-4">
+            <TitleWithRefetch refetch={booksRefetch} isLoading={booksLoading} className="mt-4 mb-2">
               Books
             </TitleWithRefetch>
             <BookList books={books} />

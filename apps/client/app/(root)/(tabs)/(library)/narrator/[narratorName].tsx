@@ -48,7 +48,7 @@ export default function NarratorScreen() {
               {data.length} {data.length === 1 ? 'book' : 'books'} available
             </Small>
 
-            <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="pt-4">
+            <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="mt-4 mb-2">
               Books
             </TitleWithRefetch>
             <BookList books={data} />
