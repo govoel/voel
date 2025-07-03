@@ -1,6 +1,6 @@
 ARG SHARP_VERSION
 
-FROM docker.io/oven/bun:1.2.17-alpine as base
+FROM docker.io/oven/bun:1.2.18-alpine as base
 WORKDIR /voel
 
 FROM base as builder
