@@ -14,5 +14,6 @@
   "packageRules": [{
     "groupName": "better-auth-monorepo",
     "matchPackageNames": ["/better-auth/"]
-  }]
+  }],
+  "recreateWhen": "never"
 }
