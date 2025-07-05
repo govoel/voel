@@ -5,7 +5,6 @@ import Animated, {
   Extrapolation,
   interpolate,
   useAnimatedStyle,
-  useDerivedValue,
   withSpring,
 } from 'react-native-reanimated';
 
@@ -34,14 +33,13 @@ Progress.displayName = ProgressPrimitive.Root.displayName;
 export { Progress };
 
 function Indicator({ value, className }: { value: number | undefined | null; className?: string }) {
-  const progress = useDerivedValue(() => value ?? 0);
+  const progress = isNaN(value ?? 0) ? 0 : (value ?? 0);
 
   const indicator = useAnimatedStyle(() => {
     return {
-      width: withSpring(
-        `${interpolate(progress.value, [0, 100], [0, 100], Extrapolation.CLAMP)}%`,
-        { overshootClamping: true }
-      ),
+      width: withSpring(`${interpolate(progress, [0, 100], [0, 100], Extrapolation.CLAMP)}%`, {
+        overshootClamping: true,
+      }),
     };
   });
 
