@@ -25,6 +25,13 @@ export interface AuthorTable<Version extends 'realtime' | 'regular' = 'regular'>
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
 }
 
+export interface AuthorFTSTable<Version extends 'realtime' | 'regular' = 'regular'> {
+  rowid: Regularize<ColumnType<number, never, never>, Version>;
+  name: Regularize<ColumnType<string, never, never>, Version>;
+  about: Regularize<ColumnType<string, never, never>, Version>;
+  rank: Regularize<ColumnType<number, never, never>, Version>;
+}
+
 export interface SeriesTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   asin: Regularize<ColumnType<string, string, string>, Version>;
@@ -33,6 +40,13 @@ export interface SeriesTable<Version extends 'realtime' | 'regular' = 'regular'>
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
+}
+
+export interface SeriesFTSTable<Version extends 'realtime' | 'regular' = 'regular'> {
+  rowid: Regularize<ColumnType<number, never, never>, Version>;
+  name: Regularize<ColumnType<string, never, never>, Version>;
+  summary: Regularize<ColumnType<string, never, never>, Version>;
+  rank: Regularize<ColumnType<number, never, never>, Version>;
 }
 
 export interface BookTable<Version extends 'realtime' | 'regular' = 'regular'> {
@@ -49,6 +63,14 @@ export interface BookTable<Version extends 'realtime' | 'regular' = 'regular'> {
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
+}
+
+export interface BookFTSTable<Version extends 'realtime' | 'regular' = 'regular'> {
+  rowid: Regularize<ColumnType<number, never, never>, Version>;
+  title: Regularize<ColumnType<string, never, never>, Version>;
+  subtitle: Regularize<ColumnType<string, never, never>, Version>;
+  summary: Regularize<ColumnType<string, never, never>, Version>;
+  rank: Regularize<ColumnType<number, never, never>, Version>;
 }
 
 export interface BookAuthorTable<Version extends 'realtime' | 'regular' = 'regular'> {
@@ -86,6 +108,16 @@ export interface BookContributorTable<Version extends 'realtime' | 'regular' = '
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
+}
+
+export interface BookContributorFTSTable<Version extends 'realtime' | 'regular' = 'regular'> {
+  rowid: Regularize<ColumnType<number, never, never>, Version>;
+  name: Regularize<ColumnType<string, never, never>, Version>;
+  role: Regularize<
+    ColumnType<'narrator' | 'editor' | 'illustrator' | 'translator', never, never>,
+    Version
+  >;
+  rank: Regularize<ColumnType<number, never, never>, Version>;
 }
 
 export type AudiobookChapterTable<Version extends 'realtime' | 'regular' = 'regular'> = {
@@ -149,11 +181,15 @@ export interface PlaybackHistoryTable<Version extends 'realtime' | 'regular' = '
 export interface InstanceDatabase<Version extends 'realtime' | 'regular' = 'regular'> {
   library: LibraryTable<Version>;
   author: AuthorTable<Version>;
+  authorFTS: AuthorFTSTable<Version>;
   series: SeriesTable<Version>;
+  seriesFTS: SeriesFTSTable<Version>;
   book: BookTable<Version>;
+  bookFTS: BookFTSTable<Version>;
   bookAuthor: BookAuthorTable<Version>;
   bookSeries: BookSeriesTable<Version>;
   bookContributor: BookContributorTable<Version>;
+  bookContributorFTS: BookContributorFTSTable<Version>;
   audiobookChapter: AudiobookChapterTable<Version>;
   audiobookFile: AudiobookFileTable<Version>;
   ebookFile: EBookFileTable<Version>;

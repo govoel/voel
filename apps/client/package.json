@@ -19,6 +19,9 @@
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
     "web": "expo start --web"
   },
+  "op-sqlite": {
+    "fts5": true
+  },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "1.0.2",
     "@better-auth/expo": "1.2.12",
