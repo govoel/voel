@@ -10,6 +10,7 @@ import { requireNativeModule, useEvent, useEventListener } from 'expo';
 import { produce } from 'immer';
 import { useEffect } from 'react';
 
+import { getAvailableOfflineQueryKey } from '~/lib/api/feeds/getAvailableOfflineQueryKey';
 import { queryClient } from '~/lib/api/query-client';
 
 // This call loads the native module object from the JSI.
@@ -119,6 +120,12 @@ export function useDownloadStatus(instanceId: string, fileIds: number[] = []) {
         }
       })
     );
+
+    if (events.some((e) => e.type === 'removed' || e.type === 'changed')) {
+      queryClient.invalidateQueries({
+        queryKey: getAvailableOfflineQueryKey,
+      });
+    }
   });
 
   useEffect(() => {

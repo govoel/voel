@@ -1,3 +1,4 @@
+import { getAvailableOfflineQueryKey } from './getAvailableOfflineQueryKey';
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import type { Kysely, Selectable } from 'kysely';
 
@@ -6,7 +7,7 @@ import type { InstanceDatabase } from '~/db/schema/instance';
 import AudioModule from '~/modules/voel-audio';
 
 const getAvailableOffline = {
-  queryKey: ['instance', 'feeds', 'getAvailableOffline'],
+  queryKey: getAvailableOfflineQueryKey,
   useQuery: (instanceDb: Kysely<InstanceDatabase>, instanceId: string) => {
     return useReactQuery({
       queryKey: [...getAvailableOffline.queryKey, instanceId],
