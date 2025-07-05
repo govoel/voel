@@ -11,7 +11,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-export function Spinner({ size = 10 }: { size?: number }) {
+import { cn } from '~/lib/utils';
+
+export function Spinner({ className, size = 10 }: { className?: string; size?: number }) {
   const offset = useSharedValue(0);
   const offset2 = useSharedValue(0);
   const offset3 = useSharedValue(0);
@@ -76,7 +78,7 @@ export function Spinner({ size = 10 }: { size?: number }) {
   }, [size]);
 
   return (
-    <View className="flex-row gap-2">
+    <View className={cn('flex-row gap-2', className)}>
       <Animated.View
         className="bg-foreground"
         style={[

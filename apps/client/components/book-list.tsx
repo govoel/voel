@@ -54,25 +54,29 @@ function PlaybackProgress({
   );
 }
 
+type Book = {
+  id: number;
+  cover: string | null;
+  coverThumbhash: string | null;
+  title: string;
+  label?: string;
+  authors?: { name: string }[];
+  contributors?: { name: string }[];
+  totalDurationMs?: number;
+  playbackPositionMs?: number;
+  playbackPositionUpdatedAt?: number;
+};
+
 export function BookList({
   books,
   direction = 'vertical',
   className,
+  ref,
 }: {
-  books: {
-    id: number;
-    cover: string | null;
-    coverThumbhash: string | null;
-    title: string;
-    label?: string;
-    authors?: { name: string }[];
-    contributors?: { name: string }[];
-    totalDurationMs?: number;
-    playbackPositionMs?: number;
-    playbackPositionUpdatedAt?: number;
-  }[];
+  books: Book[];
   direction?: 'horizontal' | 'vertical';
   className?: string;
+  ref?: React.RefObject<FlatList<Book> | null>;
 }) {
   if (books.length === 0) {
     return (
@@ -84,6 +88,7 @@ export function BookList({
 
   return (
     <FlatList
+      ref={ref}
       className={className}
       data={books}
       keyExtractor={(item) => item.id.toString()}

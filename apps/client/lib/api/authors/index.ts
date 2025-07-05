@@ -63,6 +63,50 @@ const get = {
   },
 };
 
+const search = {
+  queryKey: ['instance', 'author', 'search'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>, searchQuery: string) =>
+    useReactQuery({
+      queryKey: [...search.queryKey, searchQuery],
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = instanceDb
+          .selectFrom('author')
+          .where('author.deletedAt', 'is', null)
+          .select([
+            'author.id',
+            'author.name',
+            'author.avatar',
+            'author.avatarThumbhash',
+            'author.createdAt',
+            'author.updatedAt',
+          ])
+          .leftJoin('bookAuthor', (join) =>
+            join
+              .onRef('author.id', '=', 'bookAuthor.authorId')
+              .on('bookAuthor.deletedAt', 'is', null)
+          )
+          .select((eb) => [eb.fn.count<number>('bookAuthor.bookId').as('bookCount')])
+          .groupBy('author.id');
+
+        if (searchQuery.length > 0) {
+          query = query
+            .innerJoin('authorFTS', (join) =>
+              join
+                .on('authorFTS.name', 'match', searchQuery)
+                .onRef('author.id', '=', 'authorFTS.rowid')
+            )
+            // the better the match, the smaller the value
+            .orderBy('authorFTS.rank', 'asc');
+        }
+
+        query = query.orderBy('author.updatedAt', 'desc');
+
+        return await query.execute();
+      },
+    }),
+};
+
 const listBooks = {
   queryKey: ['instance', 'author', 'listBooks'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, authorId: number) => {
@@ -144,4 +188,4 @@ const listBooks = {
   },
 };
 
-export { list, get, listBooks };
+export { list, get, search, listBooks };

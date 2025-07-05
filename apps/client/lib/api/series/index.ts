@@ -79,6 +79,69 @@ const get = {
   },
 };
 
+const search = {
+  queryKey: ['instance', 'series', 'search'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>, searchQuery: string) => {
+    return useReactQuery({
+      queryKey: [...search.queryKey, searchQuery],
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = instanceDb
+          .selectFrom('series')
+          .where('series.deletedAt', 'is', null)
+          .select(['series.id', 'series.name', 'series.createdAt', 'series.updatedAt'])
+          .leftJoin('bookSeries', (join) =>
+            join
+              .onRef('series.id', '=', 'bookSeries.seriesId')
+              .on('bookSeries.deletedAt', 'is', null)
+          )
+          .leftJoin('book', (join) =>
+            join.onRef('book.id', '=', 'bookSeries.bookId').on('book.deletedAt', 'is', null)
+          )
+          .select((eb) => [
+            eb.fn
+              .agg<string>('json_group_array', [
+                eb.fn('json_object', [
+                  eb.val('id'),
+                  eb.ref('book.id'),
+                  eb.val('cover'),
+                  eb.ref('book.cover'),
+                  eb.val('coverThumbhash'),
+                  eb.ref('book.coverThumbhash'),
+                ]),
+              ])
+              .orderBy('bookSeries.sort', 'asc')
+              .as('books'),
+          ])
+          .groupBy('series.id');
+
+        if (searchQuery.length > 0) {
+          query = query
+            .innerJoin('seriesFTS', (join) =>
+              join
+                .on('seriesFTS.name', 'match', searchQuery)
+                .onRef('series.id', '=', 'seriesFTS.rowid')
+            )
+            // the better the match, the smaller the value
+            .orderBy('seriesFTS.rank', 'asc');
+        }
+
+        query = query.orderBy('series.updatedAt', 'desc');
+
+        const results = await query.execute();
+
+        return results.map((result) => ({
+          ...result,
+          books: JSON.parse(result.books) as Pick<
+            Selectable<InstanceDatabase['book']>,
+            'id' | 'cover' | 'coverThumbhash'
+          >[],
+        }));
+      },
+    });
+  },
+};
+
 const listBooks = {
   queryKey: ['instance', 'series', 'listBooks'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, seriesId: number) => {
@@ -138,4 +201,4 @@ const listBooks = {
   },
 };
 
-export { list, get, listBooks };
+export { list, get, search, listBooks };
