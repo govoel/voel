@@ -31,11 +31,11 @@ function FormFieldMessage({
 }
 
 function TextField({
-  label,
+  label = '',
   className,
   inputProps,
 }: {
-  label: string;
+  label?: string;
   className?: string;
   inputProps?: ComponentPropsWithoutRef<typeof Input>;
 }) {
@@ -43,9 +43,11 @@ function TextField({
 
   return (
     <View className={cn('pb-4', className)}>
-      <Label className="pb-2" nativeID={field.name}>
-        {label}
-      </Label>
+      {label.length > 0 && (
+        <Label className="pb-2" nativeID={field.name}>
+          {label}
+        </Label>
+      )}
       <Input
         {...inputProps}
         editable={!field.form.state.isSubmitting}

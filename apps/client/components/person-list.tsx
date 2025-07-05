@@ -9,50 +9,74 @@ import { Large, Muted } from '~/components/ui/typography';
 
 import { cn, getInitials } from '~/lib/utils';
 
-export function AuthorList({
-  authors,
+type Person = {
+  id: number;
+  avatar?: string | null;
+  avatarThumbhash?: string | null;
+  name: string;
+  bookCount: number;
+};
+
+export function PersonList({
+  people,
+  type,
   direction = 'vertical',
   className,
+  ref,
 }: {
-  authors: {
-    id: number;
-    avatar: string | null;
-    avatarThumbhash: string | null;
-    name: string;
-    bookCount: number;
-  }[];
+  people: Person[];
+  type: 'author' | 'editor' | 'narrator' | 'translator';
   direction?: 'horizontal' | 'vertical';
   className?: string;
+  ref?: React.RefObject<FlatList<Person> | null>;
 }) {
-  if (authors.length === 0) {
+  if (people.length === 0) {
     return (
-      <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-        <Text className="text-center">No authors found</Text>
+      <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4">
+        <Text className="text-center">No {type}s found</Text>
       </View>
     );
   }
 
   return (
     <FlatList
+      ref={ref}
       className={className}
-      data={authors}
+      data={people}
       keyExtractor={(item) => item.id.toString()}
       scrollEnabled={direction === 'horizontal'}
       horizontal={direction === 'horizontal'}
       numColumns={direction === 'vertical' ? 3 : undefined}
       renderItem={({ item, index }) => (
         <Link
-          href={{
-            pathname: '/author/[authorId]',
-            params: { authorId: item.id },
-          }}
+          href={
+            type === 'author'
+              ? {
+                  pathname: '/author/[authorId]',
+                  params: { authorId: item.id },
+                }
+              : type === 'editor'
+                ? {
+                    pathname: '/editor/[editorName]',
+                    params: { editorName: item.name },
+                  }
+                : type === 'narrator'
+                  ? {
+                      pathname: '/narrator/[narratorName]',
+                      params: { narratorName: item.name },
+                    }
+                  : {
+                      pathname: '/translator/[translatorName]',
+                      params: { translatorName: item.name },
+                    }
+          }
           asChild
           push
           withAnchor>
           <Pressable
             className={cn(
               'h-full',
-              direction === 'vertical' ? (index > 2 ? 'pt-4 w-1/3' : 'w-1/3') : 'w-48',
+              direction === 'vertical' ? (index > 2 ? 'pt-4 w-1/3' : 'w-1/3') : 'w-36',
               direction === 'vertical'
                 ? index % 3 === 0
                   ? 'pr-2'

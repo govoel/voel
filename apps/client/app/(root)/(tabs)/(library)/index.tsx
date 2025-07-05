@@ -1,18 +1,20 @@
 import * as TabsPrimitive from '@rn-primitives/tabs';
+import { useStore } from '@tanstack/react-form';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
-import { useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { FlatList, ScrollView, View } from 'react-native';
+import { z } from 'zod';
 
-import { AuthorList } from '~/components/author-list';
 import { BookList } from '~/components/book-list';
 import { floatingPlayerStore } from '~/components/floating-player';
+import { PersonList } from '~/components/person-list';
 import { SeriesList } from '~/components/series-list';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
-import { Input } from '~/components/ui/input';
+import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
@@ -46,7 +48,7 @@ export default function LibraryScreen() {
           <ScrollView className="px-6" ref={scrollViewRef}>
             <View className={floatingPlayerIsActive ? 'pb-40 pt-6' : 'pb-20 pt-6'}>
               <TabsContent value="search">
-                <Input placeholder="Search..." autoFocus />
+                <SearchTab />
               </TabsContent>
 
               <TabsContent value="books">
@@ -100,13 +102,373 @@ const SearchTabsTrigger = () => {
   );
 };
 
-const BookTab = () => {
+const SearchTab = () => {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.books.list.useQuery(instanceDb);
+
+  const SearchForm = useAppForm({
+    defaultValues: {
+      query: '',
+    },
+    validators: {
+      onChange: z.object({
+        query: z.string().min(3, { message: 'Search query must be at least 3 characters long' }),
+      }),
+    },
+    listeners: {
+      onChangeDebounceMs: 500,
+    },
+  });
+
+  const searchQuery = useStore(SearchForm.store, (state) =>
+    state.isValid ? state.values.query : ''
+  );
+
+  const {
+    data: bookSearchResults,
+    error: bookSearchError,
+    refetch: bookSearchRefetch,
+    isFetching: bookSearchIsFetching,
+  } = api.books.search.useQuery(instanceDb, searchQuery);
+
+  const {
+    data: authorSearchResults,
+    error: authorSearchError,
+    refetch: authorSearchRefetch,
+    isFetching: authorSearchIsFetching,
+  } = api.authors.search.useQuery(instanceDb, searchQuery);
+
+  const {
+    data: seriesSearchResults,
+    error: seriesSearchError,
+    refetch: seriesSearchRefetch,
+    isFetching: seriesSearchIsFetching,
+  } = api.series.search.useQuery(instanceDb, searchQuery);
+
+  const {
+    data: narratorSearchResults,
+    error: narratorSearchError,
+    refetch: narratorSearchRefetch,
+    isFetching: narratorSearchIsFetching,
+  } = api.contributors.search.useQuery(instanceDb, 'narrator', searchQuery);
+
+  const {
+    data: translatorSearchResults,
+    error: translatorSearchError,
+    refetch: translatorSearchRefetch,
+    isFetching: translatorSearchIsFetching,
+  } = api.contributors.search.useQuery(instanceDb, 'translator', searchQuery);
+
+  const {
+    data: editorSearchResults,
+    error: editorSearchError,
+    refetch: editorSearchRefetch,
+    isFetching: editorSearchIsFetching,
+  } = api.contributors.search.useQuery(instanceDb, 'editor', searchQuery);
+
+  const bookListRef = useRef<FlatList>(null);
+  const authorListRef = useRef<FlatList>(null);
+  const seriesListRef = useRef<FlatList>(null);
+  const narratorListRef = useRef<FlatList>(null);
+  const translatorListRef = useRef<FlatList>(null);
+  const editorListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    bookListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    authorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    seriesListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    narratorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    translatorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    editorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [searchQuery]);
 
   return (
     <>
-      <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
+      <SearchForm.AppForm>
+        <SearchForm.AppField
+          name="query"
+          children={(field) => (
+            <field.TextField
+              inputProps={{
+                placeholder: 'Search...',
+                autoFocus: true,
+                isLoading:
+                  bookSearchIsFetching ||
+                  authorSearchIsFetching ||
+                  seriesSearchIsFetching ||
+                  narratorSearchIsFetching ||
+                  translatorSearchIsFetching ||
+                  editorSearchIsFetching,
+              }}
+            />
+          )}
+        />
+      </SearchForm.AppForm>
+
+      {bookSearchError ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={bookSearchRefetch}
+            isFetching={bookSearchIsFetching}>
+            Books
+          </TitleWithRefetch>
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <Large>Error loading books</Large>
+              <Text className="text-muted-foreground">
+                {bookSearchError.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => bookSearchRefetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      ) : bookSearchResults && bookSearchResults.length > 0 ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={bookSearchRefetch}
+            isFetching={bookSearchIsFetching}>
+            Books ({bookSearchResults.length})
+          </TitleWithRefetch>
+          <BookList
+            ref={bookListRef}
+            books={bookSearchResults}
+            direction="horizontal"
+            className="mb-2"
+          />
+        </>
+      ) : null}
+
+      {authorSearchError ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={authorSearchRefetch}
+            isFetching={authorSearchIsFetching}>
+            Authors
+          </TitleWithRefetch>
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <Large>Error loading authors</Large>
+              <Text className="text-muted-foreground">
+                {authorSearchError.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => authorSearchRefetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      ) : authorSearchResults && authorSearchResults.length > 0 ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={authorSearchRefetch}
+            isFetching={authorSearchIsFetching}>
+            Authors ({authorSearchResults.length})
+          </TitleWithRefetch>
+          <PersonList
+            ref={authorListRef}
+            people={authorSearchResults}
+            type="author"
+            direction="horizontal"
+            className="mb-2"
+          />
+        </>
+      ) : null}
+
+      {seriesSearchError ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={seriesSearchRefetch}
+            isFetching={seriesSearchIsFetching}>
+            Series
+          </TitleWithRefetch>
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <Large>Error loading series</Large>
+              <Text className="text-muted-foreground">
+                {seriesSearchError.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => seriesSearchRefetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      ) : seriesSearchResults && seriesSearchResults.length > 0 ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={seriesSearchRefetch}
+            isFetching={seriesSearchIsFetching}>
+            Series ({seriesSearchResults.length})
+          </TitleWithRefetch>
+          <SeriesList
+            ref={seriesListRef}
+            series={seriesSearchResults}
+            direction="horizontal"
+            className="mb-2"
+          />
+        </>
+      ) : null}
+
+      {narratorSearchError ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={narratorSearchRefetch}
+            isFetching={narratorSearchIsFetching}>
+            Narrators
+          </TitleWithRefetch>
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <Large>Error loading narrators</Large>
+              <Text className="text-muted-foreground">
+                {narratorSearchError.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => narratorSearchRefetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      ) : narratorSearchResults && narratorSearchResults.length > 0 ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={narratorSearchRefetch}
+            isFetching={narratorSearchIsFetching}>
+            Narrators ({narratorSearchResults.length})
+          </TitleWithRefetch>
+          <PersonList
+            ref={narratorListRef}
+            people={narratorSearchResults}
+            type="narrator"
+            direction="horizontal"
+            className="mb-2"
+          />
+        </>
+      ) : null}
+
+      {translatorSearchError ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={translatorSearchRefetch}
+            isFetching={translatorSearchIsFetching}>
+            Translators
+          </TitleWithRefetch>
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <Large>Error loading translators</Large>
+              <Text className="text-muted-foreground">
+                {translatorSearchError.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => translatorSearchRefetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      ) : translatorSearchResults && translatorSearchResults.length > 0 ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={translatorSearchRefetch}
+            isFetching={translatorSearchIsFetching}>
+            Translators ({translatorSearchResults.length})
+          </TitleWithRefetch>
+          <PersonList
+            ref={translatorListRef}
+            people={translatorSearchResults}
+            type="translator"
+            direction="horizontal"
+            className="mb-2"
+          />
+        </>
+      ) : null}
+
+      {editorSearchError ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={editorSearchRefetch}
+            isFetching={editorSearchIsFetching}>
+            Editors
+          </TitleWithRefetch>
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <Large>Error loading editors</Large>
+              <Text className="text-muted-foreground">
+                {editorSearchError.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => editorSearchRefetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      ) : editorSearchResults && editorSearchResults.length > 0 ? (
+        <>
+          <TitleWithRefetch
+            className="mb-2"
+            refetch={editorSearchRefetch}
+            isFetching={editorSearchIsFetching}>
+            Editors ({editorSearchResults.length})
+          </TitleWithRefetch>
+          <PersonList
+            ref={editorListRef}
+            people={editorSearchResults}
+            type="editor"
+            direction="horizontal"
+            className="mb-2"
+          />
+        </>
+      ) : null}
+
+      {bookSearchResults &&
+        bookSearchResults.length === 0 &&
+        authorSearchResults &&
+        authorSearchResults.length === 0 &&
+        seriesSearchResults &&
+        seriesSearchResults.length === 0 &&
+        narratorSearchResults &&
+        narratorSearchResults.length === 0 &&
+        translatorSearchResults &&
+        translatorSearchResults.length === 0 &&
+        editorSearchResults &&
+        editorSearchResults.length === 0 && (
+          <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
+            <Text className="text-center">No results found</Text>
+          </View>
+        )}
+    </>
+  );
+};
+
+const BookTab = () => {
+  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
+  const { data, error, refetch, isFetching } = api.books.list.useQuery(instanceDb);
+
+  return (
+    <>
+      <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
         All Books
       </TitleWithRefetch>
       {error ? (
@@ -154,7 +516,7 @@ const AuthorTab = () => {
           </CardFooter>
         </Card>
       ) : data ? (
-        <AuthorList authors={data} />
+        <PersonList people={data} type="author" />
       ) : (
         <View className="p-12 justify-center items-center">
           <Spinner size={15} />

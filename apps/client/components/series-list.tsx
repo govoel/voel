@@ -8,22 +8,26 @@ import { Large, Muted } from '~/components/ui/typography';
 
 import { cn } from '~/lib/utils';
 
+type Series = {
+  id: number;
+  name: string;
+  books: { id: number; cover: string | null; coverThumbhash: string | null }[];
+};
+
 export function SeriesList({
   series,
   direction = 'vertical',
   className,
+  ref,
 }: {
-  series: {
-    id: number;
-    name: string;
-    books: { id: number; cover: string | null; coverThumbhash: string | null }[];
-  }[];
+  series: Series[];
   direction?: 'horizontal' | 'vertical';
   className?: string;
+  ref?: React.RefObject<FlatList<Series> | null>;
 }) {
   if (series.length === 0) {
     return (
-      <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+      <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4">
         <Text className="text-center">No series found</Text>
       </View>
     );
@@ -31,6 +35,7 @@ export function SeriesList({
 
   return (
     <FlatList
+      ref={ref}
       className={className}
       data={series}
       keyExtractor={(item) => item.id.toString()}

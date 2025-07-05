@@ -447,6 +447,99 @@ const get = {
   },
 };
 
+const search = {
+  queryKey: ['instance', 'book', 'search'],
+  useQuery: (instanceDb: Kysely<InstanceDatabase>, searchQuery: string) =>
+    useReactQuery({
+      queryKey: [...search.queryKey, searchQuery],
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = instanceDb
+          .with('playbackHistoryBooks', (db) =>
+            db
+              .selectFrom('playbackHistory')
+              .where('deletedAt', 'is', null)
+              .select(({ fn }) => [
+                'id',
+                'bookId',
+                'positionMs',
+                fn.max('updatedAt').as('updatedAt'),
+              ])
+              .groupBy('playbackHistory.bookId')
+          )
+          .selectFrom('book')
+          .where('book.deletedAt', 'is', null)
+          .select([
+            'book.id',
+            'book.asin',
+            'book.title',
+            'book.subtitle',
+            'book.cover',
+            'book.coverThumbhash',
+            'book.summary',
+            'book.adultsOnly',
+            'book.createdAt',
+            'book.updatedAt',
+          ])
+          .leftJoin('bookAuthor', (join) =>
+            join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
+          )
+          .leftJoin('author', (join) =>
+            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
+          )
+          .leftJoin('audiobookFile', (join) =>
+            join
+              .onRef('audiobookFile.bookId', '=', 'book.id')
+              .on('audiobookFile.deletedAt', 'is', null)
+          )
+          .leftJoin('playbackHistoryBooks', (join) =>
+            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          )
+          .groupBy('book.id')
+          .select((eb) => [
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
+              ])
+              .as('authors'),
+            eb.fn
+              .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
+              .as('totalDurationMs'),
+            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn
+              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
+              .as('playbackPositionUpdatedAt'),
+          ]);
+
+        if (searchQuery.length > 0) {
+          query = query
+            .innerJoin('bookFTS', (join) =>
+              join.on('bookFTS.title', 'match', searchQuery).onRef('book.id', '=', 'bookFTS.rowid')
+            )
+            // the better the match, the smaller the value
+            .orderBy('bookFTS.rank', 'asc');
+        }
+
+        query = query.orderBy('book.updatedAt', 'desc');
+
+        const results = await query.execute();
+
+        return results.map((result) => ({
+          ...result,
+          authors: (result.authors ? JSON.parse(result.authors) : []) as Pick<
+            Selectable<InstanceDatabase['author']>,
+            'id' | 'name'
+          >[],
+        }));
+      },
+    }),
+};
+
 const getPlaybackPosition = {
   queryKey: ['instance', 'book', 'getPlaybackPosition'],
   useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
@@ -658,6 +751,7 @@ export {
   list,
   list as listRecentlyAdded,
   get,
+  search,
   getPlaybackPosition,
   getPlaybackHistory,
   getByFileIds,

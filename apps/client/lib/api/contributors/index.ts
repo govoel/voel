@@ -89,4 +89,45 @@ const listBooks = {
   },
 };
 
-export { listBooks };
+const search = {
+  queryKey: ['instance', 'bookContributor', 'search'],
+  useQuery: (
+    instanceDb: Kysely<InstanceDatabase>,
+    contributorRole: Selectable<BookContributorTable>['role'],
+    searchQuery: string
+  ) => {
+    return useReactQuery({
+      queryKey: [...search.queryKey, contributorRole, searchQuery],
+      networkMode: 'always',
+      queryFn: async () => {
+        let query = instanceDb
+          .selectFrom('bookContributor')
+          .where('bookContributor.role', '=', contributorRole)
+          .where('bookContributor.deletedAt', 'is', null)
+          .select(['bookContributor.id', 'bookContributor.name'])
+          .select((eb) => [eb.fn.count<number>('bookContributor.bookId').as('bookCount')])
+          .groupBy('bookContributor.name');
+
+        if (searchQuery.length > 0) {
+          query = query
+            .innerJoin('bookContributorFTS', (join) =>
+              join
+                .on('bookContributorFTS.name', 'match', searchQuery)
+                .on('bookContributor.role', '=', contributorRole)
+                .onRef('bookContributor.id', '=', 'bookContributorFTS.rowid')
+            )
+            // the better the match, the smaller the value
+            .orderBy('bookContributorFTS.rank', 'asc');
+        }
+
+        query = query
+          .orderBy('bookContributor.updatedAt', 'desc')
+          .orderBy('bookContributor.id', 'asc');
+
+        return await query.execute();
+      },
+    });
+  },
+};
+
+export { listBooks, search };
