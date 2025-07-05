@@ -134,11 +134,11 @@ const BookTab = () => {
 
 const AuthorTab = () => {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.authors.list.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.authors.list.useQuery(instanceDb);
 
   return (
     <>
-      <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
+      <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
         All Authors
       </TitleWithRefetch>
       {error ? (
@@ -166,11 +166,11 @@ const AuthorTab = () => {
 
 const SeriesTab = () => {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.series.list.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.series.list.useQuery(instanceDb);
 
   return (
     <>
-      <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
+      <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
         All Series
       </TitleWithRefetch>
       {error ? (

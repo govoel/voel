@@ -16,13 +16,13 @@ import { instanceStore } from '~/lib/stores/instance';
 
 export default function RecentlyAddedScreen() {
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.books.listRecentlyAdded.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.books.listRecentlyAdded.useQuery(instanceDb);
 
   return (
     <>
       <Stack.Screen options={{ title: 'Recently Added' }} />
       <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch className="mb-2" refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
           Recently Added
         </TitleWithRefetch>
         {error ? (

@@ -23,7 +23,7 @@ import { instanceStore } from '~/lib/stores/instance';
 export default function LibraryListScreen() {
   const apiInstance = useSelector(instanceStore, (state) => state.context.apiInstance);
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.libraries.list.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.libraries.list.useQuery(instanceDb);
 
   const createLibraryModalRef = useRef<BottomSheetModalType>(null);
 
@@ -64,7 +64,7 @@ export default function LibraryListScreen() {
           }}>
           <Text>Create New Library</Text>
         </Button>
-        <TitleWithRefetch className="pt-4" refetch={refetch} isLoading={isLoading}>
+        <TitleWithRefetch className="pt-4" refetch={refetch} isFetching={isFetching}>
           Libraries
         </TitleWithRefetch>
         {data ? (

@@ -19,7 +19,7 @@ export default function EditorScreen() {
   const { editorName } = useLocalSearchParams<{ editorName: string }>();
 
   const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isLoading } = api.contributors.listBooks.useQuery(
+  const { data, error, refetch, isFetching } = api.contributors.listBooks.useQuery(
     instanceDb,
     editorName,
     'editor'
@@ -48,7 +48,7 @@ export default function EditorScreen() {
               {data.length} {data.length === 1 ? 'book' : 'books'} available
             </Small>
 
-            <TitleWithRefetch refetch={refetch} isLoading={isLoading} className="mt-4 mb-2">
+            <TitleWithRefetch refetch={refetch} isFetching={isFetching} className="mt-4 mb-2">
               Books
             </TitleWithRefetch>
             <BookList books={data} />

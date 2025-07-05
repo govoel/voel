@@ -11,12 +11,12 @@ import { cn } from '~/lib/utils';
 export function TitleWithRefetch<TData = unknown, TError = DefaultError>({
   className,
   refetch,
-  isLoading,
+  isFetching,
   children,
 }: {
   className?: string;
   refetch: QueryObserverBaseResult<TData, TError>['refetch'] | (() => void);
-  isLoading: QueryObserverBaseResult<TData, TError>['isLoading'];
+  isFetching: QueryObserverBaseResult<TData, TError>['isFetching'];
   children: ReactNode;
 }) {
   return (
@@ -29,7 +29,7 @@ export function TitleWithRefetch<TData = unknown, TError = DefaultError>({
         onPress={() => {
           refetch();
         }}
-        disabled={isLoading}>
+        disabled={isFetching}>
         <RefreshCw className="text-foreground" size="14" />
       </Button>
     </View>

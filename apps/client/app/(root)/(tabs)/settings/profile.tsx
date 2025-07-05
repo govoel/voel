@@ -144,7 +144,7 @@ const Profile = () => {
 
   return (
     <>
-      <TitleWithRefetch className="pb-4" refetch={refetch} isLoading={isPending}>
+      <TitleWithRefetch className="pb-4" refetch={refetch} isFetching={isPending}>
         User Info
       </TitleWithRefetch>
 
@@ -309,7 +309,12 @@ const SessionsList = () => {
     refetch: currentSessionRefetch,
   } = useAuthSession(authClient);
 
-  const sessions = useQuery({
+  const {
+    data: sessions,
+    error: sessionsError,
+    refetch: sessionsRefetch,
+    isFetching: sessionsIsFetching,
+  } = useQuery({
     queryKey: ['sessions', currentSession?.user.id],
     queryFn: async () => {
       const response = await authClient.listSessions();
@@ -320,13 +325,13 @@ const SessionsList = () => {
 
   return (
     <>
-      <TitleWithRefetch className="pt-4" refetch={sessions.refetch} isLoading={sessions.isLoading}>
+      <TitleWithRefetch className="pt-4" refetch={sessionsRefetch} isFetching={sessionsIsFetching}>
         Sessions
       </TitleWithRefetch>
 
-      {sessions.data && currentSession ? (
+      {sessions && currentSession ? (
         <FlatList
-          data={sessions.data}
+          data={sessions}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           renderItem={({ item }) => (
@@ -338,16 +343,16 @@ const SessionsList = () => {
             />
           )}
         />
-      ) : sessions.error ? (
+      ) : sessionsError ? (
         <Card className="mt-4">
           <CardContent className="pt-4">
             <Large>Error loading list of sessions</Large>
             <Text className="text-muted-foreground">
-              {sessions.error.message || 'Unknown error'}
+              {sessionsError.message || 'Unknown error'}
             </Text>
           </CardContent>
           <CardFooter>
-            <Button className="w-full" onPress={() => sessions.refetch()}>
+            <Button className="w-full" onPress={() => sessionsRefetch()}>
               <Text>Retry</Text>
             </Button>
           </CardFooter>
