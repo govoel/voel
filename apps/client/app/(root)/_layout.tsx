@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { AccountSelector, SubscriptionProvider } from '~/components/account-selector';
+import { AccountSelector } from '~/components/account-selector';
 import { AuthModal } from '~/components/auth-modal';
 import { PlaybackHistoryProvider } from '~/components/playback-history-provider';
 import { Spinner } from '~/components/spinner';
@@ -18,20 +18,18 @@ export default function RootLayout() {
   return (
     <BottomSheetModalProvider>
       <DbMigrator>
-        <SubscriptionProvider>
-          <PlaybackHistoryProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen
-                name="player"
-                options={{ presentation: 'transparentModal', animation: 'none' }}
-              />
-            </Stack>
-          </PlaybackHistoryProvider>
+        <PlaybackHistoryProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="player"
+              options={{ presentation: 'transparentModal', animation: 'none' }}
+            />
+          </Stack>
+        </PlaybackHistoryProvider>
 
-          <AccountSelector />
-          <AuthModal />
-        </SubscriptionProvider>
+        <AccountSelector />
+        <AuthModal />
       </DbMigrator>
     </BottomSheetModalProvider>
   );
