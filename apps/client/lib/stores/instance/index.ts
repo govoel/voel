@@ -1,4 +1,5 @@
 import { expoClient } from '@better-auth/expo/client';
+import { open } from '@op-engineering/op-sqlite';
 import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { auth } from '@voel/server/src/libs/auth/auth';
@@ -9,14 +10,15 @@ import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
 import { toast } from 'sonner-native';
 
-import { createInstanceDb } from '~/db/client';
-
 import { queryClient } from '~/lib/api/query-client';
 
 import '@azure/core-asynciterator-polyfill';
 
-import type { Insertable, Kysely, Transaction } from 'kysely';
+import type { DB } from '@op-engineering/op-sqlite';
+import { CompiledQuery, type Insertable, Kysely, type Transaction } from 'kysely';
 
+import { OpSqliteDialect } from '~/db/driver';
+import { createInstanceDbMigrator } from '~/db/migrations/instance';
 import type {
   AudiobookChapterTable,
   AudiobookFileTable,
@@ -87,17 +89,11 @@ export const createApiInstance = (
   });
 };
 
-export const createInstances = (instanceId: string, instanceURL: string) => {
-  const instanceIdNum = parseInt(instanceId, 10);
-
-  if (isNaN(instanceIdNum)) {
-    throw new Error(`Invalid instance ID: ${instanceId}`);
-  }
-
-  const authInstance = createInstanceAuthClient(instanceId, instanceURL);
-  const apiInstance = createApiInstance(instanceURL, authInstance);
-  const { instanceDb, instanceOpDb } = createInstanceDb(instanceIdNum);
-
+const startRealtimeSync = (
+  instanceId: string | null,
+  instanceDb: Kysely<InstanceDatabase<'regular'>>,
+  apiInstance: ReturnType<typeof createApiInstance>
+) => {
   Promise.all([
     instanceDb
       .selectFrom('library')
@@ -412,13 +408,64 @@ export const createInstances = (instanceId: string, instanceURL: string) => {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     });
+};
+
+export const createInstances = (instanceId: string | null, instanceURL: string | null) => {
+  const authInstance = createInstanceAuthClient(instanceId ?? '0', instanceURL ?? 'http://0.0.0.0');
+  const apiInstance = createApiInstance(instanceURL ?? 'http://0.0.0.0', authInstance);
+
+  const instanceOpDb = open({ name: `VoelInstance-${instanceId ?? '0'}.db` });
+
+  const instanceDialect = new OpSqliteDialect({
+    database: instanceOpDb,
+    onCreateConnection: async (connection) => {
+      connection.executeQuery(CompiledQuery.raw(`PRAGMA foreign_keys = ON`));
+      connection.executeQuery(CompiledQuery.raw('PRAGMA journal_mode = WAL'));
+      connection.executeQuery(CompiledQuery.raw('PRAGMA synchronous = NORMAL'));
+    },
+  });
+
+  const instanceDb = new Kysely<InstanceDatabase>({ dialect: instanceDialect });
+
+  createInstanceDbMigrator(instanceDb)
+    .migrateToLatest()
+    .then((results) => {
+      if (results.error) {
+        instanceStore.trigger.setMigrationStatus({
+          instanceId: instanceId,
+          status: 'error',
+          error: results.error instanceof Error ? results.error : new Error('Unknown error'),
+        });
+      } else {
+        instanceStore.trigger.setMigrationStatus({
+          instanceId: instanceId,
+          status: 'completed',
+        });
+
+        startRealtimeSync(instanceId, instanceDb, apiInstance);
+      }
+    })
+    .catch((error) => {
+      instanceStore.trigger.setMigrationStatus({
+        instanceId: instanceId,
+        status: 'error',
+        error: error instanceof Error ? error : new Error('Unknown error'),
+      });
+    });
 
   return {
     authInstance,
     apiInstance,
     instanceDb,
     instanceOpDb,
-  };
+    migrationStatus: 'pending',
+    migrationError: null,
+  } as {
+    authInstance: ReturnType<typeof createInstanceAuthClient>;
+    apiInstance: ReturnType<typeof createApiInstance>;
+    instanceDb: Kysely<InstanceDatabase<'regular'>>;
+    instanceOpDb: DB;
+  } & MigrationStatus;
 };
 
 export const createInstanceAuthClient = (instanceId: string, instanceURL: string) =>
@@ -426,6 +473,10 @@ export const createInstanceAuthClient = (instanceId: string, instanceURL: string
 
 export const useAuthSession = (authClient: ReturnType<typeof createInstanceAuthClient>) =>
   authClient.useSession();
+
+type MigrationStatusNoError = { migrationStatus: 'pending' | 'completed'; migrationError: null };
+type MigrationStatusWithError = { migrationStatus: 'error'; migrationError: Error };
+type MigrationStatus = MigrationStatusNoError | MigrationStatusWithError;
 
 type SyncStatus = 'idle' | 'processing' | 'waiting' | 'connecting' | 'error';
 
@@ -438,8 +489,8 @@ export const instanceStore = createStore({
     instanceURL: SecureStore.getItem('currentInstanceURL'),
     instanceUserId: SecureStore.getItem('currentInstanceUserId'),
     ...createInstances(
-      SecureStore.getItem('currentInstanceId') ?? '0',
-      SecureStore.getItem('currentInstanceURL') ?? 'http://0.0.0.0'
+      SecureStore.getItem('currentInstanceId'),
+      SecureStore.getItem('currentInstanceURL')
     ),
   },
   on: {
@@ -474,7 +525,7 @@ export const instanceStore = createStore({
     },
     setSyncStatus: (
       context,
-      { instanceId, status }: { instanceId: string; status: SyncStatus }
+      { instanceId, status }: { instanceId: string | null; status: SyncStatus }
     ) => {
       if (context.instanceId === instanceId) {
         return { ...context, syncStatus: status };
@@ -487,12 +538,36 @@ export const instanceStore = createStore({
     // when ready, because xstate processes triggers sequentially.
     setSyncUnsubscriber: (
       context,
-      { instanceId, syncUnsubscriber }: { instanceId: string; syncUnsubscriber: () => void }
+      { instanceId, syncUnsubscriber }: { instanceId: string | null; syncUnsubscriber: () => void }
     ) => {
       if (context.instanceId === instanceId) {
         return { ...context, syncUnsubscriber };
       } else {
         syncUnsubscriber();
+        return context;
+      }
+    },
+    setMigrationStatus: (
+      context,
+      event:
+        | { instanceId: string | null; status: 'error'; error: Error }
+        | { instanceId: string | null; status: 'completed' }
+    ) => {
+      if (context.instanceId === event.instanceId) {
+        if (event.status === 'error') {
+          return {
+            ...context,
+            migrationStatus: event.status,
+            migrationError: event.error,
+          };
+        } else {
+          return {
+            ...context,
+            migrationStatus: event.status,
+            migrationError: null,
+          };
+        }
+      } else {
         return context;
       }
     },
