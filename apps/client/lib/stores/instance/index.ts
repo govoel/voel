@@ -1,18 +1,12 @@
 import { expoClient } from '@better-auth/expo/client';
-import {
-  createTRPCClient,
-  httpBatchStreamLink,
-  httpSubscriptionLink,
-  splitLink,
-} from '@trpc/client';
-import { type TRPCOptionsProxy, createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
+import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from '@trpc/client';
+import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { auth } from '@voel/server/src/libs/auth/auth';
 import type { AppRouter } from '@voel/server/src/router/root';
 import { createStore } from '@xstate/store';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
-import { fetch as expoFetch } from 'expo/fetch';
 import { toast } from 'sonner-native';
 
 import { createInstanceDb } from '~/db/client';
@@ -21,9 +15,7 @@ import { queryClient } from '~/lib/api/query-client';
 
 import '@azure/core-asynciterator-polyfill';
 
-import { TextDecoderStream } from '@stardazed/streams-text-encoding';
 import type { Insertable, Kysely, Transaction } from 'kysely';
-import { ReadableStream } from 'web-streams-polyfill';
 
 import type {
   AudiobookChapterTable,
@@ -43,9 +35,6 @@ import type {
 import { ExpoEventSource } from '~/lib/stores/instance/EventSource';
 
 import Player from '~/modules/voel-audio';
-
-globalThis.TextDecoderStream = globalThis.TextDecoderStream || TextDecoderStream;
-globalThis.ReadableStream = globalThis.ReadableStream || ReadableStream;
 
 export const createAuthClient = (
   baseURL: string,
@@ -85,12 +74,11 @@ export const createApiInstance = (
             },
             url: `${instanceURL}/api/trpc`,
           }),
-          false: httpBatchStreamLink({
+          false: httpBatchLink({
             url: `${instanceURL}/api/trpc`,
             headers: () => ({
               Cookie: authClient.getCookie(),
             }),
-            fetch: (url, opts) => expoFetch(url, opts),
           }),
         }),
       ],
