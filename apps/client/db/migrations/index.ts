@@ -1,9 +1,7 @@
-import { Kysely, type MigrationResultSet } from 'kysely';
+import { type MigrationResultSet } from 'kysely';
 import { useEffect, useReducer } from 'react';
 
-import { createInstanceDbMigrator } from '~/db/migrations/instance';
 import { mainDbMigrator } from '~/db/migrations/main';
-import { type InstanceDatabase } from '~/db/schema/instance';
 
 type MigrationState =
   | { status: 'pending'; success: false; results: null; error: null }
@@ -15,17 +13,7 @@ type MigrationAction =
   | { type: 'migrated'; results: MigrationResultSet }
   | { type: 'error'; error: Error };
 
-export const useMigrations = (
-  opts:
-    | {
-        type: 'instance';
-        db: Kysely<InstanceDatabase>;
-      }
-    | {
-        type: 'main';
-        db: undefined;
-      }
-) => {
+export const useMigrations = () => {
   const migrationReducer = (state: MigrationState, action: MigrationAction): MigrationState => {
     switch (action.type) {
       case 'migrating':
@@ -48,31 +36,17 @@ export const useMigrations = (
 
   useEffect(() => {
     dispatch({ type: 'migrating' });
-    if (opts.type === 'main') {
-      mainDbMigrator.migrateToLatest().then((results) => {
-        if (results.error) {
-          dispatch({
-            type: 'error',
-            error: results.error instanceof Error ? results.error : new Error('Unknown error'),
-          });
-        } else {
-          dispatch({ type: 'migrated', results });
-        }
-      });
-    } else if (opts.type === 'instance') {
-      const instanceDbMigrator = createInstanceDbMigrator(opts.db);
-      instanceDbMigrator.migrateToLatest().then((results) => {
-        if (results.error) {
-          dispatch({
-            type: 'error',
-            error: results.error instanceof Error ? results.error : new Error('Unknown error'),
-          });
-        } else {
-          dispatch({ type: 'migrated', results });
-        }
-      });
-    }
-  }, [opts.type, opts.db]);
+    mainDbMigrator.migrateToLatest().then((results) => {
+      if (results.error) {
+        dispatch({
+          type: 'error',
+          error: results.error instanceof Error ? results.error : new Error('Unknown error'),
+        });
+      } else {
+        dispatch({ type: 'migrated', results });
+      }
+    });
+  }, []);
 
   return state;
 };

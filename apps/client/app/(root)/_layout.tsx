@@ -36,7 +36,7 @@ export default function RootLayout() {
 }
 
 const DbMigrator = ({ children }: { children: ReactNode }) => {
-  const mainDbMigration = useMigrations({ type: 'main', db: undefined });
+  const mainDbMigration = useMigrations();
 
   if (mainDbMigration.status === 'pending') {
     return (
@@ -58,21 +58,24 @@ const DbMigrator = ({ children }: { children: ReactNode }) => {
 };
 
 const InstanceDbMigrator = ({ children }: { children: ReactNode }) => {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceDbMigration = useMigrations({ type: 'instance', db: instanceDb });
+  const migrationStatus = useSelector(instanceStore, (state) => state.context.migrationStatus);
+  const migrationError = useSelector(instanceStore, (state) => state.context.migrationError);
 
-  if (instanceDbMigration.status === 'pending') {
+  if (migrationStatus === 'pending') {
     return (
       <View className="flex flex-1 justify-center items-center">
+        <Text>Instance migration in progress...</Text>
         <Spinner size={15} />
       </View>
     );
   }
 
-  if (instanceDbMigration.status === 'error') {
+  if (migrationStatus === 'error') {
     return (
       <View className="flex flex-1 p-12 justify-center items-center">
-        <Text>Instance database migration failed: {instanceDbMigration.error.message}</Text>
+        <Text>
+          Instance database migration failed: {migrationError?.message ?? 'Unknown error'}
+        </Text>
       </View>
     );
   }
