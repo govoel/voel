@@ -42,7 +42,7 @@ export default function ContinueListeningScreen() {
             </CardFooter>
           </Card>
         ) : data ? (
-          <BookList books={data} />
+          <BookList books={data} emptyListMessage="You haven&rsquo;t listened to any books yet" />
         ) : (
           <View className="p-12 justify-center items-center">
             <Spinner size={15} />

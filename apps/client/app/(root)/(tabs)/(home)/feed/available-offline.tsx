@@ -42,7 +42,7 @@ export default function AvailableOfflineScreen() {
             </CardFooter>
           </Card>
         ) : data ? (
-          <BookList books={data} />
+          <BookList books={data} emptyListMessage="You haven&rsquo;t downloaded any books yet" />
         ) : (
           <View className="p-12 justify-center items-center">
             <Spinner size={15} />

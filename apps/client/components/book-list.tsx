@@ -72,16 +72,18 @@ export function BookList({
   direction = 'vertical',
   className,
   ref,
+  emptyListMessage = 'No books found',
 }: {
   books: Book[];
   direction?: 'horizontal' | 'vertical';
   className?: string;
   ref?: React.RefObject<FlatList<Book> | null>;
+  emptyListMessage?: string;
 }) {
   if (books.length === 0) {
     return (
       <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4">
-        <Text className="text-center">No books found</Text>
+        <Text className="text-center">{emptyListMessage}</Text>
       </View>
     );
   }
@@ -108,7 +110,13 @@ export function BookList({
             className={cn(
               'h-full',
               direction === 'vertical' ? (index > 1 ? 'pt-4 w-1/2' : 'w-1/2') : 'w-48',
-              direction === 'vertical' ? (index % 2 === 0 ? 'pr-2' : 'pl-2') : 'mr-4 mb-2'
+              direction === 'vertical'
+                ? index % 2 === 0
+                  ? 'pr-2'
+                  : 'pl-2'
+                : index === 0
+                  ? 'mb-2'
+                  : 'ml-4 mb-2'
             )}>
             {item.label ? (
               <View className="flex flex-row items-center pb-2">
