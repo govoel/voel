@@ -15,7 +15,7 @@
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
     "better-auth": "1.2.12",
-    "hono": "4.8.4",
+    "hono": "4.8.5",
     "kysely": "0.28.2",
     "mime": "4.0.7",
     "pino": "9.7.0",
@@ -39,7 +39,7 @@
     "kysely-ctl": "0.13.1",
     "prettier": "3.6.2",
     "tough-cookie": "5.1.2",
-    "typescript-eslint": "8.36.0"
+    "typescript-eslint": "8.37.0"
   },
   "module": "src/index.ts"
 }
