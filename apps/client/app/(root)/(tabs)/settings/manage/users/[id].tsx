@@ -1,7 +1,6 @@
 import { Session } from '../../profile';
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSelector } from '@xstate/store/react';
 import type { UserWithRole } from 'better-auth/plugins';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
@@ -22,7 +21,7 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import { Gavel } from '~/lib/icons/Gavel';
-import { instanceStore } from '~/lib/stores/instance';
+import { useAuthInstance } from '~/lib/stores/instance';
 import { getInitials } from '~/lib/utils';
 
 const userRole = z.enum(['under18', 'user', 'admin']);
@@ -41,7 +40,7 @@ const banUserValidator = z.object({
 
 export default function ManageUserScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
+  const authInstance = useAuthInstance();
 
   const {
     data: user,
@@ -51,7 +50,7 @@ export default function ManageUserScreen() {
   } = useQuery({
     queryKey: ['users', id],
     queryFn: async () => {
-      const res = await authClient.admin.listUsers({
+      const res = await authInstance.admin.listUsers({
         query: {
           limit: 1,
           offset: 0,
@@ -81,7 +80,7 @@ export default function ManageUserScreen() {
   } = useQuery({
     queryKey: ['sessions', id],
     queryFn: async () => {
-      const res = await authClient.admin.listUserSessions({ userId: id });
+      const res = await authInstance.admin.listUserSessions({ userId: id });
 
       if (res.error) {
         throw res.error;
@@ -138,7 +137,7 @@ export default function ManageUserScreen() {
                 session={item}
                 userId={id}
                 revokeSession={(token) =>
-                  authClient.admin.revokeUserSession({ sessionToken: token })
+                  authInstance.admin.revokeUserSession({ sessionToken: token })
                 }
               />
             )}
@@ -175,7 +174,7 @@ export default function ManageUserScreen() {
 }
 
 const Profile = ({ user }: { user: UserWithRole }) => {
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
+  const authInstance = useAuthInstance();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -183,7 +182,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
   const setRoleMutation = useMutation({
     mutationKey: ['users', user.id, 'setRole'],
     mutationFn: async (role: z.infer<typeof userRole>) => {
-      const res = await authClient.admin.setRole({ userId: user.id, role });
+      const res = await authInstance.admin.setRole({ userId: user.id, role });
       if (res.error) {
         throw res.error;
       }
@@ -225,7 +224,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
       banReason: string;
       banExpiresIn?: number;
     }) => {
-      const res = await authClient.admin.banUser({ userId: user.id, banReason, banExpiresIn });
+      const res = await authInstance.admin.banUser({ userId: user.id, banReason, banExpiresIn });
       if (res.error) {
         throw res.error;
       }
@@ -259,7 +258,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
   const unbanUserMutation = useMutation({
     mutationKey: ['users', user.id, 'unban'],
     mutationFn: async () => {
-      const res = await authClient.admin.unbanUser({ userId: user.id });
+      const res = await authInstance.admin.unbanUser({ userId: user.id });
       if (res.error) {
         throw res.error;
       }
@@ -287,7 +286,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
   const changePasswordMutation = useMutation({
     mutationKey: ['users', user.id, 'changePassword'],
     mutationFn: async (newPassword: string) => {
-      const res = await authClient.admin.setUserPassword({ userId: user.id, newPassword });
+      const res = await authInstance.admin.setUserPassword({ userId: user.id, newPassword });
       if (res.error) {
         throw res.error;
       }
@@ -333,7 +332,7 @@ const Profile = ({ user }: { user: UserWithRole }) => {
   const deleteUserMutation = useMutation({
     mutationKey: ['users', 'delete'],
     mutationFn: async () => {
-      const res = await authClient.admin.removeUser({ userId: user.id });
+      const res = await authInstance.admin.removeUser({ userId: user.id });
       if (res.error) {
         throw res.error;
       }

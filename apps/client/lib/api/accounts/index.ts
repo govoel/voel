@@ -1,67 +1,60 @@
-import {
-  useQuery as useReactQuery,
-  useMutation as useReactQueryMutation,
-} from '@tanstack/react-query';
-import type { Insertable } from 'kysely';
+import { useQuery as useReactQuery } from '@tanstack/react-query';
 
 import { mainDb } from '~/db/client';
-import type { MainDatabase } from '~/db/schema/main';
+
+export const accountsQueryKeys = {
+  all: ['accounts'] as const,
+  list: () => [...accountsQueryKeys.all, 'list'] as const,
+  get: (instanceId: string) => [...accountsQueryKeys.all, 'get', instanceId] as const,
+};
 
 const list = {
-  queryKey: ['accounts', 'list'],
-  useQuery: () => {
-    return useReactQuery({
-      queryKey: list.queryKey,
+  useQuery: () =>
+    useReactQuery({
+      queryKey: accountsQueryKeys.list(),
       networkMode: 'always',
       refetchOnReconnect: true,
       queryFn: () =>
         mainDb
           .selectFrom('accounts')
-          .select(['instanceId', 'instanceURL', 'userId', 'username', 'email', 'name', 'image'])
-          .execute(),
-    });
-  },
-};
-
-const add = {
-  mutationKey: ['accounts'],
-  useMutation: () => {
-    return useReactQueryMutation({
-      mutationKey: add.mutationKey,
-      mutationFn: (account: Insertable<MainDatabase['accounts']>) =>
-        mainDb
-          .insertInto('accounts')
-          .values(account)
-          .onConflict((oc) => oc.doNothing())
-          .returning([
-            'instanceId as instanceId',
-            'instanceURL as instanceURL',
-            'userId as userId',
-            'username as username',
-            'email as email',
-            'name as name',
-            'image as image',
+          .select([
+            'instanceId',
+            'instanceURL',
+            'userId',
+            'username',
+            'email',
+            'name',
+            'image',
+            'role',
+            'updatedAt',
           ])
           .execute(),
-    });
-  },
+    }),
 };
 
 const get = {
-  queryKey: ['accounts', 'get'],
-  useQuery: (instanceId: string) => {
-    return useReactQuery({
-      queryKey: [...get.queryKey, instanceId],
+  useQuery: (instanceId: string) =>
+    useReactQuery({
+      queryKey: accountsQueryKeys.get(instanceId),
       networkMode: 'always',
       refetchOnReconnect: true,
       queryFn: () =>
         mainDb
           .selectFrom('accounts')
-          .select(['instanceId', 'instanceURL', 'userId', 'username', 'email', 'name', 'image'])
+          .select([
+            'instanceId',
+            'instanceURL',
+            'userId',
+            'username',
+            'email',
+            'name',
+            'image',
+            'role',
+            'updatedAt',
+          ])
           .where('instanceId', '=', parseInt(instanceId, 10))
           .executeTakeFirstOrThrow(),
-    });
-  },
+    }),
 };
 
-export { list, add, get };
+export { list, get };

@@ -1,13 +1,19 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
-import { Kysely } from 'kysely';
 
-import type { InstanceDatabase } from '~/db/schema/instance';
+import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+
+export const librariesQueryKeys = {
+  all: (instanceId: string) => ['instance', instanceId, 'library'] as const,
+  list: (instanceId: string) => ['instance', instanceId, 'library', 'list'] as const,
+};
 
 const list = {
-  queryKey: ['instance', 'library', 'list'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
+  useQuery: () => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: list.queryKey,
+      queryKey: librariesQueryKeys.list(instanceId),
       networkMode: 'always',
       queryFn: async () =>
         instanceDb

@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Link, Stack } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, View } from 'react-native';
@@ -16,26 +15,24 @@ import { Large, Muted } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { ChevronRight } from '~/lib/icons/ChevronRight';
-import { instanceStore } from '~/lib/stores/instance';
+import { useAuthInstance, useInstanceId } from '~/lib/stores/instance';
 import { cn, formatBytes } from '~/lib/utils';
 
 import Player, { useDownloadStatus } from '~/modules/voel-audio';
 
 export default function SettingsDownloadsScreen() {
-  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+  const authInstance = useAuthInstance();
+  const instanceId = useInstanceId();
   const {
     data: downloads,
     error: downloadError,
     refetch: refetchDownloadsStatus,
-  } = useDownloadStatus(instanceId ?? '0');
+  } = useDownloadStatus(instanceId);
 
   const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
   const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
 
   const { data, error, refetch, isFetching } = api.books.getByFileIds.useQuery(
-    instanceDb,
     Object.keys(downloads ?? {})
   );
 

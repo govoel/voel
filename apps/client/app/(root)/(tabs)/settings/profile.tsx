@@ -1,7 +1,6 @@
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { SnapshotFromStore } from '@xstate/store';
-import { useSelector } from '@xstate/store/react';
 import type { Session as BetterAuthSession } from 'better-auth/types';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';
@@ -28,7 +27,7 @@ import { useAppForm } from '~/components/ui/form';
 import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
-import { instanceStore, useAuthSession } from '~/lib/stores/instance';
+import { instanceStore, useAuthInstance, useAuthSession } from '~/lib/stores/instance';
 import { getInitials } from '~/lib/utils';
 
 export default function ProfileSettingsScreen() {
@@ -46,12 +45,12 @@ export default function ProfileSettingsScreen() {
 const Profile = () => {
   const editProfileModalRef = useRef<BottomSheetModalType>(null);
   const changePasswordModalRef = useRef<BottomSheetModalType>(null);
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
-  const { data, error, refetch, isPending } = useAuthSession(authClient);
+  const authInstance = useAuthInstance();
+  const { data, error, refetch, isPending } = useAuthSession(authInstance);
 
   const editProfileMutation = useMutation({
-    mutationFn: async (data: Parameters<typeof authClient.updateUser>[0]) => {
-      const res = await authClient.updateUser(data);
+    mutationFn: async (data: Parameters<typeof authInstance.updateUser>[0]) => {
+      const res = await authInstance.updateUser(data);
       if (res.error) {
         throw res.error;
       }
@@ -88,8 +87,8 @@ const Profile = () => {
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: async (data: Parameters<typeof authClient.changePassword>[0]) => {
-      const res = await authClient.changePassword(data);
+    mutationFn: async (data: Parameters<typeof authInstance.changePassword>[0]) => {
+      const res = await authInstance.changePassword(data);
       if (res.error) {
         throw res.error;
       }
@@ -302,12 +301,12 @@ const Profile = () => {
 };
 
 const SessionsList = () => {
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
+  const authInstance = useAuthInstance();
   const {
     data: currentSession,
     error: currentSessionError,
     refetch: currentSessionRefetch,
-  } = useAuthSession(authClient);
+  } = useAuthSession(authInstance);
 
   const {
     data: sessions,
@@ -317,7 +316,7 @@ const SessionsList = () => {
   } = useQuery({
     queryKey: ['sessions', currentSession?.user.id],
     queryFn: async () => {
-      const response = await authClient.listSessions();
+      const response = await authInstance.listSessions();
       if (response.error) throw response.error;
       return response.data;
     },
@@ -339,7 +338,7 @@ const SessionsList = () => {
               session={item}
               userId={currentSession.user.id}
               currentSessionToken={currentSession.session.token}
-              revokeSession={(token) => authClient.revokeSession({ token })}
+              revokeSession={(token) => authInstance.revokeSession({ token })}
             />
           )}
         />

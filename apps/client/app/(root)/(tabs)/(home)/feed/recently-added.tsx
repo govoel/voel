@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
@@ -12,11 +11,9 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { instanceStore } from '~/lib/stores/instance';
 
 export default function RecentlyAddedScreen() {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isFetching } = api.books.listRecentlyAdded.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.books.listRecentlyAdded.useQuery();
 
   return (
     <>

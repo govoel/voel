@@ -76,8 +76,3 @@ export const auth = betterAuth({
     }),
   },
 });
-
-// atlas schema inspect -u "sqlite://dev.db?_fk=1" > ./src/libs/db/schema.hcl
-// atlas migrate diff init_better_auth --dir "file://src/libs/db/migrations" --to "file://src/libs/db/schema.hcl" --dev-url "sqlite://dev.db?_fk=1"
-// atlas migrate lint --dev-url "sqlite://dev.db?_fk=1" --dir "file://src/libs/db/migrations" --latest 1
-// atlas migrate apply --url "sqlite://dev.db?_fk=1" --dir "file://src/libs/db/migrations"

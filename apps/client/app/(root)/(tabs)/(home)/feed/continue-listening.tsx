@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
@@ -12,15 +11,9 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { instanceStore } from '~/lib/stores/instance';
 
 export default function ContinueListeningScreen() {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const { data, error, refetch, isFetching } = api.feeds.getContinueListening.useQuery(
-    instanceDb,
-    instanceId ?? '0'
-  );
+  const { data, error, refetch, isFetching } = api.feeds.getContinueListening.useQuery();
 
   return (
     <>

@@ -1,21 +1,31 @@
-import { getAvailableOfflineQueryKey } from './getAvailableOfflineQueryKey';
 import { useQuery as useReactQuery } from '@tanstack/react-query';
-import type { Kysely, Selectable } from 'kysely';
+import type { Selectable } from 'kysely';
 
+import { mainDb } from '~/db/client';
 import type { InstanceDatabase } from '~/db/schema/instance';
+
+import { feedsQueryKeys } from '~/lib/api/feeds/query-keys';
+import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
 
 import AudioModule from '~/modules/voel-audio';
 
 const getAvailableOffline = {
-  queryKey: getAvailableOfflineQueryKey,
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, instanceId: string) => {
+  useQuery: () => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...getAvailableOffline.queryKey, instanceId],
+      queryKey: feedsQueryKeys.getAvailableOffline(instanceId),
       networkMode: 'always',
       queryFn: async () => {
         const downloadIds = await AudioModule.getAllDownloadIds(instanceId);
 
-        // we don't filter by deletedAt on purpose to allow the UI to show a cleanup button
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let authorSubquery = instanceDb
           .selectFrom('bookAuthor')
           .innerJoin('author', (join) => join.onRef('author.id', '=', 'bookAuthor.authorId'))
@@ -51,7 +61,7 @@ const getAvailableOffline = {
           .groupBy('audiobookFile.bookId')
           .as('fileData');
 
-        const results = await instanceDb
+        let query = instanceDb
           .with('playbackHistoryBooks', (db) =>
             db
               .selectFrom('playbackHistory')
@@ -92,8 +102,13 @@ const getAvailableOffline = {
               .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
               .as('playbackPositionUpdatedAt'),
           ])
-          .groupBy('book.id')
-          .execute();
+          .groupBy('book.id');
+
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
+
+        const results = await query.execute();
 
         return results.map((result) => ({
           ...result,
@@ -110,12 +125,20 @@ const getAvailableOffline = {
 };
 
 const getContinueListening = {
-  queryKey: ['instance', 'feeds', 'getContinueListening'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, instanceId: string) => {
+  useQuery: () => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...getContinueListening.queryKey, instanceId],
+      queryKey: feedsQueryKeys.getContinueListening(instanceId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .with('playbackHistoryBooks', (db) =>
             db
@@ -178,6 +201,10 @@ const getContinueListening = {
               .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
               .as('playbackPositionUpdatedAt'),
           ]);
+
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
 
         const results = await query.execute();
 

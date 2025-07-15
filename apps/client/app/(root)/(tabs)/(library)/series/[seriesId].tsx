@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
@@ -14,24 +13,22 @@ import { Text } from '~/components/ui/text';
 import { H2, Large, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { instanceStore } from '~/lib/stores/instance';
 
 export default function SeriesScreen() {
   const { seriesId } = useLocalSearchParams<{ seriesId: string }>();
 
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const {
     data: serie,
     error: serieError,
     refetch: serieRefetch,
-  } = api.series.get.useQuery(instanceDb, parseInt(seriesId, 10));
+  } = api.series.get.useQuery(parseInt(seriesId, 10));
 
   const {
     data: books,
     error: booksError,
     refetch: booksRefetch,
     isFetching: booksIsFetching,
-  } = api.series.listBooks.useQuery(instanceDb, parseInt(seriesId, 10));
+  } = api.series.listBooks.useQuery(parseInt(seriesId, 10));
 
   return (
     <>
@@ -75,7 +72,7 @@ export default function SeriesScreen() {
         )}
 
         {booksError ? (
-          <Card>
+          <Card className={serieError ? 'mt-4' : ''}>
             <CardContent className="pt-4">
               <Large>Error loading books in series</Large>
               <Text className="text-muted-foreground">{booksError.message || 'Unknown error'}</Text>

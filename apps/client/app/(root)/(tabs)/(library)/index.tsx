@@ -21,7 +21,6 @@ import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { Search } from '~/lib/icons/Search';
-import { instanceStore } from '~/lib/stores/instance';
 import { cn } from '~/lib/utils';
 
 export default function LibraryScreen() {
@@ -103,8 +102,6 @@ const SearchTabsTrigger = () => {
 };
 
 const SearchTab = () => {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-
   const SearchForm = useAppForm({
     defaultValues: {
       query: '',
@@ -128,42 +125,42 @@ const SearchTab = () => {
     error: bookSearchError,
     refetch: bookSearchRefetch,
     isFetching: bookSearchIsFetching,
-  } = api.books.search.useQuery(instanceDb, searchQuery);
+  } = api.books.search.useQuery(searchQuery);
 
   const {
     data: authorSearchResults,
     error: authorSearchError,
     refetch: authorSearchRefetch,
     isFetching: authorSearchIsFetching,
-  } = api.authors.search.useQuery(instanceDb, searchQuery);
+  } = api.authors.search.useQuery(searchQuery);
 
   const {
     data: seriesSearchResults,
     error: seriesSearchError,
     refetch: seriesSearchRefetch,
     isFetching: seriesSearchIsFetching,
-  } = api.series.search.useQuery(instanceDb, searchQuery);
+  } = api.series.search.useQuery(searchQuery);
 
   const {
     data: narratorSearchResults,
     error: narratorSearchError,
     refetch: narratorSearchRefetch,
     isFetching: narratorSearchIsFetching,
-  } = api.contributors.search.useQuery(instanceDb, 'narrator', searchQuery);
+  } = api.contributors.search.useQuery('narrator', searchQuery);
 
   const {
     data: translatorSearchResults,
     error: translatorSearchError,
     refetch: translatorSearchRefetch,
     isFetching: translatorSearchIsFetching,
-  } = api.contributors.search.useQuery(instanceDb, 'translator', searchQuery);
+  } = api.contributors.search.useQuery('translator', searchQuery);
 
   const {
     data: editorSearchResults,
     error: editorSearchError,
     refetch: editorSearchRefetch,
     isFetching: editorSearchIsFetching,
-  } = api.contributors.search.useQuery(instanceDb, 'editor', searchQuery);
+  } = api.contributors.search.useQuery('editor', searchQuery);
 
   const bookListRef = useRef<FlatList>(null);
   const authorListRef = useRef<FlatList>(null);
@@ -463,8 +460,7 @@ const SearchTab = () => {
 };
 
 const BookTab = () => {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isFetching } = api.books.list.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.books.list.useQuery();
 
   return (
     <>
@@ -495,8 +491,7 @@ const BookTab = () => {
 };
 
 const AuthorTab = () => {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isFetching } = api.authors.list.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.authors.list.useQuery();
 
   return (
     <>
@@ -527,8 +522,7 @@ const AuthorTab = () => {
 };
 
 const SeriesTab = () => {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isFetching } = api.series.list.useQuery(instanceDb);
+  const { data, error, refetch, isFetching } = api.series.list.useQuery();
 
   return (
     <>

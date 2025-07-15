@@ -1,15 +1,37 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
-import { Kysely, type Selectable } from 'kysely';
+import type { Selectable } from 'kysely';
 
+import { mainDb } from '~/db/client';
 import type { InstanceDatabase } from '~/db/schema/instance';
 
+import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+
+export const authorsQueryKeys = {
+  all: (instanceId: string) => ['instance', instanceId, 'author'] as const,
+  list: (instanceId: string) => [...authorsQueryKeys.all(instanceId), 'list'] as const,
+  get: (instanceId: string, authorId: number) =>
+    [...authorsQueryKeys.all(instanceId), 'get', authorId] as const,
+  search: (instanceId: string, query: string) =>
+    [...authorsQueryKeys.all(instanceId), 'search', query] as const,
+  listBooks: (instanceId: string, authorId: number) =>
+    [...authorsQueryKeys.all(instanceId), 'listBooks', authorId] as const,
+};
+
 const list = {
-  queryKey: ['instance', 'author', 'list'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
+  useQuery: () => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: list.queryKey,
+      queryKey: authorsQueryKeys.list(instanceId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('author')
           .where('author.deletedAt', 'is', null)
@@ -21,7 +43,7 @@ const list = {
             'author.createdAt',
             'author.updatedAt',
           ])
-          .leftJoin('bookAuthor', (join) =>
+          .innerJoin('bookAuthor', (join) =>
             join
               .onRef('author.id', '=', 'bookAuthor.authorId')
               .on('bookAuthor.deletedAt', 'is', null)
@@ -30,6 +52,15 @@ const list = {
           .groupBy('author.id')
           .orderBy('author.updatedAt', 'desc');
 
+        if (role === 'under18') {
+          query = query.innerJoin('book', (join) =>
+            join
+              .onRef('book.id', '=', 'bookAuthor.bookId')
+              .on('book.deletedAt', 'is', null)
+              .on('book.adultsOnly', '=', 0)
+          );
+        }
+
         return await query.execute();
       },
     });
@@ -37,12 +68,20 @@ const list = {
 };
 
 const get = {
-  queryKey: ['instance', 'author', 'get'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, authorId: number) => {
+  useQuery: (authorId: number) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...get.queryKey, authorId],
+      queryKey: authorsQueryKeys.get(instanceId, authorId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('author')
           .where('author.id', '=', authorId)
@@ -57,6 +96,22 @@ const get = {
             'author.updatedAt',
           ]);
 
+        if (role === 'under18') {
+          query = query
+            .innerJoin('bookAuthor', (join) =>
+              join
+                .onRef('author.id', '=', 'bookAuthor.authorId')
+                .on('bookAuthor.deletedAt', 'is', null)
+            )
+            .innerJoin('book', (join) =>
+              join
+                .onRef('book.id', '=', 'bookAuthor.bookId')
+                .on('book.deletedAt', 'is', null)
+                .on('book.adultsOnly', '=', 0)
+            )
+            .groupBy('author.id');
+        }
+
         return await query.executeTakeFirstOrThrow();
       },
     });
@@ -64,12 +119,20 @@ const get = {
 };
 
 const search = {
-  queryKey: ['instance', 'author', 'search'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, searchQuery: string) =>
-    useReactQuery({
-      queryKey: [...search.queryKey, searchQuery],
+  useQuery: (searchQuery: string) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
+    return useReactQuery({
+      queryKey: authorsQueryKeys.search(instanceId, searchQuery),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('author')
           .where('author.deletedAt', 'is', null)
@@ -81,7 +144,7 @@ const search = {
             'author.createdAt',
             'author.updatedAt',
           ])
-          .leftJoin('bookAuthor', (join) =>
+          .innerJoin('bookAuthor', (join) =>
             join
               .onRef('author.id', '=', 'bookAuthor.authorId')
               .on('bookAuthor.deletedAt', 'is', null)
@@ -100,20 +163,38 @@ const search = {
             .orderBy('authorFTS.rank', 'asc');
         }
 
+        if (role === 'under18') {
+          query = query.innerJoin('book', (join) =>
+            join
+              .onRef('book.id', '=', 'bookAuthor.bookId')
+              .on('book.deletedAt', 'is', null)
+              .on('book.adultsOnly', '=', 0)
+          );
+        }
+
         query = query.orderBy('author.updatedAt', 'desc');
 
         return await query.execute();
       },
-    }),
+    });
+  },
 };
 
 const listBooks = {
-  queryKey: ['instance', 'author', 'listBooks'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, authorId: number) => {
+  useQuery: (authorId: number) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...listBooks.queryKey, authorId],
+      queryKey: authorsQueryKeys.listBooks(instanceId, authorId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .with('playbackHistoryBooks', (db) =>
             db
@@ -173,6 +254,10 @@ const listBooks = {
               .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
               .as('playbackPositionUpdatedAt'),
           ]);
+
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
 
         const results = await query.execute();
 

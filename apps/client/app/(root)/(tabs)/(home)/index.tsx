@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Link, Stack } from 'expo-router';
 import { View } from 'react-native';
 
@@ -13,19 +12,15 @@ import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { ChevronRight } from '~/lib/icons/ChevronRight';
-import { instanceStore } from '~/lib/stores/instance';
 
 export default function HomeScreen() {
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-
   const {
     data: availableOffline,
     refetch: refetchAvailableOffline,
     isLoading: isAvailableOfflineLoading,
     isFetching: isAvailableOfflineFetching,
     error: availableOfflineError,
-  } = api.feeds.getAvailableOffline.useQuery(instanceDb, instanceId ?? '0');
+  } = api.feeds.getAvailableOffline.useQuery();
 
   const {
     data: recentlyAdded,
@@ -33,7 +28,7 @@ export default function HomeScreen() {
     isLoading: isRecentlyAddedLoading,
     isFetching: isRecentlyAddedFetching,
     error: recentlyAddedError,
-  } = api.books.listRecentlyAdded.useQuery(instanceDb);
+  } = api.books.listRecentlyAdded.useQuery();
 
   const {
     data: continueListening,
@@ -41,7 +36,7 @@ export default function HomeScreen() {
     isLoading: isContinueListeningLoading,
     isFetching: isContinueListeningFetching,
     error: continueListeningError,
-  } = api.feeds.getContinueListening.useQuery(instanceDb, instanceId ?? '0');
+  } = api.feeds.getContinueListening.useQuery();
 
   return (
     <>

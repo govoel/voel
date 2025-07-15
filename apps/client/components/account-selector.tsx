@@ -14,7 +14,13 @@ import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { LogIn } from '~/lib/icons/LogIn';
-import { createInstanceAuthClient, instanceStore, useAuthSession } from '~/lib/stores/instance';
+import {
+  createInstanceAuthClient,
+  instanceStore,
+  useAuthInstance,
+  useAuthSession,
+  useInstanceId,
+} from '~/lib/stores/instance';
 import { cn, getInitials } from '~/lib/utils';
 
 export const accountSelectorModalStore = createStore({
@@ -35,10 +41,10 @@ export const accountSelectorModalStore = createStore({
 });
 
 export const AccountSelectorAvatar = () => {
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const { data: localAccountData } = api.accounts.get.useQuery(instanceId ?? '0');
-  const { data: authSessionData, isPending: authSessionIsPending } = useAuthSession(authClient);
+  const authInstance = useAuthInstance();
+  const instanceId = useInstanceId();
+  const { data: localAccountData } = api.accounts.get.useQuery(instanceId);
+  const { data: authSessionData, isPending: authSessionIsPending } = useAuthSession(authInstance);
 
   if (!localAccountData) {
     return (
