@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
@@ -16,24 +15,22 @@ import { Text } from '~/components/ui/text';
 import { H2, Large, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { instanceStore } from '~/lib/stores/instance';
 
 export default function AuthorScreen() {
   const { authorId } = useLocalSearchParams<{ authorId: string }>();
 
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const {
     data: author,
     error: authorError,
     refetch: authorRefetch,
-  } = api.authors.get.useQuery(instanceDb, parseInt(authorId, 10));
+  } = api.authors.get.useQuery(parseInt(authorId, 10));
 
   const {
     data: books,
     error: booksError,
     refetch: booksRefetch,
     isFetching: booksFetching,
-  } = api.authors.listBooks.useQuery(instanceDb, parseInt(authorId, 10));
+  } = api.authors.listBooks.useQuery(parseInt(authorId, 10));
 
   return (
     <>
@@ -89,7 +86,7 @@ export default function AuthorScreen() {
         )}
 
         {booksError ? (
-          <Card>
+          <Card className={authorError ? 'mt-4' : ''}>
             <CardContent className="pt-4">
               <Large>Error loading author&rsquo;s books</Large>
               <Text className="text-muted-foreground">{booksError.message || 'Unknown error'}</Text>

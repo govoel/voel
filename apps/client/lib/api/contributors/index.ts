@@ -1,19 +1,37 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
-import { Kysely, type Selectable } from 'kysely';
+import type { Selectable } from 'kysely';
 
+import { mainDb } from '~/db/client';
 import type { BookContributorTable, InstanceDatabase } from '~/db/schema/instance';
 
+import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+
+export const bookContributorQueryKeys = {
+  all: (instanceId: string) => ['instance', instanceId, 'bookContributor'] as const,
+  listBooks: (instanceId: string, role: Selectable<BookContributorTable>['role'], name: string) =>
+    ['instance', instanceId, 'bookContributor', 'listBooks', role, name] as const,
+  search: (instanceId: string, role: Selectable<BookContributorTable>['role'], query: string) =>
+    ['instance', instanceId, 'bookContributor', 'search', role, query] as const,
+};
+
 const listBooks = {
-  queryKey: ['instance', 'bookContributor', 'listBooks'],
   useQuery: (
-    instanceDb: Kysely<InstanceDatabase>,
-    contributorName: string,
-    contributorRole: Selectable<BookContributorTable>['role']
+    contributorRole: Selectable<BookContributorTable>['role'],
+    contributorName: string
   ) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...listBooks.queryKey, { name: contributorName, role: contributorRole }],
+      queryKey: bookContributorQueryKeys.listBooks(instanceId, contributorRole, contributorName),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .with('playbackHistoryBooks', (db) =>
             db
@@ -75,6 +93,10 @@ const listBooks = {
               .as('playbackPositionUpdatedAt'),
           ]);
 
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
+
         const results = await query.execute();
 
         return results.map((result) => ({
@@ -90,16 +112,20 @@ const listBooks = {
 };
 
 const search = {
-  queryKey: ['instance', 'bookContributor', 'search'],
-  useQuery: (
-    instanceDb: Kysely<InstanceDatabase>,
-    contributorRole: Selectable<BookContributorTable>['role'],
-    searchQuery: string
-  ) => {
+  useQuery: (contributorRole: Selectable<BookContributorTable>['role'], searchQuery: string) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...search.queryKey, contributorRole, searchQuery],
+      queryKey: bookContributorQueryKeys.search(instanceId, contributorRole, searchQuery),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('bookContributor')
           .where('bookContributor.role', '=', contributorRole)
@@ -118,6 +144,15 @@ const search = {
             )
             // the better the match, the smaller the value
             .orderBy('bookContributorFTS.rank', 'asc');
+        }
+
+        if (role === 'under18') {
+          query = query.innerJoin('book', (join) =>
+            join
+              .onRef('book.id', '=', 'bookContributor.bookId')
+              .on('book.deletedAt', 'is', null)
+              .on('book.adultsOnly', '=', 0)
+          );
         }
 
         query = query

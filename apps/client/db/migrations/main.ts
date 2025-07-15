@@ -1,4 +1,4 @@
-import { Kysely, Migrator } from 'kysely';
+import { Kysely, Migrator, sql } from 'kysely';
 
 import { mainDb } from '~/db/client';
 import { ExpoMigrationProvider } from '~/db/driver';
@@ -13,6 +13,7 @@ export const mainDbMigrator = new Migrator({
           await db.transaction().execute(async (trx) => {
             await trx.schema
               .createTable('accounts')
+              .ifNotExists()
               .addColumn('instanceId', 'integer', (col) =>
                 col.primaryKey().autoIncrement().notNull()
               )
@@ -22,14 +23,28 @@ export const mainDbMigrator = new Migrator({
               .addColumn('email', 'text', (col) => col.notNull())
               .addColumn('name', 'text', (col) => col.notNull())
               .addColumn('image', 'text')
-              .ifNotExists()
+              .addColumn('role', 'text', (col) =>
+                col
+                  .notNull()
+                  .defaultTo('under18')
+                  .check(sql`role in ('under18', 'user', 'admin')`)
+              )
+              .addColumn('updatedAt', 'integer', (col) => col.notNull())
+              .modifyEnd(sql`STRICT`)
               .execute();
 
-            return await trx.schema
+            await trx.schema
               .createIndex('accounts_instance_url_user_id_unique')
               .on('accounts')
               .columns(['instanceURL', 'userId'])
               .unique()
+              .execute();
+
+            // no triggers on purpose, we want the same updatedAt value as server
+            await trx.schema
+              .createIndex('accounts_updatedAt_index')
+              .on('accounts')
+              .columns(['updatedAt'])
               .execute();
           });
         },

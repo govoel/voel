@@ -1,27 +1,58 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
-import { Kysely, type Selectable } from 'kysely';
+import type { Selectable } from 'kysely';
 
+import { mainDb } from '~/db/client';
 import type { InstanceDatabase } from '~/db/schema/instance';
 
+import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+
+export const seriesQueryKeys = {
+  all: (instanceId: string) => ['instance', instanceId, 'series'] as const,
+  list: (instanceId: string) => [...seriesQueryKeys.all(instanceId), 'series', 'list'] as const,
+  get: (instanceId: string, seriesId: number) =>
+    [...seriesQueryKeys.all(instanceId), 'series', 'get', seriesId] as const,
+  search: (instanceId: string, query: string) =>
+    [...seriesQueryKeys.all(instanceId), 'series', 'search', query] as const,
+  listBooks: (instanceId: string, seriesId: number) =>
+    [...seriesQueryKeys.all(instanceId), 'series', 'listBooks', seriesId] as const,
+};
+
 const list = {
-  queryKey: ['instance', 'series', 'list'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
+  useQuery: () => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: list.queryKey,
+      queryKey: seriesQueryKeys.list(instanceId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('series')
           .where('series.deletedAt', 'is', null)
           .select(['series.id', 'series.name', 'series.createdAt', 'series.updatedAt'])
-          .leftJoin('bookSeries', (join) =>
+          .innerJoin('bookSeries', (join) =>
             join
               .onRef('series.id', '=', 'bookSeries.seriesId')
               .on('bookSeries.deletedAt', 'is', null)
           )
-          .leftJoin('book', (join) =>
-            join.onRef('book.id', '=', 'bookSeries.bookId').on('book.deletedAt', 'is', null)
-          )
+          .innerJoin('book', (join) => {
+            if (role === 'under18') {
+              return join
+                .onRef('book.id', '=', 'bookSeries.bookId')
+                .on('book.deletedAt', 'is', null)
+                .on('book.adultsOnly', '=', 0);
+            } else {
+              return join
+                .onRef('book.id', '=', 'bookSeries.bookId')
+                .on('book.deletedAt', 'is', null);
+            }
+          })
           .select((eb) => [
             eb.fn
               .agg<string>('json_group_array', [
@@ -55,12 +86,20 @@ const list = {
 };
 
 const get = {
-  queryKey: ['instance', 'series', 'get'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, seriesId: number) => {
+  useQuery: (seriesId: number) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...get.queryKey, seriesId],
+      queryKey: seriesQueryKeys.get(instanceId, seriesId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('series')
           .where('series.id', '=', seriesId)
@@ -73,6 +112,22 @@ const get = {
             'series.updatedAt',
           ]);
 
+        if (role === 'under18') {
+          query = query
+            .innerJoin('bookSeries', (join) =>
+              join
+                .onRef('series.id', '=', 'bookSeries.seriesId')
+                .on('bookSeries.deletedAt', 'is', null)
+            )
+            .innerJoin('book', (join) =>
+              join
+                .onRef('book.id', '=', 'bookSeries.bookId')
+                .on('book.deletedAt', 'is', null)
+                .on('book.adultsOnly', '=', 0)
+            )
+            .groupBy('series.id');
+        }
+
         return await query.executeTakeFirstOrThrow();
       },
     });
@@ -80,24 +135,41 @@ const get = {
 };
 
 const search = {
-  queryKey: ['instance', 'series', 'search'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, searchQuery: string) => {
+  useQuery: (searchQuery: string) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...search.queryKey, searchQuery],
+      queryKey: seriesQueryKeys.search(instanceId, searchQuery),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('series')
           .where('series.deletedAt', 'is', null)
           .select(['series.id', 'series.name', 'series.createdAt', 'series.updatedAt'])
-          .leftJoin('bookSeries', (join) =>
+          .innerJoin('bookSeries', (join) =>
             join
               .onRef('series.id', '=', 'bookSeries.seriesId')
               .on('bookSeries.deletedAt', 'is', null)
           )
-          .leftJoin('book', (join) =>
-            join.onRef('book.id', '=', 'bookSeries.bookId').on('book.deletedAt', 'is', null)
-          )
+          .innerJoin('book', (join) => {
+            if (role === 'under18') {
+              return join
+                .onRef('book.id', '=', 'bookSeries.bookId')
+                .on('book.deletedAt', 'is', null)
+                .on('book.adultsOnly', '=', 0);
+            } else {
+              return join
+                .onRef('book.id', '=', 'bookSeries.bookId')
+                .on('book.deletedAt', 'is', null);
+            }
+          })
           .select((eb) => [
             eb.fn
               .agg<string>('json_group_array', [
@@ -143,12 +215,20 @@ const search = {
 };
 
 const listBooks = {
-  queryKey: ['instance', 'series', 'listBooks'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, seriesId: number) => {
+  useQuery: (seriesId: number) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...listBooks.queryKey, seriesId],
+      queryKey: seriesQueryKeys.listBooks(instanceId, seriesId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -186,6 +266,10 @@ const listBooks = {
                 ])
                 .as('authors'),
           ]);
+
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
 
         const results = await query.execute();
 

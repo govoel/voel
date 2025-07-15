@@ -1,5 +1,4 @@
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
-import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { cssInterop } from 'nativewind';
 import { useMemo, useRef, useState } from 'react';
@@ -37,7 +36,7 @@ import { OctagonAlert } from '~/lib/icons/OctagonAlert';
 import { Play } from '~/lib/icons/Play';
 import { Timer } from '~/lib/icons/Timer';
 import { UserPen } from '~/lib/icons/UserPen';
-import { instanceStore } from '~/lib/stores/instance';
+import { useAuthInstance, useInstanceId, useInstanceURL } from '~/lib/stores/instance';
 import { cn, formatBytes, formatDuration, formatTime } from '~/lib/utils';
 
 import Player, {
@@ -51,8 +50,7 @@ const SvgInterop = cssInterop(Svg, { className: 'style' });
 export default function BookScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
 
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch } = api.books.get.useQuery(instanceDb, parseInt(bookId, 10));
+  const { data, error, refetch } = api.books.get.useQuery(parseInt(bookId, 10));
 
   return (
     <>
@@ -428,9 +426,9 @@ const ManageDownloads = ({
   files: { id: number; path: string; disc: number; track: number; durationMs: number }[];
 }) => {
   const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
-  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const authInstance = useAuthInstance();
+  const instanceId = useInstanceId();
+  const instanceURL = useInstanceURL();
 
   const [isRemoveDownloadsLoading, setIsRemoveDownloadsLoading] = useState(false);
   const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
@@ -443,7 +441,7 @@ const ManageDownloads = ({
     isLoading,
     refetch: refetchDownloadsStatus,
   } = useDownloadStatus(
-    instanceId ?? '0',
+    instanceId,
     files.map((file) => file.id)
   );
 
@@ -543,7 +541,7 @@ const ManageDownloads = ({
                   setIsPauseDownloadsLoading(false);
                   setIsDownloadFilesLoading(false);
                   Player.removeDownloads(
-                    instanceId ?? '0',
+                    instanceId,
                     files.map((file) => file.id)
                   );
                 }}>
@@ -592,7 +590,7 @@ const ManageDownloads = ({
                 setIsRemoveDownloadsLoading(false);
                 Player.setCookie(authInstance.getCookie());
                 Player.addDownloads(
-                  instanceId ?? '0',
+                  instanceId,
                   files.map((file) => ({
                     uri: `${instanceURL}/api/v1/files/${file.id}`,
                     fileId: file.id,
@@ -681,17 +679,16 @@ const ManageDownloads = ({
 };
 
 const BookPlayButton = ({ bookId }: { bookId: number }) => {
-  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const authInstance = useAuthInstance();
+  const instanceId = useInstanceId();
+  const instanceURL = useInstanceURL();
   const {
     data: book,
     isLoading: isBookLoading,
     error: bookError,
     refetch: refetchBook,
-  } = api.books.get.useQuery(instanceDb, bookId);
-  const currentPlaybackPosition = api.books.getPlaybackPosition.useQuery(instanceDb, bookId);
+  } = api.books.get.useQuery(bookId);
+  const currentPlaybackPosition = api.books.getPlaybackPosition.useQuery(bookId);
 
   if (book) {
     return (
@@ -702,8 +699,8 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
             book,
             currentPlaybackPosition,
             authInstance.getCookie(),
-            instanceId ?? '0',
-            instanceURL ?? 'http://0.0.0.0'
+            instanceId,
+            instanceURL
           );
         }}>
         {currentPlaybackPosition > 0 ? (
@@ -740,20 +737,16 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
 
 const PlaybackHistory = ({ bookId }: { bookId: number }) => {
   const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
-  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const authInstance = useAuthInstance();
+  const instanceId = useInstanceId();
+  const instanceURL = useInstanceURL();
   const {
     data: book,
     isLoading: isBookLoading,
     error: bookError,
     refetch: refetchBook,
-  } = api.books.get.useQuery(instanceDb, bookId);
-  const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(
-    instanceDb,
-    bookId
-  );
+  } = api.books.get.useQuery(bookId);
+  const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(bookId);
 
   return (
     <>
@@ -800,8 +793,8 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
                         book,
                         item.positionMs,
                         authInstance.getCookie(),
-                        instanceId ?? '0',
-                        instanceURL ?? 'http://0.0.0.0'
+                        instanceId,
+                        instanceURL
                       );
                     }}>
                     <Play className="text-muted-foreground mr-2" size={16} />
@@ -912,16 +905,15 @@ const ChapterList = ({
   chapters: { id: number; title: string; durationMs: number; startOffsetMs: number }[];
   source: 'audible' | 'file';
 }) => {
-  const authInstance = useSelector(instanceStore, (state) => state.context.authInstance);
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const instanceURL = useSelector(instanceStore, (state) => state.context.instanceURL);
+  const authInstance = useAuthInstance();
+  const instanceId = useInstanceId();
+  const instanceURL = useInstanceURL();
   const {
     data: book,
     isLoading: isBookLoading,
     error: bookError,
     refetch: refetchBook,
-  } = api.books.get.useQuery(instanceDb, bookId);
+  } = api.books.get.useQuery(bookId);
 
   const chapterEndTimes = useMemo(
     () =>
@@ -957,8 +949,8 @@ const ChapterList = ({
                         ? 0
                         : chapterEndTimes[index - 1],
                     authInstance.getCookie(),
-                    instanceId ?? '0',
-                    instanceURL ?? 'http://0.0.0.0',
+                    instanceId,
+                    instanceURL,
                     source === 'audible'
                   );
                 }}>

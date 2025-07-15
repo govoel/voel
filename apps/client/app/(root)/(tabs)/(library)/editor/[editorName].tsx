@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
@@ -13,16 +12,13 @@ import { Text } from '~/components/ui/text';
 import { H2, Large, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { instanceStore } from '~/lib/stores/instance';
 
 export default function EditorScreen() {
   const { editorName } = useLocalSearchParams<{ editorName: string }>();
 
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
   const { data, error, refetch, isFetching } = api.contributors.listBooks.useQuery(
-    instanceDb,
-    editorName,
-    'editor'
+    'editor',
+    editorName
   );
 
   return (

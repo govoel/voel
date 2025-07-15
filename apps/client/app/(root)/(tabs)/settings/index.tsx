@@ -1,4 +1,3 @@
-import { useSelector } from '@xstate/store/react';
 import { Link, Stack } from 'expo-router';
 import { View } from 'react-native';
 
@@ -16,11 +15,11 @@ import { ServerCog } from '~/lib/icons/ServerCog';
 import { Smartphone } from '~/lib/icons/Smartphone';
 import { UserCog } from '~/lib/icons/UserCog';
 import { Users } from '~/lib/icons/Users';
-import { instanceStore, useAuthSession } from '~/lib/stores/instance';
+import { useAuthInstance, useAuthSession } from '~/lib/stores/instance';
 
 export default function SettingsIndexScreen() {
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
-  const { data } = useAuthSession(authClient);
+  const authInstance = useAuthInstance();
+  const { data } = useAuthSession(authInstance);
 
   return (
     <>
@@ -117,7 +116,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="destructive"
               onPress={() => {
-                authClient.signOut();
+                authInstance.signOut();
               }}>
               <Text>Sign Out</Text>
             </Button>

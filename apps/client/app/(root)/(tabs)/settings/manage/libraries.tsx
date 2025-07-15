@@ -1,7 +1,6 @@
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
-import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';
 import { FlatList, View } from 'react-native';
@@ -18,12 +17,11 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { instanceStore } from '~/lib/stores/instance';
+import { useApiInstance } from '~/lib/stores/instance';
 
 export default function LibraryListScreen() {
-  const apiInstance = useSelector(instanceStore, (state) => state.context.apiInstance);
-  const instanceDb = useSelector(instanceStore, (state) => state.context.instanceDb);
-  const { data, error, refetch, isFetching } = api.libraries.list.useQuery(instanceDb);
+  const apiInstance = useApiInstance();
+  const { data, error, refetch, isFetching } = api.libraries.list.useQuery();
 
   const createLibraryModalRef = useRef<BottomSheetModalType>(null);
 
@@ -133,7 +131,7 @@ export default function LibraryListScreen() {
 }
 
 const Library = ({ item }: { item: { id: number; name: string } }) => {
-  const apiInstance = useSelector(instanceStore, (state) => state.context.apiInstance);
+  const apiInstance = useApiInstance();
 
   const scanLibraryMutation = useMutation(
     apiInstance.v1.library.scan.mutationOptions({

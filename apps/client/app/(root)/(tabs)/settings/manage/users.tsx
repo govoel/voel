@@ -1,6 +1,5 @@
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
-import { useSelector } from '@xstate/store/react';
 import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
 import { FlatList, View } from 'react-native';
@@ -19,19 +18,19 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import { ChevronRight } from '~/lib/icons/ChevronRight';
-import { instanceStore, useAuthSession } from '~/lib/stores/instance';
+import { useAuthInstance, useAuthSession } from '~/lib/stores/instance';
 import { cn, getInitials } from '~/lib/utils';
 
 const userRole = z.enum(['under18', 'user', 'admin']);
 
 export default function UsersListScreen() {
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
-  const session = useAuthSession(authClient);
+  const authInstance = useAuthInstance();
+  const session = useAuthSession(authInstance);
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isFetching, error } =
     useInfiniteQuery({
       queryKey: ['users'],
       queryFn: async ({ pageParam }) => {
-        const res = await authClient.admin.listUsers({
+        const res = await authInstance.admin.listUsers({
           query: {
             limit: 20,
             offset: pageParam * 20,
@@ -61,8 +60,8 @@ export default function UsersListScreen() {
 
   const createUserMutation = useMutation({
     mutationKey: ['users', 'createUser'],
-    mutationFn: async (data: Parameters<typeof authClient.admin.createUser>[0]) => {
-      const res = await authClient.admin.createUser(data);
+    mutationFn: async (data: Parameters<typeof authInstance.admin.createUser>[0]) => {
+      const res = await authInstance.admin.createUser(data);
       if (res.error) {
         throw res.error;
       }

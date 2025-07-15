@@ -1,22 +1,20 @@
 import { expoClient } from '@better-auth/expo/client';
 import { open } from '@op-engineering/op-sqlite';
+import type { DB } from '@op-engineering/op-sqlite';
 import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { auth } from '@voel/server/src/libs/auth/auth';
 import type { AppRouter } from '@voel/server/src/router/root';
 import { createStore } from '@xstate/store';
+import { useSelector } from '@xstate/store/react';
+import { useAuthQuery } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
+import { CompiledQuery, type Insertable, Kysely } from 'kysely';
 import { toast } from 'sonner-native';
 
-import { queryClient } from '~/lib/api/query-client';
-
-import '@azure/core-asynciterator-polyfill';
-
-import type { DB } from '@op-engineering/op-sqlite';
-import { CompiledQuery, type Insertable, Kysely, type Transaction } from 'kysely';
-
+import { mainDb } from '~/db/client';
 import { OpSqliteDialect } from '~/db/driver';
 import { createInstanceDbMigrator } from '~/db/migrations/instance';
 import type {
@@ -34,9 +32,27 @@ import type {
   SeriesTable,
 } from '~/db/schema/instance';
 
+import { queryClient } from '~/lib/api/query-client';
 import { ExpoEventSource } from '~/lib/stores/instance/EventSource';
+import {
+  ensureExact,
+  flushHistoryData,
+  upsertAudiobookChapter,
+  upsertAudiobookFile,
+  upsertAuthor,
+  upsertBook,
+  upsertBookAuthor,
+  upsertBookContributor,
+  upsertBookSeries,
+  upsertEBookFile,
+  upsertLibrary,
+  upsertPlaybackHistory,
+  upsertSeries,
+} from '~/lib/stores/instance/sync';
 
 import Player from '~/modules/voel-audio';
+
+import '@azure/core-asynciterator-polyfill';
 
 export const createAuthClient = (
   baseURL: string,
@@ -419,7 +435,7 @@ export const createInstances = (instanceId: string | null, instanceURL: string |
   const instanceDialect = new OpSqliteDialect({
     database: instanceOpDb,
     onCreateConnection: async (connection) => {
-      connection.executeQuery(CompiledQuery.raw(`PRAGMA foreign_keys = ON`));
+      connection.executeQuery(CompiledQuery.raw('PRAGMA foreign_keys = ON'));
       connection.executeQuery(CompiledQuery.raw('PRAGMA journal_mode = WAL'));
       connection.executeQuery(CompiledQuery.raw('PRAGMA synchronous = NORMAL'));
     },
@@ -460,11 +476,64 @@ export const createInstances = (instanceId: string | null, instanceURL: string |
     instanceOpDb,
     migrationStatus: 'pending',
     migrationError: null,
+    sessionUnsubscribe: authInstance.$store.atoms.session.listen(
+      async (
+        value: ReturnType<
+          ReturnType<
+            typeof useAuthQuery<ReturnType<typeof createInstanceAuthClient>['$Infer']['Session']>
+          >['get']
+        >
+      ) => {
+        if (instanceURL && value.data && value.data.user.username) {
+          const result = await mainDb
+            .insertInto('accounts')
+            .values({
+              instanceURL: instanceURL,
+              userId: value.data.user.id,
+              username: value.data.user.username,
+              email: value.data.user.email,
+              name: value.data.user.name,
+              image: value.data.user.image ?? undefined,
+              role:
+                value.data.user.role === 'admin'
+                  ? 'admin'
+                  : value.data.user.role === 'user'
+                    ? 'user'
+                    : 'under18',
+              updatedAt: value.data.user.updatedAt.getTime(),
+            })
+            .onConflict((oc) =>
+              oc
+                .columns(['instanceURL', 'userId'])
+                .doUpdateSet((eb) => ({
+                  username: eb.ref('excluded.username'),
+                  email: eb.ref('excluded.email'),
+                  name: eb.ref('excluded.name'),
+                  image: eb.ref('excluded.image'),
+                  role: eb.ref('excluded.role'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                }))
+                .where((eb) =>
+                  eb.or([
+                    eb('accounts.role', '!=', eb.ref('excluded.role')),
+                    eb('accounts.updatedAt', '<', eb.ref('excluded.updatedAt')),
+                  ])
+                )
+            )
+            .executeTakeFirst();
+
+          if (result.insertId === undefined) {
+            queryClient.invalidateQueries();
+          }
+        }
+      }
+    ),
   } as {
     authInstance: ReturnType<typeof createInstanceAuthClient>;
     apiInstance: ReturnType<typeof createApiInstance>;
     instanceDb: Kysely<InstanceDatabase<'regular'>>;
     instanceOpDb: DB;
+    sessionUnsubscribe: () => void;
   } & MigrationStatus;
 };
 
@@ -503,6 +572,7 @@ export const instanceStore = createStore({
       }
     ) => {
       context.syncUnsubscriber();
+      context.sessionUnsubscribe();
       Player.clearQueue();
       queryClient.resetQueries({ queryKey: context.apiInstance.pathKey() });
 
@@ -541,6 +611,7 @@ export const instanceStore = createStore({
       { instanceId, syncUnsubscriber }: { instanceId: string | null; syncUnsubscriber: () => void }
     ) => {
       if (context.instanceId === instanceId) {
+        context.syncUnsubscriber();
         return { ...context, syncUnsubscriber };
       } else {
         syncUnsubscriber();
@@ -574,303 +645,16 @@ export const instanceStore = createStore({
   },
 });
 
-const upsertLibrary = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<LibraryTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('library')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        name: (eb) => eb.ref('excluded.name'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
+export const useApiInstance = () =>
+  useSelector(instanceStore, (state) => state.context.apiInstance);
 
-const upsertAuthor = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<AuthorTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('author')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        asin: (eb) => eb.ref('excluded.asin'),
-        name: (eb) => eb.ref('excluded.name'),
-        about: (eb) => eb.ref('excluded.about'),
-        avatar: (eb) => eb.ref('excluded.avatar'),
-        avatarThumbhash: (eb) => eb.ref('excluded.avatarThumbhash'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
+export const useAuthInstance = () =>
+  useSelector(instanceStore, (state) => state.context.authInstance);
 
-const upsertSeries = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<SeriesTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('series')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        asin: (eb) => eb.ref('excluded.asin'),
-        name: (eb) => eb.ref('excluded.name'),
-        summary: (eb) => eb.ref('excluded.summary'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
+export const useInstanceId = () =>
+  useSelector(instanceStore, (state) => state.context.instanceId) ?? '0';
 
-const upsertBook = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<BookTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('book')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        asin: (eb) => eb.ref('excluded.asin'),
-        type: (eb) => eb.ref('excluded.type'),
-        otherTypeId: (eb) => eb.ref('excluded.otherTypeId'),
-        title: (eb) => eb.ref('excluded.title'),
-        subtitle: (eb) => eb.ref('excluded.subtitle'),
-        cover: (eb) => eb.ref('excluded.cover'),
-        coverThumbhash: (eb) => eb.ref('excluded.coverThumbhash'),
-        summary: (eb) => eb.ref('excluded.summary'),
-        adultsOnly: (eb) => eb.ref('excluded.adultsOnly'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
+export const useInstanceURL = () =>
+  useSelector(instanceStore, (state) => state.context.instanceURL) ?? 'http://0.0.0.0';
 
-const upsertBookAuthor = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<BookAuthorTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('bookAuthor')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        authorId: (eb) => eb.ref('excluded.authorId'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-
-const upsertBookSeries = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<BookSeriesTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('bookSeries')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        seriesId: (eb) => eb.ref('excluded.seriesId'),
-        label: (eb) => eb.ref('excluded.label'),
-        sort: (eb) => eb.ref('excluded.sort'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-
-const upsertBookContributor = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<BookContributorTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('bookContributor')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        name: (eb) => eb.ref('excluded.name'),
-        role: (eb) => eb.ref('excluded.role'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-
-const upsertAudiobookFile = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<AudiobookFileTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('audiobookFile')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        libraryId: (eb) => eb.ref('excluded.libraryId'),
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        path: (eb) => eb.ref('excluded.path'),
-        durationMs: (eb) => eb.ref('excluded.durationMs'),
-        disc: (eb) => eb.ref('excluded.disc'),
-        track: (eb) => eb.ref('excluded.track'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-
-const upsertAudiobookChapter = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<AudiobookChapterTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('audiobookChapter')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        parentId: (eb) => eb.ref('excluded.parentId'),
-        source: (eb) => eb.ref('excluded.source'),
-        title: (eb) => eb.ref('excluded.title'),
-        durationMs: (eb) => eb.ref('excluded.durationMs'),
-        startOffsetMs: (eb) => eb.ref('excluded.startOffsetMs'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-
-const upsertEBookFile = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<EBookFileTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('ebookFile')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        libraryId: (eb) => eb.ref('excluded.libraryId'),
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        path: (eb) => eb.ref('excluded.path'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-
-const upsertPlaybackHistory = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<PlaybackHistoryTable<'realtime'>>[]
-) => {
-  return (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('playbackHistory')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        userId: (eb) => eb.ref('excluded.userId'),
-        type: (eb) => eb.ref('excluded.type'),
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        positionMs: (eb) => eb.ref('excluded.positionMs'),
-        eventTimestampMs: (eb) => eb.ref('excluded.eventTimestampMs'),
-        sessionId: (eb) => eb.ref('excluded.sessionId'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-};
-
-const flushHistoryData = async (
-  trx: Transaction<InstanceDatabase<'regular'>>,
-  history: {
-    rowCount: number;
-    library: Insertable<LibraryTable<'realtime'>>[];
-    author: Insertable<AuthorTable<'realtime'>>[];
-    series: Insertable<SeriesTable<'realtime'>>[];
-    book: Insertable<BookTable<'realtime'>>[];
-    bookAuthor: Insertable<BookAuthorTable<'realtime'>>[];
-    bookSeries: Insertable<BookSeriesTable<'realtime'>>[];
-    bookContributor: Insertable<BookContributorTable<'realtime'>>[];
-    audiobookFile: Insertable<AudiobookFileTable<'realtime'>>[];
-    audiobookChapter: Insertable<AudiobookChapterTable<'realtime'>>[];
-    ebookFile: Insertable<EBookFileTable<'realtime'>>[];
-    playbackHistory: Insertable<PlaybackHistoryTable<'realtime'>>[];
-  }
-) => {
-  if (history.library.length > 0) {
-    await upsertLibrary(trx, history.library);
-  }
-  if (history.author.length > 0) {
-    await upsertAuthor(trx, history.author);
-  }
-  if (history.series.length > 0) {
-    await upsertSeries(trx, history.series);
-  }
-  if (history.book.length > 0) {
-    await upsertBook(trx, history.book);
-  }
-  if (history.bookAuthor.length > 0) {
-    await upsertBookAuthor(trx, history.bookAuthor);
-  }
-  if (history.bookSeries.length > 0) {
-    await upsertBookSeries(trx, history.bookSeries);
-  }
-  if (history.bookContributor.length > 0) {
-    await upsertBookContributor(trx, history.bookContributor);
-  }
-  if (history.audiobookFile.length > 0) {
-    await upsertAudiobookFile(trx, history.audiobookFile);
-  }
-  if (history.audiobookChapter.length > 0) {
-    await upsertAudiobookChapter(trx, history.audiobookChapter);
-  }
-  if (history.ebookFile.length > 0) {
-    await upsertEBookFile(trx, history.ebookFile);
-  }
-  if (history.playbackHistory.length > 0) {
-    await upsertPlaybackHistory(trx, history.playbackHistory);
-  }
-  history.library = [];
-  history.author = [];
-  history.series = [];
-  history.book = [];
-  history.bookAuthor = [];
-  history.bookSeries = [];
-  history.bookContributor = [];
-  history.audiobookFile = [];
-  history.audiobookChapter = [];
-  history.ebookFile = [];
-  history.playbackHistory = [];
-  history.rowCount = 0;
-};
-
-type Exact<TKnown, T extends TKnown> = {
-  [Key in keyof T]: Key extends keyof TKnown
-    ? T[Key] extends unknown[]
-      ? Exclude<T[Key], undefined>
-      : T[Key] extends object
-        ? Exact<Exclude<TKnown[Key], undefined>, Exclude<T[Key], undefined>>
-        : Exclude<T[Key], undefined>
-    : never;
-};
-
-const ensureExact = <TKnown, TUnknown extends TKnown>(t: Exact<TKnown, TUnknown>) => t as TKnown;
+export const useInstanceDb = () => useSelector(instanceStore, (state) => state.context.instanceDb);

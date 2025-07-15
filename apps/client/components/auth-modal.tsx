@@ -20,9 +20,14 @@ import { Text } from '~/components/ui/text';
 
 import { mainDb } from '~/db/client';
 
-import api from '~/lib/api';
+import { accountsQueryKeys } from '~/lib/api/accounts';
 import { queryClient } from '~/lib/api/query-client';
-import { createAuthClient, instanceStore, useAuthSession } from '~/lib/stores/instance';
+import {
+  createAuthClient,
+  instanceStore,
+  useAuthInstance,
+  useAuthSession,
+} from '~/lib/stores/instance';
 
 export const authModalStore = createStore({
   context: {
@@ -38,8 +43,8 @@ export function AuthModal() {
 
   const [bottomSheetTab, setBottomSheetTab] = useState('sign-in');
 
-  const authClient = useSelector(instanceStore, (state) => state.context.authInstance);
-  const { data, isPending } = useAuthSession(authClient);
+  const authInstance = useAuthInstance();
+  const { data, isPending } = useAuthSession(authInstance);
 
   useEffect(() => {
     if (!isPending && !data) {
@@ -80,8 +85,11 @@ export function AuthModal() {
   );
 }
 
-const switchInstance = async (
-  current: { instanceId: string | null; instanceUserId: string | null; instanceURL: string | null },
+const switchInstance = async ({
+  current,
+  switchTo,
+}: {
+  current: { instanceId: string | null; instanceUserId: string | null; instanceURL: string | null };
   switchTo: {
     userId: string;
     instanceURL: string;
@@ -89,9 +97,10 @@ const switchInstance = async (
     email: string;
     name: string;
     image?: string;
+    updatedAt: Date;
     authStore: Map<string, string | null>;
-  }
-) => {
+  };
+}) => {
   let instanceId = current.instanceId;
   if (current.instanceUserId !== switchTo.userId || current.instanceURL !== switchTo.instanceURL) {
     let instance = await mainDb
@@ -111,6 +120,7 @@ const switchInstance = async (
           email: switchTo.email,
           name: switchTo.name,
           image: switchTo.image,
+          updatedAt: switchTo.updatedAt.getTime(),
         })
         .returning(['instanceId as id', 'instanceURL as url', 'userId as userId'])
         .executeTakeFirst();
@@ -127,6 +137,7 @@ const switchInstance = async (
           email: switchTo.email,
           name: switchTo.name,
           image: switchTo.image,
+          updatedAt: switchTo.updatedAt.getTime(),
         })
         .where('instanceURL', '=', switchTo.instanceURL)
         .where('userId', '=', switchTo.userId)
@@ -142,13 +153,12 @@ const switchInstance = async (
         email: switchTo.email,
         name: switchTo.name,
         image: switchTo.image,
+        updatedAt: switchTo.updatedAt.getTime(),
       })
       .where('instanceURL', '=', switchTo.instanceURL)
       .where('userId', '=', switchTo.userId)
       .executeTakeFirst();
   }
-
-  queryClient.invalidateQueries({ queryKey: api.accounts.list.queryKey });
 
   for (const [key, value] of switchTo.authStore.entries()) {
     SecureStore.setItem(`voel_${instanceId}${key}`, value ?? '');
@@ -159,6 +169,8 @@ const switchInstance = async (
     instanceUserId: switchTo.userId,
     instanceURL: switchTo.instanceURL,
   });
+
+  queryClient.invalidateQueries({ queryKey: accountsQueryKeys.all });
 };
 
 function SignInTab({
@@ -199,22 +211,23 @@ function SignInTab({
       if (res.error) {
         toast.error('Could not sign you in', { description: res.error.message || 'Unknown error' });
       } else {
-        await switchInstance(
-          {
+        await switchInstance({
+          current: {
             instanceId: currentInstanceId,
             instanceUserId: currentInstanceUserId,
             instanceURL: currentInstanceURL,
           },
-          {
+          switchTo: {
             instanceURL: value.baseURL,
             userId: res.data.user.id,
             username: res.data.user.username,
             email: res.data.user.email,
             name: res.data.user.name,
             image: res.data.user.image ?? undefined,
+            updatedAt: res.data.user.updatedAt,
             authStore: tempAuthStore,
-          }
-        );
+          },
+        });
         toast.success('Signed in successfully', {
           description: `Welcome back, ${res.data.user.username}`,
         });

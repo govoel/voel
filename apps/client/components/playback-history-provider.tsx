@@ -1,9 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import { useSelector } from '@xstate/store/react';
 import { type ReactNode, createContext, use, useEffect } from 'react';
 import { toast } from 'sonner-native';
 
-import { instanceStore } from '~/lib/stores/instance';
+import { useApiInstance, useInstanceId } from '~/lib/stores/instance';
 
 import Player, { type PlaybackHistoryUpdateEvent, usePlaybackHistory } from '~/modules/voel-audio';
 
@@ -23,15 +22,15 @@ export const usePlaybackHistoryContext = () => {
 };
 
 export const PlaybackHistoryProvider = ({ children }: { children: ReactNode }) => {
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
-  const apiInstance = useSelector(instanceStore, (state) => state.context.apiInstance);
+  const instanceId = useInstanceId();
+  const apiInstance = useApiInstance();
 
-  const playbackHistory = usePlaybackHistory(instanceId ?? '0');
+  const playbackHistory = usePlaybackHistory(instanceId);
   const { mutate: playbackHistoryMutation, reset: playbackHistoryMutationReset } = useMutation(
     apiInstance.v1.sync.playbackHistory.mutationOptions({
       retry: Infinity,
       onSuccess: async (data) => {
-        Player.deletePlaybackHistoryOlderThan(instanceId ?? '0', data);
+        Player.deletePlaybackHistoryOlderThan(instanceId, data);
       },
       onError: async (error) => {
         if (!error?.message.includes('java.net.ConnectException')) {

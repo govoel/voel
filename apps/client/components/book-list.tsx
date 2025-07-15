@@ -1,6 +1,5 @@
 import { usePlaybackHistoryContext } from './playback-history-provider';
 import { Progress } from './ui/progress';
-import { useSelector } from '@xstate/store/react';
 import { Link } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
@@ -10,7 +9,7 @@ import { Badge } from '~/components/ui/badge';
 import { Text } from '~/components/ui/text';
 import { Large, Muted } from '~/components/ui/typography';
 
-import { instanceStore } from '~/lib/stores/instance';
+import { useInstanceId } from '~/lib/stores/instance';
 import { cn } from '~/lib/utils';
 
 function PlaybackProgress({
@@ -25,9 +24,9 @@ function PlaybackProgress({
   totalDurationMs: number | undefined;
 }) {
   const localPlaybackHistory = usePlaybackHistoryContext();
-  const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+  const instanceId = useInstanceId();
 
-  if (localPlaybackHistory.instanceId === instanceId) {
+  if (instanceId !== '0' && localPlaybackHistory.instanceId === instanceId) {
     const bookEvents = localPlaybackHistory.events.filter((event) => event.bookId === bookId);
 
     if (bookEvents.length > 0) {

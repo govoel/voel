@@ -2,23 +2,48 @@ import {
   useInfiniteQuery as useInfiniteReactQuery,
   useQuery as useReactQuery,
 } from '@tanstack/react-query';
-import { useSelector } from '@xstate/store/react';
-import { Kysely, type Selectable } from 'kysely';
+import type { Selectable } from 'kysely';
 import { useEffect, useState } from 'react';
 
 import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
 
+import { mainDb } from '~/db/client';
 import type { InstanceDatabase } from '~/db/schema/instance';
 
-import { instanceStore } from '~/lib/stores/instance';
+import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+
+export const booksQueryKeys = {
+  all: (instanceId: string) => ['instance', instanceId, 'books'] as const,
+  list: (instanceId: string) => [...booksQueryKeys.all(instanceId), 'list'] as const,
+  listInfinite: (instanceId: string, pageSize: number) =>
+    [...booksQueryKeys.all(instanceId), 'listInfinite', { pageSize }] as const,
+  get: (instanceId: string, bookId: number) =>
+    [...booksQueryKeys.all(instanceId), 'get', bookId] as const,
+  search: (instanceId: string, query: string) =>
+    [...booksQueryKeys.all(instanceId), 'search', query] as const,
+  getPlaybackPosition: (instanceId: string, bookId: number) =>
+    [...booksQueryKeys.all(instanceId), 'getPlaybackPosition', bookId] as const,
+  getPlaybackHistory: (instanceId: string, bookId: number) =>
+    [...booksQueryKeys.all(instanceId), 'getPlaybackHistory', bookId] as const,
+  getByFileIds: (instanceId: string, fileIds: string[]) =>
+    [...booksQueryKeys.all(instanceId), 'getByFileIds', { fileIds }] as const,
+};
 
 const list = {
-  queryKey: ['instance', 'book', 'list'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>) => {
+  useQuery: () => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: list.queryKey,
+      queryKey: booksQueryKeys.list(instanceId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .with('playbackHistoryBooks', (db) =>
             db
@@ -82,6 +107,10 @@ const list = {
               .as('playbackPositionUpdatedAt'),
           ]);
 
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
+
         const results = await query.execute();
 
         return results.map((result) => ({
@@ -94,12 +123,21 @@ const list = {
       },
     });
   },
-  useInfinteQuery: (instanceDb: Kysely<InstanceDatabase>, pageSize: number = 10) => {
+  useInfinteQuery: (pageSize: number = 10) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useInfiniteReactQuery({
-      queryKey: [...list.queryKey, 'infinite', { pageSize }],
+      queryKey: booksQueryKeys.listInfinite(instanceId, pageSize),
       networkMode: 'always',
       initialPageParam: null as { lastUpdatedAt: number; lastId: number } | null,
       queryFn: async ({ pageParam }) => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -150,6 +188,10 @@ const list = {
           );
         }
 
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
+
         const results = await query.execute();
 
         const hasNextPage = results.length > pageSize;
@@ -180,12 +222,20 @@ const list = {
 };
 
 const get = {
-  queryKey: ['instance', 'book', 'get'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
+  useQuery: (bookId: number) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...get.queryKey, { bookId }],
+      queryKey: booksQueryKeys.get(instanceId, bookId),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let authorSubquery = instanceDb
           .selectFrom('bookAuthor')
           .innerJoin('author', (join) =>
@@ -389,6 +439,10 @@ const get = {
             'fileData.files',
           ]);
 
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
+
         const result = await query.executeTakeFirstOrThrow();
 
         return {
@@ -448,12 +502,20 @@ const get = {
 };
 
 const search = {
-  queryKey: ['instance', 'book', 'search'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, searchQuery: string) =>
-    useReactQuery({
-      queryKey: [...search.queryKey, searchQuery],
+  useQuery: (searchQuery: string) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
+    return useReactQuery({
+      queryKey: booksQueryKeys.search(instanceId, searchQuery),
       networkMode: 'always',
       queryFn: async () => {
+        const { role = 'under18' } = await mainDb
+          .selectFrom('accounts')
+          .select(['role'])
+          .where('instanceId', '=', parseInt(instanceId, 10))
+          .executeTakeFirstOrThrow();
+
         let query = instanceDb
           .with('playbackHistoryBooks', (db) =>
             db
@@ -525,6 +587,10 @@ const search = {
             .orderBy('bookFTS.rank', 'asc');
         }
 
+        if (role === 'under18') {
+          query = query.where('book.adultsOnly', '=', 0);
+        }
+
         query = query.orderBy('book.updatedAt', 'desc');
 
         const results = await query.execute();
@@ -537,17 +603,18 @@ const search = {
           >[],
         }));
       },
-    }),
+    });
+  },
 };
 
 const getPlaybackPosition = {
-  queryKey: ['instance', 'book', 'getPlaybackPosition'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
+  useQuery: (bookId: number) => {
     const playbackHistory = usePlaybackHistoryContext();
-    const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
 
     const { data } = useReactQuery({
-      queryKey: [...getPlaybackPosition.queryKey, { bookId }],
+      queryKey: booksQueryKeys.getPlaybackPosition(instanceId, bookId),
       networkMode: 'always',
       queryFn: async () => {
         let query = await instanceDb
@@ -602,13 +669,13 @@ const getPlaybackPosition = {
 };
 
 const getPlaybackHistory = {
-  queryKey: ['instance', 'book', 'getPlaybackHistory'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, bookId: number) => {
+  useQuery: (bookId: number) => {
     const localPlaybackHistory = usePlaybackHistoryContext();
-    const instanceId = useSelector(instanceStore, (state) => state.context.instanceId);
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
 
     const dbPlaybackHistory = useReactQuery({
-      queryKey: [...getPlaybackHistory.queryKey, { bookId }],
+      queryKey: booksQueryKeys.getPlaybackHistory(instanceId, bookId),
       networkMode: 'always',
       queryFn: async () =>
         instanceDb
@@ -659,13 +726,15 @@ const getPlaybackHistory = {
 };
 
 const getByFileIds = {
-  queryKey: ['instance', 'book', 'getByFileIds'],
-  useQuery: (instanceDb: Kysely<InstanceDatabase>, fileIds: string[]) => {
+  useQuery: (fileIds: string[]) => {
+    const instanceDb = useInstanceDb();
+    const instanceId = useInstanceId();
+
     return useReactQuery({
-      queryKey: [...getByFileIds.queryKey, { fileIds }],
+      queryKey: booksQueryKeys.getByFileIds(instanceId, fileIds),
       networkMode: 'always',
       queryFn: async () => {
-        // we don't filter by deletedAt on purpose to allow the UI to show a cleanup button
+        // we don't filter by deletedAt or role on purpose to allow the UI to show a cleanup button
         let authorSubquery = instanceDb
           .selectFrom('bookAuthor')
           .innerJoin('author', (join) => join.onRef('author.id', '=', 'bookAuthor.authorId'))
@@ -707,7 +776,7 @@ const getByFileIds = {
           .groupBy('audiobookFile.bookId')
           .as('fileData');
 
-        const results = await instanceDb
+        let query = instanceDb
           .selectFrom('book')
           .select([
             'book.id',
@@ -724,8 +793,9 @@ const getByFileIds = {
           ])
           .innerJoin(filesSubquery, (join) => join.onRef('book.id', '=', 'fileData.bookId'))
           .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
-          .select(['authorData.authors', 'fileData.files'])
-          .execute();
+          .select(['authorData.authors', 'fileData.files']);
+
+        const results = await query.execute();
 
         return results.map((result) => ({
           ...result,
