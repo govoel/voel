@@ -68,7 +68,12 @@ export default function HomeScreen() {
                 </TitleWithRefetch>
 
                 {continueListening ? (
-                  <BookList books={continueListening} direction="horizontal" className="mb-2" />
+                  <BookList
+                    books={continueListening}
+                    direction="horizontal"
+                    className="mb-2"
+                    emptyListMessage="You haven&rsquo;t listened to any books yet"
+                  />
                 ) : continueListeningError ? (
                   <Card className="mb-4">
                     <CardContent className="pt-4">
@@ -139,7 +144,12 @@ export default function HomeScreen() {
                 </TitleWithRefetch>
 
                 {availableOffline ? (
-                  <BookList books={availableOffline} direction="horizontal" className="mb-2" />
+                  <BookList
+                    books={availableOffline}
+                    direction="horizontal"
+                    className="mb-2"
+                    emptyListMessage="You haven&rsquo;t downloaded any books yet"
+                  />
                 ) : availableOfflineError ? (
                   <Card className="mb-4">
                     <CardContent className="pt-4">

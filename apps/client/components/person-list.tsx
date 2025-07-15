@@ -83,7 +83,9 @@ export function PersonList({
                   : index % 3 === 1
                     ? 'px-1'
                     : 'pl-2'
-                : 'mr-4 mb-2'
+                : index === 0
+                  ? 'mb-2'
+                  : 'ml-4 mb-2'
             )}>
             <AspectRatio ratio={1 / 1}>
               {item.avatar ? (

@@ -55,7 +55,13 @@ export function SeriesList({
             className={cn(
               'h-full',
               direction === 'vertical' ? (index > 1 ? 'pt-4 w-1/2' : 'w-1/2') : 'w-48',
-              direction === 'vertical' ? (index % 2 === 0 ? 'pr-2' : 'pl-2') : 'mr-4 mb-2'
+              direction === 'vertical'
+                ? index % 2 === 0
+                  ? 'pr-2'
+                  : 'pl-2'
+                : index === 0
+                  ? 'mb-2'
+                  : 'ml-4 mb-2'
             )}>
             <AspectRatio ratio={1 / 1}>
               {item.books.length === 1 ? (
