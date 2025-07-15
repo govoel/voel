@@ -1,4 +1,4 @@
-import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
+import { createFormHook, createFormHookContexts, useStore } from '@tanstack/react-form';
 import { type ComponentPropsWithRef, type ComponentPropsWithoutRef } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
@@ -41,6 +41,9 @@ function TextField({
 }) {
   const field = useFieldContext<string>();
 
+  const form = useFormContext();
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+
   return (
     <View className={cn('pb-4', className)}>
       {label.length > 0 && (
@@ -50,7 +53,7 @@ function TextField({
       )}
       <Input
         {...inputProps}
-        editable={!field.form.state.isSubmitting}
+        editable={!isSubmitting}
         value={field.state.value}
         onBlur={field.handleBlur}
         onChangeText={field.handleChange}
@@ -76,6 +79,9 @@ function RadioGroup<T extends readonly [] | readonly string[]>({
 }) {
   const field = useFieldContext<string>();
 
+  const form = useFormContext();
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+
   return (
     <View className="pb-4">
       <Label className="pb-2" nativeID={field.name}>
@@ -84,7 +90,7 @@ function RadioGroup<T extends readonly [] | readonly string[]>({
       <RadioGroupItems
         value={field.state.value}
         onValueChange={field.handleChange}
-        disabled={!field.form.state.isSubmitting}
+        disabled={!isSubmitting}
         className="gap-0 divide-y divide-foreground overflow-hidden rounded-md border border-input">
         {optionLabels.map((label, index) => (
           <RadioGroupItemWithLabel
