@@ -31,10 +31,11 @@ import {
 
 export const authModalStore = createStore({
   context: {
-    present: 0,
+    present: false,
   },
   on: {
-    presentAuthModal: (context) => ({ present: context.present + 1 }),
+    presentAuthModal: () => ({ present: true }),
+    resetPresent: () => ({ present: false }),
   },
 });
 
@@ -54,8 +55,9 @@ export function AuthModal() {
 
   const presentModal = useSelector(authModalStore, (s) => s.context.present);
   useEffect(() => {
-    if (presentModal > 0) {
+    if (presentModal) {
       bottomSheetModalRef.current?.present();
+      authModalStore.trigger.resetPresent();
     }
   }, [presentModal]);
 
