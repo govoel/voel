@@ -10,8 +10,7 @@ import { PlaybackHistoryProvider } from '~/components/playback-history-provider'
 import { Spinner } from '~/components/spinner';
 import { Text } from '~/components/ui/text';
 
-import { useMigrations } from '~/db/migrations';
-
+import { useMigrations } from '~/lib/db/migrations';
 import { instanceStore } from '~/lib/stores/instance';
 
 export default function RootLayout() {

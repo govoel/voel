@@ -14,9 +14,10 @@ import * as SecureStore from 'expo-secure-store';
 import { CompiledQuery, type Insertable, Kysely } from 'kysely';
 import { toast } from 'sonner-native';
 
-import { mainDb } from '~/db/client';
-import { OpSqliteDialect } from '~/db/driver';
-import { createInstanceDbMigrator } from '~/db/migrations/instance';
+import { queryClient } from '~/lib/api/query-client';
+import { mainDb } from '~/lib/db/client';
+import { OpSqliteDialect } from '~/lib/db/driver';
+import { createInstanceDbMigrator } from '~/lib/db/migrations/instance';
 import type {
   AudiobookChapterTable,
   AudiobookFileTable,
@@ -30,9 +31,7 @@ import type {
   LibraryTable,
   PlaybackHistoryTable,
   SeriesTable,
-} from '~/db/schema/instance';
-
-import { queryClient } from '~/lib/api/query-client';
+} from '~/lib/db/schema/instance';
 import { ExpoEventSource } from '~/lib/stores/instance/EventSource';
 import {
   ensureExact,

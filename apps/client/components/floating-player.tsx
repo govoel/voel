@@ -14,15 +14,15 @@ import Animated, {
 import { toast } from 'sonner-native';
 
 import { AutoMarquee } from '~/components/auto-marquee';
+import { Pause } from '~/components/icons/Pause';
+import { Play } from '~/components/icons/Play';
+import { SkipForward } from '~/components/icons/SkipForward';
 import { Spinner } from '~/components/spinner';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Button } from '~/components/ui/button';
 import { Text } from '~/components/ui/text';
 import { Muted } from '~/components/ui/typography';
 
-import { Pause } from '~/lib/icons/Pause';
-import { Play } from '~/lib/icons/Play';
-import { SkipForward } from '~/lib/icons/SkipForward';
 import { cn } from '~/lib/utils';
 
 import Player, { useAudioPlayerStatus } from '~/modules/voel-audio';

@@ -3,9 +3,10 @@ import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
-import { Check } from '~/lib/icons/Check';
-import { ChevronDown } from '~/lib/icons/ChevronDown';
-import { ChevronUp } from '~/lib/icons/ChevronUp';
+import { Check } from '~/components/icons/Check';
+import { ChevronDown } from '~/components/icons/ChevronDown';
+import { ChevronUp } from '~/components/icons/ChevronUp';
+
 import { cn } from '~/lib/utils';
 
 type Option = SelectPrimitive.Option;

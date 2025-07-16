@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { authModalStore } from '~/components/auth-modal';
+import { LogIn } from '~/components/icons/LogIn';
 import { Spinner } from '~/components/spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
 import { BottomSheetModal } from '~/components/ui/bottom-sheet';
@@ -13,7 +14,6 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { LogIn } from '~/lib/icons/LogIn';
 import {
   createInstanceAuthClient,
   instanceStore,

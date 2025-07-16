@@ -9,6 +9,7 @@ import { toast } from 'sonner-native';
 import { z } from 'zod';
 
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { Gavel } from '~/components/icons/Gavel';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
@@ -20,7 +21,6 @@ import { useAppForm } from '~/components/ui/form';
 import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
-import { Gavel } from '~/lib/icons/Gavel';
 import { useAuthInstance } from '~/lib/stores/instance';
 import { getInitials } from '~/lib/utils';
 

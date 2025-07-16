@@ -6,6 +6,13 @@ import { useRef, useState } from 'react';
 import { FlatList, Platform, View } from 'react-native';
 
 import { AutoMarquee } from '~/components/auto-marquee';
+import { List } from '~/components/icons/List';
+import { Pause } from '~/components/icons/Pause';
+import { Play } from '~/components/icons/Play';
+import { Redo } from '~/components/icons/Redo';
+import { SkipBack } from '~/components/icons/SkipBack';
+import { SkipForward } from '~/components/icons/SkipForward';
+import { Undo } from '~/components/icons/Undo';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
@@ -15,13 +22,6 @@ import { Progress } from '~/components/ui/progress';
 import { Text } from '~/components/ui/text';
 import { Large, Muted } from '~/components/ui/typography';
 
-import { List } from '~/lib/icons/List';
-import { Pause } from '~/lib/icons/Pause';
-import { Play } from '~/lib/icons/Play';
-import { Redo } from '~/lib/icons/Redo';
-import { SkipBack } from '~/lib/icons/SkipBack';
-import { SkipForward } from '~/lib/icons/SkipForward';
-import { Undo } from '~/lib/icons/Undo';
 import { cn, formatTime } from '~/lib/utils';
 
 import Player, { type AudioSource, useAudioPlayerStatus } from '~/modules/voel-audio';

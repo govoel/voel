@@ -1,10 +1,9 @@
 import { Tabs } from 'expo-router';
 
 import { FloatingPlayer } from '~/components/floating-player';
-
-import { Home } from '~/lib/icons/Home';
-import { Library } from '~/lib/icons/Library';
-import { Settings } from '~/lib/icons/Settings';
+import { Home } from '~/components/icons/Home';
+import { Library } from '~/components/icons/Library';
+import { Settings } from '~/components/icons/Settings';
 
 export default function TabLayout() {
   return (

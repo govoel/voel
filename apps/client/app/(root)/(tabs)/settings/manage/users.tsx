@@ -7,6 +7,7 @@ import { toast } from 'sonner-native';
 import { z } from 'zod';
 
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
@@ -17,7 +18,6 @@ import { useAppForm } from '~/components/ui/form';
 import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
-import { ChevronRight } from '~/lib/icons/ChevronRight';
 import { useAuthInstance, useAuthSession } from '~/lib/stores/instance';
 import { cn, getInitials } from '~/lib/utils';
 

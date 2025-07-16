@@ -10,12 +10,12 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { Check } from '~/components/icons/Check';
+import { ChevronDown } from '~/components/icons/ChevronDown';
+import { ChevronRight } from '~/components/icons/ChevronRight';
+import { ChevronUp } from '~/components/icons/ChevronUp';
 import { TextClassContext } from '~/components/ui/text';
 
-import { Check } from '~/lib/icons/Check';
-import { ChevronDown } from '~/lib/icons/ChevronDown';
-import { ChevronRight } from '~/lib/icons/ChevronRight';
-import { ChevronUp } from '~/lib/icons/ChevronUp';
 import { cn } from '~/lib/utils';
 
 const DropdownMenu = DropdownMenuPrimitive.Root;

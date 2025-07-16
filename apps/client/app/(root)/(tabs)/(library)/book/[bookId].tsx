@@ -7,6 +7,15 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { BookCopy } from '~/components/icons/BookCopy';
+import { FilePenLine } from '~/components/icons/FilePenLine';
+import { History } from '~/components/icons/History';
+import { Languages } from '~/components/icons/Languages';
+import { MicVocal } from '~/components/icons/MicVocal';
+import { OctagonAlert } from '~/components/icons/OctagonAlert';
+import { Play } from '~/components/icons/Play';
+import { Timer } from '~/components/icons/Timer';
+import { UserPen } from '~/components/icons/UserPen';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
 import {
@@ -27,15 +36,6 @@ import { Text } from '~/components/ui/text';
 import { H2, Large, Muted, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { BookCopy } from '~/lib/icons/BookCopy';
-import { FilePenLine } from '~/lib/icons/FilePenLine';
-import { History } from '~/lib/icons/History';
-import { Languages } from '~/lib/icons/Languages';
-import { MicVocal } from '~/lib/icons/MicVocal';
-import { OctagonAlert } from '~/lib/icons/OctagonAlert';
-import { Play } from '~/lib/icons/Play';
-import { Timer } from '~/lib/icons/Timer';
-import { UserPen } from '~/lib/icons/UserPen';
 import { useAuthInstance, useInstanceId, useInstanceURL } from '~/lib/stores/instance';
 import { cn, formatBytes, formatDuration, formatTime } from '~/lib/utils';
 

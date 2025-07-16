@@ -1,6 +1,6 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 
-import { mainDb } from '~/db/client';
+import { mainDb } from '~/lib/db/client';
 
 export const accountsQueryKeys = {
   all: ['accounts'] as const,

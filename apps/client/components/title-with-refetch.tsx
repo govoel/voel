@@ -2,10 +2,10 @@ import type { DefaultError, QueryObserverBaseResult } from '@tanstack/react-quer
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
+import { RefreshCw } from '~/components/icons/RefreshCw';
 import { Button } from '~/components/ui/button';
 import { Large } from '~/components/ui/typography';
 
-import { RefreshCw } from '~/lib/icons/RefreshCw';
 import { cn } from '~/lib/utils';
 
 export function TitleWithRefetch<TData = unknown, TError = DefaultError>({

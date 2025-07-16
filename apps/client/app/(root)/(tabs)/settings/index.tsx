@@ -3,18 +3,18 @@ import { View } from 'react-native';
 
 import { authModalStore } from '~/components/auth-modal';
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { ChevronRight } from '~/components/icons/ChevronRight';
+import { Download } from '~/components/icons/Download';
+import { FolderCog } from '~/components/icons/FolderCog';
+import { Play } from '~/components/icons/Play';
+import { ServerCog } from '~/components/icons/ServerCog';
+import { Smartphone } from '~/components/icons/Smartphone';
+import { UserCog } from '~/components/icons/UserCog';
+import { Users } from '~/components/icons/Users';
 import { Button } from '~/components/ui/button';
 import { Text } from '~/components/ui/text';
 import { Muted } from '~/components/ui/typography';
 
-import { ChevronRight } from '~/lib/icons/ChevronRight';
-import { Download } from '~/lib/icons/Download';
-import { FolderCog } from '~/lib/icons/FolderCog';
-import { Play } from '~/lib/icons/Play';
-import { ServerCog } from '~/lib/icons/ServerCog';
-import { Smartphone } from '~/lib/icons/Smartphone';
-import { UserCog } from '~/lib/icons/UserCog';
-import { Users } from '~/lib/icons/Users';
 import { useAuthInstance, useAuthSession } from '~/lib/stores/instance';
 
 export default function SettingsIndexScreen() {

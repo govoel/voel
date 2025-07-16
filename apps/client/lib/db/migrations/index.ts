@@ -1,7 +1,7 @@
 import { type MigrationResultSet } from 'kysely';
 import { useEffect, useReducer } from 'react';
 
-import { mainDbMigrator } from '~/db/migrations/main';
+import { mainDbMigrator } from '~/lib/db/migrations/main';
 
 type MigrationState =
   | { status: 'pending'; success: false; results: null; error: null }
