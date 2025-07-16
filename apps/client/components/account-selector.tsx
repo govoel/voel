@@ -25,16 +25,24 @@ import { cn, getInitials } from '~/lib/utils';
 
 export const accountSelectorModalStore = createStore({
   context: {
-    present: 0,
-    dismiss: 0,
+    present: false,
+    dismiss: false,
   },
   on: {
     presentAccountSelectorModal: (context) => ({
-      present: context.present + 1,
+      present: true,
+      dismiss: context.dismiss,
+    }),
+    resetPresent: (context) => ({
+      present: false,
       dismiss: context.dismiss,
     }),
     dismissAccountSelectorModal: (context) => ({
-      dismiss: context.dismiss + 1,
+      dismiss: true,
+      present: context.present,
+    }),
+    resetDismiss: (context) => ({
+      dismiss: false,
       present: context.present,
     }),
   },
@@ -140,13 +148,15 @@ export const AccountSelector = () => {
   const presentModal = useSelector(accountSelectorModalStore, (s) => s.context.present);
   const dismissModal = useSelector(accountSelectorModalStore, (s) => s.context.dismiss);
   useEffect(() => {
-    if (presentModal > 0) {
+    if (presentModal) {
       bottomSheetModalRef.current?.present();
+      accountSelectorModalStore.trigger.resetPresent();
     }
   }, [presentModal]);
   useEffect(() => {
-    if (dismissModal > 0) {
+    if (dismissModal) {
       bottomSheetModalRef.current?.dismiss();
+      accountSelectorModalStore.trigger.resetDismiss();
     }
   }, [dismissModal]);
 
