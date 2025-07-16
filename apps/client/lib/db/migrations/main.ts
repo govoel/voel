@@ -1,8 +1,8 @@
 import { Kysely, Migrator, sql } from 'kysely';
 
-import { mainDb } from '~/db/client';
-import { ExpoMigrationProvider } from '~/db/driver';
-import type { MainDatabase } from '~/db/schema/main';
+import { mainDb } from '~/lib/db/client';
+import { ExpoMigrationProvider } from '~/lib/db/driver';
+import type { MainDatabase } from '~/lib/db/schema/main';
 
 export const mainDbMigrator = new Migrator({
   db: mainDb,

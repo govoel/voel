@@ -1,8 +1,8 @@
 import { open } from '@op-engineering/op-sqlite';
 import { CompiledQuery, Kysely } from 'kysely';
 
-import { OpSqliteDialect } from '~/db/driver';
-import type { MainDatabase } from '~/db/schema/main';
+import { OpSqliteDialect } from '~/lib/db/driver';
+import type { MainDatabase } from '~/lib/db/schema/main';
 
 export const mainOpDb = open({ name: 'VoelMain.db' });
 

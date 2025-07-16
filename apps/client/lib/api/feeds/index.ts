@@ -1,10 +1,9 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import type { Selectable } from 'kysely';
 
-import { mainDb } from '~/db/client';
-import type { InstanceDatabase } from '~/db/schema/instance';
-
 import { feedsQueryKeys } from '~/lib/api/feeds/query-keys';
+import { mainDb } from '~/lib/db/client';
+import type { InstanceDatabase } from '~/lib/db/schema/instance';
 import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
 
 import AudioModule from '~/modules/voel-audio';

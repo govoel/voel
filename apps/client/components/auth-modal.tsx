@@ -18,10 +18,9 @@ import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
 
-import { mainDb } from '~/db/client';
-
 import { accountsQueryKeys } from '~/lib/api/accounts';
 import { queryClient } from '~/lib/api/query-client';
+import { mainDb } from '~/lib/db/client';
 import {
   createAuthClient,
   instanceStore,

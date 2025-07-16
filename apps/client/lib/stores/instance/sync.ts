@@ -13,7 +13,7 @@ import type {
   LibraryTable,
   PlaybackHistoryTable,
   SeriesTable,
-} from '~/db/schema/instance';
+} from '~/lib/db/schema/instance';
 
 export const upsertLibrary = (
   db: Kysely<InstanceDatabase<'regular'>>,

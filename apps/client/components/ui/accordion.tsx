@@ -13,9 +13,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { ChevronDown } from '~/components/icons/ChevronDown';
 import { TextClassContext } from '~/components/ui/text';
 
-import { ChevronDown } from '~/lib/icons/ChevronDown';
 import { cn } from '~/lib/utils';
 
 const Accordion = ({

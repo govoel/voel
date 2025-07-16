@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { BookList } from '~/components/book-list';
 import { floatingPlayerStore } from '~/components/floating-player';
+import { Search } from '~/components/icons/Search';
 import { PersonList } from '~/components/person-list';
 import { SeriesList } from '~/components/series-list';
 import { Spinner } from '~/components/spinner';
@@ -20,7 +21,6 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { Search } from '~/lib/icons/Search';
 import { cn } from '~/lib/utils';
 
 export default function LibraryScreen() {

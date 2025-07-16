@@ -4,6 +4,7 @@ import { FlatList, View } from 'react-native';
 
 import { AutoMarquee } from '~/components/auto-marquee';
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
@@ -14,7 +15,6 @@ import { Text } from '~/components/ui/text';
 import { Large, Muted } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { ChevronRight } from '~/lib/icons/ChevronRight';
 import { useAuthInstance, useInstanceId } from '~/lib/stores/instance';
 import { cn, formatBytes } from '~/lib/utils';
 

@@ -1,9 +1,8 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import type { Selectable } from 'kysely';
 
-import { mainDb } from '~/db/client';
-import type { InstanceDatabase } from '~/db/schema/instance';
-
+import { mainDb } from '~/lib/db/client';
+import type { InstanceDatabase } from '~/lib/db/schema/instance';
 import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
 
 export const authorsQueryKeys = {

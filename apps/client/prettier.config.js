@@ -12,7 +12,7 @@ module.exports = {
 
   tailwindAttributes: ['className'],
 
-  importOrder: ['^~/components/(.*)$', '^~/db/(.*)$', '^~/lib/(.*)$', '^~/(.*)$'],
+  importOrder: ['^~/components/(.*)$', '^~/lib/(.*)$', '^~/(.*)$'],
   importOrderSeparation: true,
   importOrderSortSpecifiers: true,
   importOrderSideEffects: false,

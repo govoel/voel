@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
@@ -11,7 +12,6 @@ import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { ChevronRight } from '~/lib/icons/ChevronRight';
 
 export default function HomeScreen() {
   const {

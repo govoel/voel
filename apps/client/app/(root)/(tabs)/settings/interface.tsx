@@ -3,12 +3,12 @@ import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { MoonStar } from '~/components/icons/MoonStar';
+import { Sun } from '~/components/icons/Sun';
+import { SunMoon } from '~/components/icons/SunMoon';
 import { RadioGroup, RadioGroupItemWithLabel } from '~/components/ui/radio-group';
 import { Text } from '~/components/ui/text';
 
-import { MoonStar } from '~/lib/icons/MoonStar';
-import { Sun } from '~/lib/icons/Sun';
-import { SunMoon } from '~/lib/icons/SunMoon';
 import { type Theme, themeStore } from '~/lib/stores/color-scheme';
 
 export default function InterfaceScreen() {
