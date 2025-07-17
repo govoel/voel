@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
+import { View } from 'react-native';
 
-import { FloatingPlayer } from '~/components/floating-player';
+import { FloatingPlayer, OTAUpdateNotification } from '~/components/floating-player';
 import { Home } from '~/components/icons/Home';
 import { Library } from '~/components/icons/Library';
 import { Settings } from '~/components/icons/Settings';
@@ -35,7 +36,10 @@ export default function TabLayout() {
         />
       </Tabs>
 
-      <FloatingPlayer className="absolute bottom-[50]" />
+      <View className="absolute bottom-[50] w-full">
+        <FloatingPlayer />
+        <OTAUpdateNotification />
+      </View>
     </>
   );
 }

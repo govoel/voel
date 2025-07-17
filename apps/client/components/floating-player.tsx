@@ -2,6 +2,7 @@ import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
+import { reloadAsync, useUpdates } from 'expo-updates';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -29,14 +30,24 @@ import Player, { useAudioPlayerStatus } from '~/modules/voel-audio';
 
 export const floatingPlayerStore = createStore({
   context: {
-    isActive: false,
+    isPlayerActive: false,
+    isUpdatePending: false,
   },
   on: {
-    setIsActive: (context, event: { isActive: boolean }) => {
-      if (context.isActive === event.isActive) return context;
+    setIsPlayerActive: (context, event: { isPlayerActive: boolean }) => {
+      if (context.isPlayerActive === event.isPlayerActive) return context;
 
       return {
-        isActive: event.isActive,
+        ...context,
+        isPlayerActive: event.isPlayerActive,
+      };
+    },
+    setIsUpdatePending: (context, event: { isUpdatePending: boolean }) => {
+      if (context.isUpdatePending === event.isUpdatePending) return context;
+
+      return {
+        ...context,
+        isUpdatePending: event.isUpdatePending,
       };
     },
   },
@@ -49,21 +60,68 @@ export function FloatingPlayerDodgingLayout({
   className?: string;
   children: ReactNode;
 }) {
-  const floatingPlayerIsActive = useSelector(
+  const isPlayerActive = useSelector(floatingPlayerStore, (state) => state.context.isPlayerActive);
+  const isUpdatePending = useSelector(
     floatingPlayerStore,
-    (state) => state.context.isActive
+    (state) => state.context.isUpdatePending
   );
 
   return (
     <ScrollView className="px-6">
-      <View className={cn(floatingPlayerIsActive ? 'pt-6 pb-24' : 'py-6', className)}>
+      <View
+        className={cn(
+          isPlayerActive && isUpdatePending
+            ? 'pt-6 pb-40'
+            : isPlayerActive
+              ? 'pt-6 pb-24'
+              : isUpdatePending
+                ? 'pt-6 pb-20'
+                : 'py-6',
+          className
+        )}>
         {children}
       </View>
     </ScrollView>
   );
 }
 
-export function FloatingPlayer({ className }: { className: string }) {
+export function OTAUpdateNotification({ className }: { className?: string }) {
+  const { isUpdatePending } = useUpdates();
+
+  if (!isUpdatePending) return null;
+
+  return <OTAUpdateNotificationImpl className={className} />;
+}
+
+function OTAUpdateNotificationImpl({ className }: { className?: string }) {
+  useEffect(() => {
+    floatingPlayerStore.trigger.setIsUpdatePending({ isUpdatePending: true });
+    return () => {
+      floatingPlayerStore.trigger.setIsUpdatePending({ isUpdatePending: false });
+    };
+  }, []);
+
+  return (
+    <View className={cn(className, 'w-full px-4 pb-2 bg-transparent')}>
+      <View className="rounded-md bg-muted overflow-hidden flex flex-row flex-nowrap items-center justify-between w-full py-2 px-4 max-h-14">
+        <View>
+          <Text>New update is available</Text>
+        </View>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={() => {
+            reloadAsync();
+          }}>
+          <Text>Reload App</Text>
+        </Button>
+      </View>
+    </View>
+  );
+}
+
+export function FloatingPlayer({ className }: { className?: string }) {
   const playerStatus = useAudioPlayerStatus();
   const currentQueue = Player.getCurrentQueue();
   const currentTrack =
@@ -74,24 +132,22 @@ export function FloatingPlayer({ className }: { className: string }) {
   if (!playerStatus || !currentTrack) return null;
 
   return (
-    <>
-      <FloatingPlayerImpl
-        className={className}
-        currentTrack={{
-          artworkUri: currentTrack.artworkUri,
-          chapterTitle: currentTrack.chapterTitle,
-          author: currentTrack.author,
-        }}
-        playerStatus={{
-          errorCode: playerStatus.errorCode,
-          duration: playerStatus.duration,
-          currentTime: playerStatus.currentTime,
-          playbackRate: +playerStatus.playbackRate.toFixed(1),
-          playbackState: playerStatus.playbackState,
-          timeControlStatus: playerStatus.timeControlStatus,
-        }}
-      />
-    </>
+    <FloatingPlayerImpl
+      className={className}
+      currentTrack={{
+        artworkUri: currentTrack.artworkUri,
+        chapterTitle: currentTrack.chapterTitle,
+        author: currentTrack.author,
+      }}
+      playerStatus={{
+        errorCode: playerStatus.errorCode,
+        duration: playerStatus.duration,
+        currentTime: playerStatus.currentTime,
+        playbackRate: +playerStatus.playbackRate.toFixed(1),
+        playbackState: playerStatus.playbackState,
+        timeControlStatus: playerStatus.timeControlStatus,
+      }}
+    />
   );
 }
 
@@ -162,7 +218,7 @@ function FloatingPlayerImpl({
   currentTrack,
   playerStatus,
 }: {
-  className: string;
+  className?: string;
   currentTrack: { artworkUri: string | null; chapterTitle: string; author: string };
   playerStatus: {
     errorCode: number | null;
@@ -174,9 +230,9 @@ function FloatingPlayerImpl({
   };
 }) {
   useEffect(() => {
-    floatingPlayerStore.trigger.setIsActive({ isActive: true });
+    floatingPlayerStore.trigger.setIsPlayerActive({ isPlayerActive: true });
     return () => {
-      floatingPlayerStore.trigger.setIsActive({ isActive: false });
+      floatingPlayerStore.trigger.setIsPlayerActive({ isPlayerActive: false });
     };
   }, []);
 

@@ -26,9 +26,10 @@ import { cn } from '~/lib/utils';
 export default function LibraryScreen() {
   const [currentTab, setCurrentTab] = useState('books');
 
-  const floatingPlayerIsActive = useSelector(
+  const isPlayerActive = useSelector(floatingPlayerStore, (state) => state.context.isPlayerActive);
+  const isUpdatePending = useSelector(
     floatingPlayerStore,
-    (state) => state.context.isActive
+    (state) => state.context.isUpdatePending
   );
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -45,7 +46,16 @@ export default function LibraryScreen() {
           }}
           className="flex-1">
           <ScrollView className="px-6" ref={scrollViewRef}>
-            <View className={floatingPlayerIsActive ? 'pb-40 pt-6' : 'pb-20 pt-6'}>
+            <View
+              className={
+                isPlayerActive && isUpdatePending
+                  ? 'pb-52 pt-6'
+                  : isPlayerActive
+                    ? 'pb-40 pt-6'
+                    : isUpdatePending
+                      ? 'pb-32 pt-6'
+                      : 'pb-20 pt-6'
+              }>
               <TabsContent value="search">
                 <SearchTab />
               </TabsContent>
@@ -67,7 +77,13 @@ export default function LibraryScreen() {
           <View
             className={cn(
               'w-full absolute px-4',
-              floatingPlayerIsActive ? 'bottom-[75]' : 'bottom-[10]'
+              isPlayerActive && isUpdatePending
+                ? 'bottom-[126]'
+                : isPlayerActive
+                  ? 'bottom-[75]'
+                  : isUpdatePending
+                    ? 'bottom-[60]'
+                    : 'bottom-[10]'
             )}>
             <TabsList className="w-full flex-row">
               <TabsTrigger value="authors" className="flex-1">
