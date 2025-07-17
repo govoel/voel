@@ -3,9 +3,9 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name:
-    process.env.APP_VARIANT === 'development'
+    process.env.RELEASE_CHANNEL === 'development'
       ? 'Voel (Dev)'
-      : process.env.APP_VARIANT === 'preview'
+      : process.env.RELEASE_CHANNEL === 'preview'
         ? 'Voel (Preview)'
         : 'Voel',
   slug: 'voel',
@@ -54,6 +54,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     ['expo-build-properties', { android: { usesCleartextTraffic: true } }],
+    'expo-updates',
     ['./app.plugin'],
   ],
   experiments: {
@@ -66,9 +67,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier:
-      process.env.APP_VARIANT === 'development'
+      process.env.RELEASE_CHANNEL === 'development'
         ? 'app.voel.ios'
-        : process.env.APP_VARIANT === 'preview'
+        : process.env.RELEASE_CHANNEL === 'preview'
           ? 'app.voel.ios.preview'
           : 'app.voel.ios',
     icon: {
@@ -82,15 +83,33 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // with edge-to-edge enabled
     edgeToEdgeEnabled: false,
     package:
-      process.env.APP_VARIANT === 'development'
+      process.env.RELEASE_CHANNEL === 'development'
         ? 'app.voel.android.dev'
-        : process.env.APP_VARIANT === 'preview'
+        : process.env.RELEASE_CHANNEL === 'preview'
           ? 'app.voel.android.preview'
           : 'app.voel.android',
     adaptiveIcon: {
       foregroundImage: './assets/icons/adaptive-icon.png',
       monochromeImage: './assets/icons/adaptive-icon.png',
       backgroundColor: '#000000',
+    },
+  },
+  runtimeVersion: {
+    policy: 'fingerprint',
+  },
+  updates: {
+    enabled: true,
+    checkAutomatically: 'WIFI_ONLY',
+    useEmbeddedUpdate: true,
+    fallbackToCacheTimeout: 0,
+    url: 'https://eas-update.voel.app/manifest',
+    codeSigningCertificate: './certificate.pem',
+    codeSigningMetadata: {
+      keyid: 'main',
+      alg: 'rsa-v1_5-sha256',
+    },
+    requestHeaders: {
+      'expo-channel-name': process.env.RELEASE_CHANNEL,
     },
   },
 });

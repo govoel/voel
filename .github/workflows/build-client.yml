@@ -122,7 +122,7 @@ jobs:
         working-directory: apps/client/android
         run: chmod +x ./gradlew && ./gradlew assembleDebug --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M
         env:
-          APP_VARIANT: development
+          RELEASE_CHANNEL: development
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
           CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
@@ -134,6 +134,14 @@ jobs:
           path: apps/client/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'push' && '7' || '1' }}
+      - name: Publish Debug OTA Update
+        working-directory: apps/client
+        run: bun run export
+        env:
+          RELEASE_CHANNEL: development
+          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+          NODE_ENV: development
+          EXPO_TOKEN: ${{ secrets.EOAS_EXPO_TOKEN }}
       - name: Generate Native Preview Module
         working-directory: apps/client
         run: bun run prebuild:preview --platform android --clean
@@ -141,7 +149,7 @@ jobs:
         working-directory: apps/client/android
         run: chmod +x ./gradlew && ./gradlew assembleRelease --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M
         env:
-          APP_VARIANT: preview
+          RELEASE_CHANNEL: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
           CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
@@ -153,3 +161,11 @@ jobs:
           path: apps/client/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'push' && '7' || '1' }}
+      - name: Publish Preview OTA Update
+        working-directory: apps/client
+        run: bun run export:preview
+        env:
+          RELEASE_CHANNEL: preview
+          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+          NODE_ENV: production
+          EXPO_TOKEN: ${{ secrets.EOAS_EXPO_TOKEN }}
