@@ -62,7 +62,7 @@
         "expo-updates": "~0.28.17",
         "expo-web-browser": "~14.2.0",
         "immer": "10.1.1",
-        "kysely": "0.28.2",
+        "kysely": "0.28.3",
         "lucide-react-native": "0.525.0",
         "nativewind": "4.1.23",
         "react": "19.0.0",
@@ -111,7 +111,7 @@
         "@voel/source-tap": "workspace:*",
         "better-auth": "1.2.12",
         "hono": "4.8.5",
-        "kysely": "0.28.2",
+        "kysely": "0.28.3",
         "mime": "4.0.7",
         "pino": "9.7.0",
         "pino-pretty": "13.0.0",
@@ -169,7 +169,7 @@
         "typescript-eslint": "8.37.0",
       },
       "peerDependencies": {
-        "kysely": "0.28.2",
+        "kysely": "0.28.3",
         "typescript": "^5",
       },
     },
@@ -1745,7 +1745,7 @@
 
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
 
-    "kysely": ["kysely@0.28.2", "", {}, "sha512-4YAVLoF0Sf0UTqlhgQMFU9iQECdah7n+13ANkiuVfRvlK+uI0Etbgd7bVP36dKlG+NXWbhGua8vnGt+sdhvT7A=="],
+    "kysely": ["kysely@0.28.3", "", {}, "sha512-svKnkSH72APRdjfVCCOknxaC9Eb3nA2StHG9d5/sKOqRvHRp2Dtf1XwDvc92b4B5v6LV+EAGWXQbZ5jMOvHaDw=="],
 
     "kysely-ctl": ["kysely-ctl@0.13.1", "", { "dependencies": { "c12": "^3.0.4", "citty": "^0.1.6", "consola": "^3.4.2", "jiti": "^2.4.2", "nypm": "^0.6.0", "ofetch": "^1.4.1", "pathe": "^2.0.3", "pkg-types": "^2.1.0", "std-env": "^3.9.0" }, "peerDependencies": { "kysely": ">=0.18.1 <0.29.0", "kysely-postgres-js": "^2" }, "optionalPeers": ["kysely-postgres-js"], "bin": { "kysely": "dist/bin.js" } }, "sha512-DhTgpt1ru3Y74rI8O3IRLJ5HV09vMSz4q2KEeqaUX0GYMB09zO1KsdwSsF+ZMa8bHeS4F4J3Vjfbc4ulJQ1r0A=="],
 
@@ -2804,6 +2804,8 @@
     "babel-plugin-polyfill-corejs2/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 
     "basic-auth/safe-buffer": ["safe-buffer@5.1.2", "", {}, "sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g=="],
+
+    "better-auth/kysely": ["kysely@0.28.2", "", {}, "sha512-4YAVLoF0Sf0UTqlhgQMFU9iQECdah7n+13ANkiuVfRvlK+uI0Etbgd7bVP36dKlG+NXWbhGua8vnGt+sdhvT7A=="],
 
     "better-auth/zod": ["zod@3.25.67", "", {}, "sha512-idA2YXwpCdqUSKRCACDE6ItZD9TZzy3OZMtpfLoh6oPR47lipysRrJfjzMqFxQ3uJuUPyUeWe1r9vLH33xO/Qw=="],
 

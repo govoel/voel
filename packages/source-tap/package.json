@@ -23,7 +23,7 @@
     "typescript-eslint": "8.37.0"
   },
   "peerDependencies": {
-    "kysely": "0.28.2",
+    "kysely": "0.28.3",
     "typescript": "^5"
   },
   "private": true,
