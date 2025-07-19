@@ -4,7 +4,7 @@
     "": {
       "name": "voel",
       "devDependencies": {
-        "bun-types": "1.2.18",
+        "bun-types": "1.2.19",
       },
     },
     "apps/client": {
@@ -126,7 +126,7 @@
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
         "@types/turndown": "5.0.5",
         "axios": "1.10.0",
-        "bun-types": "1.2.18",
+        "bun-types": "1.2.19",
         "eslint": "9.31.0",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -142,7 +142,7 @@
       "devDependencies": {
         "@eslint/js": "9.31.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "1.2.18",
+        "bun-types": "1.2.19",
         "eslint": "9.31.0",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -160,7 +160,7 @@
       "devDependencies": {
         "@eslint/js": "9.31.0",
         "@trivago/prettier-plugin-sort-imports": "5.2.2",
-        "bun-types": "1.2.18",
+        "bun-types": "1.2.19",
         "eslint": "9.31.0",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.1",
@@ -1051,7 +1051,7 @@
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
 
-    "bun-types": ["bun-types@1.2.18", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-04+Eha5NP7Z0A9YgDAzMk5PHR16ZuLVa83b26kH5+cp1qZW4F6FmAURngE7INf4tKOvCE69vYvDEwoNl1tGiWw=="],
+    "bun-types": ["bun-types@1.2.19", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-uAOTaZSPuYsWIXRpj7o56Let0g/wjihKCkeRqUBhlLVM/Bt+Fj9xTo+LhC1OV1XDaGkz4hNC80et5xgy+9KTHQ=="],
 
     "bunyan": ["bunyan@1.8.15", "", { "optionalDependencies": { "dtrace-provider": "~0.8", "moment": "^2.19.3", "mv": "~2", "safe-json-stringify": "~1" }, "bin": { "bunyan": "bin/bunyan" } }, "sha512-0tECWShh6wUysgucJcBAoYegf3JJoZWibxdqhTm7OHPeT42qdjkZ29QCMcKwbgU1kiH+auSIasNRXMLWXafXig=="],
 
