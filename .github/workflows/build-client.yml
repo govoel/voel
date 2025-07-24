@@ -63,12 +63,14 @@ jobs:
           node-version: 'lts/*'
       - name: Generate Debug Fingerprint
         id: debug-fingerprint
+        working-directory: apps/client
         run: |
           HASH="$(bun run --silent fingerprint:android)"
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
           wget --quiet --spider https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/$HASH/app-arm64-v8a-debug.apk && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
       - name: Generate Preview Fingerprint
         id: preview-fingerprint
+        working-directory: apps/client
         run: |
           HASH="$(bun run --silent fingerprint:android:preview)"
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
