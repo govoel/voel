@@ -30,8 +30,10 @@ jobs:
     permissions:
       contents: read
       actions: write
+
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
+
     steps:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5.3.1
@@ -55,15 +57,22 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
+
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 'lts/*'
+
       - name: Generate Debug Runtime Version
         id: debug-runtimeversion
         working-directory: apps/client
+        env:
+          RELEASE_CHANNEL: development
+          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+          NODE_ENV: development
         run: |
           HASH="$(bun run --silent runtimeversion:android)"
           echo "Debug runtime version is: $HASH"
@@ -76,9 +85,14 @@ jobs:
             echo "Debug Android APKs for this runtime version do not exist"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
       - name: Generate Preview Runtime Version
         id: preview-runtimeversion
         working-directory: apps/client
+        env:
+          RELEASE_CHANNEL: preview
+          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+          NODE_ENV: production
         run: |
           HASH="$(bun run --silent runtimeversion:android:preview)"
           echo "Preview runtime version is: $HASH"
@@ -91,22 +105,26 @@ jobs:
             echo "Preview Android APKs for this runtime version do not exist"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
       - name: Setup JDK 17
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           distribution: 'temurin'
           java-version: '17'
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           cache-read-only: false
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           packages: ''
+
       - name: Find ccache directory
         id: ccache-dir-path
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
@@ -117,6 +135,7 @@ jobs:
             const os = require('os');
             const path = require('path');
             return path.join(os.homedir(), '.cache', 'ccache');
+
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
@@ -125,11 +144,13 @@ jobs:
           key: ${{ runner.os }}-${{ github.job }}
         env:
           CCACHE_DIR: ${{ steps.ccache-dir-path.outputs.result }}
+
       - name: Configure ccache
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         run: |
           /usr/bin/ccache --set-config=compiler_check="%compiler% --version"
           /usr/bin/ccache -p
+
       - name: Find Metro Cache
         id: metro-cache-dir-path
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
@@ -139,6 +160,7 @@ jobs:
             const os = require('os');
             const path = require('path');
             return path.join(os.tmpdir(), 'metro-cache');
+
       - name: Restore Metro cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
@@ -146,16 +168,19 @@ jobs:
           key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             metro-cache-${{ runner.os }}-${{ github.job }}-
+
       - name: Decode Signing Keystore
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         working-directory: apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
         env:
           VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
+
       - name: Generate Native Debug Module
         if: steps.debug-runtimeversion.outputs.exists == 'false'
         working-directory: apps/client
         run: bun run prebuild --platform android --clean
+
       - name: Build Android Debug App
         if: steps.debug-runtimeversion.outputs.exists == 'false'
         working-directory: apps/client/android
@@ -166,6 +191,7 @@ jobs:
           CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: development
+
       - name: Upload Debug Android App
         if: steps.debug-runtimeversion.outputs.exists == 'false'
         uses: LanceMcCarthy/Action-AzureBlobUpload@bf173292ca908e2593b2562c2a89dd3511a1dae7 # v3.3.5
@@ -175,6 +201,7 @@ jobs:
           source_folder: apps/client/android/app/build/outputs/apk/debug
           destination_folder: debug/android/${{ steps.debug-runtimeversion.outputs.hash }}
           fail_if_source_empty: true
+
       - name: Debug Android App APK Links
         if: steps.debug-runtimeversion.outputs.exists == 'false'
         run: |
@@ -184,18 +211,12 @@ jobs:
           echo "- [universal](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-universal-debug.apk)" >> $GITHUB_STEP_SUMMARY
           echo "- [x86](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86-debug.apk)" >> $GITHUB_STEP_SUMMARY
           echo "- [x86_64](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86_64-debug.apk)" >> $GITHUB_STEP_SUMMARY
-      - name: Publish Debug OTA Update
-        working-directory: apps/client
-        run: bun run export
-        env:
-          RELEASE_CHANNEL: development
-          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          NODE_ENV: development
-          EXPO_TOKEN: ${{ secrets.EOAS_EXPO_TOKEN }}
+
       - name: Generate Native Preview Module
         if: steps.preview-runtimeversion.outputs.exists == 'false'
         working-directory: apps/client
         run: bun run prebuild:preview --platform android --clean
+
       - name: Build Android Preview App
         if: steps.preview-runtimeversion.outputs.exists == 'false'
         working-directory: apps/client/android
@@ -206,6 +227,7 @@ jobs:
           CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: production
+
       - name: Upload Preview Android App
         uses: LanceMcCarthy/Action-AzureBlobUpload@bf173292ca908e2593b2562c2a89dd3511a1dae7 # v3.3.5
         if: steps.preview-runtimeversion.outputs.exists == 'false'
@@ -215,6 +237,7 @@ jobs:
           source_folder: apps/client/android/app/build/outputs/apk/release
           destination_folder: preview/android/${{ steps.preview-runtimeversion.outputs.hash }}
           fail_if_source_empty: true
+
       - name: Preview Android App APK Links
         if: steps.preview-runtimeversion.outputs.exists == 'false'
         run: |
@@ -224,6 +247,54 @@ jobs:
           echo "- [universal](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-universal-release.apk)" >> $GITHUB_STEP_SUMMARY
           echo "- [x86](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86-release.apk)" >> $GITHUB_STEP_SUMMARY
           echo "- [x86_64](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86_64-release.apk)" >> $GITHUB_STEP_SUMMARY
+
+  ota-update:
+    runs-on: self-hosted
+
+    needs:
+      - should-skip
+
+    if: needs.should-skip.outputs.should-skip != 'true'
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Find Metro Cache
+        id: metro-cache-dir-path
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          result-encoding: string
+          script: |
+            const os = require('os');
+            const path = require('path');
+            return path.join(os.tmpdir(), 'metro-cache');
+
+      - name: Restore Metro cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: ${{ steps.metro-cache-dir-path.outputs.result }}
+          key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: |
+            metro-cache-${{ runner.os }}-${{ github.job }}-
+
+      - name: Publish Debug OTA Update
+        working-directory: apps/client
+        run: bun run export
+        env:
+          RELEASE_CHANNEL: development
+          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+          NODE_ENV: development
+          EXPO_TOKEN: ${{ secrets.EOAS_EXPO_TOKEN }}
+
       - name: Publish Preview OTA Update
         working-directory: apps/client
         run: bun run export:preview
