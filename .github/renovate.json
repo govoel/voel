@@ -3,7 +3,8 @@
   "extends": [
     "config:recommended",
     "group:expoMonorepo",
-    "group:eslintMonorepo"
+    "group:eslintMonorepo",
+    "helpers:pinGitHubActionDigests"
   ],
   "rangeStrategy": "auto",
   "prHourlyLimit": 0,
