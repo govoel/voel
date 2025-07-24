@@ -149,7 +149,7 @@ export const getProductsBySearch = async (params: {
       scanLogger.debug(
         '[Search] Retrieved incomplete product, validation failed for query params %o: %o',
         params,
-        response.error.flatten()
+        z.treeifyError(response.error)
       );
       return null;
     }
@@ -172,19 +172,17 @@ const leafChapterSchema = z.object({
 
 type LeafChapterSchema = z.infer<typeof leafChapterSchema>;
 
-type ParentChapterSchema = LeafChapterSchema & {
-  chapters?: (ParentChapterSchema | LeafChapterSchema)[];
-};
+const parentChapterSchema = z.object({
+  length_ms: z.number(),
+  start_offset_ms: z.number(),
+  start_offset_sec: z.number(),
+  title: z.string().trim(),
+  get chapters() {
+    return z.array(z.union([parentChapterSchema, leafChapterSchema])).optional();
+  },
+});
 
-const parentChapterSchema: z.ZodType<ParentChapterSchema> = z.lazy(() =>
-  z.object({
-    length_ms: z.number(),
-    start_offset_ms: z.number(),
-    start_offset_sec: z.number(),
-    title: z.string().trim(),
-    chapters: z.array(z.union([parentChapterSchema, leafChapterSchema])).optional(),
-  })
-);
+type ParentChapterSchema = z.infer<typeof parentChapterSchema>;
 
 const chapterSchema = z.union([parentChapterSchema, leafChapterSchema]);
 
@@ -227,7 +225,7 @@ export const getChapterByAsin = async (asin: string) => {
       scanLogger.debug(
         '[ASIN:%s] Retrieved incomplete chapter info, validation failed: %o',
         asin,
-        response.error.flatten()
+        z.treeifyError(response.error)
       );
       return null;
     }
@@ -307,7 +305,7 @@ export const getAuthorByAsin = async (asin: string) => {
       scanLogger.error(
         '[Author] Failed to parse author info for ASIN %s: %o',
         asin,
-        author.error.flatten()
+        z.treeifyError(author.error)
       );
       return null;
     }

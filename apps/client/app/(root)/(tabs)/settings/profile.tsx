@@ -124,8 +124,8 @@ const Profile = () => {
           confirmNewPassword: z.string().min(1, 'Confirm password cannot be empty'),
         })
         .refine((data) => data.newPassword === data.confirmNewPassword, {
-          message: "Passwords don't match",
           path: ['confirmNewPassword'],
+          error: "Passwords don't match",
         }),
     },
     onSubmit: async ({ value, formApi }) => {

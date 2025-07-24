@@ -124,7 +124,7 @@ const SearchTab = () => {
     },
     validators: {
       onChange: z.object({
-        query: z.string().min(3, { message: 'Search query must be at least 3 characters long' }),
+        query: z.string().min(3, 'Search query must be at least 3 characters long'),
       }),
     },
     listeners: {
