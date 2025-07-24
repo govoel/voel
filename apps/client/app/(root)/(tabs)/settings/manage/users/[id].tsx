@@ -1,7 +1,7 @@
 import { Session } from '../../profile';
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UserWithRole } from 'better-auth/plugins';
+import type { User } from 'better-auth';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
 import { FlatList, View } from 'react-native';
@@ -29,7 +29,7 @@ const userRole = z.enum(['under18', 'user', 'admin']);
 const banUserValidator = z.object({
   banReason: z.string().min(1, 'Ban reason is required'),
   banExpiresIn: z.coerce
-    .number()
+    .number<number>()
     .int()
     .positive('Ban duration must be a positive integer')
     .optional(),
@@ -170,7 +170,17 @@ export default function ManageUserScreen() {
   );
 }
 
-const Profile = ({ user }: { user: UserWithRole }) => {
+const Profile = ({
+  user,
+}: {
+  user: User & {
+    username?: string;
+    role?: string;
+    banned?: boolean | null;
+    banReason?: string | null;
+    banExpires?: Date | null;
+  };
+}) => {
   const authInstance = useAuthInstance();
   const router = useRouter();
   const queryClient = useQueryClient();
