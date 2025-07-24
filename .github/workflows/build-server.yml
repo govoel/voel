@@ -26,7 +26,7 @@ jobs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
       - id: skip_check
-        uses: fkirc/skip-duplicate-actions@v5.3.1
+        uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5.3.1
         with:
           paths: '["apps/server/**", "packages/schemas/**", "packages/source-tap/**", "Dockerfile", ".dockerignore"]'
           cancel_others: 'false'
@@ -47,10 +47,10 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5.7.0
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
           images: ghcr.io/${{ github.repository }}
           flavor: |
@@ -68,7 +68,7 @@ jobs:
         run: |
           echo "SHARP_VERSION=$(cat package.json | jq -r '.dependencies.sharp')" >> $GITHUB_ENV
       - name: Build image
-        uses: redhat-actions/buildah-build@v2.13
+        uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2.13
         with:
           layers: false
           tags: ${{ steps.meta.outputs.tags }}
