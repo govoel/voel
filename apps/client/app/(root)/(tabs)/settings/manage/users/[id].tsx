@@ -28,12 +28,9 @@ const userRole = z.enum(['under18', 'user', 'admin']);
 
 const banUserValidator = z.object({
   banReason: z.string().min(1, 'Ban reason is required'),
-  banExpiresIn: z
-    .number({
-      message: 'Ban duration must be a positive integer',
-      coerce: true,
-    })
-    .int('Ban duration must be a positive integer')
+  banExpiresIn: z.coerce
+    .number()
+    .int()
     .positive('Ban duration must be a positive integer')
     .optional(),
 });
@@ -316,8 +313,8 @@ const Profile = ({ user }: { user: UserWithRole }) => {
           confirmNewPassword: z.string().min(1, 'Confirm password cannot be empty'),
         })
         .refine((data) => data.newPassword === data.confirmNewPassword, {
-          message: "Passwords don't match",
           path: ['confirmNewPassword'],
+          error: "Passwords don't match",
         }),
     },
     onSubmit: async ({ value, formApi }) => {

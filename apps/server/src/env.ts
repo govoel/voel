@@ -12,21 +12,21 @@ export const env = createEnv({
       .string()
       .transform((s) => parseInt(s, 10))
       .pipe(z.number().min(0).max(65535))
-      .default(process.env.NODE_ENV === 'production' ? '8635' : '3000'),
+      .prefault(process.env.NODE_ENV === 'production' ? '8635' : '3000'),
     DATABASE_PATH: z
       .string()
       .min(1)
-      .default(process.env.NODE_ENV === 'production' ? '/database/main.db' : './dev.db'),
+      .prefault(process.env.NODE_ENV === 'production' ? '/database/main.db' : './dev.db'),
     IMPORT_PATH: z
       .string()
       .min(1)
-      .default(process.env.NODE_ENV === 'production' ? '/import' : './dev_dir/import')
+      .prefault(process.env.NODE_ENV === 'production' ? '/import' : './dev_dir/import')
       .transform((p) => resolve(p)),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-      .default(process.env.NODE_ENV === 'production' ? 'error' : 'debug'),
-    METADATA_EXTRACTION_BATCH_SIZE: z.coerce.number().int().positive().default(10),
-    MATCHER_BATCH_SIZE: z.coerce.number().int().positive().default(5),
+      .prefault(process.env.NODE_ENV === 'production' ? 'error' : 'debug'),
+    METADATA_EXTRACTION_BATCH_SIZE: z.int().positive().prefault(10),
+    MATCHER_BATCH_SIZE: z.int().positive().prefault(5),
   },
   runtimeEnv: {
     // Required environment variables

@@ -191,7 +191,7 @@ function SignInTab({
     },
     validators: {
       onChange: z.object({
-        baseURL: z.string().url('URL is not valid'),
+        baseURL: z.url('URL is not valid'),
         username: z.string().min(1, 'Username cannot be empty'),
         password: z
           .string()
@@ -307,8 +307,8 @@ function SignUpTab({ setTab }: { setTab: Dispatch<SetStateAction<string>> }) {
     validators: {
       onChange: z
         .object({
-          baseURL: z.string().url('URL is not valid'),
-          email: z.string().email('Email is not valid'),
+          baseURL: z.url('URL is not valid'),
+          email: z.email('Email is not valid'),
           username: z.string().min(1, 'Username cannot be empty'),
           name: z.string().min(1, 'Name cannot be empty'),
           password: z
@@ -318,8 +318,8 @@ function SignUpTab({ setTab }: { setTab: Dispatch<SetStateAction<string>> }) {
           confirmPassword: z.string().min(1, 'Confirm password cannot be empty'),
         })
         .refine((data) => data.password === data.confirmPassword, {
-          message: "Passwords don't match",
           path: ['confirmPassword'],
+          error: "Passwords don't match",
         }),
     },
     onSubmit: async ({ value, formApi }) => {

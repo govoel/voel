@@ -142,7 +142,7 @@ export const getAudioFile = async (importDirPath: string) => {
       scanLogger.error(
         '[Scan] Metadata extraction failed for file "%s": %o',
         importDirPath,
-        metadata.error.flatten()
+        z.treeifyError(metadata.error)
       );
       return null;
     }

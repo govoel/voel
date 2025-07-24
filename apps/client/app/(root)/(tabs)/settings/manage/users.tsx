@@ -87,7 +87,7 @@ export default function UsersListScreen() {
     validators: {
       onChange: z
         .object({
-          email: z.string().email('Email is not valid'),
+          email: z.email('Email is not valid'),
           username: z.string().min(1, 'Username cannot be empty'),
           name: z.string().min(1, 'Name cannot be empty'),
           password: z
@@ -98,8 +98,8 @@ export default function UsersListScreen() {
           role: userRole,
         })
         .refine((data) => data.password === data.confirmPassword, {
-          message: "Passwords don't match",
           path: ['confirmPassword'],
+          error: "Passwords don't match",
         }),
     },
     onSubmit: async ({ value, formApi }) => {

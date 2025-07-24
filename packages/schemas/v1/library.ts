@@ -1,12 +1,6 @@
 import { z } from 'zod';
 
-const id = z
-  .number({
-    message: 'Library ID must be a positive integer',
-    coerce: true,
-  })
-  .int('Library ID must be a positive integer')
-  .positive('Library ID must be a positive integer');
+const id = z.coerce.number().int().positive('Library ID must be a positive integer');
 
 const name = z
   .string()

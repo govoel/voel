@@ -1,6 +1,6 @@
 import { TRPCError, initTRPC } from '@trpc/server';
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
-import { ZodError } from 'zod';
+import { ZodError, z } from 'zod';
 
 import { auth } from '@/libs/auth/auth';
 
@@ -52,7 +52,7 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
       ...shape,
       data: {
         ...shape.data,
-        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+        zodError: error.cause instanceof ZodError ? z.flattenError(error.cause) : null,
       },
     };
   },
