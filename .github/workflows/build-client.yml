@@ -254,7 +254,7 @@ jobs:
     needs:
       - should-skip
 
-    if: needs.should-skip.outputs.should-skip != 'true'
+    if: needs.should-skip.outputs.should_skip != 'true'
 
     steps:
       - name: Checkout repo
