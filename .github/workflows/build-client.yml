@@ -75,24 +75,24 @@ jobs:
           wget --quiet --spider https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/$HASH/app-arm64-v8a-release.apk && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
       - name: Setup JDK 17
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4
-        if: steps.debug-fingerprint.outputs.exists == "false" || steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false' || steps.preview-fingerprint.outputs.exists == 'false'
         with:
           distribution: 'temurin'
           java-version: '17'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
-        if: steps.debug-fingerprint.outputs.exists == "false" || steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false' || steps.preview-fingerprint.outputs.exists == 'false'
         with:
           cache-read-only: false
       - name: Setup Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
-        if: steps.debug-fingerprint.outputs.exists == "false" || steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false' || steps.preview-fingerprint.outputs.exists == 'false'
         with:
           packages: ''
       - name: Find ccache directory
         id: ccache-dir-path
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
-        if: steps.debug-fingerprint.outputs.exists == "false" || steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false' || steps.preview-fingerprint.outputs.exists == 'false'
         with:
           result-encoding: string
           script: |
@@ -101,14 +101,14 @@ jobs:
             return path.join(os.homedir(), '.cache', 'ccache');
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
-        if: steps.debug-fingerprint.outputs.exists == "false" || steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false' || steps.preview-fingerprint.outputs.exists == 'false'
         with:
           create-symlink: false
           key: ${{ runner.os }}-${{ github.job }}
         env:
           CCACHE_DIR: ${{ steps.ccache-dir-path.outputs.result }}
       - name: Configure ccache
-        if: steps.debug-fingerprint.outputs.exists == "false" || steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false' || steps.preview-fingerprint.outputs.exists == 'false'
         run: |
           /usr/bin/ccache --set-config=compiler_check="%compiler% --version"
           /usr/bin/ccache -p
@@ -129,17 +129,17 @@ jobs:
           restore-keys: |
             metro-cache-${{ runner.os }}-${{ github.job }}-
       - name: Decode Signing Keystore
-        if: steps.debug-fingerprint.outputs.exists == "false" || steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false' || steps.preview-fingerprint.outputs.exists == 'false'
         working-directory: apps/client
         run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
         env:
           VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
       - name: Generate Native Debug Module
-        if: steps.debug-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false'
         working-directory: apps/client
         run: bun run prebuild --platform android --clean
       - name: Build Android Debug App
-        if: steps.debug-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false'
         working-directory: apps/client/android
         run: chmod +x ./gradlew && ./gradlew assembleDebug --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M
         env:
@@ -149,7 +149,7 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: development
       - name: Upload Debug Android App
-        if: steps.debug-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false'
         uses: LanceMcCarthy/Action-AzureBlobUpload@bf173292ca908e2593b2562c2a89dd3511a1dae7 # v3.3.5
         with:
           connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
@@ -158,7 +158,7 @@ jobs:
           destination_folder: debug/android/${{ steps.debug-fingerprint.outputs.hash }}
           fail_if_source_empty: true
       - name: Output Debug Android App APK Links
-        if: steps.debug-fingerprint.outputs.exists == "false"
+        if: steps.debug-fingerprint.outputs.exists == 'false'
         run: |
           echo "Debug Android App APK Links:"
           echo "https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-fingerprint.outputs.hash }}/app-arm64-v8a-debug.apk"
@@ -175,11 +175,11 @@ jobs:
           NODE_ENV: development
           EXPO_TOKEN: ${{ secrets.EOAS_EXPO_TOKEN }}
       - name: Generate Native Preview Module
-        if: steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.preview-fingerprint.outputs.exists == 'false'
         working-directory: apps/client
         run: bun run prebuild:preview --platform android --clean
       - name: Build Android Preview App
-        if: steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.preview-fingerprint.outputs.exists == 'false'
         working-directory: apps/client/android
         run: chmod +x ./gradlew && ./gradlew assembleRelease --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M
         env:
@@ -190,7 +190,7 @@ jobs:
           NODE_ENV: production
       - name: Upload Preview Android App
         uses: LanceMcCarthy/Action-AzureBlobUpload@bf173292ca908e2593b2562c2a89dd3511a1dae7 # v3.3.5
-        if: steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.preview-fingerprint.outputs.exists == 'false'
         with:
           connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           container_name: artifacts
@@ -198,7 +198,7 @@ jobs:
           destination_folder: preview/android/${{ steps.preview-fingerprint.outputs.hash }}
           fail_if_source_empty: true
       - name: Output Preview Android App APK Links
-        if: steps.preview-fingerprint.outputs.exists == "false"
+        if: steps.preview-fingerprint.outputs.exists == 'false'
         run: |
           echo "Preview Android App APK Links:"
           echo "https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-fingerprint.outputs.hash }}/app-arm64-v8a-release.apk"
