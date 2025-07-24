@@ -128,12 +128,13 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: development
       - name: Upload Debug Android App
-        uses: actions/upload-artifact@v4
+        uses: LanceMcCarthy/Action-AzureBlobUpload@bf173292ca908e2593b2562c2a89dd3511a1dae7
         with:
-          name: android-app-debug
-          path: apps/client/android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: ${{ github.event_name == 'push' && '7' || '1' }}
+          connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          container_name: artifacts
+          source_folder: apps/client/android/app/build/outputs/apk/debug
+          destination_folder: gh-actions/runs/${{ github.run_id }}/android/debug
+          fail_if_source_empty: true
       - name: Publish Debug OTA Update
         working-directory: apps/client
         run: bun run export
@@ -155,12 +156,13 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: production
       - name: Upload Preview Android App
-        uses: actions/upload-artifact@v4
+        uses: LanceMcCarthy/Action-AzureBlobUpload@bf173292ca908e2593b2562c2a89dd3511a1dae7
         with:
-          name: android-app-preview
-          path: apps/client/android/app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-          retention-days: ${{ github.event_name == 'push' && '7' || '1' }}
+          connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          container_name: artifacts
+          source_folder: apps/client/android/app/build/outputs/apk/release
+          destination_folder: gh-actions/runs/${{ github.run_id }}/android/preview
+          fail_if_source_empty: true
       - name: Publish Preview OTA Update
         working-directory: apps/client
         run: bun run export:preview
