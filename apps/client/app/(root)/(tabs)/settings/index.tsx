@@ -1,5 +1,4 @@
 import { Link, Stack } from 'expo-router';
-import { manifest, runtimeVersion } from 'expo-updates';
 import { View } from 'react-native';
 
 import { authModalStore } from '~/components/auth-modal';
@@ -7,6 +6,7 @@ import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Download } from '~/components/icons/Download';
 import { FolderCog } from '~/components/icons/FolderCog';
+import { Info } from '~/components/icons/Info';
 import { Play } from '~/components/icons/Play';
 import { ServerCog } from '~/components/icons/ServerCog';
 import { Smartphone } from '~/components/icons/Smartphone';
@@ -32,7 +32,7 @@ export default function SettingsIndexScreen() {
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
-                <View className="flex-row gap-x-2">
+                <View className="flex flex-row justify-center items-center gap-x-2">
                   <UserCog className="text-muted-foreground" size="20" />
                   <Text>Profile</Text>
                 </View>
@@ -47,7 +47,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-              <View className="flex-row gap-x-2">
+              <View className="flex flex-row justify-center items-center gap-x-2">
                 <Smartphone className="text-muted-foreground" size="20" />
                 <Text>Interface</Text>
               </View>
@@ -57,7 +57,7 @@ export default function SettingsIndexScreen() {
           <Button
             variant="ghost"
             className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-            <View className="flex-row gap-x-2">
+            <View className="flex flex-row justify-center items-center gap-x-2">
               <Play className="text-muted-foreground" size="20" />
               <Text>Playback</Text>
             </View>
@@ -67,7 +67,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none bg-secondary/40">
-              <View className="flex-row gap-x-2">
+              <View className="flex flex-row justify-center items-center gap-x-2">
                 <Download className="text-muted-foreground" size="20" />
                 <Text>Downloads</Text>
               </View>
@@ -81,7 +81,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-              <View className="flex-row gap-x-2">
+              <View className="flex flex-row justify-center items-center gap-x-2">
                 <ServerCog className="text-muted-foreground" size="20" />
                 <Text>Server</Text>
               </View>
@@ -91,7 +91,7 @@ export default function SettingsIndexScreen() {
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-                <View className="flex-row gap-x-2">
+                <View className="flex flex-row justify-center items-center gap-x-2">
                   <FolderCog className="text-muted-foreground" size="20" />
                   <Text>Manage Libraries</Text>
                 </View>
@@ -102,7 +102,7 @@ export default function SettingsIndexScreen() {
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
-                <View className="flex-row gap-x-2">
+                <View className="flex flex-row justify-center items-center gap-x-2">
                   <Users className="text-muted-foreground" size="20" />
                   <Text>Manage Users</Text>
                 </View>
@@ -111,6 +111,20 @@ export default function SettingsIndexScreen() {
             </Link>
           </View>
         )}
+
+        <View className="overflow-hidden rounded-md border border-foreground/15">
+          <Link href="/settings/app-info" asChild push>
+            <Button
+              variant="ghost"
+              className="flex-row justify-between rounded-none bg-secondary/40">
+              <View className="flex flex-row justify-center items-center gap-x-2">
+                <Info className="text-muted-foreground" size="20" />
+                <Text>App Info</Text>
+              </View>
+              <ChevronRight className="text-muted-foreground" size="20" />
+            </Button>
+          </Link>
+        </View>
 
         {data ? (
           <View className="gap-y-2">
@@ -133,17 +147,6 @@ export default function SettingsIndexScreen() {
             <Text>Sign In</Text>
           </Button>
         )}
-
-        <View className="pt-8">
-          <Muted className="text-center" selectable>
-            Runtime Version: {runtimeVersion}
-          </Muted>
-          {'id' in manifest && (
-            <Muted className="text-center" selectable>
-              Manifest ID: {manifest.id}
-            </Muted>
-          )}
-        </View>
       </FloatingPlayerDodgingLayout>
     </>
   );
