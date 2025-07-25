@@ -205,7 +205,6 @@ jobs:
           fail_if_source_empty: true
 
       - name: Debug Android App APK Links
-        if: steps.debug-runtimeversion.outputs.exists == 'false'
         run: |
           echo "Debug Android App APK Links" >> $GITHUB_STEP_SUMMARY
           echo "- [arm64-v8a](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-arm64-v8a-debug.apk)" >> $GITHUB_STEP_SUMMARY
@@ -241,7 +240,6 @@ jobs:
           fail_if_source_empty: true
 
       - name: Preview Android App APK Links
-        if: steps.preview-runtimeversion.outputs.exists == 'false'
         run: |
           echo "Preview Android App APK Links" >> $GITHUB_STEP_SUMMARY
           echo "- [arm64-v8a](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-arm64-v8a-release.apk)" >> $GITHUB_STEP_SUMMARY
@@ -287,6 +285,12 @@ jobs:
           key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             metro-cache-${{ runner.os }}-${{ github.job }}-
+
+      - name: Bypass Cloudflare for GitHub Action
+        uses: xiaotianxt/bypass-cloudflare-for-github-action@a87c9ac0348806058904e62e5c8e70d8e37b4a65 # v1.1.1
+        with:
+          cf_api_token: ${{ secrets.CF_BYPASS_API_TOKEN }}
+          cf_zone_id: ${{ secrets.CF_BYPASS_ZONE_ID }}
 
       - name: Publish Debug OTA Update
         working-directory: apps/client
