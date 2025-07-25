@@ -28,7 +28,7 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5.3.1
         with:
-          paths: '["apps/server/**", "packages/schemas/**", "packages/source-tap/**", "Dockerfile", ".dockerignore"]'
+          paths: '["apps/server/**", "packages/schemas/**", "packages/source-tap/**", "Dockerfile", ".dockerignore", ".github/workflows/build-server.yml", ".github/actions/setup-bun/action.yml"]'
           cancel_others: 'false'
           concurrent_skipping: 'never'
           skip_after_successful_duplicate: 'false'
