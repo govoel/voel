@@ -102,7 +102,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     checkAutomatically: 'WIFI_ONLY',
     useEmbeddedUpdate: true,
     fallbackToCacheTimeout: 0,
-    url: 'https://eas-update.voel.app/manifest',
+    url: 'https://ota.voel.app/manifest',
     codeSigningCertificate: './certificate.pem',
     codeSigningMetadata: {
       keyid: 'main',
