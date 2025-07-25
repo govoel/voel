@@ -154,6 +154,7 @@ jobs:
       - name: Find Metro Cache
         id: metro-cache-dir-path
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           result-encoding: string
           script: |
@@ -163,6 +164,7 @@ jobs:
 
       - name: Restore Metro cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           path: ${{ steps.metro-cache-dir-path.outputs.result }}
           key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
