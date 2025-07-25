@@ -1,4 +1,5 @@
 import { Link, Stack } from 'expo-router';
+import { manifest, runtimeVersion } from 'expo-updates';
 import { View } from 'react-native';
 
 import { authModalStore } from '~/components/auth-modal';
@@ -131,6 +132,15 @@ export default function SettingsIndexScreen() {
             }}>
             <Text>Sign In</Text>
           </Button>
+        )}
+
+        <Muted className="text-center" selectable>
+          Runtime Version: {runtimeVersion}
+        </Muted>
+        {'id' in manifest && (
+          <Muted className="text-center" selectable>
+            Manifest ID: {manifest.id}
+          </Muted>
         )}
       </FloatingPlayerDodgingLayout>
     </>
