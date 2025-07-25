@@ -66,16 +66,6 @@ jobs:
         with:
           node-version: 'lts/*'
 
-      - name: Decode Signing Keystore
-        working-directory: apps/client
-        run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
-        env:
-          VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
-
-      - name: Generate Native Debug Module
-        working-directory: apps/client
-        run: bun run prebuild --platform android --clean
-
       - name: Generate Debug Runtime Version
         id: debug-runtimeversion
         working-directory: apps/client
@@ -95,10 +85,6 @@ jobs:
             echo "Debug Android APKs for this runtime version do not exist"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Generate Native Preview Module
-        working-directory: apps/client
-        run: bun run prebuild:preview --platform android --clean
 
       - name: Generate Preview Runtime Version
         id: preview-runtimeversion
@@ -184,6 +170,13 @@ jobs:
           key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             metro-cache-${{ runner.os }}-${{ github.job }}-
+
+      - name: Decode Signing Keystore
+        if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
+        working-directory: apps/client
+        run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
+        env:
+          VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
 
       - name: Generate Native Debug Module
         if: steps.debug-runtimeversion.outputs.exists == 'false'
@@ -295,16 +288,6 @@ jobs:
           restore-keys: |
             metro-cache-${{ runner.os }}-${{ github.job }}-
 
-      - name: Decode Signing Keystore
-        working-directory: apps/client
-        run: echo $VOEL_ANDROID_APP_JKS_FILE | base64 --decode > app.voel.android.jks
-        env:
-          VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
-
-      - name: Generate Native Debug Module
-        working-directory: apps/client
-        run: bun run prebuild --platform android --clean
-
       - name: Publish Debug OTA Update
         working-directory: apps/client
         run: bun run export
@@ -313,10 +296,6 @@ jobs:
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
           NODE_ENV: development
           EXPO_TOKEN: ${{ secrets.EOAS_EXPO_TOKEN }}
-
-      - name: Generate Native Preview Module
-        working-directory: apps/client
-        run: bun run prebuild:preview --platform android --clean
 
       - name: Publish Preview OTA Update
         working-directory: apps/client
