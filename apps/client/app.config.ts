@@ -98,7 +98,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     policy: 'fingerprint',
   },
   updates: {
-    enabled: true,
+    enabled: process.env.CI === 'true',
     checkAutomatically: 'WIFI_ONLY',
     useEmbeddedUpdate: true,
     fallbackToCacheTimeout: 0,
