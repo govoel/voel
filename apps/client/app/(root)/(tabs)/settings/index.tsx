@@ -113,7 +113,7 @@ export default function SettingsIndexScreen() {
         )}
 
         {data ? (
-          <>
+          <View className="gap-y-2">
             <Button
               variant="destructive"
               onPress={() => {
@@ -124,7 +124,7 @@ export default function SettingsIndexScreen() {
             <Muted className="text-center">
               Signed in as {data.user.username} ({data.user.role})
             </Muted>
-          </>
+          </View>
         ) : (
           <Button
             onPress={() => {
@@ -134,14 +134,16 @@ export default function SettingsIndexScreen() {
           </Button>
         )}
 
-        <Muted className="text-center" selectable>
-          Runtime Version: {runtimeVersion}
-        </Muted>
-        {'id' in manifest && (
+        <View className="pt-8">
           <Muted className="text-center" selectable>
-            Manifest ID: {manifest.id}
+            Runtime Version: {runtimeVersion}
           </Muted>
-        )}
+          {'id' in manifest && (
+            <Muted className="text-center" selectable>
+              Manifest ID: {manifest.id}
+            </Muted>
+          )}
+        </View>
       </FloatingPlayerDodgingLayout>
     </>
   );
