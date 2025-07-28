@@ -27,6 +27,26 @@ const listBooks = {
       queryFn: async () => {
         const role = await getRole(instanceId);
 
+        let contributorSubquery = instanceDb
+          .selectFrom('bookContributor')
+          .where('bookContributor.role', '=', contributorRole)
+          .where('bookContributor.deletedAt', 'is', null)
+          .select((eb) => [
+            'bookContributor.bookId',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn('json_object', [
+                  eb.val('id'),
+                  eb.ref('bookContributor.id'),
+                  eb.val('name'),
+                  eb.ref('bookContributor.name'),
+                ]),
+              ])
+              .as('contributors'),
+          ])
+          .groupBy('bookContributor.bookId')
+          .as('contributorData');
+
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -37,11 +57,8 @@ const listBooks = {
               .on('searchContributor.name', '=', contributorName)
               .onRef('book.id', '=', 'searchContributor.bookId')
           )
-          .leftJoin('bookContributor', (join) =>
-            join
-              .on('bookContributor.deletedAt', 'is', null)
-              .on('bookContributor.role', '=', contributorRole)
-              .onRef('book.id', '=', 'bookContributor.bookId')
+          .leftJoin(contributorSubquery, (join) =>
+            join.onRef('book.id', '=', 'contributorData.bookId')
           )
           .leftJoin('audiobookFile', (join) =>
             join
@@ -57,16 +74,7 @@ const listBooks = {
             'book.title',
             'book.cover',
             'book.coverThumbhash',
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn('json_object', [
-                  eb.val('id'),
-                  eb.ref('bookContributor.id'),
-                  eb.val('name'),
-                  eb.ref('bookContributor.name'),
-                ]),
-              ])
-              .as('contributors'),
+            'contributorData.contributors',
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),
@@ -84,10 +92,12 @@ const listBooks = {
 
         return results.map((result) => ({
           ...result,
-          contributors: JSON.parse(result.contributors) as Pick<
-            Selectable<InstanceDatabase['bookContributor']>,
-            'name'
-          >[],
+          contributors: result.contributors
+            ? (JSON.parse(result.contributors) as Pick<
+                Selectable<InstanceDatabase['bookContributor']>,
+                'name'
+              >[])
+            : [],
         }));
       },
     });
