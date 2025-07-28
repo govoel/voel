@@ -39,6 +39,28 @@ const list = {
       queryFn: async () => {
         const role = await getRole(instanceId);
 
+        let authorSubquery = instanceDb
+          .selectFrom('bookAuthor')
+          .innerJoin('author', (join) =>
+            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
+          )
+          .where('bookAuthor.deletedAt', 'is', null)
+          .select((eb) => [
+            'bookAuthor.bookId',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn<string>('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
+              ])
+              .as('authors'),
+          ])
+          .groupBy('bookAuthor.bookId')
+          .as('authorData');
+
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -54,12 +76,7 @@ const list = {
             'book.createdAt',
             'book.updatedAt',
           ])
-          .leftJoin('bookAuthor', (join) =>
-            join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
-          )
-          .leftJoin('author', (join) =>
-            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
-          )
+          .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
           .leftJoin('audiobookFile', (join) =>
             join
               .onRef('audiobookFile.bookId', '=', 'book.id')
@@ -71,16 +88,7 @@ const list = {
           .groupBy('book.id')
           .orderBy('book.updatedAt', 'desc')
           .select((eb) => [
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn('json_object', [
-                  eb.val('id'),
-                  eb.ref('author.id'),
-                  eb.val('name'),
-                  eb.ref('author.name'),
-                ]),
-              ])
-              .as('authors'),
+            'authorData.authors',
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),
@@ -117,6 +125,28 @@ const list = {
       queryFn: async ({ pageParam }) => {
         const role = await getRole(instanceId);
 
+        let authorSubquery = instanceDb
+          .selectFrom('bookAuthor')
+          .innerJoin('author', (join) =>
+            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
+          )
+          .where('bookAuthor.deletedAt', 'is', null)
+          .select((eb) => [
+            'bookAuthor.bookId',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn<string>('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
+              ])
+              .as('authors'),
+          ])
+          .groupBy('bookAuthor.bookId')
+          .as('authorData');
+
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -132,28 +162,12 @@ const list = {
             'book.createdAt',
             'book.updatedAt',
           ])
-          .leftJoin('bookAuthor', (join) =>
-            join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
-          )
-          .leftJoin('author', (join) =>
-            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
-          )
+          .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
           .groupBy('book.id')
           .orderBy('book.updatedAt', 'desc')
           .orderBy('book.id', 'desc')
           .limit(pageSize + 1)
-          .select((eb) => [
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn('json_object', [
-                  eb.val('id'),
-                  eb.ref('author.id'),
-                  eb.val('name'),
-                  eb.ref('author.name'),
-                ]),
-              ])
-              .as('authors'),
-          ]);
+          .select((eb) => ['authorData.authors']);
 
         if (pageParam) {
           query = query.where((eb) =>
@@ -487,6 +501,28 @@ const search = {
       queryFn: async () => {
         const role = await getRole(instanceId);
 
+        let authorSubquery = instanceDb
+          .selectFrom('bookAuthor')
+          .innerJoin('author', (join) =>
+            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
+          )
+          .where('bookAuthor.deletedAt', 'is', null)
+          .select((eb) => [
+            'bookAuthor.bookId',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn<string>('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
+              ])
+              .as('authors'),
+          ])
+          .groupBy('bookAuthor.bookId')
+          .as('authorData');
+
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -502,12 +538,7 @@ const search = {
             'book.createdAt',
             'book.updatedAt',
           ])
-          .leftJoin('bookAuthor', (join) =>
-            join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
-          )
-          .leftJoin('author', (join) =>
-            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
-          )
+          .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
           .leftJoin('audiobookFile', (join) =>
             join
               .onRef('audiobookFile.bookId', '=', 'book.id')
@@ -518,16 +549,7 @@ const search = {
           )
           .groupBy('book.id')
           .select((eb) => [
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn('json_object', [
-                  eb.val('id'),
-                  eb.ref('author.id'),
-                  eb.val('name'),
-                  eb.ref('author.name'),
-                ]),
-              ])
-              .as('authors'),
+            'authorData.authors',
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),

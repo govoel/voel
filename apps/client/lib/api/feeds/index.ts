@@ -46,16 +46,6 @@ const getAvailableOffline = {
           .groupBy('bookAuthor.bookId')
           .as('authorData');
 
-        let filesSubquery = instanceDb
-          .selectFrom('audiobookFile')
-          .select((eb) => [
-            'audiobookFile.bookId as bookId',
-            eb.fn.sum('audiobookFile.durationMs').as('durationMs'),
-          ])
-          .where('audiobookFile.id', 'in', downloadIds)
-          .groupBy('audiobookFile.bookId')
-          .as('fileData');
-
         let query = instanceDb
           .selectFrom('book')
           .select([
@@ -71,14 +61,18 @@ const getAvailableOffline = {
             'book.updatedAt',
             'book.deletedAt',
           ])
-          .innerJoin(filesSubquery, (join) => join.onRef('book.id', '=', 'fileData.bookId'))
+          .innerJoin('audiobookFile', (join) =>
+            join
+              .onRef('book.id', '=', 'audiobookFile.bookId')
+              .on('audiobookFile.id', 'in', downloadIds)
+          )
           .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
           .leftJoin('latestPlaybackPosition', (join) =>
             join.onRef('latestPlaybackPosition.bookId', '=', 'book.id')
           )
           .select((eb) => [
             'authorData.authors',
-            eb.fn.coalesce('fileData.durationMs', eb.lit(0)).as('totalDurationMs'),
+            eb.fn.coalesce(eb.fn.sum('audiobookFile.durationMs'), eb.lit(0)).as('totalDurationMs'),
             eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)).as('playbackPositionMs'),
             eb.fn
               .coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0))
@@ -117,6 +111,28 @@ const getContinueListening = {
       queryFn: async () => {
         const role = await getRole(instanceId);
 
+        let authorSubquery = instanceDb
+          .selectFrom('bookAuthor')
+          .innerJoin('author', (join) =>
+            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
+          )
+          .where('bookAuthor.deletedAt', 'is', null)
+          .select((eb) => [
+            'bookAuthor.bookId',
+            eb
+              .fn<string>('json_group_array', [
+                eb.fn<string>('json_object', [
+                  eb.val('id'),
+                  eb.ref('author.id'),
+                  eb.val('name'),
+                  eb.ref('author.name'),
+                ]),
+              ])
+              .as('authors'),
+          ])
+          .groupBy('bookAuthor.bookId')
+          .as('authorData');
+
         let query = instanceDb
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
@@ -135,12 +151,7 @@ const getContinueListening = {
           .innerJoin('latestPlaybackPosition', (join) =>
             join.onRef('book.id', '=', 'latestPlaybackPosition.bookId')
           )
-          .leftJoin('bookAuthor', (join) =>
-            join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
-          )
-          .leftJoin('author', (join) =>
-            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
-          )
+          .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
           .leftJoin('audiobookFile', (join) =>
             join
               .onRef('audiobookFile.bookId', '=', 'book.id')
@@ -149,16 +160,7 @@ const getContinueListening = {
           .groupBy('book.id')
           .orderBy('latestPlaybackPosition.eventTimestampMs', 'desc')
           .select((eb) => [
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn('json_object', [
-                  eb.val('id'),
-                  eb.ref('author.id'),
-                  eb.val('name'),
-                  eb.ref('author.name'),
-                ]),
-              ])
-              .as('authors'),
+            'authorData.authors',
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),
