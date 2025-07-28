@@ -540,6 +540,90 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .on('playbackHistory')
                 .columns(['deletedAt'])
                 .execute();
+
+              await trx.schema
+                .createTable('latestPlaybackPosition')
+                .ifNotExists()
+                .addColumn('bookId', 'integer', (col) =>
+                  col
+                    .primaryKey()
+                    .notNull()
+                    .references('book.id')
+                    .onDelete('cascade')
+                    .onUpdate('cascade')
+                )
+                .addColumn('playbackHistoryId', 'integer', (col) =>
+                  col
+                    .notNull()
+                    .references('playbackHistory.id')
+                    .onDelete('cascade')
+                    .onUpdate('cascade')
+                )
+                .addColumn('positionMs', 'integer', (col) => col.notNull())
+                .addColumn('type', 'integer', (col) =>
+                  col.notNull().check(sql`type in (1002, 1003, 1004, 1005, 1006, 1007)`)
+                )
+                .addColumn('eventTimestampMs', 'integer', (col) => col.notNull())
+                .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await sql`CREATE TRIGGER IF NOT EXISTS latestPlaybackPosition_insert AFTER INSERT ON playbackHistory FOR EACH ROW WHEN NEW.deletedAt IS NULL
+                        BEGIN
+                          INSERT INTO latestPlaybackPosition(bookId, playbackHistoryId, positionMs, type, eventTimestampMs)
+                            VALUES(NEW.bookId, NEW.id, NEW.positionMs, NEW.type, NEW.eventTimestampMs)
+                            ON CONFLICT(bookId) DO UPDATE SET
+                              playbackHistoryId = excluded.playbackHistoryId,
+                              positionMs = excluded.positionMs,
+                              type = excluded.type,
+                              eventTimestampMs = excluded.eventTimestampMs
+                            WHERE
+                              NEW.eventTimestampMs > latestPlaybackPosition.eventTimestampMs
+                              OR (
+                                NEW.eventTimestampMs = latestPlaybackPosition.eventTimestampMs
+                                AND NEW.type > latestPlaybackPosition.type
+                              );
+                        END;`.execute(trx);
+
+              await sql`CREATE TRIGGER IF NOT EXISTS latestPlaybackPosition_update AFTER UPDATE ON playbackHistory FOR EACH ROW
+                        BEGIN
+                          DELETE FROM latestPlaybackPosition WHERE playbackHistoryId = NEW.id OR playbackHistoryId = OLD.id;
+
+                          INSERT INTO latestPlaybackPosition(bookId, playbackHistoryId, positionMs, type, eventTimestampMs)
+                            SELECT bookId, id, positionMs, type, eventTimestampMs FROM playbackHistory WHERE bookId = NEW.bookId ORDER BY eventTimestampMs DESC, type DESC LIMIT 1
+                            ON CONFLICT(bookId) DO UPDATE SET
+                              playbackHistoryId = excluded.playbackHistoryId,
+                              positionMs = excluded.positionMs,
+                              type = excluded.type,
+                              eventTimestampMs = excluded.eventTimestampMs
+                            WHERE
+                              excluded.eventTimestampMs > latestPlaybackPosition.eventTimestampMs
+                              OR (
+                                excluded.eventTimestampMs = latestPlaybackPosition.eventTimestampMs
+                                AND excluded.type > latestPlaybackPosition.type
+                              );
+
+                          INSERT INTO latestPlaybackPosition(bookId, playbackHistoryId, positionMs, type, eventTimestampMs)
+                            SELECT bookId, id, positionMs, type, eventTimestampMs FROM playbackHistory WHERE bookId = OLD.bookId ORDER BY eventTimestampMs DESC, type DESC LIMIT 1
+                            ON CONFLICT(bookId) DO UPDATE SET
+                              playbackHistoryId = excluded.playbackHistoryId,
+                              positionMs = excluded.positionMs,
+                              type = excluded.type,
+                              eventTimestampMs = excluded.eventTimestampMs
+                            WHERE
+                              excluded.eventTimestampMs > latestPlaybackPosition.eventTimestampMs
+                              OR (
+                                excluded.eventTimestampMs = latestPlaybackPosition.eventTimestampMs
+                                AND excluded.type > latestPlaybackPosition.type
+                              );
+                        END;`.execute(trx);
+
+              await sql`CREATE TRIGGER IF NOT EXISTS latestPlaybackPosition_delete AFTER DELETE ON playbackHistory FOR EACH ROW
+                        BEGIN
+                          DELETE FROM latestPlaybackPosition WHERE playbackHistoryId = OLD.id;
+
+                          INSERT OR IGNORE INTO latestPlaybackPosition(bookId, playbackHistoryId, positionMs, type, eventTimestampMs)
+                            SELECT bookId, id, positionMs, type, eventTimestampMs FROM playbackHistory WHERE bookId = OLD.bookId ORDER BY eventTimestampMs DESC, type DESC LIMIT 1;
+                        END;`.execute(trx);
             });
           },
         },

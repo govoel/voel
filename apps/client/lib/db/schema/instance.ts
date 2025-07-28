@@ -178,6 +178,14 @@ export interface PlaybackHistoryTable<Version extends 'realtime' | 'regular' = '
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
 }
 
+export interface LatestPlaybackPositionTable<Version extends 'realtime' | 'regular' = 'regular'> {
+  bookId: Version extends 'realtime' ? never : ColumnType<number, never, never>;
+  playbackHistoryId: Version extends 'realtime' ? never : ColumnType<number, never, never>;
+  positionMs: Version extends 'realtime' ? never : ColumnType<number, never, never>;
+  type: Version extends 'realtime' ? never : ColumnType<number, never, never>;
+  eventTimestampMs: Version extends 'realtime' ? never : ColumnType<number, never, never>;
+}
+
 export interface InstanceDatabase<Version extends 'realtime' | 'regular' = 'regular'> {
   library: LibraryTable<Version>;
   author: AuthorTable<Version>;
@@ -194,4 +202,5 @@ export interface InstanceDatabase<Version extends 'realtime' | 'regular' = 'regu
   audiobookFile: AudiobookFileTable<Version>;
   ebookFile: EBookFileTable<Version>;
   playbackHistory: PlaybackHistoryTable<Version>;
+  latestPlaybackPosition: LatestPlaybackPositionTable<Version>;
 }

@@ -17,6 +17,7 @@ import { Play } from '~/components/icons/Play';
 import { Timer } from '~/components/icons/Timer';
 import { UserPen } from '~/components/icons/UserPen';
 import { Image } from '~/components/image';
+import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
 import { Spinner } from '~/components/spinner';
 import {
   Accordion,
@@ -679,32 +680,83 @@ const ManageDownloads = ({
 };
 
 const BookPlayButton = ({ bookId }: { bookId: number }) => {
+  const instanceId = useInstanceId();
+
+  const { data: dbPlaybackPosition, isLoading: isDbPlaybackPositionLoading } =
+    api.books.getLatestDbPlaybackPosition.useQuery(bookId);
+
+  const localPlaybackHistory = usePlaybackHistoryContext();
+  const localPlaybackHistoryBookEvents =
+    instanceId !== '0' && localPlaybackHistory.instanceId === instanceId
+      ? localPlaybackHistory.events.filter((event) => event.bookId === bookId)
+      : [];
+
+  if (!isDbPlaybackPositionLoading) {
+    if (localPlaybackHistoryBookEvents.length > 0 && dbPlaybackPosition) {
+      if (
+        localPlaybackHistoryBookEvents[0].eventTimestampMs > dbPlaybackPosition.eventTimestampMs
+      ) {
+        return (
+          <PlayFromTimestampButton
+            bookId={bookId}
+            positionMs={localPlaybackHistoryBookEvents[0].positionMs}
+          />
+        );
+      } else {
+        return (
+          <PlayFromTimestampButton bookId={bookId} positionMs={dbPlaybackPosition.positionMs} />
+        );
+      }
+    } else if (localPlaybackHistoryBookEvents.length > 0) {
+      return (
+        <PlayFromTimestampButton
+          bookId={bookId}
+          positionMs={localPlaybackHistoryBookEvents[0].positionMs}
+        />
+      );
+    } else if (dbPlaybackPosition) {
+      return <PlayFromTimestampButton bookId={bookId} positionMs={dbPlaybackPosition.positionMs} />;
+    } else {
+      return <PlayFromTimestampButton bookId={bookId} positionMs={0} />;
+    }
+  }
+
+  return (
+    <ButtonWithLoading
+      viewClassName="mt-4 flex-1"
+      disabled={isDbPlaybackPositionLoading}
+      isLoading={isDbPlaybackPositionLoading}
+    />
+  );
+};
+
+const PlayFromTimestampButton = ({
+  bookId,
+  positionMs,
+}: {
+  bookId: number;
+  positionMs: number;
+}) => {
   const authInstance = useAuthInstance();
   const instanceId = useInstanceId();
   const instanceURL = useInstanceURL();
+
   const {
     data: book,
     isLoading: isBookLoading,
     error: bookError,
     refetch: refetchBook,
   } = api.books.get.useQuery(bookId);
-  const currentPlaybackPosition = api.books.getPlaybackPosition.useQuery(bookId);
 
   if (book) {
     return (
       <Button
         className="mt-4 flex-1"
         onPress={() => {
-          playBookFrom(
-            book,
-            currentPlaybackPosition,
-            authInstance.getCookie(),
-            instanceId,
-            instanceURL
-          );
+          playBookFrom(book, positionMs, authInstance.getCookie(), instanceId, instanceURL);
         }}>
-        {currentPlaybackPosition > 0 ? (
-          <Text>Play from {formatTime(currentPlaybackPosition)}</Text>
+        {positionMs > 0 ? (
+          <Text>Play from {formatTime(positionMs)}</Text>
         ) : (
           <Text>Play from beginning</Text>
         )}
@@ -729,9 +781,8 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
     <ButtonWithLoading
       viewClassName="mt-4 flex-1"
       disabled={isBookLoading}
-      isLoading={isBookLoading}>
-      <Text>Play</Text>
-    </ButtonWithLoading>
+      isLoading={isBookLoading}
+    />
   );
 };
 

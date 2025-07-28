@@ -15,12 +15,12 @@ import { cn } from '~/lib/utils';
 function PlaybackProgress({
   bookId,
   playbackPositionMs,
-  playbackPositionUpdatedAt,
+  playbackPositionEventTimestampMs,
   totalDurationMs,
 }: {
   bookId: number;
   playbackPositionMs: number | undefined;
-  playbackPositionUpdatedAt: number | undefined;
+  playbackPositionEventTimestampMs: number | undefined;
   totalDurationMs: number | undefined;
 }) {
   const localPlaybackHistory = usePlaybackHistoryContext();
@@ -31,7 +31,7 @@ function PlaybackProgress({
 
     if (bookEvents.length > 0) {
       const firstEvent = bookEvents[0];
-      if (firstEvent.eventTimestampMs > (playbackPositionUpdatedAt ?? 0)) {
+      if (firstEvent.eventTimestampMs > (playbackPositionEventTimestampMs ?? 0)) {
         return (
           <Progress
             className="h-2 rounded-b-md rounded-t-none"
@@ -63,7 +63,7 @@ type Book = {
   contributors?: { name: string }[];
   totalDurationMs?: number;
   playbackPositionMs?: number;
-  playbackPositionUpdatedAt?: number;
+  playbackPositionEventTimestampMs?: number;
 };
 
 export function BookList({
@@ -139,7 +139,7 @@ export function BookList({
             <PlaybackProgress
               bookId={item.id}
               playbackPositionMs={item.playbackPositionMs}
-              playbackPositionUpdatedAt={item.playbackPositionUpdatedAt}
+              playbackPositionEventTimestampMs={item.playbackPositionEventTimestampMs}
               totalDurationMs={item.totalDurationMs}
             />
             <View className="pt-2">

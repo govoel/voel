@@ -1,9 +1,9 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import type { Selectable } from 'kysely';
 
-import { mainDb } from '~/lib/db/client';
 import type { InstanceDatabase } from '~/lib/db/schema/instance';
 import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+import { getRole } from '~/lib/utils';
 
 export const seriesQueryKeys = {
   all: (instanceId: string) => ['instance', instanceId, 'series'] as const,
@@ -25,11 +25,7 @@ const list = {
       queryKey: seriesQueryKeys.list(instanceId),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
           .selectFrom('series')
@@ -93,11 +89,7 @@ const get = {
       queryKey: seriesQueryKeys.get(instanceId, seriesId),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
           .selectFrom('series')
@@ -142,11 +134,7 @@ const search = {
       queryKey: seriesQueryKeys.search(instanceId, searchQuery),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
           .selectFrom('series')
@@ -222,11 +210,7 @@ const listBooks = {
       queryKey: seriesQueryKeys.listBooks(instanceId, seriesId),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
           .selectFrom('book')

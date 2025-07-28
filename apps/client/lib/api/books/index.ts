@@ -7,9 +7,9 @@ import { useEffect, useState } from 'react';
 
 import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
 
-import { mainDb } from '~/lib/db/client';
 import type { InstanceDatabase } from '~/lib/db/schema/instance';
 import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+import { getRole } from '~/lib/utils';
 
 export const booksQueryKeys = {
   all: (instanceId: string) => ['instance', instanceId, 'books'] as const,
@@ -20,8 +20,8 @@ export const booksQueryKeys = {
     [...booksQueryKeys.all(instanceId), 'get', bookId] as const,
   search: (instanceId: string, query: string) =>
     [...booksQueryKeys.all(instanceId), 'search', query] as const,
-  getPlaybackPosition: (instanceId: string, bookId: number) =>
-    [...booksQueryKeys.all(instanceId), 'getPlaybackPosition', bookId] as const,
+  getLatestDbPlaybackPosition: (instanceId: string, bookId: number) =>
+    [...booksQueryKeys.all(instanceId), 'getLatestDbPlaybackPosition', bookId] as const,
   getPlaybackHistory: (instanceId: string, bookId: number) =>
     [...booksQueryKeys.all(instanceId), 'getPlaybackHistory', bookId] as const,
   getByFileIds: (instanceId: string, fileIds: string[]) =>
@@ -37,25 +37,9 @@ const list = {
       queryKey: booksQueryKeys.list(instanceId),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
-          .with('playbackHistoryBooks', (db) =>
-            db
-              .selectFrom('playbackHistory')
-              .where('deletedAt', 'is', null)
-              .select(({ fn }) => [
-                'id',
-                'bookId',
-                'positionMs',
-                fn.max('updatedAt').as('updatedAt'),
-              ])
-              .groupBy('playbackHistory.bookId')
-          )
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
           .select([
@@ -81,8 +65,8 @@ const list = {
               .onRef('audiobookFile.bookId', '=', 'book.id')
               .on('audiobookFile.deletedAt', 'is', null)
           )
-          .leftJoin('playbackHistoryBooks', (join) =>
-            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          .leftJoin('latestPlaybackPosition', (join) =>
+            join.onRef('latestPlaybackPosition.bookId', '=', 'book.id')
           )
           .groupBy('book.id')
           .orderBy('book.updatedAt', 'desc')
@@ -100,10 +84,10 @@ const list = {
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),
-            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)).as('playbackPositionMs'),
             eb.fn
-              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
-              .as('playbackPositionUpdatedAt'),
+              .coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0))
+              .as('playbackPositionEventTimestampMs'),
           ]);
 
         if (role === 'under18') {
@@ -131,11 +115,7 @@ const list = {
       networkMode: 'always',
       initialPageParam: null as { lastUpdatedAt: number; lastId: number } | null,
       queryFn: async ({ pageParam }) => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
           .selectFrom('book')
@@ -229,11 +209,7 @@ const get = {
       queryKey: booksQueryKeys.get(instanceId, bookId),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let authorSubquery = instanceDb
           .selectFrom('bookAuthor')
@@ -509,25 +485,9 @@ const search = {
       queryKey: booksQueryKeys.search(instanceId, searchQuery),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
-          .with('playbackHistoryBooks', (db) =>
-            db
-              .selectFrom('playbackHistory')
-              .where('deletedAt', 'is', null)
-              .select(({ fn }) => [
-                'id',
-                'bookId',
-                'positionMs',
-                fn.max('updatedAt').as('updatedAt'),
-              ])
-              .groupBy('playbackHistory.bookId')
-          )
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
           .select([
@@ -553,8 +513,8 @@ const search = {
               .onRef('audiobookFile.bookId', '=', 'book.id')
               .on('audiobookFile.deletedAt', 'is', null)
           )
-          .leftJoin('playbackHistoryBooks', (join) =>
-            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          .leftJoin('latestPlaybackPosition', (join) =>
+            join.onRef('latestPlaybackPosition.bookId', '=', 'book.id')
           )
           .groupBy('book.id')
           .select((eb) => [
@@ -571,10 +531,10 @@ const search = {
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),
-            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)).as('playbackPositionMs'),
             eb.fn
-              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
-              .as('playbackPositionUpdatedAt'),
+              .coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0))
+              .as('playbackPositionEventTimestampMs'),
           ]);
 
         if (searchQuery.length > 0) {
@@ -606,64 +566,23 @@ const search = {
   },
 };
 
-const getPlaybackPosition = {
+const getLatestDbPlaybackPosition = {
   useQuery: (bookId: number) => {
-    const playbackHistory = usePlaybackHistoryContext();
     const instanceDb = useInstanceDb();
     const instanceId = useInstanceId();
 
-    const { data } = useReactQuery({
-      queryKey: booksQueryKeys.getPlaybackPosition(instanceId, bookId),
+    return useReactQuery({
+      queryKey: booksQueryKeys.getLatestDbPlaybackPosition(instanceId, bookId),
       networkMode: 'always',
       queryFn: async () => {
-        let query = await instanceDb
-          .selectFrom('playbackHistory')
+        let query = instanceDb
+          .selectFrom('latestPlaybackPosition')
           .where('bookId', '=', bookId)
-          .where('deletedAt', 'is', null)
-          .select(['positionMs', 'eventTimestampMs'])
-          .orderBy('eventTimestampMs', 'desc')
-          // we order by type because often seek start and seek end have the same eventTimestampMs
-          .orderBy('type', 'desc')
-          .limit(1)
-          .executeTakeFirst();
+          .select(['positionMs', 'eventTimestampMs']);
 
-        return {
-          positionMs: query?.positionMs ?? 0,
-          eventTimestampMs: query?.eventTimestampMs ?? 0,
-        };
+        return await query.executeTakeFirst();
       },
     });
-
-    const [currentPlaybackPosition, setCurrentPlaybackPosition] = useState<number>(0);
-
-    useEffect(() => {
-      if (playbackHistory.instanceId === instanceId) {
-        const bookPlaybackHistory = playbackHistory.events.filter(
-          (event) => event.bookId === bookId
-        );
-        if (data) {
-          if (
-            bookPlaybackHistory.length > 0 &&
-            bookPlaybackHistory[0].eventTimestampMs > data.eventTimestampMs
-          ) {
-            setCurrentPlaybackPosition(Math.max(bookPlaybackHistory[0].positionMs, 0));
-          } else {
-            setCurrentPlaybackPosition(Math.max(data.positionMs, 0));
-          }
-        } else {
-          setCurrentPlaybackPosition(
-            Math.max(
-              bookPlaybackHistory.length > 0 ? bookPlaybackHistory[0].positionMs : -Infinity,
-              0
-            )
-          );
-        }
-      } else {
-        setCurrentPlaybackPosition(Math.max(data?.positionMs ?? 0, 0));
-      }
-    }, [instanceId, bookId, data, playbackHistory]);
-
-    return currentPlaybackPosition;
   },
 };
 
@@ -821,7 +740,7 @@ export {
   list as listRecentlyAdded,
   get,
   search,
-  getPlaybackPosition,
+  getLatestDbPlaybackPosition,
   getPlaybackHistory,
   getByFileIds,
 };

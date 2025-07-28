@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+import { mainDb } from '~/lib/db/client';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -64,4 +66,20 @@ export function formatBytes(bytes: number, si: boolean = true, dp: number = 1) {
   } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
 
   return bytes.toFixed(dp) + ' ' + units[u];
+}
+
+export async function getRole(instanceId: string) {
+  const instanceIdNum = parseInt(instanceId, 10);
+
+  if (isNaN(instanceIdNum)) {
+    throw new Error('Invalid instance ID');
+  }
+
+  const { role = 'under18' } = (await mainDb
+    .selectFrom('accounts')
+    .select(['role'])
+    .where('instanceId', '=', instanceIdNum)
+    .executeTakeFirst()) ?? { role: 'under18' };
+
+  return role;
 }
