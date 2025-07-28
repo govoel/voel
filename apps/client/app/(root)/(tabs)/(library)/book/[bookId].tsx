@@ -691,8 +691,8 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
       ? localPlaybackHistory.events.filter((event) => event.bookId === bookId)
       : [];
 
-  if (!isDbPlaybackPositionLoading) {
-    if (localPlaybackHistoryBookEvents.length > 0 && dbPlaybackPosition) {
+  if (dbPlaybackPosition) {
+    if (localPlaybackHistoryBookEvents.length > 0) {
       if (
         localPlaybackHistoryBookEvents[0].eventTimestampMs > dbPlaybackPosition.eventTimestampMs
       ) {
@@ -707,15 +707,6 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
           <PlayFromTimestampButton bookId={bookId} positionMs={dbPlaybackPosition.positionMs} />
         );
       }
-    } else if (localPlaybackHistoryBookEvents.length > 0) {
-      return (
-        <PlayFromTimestampButton
-          bookId={bookId}
-          positionMs={localPlaybackHistoryBookEvents[0].positionMs}
-        />
-      );
-    } else if (dbPlaybackPosition) {
-      return <PlayFromTimestampButton bookId={bookId} positionMs={dbPlaybackPosition.positionMs} />;
     } else {
       return <PlayFromTimestampButton bookId={bookId} positionMs={0} />;
     }

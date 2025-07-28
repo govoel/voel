@@ -580,7 +580,7 @@ const getLatestDbPlaybackPosition = {
           .where('bookId', '=', bookId)
           .select(['positionMs', 'eventTimestampMs']);
 
-        return await query.executeTakeFirst();
+        return (await query.executeTakeFirst()) ?? { positionMs: 0, eventTimestampMs: 0 };
       },
     });
   },
