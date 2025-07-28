@@ -2,9 +2,9 @@ import { useQuery as useReactQuery } from '@tanstack/react-query';
 import type { Selectable } from 'kysely';
 
 import { feedsQueryKeys } from '~/lib/api/feeds/query-keys';
-import { mainDb } from '~/lib/db/client';
 import type { InstanceDatabase } from '~/lib/db/schema/instance';
 import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+import { getRole } from '~/lib/utils';
 
 import AudioModule from '~/modules/voel-audio';
 
@@ -19,11 +19,7 @@ const getAvailableOffline = {
       queryFn: async () => {
         const downloadIds = await AudioModule.getAllDownloadIds(instanceId);
 
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let authorSubquery = instanceDb
           .selectFrom('bookAuthor')
@@ -61,17 +57,6 @@ const getAvailableOffline = {
           .as('fileData');
 
         let query = instanceDb
-          .with('playbackHistoryBooks', (db) =>
-            db
-              .selectFrom('playbackHistory')
-              .select(({ fn }) => [
-                'id',
-                'bookId',
-                'positionMs',
-                fn.max('updatedAt').as('updatedAt'),
-              ])
-              .groupBy('playbackHistory.bookId')
-          )
           .selectFrom('book')
           .select([
             'book.id',
@@ -88,18 +73,16 @@ const getAvailableOffline = {
           ])
           .innerJoin(filesSubquery, (join) => join.onRef('book.id', '=', 'fileData.bookId'))
           .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
-          .leftJoin('playbackHistoryBooks', (join) =>
-            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          .leftJoin('latestPlaybackPosition', (join) =>
+            join.onRef('latestPlaybackPosition.bookId', '=', 'book.id')
           )
           .select((eb) => [
             'authorData.authors',
+            eb.fn.coalesce('fileData.durationMs', eb.lit(0)).as('totalDurationMs'),
+            eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)).as('playbackPositionMs'),
             eb.fn
-              .coalesce(eb.fn.sum<number | null>('fileData.durationMs'), eb.lit(0))
-              .as('totalDurationMs'),
-            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
-            eb.fn
-              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
-              .as('playbackPositionUpdatedAt'),
+              .coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0))
+              .as('playbackPositionEventTimestampMs'),
           ])
           .groupBy('book.id');
 
@@ -132,25 +115,9 @@ const getContinueListening = {
       queryKey: feedsQueryKeys.getContinueListening(instanceId),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
-          .with('playbackHistoryBooks', (db) =>
-            db
-              .selectFrom('playbackHistory')
-              .where('deletedAt', 'is', null)
-              .select(({ fn }) => [
-                'id',
-                'bookId',
-                'positionMs',
-                fn.max('updatedAt').as('updatedAt'),
-              ])
-              .groupBy('playbackHistory.bookId')
-          )
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
           .select([
@@ -165,8 +132,8 @@ const getContinueListening = {
             'book.createdAt',
             'book.updatedAt',
           ])
-          .innerJoin('playbackHistoryBooks', (join) =>
-            join.onRef('book.id', '=', 'playbackHistoryBooks.bookId')
+          .innerJoin('latestPlaybackPosition', (join) =>
+            join.onRef('book.id', '=', 'latestPlaybackPosition.bookId')
           )
           .leftJoin('bookAuthor', (join) =>
             join.onRef('book.id', '=', 'bookAuthor.bookId').on('bookAuthor.deletedAt', 'is', null)
@@ -180,7 +147,7 @@ const getContinueListening = {
               .on('audiobookFile.deletedAt', 'is', null)
           )
           .groupBy('book.id')
-          .orderBy('playbackHistoryBooks.updatedAt', 'desc')
+          .orderBy('latestPlaybackPosition.eventTimestampMs', 'desc')
           .select((eb) => [
             eb
               .fn<string>('json_group_array', [
@@ -195,10 +162,10 @@ const getContinueListening = {
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),
-            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)).as('playbackPositionMs'),
             eb.fn
-              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
-              .as('playbackPositionUpdatedAt'),
+              .coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0))
+              .as('playbackPositionEventTimestampMs'),
           ]);
 
         if (role === 'under18') {

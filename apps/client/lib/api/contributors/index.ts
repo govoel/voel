@@ -1,9 +1,9 @@
 import { useQuery as useReactQuery } from '@tanstack/react-query';
 import type { Selectable } from 'kysely';
 
-import { mainDb } from '~/lib/db/client';
 import type { BookContributorTable, InstanceDatabase } from '~/lib/db/schema/instance';
 import { useInstanceDb, useInstanceId } from '~/lib/stores/instance';
+import { getRole } from '~/lib/utils';
 
 export const bookContributorQueryKeys = {
   all: (instanceId: string) => ['instance', instanceId, 'bookContributor'] as const,
@@ -25,25 +25,9 @@ const listBooks = {
       queryKey: bookContributorQueryKeys.listBooks(instanceId, contributorRole, contributorName),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
-          .with('playbackHistoryBooks', (db) =>
-            db
-              .selectFrom('playbackHistory')
-              .where('deletedAt', 'is', null)
-              .select(({ fn }) => [
-                'id',
-                'bookId',
-                'positionMs',
-                fn.max('updatedAt').as('updatedAt'),
-              ])
-              .groupBy('playbackHistory.bookId')
-          )
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
           .innerJoin('bookContributor as searchContributor', (join) =>
@@ -64,8 +48,8 @@ const listBooks = {
               .onRef('audiobookFile.bookId', '=', 'book.id')
               .on('audiobookFile.deletedAt', 'is', null)
           )
-          .leftJoin('playbackHistoryBooks', (join) =>
-            join.onRef('playbackHistoryBooks.bookId', '=', 'book.id')
+          .leftJoin('latestPlaybackPosition', (join) =>
+            join.onRef('latestPlaybackPosition.bookId', '=', 'book.id')
           )
           .groupBy('book.id')
           .select((eb) => [
@@ -86,10 +70,10 @@ const listBooks = {
             eb.fn
               .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
               .as('totalDurationMs'),
-            eb.fn.coalesce('playbackHistoryBooks.positionMs', eb.lit(0)).as('playbackPositionMs'),
+            eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)).as('playbackPositionMs'),
             eb.fn
-              .coalesce('playbackHistoryBooks.updatedAt', eb.lit(0))
-              .as('playbackPositionUpdatedAt'),
+              .coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0))
+              .as('playbackPositionEventTimestampMs'),
           ]);
 
         if (role === 'under18') {
@@ -119,11 +103,7 @@ const search = {
       queryKey: bookContributorQueryKeys.search(instanceId, contributorRole, searchQuery),
       networkMode: 'always',
       queryFn: async () => {
-        const { role = 'under18' } = await mainDb
-          .selectFrom('accounts')
-          .select(['role'])
-          .where('instanceId', '=', parseInt(instanceId, 10))
-          .executeTakeFirstOrThrow();
+        const role = await getRole(instanceId);
 
         let query = instanceDb
           .selectFrom('bookContributor')
