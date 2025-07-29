@@ -48,7 +48,13 @@ export default function RootLayout() {
       document.documentElement.classList.add('bg-background');
     }
 
-    setAndroidNavigationBar(nativewindColorScheme.get() ?? 'dark');
+    const initialTheme = themeStore.getSnapshot().context.theme;
+    if (initialTheme !== 'system') {
+      nativewindColorScheme.set(initialTheme);
+      setAndroidNavigationBar(initialTheme);
+    } else {
+      setAndroidNavigationBar(nativewindColorScheme.get() ?? 'dark');
+    }
 
     hasMounted.current = true;
 
