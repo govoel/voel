@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { z } from 'zod';
+import * as z from 'zod';
 
 import { scanLogger } from '@/logger';
 

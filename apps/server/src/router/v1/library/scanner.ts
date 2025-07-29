@@ -1,6 +1,6 @@
 import { $ } from 'bun';
 import { realpath } from 'node:fs/promises';
-import { z } from 'zod';
+import * as z from 'zod';
 
 import { scanLogger } from '@/logger';
 

@@ -11,7 +11,7 @@ import React, {
   useState,
 } from 'react';
 import { toast } from 'sonner-native';
-import { z } from 'zod';
+import * as z from 'zod';
 
 import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { useAppForm } from '~/components/ui/form';

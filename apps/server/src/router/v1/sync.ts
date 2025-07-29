@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import type { SourceTapEvents } from '@voel/source-tap';
-import { z } from 'zod';
+import * as z from 'zod';
 
 import { db, sourceTap } from '@/libs/db';
 import type { DatabaseSchema } from '@/libs/db/schema';

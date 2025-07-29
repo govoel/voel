@@ -4,6 +4,7 @@ const eslintConfigPrettier = require('eslint-config-prettier');
 const eslintPluginPrettier = require('eslint-plugin-prettier/recommended');
 const reactCompiler = require('eslint-plugin-react-compiler');
 const tanstackQuery = require('@tanstack/eslint-plugin-query');
+const importZod = require('eslint-plugin-import-zod');
 
 /** @type {import('eslint').Linter.Config[]} */
 module.exports = defineConfig([
@@ -12,6 +13,7 @@ module.exports = defineConfig([
   eslintPluginPrettier,
   reactCompiler.configs.recommended,
   tanstackQuery.configs['flat/recommended'],
+  importZod.configs.recommended,
   {
     ignores: ['dist/*'],
     rules: {

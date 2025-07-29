@@ -4,7 +4,7 @@ import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, ScrollView, View } from 'react-native';
-import { z } from 'zod';
+import * as z from 'zod';
 
 import { BookList } from '~/components/book-list';
 import { floatingPlayerStore } from '~/components/floating-player';
