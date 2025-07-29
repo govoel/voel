@@ -53,6 +53,8 @@ import Player from '~/modules/voel-audio';
 
 import '@azure/core-asynciterator-polyfill';
 
+import { posthog } from '~/lib/posthog';
+
 export const createAuthClient = (
   baseURL: string,
   storagePrefix: string,
@@ -440,7 +442,25 @@ export const createInstances = (instanceId: string | null, instanceURL: string |
     },
   });
 
-  const instanceDb = new Kysely<InstanceDatabase>({ dialect: instanceDialect });
+  const instanceDb = new Kysely<InstanceDatabase>({
+    dialect: instanceDialect,
+    log(event) {
+      if (event.level === 'query') {
+        posthog.capture('kysely_instance_query', {
+          querySQL: event.query.sql,
+          queryKind: event.query.query.kind,
+          durationMs: event.queryDurationMillis,
+        });
+      } else if (event.level === 'error') {
+        posthog.capture('kysely_instance_query_error', {
+          error: event.error,
+          querySQL: event.query.sql,
+          queryKind: event.query.query.kind,
+          durationMs: event.queryDurationMillis,
+        });
+      }
+    },
+  });
 
   createInstanceDbMigrator(instanceDb)
     .migrateToLatest()
