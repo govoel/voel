@@ -12,10 +12,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'voel',
   version: '0.0.0-mvp',
   newArchEnabled: true,
+  platforms: ['ios', 'android'],
   plugins: [
     'expo-router',
     'expo-secure-store',
     'expo-web-browser',
+    'expo-localization',
     'react-native-bottom-tabs',
     [
       'expo-font',
