@@ -157,7 +157,7 @@ export default function PlayerScreen() {
               onPress={() => Player.skipToPrevious()}
               disabled={!Player.canSkipToPrevious()}
               className="h-14 w-14">
-              <SkipBack className="h-full text-foreground fill-foreground group-active:opacity-80" />
+              <SkipBack className="h-full text-foreground group-active:opacity-80" />
             </Button>
             {playerStatus.playbackState === 'buffering' ? (
               <View className="h-16 w-16 flex items-center justify-center">
@@ -169,10 +169,7 @@ export default function PlayerScreen() {
                 size="icon"
                 onPress={() => Player.play()}
                 className="h-16 w-16">
-                <Play
-                  className="h-full text-transparent fill-foreground group-active:opacity-80"
-                  size={40}
-                />
+                <Play className="h-full text-foreground group-active:opacity-80" size={40} />
               </Button>
             ) : (
               <Button
@@ -180,10 +177,7 @@ export default function PlayerScreen() {
                 size="icon"
                 onPress={() => Player.pause()}
                 className="h-16 w-16">
-                <Pause
-                  className="h-full text-transparent fill-foreground group-active:opacity-80"
-                  size={40}
-                />
+                <Pause className="h-full text-foreground group-active:opacity-80" size={40} />
               </Button>
             )}
             <Button
@@ -192,7 +186,7 @@ export default function PlayerScreen() {
               onPress={() => Player.skipToNext()}
               disabled={!Player.canSkipToNext()}
               className="h-14 w-14">
-              <SkipForward className="h-full text-foreground fill-foreground group-active:opacity-80" />
+              <SkipForward className="h-full text-foreground group-active:opacity-80" />
             </Button>
             <Button
               variant="ghost"

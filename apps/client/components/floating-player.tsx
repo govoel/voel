@@ -296,11 +296,11 @@ function FloatingPlayerImpl({
                 </View>
               ) : playerStatus.timeControlStatus === 'paused' ? (
                 <Button variant="ghost" size="icon" onPress={() => Player.play()}>
-                  <Play className="h-full text-transparent fill-foreground group-active:opacity-80" />
+                  <Play className="h-full text-foreground group-active:opacity-80" />
                 </Button>
               ) : (
                 <Button variant="ghost" size="icon" onPress={() => Player.pause()}>
-                  <Pause className="h-full text-transparent fill-foreground group-active:opacity-80" />
+                  <Pause className="h-full text-foreground group-active:opacity-80" />
                 </Button>
               )}
               <Button
@@ -308,7 +308,7 @@ function FloatingPlayerImpl({
                 size="icon"
                 onPress={() => Player.skipToNext()}
                 disabled={!Player.canSkipToNext()}>
-                <SkipForward className="h-full text-foreground fill-foreground group-active:opacity-80" />
+                <SkipForward className="h-full text-foreground group-active:opacity-80" />
               </Button>
             </View>
           </Pressable>
