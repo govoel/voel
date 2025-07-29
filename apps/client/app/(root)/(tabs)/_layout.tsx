@@ -52,7 +52,7 @@ export default function TabLayout() {
         />
       </Tabs>
 
-      <View className="absolute bottom-[50] w-full">
+      <View className="absolute bottom-[80] w-full">
         <FloatingPlayer />
         <OTAUpdateNotification />
       </View>
