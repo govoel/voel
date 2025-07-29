@@ -79,9 +79,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    // TODO: keyboards in @gorhom/bottom-sheet don't work properly
-    // with edge-to-edge enabled
-    edgeToEdgeEnabled: false,
+    edgeToEdgeEnabled: true,
     package:
       process.env.RELEASE_CHANNEL === 'development'
         ? 'app.voel.android.dev'

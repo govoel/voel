@@ -6,6 +6,8 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import { type ComponentProps, type ReactNode, useCallback } from 'react';
+import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const NativewindBottomSheetModal = cssInterop(BottomSheetModal, {
   className: 'style',
@@ -25,6 +27,8 @@ function BottomSheetModalImpl({
   ref?: React.RefObject<BottomSheetModal | null>;
   children: ReactNode;
 } & ComponentProps<typeof BottomSheetModal>) {
+  const { top: safeTopArea, bottom: safeBottomArea } = useSafeAreaInsets();
+
   const renderBackdrop = useCallback(
     (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
       <NativewindBottomSheetBackdrop
@@ -36,14 +40,19 @@ function BottomSheetModalImpl({
     ),
     []
   );
+
   return (
     <NativewindBottomSheetModal
       ref={ref}
       {...props}
       backdropComponent={renderBackdrop}
       backgroundClassName="bg-background"
-      handleIndicatorClassName="bg-foreground">
-      <BottomSheetScrollView>{children}</BottomSheetScrollView>
+      handleIndicatorClassName="bg-foreground"
+      keyboardBlurBehavior="restore"
+      topInset={safeTopArea}>
+      <BottomSheetScrollView>
+        <View style={{ paddingBottom: safeBottomArea }}>{children}</View>
+      </BottomSheetScrollView>
     </NativewindBottomSheetModal>
   );
 }
@@ -62,6 +71,8 @@ function BottomSheetImpl({
   ref?: React.RefObject<BottomSheetModal | null>;
   children: ReactNode;
 } & ComponentProps<typeof BottomSheetModal>) {
+  const { top: safeTopArea, bottom: safeBottomArea } = useSafeAreaInsets();
+
   const renderBackdrop = useCallback(
     (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
       <NativewindBottomSheetBackdrop
@@ -73,14 +84,19 @@ function BottomSheetImpl({
     ),
     []
   );
+
   return (
     <NativewindBottomSheet
       ref={ref}
       {...props}
       backdropComponent={renderBackdrop}
       backgroundClassName="bg-background"
-      handleIndicatorClassName="bg-foreground">
-      <BottomSheetScrollView>{children}</BottomSheetScrollView>
+      handleIndicatorClassName="bg-foreground"
+      keyboardBlurBehavior="restore"
+      topInset={safeTopArea}>
+      <BottomSheetScrollView>
+        <View style={{ paddingBottom: safeBottomArea }}>{children}</View>
+      </BottomSheetScrollView>
     </NativewindBottomSheet>
   );
 }

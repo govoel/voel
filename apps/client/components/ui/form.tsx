@@ -1,5 +1,6 @@
+import { useBottomSheetInternal } from '@gorhom/bottom-sheet';
 import { createFormHook, createFormHookContexts, useStore } from '@tanstack/react-form';
-import { type ComponentPropsWithRef, type ComponentPropsWithoutRef } from 'react';
+import { type ComponentPropsWithRef, type ComponentPropsWithoutRef, useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 
@@ -44,6 +45,14 @@ function TextField({
   const form = useFormContext();
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
 
+  const { shouldHandleKeyboardEvents } = useBottomSheetInternal();
+
+  useEffect(() => {
+    return () => {
+      shouldHandleKeyboardEvents.value = false;
+    };
+  }, [shouldHandleKeyboardEvents]);
+
   return (
     <View className={cn('pb-4', className)}>
       {label.length > 0 && (
@@ -55,7 +64,13 @@ function TextField({
         {...inputProps}
         editable={!isSubmitting}
         value={field.state.value}
-        onBlur={field.handleBlur}
+        onFocus={() => {
+          shouldHandleKeyboardEvents.value = true;
+        }}
+        onBlur={() => {
+          shouldHandleKeyboardEvents.value = false;
+          field.handleBlur();
+        }}
         onChangeText={field.handleChange}
       />
       {field.state.meta.isTouched && field.state.meta.errors.length ? (
