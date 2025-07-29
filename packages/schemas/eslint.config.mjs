@@ -3,6 +3,7 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 import eslintPluginPrettier from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import importZod from 'eslint-plugin-import-zod';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -12,4 +13,5 @@ export default [
   ...tseslint.configs.recommended,
   eslintConfigPrettier,
   eslintPluginPrettier,
+  ...importZod.configs.recommended,
 ];

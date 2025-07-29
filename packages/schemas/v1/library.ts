@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 const id = z.coerce.number<number>().int().positive('Library ID must be a positive integer');
 

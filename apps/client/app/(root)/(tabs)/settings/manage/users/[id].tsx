@@ -6,7 +6,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
 import { FlatList, View } from 'react-native';
 import { toast } from 'sonner-native';
-import { z } from 'zod';
+import * as z from 'zod';
 
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { Gavel } from '~/components/icons/Gavel';

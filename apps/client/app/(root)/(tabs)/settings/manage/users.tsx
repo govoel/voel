@@ -4,7 +4,7 @@ import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
 import { FlatList, View } from 'react-native';
 import { toast } from 'sonner-native';
-import { z } from 'zod';
+import * as z from 'zod';
 
 import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
