@@ -682,7 +682,7 @@ const ManageDownloads = ({
 const BookPlayButton = ({ bookId }: { bookId: number }) => {
   const instanceId = useInstanceId();
 
-  const { data: dbPlaybackPosition, isLoading: isDbPlaybackPositionLoading } =
+  const { data, isLoading, error, refetch } =
     api.books.getLatestDbPlaybackPosition.useQuery(bookId);
 
   const localPlaybackHistory = usePlaybackHistoryContext();
@@ -691,33 +691,37 @@ const BookPlayButton = ({ bookId }: { bookId: number }) => {
       ? localPlaybackHistory.events.filter((event) => event.bookId === bookId)
       : [];
 
-  if (dbPlaybackPosition) {
-    if (localPlaybackHistoryBookEvents.length > 0) {
-      if (
-        localPlaybackHistoryBookEvents[0].eventTimestampMs > dbPlaybackPosition.eventTimestampMs
-      ) {
-        return (
-          <PlayFromTimestampButton
-            bookId={bookId}
-            positionMs={localPlaybackHistoryBookEvents[0].positionMs}
-          />
-        );
-      } else {
-        return (
-          <PlayFromTimestampButton bookId={bookId} positionMs={dbPlaybackPosition.positionMs} />
-        );
-      }
+  if (data) {
+    if (
+      localPlaybackHistoryBookEvents.length > 0 &&
+      localPlaybackHistoryBookEvents[0].eventTimestampMs > data.eventTimestampMs
+    ) {
+      return (
+        <PlayFromTimestampButton
+          bookId={bookId}
+          positionMs={localPlaybackHistoryBookEvents[0].positionMs}
+        />
+      );
     } else {
-      return <PlayFromTimestampButton bookId={bookId} positionMs={0} />;
+      return <PlayFromTimestampButton bookId={bookId} positionMs={data.positionMs} />;
     }
   }
 
+  if (error) {
+    return (
+      <Button
+        variant="destructive"
+        className="mt-4 flex-1"
+        onPress={() => {
+          refetch();
+        }}>
+        <Text>Couldn&rsquo;t load book. Click to try again.</Text>
+      </Button>
+    );
+  }
+
   return (
-    <ButtonWithLoading
-      viewClassName="mt-4 flex-1"
-      disabled={isDbPlaybackPositionLoading}
-      isLoading={isDbPlaybackPositionLoading}
-    />
+    <ButtonWithLoading viewClassName="mt-4 flex-1" disabled={isLoading} isLoading={isLoading} />
   );
 };
 
