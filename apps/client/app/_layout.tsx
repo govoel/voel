@@ -71,7 +71,9 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <PostHogProvider client={posthog} options={{ disableGeoip: true }}>
+      <PostHogProvider
+        client={posthog}
+        options={{ disableGeoip: true, disabled: process.env.NODE_ENV !== 'production' }}>
         <GestureHandlerRootView>
           <ThemeAndPortalLayout />
         </GestureHandlerRootView>
