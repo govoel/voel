@@ -16,6 +16,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     'expo-web-browser',
+    'react-native-bottom-tabs',
     [
       'expo-font',
       {
@@ -53,7 +54,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         imageWidth: 200,
       },
     ],
-    ['expo-build-properties', { android: { usesCleartextTraffic: true } }],
+    [
+      'expo-build-properties',
+      { android: { usesCleartextTraffic: true }, ios: { useFrameworks: 'static' } },
+    ],
     'expo-updates',
     ['./app.plugin'],
   ],
