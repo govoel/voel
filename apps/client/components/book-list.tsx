@@ -14,14 +14,15 @@ import { cn } from '~/lib/utils';
 
 function PlaybackProgress({
   bookId,
-  playbackPositionMs,
-  playbackPositionEventTimestampMs,
   totalDurationMs,
+  playbackPosition,
 }: {
   bookId: number;
-  playbackPositionMs: number | undefined;
-  playbackPositionEventTimestampMs: number | undefined;
-  totalDurationMs: number | undefined;
+  totalDurationMs: number;
+  playbackPosition: {
+    positionMs: number;
+    eventTimestampMs: number;
+  };
 }) {
   const localPlaybackHistory = usePlaybackHistoryContext();
   const instanceId = useInstanceId();
@@ -31,7 +32,7 @@ function PlaybackProgress({
 
     if (bookEvents.length > 0) {
       const firstEvent = bookEvents[0];
-      if (firstEvent.eventTimestampMs > (playbackPositionEventTimestampMs ?? 0)) {
+      if (firstEvent.eventTimestampMs > (playbackPosition.eventTimestampMs ?? 0)) {
         return (
           <Progress
             className="h-2 rounded-b-md rounded-t-none"
@@ -42,13 +43,10 @@ function PlaybackProgress({
     }
   }
 
-  if (playbackPositionMs === undefined || totalDurationMs === undefined || totalDurationMs < 0)
-    return null;
-
   return (
     <Progress
       className="h-2 rounded-b-md rounded-t-none"
-      value={(playbackPositionMs / totalDurationMs) * 100}
+      value={(playbackPosition.positionMs / totalDurationMs) * 100}
     />
   );
 }
@@ -61,9 +59,11 @@ type Book = {
   label?: string;
   authors?: { name: string }[];
   contributors?: { name: string }[];
-  totalDurationMs?: number;
-  playbackPositionMs?: number;
-  playbackPositionEventTimestampMs?: number;
+  totalDurationMs: number;
+  playbackPosition: {
+    positionMs: number;
+    eventTimestampMs: number;
+  };
 };
 
 export function BookList({
@@ -138,9 +138,8 @@ export function BookList({
             </AspectRatio>
             <PlaybackProgress
               bookId={item.id}
-              playbackPositionMs={item.playbackPositionMs}
-              playbackPositionEventTimestampMs={item.playbackPositionEventTimestampMs}
               totalDurationMs={item.totalDurationMs}
+              playbackPosition={item.playbackPosition}
             />
             <View className="pt-2">
               <Large className="border-none" numberOfLines={1}>

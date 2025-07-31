@@ -63,7 +63,6 @@ const InstanceDbMigrator = ({ children }: { children: ReactNode }) => {
   if (migrationStatus === 'pending') {
     return (
       <View className="flex flex-1 justify-center items-center">
-        <Text>Instance migration in progress...</Text>
         <Spinner size={15} />
       </View>
     );
