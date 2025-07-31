@@ -124,10 +124,24 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
+    .createIndex('book_type_index')
+    .ifNotExists()
+    .on('book')
+    .columns(['type'])
+    .execute();
+
+  await db.schema
     .createIndex('book_otherTypeId_index')
     .ifNotExists()
     .on('book')
     .columns(['otherTypeId'])
+    .execute();
+
+  await db.schema
+    .createIndex('book_adultsOnly_index')
+    .ifNotExists()
+    .on('book')
+    .columns(['adultsOnly'])
     .execute();
 
   await db.schema
@@ -164,6 +178,20 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
     .modifyEnd(sql`STRICT`)
+    .execute();
+
+  await db.schema
+    .createIndex('bookAuthor_bookId_index')
+    .ifNotExists()
+    .on('bookAuthor')
+    .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('bookAuthor_authorId_index')
+    .ifNotExists()
+    .on('bookAuthor')
+    .columns(['authorId'])
     .execute();
 
   await db.schema
@@ -205,6 +233,27 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
+    .createIndex('bookSeries_bookId_index')
+    .ifNotExists()
+    .on('bookSeries')
+    .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('bookSeries_seriesId_index')
+    .ifNotExists()
+    .on('bookSeries')
+    .columns(['seriesId'])
+    .execute();
+
+  await db.schema
+    .createIndex('bookSeries_sort_index')
+    .ifNotExists()
+    .on('bookSeries')
+    .columns(['sort'])
+    .execute();
+
+  await db.schema
     .createIndex('bookSeries_updatedAt_index')
     .ifNotExists()
     .on('bookSeries')
@@ -239,6 +288,20 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
     .modifyEnd(sql`STRICT`)
+    .execute();
+
+  await db.schema
+    .createIndex('bookContributor_bookId_index')
+    .ifNotExists()
+    .on('bookContributor')
+    .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('bookContributor_role_index')
+    .ifNotExists()
+    .on('bookContributor')
+    .columns(['role'])
     .execute();
 
   await db.schema
@@ -278,6 +341,27 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
     .modifyEnd(sql`STRICT`)
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookFile_libraryId_index')
+    .ifNotExists()
+    .on('audiobookFile')
+    .columns(['libraryId'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookFile_bookId_index')
+    .ifNotExists()
+    .on('audiobookFile')
+    .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookFile_disc_track_index')
+    .ifNotExists()
+    .on('audiobookFile')
+    .columns(['disc', 'track'])
     .execute();
 
   await db.schema
@@ -334,6 +418,34 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
+    .createIndex('audiobookChapter_bookId_index')
+    .ifNotExists()
+    .on('audiobookChapter')
+    .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookChapter_fileId_index')
+    .ifNotExists()
+    .on('audiobookChapter')
+    .columns(['fileId'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookChapter_source_index')
+    .ifNotExists()
+    .on('audiobookChapter')
+    .columns(['source'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookChapter_startOffsetMs_index')
+    .ifNotExists()
+    .on('audiobookChapter')
+    .columns(['startOffsetMs'])
+    .execute();
+
+  await db.schema
     .createIndex('audiobookChapter_updatedAt_index')
     .ifNotExists()
     .on('audiobookChapter')
@@ -367,6 +479,20 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
     .modifyEnd(sql`STRICT`)
+    .execute();
+
+  await db.schema
+    .createIndex('ebookFile_libraryId_index')
+    .ifNotExists()
+    .on('ebookFile')
+    .columns(['libraryId'])
+    .execute();
+
+  await db.schema
+    .createIndex('ebookFile_bookId_index')
+    .ifNotExists()
+    .on('ebookFile')
+    .columns(['bookId'])
     .execute();
 
   await db.schema
@@ -412,6 +538,41 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
     .modifyEnd(sql`STRICT`)
+    .execute();
+
+  await db.schema
+    .createIndex('playbackHistory_userId_index')
+    .ifNotExists()
+    .on('playbackHistory')
+    .columns(['userId'])
+    .execute();
+
+  await db.schema
+    .createIndex('playbackHistory_type_index')
+    .ifNotExists()
+    .on('playbackHistory')
+    .columns(['type'])
+    .execute();
+
+  await db.schema
+    .createIndex('playbackHistory_bookId_index')
+    .ifNotExists()
+    .on('playbackHistory')
+    .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('playbackHistory_eventTimestampMs_index')
+    .ifNotExists()
+    .on('playbackHistory')
+    .columns(['eventTimestampMs'])
+    .execute();
+
+  await db.schema
+    .createIndex('playbackHistory_sessionId_index')
+    .ifNotExists()
+    .on('playbackHistory')
+    .columns(['sessionId'])
     .execute();
 
   await db.schema

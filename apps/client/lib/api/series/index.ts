@@ -95,13 +95,7 @@ const get = {
           .selectFrom('series')
           .where('series.id', '=', seriesId)
           .where('series.deletedAt', 'is', null)
-          .select([
-            'series.id',
-            'series.name',
-            'series.summary',
-            'series.createdAt',
-            'series.updatedAt',
-          ]);
+          .select(['series.id', 'series.name', 'series.summary']);
 
         if (role === 'under18') {
           query = query
@@ -139,7 +133,7 @@ const search = {
         let query = instanceDb
           .selectFrom('series')
           .where('series.deletedAt', 'is', null)
-          .select(['series.id', 'series.name', 'series.createdAt', 'series.updatedAt'])
+          .select(['series.id', 'series.name'])
           .innerJoin('bookSeries', (join) =>
             join
               .onRef('series.id', '=', 'bookSeries.seriesId')
@@ -212,64 +206,85 @@ const listBooks = {
       queryFn: async () => {
         const role = await getRole(instanceId);
 
-        let authorSubquery = instanceDb
-          .selectFrom('bookAuthor')
-          .innerJoin('author', (join) =>
-            join.onRef('author.id', '=', 'bookAuthor.authorId').on('author.deletedAt', 'is', null)
-          )
-          .where('bookAuthor.deletedAt', 'is', null)
-          .select((eb) => [
-            'bookAuthor.bookId',
-            eb
-              .fn<string>('json_group_array', [
-                eb.fn<string>('json_object', [
-                  eb.val('id'),
-                  eb.ref('author.id'),
-                  eb.val('name'),
-                  eb.ref('author.name'),
-                ]),
-              ])
-              .as('authors'),
-          ])
-          .groupBy('bookAuthor.bookId')
-          .as('authorData');
-
         let query = instanceDb
+          .with('searchSeries', (eb) =>
+            eb
+              .selectFrom('bookSeries')
+              .select(['bookSeries.bookId', 'bookSeries.sort', 'bookSeries.label'])
+              .where('bookSeries.seriesId', '=', seriesId)
+              .where('bookSeries.deletedAt', 'is', null)
+          )
+          .with('authorsArray', (eb) =>
+            eb
+              .selectFrom('bookAuthor')
+              .where('bookAuthor.deletedAt', 'is', null)
+              .innerJoin('searchSeries', (join) =>
+                join.onRef('bookAuthor.bookId', '=', 'searchSeries.bookId')
+              )
+              .innerJoin('author', (join) =>
+                join
+                  .onRef('author.id', '=', 'bookAuthor.authorId')
+                  .on('author.deletedAt', 'is', null)
+              )
+              .select((eb) => [
+                'bookAuthor.bookId',
+                'searchSeries.label',
+                'searchSeries.sort',
+                eb.fn
+                  .agg<string>('json_group_array', [
+                    eb.fn<string>('json_object', [
+                      eb.val('id'),
+                      'author.id',
+                      eb.val('name'),
+                      'author.name',
+                    ]),
+                  ])
+                  .as('authors'),
+              ])
+              .groupBy('bookAuthor.bookId')
+          )
+          .with('audiobookFileDurations', (eb) =>
+            eb
+              .selectFrom('audiobookFile')
+              .where('audiobookFile.deletedAt', 'is', null)
+              .innerJoin('searchSeries', (join) =>
+                join.onRef('audiobookFile.bookId', '=', 'searchSeries.bookId')
+              )
+              .select((eb) => [
+                'audiobookFile.bookId',
+                eb.fn.sum<number | null>('audiobookFile.durationMs').as('totalDurationMs'),
+              ])
+              .groupBy('audiobookFile.bookId')
+          )
           .selectFrom('book')
           .where('book.deletedAt', 'is', null)
-          .innerJoin('bookSeries as searchSeries', (join) =>
-            join
-              .on('searchSeries.seriesId', '=', seriesId)
-              .on('searchSeries.deletedAt', 'is', null)
-              .onRef('book.id', '=', 'searchSeries.bookId')
-          )
-          .select(['searchSeries.sort', 'searchSeries.label'])
-          .leftJoin(authorSubquery, (join) => join.onRef('book.id', '=', 'authorData.bookId'))
-          .leftJoin('audiobookFile', (join) =>
-            join
-              .onRef('audiobookFile.bookId', '=', 'book.id')
-              .on('audiobookFile.deletedAt', 'is', null)
+          .innerJoin('authorsArray', (join) => join.onRef('book.id', '=', 'authorsArray.bookId'))
+          .leftJoin('audiobookFileDurations', (join) =>
+            join.onRef('book.id', '=', 'audiobookFileDurations.bookId')
           )
           .leftJoin('latestPlaybackPosition', (join) =>
             join.onRef('latestPlaybackPosition.bookId', '=', 'book.id')
           )
-          .groupBy('book.id')
-          .orderBy('searchSeries.sort', 'asc')
+          .orderBy('authorsArray.sort', 'asc')
           .select((eb) => [
             'book.id',
             'book.title',
             'book.cover',
             'book.coverThumbhash',
-            'searchSeries.sort',
-            'searchSeries.label',
-            'authorData.authors',
+            'authorsArray.sort',
+            'authorsArray.label',
+            'authorsArray.authors',
             eb.fn
-              .coalesce(eb.fn.sum<number | null>('audiobookFile.durationMs'), eb.lit(0))
+              .coalesce('audiobookFileDurations.totalDurationMs', eb.lit(0))
               .as('totalDurationMs'),
-            eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)).as('playbackPositionMs'),
-            eb.fn
-              .coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0))
-              .as('playbackPositionEventTimestampMs'),
+            eb
+              .fn<string>('json_object', [
+                eb.val('positionMs'),
+                eb.fn.coalesce('latestPlaybackPosition.positionMs', eb.lit(0)),
+                eb.val('eventTimestampMs'),
+                eb.fn.coalesce('latestPlaybackPosition.eventTimestampMs', eb.lit(0)),
+              ])
+              .as('playbackPosition'),
           ]);
 
         if (role === 'under18') {
@@ -280,6 +295,10 @@ const listBooks = {
 
         return results.map((result) => ({
           ...result,
+          playbackPosition: JSON.parse(result.playbackPosition) as {
+            positionMs: number;
+            eventTimestampMs: number;
+          },
           authors: result.authors
             ? (JSON.parse(result.authors) as Pick<
                 Selectable<InstanceDatabase['author']>,

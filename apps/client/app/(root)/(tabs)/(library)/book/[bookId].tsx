@@ -95,8 +95,8 @@ export default function BookScreen() {
                 }}
                 files={data.files}
               />
-              <PlaybackHistory bookId={data.id} />
-              <BookPlayButton bookId={data.id} />
+              <PlaybackHistory book={data} />
+              <BookPlayButton book={data} />
             </View>
 
             <View className="flex flex-row flex-wrap gap-2 items-center pt-4">
@@ -106,7 +106,7 @@ export default function BookScreen() {
               </Badge>
             </View>
 
-            <View className="flex flex-row flex-wrap gap-2 items-center pt-2">
+            <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
               <UserPen className="text-muted-foreground" size={20} />
               <View className="flex flex-row flex-wrap gap-2 items-center">
                 {data.authors.map((author, index) => (
@@ -126,12 +126,10 @@ export default function BookScreen() {
               </View>
             </View>
 
-            <Narrators contributors={data.contributors} />
-            <Translators contributors={data.contributors} />
-            <Editors contributors={data.contributors} />
+            <Contributors role="narrator" contributors={data.contributors} />
 
             {data.series.length > 0 ? (
-              <View className="flex flex-row flex-wrap gap-2 items-center pt-2">
+              <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
                 <BookCopy className="text-muted-foreground" size={20} />
                 <View className="flex flex-row flex-wrap gap-2 items-center">
                   {data.series.map((series, index) => (
@@ -157,6 +155,9 @@ export default function BookScreen() {
               </View>
             ) : null}
 
+            <Contributors role="translator" contributors={data.contributors} />
+            <Contributors role="editor" contributors={data.contributors} />
+
             {data.summary ? (
               <View className="pt-4">
                 <ExpandableSummary
@@ -173,7 +174,7 @@ export default function BookScreen() {
                   <Text className="font-semibold">Chapters</Text>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <BookChapters bookId={data.id} chapters={data.chapters} />
+                  <BookChapters book={data} />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -188,106 +189,74 @@ export default function BookScreen() {
   );
 }
 
-const Narrators = ({
+const Contributors = ({
   contributors,
+  role,
 }: {
   contributors: { role: 'narrator' | 'editor' | 'translator' | 'illustrator'; name: string }[];
+  role: 'narrator' | 'editor' | 'translator';
 }) => {
-  const narrators = useMemo(
-    () => contributors.filter((contributor) => contributor.role === 'narrator'),
-    [contributors]
+  const filteredContributors = useMemo(
+    () => contributors.filter((contributor) => contributor.role === role),
+    [contributors, role]
   );
 
-  if (narrators.length === 0) return null;
+  if (filteredContributors.length === 0) return null;
 
   return (
     <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
-      <MicVocal className="text-muted-foreground" size={20} />
+      {role === 'narrator' && <MicVocal className="text-muted-foreground" size={20} />}
+      {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
+      {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
       <View className="flex flex-row flex-wrap gap-2 items-center">
-        {narrators.map((contributor, index) => (
-          <Link
-            key={`contributor-narrator-${index}`}
-            href={{
-              pathname: '/narrator/[narratorName]',
-              params: { narratorName: contributor.name },
-            }}
-            push
-            asChild>
-            <Badge variant="secondary">
-              <Text>{contributor.name}</Text>
-            </Badge>
-          </Link>
-        ))}
-      </View>
-    </View>
-  );
-};
-
-const Editors = ({
-  contributors,
-}: {
-  contributors: { role: 'narrator' | 'editor' | 'translator' | 'illustrator'; name: string }[];
-}) => {
-  const editors = useMemo(
-    () => contributors.filter((contributor) => contributor.role === 'editor'),
-    [contributors]
-  );
-
-  if (editors.length === 0) return null;
-
-  return (
-    <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
-      <FilePenLine className="text-muted-foreground" size={20} />
-      <View className="flex flex-row flex-wrap gap-2 items-center">
-        {editors.map((contributor, index) => (
-          <Link
-            key={`contributor-editor-${index}`}
-            href={{
-              pathname: '/editor/[editorName]',
-              params: { editorName: contributor.name },
-            }}
-            push
-            asChild>
-            <Badge variant="secondary">
-              <Text>{contributor.name}</Text>
-            </Badge>
-          </Link>
-        ))}
-      </View>
-    </View>
-  );
-};
-
-const Translators = ({
-  contributors,
-}: {
-  contributors: { role: 'narrator' | 'editor' | 'translator' | 'illustrator'; name: string }[];
-}) => {
-  const translators = useMemo(
-    () => contributors.filter((contributor) => contributor.role === 'translator'),
-    [contributors]
-  );
-
-  if (translators.length === 0) return null;
-
-  return (
-    <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
-      <Languages className="text-muted-foreground" size={20} />
-      <View className="flex flex-row flex-wrap gap-2 items-center">
-        {translators.map((contributor, index) => (
-          <Link
-            key={`contributor-translator-${index}`}
-            href={{
-              pathname: '/translator/[translatorName]',
-              params: { translatorName: contributor.name },
-            }}
-            push
-            asChild>
-            <Badge variant="secondary">
-              <Text>{contributor.name}</Text>
-            </Badge>
-          </Link>
-        ))}
+        {filteredContributors.map((contributor, index) => {
+          if (role === 'narrator') {
+            return (
+              <Link
+                key={`narrator-${index}`}
+                href={{
+                  pathname: '/narrator/[narratorName]',
+                  params: { narratorName: contributor.name },
+                }}
+                push
+                asChild>
+                <Badge variant="secondary">
+                  <Text>{contributor.name}</Text>
+                </Badge>
+              </Link>
+            );
+          } else if (role === 'editor') {
+            return (
+              <Link
+                key={`editor-${index}`}
+                href={{
+                  pathname: '/editor/[editorName]',
+                  params: { editorName: contributor.name },
+                }}
+                push
+                asChild>
+                <Badge variant="secondary">
+                  <Text>{contributor.name}</Text>
+                </Badge>
+              </Link>
+            );
+          } else if (role === 'translator') {
+            return (
+              <Link
+                key={`translator-${index}`}
+                href={{
+                  pathname: '/translator/[translatorName]',
+                  params: { translatorName: contributor.name },
+                }}
+                push
+                asChild>
+                <Badge variant="secondary">
+                  <Text>{contributor.name}</Text>
+                </Badge>
+              </Link>
+            );
+          }
+        })}
       </View>
     </View>
   );
@@ -679,120 +648,68 @@ const ManageDownloads = ({
   );
 };
 
-const BookPlayButton = ({ bookId }: { bookId: number }) => {
+const BookPlayButton = ({
+  book,
+}: {
+  book: Parameters<typeof playBookFrom>[0] & {
+    playbackPosition: { eventTimestampMs: number; positionMs: number };
+  };
+}) => {
   const instanceId = useInstanceId();
-
-  const { data, isLoading, error, refetch } =
-    api.books.getLatestDbPlaybackPosition.useQuery(bookId);
 
   const localPlaybackHistory = usePlaybackHistoryContext();
   const localPlaybackHistoryBookEvents =
     instanceId !== '0' && localPlaybackHistory.instanceId === instanceId
-      ? localPlaybackHistory.events.filter((event) => event.bookId === bookId)
+      ? localPlaybackHistory.events.filter((event) => event.bookId === book.id)
       : [];
 
-  if (data) {
-    if (
-      localPlaybackHistoryBookEvents.length > 0 &&
-      localPlaybackHistoryBookEvents[0].eventTimestampMs > data.eventTimestampMs
-    ) {
-      return (
-        <PlayFromTimestampButton
-          bookId={bookId}
-          positionMs={localPlaybackHistoryBookEvents[0].positionMs}
-        />
-      );
-    } else {
-      return <PlayFromTimestampButton bookId={bookId} positionMs={data.positionMs} />;
-    }
-  }
-
-  if (error) {
+  if (
+    localPlaybackHistoryBookEvents.length > 0 &&
+    localPlaybackHistoryBookEvents[0].eventTimestampMs > book.playbackPosition.eventTimestampMs
+  ) {
     return (
-      <Button
-        variant="destructive"
-        className="mt-4 flex-1"
-        onPress={() => {
-          refetch();
-        }}>
-        <Text>Couldn&rsquo;t load book. Click to try again.</Text>
-      </Button>
+      <PlayFromTimestampButton
+        book={book}
+        positionMs={localPlaybackHistoryBookEvents[0].positionMs}
+      />
     );
+  } else {
+    return <PlayFromTimestampButton book={book} positionMs={book.playbackPosition.positionMs} />;
   }
-
-  return (
-    <ButtonWithLoading viewClassName="mt-4 flex-1" disabled={isLoading} isLoading={isLoading} />
-  );
 };
 
 const PlayFromTimestampButton = ({
-  bookId,
+  book,
   positionMs,
 }: {
-  bookId: number;
+  book: Parameters<typeof playBookFrom>[0];
   positionMs: number;
 }) => {
   const authInstance = useAuthInstance();
   const instanceId = useInstanceId();
   const instanceURL = useInstanceURL();
 
-  const {
-    data: book,
-    isLoading: isBookLoading,
-    error: bookError,
-    refetch: refetchBook,
-  } = api.books.get.useQuery(bookId);
-
-  if (book) {
-    return (
-      <Button
-        className="mt-4 flex-1"
-        onPress={() => {
-          playBookFrom(book, positionMs, authInstance.getCookie(), instanceId, instanceURL);
-        }}>
-        {positionMs > 0 ? (
-          <Text>Play from {formatTime(positionMs)}</Text>
-        ) : (
-          <Text>Play from beginning</Text>
-        )}
-      </Button>
-    );
-  }
-
-  if (bookError) {
-    return (
-      <Button
-        variant="destructive"
-        className="mt-4 flex-1"
-        onPress={() => {
-          refetchBook();
-        }}>
-        <Text>Couldn&rsquo;t load book. Click to try again.</Text>
-      </Button>
-    );
-  }
-
   return (
-    <ButtonWithLoading
-      viewClassName="mt-4 flex-1"
-      disabled={isBookLoading}
-      isLoading={isBookLoading}
-    />
+    <Button
+      className="mt-4 flex-1"
+      onPress={() => {
+        playBookFrom(book, positionMs, authInstance.getCookie(), instanceId, instanceURL);
+      }}>
+      {positionMs > 0 ? (
+        <Text>Play from {formatTime(positionMs)}</Text>
+      ) : (
+        <Text>Play from beginning</Text>
+      )}
+    </Button>
   );
 };
 
-const PlaybackHistory = ({ bookId }: { bookId: number }) => {
+const PlaybackHistory = ({ book }: { book: Parameters<typeof playBookFrom>[0] }) => {
   const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
   const authInstance = useAuthInstance();
   const instanceId = useInstanceId();
   const instanceURL = useInstanceURL();
-  const {
-    data: book,
-    isLoading: isBookLoading,
-    error: bookError,
-    refetch: refetchBook,
-  } = api.books.get.useQuery(bookId);
-  const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(bookId);
+  const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(book.id);
 
   return (
     <>
@@ -829,48 +746,24 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
             scrollEnabled={false}
             renderItem={({ item, index }) => (
               <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
-                {book ? (
-                  <Button
-                    className="h-12 py-1 flex flex-row"
-                    variant="outline"
-                    size="sm"
-                    onPress={() => {
-                      playBookFrom(
-                        book,
-                        item.positionMs,
-                        authInstance.getCookie(),
-                        instanceId,
-                        instanceURL
-                      );
-                    }}>
-                    <Play className="text-muted-foreground mr-2" size={16} />
-                    <View className="border-l border-input pl-2 flex justify-center items-center">
-                      <Text>{formatTime(item.positionMs)}</Text>
-                    </View>
-                  </Button>
-                ) : bookError ? (
-                  <Button
-                    className="h-12 py-1 flex flex-row"
-                    variant="destructive"
-                    size="sm"
-                    onPress={() => {
-                      refetchBook();
-                    }}>
-                    <OctagonAlert className="text-red-200 mr-2" size={16} />
-                    <View className="border-l border-red-300 pl-2 flex justify-center items-center">
-                      <Text>Couldn&rsquo;t load book</Text>
-                      <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
-                    </View>
-                  </Button>
-                ) : (
-                  <ButtonWithLoading
-                    className="h-12 w-24 py-1 flex flex-row"
-                    variant="outline"
-                    size="sm"
-                    disabled={isBookLoading}
-                    isLoading={isBookLoading}
-                  />
-                )}
+                <Button
+                  className="h-12 py-1 flex flex-row"
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    playBookFrom(
+                      book,
+                      item.positionMs,
+                      authInstance.getCookie(),
+                      instanceId,
+                      instanceURL
+                    );
+                  }}>
+                  <Play className="text-muted-foreground mr-2" size={16} />
+                  <View className="border-l border-input pl-2 flex justify-center items-center">
+                    <Text>{formatTime(item.positionMs)}</Text>
+                  </View>
+                </Button>
                 <View>
                   <View className="flex flex-row items-center gap-x-2">
                     <Text>
@@ -904,141 +797,95 @@ const PlaybackHistory = ({ bookId }: { bookId: number }) => {
   );
 };
 
-const BookChapters = ({
-  bookId,
-  chapters,
-}: {
-  bookId: number;
-  chapters: {
-    audible: {
-      id: number;
-      parentId: number | null;
-      title: string;
-      durationMs: number;
-      startOffsetMs: number;
-    }[];
-    file: { id: number; title: string; durationMs: number; startOffsetMs: number }[];
-  };
-}) => {
+const BookChapters = ({ book }: { book: Parameters<typeof playBookFrom>[0] }) => {
   const [currentTab, setCurrentTab] = useState('audible');
 
   return (
     <Tabs value={currentTab} onValueChange={setCurrentTab}>
       <TabsList className="mb-4 w-full flex-row">
         <TabsTrigger value="audible" className="flex-1">
-          <Text>Audible ({chapters.audible.length})</Text>
+          <Text>Audible ({book.chapters.audible.length})</Text>
         </TabsTrigger>
         <TabsTrigger value="file" className="flex-1">
-          <Text>File ({chapters.file.length})</Text>
+          <Text>File ({book.chapters.file.length})</Text>
         </TabsTrigger>
       </TabsList>
       <TabsContent value="audible">
-        <ChapterList source="audible" bookId={bookId} chapters={chapters.audible} />
+        <ChapterList source="audible" book={book} />
       </TabsContent>
       <TabsContent value="file">
-        <ChapterList source="file" bookId={bookId} chapters={chapters.file} />
+        <ChapterList source="file" book={book} />
       </TabsContent>
     </Tabs>
   );
 };
 
 const ChapterList = ({
-  bookId,
-  chapters,
+  book,
   source,
 }: {
-  bookId: number;
-  chapters: { id: number; title: string; durationMs: number; startOffsetMs: number }[];
+  book: Parameters<typeof playBookFrom>[0];
   source: 'audible' | 'file';
 }) => {
   const authInstance = useAuthInstance();
   const instanceId = useInstanceId();
   const instanceURL = useInstanceURL();
-  const {
-    data: book,
-    isLoading: isBookLoading,
-    error: bookError,
-    refetch: refetchBook,
-  } = api.books.get.useQuery(bookId);
 
   const chapterEndTimes = useMemo(
     () =>
       source === 'file'
-        ? chapters.reduce((acc, chapter, index) => {
+        ? book.chapters.file.reduce((acc, chapter, index) => {
             const previousEndTime = index > 0 ? acc[index - 1] : 0;
             acc.push(previousEndTime + chapter.durationMs);
             return acc;
           }, [] as number[])
         : [],
-    [source, chapters]
+    [source, book.chapters.file]
   );
 
   return (
     <FlatList
-      data={chapters}
+      data={source === 'audible' ? book.chapters.audible : book.chapters.file}
       keyExtractor={(item) => item.id.toString()}
       scrollEnabled={false}
       renderItem={({ item, index }) => (
         <View className={cn('flex flex-row flex-wrap items-center', index === 0 ? '' : 'mt-4')}>
           <View className="flex flex-row flex-wrap items-center gap-2">
-            {book ? (
-              <Button
-                className="h-12 py-1 flex flex-row"
-                variant="outline"
-                size="sm"
-                onPress={() => {
-                  playBookFrom(
-                    book,
+            <Button
+              className="h-12 py-1 flex flex-row"
+              variant="outline"
+              size="sm"
+              onPress={() => {
+                playBookFrom(
+                  book,
+                  source === 'audible'
+                    ? item.startOffsetMs
+                    : index === 0
+                      ? 0
+                      : chapterEndTimes[index - 1],
+                  authInstance.getCookie(),
+                  instanceId,
+                  instanceURL,
+                  source === 'audible'
+                );
+              }}>
+              <Play className="text-muted-foreground mr-2" size={16} />
+              <View className="border-l border-input pl-2 flex justify-center items-center">
+                <Text>
+                  {formatTime(
                     source === 'audible'
                       ? item.startOffsetMs
                       : index === 0
                         ? 0
-                        : chapterEndTimes[index - 1],
-                    authInstance.getCookie(),
-                    instanceId,
-                    instanceURL,
-                    source === 'audible'
-                  );
-                }}>
-                <Play className="text-muted-foreground mr-2" size={16} />
-                <View className="border-l border-input pl-2 flex justify-center items-center">
-                  <Text>
-                    {formatTime(
-                      source === 'audible'
-                        ? item.startOffsetMs
-                        : index === 0
-                          ? 0
-                          : chapterEndTimes[index - 1]
-                    )}
-                  </Text>
-                  <Muted className="text-xs font-semibold">
-                    {formatDuration(item.durationMs, 'short')}
-                  </Muted>
-                </View>
-              </Button>
-            ) : bookError ? (
-              <Button
-                className="h-12 py-1 flex flex-row"
-                variant="destructive"
-                size="sm"
-                onPress={() => {
-                  refetchBook();
-                }}>
-                <OctagonAlert className="text-red-200 mr-2" size={16} />
-                <View className="border-l border-red-300 pl-2 flex justify-center items-center">
-                  <Text>Couldn&rsquo;t load book</Text>
-                  <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
-                </View>
-              </Button>
-            ) : (
-              <ButtonWithLoading
-                className="h-12 w-24 py-1 flex flex-row"
-                variant="outline"
-                size="sm"
-                disabled={isBookLoading}
-                isLoading={isBookLoading}
-              />
-            )}
+                        : chapterEndTimes[index - 1]
+                  )}
+                </Text>
+                <Muted className="text-xs font-semibold">
+                  {formatDuration(item.durationMs, 'short')}
+                </Muted>
+              </View>
+            </Button>
+
             <View className="flex-1">
               {typeof item.title === 'string' && item.title.length > 0 ? (
                 <Small className="leading-snug">{item.title}</Small>

@@ -20,6 +20,6 @@
   },
   "peerDependencies": {
     "typescript": "^5",
-    "zod": "4.0.13"
+    "zod": "4.0.14"
   }
 }

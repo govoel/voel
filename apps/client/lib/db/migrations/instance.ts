@@ -56,6 +56,12 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
+                .createIndex('author_asin_index')
+                .on('author')
+                .columns(['asin'])
+                .execute();
+
+              await trx.schema
                 .createIndex('author_updatedAt_index')
                 .on('author')
                 .columns(['updatedAt'])
@@ -118,6 +124,12 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 )
                 .addColumn('deletedAt', 'integer')
                 .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await trx.schema
+                .createIndex('series_asin_index')
+                .on('series')
+                .columns(['asin'])
                 .execute();
 
               await trx.schema
@@ -201,9 +213,27 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
+                .createIndex('book_asin_index')
+                .on('book')
+                .columns(['asin'])
+                .execute();
+
+              await trx.schema
+                .createIndex('book_type_index')
+                .on('book')
+                .columns(['type'])
+                .execute();
+
+              await trx.schema
                 .createIndex('book_otherTypeId_index')
                 .on('book')
                 .columns(['otherTypeId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('book_adultsOnly_index')
+                .on('book')
+                .columns(['adultsOnly'])
                 .execute();
 
               await trx.schema
@@ -275,6 +305,18 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
+                .createIndex('bookAuthor_bookId_index')
+                .on('bookAuthor')
+                .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('bookAuthor_authorId_index')
+                .on('bookAuthor')
+                .columns(['authorId'])
+                .execute();
+
+              await trx.schema
                 .createIndex('bookAuthor_updatedAt_index')
                 .on('bookAuthor')
                 .columns(['updatedAt'])
@@ -305,6 +347,24 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 )
                 .addColumn('deletedAt', 'integer')
                 .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await trx.schema
+                .createIndex('bookSeries_bookId_index')
+                .on('bookSeries')
+                .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('bookSeries_seriesId_index')
+                .on('bookSeries')
+                .columns(['seriesId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('bookSeries_sort_index')
+                .on('bookSeries')
+                .columns(['sort'])
                 .execute();
 
               await trx.schema
@@ -339,6 +399,18 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 )
                 .addColumn('deletedAt', 'integer')
                 .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await trx.schema
+                .createIndex('bookContributor_bookId_index')
+                .on('bookContributor')
+                .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('bookContributor_role_index')
+                .on('bookContributor')
+                .columns(['role'])
                 .execute();
 
               await trx.schema
@@ -414,6 +486,24 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
+                .createIndex('audiobookFile_libraryId_index')
+                .on('audiobookFile')
+                .columns(['libraryId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookFile_bookId_index')
+                .on('audiobookFile')
+                .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookFile_disc_track_index')
+                .on('audiobookFile')
+                .columns(['disc', 'track'])
+                .execute();
+
+              await trx.schema
                 .createIndex('audiobookFile_updatedAt_index')
                 .on('audiobookFile')
                 .columns(['updatedAt'])
@@ -462,6 +552,30 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
+                .createIndex('audiobookChapter_bookId_index')
+                .on('audiobookChapter')
+                .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookChapter_fileId_index')
+                .on('audiobookChapter')
+                .columns(['fileId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookChapter_source_index')
+                .on('audiobookChapter')
+                .columns(['source'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookChapter_startOffsetMs_index')
+                .on('audiobookChapter')
+                .columns(['startOffsetMs'])
+                .execute();
+
+              await trx.schema
                 .createIndex('audiobookChapter_updatedAt_index')
                 .on('audiobookChapter')
                 .columns(['updatedAt'])
@@ -491,6 +605,18 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 )
                 .addColumn('deletedAt', 'integer')
                 .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await trx.schema
+                .createIndex('ebookFile_libraryId_index')
+                .on('ebookFile')
+                .columns(['libraryId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('ebookFile_bookId_index')
+                .on('ebookFile')
+                .columns(['bookId'])
                 .execute();
 
               await trx.schema
@@ -530,6 +656,36 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
+                .createIndex('playbackHistory_userId_index')
+                .on('playbackHistory')
+                .columns(['userId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('playbackHistory_type_index')
+                .on('playbackHistory')
+                .columns(['type'])
+                .execute();
+
+              await trx.schema
+                .createIndex('playbackHistory_bookId_index')
+                .on('playbackHistory')
+                .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('playbackHistory_eventTimestampMs_index')
+                .on('playbackHistory')
+                .columns(['eventTimestampMs'])
+                .execute();
+
+              await trx.schema
+                .createIndex('playbackHistory_sessionId_index')
+                .on('playbackHistory')
+                .columns(['sessionId'])
+                .execute();
+
+              await trx.schema
                 .createIndex('playbackHistory_updatedAt_index')
                 .on('playbackHistory')
                 .columns(['updatedAt'])
@@ -565,6 +721,24 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 )
                 .addColumn('eventTimestampMs', 'integer', (col) => col.notNull())
                 .modifyEnd(sql`STRICT`)
+                .execute();
+
+              await trx.schema
+                .createIndex('latestPlaybackPosition_playbackHistoryId_index')
+                .on('latestPlaybackPosition')
+                .columns(['playbackHistoryId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('latestPlaybackPosition_type_index')
+                .on('latestPlaybackPosition')
+                .columns(['type'])
+                .execute();
+
+              await trx.schema
+                .createIndex('latestPlaybackPosition_eventTimestampMs_index')
+                .on('latestPlaybackPosition')
+                .columns(['eventTimestampMs'])
                 .execute();
 
               await sql`CREATE TRIGGER IF NOT EXISTS latestPlaybackPosition_insert AFTER INSERT ON playbackHistory FOR EACH ROW WHEN NEW.deletedAt IS NULL
