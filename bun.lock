@@ -42,7 +42,7 @@
         "@trpc/tanstack-react-query": "11.4.3",
         "@voel/schemas": "workspace:*",
         "@voel/server": "workspace:*",
-        "@xstate/store": "3.8.3",
+        "@xstate/store": "3.8.4",
         "better-auth": "1.3.4",
         "class-variance-authority": "0.7.1",
         "eventsource-client": "1.1.4",
@@ -923,7 +923,7 @@
 
     "@xmldom/xmldom": ["@xmldom/xmldom@0.7.13", "", {}, "sha512-lm2GW5PkosIzccsaZIz7tp8cPADSIlIHWDFTR1N0SzfinhhYgeIQjFMz4rYzanCScr3DqQLeomUDArp6MWKm+g=="],
 
-    "@xstate/store": ["@xstate/store@3.8.3", "", { "peerDependencies": { "react": "^18.2.0 || ^19.0.0", "solid-js": "^1.7.6" }, "optionalPeers": ["react", "solid-js"] }, "sha512-ktntz1f/4aYv44+usgsOexDxVfDIIwMoc6lb6kZaKda+mF7MtHwn1XE6jX5jhD4QCiBCFqIPgL/AbE/OXZ3HqQ=="],
+    "@xstate/store": ["@xstate/store@3.8.4", "", { "peerDependencies": { "react": "^18.2.0 || ^19.0.0", "solid-js": "^1.7.6" }, "optionalPeers": ["react", "solid-js"] }, "sha512-wKEeKij/4itjRLgTlOJ+vaB5Nhl6MomPJG59X219Q2xt1kYVPTXZ1q3mQvhDDPjfVKDtHmWIchmpaHPUGBtlKg=="],
 
     "abort-controller": ["abort-controller@3.0.0", "", { "dependencies": { "event-target-shim": "^5.0.0" } }, "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg=="],
 
