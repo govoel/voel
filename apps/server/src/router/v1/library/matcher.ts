@@ -152,7 +152,7 @@ const filterStrategies = [
       title: string,
       artist: string,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      metadata: { publisher?: string; copyright?: string; narrator?: Set<string> }
+      _: { publisher?: string; copyright?: string; narrator?: Set<string> }
     ) => matchers.title(product, title) && matchers.artist(product, artist),
   },
 ] as const;
@@ -169,8 +169,12 @@ const searchStrategies = [
   {
     name: 'Title + Author',
     requiresArtist: true,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    execute: async (title: string, artist: string, publisher?: string) => {
+    execute: async (
+      title: string,
+      artist: string,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _?: string
+    ) => {
       return getProductsBySearch({ title, author: artist });
     },
   },

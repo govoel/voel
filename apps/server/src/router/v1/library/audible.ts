@@ -178,20 +178,18 @@ const parentChapterSchema = z.object({
   start_offset_sec: z.number(),
   title: z.string().trim(),
   get chapters() {
-    return z.array(z.union([parentChapterSchema, leafChapterSchema])).optional();
+    return z.array(z.union([parentChapterSchema, leafChapterSchema]));
   },
 });
 
 type ParentChapterSchema = z.infer<typeof parentChapterSchema>;
-
-const chapterSchema = z.union([parentChapterSchema, leafChapterSchema]);
 
 const chapterResponse = z.object({
   content_metadata: z.object({
     chapter_info: z.object({
       brandIntroDurationMs: z.number(),
       brandOutroDurationMs: z.number(),
-      chapters: z.array(chapterSchema),
+      chapters: z.array(z.union([parentChapterSchema, leafChapterSchema])),
       is_accurate: z.boolean(),
       runtime_length_ms: z.number(),
       runtime_length_sec: z.number(),
