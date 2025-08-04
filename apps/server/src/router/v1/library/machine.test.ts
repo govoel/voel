@@ -88,7 +88,7 @@ describe('delete empty directories', () => {
     await rmdir(libraryPath, { recursive: true });
   });
 
-  test.each(cases)('%s', async (name, { directories, files }) => {
+  test.each(cases)('%s', async (_, { directories, files }) => {
     await Promise.all([
       ...directories.values().map((dir) => mkdir(pathJoin(libraryPath, dir), { recursive: true })),
       ...files.values().map((file) => Bun.write(pathJoin(libraryPath, file), 'test')),
