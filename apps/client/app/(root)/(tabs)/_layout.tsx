@@ -28,7 +28,8 @@ export default function TabLayout() {
         tabLabelStyle={{ fontFamily: 'Voel-Inter-Medium' }}
         tabBarActiveTintColor={`hsl(${useUnstableNativeVariable('--foreground')})`}
         activeIndicatorColor={`hsl(${useUnstableNativeVariable('--muted')})`}
-        disablePageAnimations={true}>
+        disablePageAnimations={true}
+        screenOptions={{ freezeOnBlur: true }}>
         <Tabs.Screen
           name="(library)"
           options={{
