@@ -39,6 +39,7 @@ export default function LibraryListScreen() {
   const CreateLibraryForm = useAppForm({
     defaultValues: {
       name: '',
+      path: '',
     },
     validators: {
       onChange: schemas.v1.library.create,
@@ -115,6 +116,18 @@ export default function LibraryListScreen() {
                     autoComplete: 'name',
                     autoCorrect: false,
                     placeholder: 'Alexandria',
+                  }}
+                />
+              )}
+            />
+            <CreateLibraryForm.AppField
+              name="path"
+              children={(field) => (
+                <field.TextField
+                  label="Absolute Path"
+                  inputProps={{
+                    autoCorrect: false,
+                    placeholder: '/path/to/library',
                   }}
                 />
               )}

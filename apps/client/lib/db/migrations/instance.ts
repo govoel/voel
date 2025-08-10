@@ -15,6 +15,7 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .createTable('library')
                 .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
                 .addColumn('name', 'text', (col) => col.notNull())
+                .addColumn('path', 'text', (col) => col.notNull())
                 .addColumn('createdAt', 'integer', (col) =>
                   col.defaultTo(sql`(unixepoch())`).notNull()
                 )
@@ -472,6 +473,8 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                   col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
                 )
                 .addColumn('path', 'text', (col) => col.notNull())
+                .addColumn('mtimeMs', 'text', (col) => col.notNull())
+                .addColumn('metadataHash', 'text', (col) => col.notNull())
                 .addColumn('durationMs', 'integer', (col) => col.notNull())
                 .addColumn('disc', 'integer', (col) => col.notNull())
                 .addColumn('track', 'integer', (col) => col.notNull())

@@ -1,6 +1,7 @@
 import { SourceTap, SourceTapDialect } from '@voel/source-tap';
 import { Database, SQLiteError } from 'bun:sqlite';
-import { CompiledQuery, Kysely } from 'kysely';
+import { Data, Effect } from 'effect';
+import { CompiledQuery, Kysely, NoResultError } from 'kysely';
 
 import type { DatabaseSchema } from '@/libs/db/schema';
 
@@ -48,3 +49,59 @@ export const db = new Kysely<DatabaseSchema>({
 });
 
 export const isSQLiteError = (error: unknown): error is SQLiteError => error instanceof SQLiteError;
+
+export class KnownSQLiteError extends Data.TaggedClass('KnownSQLiteError')<{
+  /**
+   * The SQLite3 extended error code
+   *
+   * This corresponds to `sqlite3_extended_errcode`.
+   *
+   * @since v1.0.21
+   */
+  errno: number;
+
+  /**
+   * The name of the SQLite3 error code
+   *
+   * @example
+   * "SQLITE_CONSTRAINT_UNIQUE"
+   *
+   * @since v1.0.21
+   */
+  code?: string;
+
+  /**
+   * The UTF-8 byte offset of the sqlite3 query that failed, if known
+   *
+   * This corresponds to `sqlite3_error_offset`.
+   *
+   * @since v1.0.21
+   */
+  readonly byteOffset: number;
+}> {}
+
+export class QueryError extends Data.TaggedError('QueryError')<{
+  message: string;
+}> {}
+export class NotFoundError extends Data.TaggedError('NotFoundError') {}
+export type DatabaseError = QueryError | NotFoundError;
+
+export const toEffect = <O>(query: Promise<O>) =>
+  Effect.tryPromise({
+    try: () => query,
+    catch: (error) => {
+      if (error instanceof SQLiteError) {
+        return new KnownSQLiteError(error);
+      }
+
+      if (error instanceof NoResultError) {
+        return new NotFoundError();
+      }
+
+      if (error instanceof Error) {
+        return new QueryError({ message: error.message });
+      }
+
+      return new QueryError({ message: String(error) });
+    },
+  });

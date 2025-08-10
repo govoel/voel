@@ -1,24 +1,22 @@
 import { TRPCError } from '@trpc/server';
 import { schemas } from '@voel/schemas';
 import { NoResultError } from 'kysely';
-import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import { getLibraryActor } from '@/router/v1/library/machine';
 
 import { db, isSQLiteError } from '@/libs/db';
 
-import { env } from '@/env';
 import { adminProcedure, createTRPCRouter } from '@/trpc';
 
 export const libraryRouter = createTRPCRouter({
   create: adminProcedure.input(schemas.v1.library.create).mutation(async ({ input }) => {
     const library = await db
       .insertInto('library')
-      .values({ name: input.name })
+      .values({ name: input.name, path: input.path })
       .returning([
         'id as id',
         'name as name',
+        'path as path',
         'createdAt as createdAt',
         'updatedAt as updatedAt',
         'deletedAt as deletedAt',
@@ -38,21 +36,13 @@ export const libraryRouter = createTRPCRouter({
         });
       });
 
-    const importPath = join(env.IMPORT_PATH, library.name);
-    await mkdir(importPath, { recursive: true, mode: 0o770 }).catch((err: Error) => {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: `An error occurred while creating the library import path: ${err.message}. Please try again later.`,
-      });
-    });
-
     return library;
   }),
   scan: adminProcedure.input(schemas.v1.library.scan).mutation(async ({ input }) => {
     const library = await db
       .selectFrom('library')
       .where('id', '=', input.id)
-      .select(['id', 'name'])
+      .select(['id', 'name', 'path'])
       .executeTakeFirstOrThrow()
       .catch((err) => {
         if (err instanceof NoResultError) {
@@ -69,7 +59,7 @@ export const libraryRouter = createTRPCRouter({
       });
 
     try {
-      const actor = getLibraryActor(library.id, library.name);
+      const actor = getLibraryActor({ id: library.id, name: library.name, path: library.path });
 
       if (actor.getSnapshot().can({ type: 'scan' })) {
         actor.send({ type: 'scan' });

@@ -6,6 +6,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
     .addColumn('name', 'text', (col) => col.unique().notNull())
+    .addColumn('path', 'text', (col) => col.unique().notNull())
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -337,6 +338,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('durationMs', 'integer', (col) => col.notNull())
     .addColumn('disc', 'integer', (col) => col.notNull())
     .addColumn('track', 'integer', (col) => col.notNull())
+    .addColumn('mtimeMs', 'integer', (col) => col.notNull())
+    .addColumn('metadataHash', 'text', (col) => col.notNull())
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -378,7 +381,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_audiobookFile_updatedAt BEFORE UPDATE OF libraryId, bookId, path, durationMs, disc, track, deletedAt ON audiobookFile FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_audiobookFile_updatedAt BEFORE UPDATE OF libraryId, bookId, path, durationMs, disc, track, mtimeMs, metadataHash, deletedAt ON audiobookFile FOR EACH ROW
             BEGIN
               UPDATE audiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
@@ -475,6 +478,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
     )
     .addColumn('path', 'text', (col) => col.unique().notNull())
+    .addColumn('mtime', 'integer', (col) => col.notNull())
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -596,18 +600,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  await sql`DROP TRIGGER IF EXISTS update_playbackHistory_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_ebookFile_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_audiobookFile_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_audiobookChapter_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_bookContributor_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_bookSeries_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_bookAuthor_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_book_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_series_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_author_updatedAt;`.execute(db);
-  await sql`DROP TRIGGER IF EXISTS update_library_updatedAt;`.execute(db);
-
   await db.schema.dropTable('playbackHistory').ifExists().execute();
   await db.schema.dropTable('ebookFile').ifExists().execute();
   await db.schema.dropTable('audiobookChapter').ifExists().execute();

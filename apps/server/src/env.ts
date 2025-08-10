@@ -25,8 +25,11 @@ export const env = createEnv({
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .prefault(process.env.NODE_ENV === 'production' ? 'error' : 'debug'),
-    METADATA_EXTRACTION_BATCH_SIZE: z.int().positive().prefault(10),
+    // This is not a global setting. It applies per-scan, so essentially per-library.
+    METADATA_EXTRACTION_BATCH_SIZE: z.int().positive().prefault(5),
+    // This is not a global setting. It applies per-scan, so essentially per-library.
     MATCHER_BATCH_SIZE: z.int().positive().prefault(5),
+    AUDIBLE_API_BASE: z.url().prefault('https://api.audible.com/1.0'),
   },
   runtimeEnv: {
     // Required environment variables
@@ -42,6 +45,7 @@ export const env = createEnv({
     LOG_LEVEL: process.env.LOG_LEVEL,
     METADATA_EXTRACTION_BATCH_SIZE: process.env.METADATA_EXTRACTION_BATCH_SIZE,
     MATCHER_BATCH_SIZE: process.env.MATCHER_BATCH_SIZE,
+    AUDIBLE_API_BASE: process.env.AUDIBLE_API_BASE,
   },
   emptyStringAsUndefined: true,
 });

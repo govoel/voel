@@ -8,7 +8,9 @@ const name = z
   .max(64, 'Library name must be less than 64 characters')
   .trim();
 
+const path = z.string().min(1, 'Absolute library path is required').trim();
+
 export const library = {
-  create: z.object({ name }),
+  create: z.object({ name, path }),
   scan: z.object({ id }),
 };

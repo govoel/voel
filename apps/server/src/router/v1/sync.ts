@@ -120,7 +120,7 @@ export const syncRouter = createTRPCRouter({
           name: 'library',
           query: db
             .selectFrom('library')
-            .select(['id', 'name', 'createdAt', 'updatedAt', 'deletedAt'])
+            .select(['id', 'name', 'path', 'createdAt', 'updatedAt', 'deletedAt'])
             .where('updatedAt', '>=', input.library),
         },
         {
@@ -207,6 +207,8 @@ export const syncRouter = createTRPCRouter({
               'libraryId',
               'bookId',
               'path',
+              'mtimeMs',
+              'metadataHash',
               'durationMs',
               'disc',
               'track',
