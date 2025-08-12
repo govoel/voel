@@ -12,7 +12,7 @@ RUN mkdir -p /sharp && cd /sharp && bun install sharp@$SHARP_VERSION
 
 FROM docker.io/alpine:3.22
 
-RUN apk --no-cache add libgcc libstdc++ & addgroup -g 1000 voel && adduser -u 1000 -G voel -D voel
+RUN apk --no-cache add libgcc libstdc++ && addgroup -g 1000 voel && adduser -u 1000 -G voel -D voel
 
 COPY --from=builder /voel-server /voel-server
 COPY --from=builder /sharp/node_modules /node_modules/
