@@ -1,4 +1,3 @@
-import { type PluginTransformResultArgs, ReturningNode, TableNode } from 'kysely';
 import {
   AliasNode,
   ColumnNode,
@@ -8,12 +7,15 @@ import {
   type LogEvent,
   OperationNodeTransformer,
   type PluginTransformQueryArgs,
+  type PluginTransformResultArgs,
   type QueryResult,
   ReferenceNode,
+  ReturningNode,
   type RootOperationNode,
   SelectAllNode,
   type Selectable,
   SelectionNode,
+  TableNode,
   type UnknownRow,
   UpdateQueryNode,
 } from 'kysely';

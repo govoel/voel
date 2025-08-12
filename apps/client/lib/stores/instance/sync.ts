@@ -25,6 +25,7 @@ export const upsertLibrary = (
     .onConflict((oc) =>
       oc.columns(['id']).doUpdateSet({
         name: (eb) => eb.ref('excluded.name'),
+        path: (eb) => eb.ref('excluded.path'),
         createdAt: (eb) => eb.ref('excluded.createdAt'),
         updatedAt: (eb) => eb.ref('excluded.updatedAt'),
         deletedAt: (eb) => eb.ref('excluded.deletedAt'),
@@ -166,6 +167,8 @@ export const upsertAudiobookFile = (
         libraryId: (eb) => eb.ref('excluded.libraryId'),
         bookId: (eb) => eb.ref('excluded.bookId'),
         path: (eb) => eb.ref('excluded.path'),
+        mtimeMs: (eb) => eb.ref('excluded.mtimeMs'),
+        metadataHash: (eb) => eb.ref('excluded.metadataHash'),
         durationMs: (eb) => eb.ref('excluded.durationMs'),
         disc: (eb) => eb.ref('excluded.disc'),
         track: (eb) => eb.ref('excluded.track'),

@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "plugins": [{ "name": "@effect/language-service" }],
+
     "lib": ["ESNext"],
     "target": "ESNext",
     "module": "Preserve",

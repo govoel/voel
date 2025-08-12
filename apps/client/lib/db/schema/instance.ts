@@ -8,6 +8,7 @@ type Regularize<
 export interface LibraryTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   name: Regularize<ColumnType<string, string, string>, Version>;
+  path: Regularize<ColumnType<string, string, never>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
@@ -147,6 +148,8 @@ export interface AudiobookFileTable<Version extends 'realtime' | 'regular' = 're
   libraryId: Regularize<ColumnType<number, number, number>, Version>;
   bookId: Regularize<ColumnType<number, number, number>, Version>;
   path: Regularize<ColumnType<string, string, string>, Version>;
+  mtimeMs: Regularize<ColumnType<number, number, number>, Version>;
+  metadataHash: Regularize<ColumnType<string, string, string>, Version>;
   durationMs: Regularize<ColumnType<number, number, number>, Version>;
   disc: Regularize<ColumnType<number, number, number>, Version>;
   track: Regularize<ColumnType<number, number, number>, Version>;

@@ -1,8 +1,6 @@
 import axios, { type AxiosInstance } from 'axios';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
-import { FileMigrationProvider } from 'kysely';
-import { Migrator } from 'kysely';
-import { sql } from 'kysely';
+import { FileMigrationProvider, Migrator, sql } from 'kysely';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 

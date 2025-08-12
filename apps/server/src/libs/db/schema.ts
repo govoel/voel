@@ -3,6 +3,7 @@ import type { ColumnType } from 'kysely';
 export interface LibraryTable {
   id: ColumnType<number, never, never>;
   name: string;
+  path: ColumnType<string, string, never>;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
   deletedAt: ColumnType<number | null, never, number | null>;
@@ -103,6 +104,8 @@ export interface AudiobookFileTable {
   libraryId: number;
   bookId: number;
   path: string;
+  mtimeMs: number;
+  metadataHash: string;
   durationMs: number;
   disc: number;
   track: number;

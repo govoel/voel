@@ -4,6 +4,7 @@ import eslintPluginPrettier from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import importZod from 'eslint-plugin-import-zod';
+import importPlugin from 'eslint-plugin-import';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -13,5 +14,20 @@ export default [
   ...tseslint.configs.recommended,
   eslintConfigPrettier,
   eslintPluginPrettier,
+  importPlugin.flatConfigs.recommended,
   ...importZod.configs.recommended,
+  {
+    rules: {
+      'import/no-duplicates': 'error',
+      'import/no-unresolved': 'off',
+
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
 ];

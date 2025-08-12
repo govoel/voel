@@ -4,13 +4,12 @@ import { useReactQueryDevTools } from '@dev-plugins/react-query';
 import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack, useGlobalSearchParams, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import {
   colorScheme as nativewindColorScheme,
   useColorScheme as useNativewindColorScheme,
 } from 'nativewind';
-import { PostHogProvider, usePostHog } from 'posthog-react-native';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Appearance, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
@@ -18,7 +17,6 @@ import { Toaster } from 'sonner-native';
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
 import { queryClient } from '~/lib/api/query-client';
 import { NAV_THEME } from '~/lib/constants';
-import { posthog } from '~/lib/posthog';
 import { themeStore } from '~/lib/stores/color-scheme';
 
 const LIGHT_THEME: Theme = {
@@ -71,27 +69,15 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <PostHogProvider
-        client={posthog}
-        options={{ disableGeoip: true, disabled: process.env.NODE_ENV !== 'production' }}>
-        <GestureHandlerRootView>
-          <ThemeAndPortalLayout />
-        </GestureHandlerRootView>
-      </PostHogProvider>
+      <GestureHandlerRootView>
+        <ThemeAndPortalLayout />
+      </GestureHandlerRootView>
     </QueryClientProvider>
   );
 }
 
 const ThemeAndPortalLayout = () => {
   const { colorScheme: nativeWindColorScheme } = useNativewindColorScheme();
-  const pathname = usePathname();
-  const params = useGlobalSearchParams();
-  const posthog = usePostHog();
-
-  // Track the location in your analytics provider here.
-  useEffect(() => {
-    posthog.screen(pathname, params);
-  }, [posthog, pathname, params]);
 
   return (
     <ThemeProvider value={nativeWindColorScheme === 'dark' ? DARK_THEME : LIGHT_THEME}>
