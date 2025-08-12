@@ -144,10 +144,9 @@ const processSearchResults = Effect.fn(function* ({
 
   if (results.value.length === 1) {
     yield* Effect.logDebug('Single book found, attempting to fetch full product details');
-    const fullProduct = yield* audible.getProductByAsin({ asin: results.value[0]!.asin }).pipe(
-      Effect.map(Option.fromNullable),
-      Effect.catchAll(() => Effect.succeed(Option.none()))
-    );
+    const fullProduct = yield* audible
+      .getProductByAsin({ asin: results.value[0]!.asin })
+      .pipe(Effect.option);
 
     if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
       return Option.some(fullProduct.value);
@@ -172,10 +171,7 @@ const processSearchResults = Effect.fn(function* ({
           .getProductByAsin({
             asin: filteredBooks[0]!.asin,
           })
-          .pipe(
-            Effect.map(Option.fromNullable),
-            Effect.catchAll(() => Effect.succeed(Option.none()))
-          );
+          .pipe(Effect.option);
 
         if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
           return Option.some(fullProduct.value);
@@ -206,10 +202,7 @@ const getAndProcessSearchResults = Effect.fn(function* ({
     metadata?: { publisher?: string; copyright?: string; narrator?: Set<string> };
   };
 }) {
-  const results = yield* audible.getBooksBySearch(searchParams).pipe(
-    Effect.map(Option.fromNullable),
-    Effect.catchAll(() => Effect.succeed(Option.none()))
-  );
+  const results = yield* audible.getBooksBySearch(searchParams).pipe(Effect.option);
 
   return yield* processSearchResults({ audible, results, filterParams });
 });
@@ -412,10 +405,7 @@ export const matchAudiobook = (book: {
 
     yield* Effect.logDebug('Attempting to find matches using ASIN metadata', metadata.asins);
     for (const asin of metadata.asins) {
-      const product = yield* audible.getProductByAsin({ asin }).pipe(
-        Effect.map(Option.fromNullable),
-        Effect.catchAll(() => Effect.succeed(Option.none()))
-      );
+      const product = yield* audible.getProductByAsin({ asin }).pipe(Effect.option);
 
       if (Option.isSome(product)) {
         if (Schema.is(ProductBookSchema)(product.value)) {
