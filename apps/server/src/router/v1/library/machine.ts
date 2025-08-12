@@ -185,7 +185,10 @@ const libraryMachine = setup({
                             author.avatar
                               ? audible
                                   .generateThumbhash({
-                                    imageURL: author.avatar.replace(/\._S[A-Z]+500_\./, '._SL100_.'),
+                                    imageURL: author.avatar.replace(
+                                      /\._S[A-Z]+500_\./,
+                                      '._SL100_.'
+                                    ),
                                   })
                                   .pipe(
                                     Effect.tapError(() =>
