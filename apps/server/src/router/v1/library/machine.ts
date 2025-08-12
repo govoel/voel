@@ -176,8 +176,7 @@ const libraryMachine = setup({
                                 bookAsin: book.value.asin,
                               })
                             ),
-                            Effect.map(Option.fromNullable),
-                            Effect.catchAll(() => Effect.succeed(Option.none()))
+                            Effect.option
                           );
 
                         const authorAvatarThumbhashes: Option.Option<string>[] = [];
@@ -198,8 +197,7 @@ const libraryMachine = setup({
                                       }
                                     )
                                   ),
-                                  Effect.map(Option.fromNullable),
-                                  Effect.catchAll(() => Effect.succeed(Option.none()))
+                                  Effect.option
                                 )
                             );
                           } else {

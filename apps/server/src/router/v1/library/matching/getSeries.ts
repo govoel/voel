@@ -20,10 +20,7 @@ export const getSeries = (book: typeof ProductBookSchema.Type) =>
           .getProductByAsin({
             asin: series.asin,
           })
-          .pipe(
-            Effect.map(Option.fromNullable),
-            Effect.catchAll(() => Effect.succeed(Option.none()))
-          );
+          .pipe(Effect.option);
 
         if (Option.isNone(seriesFromAudible)) {
           yield* Effect.logError('Could not fetch series, falling back to data from book', {
