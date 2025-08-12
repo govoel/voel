@@ -179,31 +179,28 @@ const libraryMachine = setup({
                             Effect.option
                           );
 
-                        const authorAvatarThumbhashes: Option.Option<string>[] = [];
-                        for (const author of authorsAndContributors.value.authors) {
-                          if (author.avatar) {
-                            authorAvatarThumbhashes.push(
-                              yield* audible
-                                .generateThumbhash({
-                                  imageURL: author.avatar.replace(/\._S[A-Z]+500_\./, '._SL100_.'),
-                                })
-                                .pipe(
-                                  Effect.tapError(() =>
-                                    Effect.logWarning(
-                                      'Failed to generate thumbhash for author avatar',
-                                      {
-                                        bookAsin: book.value.asin,
-                                        authorAsin: author.asin,
-                                      }
-                                    )
-                                  ),
-                                  Effect.option
-                                )
-                            );
-                          } else {
-                            authorAvatarThumbhashes.push(Option.none());
-                          }
-                        }
+                        const authorAvatarThumbhashes = yield* Effect.forEach(
+                          authorsAndContributors.value.authors,
+                          (author) =>
+                            author.avatar
+                              ? audible
+                                  .generateThumbhash({
+                                    imageURL: author.avatar.replace(/\._S[A-Z]+500_\./, '._SL100_.'),
+                                  })
+                                  .pipe(
+                                    Effect.tapError(() =>
+                                      Effect.logWarning(
+                                        'Failed to generate thumbhash for author avatar',
+                                        {
+                                          bookAsin: book.value.asin,
+                                          authorAsin: author.asin,
+                                        }
+                                      )
+                                    ),
+                                    Effect.option
+                                  )
+                              : Effect.succeed(Option.none())
+                        );
 
                         return Option.some({
                           book: {
