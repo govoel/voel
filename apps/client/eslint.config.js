@@ -9,7 +9,7 @@ const importPlugin = require('eslint-plugin-import');
 
 /** @type {import('eslint').Linter.Config[]} */
 module.exports = defineConfig([
-  expoConfig,
+  ...expoConfig,
   eslintConfigPrettier,
   eslintPluginPrettier,
   reactCompiler.configs.recommended,
@@ -24,14 +24,6 @@ module.exports = defineConfig([
 
       'import/no-duplicates': 'error',
       'import/no-unresolved': 'off',
-
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-        },
-      ],
     },
   },
 ]);

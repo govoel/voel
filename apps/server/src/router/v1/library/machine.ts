@@ -8,14 +8,12 @@ import { Path } from '@effect/platform';
 import {
   Chunk,
   Effect,
-  Either,
   Exit,
   GroupBy,
   Layer,
   LogLevel,
   Logger,
   Option,
-  ParseResult,
   Ref,
   Schema,
   Stream,
@@ -23,25 +21,12 @@ import {
 import { type Insertable } from 'kysely';
 import { Actor, createActor, setup } from 'xstate';
 
-import {
-  Audible,
-  BookSearchResponseSchema,
-  ProductBookSchema,
-  ProductSeriesSchema,
-} from '@/router/v1/library/audible';
-import type { GetBooksBySearchRequest } from '@/router/v1/library/audible/getBooksBySearch';
+import { Audible } from '@/router/v1/library/audible';
 import { ParentChapterSchema } from '@/router/v1/library/audible/getChaptersByAsin';
 import { FsExtended } from '@/router/v1/library/fsExtended';
 
 import { db, toEffect } from '@/libs/db';
-import {
-  type AudiobookChapterTable,
-  type AuthorTable,
-  type BookContributorTable,
-  type BookSeriesTable,
-  type BookTable,
-  type SeriesTable,
-} from '@/libs/db/schema';
+import { type AudiobookChapterTable, type AuthorTable, type BookTable } from '@/libs/db/schema';
 
 import { env } from '@/env';
 
@@ -104,7 +89,6 @@ const libraryMachine = setup({
         Effect.gen(function* () {
           const fs = yield* FsExtended;
           const path = yield* Path.Path;
-          const hash = yield* Hash;
           const audible = yield* Audible;
 
           yield* Effect.logDebug(`Scanning path '${context.path}'`);
