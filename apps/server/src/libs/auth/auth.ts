@@ -9,6 +9,9 @@ import { env } from '@/env';
 
 export const auth = betterAuth({
   secret: env.AUTH_SECRET,
+  telemetry: {
+    enabled: false,
+  },
   database: {
     dialect,
     type: 'sqlite',
