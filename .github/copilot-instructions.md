@@ -98,7 +98,6 @@ Always reference these instructions first and fallback to search or bash command
 ```bash
 # Repository root commands
 ls -la /home/runner/work/voel/voel/
-# .dockerignore .git .github .gitignore .zed Dockerfile README.md apps bun.lock index.ts package.json packages
 
 # Start everything for development
 bun install --frozen-lockfile
