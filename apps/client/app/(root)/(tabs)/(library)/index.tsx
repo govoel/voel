@@ -234,6 +234,7 @@ const SearchTab = () => {
             <BookList
               ref={bookListRef}
               direction="horizontal"
+              key="book-search-results"
               books={bookSearchResults}
               className="mb-2"
             />
@@ -275,6 +276,7 @@ const SearchTab = () => {
               people={authorSearchResults}
               type="author"
               direction="horizontal"
+              key="author-search-results"
               className="mb-2"
             />
           </>
@@ -314,6 +316,7 @@ const SearchTab = () => {
               ref={seriesListRef}
               series={seriesSearchResults}
               direction="horizontal"
+              key="series-search-results"
               className="mb-2"
             />
           </>
@@ -354,6 +357,7 @@ const SearchTab = () => {
               people={narratorSearchResults}
               type="narrator"
               direction="horizontal"
+              key="narrator-search-results"
               className="mb-2"
             />
           </>
@@ -394,6 +398,7 @@ const SearchTab = () => {
               people={translatorSearchResults}
               type="translator"
               direction="horizontal"
+              key="translator-search-results"
               className="mb-2"
             />
           </>
@@ -434,6 +439,7 @@ const SearchTab = () => {
               people={editorSearchResults}
               type="editor"
               direction="horizontal"
+              key="editor-search-results"
               className="mb-2"
             />
           </>

@@ -1,6 +1,6 @@
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Link } from 'expo-router';
-import type { ComponentPropsWithoutRef } from 'react';
+import type { ComponentPropsWithoutRef, Key } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Image } from '~/components/image';
@@ -42,7 +42,10 @@ export function SeriesList({
       ComponentPropsWithoutRef<typeof FlashList>,
       BaseOmitted | 'className'
     >)
-  | ({ direction: 'horizontal' } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted>)
+  | ({ direction: 'horizontal'; key: Key } & Omit<
+      ComponentPropsWithoutRef<typeof FlashList>,
+      BaseOmitted
+    >)
 )) {
   return (
     <FlashList
@@ -50,6 +53,11 @@ export function SeriesList({
       ref={ref}
       data={series}
       keyExtractor={(item) => item.id.toString()}
+      key={
+        props.direction === 'horizontal'
+          ? `series-list-${series && series.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
+          : undefined
+      }
       horizontal={props.direction === 'horizontal' && series && series.length > 0}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
       extraData={props.direction === 'vertical' ? props.error : undefined}
