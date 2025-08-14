@@ -76,6 +76,7 @@ export const ProductBookSchema = Schema.extend(
   Schema.Union(SinglePartBook, MultiPartBook)
 );
 
+// TODO: Write test to confirm book's summary gets converted to markdown
 const makeMarkdownProductBookSchema = (turndown: Turndown) =>
   Schema.transformOrFail(ProductBookSchema, ProductBookSchema, {
     strict: false,
@@ -123,6 +124,7 @@ export const ProductSeriesSchema = Schema.Struct({
   publisher_summary: Schema.optional(Schema.String),
 });
 
+// TODO: Write test to confirm series' summary gets converted to markdown
 const makeMarkdownProductSeriesSchema = (turndown: Turndown) =>
   Schema.transformOrFail(ProductSeriesSchema, ProductSeriesSchema, {
     strict: false,

@@ -62,7 +62,7 @@ export class Audible extends Effect.Service<Audible>()('Audible', {
       getAuthorByAsin: (params: Parameters<typeof GetAuthorByAsinRequest>[0]) =>
         requestWithCacheInvalidateOnError(
           GetAuthorByAsinRequest(params),
-          GetAuthorByAsinResolver(client, turndown)
+          GetAuthorByAsinResolver(client)
         ),
       getBooksBySearch: (params: Parameters<typeof GetBooksBySearchRequest>[0]) =>
         requestWithCacheInvalidateOnError(
