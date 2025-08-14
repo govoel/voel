@@ -2,7 +2,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardFooter } from './ui/card';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Link } from 'expo-router';
-import type { ComponentPropsWithoutRef } from 'react';
+import type { ComponentPropsWithoutRef, Key } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Image } from '~/components/image';
@@ -96,7 +96,10 @@ export function BookList({
       ComponentPropsWithoutRef<typeof FlashList>,
       BaseOmitted | 'className'
     >)
-  | ({ direction: 'horizontal' } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted>)
+  | ({ direction: 'horizontal'; key: Key } & Omit<
+      ComponentPropsWithoutRef<typeof FlashList>,
+      BaseOmitted
+    >)
 )) {
   return (
     <FlashList
@@ -104,6 +107,11 @@ export function BookList({
       ref={ref}
       data={books}
       keyExtractor={(item) => item.id.toString()}
+      key={
+        props.direction === 'horizontal'
+          ? `books-list-${books && books.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
+          : undefined
+      }
       horizontal={props.direction === 'horizontal' && books && books.length > 0}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
       extraData={props.direction === 'vertical' ? props.error : undefined}

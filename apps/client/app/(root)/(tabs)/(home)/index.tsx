@@ -67,6 +67,7 @@ export default function HomeScreen() {
                 {continueListening ? (
                   <BookList
                     direction="horizontal"
+                    key="continue-listening"
                     books={continueListening}
                     className="mb-2"
                     emptyListMessage="You haven&rsquo;t listened to any books yet"
@@ -109,6 +110,7 @@ export default function HomeScreen() {
                 {recentlyAdded ? (
                   <BookList
                     direction="horizontal"
+                    key="recently-added"
                     books={recentlyAdded}
                     className="mb-2"
                     onEndReached={fetchNextPageForRecentlyAdded}
@@ -149,6 +151,7 @@ export default function HomeScreen() {
                 {availableOffline ? (
                   <BookList
                     direction="horizontal"
+                    key="available-offline"
                     books={availableOffline}
                     className="mb-2"
                     emptyListMessage="You haven&rsquo;t downloaded any books yet"
