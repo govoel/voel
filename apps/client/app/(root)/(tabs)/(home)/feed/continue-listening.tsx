@@ -1,14 +1,8 @@
 import { Stack } from 'expo-router';
-import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
-import { Spinner } from '~/components/spinner';
+import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardFooter } from '~/components/ui/card';
-import { Text } from '~/components/ui/text';
-import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 
@@ -18,30 +12,19 @@ export default function ContinueListeningScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Continue Listening' }} />
-      <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
-          Continue Listening
-        </TitleWithRefetch>
-        {error ? (
-          <Card>
-            <CardContent className="pt-4">
-              <Large>Error loading books</Large>
-              <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full" onPress={() => refetch()}>
-                <Text>Retry</Text>
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : data ? (
-          <BookList books={data} emptyListMessage="You haven&rsquo;t listened to any books yet" />
-        ) : (
-          <View className="p-12 justify-center items-center">
-            <Spinner size={15} />
-          </View>
-        )}
-      </FloatingPlayerDodgingLayout>
+      <BookList
+        books={data}
+        error={error}
+        refetch={refetch}
+        direction="vertical"
+        contentContainerClassName={useFloatingPlayerPaddingClass()}
+        emptyListMessage="You haven&rsquo;t listened to any books yet"
+        ListHeaderComponent={
+          <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
+            Continue Listening
+          </TitleWithRefetch>
+        }
+      />
     </>
   );
 }

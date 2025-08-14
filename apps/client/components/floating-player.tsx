@@ -53,7 +53,20 @@ export const floatingPlayerStore = createStore({
   },
 });
 
-export function FloatingPlayerDodgingLayout({
+export function useFloatingPlayerPaddingClass() {
+  const isPlayerActive = useSelector(floatingPlayerStore, (state) => state.context.isPlayerActive);
+  const isUpdatePending = useSelector(
+    floatingPlayerStore,
+    (state) => state.context.isUpdatePending
+  );
+
+  if (isPlayerActive && isUpdatePending) return 'pt-6 pb-40 px-6';
+  if (isPlayerActive) return 'pt-6 pb-24 px-6';
+  if (isUpdatePending) return 'pt-6 pb-20 px-6';
+  return 'p-6';
+}
+
+export function FloatingPlayerDodgingScrollView({
   className,
   children,
 }: {
@@ -205,7 +218,7 @@ const errorMessages = {
   '6008': 'DRM license has expired.',
   '7000': 'Failed to initialize video frame processor.',
   '7001': 'Failed to process video frame.',
-};
+} as const;
 
 const getNextPlaybackRate = (currentRate: number): number => {
   const rates = [0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0];
@@ -238,10 +251,11 @@ function FloatingPlayerImpl({
 
   useEffect(() => {
     if (playerStatus?.errorCode !== null) {
+      const errorCodeStr = playerStatus.errorCode.toString();
       toast.error('Playback failed', {
         description:
-          playerStatus.errorCode in errorMessages
-            ? errorMessages[playerStatus.errorCode]
+          errorCodeStr in errorMessages
+            ? errorMessages[errorCodeStr as keyof typeof errorMessages]
             : `Unknown error (${playerStatus.errorCode})`,
       });
     }

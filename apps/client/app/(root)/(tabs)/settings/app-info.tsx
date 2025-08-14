@@ -5,7 +5,7 @@ import { manifest, runtimeVersion } from 'expo-updates';
 import { View } from 'react-native';
 import { toast } from 'sonner-native';
 
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { Button } from '~/components/ui/button';
 import { Text } from '~/components/ui/text';
 import { Muted } from '~/components/ui/typography';
@@ -14,7 +14,7 @@ export default function SettingsAppInfoScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'App Info' }} />
-      <FloatingPlayerDodgingLayout className="gap-y-4">
+      <FloatingPlayerDodgingScrollView className="gap-y-4">
         <View className="overflow-hidden rounded-md border border-foreground/15">
           <Button
             variant="ghost"
@@ -96,7 +96,7 @@ export default function SettingsAppInfoScreen() {
             </Text>
           </Button>
         </View>
-      </FloatingPlayerDodgingLayout>
+      </FloatingPlayerDodgingScrollView>
     </>
   );
 }

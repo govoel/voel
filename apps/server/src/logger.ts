@@ -12,7 +12,7 @@ export const logger = pino(
     messageFormat:
       '{if dir}{dir} {end}{if method}{method} {end}{if path}{path} {end}{if status}{status} {end}{msg}',
     ignore: 'hostname,dir,method,path,status,msg',
-    destination: pino.destination({ sync: process.env.NODE_ENV === 'test' }),
+    sync: process.env.NODE_ENV === 'test',
   })
 ).child({ pid: 'SRV' });
 

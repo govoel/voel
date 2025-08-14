@@ -6,7 +6,7 @@ import { FlatList, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { BookCopy } from '~/components/icons/BookCopy';
 import { FilePenLine } from '~/components/icons/FilePenLine';
 import { History } from '~/components/icons/History';
@@ -56,7 +56,7 @@ export default function BookScreen() {
   return (
     <>
       <Stack.Screen options={{ headerTitle: 'Book' }} />
-      <FloatingPlayerDodgingLayout>
+      <FloatingPlayerDodgingScrollView>
         {error ? (
           <Card>
             <CardContent className="pt-4">
@@ -184,7 +184,7 @@ export default function BookScreen() {
             <Spinner size={15} />
           </View>
         )}
-      </FloatingPlayerDodgingLayout>
+      </FloatingPlayerDodgingScrollView>
     </>
   );
 }

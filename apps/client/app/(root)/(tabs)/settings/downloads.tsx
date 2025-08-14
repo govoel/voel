@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { FlatList, View } from 'react-native';
 
 import { AutoMarquee } from '~/components/auto-marquee';
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
@@ -39,7 +39,7 @@ export default function SettingsDownloadsScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Downloads' }} />
-      <FloatingPlayerDodgingLayout>
+      <FloatingPlayerDodgingScrollView>
         <TitleWithRefetch refetch={refetch} isFetching={isFetching}>
           All Downloads
         </TitleWithRefetch>
@@ -159,7 +159,7 @@ export default function SettingsDownloadsScreen() {
             </CardContent>
           )}
         </Card>
-      </FloatingPlayerDodgingLayout>
+      </FloatingPlayerDodgingScrollView>
     </>
   );
 }

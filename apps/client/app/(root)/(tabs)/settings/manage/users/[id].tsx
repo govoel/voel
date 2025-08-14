@@ -1,14 +1,15 @@
 import { Session } from '../../profile';
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from 'better-auth';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
-import { FlatList, View } from 'react-native';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 import * as z from 'zod';
 
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
 import { Gavel } from '~/components/icons/Gavel';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
@@ -90,82 +91,90 @@ export default function ManageUserScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Manage User', headerTitleAlign: 'center' }} />
-      <FloatingPlayerDodgingLayout>
-        <TitleWithRefetch className="pb-4" refetch={userRefetch} isFetching={userIsFetching}>
-          User Info
-        </TitleWithRefetch>
 
-        {user ? (
-          <Profile user={user} />
-        ) : userError ? (
-          <Card>
-            <CardContent className="pt-4">
-              <Large>Error loading profile</Large>
-              <Text className="text-muted-foreground">{userError.message || 'Unknown error'}</Text>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full" onPress={() => userRefetch()}>
-                <Text>Retry</Text>
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </CardContent>
-          </Card>
-        )}
+      <FlashList
+        data={sessions}
+        contentContainerClassName={useFloatingPlayerPaddingClass()}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <>
+            <TitleWithRefetch className="pb-4" refetch={userRefetch} isFetching={userIsFetching}>
+              User Info
+            </TitleWithRefetch>
 
-        <TitleWithRefetch
-          className="pt-4"
-          refetch={sessionsRefetch}
-          isFetching={sessionsIsFetching}>
-          Sessions
-        </TitleWithRefetch>
-
-        {sessions ? (
-          <FlatList
-            data={sessions}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            renderItem={({ item }) => (
-              <Session
-                session={item}
-                userId={id}
-                revokeSession={(token) =>
-                  authInstance.admin.revokeUserSession({ sessionToken: token })
-                }
-              />
+            {user ? (
+              <Profile user={user} />
+            ) : userError ? (
+              <Card>
+                <CardContent className="pt-4">
+                  <Large>Error loading profile</Large>
+                  <Text className="text-muted-foreground">
+                    {userError.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => userRefetch()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-12 justify-center items-center">
+                  <Spinner size={15} />
+                </CardContent>
+              </Card>
             )}
-            ListEmptyComponent={() => (
-              <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-                <Text className="text-center">No sessions found</Text>
-              </View>
-            )}
-          />
-        ) : sessionsError ? (
-          <Card className="mt-4">
-            <CardContent className="pt-4">
-              <Large>Error loading user&rsquo;s sessions</Large>
-              <Text className="text-muted-foreground">
-                {sessionsError.message || 'Unknown error'}
-              </Text>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full" onPress={() => sessionsRefetch()}>
-                <Text>Retry</Text>
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : (
-          <Card className="mt-4">
-            <CardContent className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </CardContent>
-          </Card>
-        )}
-      </FloatingPlayerDodgingLayout>
+
+            <TitleWithRefetch
+              className="pt-4"
+              refetch={sessionsRefetch}
+              isFetching={sessionsIsFetching}>
+              Sessions
+            </TitleWithRefetch>
+          </>
+        }
+        renderItem={
+          sessionsError
+            ? undefined
+            : ({ item }) => (
+                <Session
+                  session={item}
+                  userId={id}
+                  revokeSession={(token) =>
+                    authInstance.admin.revokeUserSession({ sessionToken: token })
+                  }
+                />
+              )
+        }
+        ListEmptyComponent={
+          sessionsError ? (
+            <Card className="mt-4">
+              <CardContent className="pt-4">
+                <Large>Error loading user&rsquo;s sessions</Large>
+                <Text className="text-muted-foreground">
+                  {sessionsError.message || 'Unknown error'}
+                </Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => sessionsRefetch()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </Card>
+          ) : sessions?.length === 0 ? (
+            <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+              <Text className="text-center">No sessions found</Text>
+            </View>
+          ) : (
+            <Card className="mt-4">
+              <CardContent className="p-12 justify-center items-center">
+                <Spinner size={15} />
+              </CardContent>
+            </Card>
+          )
+        }
+      />
     </>
   );
 }
@@ -189,7 +198,11 @@ const Profile = ({
   const setRoleMutation = useMutation({
     mutationKey: ['users', user.id, 'setRole'],
     mutationFn: async (role: z.infer<typeof userRole>) => {
-      const res = await authInstance.admin.setRole({ userId: user.id, role });
+      const res = await authInstance.admin.setRole({
+        userId: user.id,
+        // @ts-expect-error: Better-Auth can't figure out that under18 is a valid role
+        role,
+      });
       if (res.error) {
         throw res.error;
       }

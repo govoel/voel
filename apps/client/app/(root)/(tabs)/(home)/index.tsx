@@ -2,7 +2,7 @@ import { Link, Stack } from 'expo-router';
 import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
@@ -28,7 +28,9 @@ export default function HomeScreen() {
     isLoading: isRecentlyAddedLoading,
     isFetching: isRecentlyAddedFetching,
     error: recentlyAddedError,
-  } = api.books.listRecentlyAdded.useQuery();
+    fetchNextPage: fetchNextPageForRecentlyAdded,
+    isFetchingNextPage: isRecentlyAddedFetchingNextPage,
+  } = api.books.listRecentlyAdded.useInfiniteQuery();
 
   const {
     data: continueListening,
@@ -41,7 +43,7 @@ export default function HomeScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Home' }} />
-      <FloatingPlayerDodgingLayout>
+      <FloatingPlayerDodgingScrollView>
         {isAvailableOfflineLoading && isRecentlyAddedLoading && isContinueListeningLoading ? (
           <View className="p-12 justify-center items-center">
             <Spinner size={15} />
@@ -64,8 +66,8 @@ export default function HomeScreen() {
 
                 {continueListening ? (
                   <BookList
-                    books={continueListening}
                     direction="horizontal"
+                    books={continueListening}
                     className="mb-2"
                     emptyListMessage="You haven&rsquo;t listened to any books yet"
                   />
@@ -105,7 +107,13 @@ export default function HomeScreen() {
                 </TitleWithRefetch>
 
                 {recentlyAdded ? (
-                  <BookList books={recentlyAdded} direction="horizontal" className="mb-2" />
+                  <BookList
+                    direction="horizontal"
+                    books={recentlyAdded}
+                    className="mb-2"
+                    onEndReached={fetchNextPageForRecentlyAdded}
+                    isFetchingNextPage={isRecentlyAddedFetchingNextPage}
+                  />
                 ) : recentlyAddedError ? (
                   <Card className="mb-4">
                     <CardContent className="pt-4">
@@ -140,8 +148,8 @@ export default function HomeScreen() {
 
                 {availableOffline ? (
                   <BookList
-                    books={availableOffline}
                     direction="horizontal"
+                    books={availableOffline}
                     className="mb-2"
                     emptyListMessage="You haven&rsquo;t downloaded any books yet"
                   />
@@ -167,7 +175,7 @@ export default function HomeScreen() {
             ) : null}
           </>
         )}
-      </FloatingPlayerDodgingLayout>
+      </FloatingPlayerDodgingScrollView>
     </>
   );
 }

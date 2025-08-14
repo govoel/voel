@@ -1,14 +1,15 @@
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { SnapshotFromStore } from '@xstate/store';
 import type { Session as BetterAuthSession } from 'better-auth/types';
 import { Stack } from 'expo-router';
 import { useRef } from 'react';
-import { FlatList, View } from 'react-native';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 import * as z from 'zod';
 
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
@@ -31,13 +32,96 @@ import { instanceStore, useAuthInstance, useAuthSession } from '~/lib/stores/ins
 import { getInitials } from '~/lib/utils';
 
 export default function ProfileSettingsScreen() {
+  const authInstance = useAuthInstance();
+  const {
+    data: currentSession,
+    error: currentSessionError,
+    refetch: currentSessionRefetch,
+  } = useAuthSession(authInstance);
+
+  const {
+    data: sessions,
+    error: sessionsError,
+    refetch: sessionsRefetch,
+    isFetching: sessionsIsFetching,
+  } = useQuery({
+    queryKey: ['sessions', currentSession?.user.id],
+    queryFn: async () => {
+      const response = await authInstance.listSessions();
+      if (response.error) throw response.error;
+      return response.data;
+    },
+  });
+
   return (
     <>
       <Stack.Screen options={{ title: 'Your Profile', headerTitleAlign: 'center' }} />
-      <FloatingPlayerDodgingLayout>
-        <Profile />
-        <SessionsList />
-      </FloatingPlayerDodgingLayout>
+
+      <FlashList
+        data={sessions}
+        contentContainerClassName={useFloatingPlayerPaddingClass()}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <>
+            <Profile />
+
+            <TitleWithRefetch
+              className="pt-4"
+              refetch={sessionsRefetch}
+              isFetching={sessionsIsFetching}>
+              Sessions
+            </TitleWithRefetch>
+
+            {sessionsError ? (
+              <Card className="mt-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading list of sessions</Large>
+                  <Text className="text-muted-foreground">
+                    {sessionsError.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => sessionsRefetch()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : currentSessionError ? (
+              <Card className="mt-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading current session</Large>
+                  <Text className="text-muted-foreground">
+                    {currentSessionError.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => currentSessionRefetch()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : !sessions || !currentSession ? (
+              <Card className="mt-4">
+                <CardContent className="p-12 justify-center items-center">
+                  <Spinner size={15} />
+                </CardContent>
+              </Card>
+            ) : null}
+          </>
+        }
+        renderItem={
+          sessionsError || currentSessionError
+            ? undefined
+            : ({ item }) => (
+                <Session
+                  session={item}
+                  userId={currentSession!.user.id}
+                  currentSessionToken={currentSession!.session.token}
+                  revokeSession={(token) => authInstance.revokeSession({ token })}
+                />
+              )
+        }
+      />
     </>
   );
 }
@@ -296,87 +380,6 @@ const Profile = () => {
           </ChangePasswordForm.AppForm>
         </View>
       </BottomSheetModal>
-    </>
-  );
-};
-
-const SessionsList = () => {
-  const authInstance = useAuthInstance();
-  const {
-    data: currentSession,
-    error: currentSessionError,
-    refetch: currentSessionRefetch,
-  } = useAuthSession(authInstance);
-
-  const {
-    data: sessions,
-    error: sessionsError,
-    refetch: sessionsRefetch,
-    isFetching: sessionsIsFetching,
-  } = useQuery({
-    queryKey: ['sessions', currentSession?.user.id],
-    queryFn: async () => {
-      const response = await authInstance.listSessions();
-      if (response.error) throw response.error;
-      return response.data;
-    },
-  });
-
-  return (
-    <>
-      <TitleWithRefetch className="pt-4" refetch={sessionsRefetch} isFetching={sessionsIsFetching}>
-        Sessions
-      </TitleWithRefetch>
-
-      {sessions && currentSession ? (
-        <FlatList
-          data={sessions}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          renderItem={({ item }) => (
-            <Session
-              session={item}
-              userId={currentSession.user.id}
-              currentSessionToken={currentSession.session.token}
-              revokeSession={(token) => authInstance.revokeSession({ token })}
-            />
-          )}
-        />
-      ) : sessionsError ? (
-        <Card className="mt-4">
-          <CardContent className="pt-4">
-            <Large>Error loading list of sessions</Large>
-            <Text className="text-muted-foreground">
-              {sessionsError.message || 'Unknown error'}
-            </Text>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" onPress={() => sessionsRefetch()}>
-              <Text>Retry</Text>
-            </Button>
-          </CardFooter>
-        </Card>
-      ) : currentSessionError ? (
-        <Card className="mt-4">
-          <CardContent className="pt-4">
-            <Large>Error loading current session</Large>
-            <Text className="text-muted-foreground">
-              {currentSessionError.message || 'Unknown error'}
-            </Text>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" onPress={() => currentSessionRefetch()}>
-              <Text>Retry</Text>
-            </Button>
-          </CardFooter>
-        </Card>
-      ) : (
-        <Card className="mt-4">
-          <CardContent className="p-12 justify-center items-center">
-            <Spinner size={15} />
-          </CardContent>
-        </Card>
-      )}
     </>
   );
 };
