@@ -1,4 +1,3 @@
-import { Turndown } from './turndown';
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import type { RequestError, ResponseError } from '@effect/platform/HttpClientError';
 import { Data, Effect, ParseResult, Request, RequestResolver, Schema, pipe } from 'effect';
@@ -35,37 +34,28 @@ const AuthorNameAndProfileImageSchema = Schema.transformOrFail(
   }
 );
 
-// TODO: Write test to confirm author's about gets converted to markdown
-const makeAuthorAboutSchema = (turndown: Turndown) =>
-  Schema.transformOrFail(
-    Schema.Struct({
-      model: Schema.Struct({
-        items: Schema.NonEmptyArray(
-          Schema.Struct({
-            model: Schema.Struct({
-              expandable_content: Schema.Struct({ value: Schema.NonEmptyString }),
-            }),
-          })
-        ),
-      }),
+const AuthorAboutSchema = Schema.transformOrFail(
+  Schema.Struct({
+    model: Schema.Struct({
+      items: Schema.NonEmptyArray(
+        Schema.Struct({
+          model: Schema.Struct({
+            expandable_content: Schema.Struct({ value: Schema.NonEmptyString }),
+          }),
+        })
+      ),
     }),
-    Schema.NonEmptyString,
-    {
-      strict: true,
-      decode: (input, _, ast) =>
-        turndown
-          .toMarkdown(input.model.items[0].model.expandable_content.value)
-          .pipe(
-            Effect.mapError(
-              () => new ParseResult.Type(ast, input, 'Failed to convert author about to markdown')
-            )
-          ),
-      encode: (input, _, ast) =>
-        ParseResult.fail(
-          new ParseResult.Forbidden(ast, input, 'Cannot encode back to response from Audible API.')
-        ),
-    }
-  );
+  }),
+  Schema.NonEmptyString,
+  {
+    strict: true,
+    decode: (input) => ParseResult.succeed(input.model.items[0].model.expandable_content.value),
+    encode: (input, _, ast) =>
+      ParseResult.fail(
+        new ParseResult.Forbidden(ast, input, 'Cannot encode back to response from Audible API.')
+      ),
+  }
+);
 
 class PartialAuthorError extends Data.TaggedError('PartialAuthorError') {}
 
@@ -81,10 +71,8 @@ interface GetAuthorByAsinRequest
 export const GetAuthorByAsinRequest =
   Request.tagged<GetAuthorByAsinRequest>('GetAuthorByAsinRequest');
 
-export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient, turndown: Turndown) => {
-  const AuthorAboutSchema = makeAuthorAboutSchema(turndown);
-
-  return RequestResolver.fromEffect(({ asin }: GetAuthorByAsinRequest) =>
+export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient) =>
+  RequestResolver.fromEffect(({ asin }: GetAuthorByAsinRequest) =>
     Effect.gen(function* () {
       const response = yield* HttpClientRequest.get(
         `${env.AUDIBLE_API_BASE}/screens/audible-android-author-detail/${asin}`
@@ -159,4 +147,3 @@ export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient, turndown:
       });
     })
   );
-};
