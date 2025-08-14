@@ -46,7 +46,7 @@
     "globals": "16.3.0",
     "kysely-ctl": "0.15.1",
     "prettier": "3.6.2",
-    "tough-cookie": "5.1.2",
+    "tough-cookie": "6.0.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "8.39.1"
   },
