@@ -236,6 +236,8 @@ const libraryMachine = setup({
                   )
                 ),
                 second.pipe(
+                  // TODO: If possible, figure out early when we are done with a group
+                  // instead of waiting for the entire stream to complete
                   Stream.groupByKey((e) => `${e.albumTitle} by ${e.artistName}`),
                   GroupBy.evaluate((_, stream) => stream.pipe(Stream.runCollect))
                 )
@@ -439,6 +441,9 @@ const libraryMachine = setup({
                     .onConflict((oc) => oc.doNothing())
                     .execute()
                 );
+
+                // TODO: Either support multiple versions (file groups or something like that) of the same book
+                // or detect and abort the transaction
 
                 const filesArr = Chunk.toArray(files);
 

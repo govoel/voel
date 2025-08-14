@@ -2,7 +2,7 @@ import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { MoonStar } from '~/components/icons/MoonStar';
 import { Sun } from '~/components/icons/Sun';
 import { SunMoon } from '~/components/icons/SunMoon';
@@ -20,7 +20,7 @@ export default function InterfaceScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Interface', headerTitleAlign: 'center' }} />
-      <FloatingPlayerDodgingLayout>
+      <FloatingPlayerDodgingScrollView>
         <Text className="pb-2 text-foreground/75">Theme</Text>
         <RadioGroup
           value={theme}
@@ -56,7 +56,7 @@ export default function InterfaceScreen() {
             </View>
           </RadioGroupItemWithLabel>
         </RadioGroup>
-      </FloatingPlayerDodgingLayout>
+      </FloatingPlayerDodgingScrollView>
     </>
   );
 }

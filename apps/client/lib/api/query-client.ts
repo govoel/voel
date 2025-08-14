@@ -8,6 +8,7 @@ export const queryClient = new QueryClient({
           queryClient.invalidateQueries({ queryKey: mutation.options.mutationKey.slice(0, -1) });
         } else if (
           mutation.options.mutationKey.length === 1 &&
+          Array.isArray(mutation.options.mutationKey[0]) &&
           mutation.options.mutationKey[0].length > 1 &&
           mutation.options.mutationKey[0][0] === 'v1'
         ) {

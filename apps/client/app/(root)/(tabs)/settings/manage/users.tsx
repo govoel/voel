@@ -1,12 +1,13 @@
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
-import { FlatList, View } from 'react-native';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 import * as z from 'zod';
 
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
@@ -46,9 +47,8 @@ export default function UsersListScreen() {
         return itemsSoFar < lastPage.total ? lastPageParam + 1 : undefined;
       },
       initialPageParam: 0,
+      select: (data) => data.pages.flatMap((page) => page.users),
     });
-
-  const allUsers = data?.pages.flatMap((page) => page.users) || [];
 
   const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -82,7 +82,7 @@ export default function UsersListScreen() {
       name: '',
       password: '',
       confirmPassword: '',
-      role: 'under18',
+      role: userRole.enum.under18 as z.infer<typeof userRole>,
     },
     validators: {
       onChange: z
@@ -107,6 +107,7 @@ export default function UsersListScreen() {
         email: value.email,
         name: value.name,
         password: value.password,
+        // @ts-expect-error: Better-Auth isn't able to figure out under18 is a valid role
         role: value.role,
         data: {
           username: value.username,
@@ -121,50 +122,72 @@ export default function UsersListScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Manage Users', headerTitleAlign: 'center' }} />
-      <FloatingPlayerDodgingLayout>
-        <Button
-          variant="secondary"
-          onPress={() => {
-            createUserModalRef.current?.present();
-          }}>
-          <Text>Create New User</Text>
-        </Button>
-        <TitleWithRefetch className="pt-4" refetch={refetch} isFetching={isFetching}>
-          Users
-        </TitleWithRefetch>
-        <Card className="mt-4">
-          {error ? (
-            <>
-              <CardContent className="pt-4">
-                <Large>Error loading users</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </>
-          ) : session.error ? (
-            <>
-              <CardContent className="pt-4">
-                <Large>Error loading your session</Large>
-                <Text className="text-muted-foreground">
-                  {session.error.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => session.refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </>
-          ) : data && session.data ? (
-            <FlatList
-              data={allUsers}
-              keyExtractor={(item) => item.id.toString()}
-              scrollEnabled={false}
-              renderItem={({ item, index }) => (
+      <FlashList
+        data={data}
+        onEndReached={handleLoadMore}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerClassName={useFloatingPlayerPaddingClass()}
+        ListHeaderComponent={
+          <>
+            <Button
+              variant="secondary"
+              onPress={() => {
+                createUserModalRef.current?.present();
+              }}>
+              <Text>Create New User</Text>
+            </Button>
+
+            <TitleWithRefetch className="pt-4" refetch={refetch} isFetching={isFetching}>
+              Users
+            </TitleWithRefetch>
+
+            {error ? (
+              <Card className="mt-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading users</Large>
+                  <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => refetch()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : session.error ? (
+              <Card className="mt-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading your session</Large>
+                  <Text className="text-muted-foreground">
+                    {session.error.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => session.refetch()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : !data && !session.data ? (
+              <Card className="mt-4">
+                <CardContent className="p-12 justify-center items-center">
+                  <Spinner size={15} />
+                </CardContent>
+              </Card>
+            ) : null}
+          </>
+        }
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View className="py-4 items-center">
+              <Spinner size={10} />
+            </View>
+          ) : null
+        }
+        ItemSeparatorComponent={() => <View className="border-t border-foreground/15" />}
+        renderItem={
+          error || session.error
+            ? undefined
+            : ({ item, index }) => (
                 <Link
                   href={
                     session.data?.user.id === item.id
@@ -176,13 +199,17 @@ export default function UsersListScreen() {
                   <Button
                     variant="ghost"
                     className={cn(
-                      'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40',
-                      index !== 0 ? 'border-t border-foreground/15' : ''
+                      'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40 border-foreground/15 border-x',
+                      index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
+                      index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
                     )}>
                     <View className="flex-row gap-x-3 items-center">
                       <Avatar
                         className="border border-foreground/15"
-                        alt={`${item.username}'s Avatar`}>
+                        alt={
+                          /* @ts-expect-error: Better-Auth isn't able to figure out username is present with the username plugin enabled */
+                          `${item.username}'s Avatar`
+                        }>
                         <AvatarImage
                           source={{
                             uri: item.image ?? undefined,
@@ -193,6 +220,7 @@ export default function UsersListScreen() {
                         </AvatarFallback>
                       </Avatar>
                       <View>
+                        {/* @ts-expect-error: Better-Auth isn't able to figure out username is present with the username plugin enabled */}
                         <Text>{item.username}</Text>
                         <Text className="text-muted-foreground">{item.role}</Text>
                       </View>
@@ -200,24 +228,9 @@ export default function UsersListScreen() {
                     <ChevronRight className="text-muted-foreground" size="20" />
                   </Button>
                 </Link>
-              )}
-              onEndReached={handleLoadMore}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={
-                isFetchingNextPage ? (
-                  <View className="py-4 items-center">
-                    <Spinner size={10} />
-                  </View>
-                ) : null
-              }
-            />
-          ) : (
-            <CardContent className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </CardContent>
-          )}
-        </Card>
-      </FloatingPlayerDodgingLayout>
+              )
+        }
+      />
 
       <BottomSheetModal ref={createUserModalRef}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">

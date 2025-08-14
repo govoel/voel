@@ -8,7 +8,7 @@ type Regularize<
 export interface LibraryTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   name: Regularize<ColumnType<string, string, string>, Version>;
-  path: Regularize<ColumnType<string, string, never>, Version>;
+  path: Regularize<ColumnType<string, string, string>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;

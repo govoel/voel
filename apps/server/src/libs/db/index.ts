@@ -41,9 +41,9 @@ export const db = new Kysely<DatabaseSchema>({
   log(event) {
     sourceTap.transactionDetector(event);
     if (logger.isLevelEnabled('debug') && event.level === 'query') {
-      logger.debug('dbQuery(%dms) => %s', event.queryDurationMillis.toFixed(2), event.query.sql);
+      logger.debug('dbQuery(%sms) => %s', event.queryDurationMillis.toFixed(2), event.query.sql);
     } else if (event.level === 'error') {
-      logger.error('dbError(%dms) => %s', event.queryDurationMillis.toFixed(2), event.query.sql);
+      logger.error('dbError(%sms) => %s', event.queryDurationMillis.toFixed(2), event.query.sql);
     }
   },
 });

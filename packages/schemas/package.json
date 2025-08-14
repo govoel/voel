@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "lint": "eslint . && prettier -c .",
-    "format": "eslint . --fix && prettier . --write"
+    "format": "eslint . --fix && prettier . --write",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "module": "index.ts",
   "devDependencies": {

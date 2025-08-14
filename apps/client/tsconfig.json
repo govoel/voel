@@ -8,7 +8,8 @@
     "paths": {
       "~/*": ["*"],
       "@/*": ["../../node_modules/@voel/server/src/*"]
-    }
+    },
+    "types": ["bun-types"]
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"]
 }

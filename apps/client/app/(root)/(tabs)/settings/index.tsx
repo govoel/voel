@@ -2,7 +2,7 @@ import { Link, Stack } from 'expo-router';
 import { View } from 'react-native';
 
 import { authModalStore } from '~/components/auth-modal';
-import { FloatingPlayerDodgingLayout } from '~/components/floating-player';
+import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Download } from '~/components/icons/Download';
 import { FolderCog } from '~/components/icons/FolderCog';
@@ -25,7 +25,7 @@ export default function SettingsIndexScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Settings' }} />
-      <FloatingPlayerDodgingLayout className="gap-y-4">
+      <FloatingPlayerDodgingScrollView className="gap-y-4">
         {data && (
           <View className="overflow-hidden rounded-md border border-foreground/15">
             <Link href="/settings/profile" asChild push>
@@ -147,7 +147,7 @@ export default function SettingsIndexScreen() {
             <Text>Sign In</Text>
           </Button>
         )}
-      </FloatingPlayerDodgingLayout>
+      </FloatingPlayerDodgingScrollView>
     </>
   );
 }

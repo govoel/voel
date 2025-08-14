@@ -35,6 +35,7 @@ const AuthorNameAndProfileImageSchema = Schema.transformOrFail(
   }
 );
 
+// TODO: Write test to confirm author's about gets converted to markdown
 const makeAuthorAboutSchema = (turndown: Turndown) =>
   Schema.transformOrFail(
     Schema.Struct({

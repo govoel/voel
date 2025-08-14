@@ -45,9 +45,9 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   errorFormatter({ shape, error, path, ctx }) {
     logger.error(
       `trpc(error) => %s => %s => %s`,
-      path,
+      path || 'Unknown path',
       ctx?.session?.user.username || 'Anonymous',
-      error.message || error.cause || 'Unknown error'
+      error.message || error.cause?.message || 'Unknown error'
     );
     return {
       ...shape,

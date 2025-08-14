@@ -1,11 +1,16 @@
-import { usePlaybackHistoryContext } from './playback-history-provider';
-import { Progress } from './ui/progress';
+import { Button } from './ui/button';
+import { Card, CardContent, CardFooter } from './ui/card';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Link } from 'expo-router';
-import { FlatList, Pressable, View } from 'react-native';
+import type { ComponentPropsWithoutRef } from 'react';
+import { Pressable, View } from 'react-native';
 
 import { Image } from '~/components/image';
+import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
+import { Spinner } from '~/components/spinner';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
+import { Progress } from '~/components/ui/progress';
 import { Text } from '~/components/ui/text';
 import { Large, Muted } from '~/components/ui/typography';
 
@@ -51,7 +56,7 @@ function PlaybackProgress({
   );
 }
 
-type Book = {
+export type BookListBook = {
   id: number;
   cover: string | null;
   coverThumbhash: string | null;
@@ -66,99 +71,152 @@ type Book = {
   };
 };
 
+type BaseOmitted =
+  | 'data'
+  | 'keyExtractor'
+  | 'horizontal'
+  | 'numColumns'
+  | 'renderItem'
+  | 'ListEmptyComponent';
+
 export function BookList({
   books,
-  direction = 'vertical',
-  className,
   ref,
   emptyListMessage = 'No books found',
+  isFetchingNextPage,
+  ListFooterComponent,
+  ...props
 }: {
-  books: Book[];
-  direction?: 'horizontal' | 'vertical';
-  className?: string;
-  ref?: React.RefObject<FlatList<Book> | null>;
+  books?: BookListBook[];
+  ref?: React.RefObject<FlashListRef<BookListBook> | null>;
   emptyListMessage?: string;
-}) {
-  if (books.length === 0) {
-    return (
-      <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4">
-        <Text className="text-center">{emptyListMessage}</Text>
-      </View>
-    );
-  }
-
+  isFetchingNextPage?: boolean;
+} & (
+  | ({ direction: 'vertical'; error: Error | null; refetch: () => Promise<unknown> } & Omit<
+      ComponentPropsWithoutRef<typeof FlashList>,
+      BaseOmitted | 'className'
+    >)
+  | ({ direction: 'horizontal' } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted>)
+)) {
   return (
-    <FlatList
+    <FlashList
+      {...props}
       ref={ref}
-      className={className}
       data={books}
       keyExtractor={(item) => item.id.toString()}
-      scrollEnabled={direction === 'horizontal'}
-      horizontal={direction === 'horizontal'}
-      numColumns={direction === 'vertical' ? 2 : undefined}
-      renderItem={({ item, index }) => (
-        <Link
-          href={{
-            pathname: '/book/[bookId]',
-            params: { bookId: item.id },
-          }}
-          asChild
-          push
-          withAnchor>
-          <Pressable
-            className={cn(
-              'h-full',
-              direction === 'vertical' ? (index > 1 ? 'pt-4 w-1/2' : 'w-1/2') : 'w-48',
-              direction === 'vertical'
-                ? index % 2 === 0
-                  ? 'pr-2'
-                  : 'pl-2'
-                : index === 0
-                  ? 'mb-2'
-                  : 'ml-4 mb-2'
-            )}>
-            {item.label ? (
-              <View className="flex flex-row items-center pb-2">
-                <Badge variant="outline">
-                  <Text>{item.label}</Text>
-                </Badge>
-              </View>
-            ) : null}
-            <AspectRatio ratio={1 / 1}>
-              {item.cover ? (
-                <Image
+      horizontal={props.direction === 'horizontal' && books && books.length > 0}
+      numColumns={props.direction === 'vertical' ? 2 : undefined}
+      extraData={props.direction === 'vertical' ? props.error : undefined}
+      renderItem={
+        props.direction === 'vertical' && props.error
+          ? undefined
+          : ({ item, index }) => (
+              <Link
+                href={{
+                  pathname: '/book/[bookId]',
+                  params: { bookId: item.id },
+                }}
+                asChild
+                push
+                withAnchor>
+                <Pressable
                   className={cn(
-                    'w-full h-full',
-                    item.totalDurationMs && item.totalDurationMs > 0 ? 'rounded-t-md' : 'rounded-md'
-                  )}
-                  source={item.cover}
-                  placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
-                />
-              ) : null}
-            </AspectRatio>
-            <PlaybackProgress
-              bookId={item.id}
-              totalDurationMs={item.totalDurationMs}
-              playbackPosition={item.playbackPosition}
-            />
-            <View className="pt-2">
-              <Large className="border-none" numberOfLines={1}>
-                {item.title}
-              </Large>
-              {item.authors ? (
-                <Muted numberOfLines={1}>
-                  {item.authors.map((author) => author.name).join(', ')}
-                </Muted>
-              ) : null}
-              {item.contributors ? (
-                <Muted numberOfLines={1}>
-                  {item.contributors.map((contributor) => contributor.name).join(', ')}
-                </Muted>
-              ) : null}
-            </View>
-          </Pressable>
-        </Link>
-      )}
+                    'h-full',
+                    props.direction === 'vertical' ? (index > 1 ? 'pt-4' : '') : 'w-48',
+                    props.direction === 'vertical'
+                      ? index % 2 === 0
+                        ? 'pr-2'
+                        : 'pl-2'
+                      : index === 0
+                        ? 'mb-2'
+                        : 'ml-4 mb-2'
+                  )}>
+                  {item.label ? (
+                    <View className="flex flex-row items-center pb-2">
+                      <Badge variant="outline">
+                        <Text>{item.label}</Text>
+                      </Badge>
+                    </View>
+                  ) : null}
+                  <AspectRatio ratio={1 / 1}>
+                    {item.cover ? (
+                      <Image
+                        className={cn(
+                          'w-full h-full',
+                          item.totalDurationMs && item.totalDurationMs > 0
+                            ? 'rounded-t-md'
+                            : 'rounded-md'
+                        )}
+                        source={item.cover}
+                        placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
+                      />
+                    ) : null}
+                  </AspectRatio>
+                  <PlaybackProgress
+                    bookId={item.id}
+                    totalDurationMs={item.totalDurationMs}
+                    playbackPosition={item.playbackPosition}
+                  />
+                  <View className="pt-2">
+                    <Large className="border-none" numberOfLines={1}>
+                      {item.title}
+                    </Large>
+                    {item.authors ? (
+                      <Muted numberOfLines={1}>
+                        {item.authors.map((author) => author.name).join(', ')}
+                      </Muted>
+                    ) : null}
+                    {item.contributors ? (
+                      <Muted numberOfLines={1}>
+                        {item.contributors.map((contributor) => contributor.name).join(', ')}
+                      </Muted>
+                    ) : null}
+                  </View>
+                </Pressable>
+              </Link>
+            )
+      }
+      ListFooterComponent={
+        <>
+          {isFetchingNextPage ? (
+            props.direction === 'vertical' ? (
+              <View className="p-12 justify-center items-center">
+                <Spinner size={15} />
+              </View>
+            ) : (
+              <View className="flex-1 w-36 pb-12 flex justify-center items-center">
+                <Spinner size={15} />
+              </View>
+            )
+          ) : null}
+          {ListFooterComponent}
+        </>
+      }
+      ListEmptyComponent={
+        props.direction === 'vertical' && props.error ? (
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <Large>Error loading books</Large>
+              <Text className="text-muted-foreground">
+                {props.error.message || 'Unknown error'}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onPress={() => props.refetch()}>
+                <Text>Retry</Text>
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : books?.length === 0 ? (
+          <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+            <Text className="text-center">{emptyListMessage}</Text>
+          </View>
+        ) : (
+          <View className="p-12 justify-center items-center">
+            <Spinner size={15} />
+          </View>
+        )
+      }
     />
   );
 }

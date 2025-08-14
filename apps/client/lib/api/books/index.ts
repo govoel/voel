@@ -120,7 +120,7 @@ const list = {
       },
     });
   },
-  useInfinteQuery: (pageSize: number = 10) => {
+  useInfiniteQuery: (pageSize: number = 14) => {
     const instanceDb = useInstanceDb();
     const instanceId = useInstanceId();
 
@@ -175,6 +175,18 @@ const list = {
                   .as('playbackPosition')
               )
               .as('playbackPosition'),
+            eb.fn
+              .coalesce(
+                eb
+                  .selectFrom('audiobookFile')
+                  .whereRef('audiobookFile.bookId', '=', 'book.id')
+                  .where('audiobookFile.deletedAt', 'is', null)
+                  .select((eb) =>
+                    eb.fn.sum<number>('audiobookFile.durationMs').as('totalDurationMs')
+                  ),
+                eb.lit(0)
+              )
+              .as('totalDurationMs'),
           ]);
 
         if (pageParam) {
@@ -223,6 +235,7 @@ const list = {
             : null,
         };
       },
+      select: (data) => data.pages.flatMap((page) => page.items),
       getNextPageParam: (lastPage) => lastPage.nextCursor,
     });
   },
