@@ -46,7 +46,9 @@ export const prepareAudiobookFile = (entry: Dirent<string>) =>
     const stat = yield* Effect.either(fs.stat(path.join(entry.parentPath, entry.name)));
 
     if (Either.isLeft(stat)) {
-      yield* Effect.logError(`Error getting file info: ${stat.left.message}`);
+      yield* Effect.logError('Error getting file info').pipe(
+        Effect.annotateLogs('error', stat.left.message)
+      );
       return Option.none();
     }
 
@@ -62,9 +64,9 @@ export const prepareAudiobookFile = (entry: Dirent<string>) =>
     }
 
     if (!SUPPORTED_AUDIO_EXTENSIONS.has(entry.name.substring(lastDotIndex + 1).toLowerCase())) {
-      yield* Effect.logDebug('Ignoring file with unsupported extension', {
-        extension: entry.name.substring(lastDotIndex + 1),
-      });
+      yield* Effect.logDebug('Ignoring file with unsupported extension').pipe(
+        Effect.annotateLogs('extension', entry.name.substring(lastDotIndex + 1))
+      );
       return Option.none();
     }
 
@@ -95,7 +97,9 @@ export const prepareAudiobookFile = (entry: Dirent<string>) =>
       );
 
       if (Either.isLeft(realPathEither)) {
-        yield* Effect.logError('Error resolving symbolic link', realPathEither.left);
+        yield* Effect.logError('Error resolving symbolic link').pipe(
+          Effect.annotateLogs('error', realPathEither.left.message)
+        );
         return Option.none();
       } else {
         realPath = realPathEither.right;

@@ -30,14 +30,20 @@ export const GenerateThumbhashResolver = (client: HttpClient.HttpClient) =>
     HttpClientRequest.get(imageURL).pipe(
       client.execute,
       Effect.tapErrorTag('RequestError', (error) =>
-        Effect.logError('An error occurred while requesting image', error)
+        Effect.logError('An error occurred while requesting image').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError('An error occurred while receiving image', error)
+        Effect.logError('An error occurred while receiving image').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.andThen((response) => response.arrayBuffer),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError("Image couldn't be parsed as ArrayBuffer", error)
+        Effect.logError("Image couldn't be parsed as ArrayBuffer").pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.tryMapPromise({
         try: (imageBuffer) =>
@@ -58,9 +64,8 @@ export const GenerateThumbhashResolver = (client: HttpClient.HttpClient) =>
       }),
       Effect.tapErrorTag('SharpError', (error) =>
         Effect.logError(
-          "Either: sharp couldn't be initialized, or image couldn't be resized, or alpha channel couldn't be ensured, or image couldn't be converted to raw format, or raw data couldn't be converted to buffer",
-          error
-        )
+          "Either: sharp couldn't be initialized, or image couldn't be resized, or alpha channel couldn't be ensured, or image couldn't be converted to raw format, or raw data couldn't be converted to buffer"
+        ).pipe(Effect.annotateLogs('error', error.error.message))
       ),
       Effect.tryMap({
         try: ({ data, info }) =>
@@ -72,9 +77,9 @@ export const GenerateThumbhashResolver = (client: HttpClient.HttpClient) =>
       }),
       Effect.tapErrorTag('SharpError', (error) =>
         Effect.logError(
-          "Either: thumbhash couldn't be generated because the image doesn't fit in 100x100, or thumbhash couldn't be converted to base64",
-          error
-        )
-      )
+          "Either: thumbhash couldn't be generated because the image doesn't fit in 100x100, or thumbhash couldn't be converted to base64"
+        ).pipe(Effect.annotateLogs('error', error.error.message))
+      ),
+      Effect.annotateLogs('imageURL', imageURL)
     )
   );

@@ -46,19 +46,32 @@ export const GetBooksBySearchResolver = (client: HttpClient.HttpClient) =>
       }),
       client.execute,
       Effect.tapErrorTag('RequestError', (error) =>
-        Effect.logError('An error occurred while requesting search results', error)
+        Effect.logError('An error occurred while requesting search results').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError('An error occurred while receiving search results', error)
+        Effect.logError('An error occurred while receiving search results').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.andThen((response) => response.json),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError("Search results couldn't be parsed as JSON", error)
+        Effect.logError("Search results couldn't be parsed as JSON").pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.andThen(Schema.decodeUnknown(BookSearchResponseSchema)),
       Effect.tapErrorTag('ParseError', (error) =>
-        Effect.logError('Search results were not in the expected shape', error.message)
+        Effect.logError('Search results were not in the expected shape').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
-      Effect.map((response) => response.products)
+      Effect.map((response) => response.products),
+      Effect.annotateLogs({
+        title: params.title,
+        author: params.author,
+        publisher: params.publisher,
+      })
     )
   );

@@ -24,11 +24,14 @@ export const getContributors = (book: typeof ProductBookSchema.Type) =>
           .pipe(
             Effect.tapError(() =>
               Effect.logWarning(
-                'Failed to fetch author details, falling back to author info from book',
-                {
+                'Failed to fetch author details, falling back to author info from book'
+              ).pipe(
+                Effect.annotateLogs({
                   bookAsin: book.asin,
-                  author: contributor,
-                }
+                  contributorAsin: contributor.asin,
+                  contributorName: contributor.name,
+                  contributorRole: contributor.role,
+                })
               )
             ),
             Effect.catchAll(() => Effect.succeed({ asin: contributorAsin, name: contributor.name }))

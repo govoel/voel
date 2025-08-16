@@ -85,14 +85,20 @@ export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient) =>
         HttpClientRequest.setUrlParams({ author_asin: asin, title_source: 'all' }),
         client.execute,
         Effect.tapErrorTag('RequestError', (error) =>
-          Effect.logError('An error occurred while requesting author details', error)
+          Effect.logError('An error occurred while requesting author details').pipe(
+            Effect.annotateLogs('error', error.message)
+          )
         ),
         Effect.tapErrorTag('ResponseError', (error) =>
-          Effect.logError('An error occurred while receiving author details', error)
+          Effect.logError('An error occurred while receiving author details').pipe(
+            Effect.annotateLogs('error', error.message)
+          )
         ),
         Effect.andThen((response) => response.json),
         Effect.tapErrorTag('ResponseError', (error) =>
-          Effect.logError("Author details couldn't be parsed as JSON", error)
+          Effect.logError("Author details couldn't be parsed as JSON").pipe(
+            Effect.annotateLogs('error', error.message)
+          )
         ),
         Effect.andThen(
           Schema.decodeUnknown(
@@ -102,7 +108,9 @@ export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient) =>
           )
         ),
         Effect.tapErrorTag('ParseError', (error) =>
-          Effect.logError('Author details were not in the expected shape', error.message)
+          Effect.logError('Author details were not in the expected shape').pipe(
+            Effect.annotateLogs('error', error.message)
+          )
         )
       );
 
@@ -134,7 +142,9 @@ export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient) =>
       if (nameAndImage === null) {
         return yield* Effect.fail(new PartialAuthorError()).pipe(
           Effect.tapError((error) =>
-            Effect.logError("Author's name and avatar were not found", error)
+            Effect.logError("Author's name and avatar were not found").pipe(
+              Effect.annotateLogs('error', error.message)
+            )
           )
         );
       }
@@ -145,5 +155,5 @@ export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient) =>
         avatar: nameAndImage.avatar,
         about,
       });
-    })
+    }).pipe(Effect.annotateLogs('asin', asin))
   );

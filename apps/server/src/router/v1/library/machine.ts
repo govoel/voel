@@ -146,10 +146,11 @@ const libraryMachine = setup({
                           .pipe(
                             Effect.tapError(() =>
                               Effect.logWarning(
-                                'Failed to fetch chapters for book, ignoring book',
-                                {
+                                'Failed to fetch chapters for book, ignoring book'
+                              ).pipe(
+                                Effect.annotateLogs({
                                   bookAsin: book.value.asin,
-                                }
+                                })
                               )
                             ),
                             Effect.option
@@ -168,9 +169,11 @@ const libraryMachine = setup({
                           })
                           .pipe(
                             Effect.tapError(() =>
-                              Effect.logWarning('Failed to generate thumbhash for book cover', {
-                                bookAsin: book.value.asin,
-                              })
+                              Effect.logWarning('Failed to generate thumbhash for book cover').pipe(
+                                Effect.annotateLogs({
+                                  bookAsin: book.value.asin,
+                                })
+                              )
                             ),
                             Effect.option
                           );
@@ -189,11 +192,12 @@ const libraryMachine = setup({
                                   .pipe(
                                     Effect.tapError(() =>
                                       Effect.logWarning(
-                                        'Failed to generate thumbhash for contributor avatar',
-                                        {
+                                        'Failed to generate thumbhash for contributor avatar'
+                                      ).pipe(
+                                        Effect.annotateLogs({
                                           bookAsin: book.value.asin,
                                           contributorAsin: contributor.asin,
-                                        }
+                                        })
                                       )
                                     ),
                                     Effect.option
@@ -228,7 +232,7 @@ const libraryMachine = setup({
 
                           chapters: chapters.value.chapters,
                         });
-                      }),
+                      }).pipe(Effect.annotateLogs('path', path.join(e.parentPath, e.name))),
                     {
                       concurrency: env.MATCHER_BATCH_SIZE,
                     }
@@ -536,6 +540,10 @@ const libraryMachine = setup({
                 return yield* Effect.succeed(true);
               }).pipe(
                 Effect.catchAll((error) => Effect.logError(error)),
+                Effect.annotateLogs(
+                  'asin',
+                  Option.isNone(bookOption) ? 'None' : bookOption.value.book.asin
+                ),
                 Effect.scoped
               )
             ),
