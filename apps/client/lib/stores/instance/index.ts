@@ -21,11 +21,10 @@ import { createInstanceDbMigrator } from '~/lib/db/migrations/instance';
 import type {
   AudiobookChapterTable,
   AudiobookFileTable,
-  AuthorTable,
-  BookAuthorTable,
   BookContributorTable,
   BookSeriesTable,
   BookTable,
+  ContributorTable,
   EBookFileTable,
   InstanceDatabase,
   LibraryTable,
@@ -38,11 +37,10 @@ import {
   flushHistoryData,
   upsertAudiobookChapter,
   upsertAudiobookFile,
-  upsertAuthor,
   upsertBook,
-  upsertBookAuthor,
   upsertBookContributor,
   upsertBookSeries,
+  upsertContributor,
   upsertEBookFile,
   upsertLibrary,
   upsertPlaybackHistory,
@@ -115,8 +113,8 @@ const startRealtimeSync = (
       .select((eb) => eb.fn.max<number | null>('updatedAt').as('libraryUpdatedAt'))
       .executeTakeFirstOrThrow(),
     instanceDb
-      .selectFrom('author')
-      .select((eb) => eb.fn.max<number | null>('updatedAt').as('authorUpdatedAt'))
+      .selectFrom('contributor')
+      .select((eb) => eb.fn.max<number | null>('updatedAt').as('contributorUpdatedAt'))
       .executeTakeFirstOrThrow(),
     instanceDb
       .selectFrom('series')
@@ -125,10 +123,6 @@ const startRealtimeSync = (
     instanceDb
       .selectFrom('book')
       .select((eb) => eb.fn.max<number | null>('updatedAt').as('bookUpdatedAt'))
-      .executeTakeFirstOrThrow(),
-    instanceDb
-      .selectFrom('bookAuthor')
-      .select((eb) => eb.fn.max<number | null>('updatedAt').as('bookAuthorUpdatedAt'))
       .executeTakeFirstOrThrow(),
     instanceDb
       .selectFrom('bookSeries')
@@ -158,16 +152,15 @@ const startRealtimeSync = (
     .then((results) => {
       const subscriptionOptions = apiInstance.v1.sync.subscribe.subscriptionOptions({
         library: results[0].libraryUpdatedAt ?? 0,
-        author: results[1].authorUpdatedAt ?? 0,
+        contributor: results[1].contributorUpdatedAt ?? 0,
         series: results[2].seriesUpdatedAt ?? 0,
         book: results[3].bookUpdatedAt ?? 0,
-        bookAuthor: results[4].bookAuthorUpdatedAt ?? 0,
-        bookSeries: results[5].bookSeriesUpdatedAt ?? 0,
-        bookContributor: results[6].bookContributorUpdatedAt ?? 0,
-        audiobookFile: results[7].audiobookFileUpdatedAt ?? 0,
-        audiobookChapter: results[8].audiobookChapterUpdatedAt ?? 0,
-        ebookFile: results[9].ebookFileUpdatedAt ?? 0,
-        playbackHistory: results[10].playbackHistoryUpdatedAt ?? 0,
+        bookSeries: results[4].bookSeriesUpdatedAt ?? 0,
+        bookContributor: results[5].bookContributorUpdatedAt ?? 0,
+        audiobookFile: results[6].audiobookFileUpdatedAt ?? 0,
+        audiobookChapter: results[7].audiobookChapterUpdatedAt ?? 0,
+        ebookFile: results[8].ebookFileUpdatedAt ?? 0,
+        playbackHistory: results[9].playbackHistoryUpdatedAt ?? 0,
       });
 
       let queue = Promise.resolve();
@@ -175,10 +168,9 @@ const startRealtimeSync = (
       const historyData = {
         rowCount: 0,
         library: [] as Insertable<LibraryTable<'realtime'>>[],
-        author: [] as Insertable<AuthorTable<'realtime'>>[],
+        contributor: [] as Insertable<ContributorTable<'realtime'>>[],
         series: [] as Insertable<SeriesTable<'realtime'>>[],
         book: [] as Insertable<BookTable<'realtime'>>[],
-        bookAuthor: [] as Insertable<BookAuthorTable<'realtime'>>[],
         bookSeries: [] as Insertable<BookSeriesTable<'realtime'>>[],
         bookContributor: [] as Insertable<BookContributorTable<'realtime'>>[],
         audiobookFile: [] as Insertable<AudiobookFileTable<'realtime'>>[],
@@ -203,9 +195,9 @@ const startRealtimeSync = (
                       data.payload.row
                     )
                   );
-                } else if (data.payload.table === 'author') {
-                  historyData.author.push(
-                    ensureExact<Insertable<AuthorTable<'realtime'>>, typeof data.payload.row>(
+                } else if (data.payload.table === 'contributor') {
+                  historyData.contributor.push(
+                    ensureExact<Insertable<ContributorTable<'realtime'>>, typeof data.payload.row>(
                       data.payload.row
                     )
                   );
@@ -218,12 +210,6 @@ const startRealtimeSync = (
                 } else if (data.payload.table === 'book') {
                   historyData.book.push(
                     ensureExact<Insertable<BookTable<'realtime'>>, typeof data.payload.row>(
-                      data.payload.row
-                    )
-                  );
-                } else if (data.payload.table === 'bookAuthor') {
-                  historyData.bookAuthor.push(
-                    ensureExact<Insertable<BookAuthorTable<'realtime'>>, typeof data.payload.row>(
                       data.payload.row
                     )
                   );
@@ -292,12 +278,13 @@ const startRealtimeSync = (
                     )
                   );
                   queryClient.invalidateQueries({ queryKey: ['instance'] });
-                } else if (data.payload.table === 'author') {
-                  await upsertAuthor(
+                } else if (data.payload.table === 'contributor') {
+                  await upsertContributor(
                     instanceDb,
-                    ensureExact<Insertable<AuthorTable<'realtime'>>[], typeof data.payload.rows>(
-                      data.payload.rows
-                    )
+                    ensureExact<
+                      Insertable<ContributorTable<'realtime'>>[],
+                      typeof data.payload.rows
+                    >(data.payload.rows)
                   );
                   queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'series') {
@@ -314,15 +301,6 @@ const startRealtimeSync = (
                     ensureExact<Insertable<BookTable<'realtime'>>[], typeof data.payload.rows>(
                       data.payload.rows
                     )
-                  );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
-                } else if (data.payload.table === 'bookAuthor') {
-                  await upsertBookAuthor(
-                    instanceDb,
-                    ensureExact<
-                      Insertable<BookAuthorTable<'realtime'>>[],
-                      typeof data.payload.rows
-                    >(data.payload.rows)
                   );
                   queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'bookSeries') {

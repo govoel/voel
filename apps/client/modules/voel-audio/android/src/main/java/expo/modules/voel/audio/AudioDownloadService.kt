@@ -65,7 +65,10 @@ class VoelAudioDownloadService :
                 .setGroupSummary(true)
                 .setStyle(
                   NotificationCompat.BigTextStyle()
-                    .setSummaryText("${data.bookTitle} by ${data.bookAuthors}")
+                    .setSummaryText(
+                      if (data.bookAuthors.isNotEmpty()) "${data.bookTitle} by ${data.bookAuthors}"
+                      else data.bookTitle
+                    )
                 )
                 .build(),
             )
@@ -106,7 +109,9 @@ class VoelAudioDownloadService :
         NotificationCompat.Builder(context.applicationContext, AUDIO_DOWNLOAD_SERVICE_CHANNEL_ID)
           .setSmallIcon(R.drawable.voel_logo)
           .setContentTitle(
-            if (inGroup) "File #${data.fileId}" else "${data.bookTitle} by ${data.bookAuthors}"
+            if (inGroup) "File #${data.fileId}"
+            else if (data.bookAuthors.isNotEmpty()) "${data.bookTitle} by ${data.bookAuthors}"
+            else data.bookTitle
           )
 
       if (inGroup) {

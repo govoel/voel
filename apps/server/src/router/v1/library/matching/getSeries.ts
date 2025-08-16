@@ -1,7 +1,8 @@
-import { Audible, type ProductBookSchema, ProductSeriesSchema } from '../audible';
-import { ProductBookRelationshipSeriesSchema } from '../audible/getProductByAsin';
 import { Effect, Option, Schema } from 'effect';
 import type { Insertable } from 'kysely';
+
+import { Audible, type ProductBookSchema, ProductSeriesSchema } from '@/router/v1/library/audible';
+import { ProductBookRelationshipSeriesSchema } from '@/router/v1/library/audible/getProductByAsin';
 
 import type { BookSeriesTable, SeriesTable } from '@/libs/db/schema';
 
@@ -55,13 +56,13 @@ export const getSeries = (book: typeof ProductBookSchema.Type) =>
             );
             sourceSeriesFromBook.push({
               asin: series.asin,
-              summary: seriesFromAudible.value.publisher_summary,
+              summary: seriesFromAudible.value.publisher_summary_md,
             });
           } else {
             seriesArr.push({
               asin: seriesFromAudible.value.asin,
               name: seriesFromAudible.value.title,
-              summary: seriesFromAudible.value.publisher_summary,
+              summary: seriesFromAudible.value.publisher_summary_md,
               label: seriesRelationship.sequence,
               sort: seriesRelationship.sort,
             });

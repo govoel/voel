@@ -70,10 +70,9 @@ export const syncRouter = createTRPCRouter({
     .input(
       z.object({
         library: z.number(),
-        author: z.number(),
+        contributor: z.number(),
         series: z.number(),
         book: z.number(),
-        bookAuthor: z.number(),
         bookSeries: z.number(),
         bookContributor: z.number(),
         audiobookFile: z.number(),
@@ -124,9 +123,9 @@ export const syncRouter = createTRPCRouter({
             .where('updatedAt', '>=', input.library),
         },
         {
-          name: 'author',
+          name: 'contributor',
           query: db
-            .selectFrom('author')
+            .selectFrom('contributor')
             .select([
               'id',
               'asin',
@@ -138,7 +137,7 @@ export const syncRouter = createTRPCRouter({
               'updatedAt',
               'deletedAt',
             ])
-            .where('updatedAt', '>=', input.author),
+            .where('updatedAt', '>=', input.contributor),
         },
         {
           name: 'series',
@@ -169,13 +168,6 @@ export const syncRouter = createTRPCRouter({
             .where('updatedAt', '>=', input.book),
         },
         {
-          name: 'bookAuthor',
-          query: db
-            .selectFrom('bookAuthor')
-            .select(['id', 'bookId', 'authorId', 'createdAt', 'updatedAt', 'deletedAt'])
-            .where('updatedAt', '>=', input.bookAuthor),
-        },
-        {
           name: 'bookSeries',
           query: db
             .selectFrom('bookSeries')
@@ -195,7 +187,16 @@ export const syncRouter = createTRPCRouter({
           name: 'bookContributor',
           query: db
             .selectFrom('bookContributor')
-            .select(['id', 'bookId', 'name', 'role', 'createdAt', 'updatedAt', 'deletedAt'])
+            .select([
+              'id',
+              'bookId',
+              'contributorId',
+              'name',
+              'role',
+              'createdAt',
+              'updatedAt',
+              'deletedAt',
+            ])
             .where('updatedAt', '>=', input.bookContributor),
         },
         {
@@ -272,10 +273,10 @@ export const syncRouter = createTRPCRouter({
           for await (const row of stream) {
             yield { type: 'history' as const, payload: { table: 'library' as const, row } };
           }
-        } else if (table.name === 'author') {
+        } else if (table.name === 'contributor') {
           const stream = table.query.stream();
           for await (const row of stream) {
-            yield { type: 'history' as const, payload: { table: 'author' as const, row } };
+            yield { type: 'history' as const, payload: { table: 'contributor' as const, row } };
           }
         } else if (table.name === 'series') {
           const stream = table.query.stream();
@@ -286,11 +287,6 @@ export const syncRouter = createTRPCRouter({
           const stream = table.query.stream();
           for await (const row of stream) {
             yield { type: 'history' as const, payload: { table: 'book' as const, row } };
-          }
-        } else if (table.name === 'bookAuthor') {
-          const stream = table.query.stream();
-          for await (const row of stream) {
-            yield { type: 'history' as const, payload: { table: 'bookAuthor' as const, row } };
           }
         } else if (table.name === 'bookSeries') {
           const stream = table.query.stream();

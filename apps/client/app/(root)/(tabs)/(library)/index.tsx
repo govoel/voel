@@ -131,7 +131,7 @@ const SearchTab = () => {
     error: authorSearchError,
     refetch: authorSearchRefetch,
     isFetching: authorSearchIsFetching,
-  } = api.authors.search.useQuery(searchQuery);
+  } = api.contributors.search.useQuery('author', searchQuery);
 
   const {
     data: seriesSearchResults,
@@ -161,12 +161,20 @@ const SearchTab = () => {
     isFetching: editorSearchIsFetching,
   } = api.contributors.search.useQuery('editor', searchQuery);
 
+  const {
+    data: forewordSearchResults,
+    error: forewordSearchError,
+    refetch: forewordSearchRefetch,
+    isFetching: forewordSearchIsFetching,
+  } = api.contributors.search.useQuery('foreword', searchQuery);
+
   const bookListRef = useRef<FlashListRef<BookListBook>>(null);
   const authorListRef = useRef<FlashListRef<PersonListPerson>>(null);
   const seriesListRef = useRef<FlashListRef<SeriesListSeries>>(null);
   const narratorListRef = useRef<FlashListRef<PersonListPerson>>(null);
   const translatorListRef = useRef<FlashListRef<PersonListPerson>>(null);
   const editorListRef = useRef<FlashListRef<PersonListPerson>>(null);
+  const forewordListRef = useRef<FlashListRef<PersonListPerson>>(null);
 
   useEffect(() => {
     bookListRef.current?.scrollToTop({ animated: false });
@@ -175,6 +183,7 @@ const SearchTab = () => {
     narratorListRef.current?.scrollToTop({ animated: false });
     translatorListRef.current?.scrollToTop({ animated: false });
     editorListRef.current?.scrollToTop({ animated: false });
+    forewordListRef.current?.scrollToTop({ animated: false });
   }, [searchQuery]);
 
   return (
@@ -194,7 +203,8 @@ const SearchTab = () => {
                     seriesSearchIsFetching ||
                     narratorSearchIsFetching ||
                     translatorSearchIsFetching ||
-                    editorSearchIsFetching,
+                    editorSearchIsFetching ||
+                    forewordSearchIsFetching,
                 }}
               />
             )}
@@ -445,6 +455,47 @@ const SearchTab = () => {
           </>
         ) : null}
 
+        {forewordSearchError ? (
+          <>
+            <TitleWithRefetch
+              className="mb-2"
+              refetch={forewordSearchRefetch}
+              isFetching={forewordSearchIsFetching}>
+              Forewords
+            </TitleWithRefetch>
+            <Card className="mb-4">
+              <CardContent className="pt-4">
+                <Large>Error loading forewords</Large>
+                <Text className="text-muted-foreground">
+                  {forewordSearchError.message || 'Unknown error'}
+                </Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => forewordSearchRefetch()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </Card>
+          </>
+        ) : forewordSearchResults && forewordSearchResults.length > 0 ? (
+          <>
+            <TitleWithRefetch
+              className="mb-2"
+              refetch={forewordSearchRefetch}
+              isFetching={forewordSearchIsFetching}>
+              Forewords ({forewordSearchResults.length})
+            </TitleWithRefetch>
+            <PersonList
+              ref={forewordListRef}
+              people={forewordSearchResults}
+              type="foreword"
+              direction="horizontal"
+              key="foreword-search-results"
+              className="mb-2"
+            />
+          </>
+        ) : null}
+
         {bookSearchResults &&
           bookSearchResults.length === 0 &&
           authorSearchResults &&
@@ -456,7 +507,9 @@ const SearchTab = () => {
           translatorSearchResults &&
           translatorSearchResults.length === 0 &&
           editorSearchResults &&
-          editorSearchResults.length === 0 && (
+          editorSearchResults.length === 0 &&
+          forewordSearchResults &&
+          forewordSearchResults.length === 0 && (
             <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
               <Text className="text-center">No results found</Text>
             </View>
@@ -502,7 +555,7 @@ const BookTab = () => {
 };
 
 const AuthorTab = () => {
-  const { data, error, refetch, isFetching } = api.authors.list.useQuery();
+  const { data, error, refetch, isFetching } = api.contributors.list.useQuery('author');
 
   return (
     <PersonList
@@ -517,24 +570,6 @@ const AuthorTab = () => {
           <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
             All Authors
           </TitleWithRefetch>
-
-          {error ? (
-            <Card>
-              <CardContent className="pt-4">
-                <Large>Error loading authors</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : !data ? (
-            <View className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </View>
-          ) : null}
         </>
       }
     />
@@ -556,24 +591,6 @@ const SeriesTab = () => {
           <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
             All Series
           </TitleWithRefetch>
-
-          {error ? (
-            <Card>
-              <CardContent className="pt-4">
-                <Large>Error loading series</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : !data ? (
-            <View className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </View>
-          ) : null}
         </>
       )}
     />

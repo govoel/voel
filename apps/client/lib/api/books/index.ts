@@ -42,27 +42,18 @@ const list = {
         let query = instanceDb
           .with('authorsArray', (eb) =>
             eb
-              .selectFrom('bookAuthor')
-              .where('bookAuthor.deletedAt', 'is', null)
-              .innerJoin('author', (join) =>
-                join
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-                  .on('author.deletedAt', 'is', null)
-              )
+              .selectFrom('bookContributor')
+              .where('bookContributor.deletedAt', 'is', null)
+              .where('bookContributor.role', '=', 'author')
               .select((eb) => [
-                'bookAuthor.bookId',
+                'bookContributor.bookId',
                 eb.fn
                   .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                    ]),
+                    eb.fn<string>('json_object', [eb.val('name'), 'bookContributor.name']),
                   ])
                   .as('authors'),
               ])
-              .groupBy('bookAuthor.bookId')
+              .groupBy('bookContributor.bookId')
           )
           .with('audiobookFileDurations', (eb) =>
             eb
@@ -113,8 +104,8 @@ const list = {
             eventTimestampMs: number;
           },
           authors: (result.authors ? JSON.parse(result.authors) : []) as Pick<
-            Selectable<InstanceDatabase['author']>,
-            'id' | 'name'
+            Selectable<InstanceDatabase['bookContributor']>,
+            'name'
           >[],
         }));
       },
@@ -140,23 +131,14 @@ const list = {
           .limit(pageSize + 1)
           .select((eb) => [
             eb
-              .selectFrom('bookAuthor')
-              .innerJoin('author', (join) =>
-                join
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-                  .on('author.deletedAt', 'is', null)
-              )
-              .whereRef('bookAuthor.bookId', '=', 'book.id')
-              .where('bookAuthor.deletedAt', 'is', null)
+              .selectFrom('bookContributor')
+              .whereRef('bookContributor.bookId', '=', 'book.id')
+              .where('bookContributor.role', '=', 'author')
+              .where('bookContributor.deletedAt', 'is', null)
               .select((eb) =>
                 eb.fn
                   .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                    ]),
+                    eb.fn<string>('json_object', [eb.val('name'), 'bookContributor.name']),
                   ])
                   .as('authors')
               )
@@ -223,8 +205,8 @@ const list = {
                 })
               : { positionMs: 0, eventTimestampMs: 0 },
             authors: (result.authors ? JSON.parse(result.authors) : []) as Pick<
-              Selectable<InstanceDatabase['author']>,
-              'id' | 'name'
+              Selectable<InstanceDatabase['bookContributor']>,
+              'name'
             >[],
           })),
           nextCursor: hasNextPage
@@ -266,32 +248,6 @@ const get = {
           ])
           .select((eb) => [
             eb
-              .selectFrom('bookAuthor')
-              .innerJoin('author', (join) =>
-                join
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-                  .on('author.deletedAt', 'is', null)
-              )
-              .where('bookAuthor.bookId', '=', bookId)
-              .where('bookAuthor.deletedAt', 'is', null)
-              .select((eb) =>
-                eb.fn
-                  .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                      eb.val('avatar'),
-                      'author.avatar',
-                      eb.val('avatarThumbhash'),
-                      'author.avatarThumbhash',
-                    ]),
-                  ])
-                  .as('authors')
-              )
-              .as('authors'),
-            eb
               .selectFrom('bookSeries')
               .innerJoin('series', (join) =>
                 join
@@ -325,8 +281,8 @@ const get = {
                 eb.fn
                   .agg<string>('json_group_array', [
                     eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'bookContributor.id',
+                      eb.val('contributorId'),
+                      'bookContributor.contributorId',
                       eb.val('role'),
                       'bookContributor.role',
                       eb.val('name'),
@@ -450,12 +406,6 @@ const get = {
                 eventTimestampMs: number;
               })
             : { positionMs: 0, eventTimestampMs: 0 },
-          authors: result.authors
-            ? (JSON.parse(result.authors) as Pick<
-                Selectable<InstanceDatabase['author']>,
-                'id' | 'name' | 'avatar' | 'avatarThumbhash'
-              >[])
-            : [],
           series: result.series
             ? (JSON.parse(result.series) as (Pick<
                 Selectable<InstanceDatabase['series']>,
@@ -466,7 +416,7 @@ const get = {
           contributors: result.contributors
             ? (JSON.parse(result.contributors) as Pick<
                 Selectable<InstanceDatabase['bookContributor']>,
-                'id' | 'role' | 'name'
+                'contributorId' | 'role' | 'name'
               >[])
             : [],
           chapters: {
@@ -512,23 +462,14 @@ const search = {
           .select(['book.id', 'book.title', 'book.cover', 'book.coverThumbhash'])
           .select((eb) => [
             eb
-              .selectFrom('bookAuthor')
-              .innerJoin('author', (join) =>
-                join
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-                  .on('author.deletedAt', 'is', null)
-              )
-              .whereRef('bookAuthor.bookId', '=', 'book.id')
-              .where('bookAuthor.deletedAt', 'is', null)
+              .selectFrom('bookContributor')
+              .whereRef('bookContributor.bookId', '=', 'book.id')
+              .where('bookContributor.role', '=', 'author')
+              .where('bookContributor.deletedAt', 'is', null)
               .select((eb) =>
                 eb.fn
                   .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                    ]),
+                    eb.fn<string>('json_object', [eb.val('name'), 'bookContributor.name']),
                   ])
                   .as('authors')
               )
@@ -582,8 +523,8 @@ const search = {
               })
             : { positionMs: 0, eventTimestampMs: 0 },
           authors: (result.authors ? JSON.parse(result.authors) : []) as Pick<
-            Selectable<InstanceDatabase['author']>,
-            'id' | 'name'
+            Selectable<InstanceDatabase['bookContributor']>,
+            'name'
           >[],
         }));
       },
@@ -683,27 +624,22 @@ const getByFileIds = {
           )
           .with('authorsArray', (eb) =>
             eb
-              .selectFrom('bookAuthor')
+              .selectFrom('bookContributor')
               // we don't filter by deletedAt or role on purpose to allow the UI to show a cleanup button
+              .where('bookContributor.role', '=', 'author')
               .innerJoin('downloadedAudiobookFiles', (join) =>
-                join.onRef('bookAuthor.bookId', '=', 'downloadedAudiobookFiles.bookId')
+                join.onRef('bookContributor.bookId', '=', 'downloadedAudiobookFiles.bookId')
               )
-              .innerJoin('author', (join) => join.onRef('bookAuthor.authorId', '=', 'author.id'))
               .select((eb) => [
                 'downloadedAudiobookFiles.bookId',
                 'downloadedAudiobookFiles.files',
                 eb.fn
                   .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                    ]),
+                    eb.fn<string>('json_object', [eb.val('name'), 'bookContributor.name']),
                   ])
                   .as('authors'),
               ])
-              .groupBy('bookAuthor.bookId')
+              .groupBy('bookContributor.bookId')
           )
           .selectFrom('book')
           .select(['book.id', 'book.title', 'book.cover', 'book.coverThumbhash'])
@@ -716,8 +652,8 @@ const getByFileIds = {
           ...result,
           authors: result.authors
             ? (JSON.parse(result.authors) as Pick<
-                Selectable<InstanceDatabase['author']>,
-                'id' | 'name' | 'avatar' | 'avatarThumbhash' | 'deletedAt'
+                Selectable<InstanceDatabase['bookContributor']>,
+                'name'
               >[])
             : [],
           files: result.files

@@ -169,16 +169,13 @@ export function BookList({
                     <Large className="border-none" numberOfLines={1}>
                       {item.title}
                     </Large>
-                    {item.authors ? (
-                      <Muted numberOfLines={1}>
-                        {item.authors.map((author) => author.name).join(', ')}
-                      </Muted>
-                    ) : null}
-                    {item.contributors ? (
-                      <Muted numberOfLines={1}>
-                        {item.contributors.map((contributor) => contributor.name).join(', ')}
-                      </Muted>
-                    ) : null}
+                    <Muted numberOfLines={1}>
+                      {item.authors && item.authors.length > 0
+                        ? item.authors.map((author) => author.name).join(', ')
+                        : item.contributors && item.contributors.length > 0
+                          ? item.contributors.map((contributor) => contributor.name).join(', ')
+                          : 'No contributors available'}
+                    </Muted>
                   </View>
                 </Pressable>
               </Link>

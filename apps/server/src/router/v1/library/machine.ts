@@ -1,9 +1,3 @@
-import { Hash } from './hash';
-import { getAuthorsAndContributors } from './matching/getAuthorsAndContributors';
-import { getSeries } from './matching/getSeries';
-import { matchAudiobook } from './matching/matchAudiobook';
-import { extractAudiobookFileMetadata } from './scanning/extractAudiobookFileMetadata';
-import { prepareAudiobookFile } from './scanning/prepareAudiobookFile';
 import { Path } from '@effect/platform';
 import {
   Chunk,
@@ -24,9 +18,15 @@ import { Actor, createActor, setup } from 'xstate';
 import { Audible } from '@/router/v1/library/audible';
 import { ParentChapterSchema } from '@/router/v1/library/audible/getChaptersByAsin';
 import { FsExtended } from '@/router/v1/library/fsExtended';
+import { Hash } from '@/router/v1/library/hash';
+import { getContributors } from '@/router/v1/library/matching/getContributors';
+import { getSeries } from '@/router/v1/library/matching/getSeries';
+import { matchAudiobook } from '@/router/v1/library/matching/matchAudiobook';
+import { extractAudiobookFileMetadata } from '@/router/v1/library/scanning/extractAudiobookFileMetadata';
+import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiobookFile';
 
 import { db, toEffect } from '@/libs/db';
-import { type AudiobookChapterTable, type AuthorTable, type BookTable } from '@/libs/db/schema';
+import { type AudiobookChapterTable } from '@/libs/db/schema';
 
 import { env } from '@/env';
 
@@ -133,11 +133,7 @@ const libraryMachine = setup({
                           return Option.none();
                         }
 
-                        const authorsAndContributors = yield* getAuthorsAndContributors(book.value);
-
-                        if (Option.isNone(authorsAndContributors)) {
-                          return Option.none();
-                        }
+                        const contributors = yield* getContributors(book.value);
 
                         const seriesArr = yield* getSeries(book.value);
 
@@ -179,13 +175,13 @@ const libraryMachine = setup({
                             Effect.option
                           );
 
-                        const authorAvatarThumbhashes = yield* Effect.forEach(
-                          authorsAndContributors.value.authors,
-                          (author) =>
-                            author.avatar
+                        const contributorAvatarThumbhashes = yield* Effect.forEach(
+                          contributors,
+                          (contributor) =>
+                            contributor.avatar
                               ? audible
                                   .generateThumbhash({
-                                    imageURL: author.avatar.replace(
+                                    imageURL: contributor.avatar.replace(
                                       /\._S[A-Z]+500_\./,
                                       '._SL100_.'
                                     ),
@@ -193,10 +189,10 @@ const libraryMachine = setup({
                                   .pipe(
                                     Effect.tapError(() =>
                                       Effect.logWarning(
-                                        'Failed to generate thumbhash for author avatar',
+                                        'Failed to generate thumbhash for contributor avatar',
                                         {
                                           bookAsin: book.value.asin,
-                                          authorAsin: author.asin,
+                                          contributorAsin: contributor.asin,
                                         }
                                       )
                                     ),
@@ -208,25 +204,28 @@ const libraryMachine = setup({
                         return Option.some({
                           book: {
                             asin: book.value.asin,
-                            type: 'audio',
+                            type: 'audio' as const,
                             title: book.value.title,
                             subtitle: book.value.subtitle,
                             cover: book.value.product_images[500],
                             coverThumbhash: Option.isSome(bookCoverThumbhash)
                               ? bookCoverThumbhash.value
                               : null,
-                            summary: book.value.publisher_summary,
-                            adultsOnly: book.value.is_adult_product ? 1 : 0,
-                          } satisfies Insertable<BookTable>,
-                          authors: authorsAndContributors.value.authors.map((author, i) => ({
-                            ...author,
-                            avatarThumbhash: Option.isSome(authorAvatarThumbhashes[i]!)
-                              ? authorAvatarThumbhashes[i].value
+                            summary: book.value.publisher_summary_md,
+                            adultsOnly: book.value.is_adult_product ? (1 as const) : (0 as const),
+                          },
+
+                          bookContributors: book.value.contributors,
+
+                          contributors: contributors.map((contributor, i) => ({
+                            ...contributor,
+                            avatarThumbhash: Option.isSome(contributorAvatarThumbhashes[i]!)
+                              ? contributorAvatarThumbhashes[i].value
                               : null,
-                          })) satisfies Insertable<AuthorTable>[],
-                          narrators: book.value.narrators,
-                          contributors: authorsAndContributors.value.contributors,
+                          })),
+
                           series: seriesArr.value,
+
                           chapters: chapters.value.chapters,
                         });
                       }),
@@ -249,22 +248,7 @@ const libraryMachine = setup({
                   return yield* Effect.void;
                 }
 
-                const { book, authors, narrators, series, contributors, chapters } =
-                  bookOption.value;
-
-                if (authors.length === 0) {
-                  yield* Effect.logError(
-                    'No authors for book, when we expected at least one to be present; ignoring book'
-                  );
-                  return yield* Effect.void;
-                }
-
-                if (narrators.length === 0) {
-                  yield* Effect.logError(
-                    'No narrators for book, when we expected at least one to be present'
-                  );
-                  return yield* Effect.void;
-                }
+                const { book, contributors, bookContributors, series, chapters } = bookOption.value;
 
                 if (files.length === 0) {
                   yield* Effect.logError(
@@ -335,42 +319,46 @@ const libraryMachine = setup({
                     .executeTakeFirstOrThrow()
                 );
 
-                const insertedAuthors = yield* toEffect(
+                const insertedContributors = yield* toEffect(
                   trx
-                    .insertInto('author')
+                    .insertInto('contributor')
                     .values(
-                      authors.map((author) => ({
-                        asin: author.asin,
-                        name: author.name,
-                        about: author.about,
-                        avatar: author.avatar
-                          ? author.avatar.replace(/\._S[A-Z]+500_\./, '.')
+                      contributors.map((contributor) => ({
+                        asin: contributor.asin,
+                        name: contributor.name,
+                        about: contributor.about,
+                        avatar: contributor.avatar
+                          ? contributor.avatar.replace(/\._S[A-Z]+500_\./, '.')
                           : undefined,
-                        avatarThumbhash: author.avatarThumbhash,
+                        avatarThumbhash: contributor.avatarThumbhash,
                       }))
                     )
                     .onConflict((oc) =>
                       oc.column('asin').doUpdateSet(({ fn, ref }) => ({
-                        name: fn.coalesce(ref('excluded.name'), ref('author.name')),
-                        about: fn.coalesce(ref('excluded.about'), ref('author.about')),
-                        avatar: fn.coalesce(ref('excluded.avatar'), ref('author.avatar')),
+                        name: fn.coalesce(ref('excluded.name'), ref('contributor.name')),
+                        about: fn.coalesce(ref('excluded.about'), ref('contributor.about')),
+                        avatar: fn.coalesce(ref('excluded.avatar'), ref('contributor.avatar')),
                         avatarThumbhash: fn.coalesce(
                           ref('excluded.avatarThumbhash'),
-                          ref('author.avatarThumbhash')
+                          ref('contributor.avatarThumbhash')
                         ),
                       }))
                     )
-                    .returning(['id as id'])
+                    .returning(['id as id', 'asin as asin'])
                     .execute()
                 );
 
                 yield* toEffect(
                   trx
-                    .insertInto('bookAuthor')
+                    .insertInto('bookContributor')
                     .values(
-                      insertedAuthors.map((insertedAuthor) => ({
+                      bookContributors.map((contributor) => ({
                         bookId: insertedBook.id,
-                        authorId: insertedAuthor.id,
+                        contributorId: insertedContributors.find(
+                          (ic) => ic.asin === contributor.asin
+                        )?.id,
+                        name: contributor.name,
+                        role: contributor.role,
                       }))
                     )
                     .onConflict((oc) => oc.doNothing())
@@ -420,27 +408,6 @@ const libraryMachine = setup({
                       .execute()
                   );
                 }
-
-                yield* toEffect(
-                  trx
-                    .insertInto('bookContributor')
-                    .values(
-                      [
-                        narrators.map((narrator) => ({
-                          bookId: insertedBook.id,
-                          name: narrator.name,
-                          role: 'narrator' as const,
-                        })),
-                        contributors.map((contributor) => ({
-                          bookId: insertedBook.id,
-                          name: contributor.name,
-                          role: contributor.role,
-                        })),
-                      ].flat()
-                    )
-                    .onConflict((oc) => oc.doNothing())
-                    .execute()
-                );
 
                 // TODO: Either support multiple versions (file groups or something like that) of the same book
                 // or detect and abort the transaction

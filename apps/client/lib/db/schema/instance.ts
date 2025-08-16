@@ -14,7 +14,7 @@ export interface LibraryTable<Version extends 'realtime' | 'regular' = 'regular'
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
 }
 
-export interface AuthorTable<Version extends 'realtime' | 'regular' = 'regular'> {
+export interface ContributorTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   asin: Regularize<ColumnType<string, string, string>, Version>;
   name: Regularize<ColumnType<string, string, string>, Version>;
@@ -24,13 +24,6 @@ export interface AuthorTable<Version extends 'realtime' | 'regular' = 'regular'>
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
-}
-
-export interface AuthorFTSTable<Version extends 'realtime' | 'regular' = 'regular'> {
-  rowid: Regularize<ColumnType<number, never, never>, Version>;
-  name: Regularize<ColumnType<string, never, never>, Version>;
-  about: Regularize<ColumnType<string, never, never>, Version>;
-  rank: Regularize<ColumnType<number, never, never>, Version>;
 }
 
 export interface SeriesTable<Version extends 'realtime' | 'regular' = 'regular'> {
@@ -74,15 +67,6 @@ export interface BookFTSTable<Version extends 'realtime' | 'regular' = 'regular'
   rank: Regularize<ColumnType<number, never, never>, Version>;
 }
 
-export interface BookAuthorTable<Version extends 'realtime' | 'regular' = 'regular'> {
-  id: Regularize<ColumnType<number, number, never>, Version>;
-  bookId: Regularize<ColumnType<number, number, number>, Version>;
-  authorId: Regularize<ColumnType<number, number, number>, Version>;
-  createdAt: Regularize<ColumnType<number, number, number>, Version>;
-  updatedAt: Regularize<ColumnType<number, number, number>, Version>;
-  deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
-}
-
 export interface BookSeriesTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   bookId: Regularize<ColumnType<number, number, number>, Version>;
@@ -97,12 +81,13 @@ export interface BookSeriesTable<Version extends 'realtime' | 'regular' = 'regul
 export interface BookContributorTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   bookId: Regularize<ColumnType<number, number, number>, Version>;
+  contributorId: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
   name: Regularize<ColumnType<string, string, string>, Version>;
   role: Regularize<
     ColumnType<
-      'narrator' | 'editor' | 'illustrator' | 'translator',
-      'narrator' | 'editor' | 'illustrator' | 'translator',
-      'narrator' | 'editor' | 'illustrator' | 'translator'
+      'author' | 'narrator' | 'editor' | 'translator' | 'foreword',
+      'author' | 'narrator' | 'editor' | 'translator' | 'foreword',
+      'author' | 'narrator' | 'editor' | 'translator' | 'foreword'
     >,
     Version
   >;
@@ -115,7 +100,7 @@ export interface BookContributorFTSTable<Version extends 'realtime' | 'regular' 
   rowid: Regularize<ColumnType<number, never, never>, Version>;
   name: Regularize<ColumnType<string, never, never>, Version>;
   role: Regularize<
-    ColumnType<'narrator' | 'editor' | 'illustrator' | 'translator', never, never>,
+    ColumnType<'author' | 'narrator' | 'editor' | 'translator' | 'foreword', never, never>,
     Version
   >;
   rank: Regularize<ColumnType<number, never, never>, Version>;
@@ -191,13 +176,11 @@ export interface LatestPlaybackPositionTable<Version extends 'realtime' | 'regul
 
 export interface InstanceDatabase<Version extends 'realtime' | 'regular' = 'regular'> {
   library: LibraryTable<Version>;
-  author: AuthorTable<Version>;
-  authorFTS: AuthorFTSTable<Version>;
+  contributor: ContributorTable<Version>;
   series: SeriesTable<Version>;
   seriesFTS: SeriesFTSTable<Version>;
   book: BookTable<Version>;
   bookFTS: BookFTSTable<Version>;
-  bookAuthor: BookAuthorTable<Version>;
   bookSeries: BookSeriesTable<Version>;
   bookContributor: BookContributorTable<Version>;
   bookContributorFTS: BookContributorFTSTable<Version>;

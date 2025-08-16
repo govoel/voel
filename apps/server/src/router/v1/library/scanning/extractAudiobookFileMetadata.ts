@@ -1,7 +1,8 @@
-import { FsExtended } from '../fsExtended';
-import { Hash } from '../hash';
 import { Path } from '@effect/platform';
 import { Effect, Either, Option, ParseResult } from 'effect';
+
+import { FsExtended } from '@/router/v1/library/fsExtended';
+import { Hash } from '@/router/v1/library/hash';
 
 const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   for (const tagValue of possibleTags) {
