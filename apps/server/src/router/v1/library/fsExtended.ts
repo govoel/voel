@@ -146,12 +146,18 @@ export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
             .json() as Promise<unknown>,
         catch: (error) => {
           if (error instanceof $.ShellError) {
-            if (Schema.is(FFProbeStdoutErrorSchema)(error.stdout)) {
-              return new FFProbeKnownError({
-                exitCode: error.exitCode,
-                errorCode: error.stdout.error.code,
-                message: error.stdout.error.message,
-              });
+            try {
+              const errorJSON = error.json();
+              if (Schema.is(FFProbeStdoutErrorSchema)(errorJSON)) {
+                return new FFProbeKnownError({
+                  exitCode: error.exitCode,
+                  errorCode: errorJSON.error.code,
+                  message: errorJSON.error.message,
+                });
+              }
+            } catch {
+              // ignore that errorJSON can throw SyntaxError,
+              // we silently fall through to FFProbeUnknownError
             }
             return new FFProbeUnknownError({
               exitCode: error.exitCode,

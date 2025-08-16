@@ -193,11 +193,7 @@ const processSearchResults = Effect.fn(
     return Option.none();
   },
   (effect, { filterParams }) =>
-    effect.pipe(
-      Effect.annotateLogs({
-        ...filterParams,
-      })
-    )
+    effect.pipe(Effect.annotateLogs({ title: filterParams.title, artist: filterParams.artist }))
 );
 
 const getAndProcessSearchResults = Effect.fn(function* ({
