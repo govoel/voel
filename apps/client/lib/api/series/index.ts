@@ -216,32 +216,23 @@ const listBooks = {
           )
           .with('authorsArray', (eb) =>
             eb
-              .selectFrom('bookAuthor')
-              .where('bookAuthor.deletedAt', 'is', null)
+              .selectFrom('bookContributor')
+              .where('bookContributor.deletedAt', 'is', null)
+              .where('bookContributor.role', '=', 'author')
               .innerJoin('searchSeries', (join) =>
-                join.onRef('bookAuthor.bookId', '=', 'searchSeries.bookId')
-              )
-              .innerJoin('author', (join) =>
-                join
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-                  .on('author.deletedAt', 'is', null)
+                join.onRef('bookContributor.bookId', '=', 'searchSeries.bookId')
               )
               .select((eb) => [
-                'bookAuthor.bookId',
+                'bookContributor.bookId',
                 'searchSeries.label',
                 'searchSeries.sort',
                 eb.fn
                   .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                    ]),
+                    eb.fn<string>('json_object', [eb.val('name'), 'bookContributor.name']),
                   ])
                   .as('authors'),
               ])
-              .groupBy('bookAuthor.bookId')
+              .groupBy('bookContributor.bookId')
           )
           .with('audiobookFileDurations', (eb) =>
             eb
@@ -301,8 +292,8 @@ const listBooks = {
           },
           authors: result.authors
             ? (JSON.parse(result.authors) as Pick<
-                Selectable<InstanceDatabase['author']>,
-                'id' | 'name'
+                Selectable<InstanceDatabase['bookContributor']>,
+                'name'
               >[])
             : [],
         }));

@@ -9,7 +9,7 @@ export interface LibraryTable {
   deletedAt: ColumnType<number | null, never, number | null>;
 }
 
-export interface AuthorTable {
+export interface ContributorTable {
   id: ColumnType<number, never, never>;
   asin: string;
   name: string;
@@ -47,15 +47,6 @@ export interface BookTable {
   deletedAt: ColumnType<number | null, never, number | null>;
 }
 
-export interface BookAuthorTable {
-  id: ColumnType<number, never, never>;
-  bookId: number;
-  authorId: number;
-  createdAt: ColumnType<number, never, never>;
-  updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number | null>;
-}
-
 export interface BookSeriesTable {
   id: ColumnType<number, never, never>;
   bookId: number;
@@ -70,8 +61,9 @@ export interface BookSeriesTable {
 export interface BookContributorTable {
   id: ColumnType<number, never, never>;
   bookId: number;
+  contributorId: number | null;
   name: string;
-  role: 'narrator' | 'editor' | 'illustrator' | 'translator';
+  role: 'author' | 'narrator' | 'editor' | 'translator' | 'foreword';
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
   deletedAt: ColumnType<number | null, never, number | null>;
@@ -144,10 +136,9 @@ export interface SQLiteSequenceTable {
 
 export interface DatabaseSchema {
   library: LibraryTable;
-  author: AuthorTable;
+  contributor: ContributorTable;
   series: SeriesTable;
   book: BookTable;
-  bookAuthor: BookAuthorTable;
   bookSeries: BookSeriesTable;
   bookContributor: BookContributorTable;
   audiobookChapter: AudiobookChapterTable;

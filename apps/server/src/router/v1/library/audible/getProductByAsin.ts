@@ -1,7 +1,8 @@
-import type { Turndown } from './turndown';
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import type { RequestError, ResponseError } from '@effect/platform/HttpClientError';
 import { Effect, ParseResult, Request, RequestResolver, Schema } from 'effect';
+
+import type { Turndown } from '@/router/v1/library/audible/turndown';
 
 import { env } from '@/env';
 
@@ -15,9 +16,22 @@ export const ProductBookRelationshipSeriesSchema = Schema.Struct({
   sort: Schema.Union(Schema.NumberFromString, Schema.Number),
 });
 
+const ProductBookRelationshipPartOfBundleSchema = Schema.Struct({
+  asin: Schema.String,
+  content_delivery_type: Schema.Literal('Bundle'),
+  relationship_type: Schema.Literal('component'),
+  relationship_to_product: Schema.Literal('parent'),
+  title: Schema.String,
+  sort: Schema.Union(Schema.NumberFromString, Schema.Number),
+});
+
 const SinglePartBook = Schema.Struct({
   content_delivery_type: Schema.Literal('SinglePartBook'),
-  relationships: Schema.optional(Schema.Array(ProductBookRelationshipSeriesSchema)),
+  relationships: Schema.optional(
+    Schema.Array(
+      Schema.Union(ProductBookRelationshipSeriesSchema, ProductBookRelationshipPartOfBundleSchema)
+    )
+  ),
 });
 
 const MultiPartBook = Schema.Struct({
@@ -26,6 +40,7 @@ const MultiPartBook = Schema.Struct({
     Schema.Array(
       Schema.Union(
         ProductBookRelationshipSeriesSchema,
+        ProductBookRelationshipPartOfBundleSchema,
         Schema.Struct({
           asin: Schema.String,
           relationship_type: Schema.Literal('component'),
@@ -37,23 +52,110 @@ const MultiPartBook = Schema.Struct({
   ),
 });
 
-export const ProductBookSchema = Schema.extend(
+const ContributorsSchemaIn = Schema.Struct({
+  authors: Schema.Array(
+    Schema.Struct({
+      asin: Schema.optional(Schema.String),
+      name: Schema.String,
+    })
+  ),
+
+  narrators: Schema.Array(
+    Schema.Struct({
+      asin: Schema.optional(Schema.String),
+      name: Schema.String,
+    })
+  ),
+});
+
+const ContributorsSchemaOut = Schema.Struct({
+  // TODO: manually matched books will have "corrections", which will be
+  // merged with the api response before/after being parsed (after because
+  // some corrections may not be able to be correctly merged in *before* parsing,
+  // unless all transformations have encode functions)
+  contributors: Schema.Array(
+    Schema.Struct({
+      asin: Schema.optional(Schema.String),
+      name: Schema.String,
+      role: Schema.Union(
+        Schema.Literal('author'),
+        Schema.Literal('narrator'),
+        Schema.Literal('translator'),
+        Schema.Literal('editor'),
+        Schema.Literal('foreword')
+      ),
+    })
+  ),
+});
+
+const translatorRegex = /\s*-\s*(?:translated by|translator)$/i;
+const editorRegex = /\s*-\s*(?:edited by|editor|edited)$/i;
+const forewordRegex = /\s*-\s*foreword by$/i;
+
+const ContributorsSchema = Schema.transformOrFail(ContributorsSchemaIn, ContributorsSchemaOut, {
+  strict: true,
+  decode: (input, _, ast) => {
+    const translators: { asin: string | undefined; name: string; role: 'translator' }[] = [];
+    const editors: { asin: string | undefined; name: string; role: 'editor' }[] = [];
+    const forewords: { asin: string | undefined; name: string; role: 'foreword' }[] = [];
+    const authors: { asin: string | undefined; name: string; role: 'author' }[] = [];
+
+    for (const author of input.authors) {
+      if (translatorRegex.test(author.name)) {
+        translators.push({
+          asin: author.asin,
+          name: author.name.replace(translatorRegex, ''),
+          role: 'translator',
+        });
+      } else if (editorRegex.test(author.name)) {
+        editors.push({
+          asin: author.asin,
+          name: author.name.replace(editorRegex, ''),
+          role: 'editor',
+        });
+      } else if (forewordRegex.test(author.name)) {
+        forewords.push({
+          asin: author.asin,
+          name: author.name.replace(forewordRegex, ''),
+          role: 'foreword',
+        });
+      } else {
+        authors.push({ asin: author.asin, name: author.name, role: 'author' });
+      }
+    }
+
+    const contributors = [
+      authors,
+      editors,
+      translators,
+      forewords,
+      input.narrators.map((narrator) => ({
+        asin: narrator.asin,
+        name: narrator.name,
+        role: 'narrator' as const,
+      })),
+    ].flat();
+
+    if (contributors.length === 0) {
+      return ParseResult.fail(new ParseResult.Type(ast, input, 'No contributors found'));
+    }
+
+    return ParseResult.succeed({
+      contributors,
+    });
+  },
+  encode: (input, _, ast) =>
+    ParseResult.fail(
+      new ParseResult.Forbidden(ast, input, 'Cannot encode back to response from Audible API.')
+    ),
+});
+
+const ProductBookSchemaNoTransforms = Schema.extend(
   Schema.Struct({
     asin: Schema.String,
     format_type: Schema.Union(Schema.Literal('abridged'), Schema.Literal('unabridged')),
     is_adult_product: Schema.Boolean,
 
-    authors: Schema.Array(
-      Schema.Struct({
-        asin: Schema.optional(Schema.String),
-        name: Schema.String,
-      })
-    ),
-    narrators: Schema.Array(
-      Schema.Struct({
-        name: Schema.String,
-      })
-    ),
     series: Schema.optional(
       Schema.Array(
         Schema.Struct({
@@ -71,30 +173,49 @@ export const ProductBookSchema = Schema.extend(
       '500': Schema.String,
     }),
 
-    publisher_summary: Schema.NonEmptyString,
+    publisher_summary_md: Schema.optional(Schema.String),
   }),
   Schema.Union(SinglePartBook, MultiPartBook)
 );
 
+export const ProductBookSchema = Schema.extend(
+  ProductBookSchemaNoTransforms,
+  ContributorsSchemaOut
+);
+
 // TODO: Write test to confirm book's summary gets converted to markdown
 const makeMarkdownProductBookSchema = (turndown: Turndown) =>
-  Schema.transformOrFail(ProductBookSchema, ProductBookSchema, {
-    strict: false,
-    decode: (input) =>
-      turndown.toMarkdown(input.publisher_summary).pipe(
-        Effect.tapError(() =>
-          Effect.logWarning(
-            'Failed to convert book summary to markdown, falling back to omit summary'
+  // you can't do `Schema.transformOrFail(ProductBookSchema, ProductBookSchema ...`
+  // because that would result in the `AuthorsSchema` transformation running twice,
+  // causing translators and editors to always be an empty array
+  Schema.transformOrFail(
+    ProductBookSchemaNoTransforms.pipe(
+      Schema.omit('publisher_summary_md'),
+      Schema.extend(Schema.Struct({ publisher_summary: Schema.String })),
+      Schema.extend(ContributorsSchema)
+    ),
+    ProductBookSchema,
+    {
+      strict: true,
+      decode: (input) =>
+        turndown.toMarkdown(input.publisher_summary).pipe(
+          Effect.tapError(() =>
+            Effect.logWarning(
+              'Failed to convert book summary to markdown, falling back to omit summary'
+            )
+          ),
+          Effect.catchAll(() => Effect.succeed(undefined)),
+          Effect.map(
+            (summary) =>
+              ({ ...input, publisher_summary_md: summary }) as typeof ProductBookSchema.Type
           )
         ),
-        Effect.catchAll(() => Effect.succeed(undefined)),
-        Effect.map((summary) => ({ ...input, publisher_summary: summary }))
-      ),
-    encode: (input, _, ast) =>
-      ParseResult.fail(
-        new ParseResult.Forbidden(ast, input, 'Cannot encode back to response from Audible API.')
-      ),
-  });
+      encode: (input, _, ast) =>
+        ParseResult.fail(
+          new ParseResult.Forbidden(ast, input, 'Cannot encode back to response from Audible API.')
+        ),
+    }
+  );
 
 export const ProductSeriesSchema = Schema.Struct({
   content_delivery_type: Schema.Literal('BookSeries'),
@@ -121,32 +242,39 @@ export const ProductSeriesSchema = Schema.Struct({
   title: Schema.NonEmptyString,
 
   // not all series provide a summary
-  publisher_summary: Schema.optional(Schema.String),
+  publisher_summary_md: Schema.optional(Schema.String),
 });
 
 // TODO: Write test to confirm series' summary gets converted to markdown
 const makeMarkdownProductSeriesSchema = (turndown: Turndown) =>
-  Schema.transformOrFail(ProductSeriesSchema, ProductSeriesSchema, {
-    strict: false,
-    decode: (input) =>
-      Effect.if(typeof input.publisher_summary === 'string', {
-        onTrue: () =>
-          turndown.toMarkdown(input.publisher_summary!).pipe(
-            Effect.tapError(() =>
-              Effect.logWarning(
-                'Failed to convert series summary to markdown, falling back to omit summary'
-              )
+  Schema.transformOrFail(
+    ProductSeriesSchema.pipe(
+      Schema.omit('publisher_summary_md'),
+      Schema.extend(Schema.Struct({ publisher_summary: Schema.optional(Schema.String) }))
+    ),
+    ProductSeriesSchema,
+    {
+      strict: true,
+      decode: (input) =>
+        Effect.if(typeof input.publisher_summary === 'string', {
+          onTrue: () =>
+            turndown.toMarkdown(input.publisher_summary!).pipe(
+              Effect.tapError(() =>
+                Effect.logWarning(
+                  'Failed to convert series summary to markdown, falling back to omit summary'
+                )
+              ),
+              Effect.catchAll(() => Effect.succeed(undefined)),
+              Effect.map((summary) => ({ ...input, publisher_summary_md: summary }))
             ),
-            Effect.catchAll(() => Effect.succeed(undefined)),
-            Effect.map((summary) => ({ ...input, publisher_summary: summary }))
-          ),
-        onFalse: () => Effect.succeed(input),
-      }),
-    encode: (input, _, ast) =>
-      ParseResult.fail(
-        new ParseResult.Forbidden(ast, input, 'Cannot encode back to response from Audible API.')
-      ),
-  });
+          onFalse: () => Effect.succeed(input),
+        }),
+      encode: (input, _, ast) =>
+        ParseResult.fail(
+          new ParseResult.Forbidden(ast, input, 'Cannot encode back to response from Audible API.')
+        ),
+    }
+  );
 
 const makeProductResponseSchema = (turndown: Turndown) =>
   Schema.Struct({

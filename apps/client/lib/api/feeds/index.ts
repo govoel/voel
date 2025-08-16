@@ -32,25 +32,21 @@ const getAvailableOffline = {
           )
           .with('authorsArray', (eb) =>
             eb
-              .selectFrom('bookAuthor')
+              .selectFrom('bookContributor')
+              // we don't filter by deletedAt or role on purpose to show books that are truly available offline
+              .where('bookContributor.role', '=', 'author')
               .innerJoin('downloadedAudiobookFiles', (join) =>
-                join.onRef('bookAuthor.bookId', '=', 'downloadedAudiobookFiles.bookId')
+                join.onRef('bookContributor.bookId', '=', 'downloadedAudiobookFiles.bookId')
               )
-              .innerJoin('author', (join) => join.onRef('author.id', '=', 'bookAuthor.authorId'))
               .select((eb) => [
-                'bookAuthor.bookId',
+                'bookContributor.bookId',
                 eb.fn
                   .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                    ]),
+                    eb.fn<string>('json_object', [eb.val('name'), 'bookContributor.name']),
                   ])
                   .as('authors'),
               ])
-              .groupBy('bookAuthor.bookId')
+              .groupBy('bookContributor.bookId')
           )
           .with('audiobookFileDurations', (eb) =>
             eb
@@ -100,8 +96,8 @@ const getAvailableOffline = {
           },
           authors: result.authors
             ? (JSON.parse(result.authors) as Pick<
-                Selectable<InstanceDatabase['author']>,
-                'id' | 'name' | 'avatar' | 'avatarThumbhash' | 'deletedAt'
+                Selectable<InstanceDatabase['bookContributor']>,
+                'name'
               >[])
             : [],
         }));
@@ -124,30 +120,21 @@ const getContinueListening = {
         let query = instanceDb
           .with('authorsArray', (eb) =>
             eb
-              .selectFrom('bookAuthor')
-              .where('bookAuthor.deletedAt', 'is', null)
+              .selectFrom('bookContributor')
+              .where('bookContributor.deletedAt', 'is', null)
+              .where('bookContributor.role', '=', 'author')
               .innerJoin('latestPlaybackPosition', (join) =>
-                join.onRef('bookAuthor.bookId', '=', 'latestPlaybackPosition.bookId')
-              )
-              .innerJoin('author', (join) =>
-                join
-                  .onRef('author.id', '=', 'bookAuthor.authorId')
-                  .on('author.deletedAt', 'is', null)
+                join.onRef('bookContributor.bookId', '=', 'latestPlaybackPosition.bookId')
               )
               .select((eb) => [
-                'bookAuthor.bookId',
+                'bookContributor.bookId',
                 eb.fn
                   .agg<string>('json_group_array', [
-                    eb.fn<string>('json_object', [
-                      eb.val('id'),
-                      'author.id',
-                      eb.val('name'),
-                      'author.name',
-                    ]),
+                    eb.fn<string>('json_object', [eb.val('name'), 'bookContributor.name']),
                   ])
                   .as('authors'),
               ])
-              .groupBy('bookAuthor.bookId')
+              .groupBy('bookContributor.bookId')
           )
           .with('audiobookFileDurations', (eb) =>
             eb
@@ -201,8 +188,8 @@ const getContinueListening = {
             eventTimestampMs: number;
           },
           authors: (result.authors ? JSON.parse(result.authors) : []) as Pick<
-            Selectable<InstanceDatabase['author']>,
-            'id' | 'name'
+            Selectable<InstanceDatabase['bookContributor']>,
+            'name'
           >[],
         }));
       },

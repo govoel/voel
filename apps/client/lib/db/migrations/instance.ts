@@ -39,7 +39,7 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
-                .createTable('author')
+                .createTable('contributor')
                 .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
                 .addColumn('asin', 'text', (col) => col.notNull())
                 .addColumn('name', 'text', (col) => col.notNull())
@@ -57,59 +57,22 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
-                .createIndex('author_asin_index')
-                .on('author')
+                .createIndex('contributor_asin_index')
+                .on('contributor')
                 .columns(['asin'])
                 .execute();
 
               await trx.schema
-                .createIndex('author_updatedAt_index')
-                .on('author')
+                .createIndex('contributor_updatedAt_index')
+                .on('contributor')
                 .columns(['updatedAt'])
                 .execute();
 
               await trx.schema
-                .createIndex('author_deletedAt_index')
-                .on('author')
+                .createIndex('contributor_deletedAt_index')
+                .on('contributor')
                 .columns(['deletedAt'])
                 .execute();
-
-              await sql`CREATE VIRTUAL TABLE authorFTS USING fts5(
-                          name, about,
-                          content=author, content_rowid=id, tokenize=trigram
-                        );`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS authorFTS_insert AFTER INSERT ON author FOR EACH ROW WHEN NEW.deletedAt IS NULL
-                        BEGIN
-                          INSERT INTO authorFTS(rowid, name, about)
-                            VALUES(NEW.id, NEW.name, NEW.about);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS authorFTS_soft_delete AFTER UPDATE OF deletedAt ON author FOR EACH ROW WHEN OLD.deletedAt IS NULL AND NEW.deletedAt IS NOT NULL
-                        BEGIN
-                          INSERT INTO authorFTS(authorFTS, rowid, name, about)
-                            VALUES('delete', OLD.id, OLD.name, OLD.about);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS authorFTS_update AFTER UPDATE OF name, about ON author FOR EACH ROW WHEN OLD.deletedAt IS NULL AND NEW.deletedAt IS NULL
-                        BEGIN
-                          INSERT INTO authorFTS(authorFTS, rowid, name, about)
-                            VALUES('delete', OLD.id, OLD.name, OLD.about);
-                          INSERT INTO authorFTS(rowid, name, about)
-                            VALUES(NEW.id, NEW.name, NEW.about);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS authorFTS_restore AFTER UPDATE OF deletedAt ON author FOR EACH ROW WHEN OLD.deletedAt IS NOT NULL AND NEW.deletedAt IS NULL
-                        BEGIN
-                          INSERT INTO authorFTS(rowid, name, about)
-                            VALUES(NEW.id, NEW.name, NEW.about);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS authorFTS_delete AFTER DELETE ON author FOR EACH ROW
-                        BEGIN
-                          INSERT INTO authorFTS(authorFTS, rowid, name, about)
-                            VALUES('delete', OLD.id, OLD.name, OLD.about);
-                        END;`.execute(trx);
 
               await trx.schema
                 .createTable('series')
@@ -287,49 +250,6 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                         END;`.execute(trx);
 
               await trx.schema
-                .createTable('bookAuthor')
-                .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
-                .addColumn('bookId', 'integer', (col) =>
-                  col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
-                )
-                .addColumn('authorId', 'integer', (col) =>
-                  col.notNull().references('author.id').onDelete('cascade').onUpdate('cascade')
-                )
-                .addColumn('createdAt', 'integer', (col) =>
-                  col.defaultTo(sql`(unixepoch())`).notNull()
-                )
-                .addColumn('updatedAt', 'integer', (col) =>
-                  col.defaultTo(sql`(unixepoch())`).notNull()
-                )
-                .addColumn('deletedAt', 'integer')
-                .modifyEnd(sql`STRICT`)
-                .execute();
-
-              await trx.schema
-                .createIndex('bookAuthor_bookId_index')
-                .on('bookAuthor')
-                .columns(['bookId'])
-                .execute();
-
-              await trx.schema
-                .createIndex('bookAuthor_authorId_index')
-                .on('bookAuthor')
-                .columns(['authorId'])
-                .execute();
-
-              await trx.schema
-                .createIndex('bookAuthor_updatedAt_index')
-                .on('bookAuthor')
-                .columns(['updatedAt'])
-                .execute();
-
-              await trx.schema
-                .createIndex('bookAuthor_deletedAt_index')
-                .on('bookAuthor')
-                .columns(['deletedAt'])
-                .execute();
-
-              await trx.schema
                 .createTable('bookSeries')
                 .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
                 .addColumn('bookId', 'integer', (col) =>
@@ -386,11 +306,14 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .addColumn('bookId', 'integer', (col) =>
                   col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
                 )
+                .addColumn('contributorId', 'integer', (col) =>
+                  col.references('contributor.id').onDelete('cascade').onUpdate('cascade')
+                )
                 .addColumn('name', 'text', (col) => col.notNull())
                 .addColumn('role', 'text', (col) =>
                   col
                     .notNull()
-                    .check(sql`role in ('narrator', 'editor', 'illustrator', 'translator')`)
+                    .check(sql`role in ('author', 'narrator', 'editor', 'translator', 'foreword')`)
                 )
                 .addColumn('createdAt', 'integer', (col) =>
                   col.defaultTo(sql`(unixepoch())`).notNull()
@@ -406,6 +329,13 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .createIndex('bookContributor_bookId_index')
                 .on('bookContributor')
                 .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('bookContributor_contributorId_index')
+                .ifNotExists()
+                .on('bookContributor')
+                .columns(['contributorId'])
                 .execute();
 
               await trx.schema

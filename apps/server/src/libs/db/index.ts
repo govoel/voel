@@ -13,10 +13,9 @@ export const bunDb = new Database(env.DATABASE_PATH);
 export const sourceTap = new SourceTap<DatabaseSchema>({
   trackTables: new Set([
     'library',
-    'author',
+    'contributor',
     'series',
     'book',
-    'bookAuthor',
     'bookSeries',
     'bookContributor',
     'audiobookChapter',

@@ -1,7 +1,8 @@
-import { Audible, BookSearchResponseSchema, ProductBookSchema } from '../audible';
-import type { GetBooksBySearchRequest } from '../audible/getBooksBySearch';
 import { Path } from '@effect/platform';
 import { Effect, Option, Schema } from 'effect';
+
+import { Audible, BookSearchResponseSchema, ProductBookSchema } from '@/router/v1/library/audible';
+import type { GetBooksBySearchRequest } from '@/router/v1/library/audible/getBooksBySearch';
 
 const openingBrackets = new Set(['(', '[', '{']);
 const closingBrackets = new Set([')', ']', '}']);
@@ -151,7 +152,7 @@ const processSearchResults = Effect.fn(function* ({
     if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
       return Option.some(fullProduct.value);
     } else {
-      yield* Effect.logDebug("Single search result's ASIN is not a book");
+      yield* Effect.logDebug("Single search result's ASIN is not a valid book");
       return Option.none();
     }
   }
@@ -176,7 +177,7 @@ const processSearchResults = Effect.fn(function* ({
         if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
           return Option.some(fullProduct.value);
         } else {
-          yield* Effect.logDebug("Single search result's ASIN after filtering is not a book");
+          yield* Effect.logDebug("Single search result's ASIN after filtering is not a valid book");
         }
       } else if (filteredBooks.length > 1) {
         yield* Effect.logDebug('Multiple books found after filtering');
@@ -413,7 +414,7 @@ export const matchAudiobook = (book: {
           return Option.some(product.value);
         } else {
           yield* Effect.logDebug(
-            `Fetched product was not a book, continuing search`,
+            `Fetched product was not a valid book, continuing search`,
             product.value
           );
         }

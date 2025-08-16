@@ -53,6 +53,11 @@ export default function BookScreen() {
 
   const { data, error, refetch } = api.books.get.useQuery(parseInt(bookId, 10));
 
+  const authors = useMemo(() => {
+    if (!data) return [];
+    return data.contributors.filter((a) => a.role === 'author');
+  }, [data]);
+
   return (
     <>
       <Stack.Screen options={{ headerTitle: 'Book' }} />
@@ -91,12 +96,12 @@ export default function BookScreen() {
                 book={{
                   id: data.id,
                   title: data.title,
-                  authors: data.authors.map((a) => a.name).join(', '),
+                  authors: authors.map((a) => a.name).join(', '),
                 }}
                 files={data.files}
               />
-              <PlaybackHistory book={data} />
-              <BookPlayButton book={data} />
+              <PlaybackHistory book={{ ...data, authors }} />
+              <BookPlayButton book={{ ...data, authors }} />
             </View>
 
             <View className="flex flex-row flex-wrap gap-2 items-center pt-4">
@@ -106,26 +111,7 @@ export default function BookScreen() {
               </Badge>
             </View>
 
-            <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
-              <UserPen className="text-muted-foreground" size={20} />
-              <View className="flex flex-row flex-wrap gap-2 items-center">
-                {data.authors.map((author, index) => (
-                  <Link
-                    key={`author-${index}`}
-                    href={{
-                      pathname: '/author/[authorId]',
-                      params: { authorId: author.id },
-                    }}
-                    push
-                    asChild>
-                    <Badge variant="secondary">
-                      <Text>{author.name}</Text>
-                    </Badge>
-                  </Link>
-                ))}
-              </View>
-            </View>
-
+            <Contributors role="author" contributors={data.contributors} />
             <Contributors role="narrator" contributors={data.contributors} />
 
             {data.series.length > 0 ? (
@@ -174,7 +160,7 @@ export default function BookScreen() {
                   <Text className="font-semibold">Chapters</Text>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <BookChapters book={data} />
+                  <BookChapters book={{ ...data, authors }} />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -193,8 +179,12 @@ const Contributors = ({
   contributors,
   role,
 }: {
-  contributors: { role: 'narrator' | 'editor' | 'translator' | 'illustrator'; name: string }[];
-  role: 'narrator' | 'editor' | 'translator';
+  contributors: {
+    contributorId: number | null;
+    role: 'author' | 'narrator' | 'editor' | 'translator' | 'foreword';
+    name: string;
+  }[];
+  role: 'author' | 'narrator' | 'editor' | 'translator';
 }) => {
   const filteredContributors = useMemo(
     () => contributors.filter((contributor) => contributor.role === role),
@@ -205,58 +195,32 @@ const Contributors = ({
 
   return (
     <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
+      {role === 'author' && <UserPen className="text-muted-foreground" size={20} />}
       {role === 'narrator' && <MicVocal className="text-muted-foreground" size={20} />}
       {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
       {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
       <View className="flex flex-row flex-wrap gap-2 items-center">
-        {filteredContributors.map((contributor, index) => {
-          if (role === 'narrator') {
-            return (
-              <Link
-                key={`narrator-${index}`}
-                href={{
-                  pathname: '/narrator/[narratorName]',
-                  params: { narratorName: contributor.name },
-                }}
-                push
-                asChild>
-                <Badge variant="secondary">
-                  <Text>{contributor.name}</Text>
-                </Badge>
-              </Link>
-            );
-          } else if (role === 'editor') {
-            return (
-              <Link
-                key={`editor-${index}`}
-                href={{
-                  pathname: '/editor/[editorName]',
-                  params: { editorName: contributor.name },
-                }}
-                push
-                asChild>
-                <Badge variant="secondary">
-                  <Text>{contributor.name}</Text>
-                </Badge>
-              </Link>
-            );
-          } else if (role === 'translator') {
-            return (
-              <Link
-                key={`translator-${index}`}
-                href={{
-                  pathname: '/translator/[translatorName]',
-                  params: { translatorName: contributor.name },
-                }}
-                push
-                asChild>
-                <Badge variant="secondary">
-                  <Text>{contributor.name}</Text>
-                </Badge>
-              </Link>
-            );
-          }
-        })}
+        {filteredContributors.map((contributor, index) => (
+          <Link
+            key={`${role}-${index}`}
+            href={
+              contributor.contributorId
+                ? {
+                    pathname: '/contributor/id/[contributorId]',
+                    params: { contributorId: contributor.contributorId },
+                  }
+                : {
+                    pathname: '/contributor/name/[contributorName]',
+                    params: { contributorName: contributor.name },
+                  }
+            }
+            push
+            asChild>
+            <Badge variant="secondary">
+              <Text>{contributor.name}</Text>
+            </Badge>
+          </Link>
+        ))}
       </View>
     </View>
   );

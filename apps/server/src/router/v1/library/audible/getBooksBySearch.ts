@@ -2,23 +2,21 @@ import { HttpClient, HttpClientRequest } from '@effect/platform';
 import type { RequestError, ResponseError } from '@effect/platform/HttpClientError';
 import { Effect, ParseResult, Request, RequestResolver, Schema } from 'effect';
 
-import { ProductBookSchema } from '@/router/v1/library/audible/getProductByAsin';
-
 import { env } from '@/env';
 
 export const BookSearchResponseSchema = Schema.Struct({
   products: Schema.Array(
-    ProductBookSchema.pipe(
-      Schema.pick(
-        'asin',
-        'authors',
-        'narrators',
-        'title',
-        'subtitle',
-        'copyright',
-        'publisher_name'
-      )
-    )
+    Schema.Struct({
+      asin: Schema.String,
+
+      authors: Schema.Array(Schema.Struct({ name: Schema.String })),
+      narrators: Schema.Array(Schema.Struct({ name: Schema.String })),
+
+      title: Schema.NonEmptyString,
+      subtitle: Schema.optional(Schema.String),
+      copyright: Schema.String,
+      publisher_name: Schema.String,
+    })
   ),
 });
 

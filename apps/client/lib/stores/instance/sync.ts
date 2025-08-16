@@ -3,11 +3,10 @@ import type { Insertable, Kysely, Transaction } from 'kysely';
 import type {
   AudiobookChapterTable,
   AudiobookFileTable,
-  AuthorTable,
-  BookAuthorTable,
   BookContributorTable,
   BookSeriesTable,
   BookTable,
+  ContributorTable,
   EBookFileTable,
   InstanceDatabase,
   LibraryTable,
@@ -33,12 +32,12 @@ export const upsertLibrary = (
     )
     .execute();
 
-export const upsertAuthor = (
+export const upsertContributor = (
   db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<AuthorTable<'realtime'>>[]
+  rows: Insertable<ContributorTable<'realtime'>>[]
 ) =>
   (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('author')
+    .insertInto('contributor')
     .values(rows)
     .onConflict((oc) =>
       oc.columns(['id']).doUpdateSet({
@@ -91,24 +90,6 @@ export const upsertBook = (
         coverThumbhash: (eb) => eb.ref('excluded.coverThumbhash'),
         summary: (eb) => eb.ref('excluded.summary'),
         adultsOnly: (eb) => eb.ref('excluded.adultsOnly'),
-        createdAt: (eb) => eb.ref('excluded.createdAt'),
-        updatedAt: (eb) => eb.ref('excluded.updatedAt'),
-        deletedAt: (eb) => eb.ref('excluded.deletedAt'),
-      })
-    )
-    .execute();
-
-export const upsertBookAuthor = (
-  db: Kysely<InstanceDatabase<'regular'>>,
-  rows: Insertable<BookAuthorTable<'realtime'>>[]
-) =>
-  (db as unknown as Kysely<InstanceDatabase<'realtime'>>)
-    .insertInto('bookAuthor')
-    .values(rows)
-    .onConflict((oc) =>
-      oc.columns(['id']).doUpdateSet({
-        bookId: (eb) => eb.ref('excluded.bookId'),
-        authorId: (eb) => eb.ref('excluded.authorId'),
         createdAt: (eb) => eb.ref('excluded.createdAt'),
         updatedAt: (eb) => eb.ref('excluded.updatedAt'),
         deletedAt: (eb) => eb.ref('excluded.deletedAt'),
@@ -248,10 +229,9 @@ export const flushHistoryData = async (
   history: {
     rowCount: number;
     library: Insertable<LibraryTable<'realtime'>>[];
-    author: Insertable<AuthorTable<'realtime'>>[];
+    contributor: Insertable<ContributorTable<'realtime'>>[];
     series: Insertable<SeriesTable<'realtime'>>[];
     book: Insertable<BookTable<'realtime'>>[];
-    bookAuthor: Insertable<BookAuthorTable<'realtime'>>[];
     bookSeries: Insertable<BookSeriesTable<'realtime'>>[];
     bookContributor: Insertable<BookContributorTable<'realtime'>>[];
     audiobookFile: Insertable<AudiobookFileTable<'realtime'>>[];
@@ -263,17 +243,14 @@ export const flushHistoryData = async (
   if (history.library.length > 0) {
     await upsertLibrary(trx, history.library);
   }
-  if (history.author.length > 0) {
-    await upsertAuthor(trx, history.author);
+  if (history.contributor.length > 0) {
+    await upsertContributor(trx, history.contributor);
   }
   if (history.series.length > 0) {
     await upsertSeries(trx, history.series);
   }
   if (history.book.length > 0) {
     await upsertBook(trx, history.book);
-  }
-  if (history.bookAuthor.length > 0) {
-    await upsertBookAuthor(trx, history.bookAuthor);
   }
   if (history.bookSeries.length > 0) {
     await upsertBookSeries(trx, history.bookSeries);
@@ -294,10 +271,9 @@ export const flushHistoryData = async (
     await upsertPlaybackHistory(trx, history.playbackHistory);
   }
   history.library = [];
-  history.author = [];
+  history.contributor = [];
   history.series = [];
   history.book = [];
-  history.bookAuthor = [];
   history.bookSeries = [];
   history.bookContributor = [];
   history.audiobookFile = [];

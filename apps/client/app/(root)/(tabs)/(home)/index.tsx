@@ -44,140 +44,132 @@ export default function HomeScreen() {
     <>
       <Stack.Screen options={{ title: 'Home' }} />
       <FloatingPlayerDodgingScrollView>
-        {isAvailableOfflineLoading && isRecentlyAddedLoading && isContinueListeningLoading ? (
+        {!isContinueListeningLoading ? (
+          <>
+            <TitleWithRefetch
+              className="-ml-3 mb-2"
+              refetch={refetchContinueListening}
+              isFetching={isContinueListeningFetching}>
+              <Link href="/feed/continue-listening" asChild push>
+                <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
+                  <Large>Continue Listening</Large>
+                  <ChevronRight className="text-muted-foreground" size={18} />
+                </Button>
+              </Link>
+            </TitleWithRefetch>
+
+            {continueListening ? (
+              <BookList
+                direction="horizontal"
+                key="continue-listening"
+                books={continueListening}
+                className="mb-2"
+                emptyListMessage="You haven&rsquo;t listened to any books yet"
+              />
+            ) : continueListeningError ? (
+              <Card className="mb-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading books</Large>
+                  <Text className="text-muted-foreground">
+                    {continueListeningError.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button size="sm" className="w-full" onPress={() => refetchContinueListening()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : null}
+          </>
+        ) : null}
+
+        {!isRecentlyAddedLoading ? (
+          <>
+            <TitleWithRefetch
+              className="-ml-3 mb-2"
+              refetch={refetchRecentlyAdded}
+              isFetching={isRecentlyAddedFetching}>
+              <Link href="/feed/recently-added" asChild push>
+                <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
+                  <Large>Recently Added</Large>
+                  <ChevronRight className="text-muted-foreground" size={18} />
+                </Button>
+              </Link>
+            </TitleWithRefetch>
+
+            {recentlyAdded ? (
+              <BookList
+                direction="horizontal"
+                key="recently-added"
+                books={recentlyAdded}
+                className="mb-2"
+                onEndReached={fetchNextPageForRecentlyAdded}
+                isFetchingNextPage={isRecentlyAddedFetchingNextPage}
+              />
+            ) : recentlyAddedError ? (
+              <Card className="mb-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading books</Large>
+                  <Text className="text-muted-foreground">
+                    {recentlyAddedError.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button size="sm" className="w-full" onPress={() => refetchRecentlyAdded()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : null}
+          </>
+        ) : null}
+
+        {!isAvailableOfflineLoading ? (
+          <>
+            <TitleWithRefetch
+              className="-ml-3 mb-2"
+              refetch={refetchAvailableOffline}
+              isFetching={isAvailableOfflineFetching}>
+              <Link href="/feed/available-offline" asChild push>
+                <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
+                  <Large>Available Offline</Large>
+                  <ChevronRight className="text-muted-foreground" size={18} />
+                </Button>
+              </Link>
+            </TitleWithRefetch>
+
+            {availableOffline ? (
+              <BookList
+                direction="horizontal"
+                key="available-offline"
+                books={availableOffline}
+                className="mb-2"
+                emptyListMessage="You haven&rsquo;t downloaded any books yet"
+              />
+            ) : availableOfflineError ? (
+              <Card className="mb-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading books</Large>
+                  <Text className="text-muted-foreground">
+                    {availableOfflineError.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button size="sm" className="w-full" onPress={() => refetchAvailableOffline()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : null}
+          </>
+        ) : null}
+
+        {isAvailableOfflineLoading || isRecentlyAddedLoading || isContinueListeningLoading ? (
           <View className="p-12 justify-center items-center">
             <Spinner size={15} />
           </View>
-        ) : (
-          <>
-            {!isContinueListeningLoading ? (
-              <>
-                <TitleWithRefetch
-                  className="-ml-3 mb-2"
-                  refetch={refetchContinueListening}
-                  isFetching={isContinueListeningFetching}>
-                  <Link href="/feed/continue-listening" asChild push>
-                    <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
-                      <Large>Continue Listening</Large>
-                      <ChevronRight className="text-muted-foreground" size={18} />
-                    </Button>
-                  </Link>
-                </TitleWithRefetch>
-
-                {continueListening ? (
-                  <BookList
-                    direction="horizontal"
-                    key="continue-listening"
-                    books={continueListening}
-                    className="mb-2"
-                    emptyListMessage="You haven&rsquo;t listened to any books yet"
-                  />
-                ) : continueListeningError ? (
-                  <Card className="mb-4">
-                    <CardContent className="pt-4">
-                      <Large>Error loading books</Large>
-                      <Text className="text-muted-foreground">
-                        {continueListeningError.message || 'Unknown error'}
-                      </Text>
-                    </CardContent>
-                    <CardFooter>
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onPress={() => refetchContinueListening()}>
-                        <Text>Retry</Text>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ) : null}
-              </>
-            ) : null}
-
-            {!isRecentlyAddedLoading ? (
-              <>
-                <TitleWithRefetch
-                  className="-ml-3 mb-2"
-                  refetch={refetchRecentlyAdded}
-                  isFetching={isRecentlyAddedFetching}>
-                  <Link href="/feed/recently-added" asChild push>
-                    <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
-                      <Large>Recently Added</Large>
-                      <ChevronRight className="text-muted-foreground" size={18} />
-                    </Button>
-                  </Link>
-                </TitleWithRefetch>
-
-                {recentlyAdded ? (
-                  <BookList
-                    direction="horizontal"
-                    key="recently-added"
-                    books={recentlyAdded}
-                    className="mb-2"
-                    onEndReached={fetchNextPageForRecentlyAdded}
-                    isFetchingNextPage={isRecentlyAddedFetchingNextPage}
-                  />
-                ) : recentlyAddedError ? (
-                  <Card className="mb-4">
-                    <CardContent className="pt-4">
-                      <Large>Error loading books</Large>
-                      <Text className="text-muted-foreground">
-                        {recentlyAddedError.message || 'Unknown error'}
-                      </Text>
-                    </CardContent>
-                    <CardFooter>
-                      <Button size="sm" className="w-full" onPress={() => refetchRecentlyAdded()}>
-                        <Text>Retry</Text>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ) : null}
-              </>
-            ) : null}
-
-            {!isAvailableOfflineLoading ? (
-              <>
-                <TitleWithRefetch
-                  className="-ml-3 mb-2"
-                  refetch={refetchAvailableOffline}
-                  isFetching={isAvailableOfflineFetching}>
-                  <Link href="/feed/available-offline" asChild push>
-                    <Button className="flex-row gap-x-1 pr-1" size="sm" variant="ghost">
-                      <Large>Available Offline</Large>
-                      <ChevronRight className="text-muted-foreground" size={18} />
-                    </Button>
-                  </Link>
-                </TitleWithRefetch>
-
-                {availableOffline ? (
-                  <BookList
-                    direction="horizontal"
-                    key="available-offline"
-                    books={availableOffline}
-                    className="mb-2"
-                    emptyListMessage="You haven&rsquo;t downloaded any books yet"
-                  />
-                ) : availableOfflineError ? (
-                  <Card className="mb-4">
-                    <CardContent className="pt-4">
-                      <Large>Error loading books</Large>
-                      <Text className="text-muted-foreground">
-                        {availableOfflineError.message || 'Unknown error'}
-                      </Text>
-                    </CardContent>
-                    <CardFooter>
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onPress={() => refetchAvailableOffline()}>
-                        <Text>Retry</Text>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ) : null}
-              </>
-            ) : null}
-          </>
-        )}
+        ) : null}
       </FloatingPlayerDodgingScrollView>
     </>
   );

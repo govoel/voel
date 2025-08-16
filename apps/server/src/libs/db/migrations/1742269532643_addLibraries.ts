@@ -33,7 +33,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
             END;`.execute(db);
 
   await db.schema
-    .createTable('author')
+    .createTable('contributor')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
     .addColumn('asin', 'text', (col) => col.unique().notNull())
@@ -48,22 +48,22 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('author_updatedAt_index')
+    .createIndex('contributor_updatedAt_index')
     .ifNotExists()
-    .on('author')
+    .on('contributor')
     .columns(['updatedAt'])
     .execute();
 
   await db.schema
-    .createIndex('author_deletedAt_index')
+    .createIndex('contributor_deletedAt_index')
     .ifNotExists()
-    .on('author')
+    .on('contributor')
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_author_updatedAt BEFORE UPDATE OF id, asin, name, about, avatar, deletedAt ON author FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_contributor_updatedAt BEFORE UPDATE OF id, asin, name, about, avatar, deletedAt ON contributor FOR EACH ROW
             BEGIN
-              UPDATE author SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
+              UPDATE contributor SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
 
   await db.schema
@@ -165,56 +165,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
             END;`.execute(db);
 
   await db.schema
-    .createTable('bookAuthor')
-    .ifNotExists()
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
-    .addColumn('bookId', 'integer', (col) =>
-      col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
-    )
-    .addColumn('authorId', 'integer', (col) =>
-      col.notNull().references('author.id').onDelete('cascade').onUpdate('cascade')
-    )
-    .addUniqueConstraint('bookAuthor_bookId_authorId_unique', ['bookId', 'authorId'])
-    .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
-    .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
-    .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`STRICT`)
-    .execute();
-
-  await db.schema
-    .createIndex('bookAuthor_bookId_index')
-    .ifNotExists()
-    .on('bookAuthor')
-    .columns(['bookId'])
-    .execute();
-
-  await db.schema
-    .createIndex('bookAuthor_authorId_index')
-    .ifNotExists()
-    .on('bookAuthor')
-    .columns(['authorId'])
-    .execute();
-
-  await db.schema
-    .createIndex('bookAuthor_updatedAt_index')
-    .ifNotExists()
-    .on('bookAuthor')
-    .columns(['updatedAt'])
-    .execute();
-
-  await db.schema
-    .createIndex('bookAuthor_deletedAt_index')
-    .ifNotExists()
-    .on('bookAuthor')
-    .columns(['deletedAt'])
-    .execute();
-
-  await sql`CREATE TRIGGER IF NOT EXISTS update_bookAuthor_updatedAt BEFORE UPDATE OF bookId, authorId, deletedAt ON bookAuthor FOR EACH ROW
-            BEGIN
-              UPDATE bookAuthor SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
-            END;`.execute(db);
-
-  await db.schema
     .createTable('bookSeries')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
@@ -280,11 +230,19 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('bookId', 'integer', (col) =>
       col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
     )
+    .addColumn('contributorId', 'integer', (col) =>
+      col.references('contributor.id').onDelete('cascade').onUpdate('cascade')
+    )
     .addColumn('name', 'text', (col) => col.notNull())
     .addColumn('role', 'text', (col) =>
-      col.notNull().check(sql`role in ('narrator', 'editor', 'illustrator', 'translator')`)
+      col.notNull().check(sql`role in ('author', 'narrator', 'editor', 'translator', 'foreword')`)
     )
-    .addUniqueConstraint('bookContributor_bookId_name_role_unique', ['bookId', 'name', 'role'])
+    .addUniqueConstraint('bookContributor_bookId_contributorId_name_role_unique', [
+      'bookId',
+      'contributorId',
+      'name',
+      'role',
+    ])
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -296,6 +254,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .ifNotExists()
     .on('bookContributor')
     .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('bookContributor_contributorId_index')
+    .ifNotExists()
+    .on('bookContributor')
+    .columns(['contributorId'])
     .execute();
 
   await db.schema
@@ -319,7 +284,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_bookContributor_updatedAt BEFORE UPDATE OF bookId, name, role, deletedAt ON bookContributor FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_bookContributor_updatedAt BEFORE UPDATE OF bookId, contributorId, name, role, deletedAt ON bookContributor FOR EACH ROW
             BEGIN
               UPDATE bookContributor SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
@@ -606,9 +571,8 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('audiobookFile').ifExists().execute();
   await db.schema.dropTable('bookContributor').ifExists().execute();
   await db.schema.dropTable('bookSeries').ifExists().execute();
-  await db.schema.dropTable('bookAuthor').ifExists().execute();
   await db.schema.dropTable('book').ifExists().execute();
   await db.schema.dropTable('series').ifExists().execute();
-  await db.schema.dropTable('author').ifExists().execute();
+  await db.schema.dropTable('contributor').ifExists().execute();
   await db.schema.dropTable('library').ifExists().execute();
 }

@@ -16,8 +16,9 @@ import { cn, getInitials } from '~/lib/utils';
 
 export type PersonListPerson = {
   id: number;
-  avatar?: string | null;
-  avatarThumbhash?: string | null;
+  contributorId: number | null;
+  avatar: string | null;
+  avatarThumbhash: string | null;
   name: string;
   bookCount: number;
 };
@@ -39,7 +40,7 @@ export function PersonList({
   ...props
 }: {
   people?: PersonListPerson[];
-  type: 'author' | 'editor' | 'narrator' | 'translator';
+  type: 'author' | 'editor' | 'narrator' | 'translator' | 'foreword';
   ref?: React.RefObject<FlashListRef<PersonListPerson> | null>;
   isFetchingNextPage?: boolean;
 } & (
@@ -72,25 +73,15 @@ export function PersonList({
           : ({ item, index }) => (
               <Link
                 href={
-                  type === 'author'
+                  item.contributorId
                     ? {
-                        pathname: '/author/[authorId]',
-                        params: { authorId: item.id },
+                        pathname: '/contributor/id/[contributorId]',
+                        params: { contributorId: item.contributorId },
                       }
-                    : type === 'editor'
-                      ? {
-                          pathname: '/editor/[editorName]',
-                          params: { editorName: item.name },
-                        }
-                      : type === 'narrator'
-                        ? {
-                            pathname: '/narrator/[narratorName]',
-                            params: { narratorName: item.name },
-                          }
-                        : {
-                            pathname: '/translator/[translatorName]',
-                            params: { translatorName: item.name },
-                          }
+                    : {
+                        pathname: '/contributor/name/[contributorName]',
+                        params: { contributorName: item.name },
+                      }
                 }
                 asChild
                 push
