@@ -24,19 +24,14 @@ export const getSeries = (book: typeof ProductBookSchema.Type) =>
           .pipe(Effect.option);
 
         if (Option.isNone(seriesFromAudible)) {
-          yield* Effect.logError('Could not fetch series, falling back to data from book', {
-            bookAsin: book.asin,
-            series,
-          });
+          yield* Effect.logDebug('Could not fetch series, falling back to data from book').pipe(
+            Effect.annotateLogs('seriesAsin', series.asin)
+          );
           sourceSeriesFromBook.push({ asin: series.asin, summary: undefined });
         } else if (!Schema.is(ProductSeriesSchema)(seriesFromAudible.value)) {
-          yield* Effect.logError(
-            'Fetched product was not a series, falling back to data from book',
-            {
-              bookAsin: book.asin,
-              series,
-            }
-          );
+          yield* Effect.logDebug(
+            'Fetched product was not a series, falling back to data from book'
+          ).pipe(Effect.annotateLogs('seriesAsin', series.asin));
           sourceSeriesFromBook.push({
             asin: series.asin,
             summary: undefined,
@@ -47,13 +42,9 @@ export const getSeries = (book: typeof ProductBookSchema.Type) =>
           );
 
           if (!seriesRelationship) {
-            yield* Effect.logError(
-              'No relationship to book found in series, falling back to data from book',
-              {
-                bookAsin: book.asin,
-                seriesAsin: seriesFromAudible.value.asin,
-              }
-            );
+            yield* Effect.logDebug(
+              'No relationship to book found in series, falling back to data from book'
+            ).pipe(Effect.annotateLogs('seriesAsin', series.asin));
             sourceSeriesFromBook.push({
               asin: series.asin,
               summary: seriesFromAudible.value.publisher_summary_md,
@@ -68,39 +59,36 @@ export const getSeries = (book: typeof ProductBookSchema.Type) =>
             });
           }
         }
+      }
 
-        if (sourceSeriesFromBook.length > 0) {
-          if (!book.relationships || book.relationships.length === 0) {
-            yield* Effect.logError('No relationships to any series found in book, ignoring book', {
-              bookAsin: book.asin,
-            });
+      if (sourceSeriesFromBook.length > 0) {
+        if (!book.relationships || book.relationships.length === 0) {
+          yield* Effect.logError('No relationships to any series found in book, ignoring book');
+          return Option.none();
+        }
+
+        for (const series of sourceSeriesFromBook) {
+          const fallbackSeriesRelationship = book.relationships.find(
+            (r) => r.asin === series.asin && r.relationship_type === 'series'
+          ) as typeof ProductBookRelationshipSeriesSchema.Type; // i don't know why the `as` is necessary... i tried lots of things, and nothing narrowed correctly
+
+          if (!fallbackSeriesRelationship) {
+            yield* Effect.logError('No relationship to series found in book, ignoring book').pipe(
+              Effect.annotateLogs('seriesAsin', series.asin)
+            );
             return Option.none();
           }
 
-          for (const series of sourceSeriesFromBook) {
-            const fallbackSeriesRelationship = book.relationships.find(
-              (r) => r.asin === series.asin && r.relationship_type === 'series'
-            ) as typeof ProductBookRelationshipSeriesSchema.Type; // i don't know why the `as` is necessary... i tried lots of things, and nothing narrowed correctly
-
-            if (!fallbackSeriesRelationship) {
-              yield* Effect.logError('No relationship to series found in book, ignoring book', {
-                bookAsin: book.asin,
-                seriesAsin: series.asin,
-              });
-              return Option.none();
-            }
-
-            seriesArr.push({
-              asin: series.asin,
-              name: fallbackSeriesRelationship.title,
-              summary: series.summary,
-              label: fallbackSeriesRelationship.sequence,
-              sort: fallbackSeriesRelationship.sort,
-            });
-          }
+          seriesArr.push({
+            asin: series.asin,
+            name: fallbackSeriesRelationship.title,
+            summary: series.summary,
+            label: fallbackSeriesRelationship.sequence,
+            sort: fallbackSeriesRelationship.sort,
+          });
         }
       }
     }
 
     return Option.some(seriesArr);
-  });
+  }).pipe(Effect.annotateLogs('bookAsin', book.asin));

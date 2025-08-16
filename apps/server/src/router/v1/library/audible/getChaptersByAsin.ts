@@ -68,19 +68,28 @@ export const GetChaptersByAsinResolver = (client: HttpClient.HttpClient) =>
       }),
       client.execute,
       Effect.tapErrorTag('RequestError', (error) =>
-        Effect.logError('An error occurred while requesting book chapters', error)
+        Effect.logError('An error occurred while requesting book chapters').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError('An error occurred while receiving book chapters', error)
+        Effect.logError('An error occurred while receiving book chapters').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.andThen((response) => response.json),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError("Book chapters couldn't be parsed as JSON", error)
+        Effect.logError("Book chapters couldn't be parsed as JSON").pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
       Effect.andThen(Schema.decodeUnknown(ChapterResponseSchema)),
       Effect.tapErrorTag('ParseError', (error) =>
-        Effect.logError('Book chapters were not in the expected shape', error.message)
+        Effect.logError('Book chapters were not in the expected shape').pipe(
+          Effect.annotateLogs('error', error.message)
+        )
       ),
-      Effect.map((response) => response.content_metadata.chapter_info)
+      Effect.map((response) => response.content_metadata.chapter_info),
+      Effect.annotateLogs('asin', asin)
     )
   );

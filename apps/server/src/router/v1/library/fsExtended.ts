@@ -61,7 +61,13 @@ const handleBadArgument = (method: string) => (cause: unknown) =>
     cause,
   });
 
-class BunShellError extends Data.TaggedError('BunShellError')<{
+class FFProbeKnownError extends Data.TaggedError('FFProbeKnownError')<{
+  exitCode: number;
+  errorCode: number;
+  message: string;
+}> {}
+
+class FFProbeUnknownError extends Data.TaggedError('FFProbeUnknownError')<{
   exitCode: number;
   stdout: Buffer<ArrayBufferLike>;
   stderr: Buffer<ArrayBufferLike>;
@@ -82,6 +88,13 @@ const FFProbeStdoutSchema = Schema.Struct({
     start_time: Schema.NumberFromString,
     duration: Schema.NumberFromString,
     tags: Schema.Record({ key: Schema.String, value: Schema.String }),
+  }),
+});
+
+const FFProbeStdoutErrorSchema = Schema.Struct({
+  error: Schema.Struct({
+    code: Schema.Union(Schema.NumberFromString, Schema.Number),
+    message: Schema.String,
   }),
 });
 
@@ -133,7 +146,14 @@ export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
             .json() as Promise<unknown>,
         catch: (error) => {
           if (error instanceof $.ShellError) {
-            return new BunShellError({
+            if (Schema.is(FFProbeStdoutErrorSchema)(error.stdout)) {
+              return new FFProbeKnownError({
+                exitCode: error.exitCode,
+                errorCode: error.stdout.error.code,
+                message: error.stdout.error.message,
+              });
+            }
+            return new FFProbeUnknownError({
               exitCode: error.exitCode,
               stdout: error.stdout,
               stderr: error.stderr,

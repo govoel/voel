@@ -125,70 +125,80 @@ const filterStrategies = filters.map((config) => ({
     }),
 }));
 
-const processSearchResults = Effect.fn(function* ({
-  audible,
-  results,
-  filterParams: { title, artist, metadata },
-}: {
-  audible: Audible;
-  results: Option.Option<(typeof BookSearchResponseSchema.Type)['products']>;
-  filterParams: {
-    title: string;
-    artist?: string;
-    metadata?: { publisher?: string; copyright?: string; narrator?: Set<string> };
-  };
-}) {
-  if (Option.isNone(results) || results.value.length === 0) {
-    yield* Effect.logDebug('No books found');
-    return Option.none();
-  }
-
-  if (results.value.length === 1) {
-    yield* Effect.logDebug('Single book found, attempting to fetch full product details');
-    const fullProduct = yield* audible
-      .getProductByAsin({ asin: results.value[0]!.asin })
-      .pipe(Effect.option);
-
-    if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
-      return Option.some(fullProduct.value);
-    } else {
-      yield* Effect.logDebug("Single search result's ASIN is not a valid book");
+const processSearchResults = Effect.fn(
+  function* ({
+    audible,
+    results,
+    filterParams: { title, artist, metadata },
+  }: {
+    audible: Audible;
+    results: Option.Option<(typeof BookSearchResponseSchema.Type)['products']>;
+    filterParams: {
+      title: string;
+      artist?: string;
+      metadata?: { publisher?: string; copyright?: string; narrator?: Set<string> };
+    };
+  }) {
+    if (Option.isNone(results) || results.value.length === 0) {
+      yield* Effect.logDebug('No books found');
       return Option.none();
     }
-  }
 
-  if (typeof artist === 'string') {
-    yield* Effect.logDebug('Multiple books found, attempting to filter them');
-    for (const filterStrategy of filterStrategies) {
-      const filteredBooks = results.value.filter((book) =>
-        filterStrategy.filter(book, title, artist, metadata)
-      );
+    if (results.value.length === 1) {
+      yield* Effect.logDebug('Single book found, attempting to fetch full product details');
+      const fullProduct = yield* audible
+        .getProductByAsin({ asin: results.value[0]!.asin })
+        .pipe(Effect.option);
 
-      if (filteredBooks.length === 1) {
-        yield* Effect.logDebug(
-          'Single book found after filtering, attempting to fetch full product details'
-        );
-        const fullProduct = yield* audible
-          .getProductByAsin({
-            asin: filteredBooks[0]!.asin,
-          })
-          .pipe(Effect.option);
-
-        if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
-          return Option.some(fullProduct.value);
-        } else {
-          yield* Effect.logDebug("Single search result's ASIN after filtering is not a valid book");
-        }
-      } else if (filteredBooks.length > 1) {
-        yield* Effect.logDebug('Multiple books found after filtering');
+      if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
+        return Option.some(fullProduct.value);
       } else {
-        yield* Effect.logDebug('No books found after filtering');
+        yield* Effect.logDebug("Single search result's ASIN is not a valid book");
+        return Option.none();
       }
     }
-  }
 
-  return Option.none();
-});
+    if (typeof artist === 'string') {
+      yield* Effect.logDebug('Multiple books found, attempting to filter them');
+      for (const filterStrategy of filterStrategies) {
+        const filteredBooks = results.value.filter((book) =>
+          filterStrategy.filter(book, title, artist, metadata)
+        );
+
+        if (filteredBooks.length === 1) {
+          yield* Effect.logDebug(
+            'Single book found after filtering, attempting to fetch full product details'
+          );
+          const fullProduct = yield* audible
+            .getProductByAsin({
+              asin: filteredBooks[0]!.asin,
+            })
+            .pipe(Effect.option);
+
+          if (Option.isSome(fullProduct) && Schema.is(ProductBookSchema)(fullProduct.value)) {
+            return Option.some(fullProduct.value);
+          } else {
+            yield* Effect.logDebug(
+              "Single search result's ASIN after filtering is not a valid book"
+            );
+          }
+        } else if (filteredBooks.length > 1) {
+          yield* Effect.logDebug('Multiple books found after filtering');
+        } else {
+          yield* Effect.logDebug('No books found after filtering');
+        }
+      }
+    }
+
+    return Option.none();
+  },
+  (effect, { filterParams }) =>
+    effect.pipe(
+      Effect.annotateLogs({
+        ...filterParams,
+      })
+    )
+);
 
 const getAndProcessSearchResults = Effect.fn(function* ({
   audible,
@@ -248,13 +258,7 @@ const searchStrategies = [
           return Option.none();
         }),
         onFalse: () => Effect.succeed(Option.none()),
-      }).pipe(
-        Effect.annotateLogs({
-          searchStrategy: 'Title + Author + Publisher',
-          title,
-          metadata,
-        })
-      ),
+      }).pipe(Effect.annotateLogs({ searchStrategy: 'Title + Author + Publisher' })),
   },
   {
     name: 'Title + Author',
@@ -292,14 +296,7 @@ const searchStrategies = [
 
         return Option.none();
       },
-      (effect, { title, metadata }) =>
-        effect.pipe(
-          Effect.annotateLogs({
-            searchStrategy: 'Title + Author',
-            title,
-            metadata,
-          })
-        )
+      (effect) => effect.pipe(Effect.annotateLogs({ searchStrategy: 'Title + Author' }))
     ),
   },
   {
@@ -342,14 +339,7 @@ const searchStrategies = [
 
         return Option.none();
       },
-      (effect, { title, metadata }) =>
-        effect.pipe(
-          Effect.annotateLogs({
-            searchStrategy: 'Title',
-            title,
-            metadata,
-          })
-        )
+      (effect) => effect.pipe(Effect.annotateLogs({ searchStrategy: 'Title' }))
     ),
   },
 ] as const;
@@ -404,18 +394,18 @@ export const matchAudiobook = (book: {
       ...metadata.artists.values().map((i) => removeEnclosingContent(i)),
     ]);
 
-    yield* Effect.logDebug('Attempting to find matches using ASIN metadata', metadata.asins);
     for (const asin of metadata.asins) {
       const product = yield* audible.getProductByAsin({ asin }).pipe(Effect.option);
 
       if (Option.isSome(product)) {
         if (Schema.is(ProductBookSchema)(product.value)) {
-          yield* Effect.logDebug(`Matched as ${product.value.asin}`, product.value);
+          yield* Effect.logDebug(`Matched as ${product.value.asin}`).pipe(
+            Effect.annotateLogs('metadataAsin', asin)
+          );
           return Option.some(product.value);
         } else {
-          yield* Effect.logDebug(
-            `Fetched product was not a valid book, continuing search`,
-            product.value
+          yield* Effect.logDebug('Fetched product was not a valid book, continuing search').pipe(
+            Effect.annotateLogs('metadataAsin', asin)
           );
         }
       }
@@ -433,9 +423,9 @@ export const matchAudiobook = (book: {
         if (Option.isSome(searchResult)) {
           return Option.some(searchResult.value);
         } else {
-          yield* Effect.logDebug('No book found', {
-            searchStrategy: searchStrategy.name,
-          });
+          yield* Effect.logDebug('No book found').pipe(
+            Effect.annotateLogs('searchStrategy', searchStrategy.name)
+          );
         }
       }
     }

@@ -48,8 +48,18 @@ export const extractAudiobookFileMetadata = (
     );
 
     if (Either.isLeft(metadata)) {
-      if (metadata.left._tag === 'BunShellError') {
-        yield* Effect.logError(`Failed to extract metadata`, metadata.left.stdout);
+      if (metadata.left._tag === 'FFProbeUnknownError') {
+        yield* Effect.logError('Failed to extract metadata').pipe(
+          Effect.annotateLogs({ exitCode: metadata.left.exitCode, stdout: metadata.left.stdout })
+        );
+      } else if (metadata.left._tag === 'FFProbeKnownError') {
+        yield* Effect.logError('Failed to extract metadata').pipe(
+          Effect.annotateLogs({
+            exitCode: metadata.left.exitCode,
+            errorCode: metadata.left.errorCode,
+            message: metadata.left.message,
+          })
+        );
       } else if (metadata.left._tag === 'BunShellSyntaxError') {
         yield* Effect.logError('Failed to parse metadata output');
       } else if (metadata.left._tag === 'ParseError') {
@@ -57,9 +67,9 @@ export const extractAudiobookFileMetadata = (
           `Metadata was not in the expected format: ${ParseResult.TreeFormatter.formatErrorSync(metadata.left)}`
         );
       } else {
-        yield* Effect.logError('Unexpected error while extracting metadata', {
-          error: metadata.left,
-        });
+        yield* Effect.logError('Unexpected error while extracting metadata').pipe(
+          Effect.annotateLogs('error', metadata.left.message)
+        );
       }
 
       return Option.none();
@@ -99,10 +109,12 @@ export const extractAudiobookFileMetadata = (
       artistName === undefined ||
       artistName.length === 0
     ) {
-      yield* Effect.logError('Missing album title or artist name', {
-        albumTitle,
-        artistName,
-      });
+      yield* Effect.logError('Missing album title or artist name').pipe(
+        Effect.annotateLogs({
+          albumTitle,
+          artistName,
+        })
+      );
 
       return Option.none();
     }

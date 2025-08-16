@@ -199,10 +199,10 @@ const makeMarkdownProductBookSchema = (turndown: Turndown) =>
       strict: true,
       decode: (input) =>
         turndown.toMarkdown(input.publisher_summary).pipe(
-          Effect.tapError(() =>
+          Effect.tapError((error) =>
             Effect.logWarning(
               'Failed to convert book summary to markdown, falling back to omit summary'
-            )
+            ).pipe(Effect.annotateLogs('error', error.message))
           ),
           Effect.catchAll(() => Effect.succeed(undefined)),
           Effect.map(
@@ -259,10 +259,10 @@ const makeMarkdownProductSeriesSchema = (turndown: Turndown) =>
         Effect.if(typeof input.publisher_summary === 'string', {
           onTrue: () =>
             turndown.toMarkdown(input.publisher_summary!).pipe(
-              Effect.tapError(() =>
+              Effect.tapError((error) =>
                 Effect.logWarning(
                   'Failed to convert series summary to markdown, falling back to omit summary'
-                )
+                ).pipe(Effect.annotateLogs('error', error.message))
               ),
               Effect.catchAll(() => Effect.succeed(undefined)),
               Effect.map((summary) => ({ ...input, publisher_summary_md: summary }))
@@ -317,18 +317,26 @@ export const GetProductByAsinResolver = (client: HttpClient.HttpClient, turndown
       }),
       client.execute,
       Effect.tapErrorTag('RequestError', (error) =>
-        Effect.logError('An error occurred while requesting product details', error)
+        Effect.logError('An error occurred while requesting product details').pipe(
+          Effect.annotateLogs('error', error)
+        )
       ),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError('An error occurred while receiving product details', error)
+        Effect.logError('An error occurred while receiving product details').pipe(
+          Effect.annotateLogs('error', error)
+        )
       ),
       Effect.andThen((response) => response.json),
       Effect.tapErrorTag('ResponseError', (error) =>
-        Effect.logError("Product details couldn't be parsed as JSON", error)
+        Effect.logError("Product details couldn't be parsed as JSON").pipe(
+          Effect.annotateLogs('error', error)
+        )
       ),
       Effect.andThen(Schema.decodeUnknown(ProductResponseSchema)),
       Effect.tapErrorTag('ParseError', (error) =>
-        Effect.logError('Product details were not in the expected shape', error.message)
+        Effect.logError('Product details were not in the expected shape').pipe(
+          Effect.annotateLogs('error', error)
+        )
       ),
       Effect.map((response) => response.product),
       Effect.annotateLogs('asin', asin)
