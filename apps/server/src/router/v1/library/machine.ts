@@ -254,6 +254,13 @@ const libraryMachine = setup({
 
                 const { book, contributors, bookContributors, series, chapters } = bookOption.value;
 
+                if (bookContributors.length === 0) {
+                  yield* Effect.logError(
+                    'No contributors for audiobook, when we expected at least one to be present'
+                  );
+                  return yield* Effect.void;
+                }
+
                 if (files.length === 0) {
                   yield* Effect.logError(
                     'No files for audiobook, when we expected at least one to be present'
@@ -323,34 +330,40 @@ const libraryMachine = setup({
                     .executeTakeFirstOrThrow()
                 );
 
-                const insertedContributors = yield* toEffect(
-                  trx
-                    .insertInto('contributor')
-                    .values(
-                      contributors.map((contributor) => ({
-                        asin: contributor.asin,
-                        name: contributor.name,
-                        about: contributor.about,
-                        avatar: contributor.avatar
-                          ? contributor.avatar.replace(/\._S[A-Z]+500_\./, '.')
-                          : undefined,
-                        avatarThumbhash: contributor.avatarThumbhash,
-                      }))
-                    )
-                    .onConflict((oc) =>
-                      oc.column('asin').doUpdateSet(({ fn, ref }) => ({
-                        name: fn.coalesce(ref('excluded.name'), ref('contributor.name')),
-                        about: fn.coalesce(ref('excluded.about'), ref('contributor.about')),
-                        avatar: fn.coalesce(ref('excluded.avatar'), ref('contributor.avatar')),
-                        avatarThumbhash: fn.coalesce(
-                          ref('excluded.avatarThumbhash'),
-                          ref('contributor.avatarThumbhash')
-                        ),
-                      }))
-                    )
-                    .returning(['id as id', 'asin as asin'])
-                    .execute()
-                );
+                const insertedContributors =
+                  contributors.length > 0
+                    ? yield* toEffect(
+                        trx
+                          .insertInto('contributor')
+                          .values(
+                            contributors.map((contributor) => ({
+                              asin: contributor.asin,
+                              name: contributor.name,
+                              about: contributor.about,
+                              avatar: contributor.avatar
+                                ? contributor.avatar.replace(/\._S[A-Z]+500_\./, '.')
+                                : undefined,
+                              avatarThumbhash: contributor.avatarThumbhash,
+                            }))
+                          )
+                          .onConflict((oc) =>
+                            oc.column('asin').doUpdateSet(({ fn, ref }) => ({
+                              name: fn.coalesce(ref('excluded.name'), ref('contributor.name')),
+                              about: fn.coalesce(ref('excluded.about'), ref('contributor.about')),
+                              avatar: fn.coalesce(
+                                ref('excluded.avatar'),
+                                ref('contributor.avatar')
+                              ),
+                              avatarThumbhash: fn.coalesce(
+                                ref('excluded.avatarThumbhash'),
+                                ref('contributor.avatarThumbhash')
+                              ),
+                            }))
+                          )
+                          .returning(['id as id', 'asin as asin'])
+                          .execute()
+                      )
+                    : [];
 
                 yield* toEffect(
                   trx
