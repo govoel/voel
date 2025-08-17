@@ -275,8 +275,6 @@ const libraryMachine = setup({
                   return yield* Effect.void;
                 }
 
-                // TODO: Although upserts are good, they can't catch deletions in data
-                // so ideally we should remove rows related to the book and then insert again
                 const trx = yield* toEffect(db.startTransaction().execute());
 
                 yield* Effect.addFinalizer((exit) =>
@@ -365,7 +363,7 @@ const libraryMachine = setup({
                       )
                     : [];
 
-                yield* toEffect(
+                const insertedBookContributors = yield* toEffect(
                   trx
                     .insertInto('bookContributor')
                     .values(
@@ -379,6 +377,20 @@ const libraryMachine = setup({
                       }))
                     )
                     .onConflict((oc) => oc.doNothing())
+                    .returning(['id as id'])
+                    .execute()
+                );
+
+                yield* toEffect(
+                  trx
+                    .updateTable('bookContributor')
+                    .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                    .where('bookContributor.bookId', '=', insertedBook.id)
+                    .where(
+                      'bookContributor.id',
+                      'not in',
+                      insertedBookContributors.map((c) => c.id)
+                    )
                     .execute()
                 );
 
@@ -403,7 +415,7 @@ const libraryMachine = setup({
                       .execute()
                   );
 
-                  yield* toEffect(
+                  const insertedBookSeries = yield* toEffect(
                     trx
                       .insertInto('bookSeries')
                       .values(
@@ -421,6 +433,20 @@ const libraryMachine = setup({
                           label: fn.coalesce(ref('excluded.label'), ref('bookSeries.label')),
                           sort: fn.coalesce(ref('excluded.sort'), ref('bookSeries.sort')),
                         }))
+                      )
+                      .returning(['id as id'])
+                      .execute()
+                  );
+
+                  yield* toEffect(
+                    trx
+                      .updateTable('bookSeries')
+                      .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                      .where('bookSeries.bookId', '=', insertedBook.id)
+                      .where(
+                        'bookSeries.id',
+                        'not in',
+                        insertedBookSeries.map((s) => s.id)
                       )
                       .execute()
                   );
@@ -444,6 +470,17 @@ const libraryMachine = setup({
                         track: file.trackNumber,
                         mtimeMs: file.mtimeMs,
                         metadataHash: file.metadataHash,
+                      }))
+                    )
+                    .onConflict((oc) =>
+                      oc.column('path').doUpdateSet((eb) => ({
+                        libraryId: eb.ref('excluded.libraryId'),
+                        bookId: eb.ref('excluded.bookId'),
+                        durationMs: eb.ref('excluded.durationMs'),
+                        disc: eb.ref('excluded.disc'),
+                        track: eb.ref('excluded.track'),
+                        mtimeMs: eb.ref('excluded.mtimeMs'),
+                        metadataHash: eb.ref('excluded.metadataHash'),
                       }))
                     )
                     .returning(['id as id', 'path as path'])
@@ -473,17 +510,20 @@ const libraryMachine = setup({
                   )
                   .flat();
 
+                let insertedFileChapters: { id: number }[] = [];
+
                 if (fileChapters.length > 0) {
-                  yield* toEffect(
+                  insertedFileChapters = yield* toEffect(
                     trx
                       .insertInto('audiobookChapter')
-                      .values([...fileChapters])
+                      .values(fileChapters)
+                      .returning(['id as id'])
                       .execute()
                   );
                 }
                 // insert files as chapters if the files didn't have chapters as metadata
                 else {
-                  yield* toEffect(
+                  insertedFileChapters = yield* toEffect(
                     trx
                       .insertInto('audiobookChapter')
                       .values(
@@ -499,6 +539,27 @@ const libraryMachine = setup({
                           durationMs: Math.round(file.metadata.format.duration * 1000),
                           startOffsetMs: 0 as const,
                         }))
+                      )
+                      .returning(['id as id'])
+                      .execute()
+                  );
+                }
+
+                if (insertedFileChapters.length > 0) {
+                  yield* toEffect(
+                    trx
+                      .updateTable('audiobookChapter')
+                      .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                      .where('audiobookChapter.source', '=', 'file')
+                      .where(
+                        'audiobookChapter.fileId',
+                        'in',
+                        insertedFiles.map((file) => file.id)
+                      )
+                      .where(
+                        'audiobookChapter.id',
+                        'not in',
+                        insertedFileChapters.map((chapter) => chapter.id)
                       )
                       .execute()
                   );
@@ -533,7 +594,7 @@ const libraryMachine = setup({
                   traverse(chapter, null);
                 }
 
-                yield* toEffect(
+                const insertedAudibleChapters = yield* toEffect(
                   trx
                     .insertInto('audiobookChapter')
                     .values(
@@ -547,8 +608,25 @@ const libraryMachine = setup({
                         startOffsetMs: chapter.chapter.start_offset_ms,
                       }))
                     )
+                    .returning('id as id')
                     .execute()
                 );
+
+                yield* toEffect(
+                  trx
+                    .updateTable('audiobookChapter')
+                    .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                    .where('audiobookChapter.source', '=', 'audible')
+                    .where('audiobookChapter.bookId', '=', insertedBook.id)
+                    .where(
+                      'audiobookChapter.id',
+                      'not in',
+                      insertedAudibleChapters.map((chapter) => chapter.id)
+                    )
+                    .execute()
+                );
+
+                // TODO: Delete audiobookFiles that are no longer in the filesystem
 
                 return yield* Effect.succeed(true);
               }).pipe(
