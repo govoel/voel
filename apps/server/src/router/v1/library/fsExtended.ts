@@ -94,7 +94,7 @@ const FFProbeStdoutSchema = Schema.Struct({
 const FFProbeStdoutErrorSchema = Schema.Struct({
   error: Schema.Struct({
     code: Schema.Union(Schema.NumberFromString, Schema.Number),
-    message: Schema.String,
+    string: Schema.String,
   }),
 });
 
@@ -152,7 +152,7 @@ export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
                 return new FFProbeKnownError({
                   exitCode: error.exitCode,
                   errorCode: errorJSON.error.code,
-                  message: errorJSON.error.message,
+                  message: errorJSON.error.string,
                 });
               }
             } catch {
