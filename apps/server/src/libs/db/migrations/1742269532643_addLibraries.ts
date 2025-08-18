@@ -372,6 +372,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('title', 'text', (col) => col.notNull())
     .addColumn('durationMs', 'integer', (col) => col.notNull())
     .addColumn('startOffsetMs', 'integer', (col) => col.notNull())
+    .addUniqueConstraint(
+      'audiobookChapter_bookId_fileId_source_title_durationMs_startOffsetMs_unique',
+      ['bookId', 'fileId', 'source', 'title', 'durationMs', 'startOffsetMs']
+    )
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')

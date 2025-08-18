@@ -2,7 +2,7 @@ import { effectify } from '@effect/platform/Effectify';
 import * as Error from '@effect/platform/Error';
 import { $ } from 'bun';
 import { Cause, Data, Effect, Schema } from 'effect';
-import { type PathLike, realpath, stat } from 'node:fs';
+import { type PathLike, access, constants as fsConstants, realpath, stat } from 'node:fs';
 import { opendir } from 'node:fs/promises';
 
 const handleErrnoException =
@@ -98,8 +98,32 @@ const FFProbeStdoutErrorSchema = Schema.Struct({
   }),
 });
 
+interface AccessFileOptions {
+  readonly ok?: boolean;
+  readonly readable?: boolean;
+  readonly writable?: boolean;
+}
+
 export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
   succeed: {
+    access: (() => {
+      const nodeAccess = effectify(
+        access,
+        handleErrnoException('FileSystem', 'access'),
+        handleBadArgument('access')
+      );
+      return (path: string, options?: AccessFileOptions) => {
+        let mode = fsConstants.F_OK;
+        if (options?.readable) {
+          mode |= fsConstants.R_OK;
+        }
+        if (options?.writable) {
+          mode |= fsConstants.W_OK;
+        }
+        return nodeAccess(path, mode);
+      };
+    })(),
+
     realpath: (() => {
       const nodeRealpath = effectify(
         realpath,
