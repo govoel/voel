@@ -63,7 +63,9 @@ export const getSeries = (book: typeof ProductBookSchema.Type) =>
 
       if (sourceSeriesFromBook.length > 0) {
         if (!book.relationships || book.relationships.length === 0) {
-          yield* Effect.logError('No relationships to any series found in book, ignoring book');
+          yield* Effect.logError(
+            'No relationships to any series found in book, it will be marked as unmatched'
+          );
           return Option.none();
         }
 
@@ -73,9 +75,9 @@ export const getSeries = (book: typeof ProductBookSchema.Type) =>
           ) as typeof ProductBookRelationshipSeriesSchema.Type; // i don't know why the `as` is necessary... i tried lots of things, and nothing narrowed correctly
 
           if (!fallbackSeriesRelationship) {
-            yield* Effect.logError('No relationship to series found in book, ignoring book').pipe(
-              Effect.annotateLogs('seriesAsin', series.asin)
-            );
+            yield* Effect.logError(
+              'No relationship to series found in book, it will be marked as unmatched'
+            ).pipe(Effect.annotateLogs('seriesAsin', series.asin));
             return Option.none();
           }
 

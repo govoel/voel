@@ -106,6 +106,25 @@ export interface AudiobookFileTable {
   deletedAt: ColumnType<number | null, never, number | null>;
 }
 
+export interface UnmatchedAudiobookFileTable {
+  id: ColumnType<number, never, never>;
+  libraryId: number;
+  path: string;
+  durationMs: number;
+  disc: number;
+  track: number;
+  reason:
+    | 'METADATA_NO_ALBUM_TITLE'
+    | 'METADATA_NO_ARTIST_NAME'
+    | 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
+    | 'AUDIBLE_COULD_NOT_ID_BOOK'
+    | 'AUDIBLE_COULD_NOT_FETCH_SERIES';
+  metadata: string;
+  createdAt: ColumnType<number, never, never>;
+  updatedAt: ColumnType<number, never, never>;
+  deletedAt: ColumnType<number | null, never, number | null>;
+}
+
 export interface EBookFileTable {
   id: ColumnType<number, never, never>;
   libraryId: number;
@@ -143,6 +162,7 @@ export interface DatabaseSchema {
   bookContributor: BookContributorTable;
   audiobookChapter: AudiobookChapterTable;
   audiobookFile: AudiobookFileTable;
+  unmatchedAudiobookFile: UnmatchedAudiobookFileTable;
   ebookFile: EBookFileTable;
   playbackHistory: PlaybackHistoryTable;
   sqlite_sequence: SQLiteSequenceTable;

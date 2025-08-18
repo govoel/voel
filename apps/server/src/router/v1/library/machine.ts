@@ -10,17 +10,15 @@ import { Hash } from '@/router/v1/library/hash';
 import { getContributors } from '@/router/v1/library/matching/getContributors';
 import { getSeries } from '@/router/v1/library/matching/getSeries';
 import { matchAudiobook } from '@/router/v1/library/matching/matchAudiobook';
+import {
+  cleanupAudiobookFile,
+  cleanupUnmatchedAudiobookFile,
+} from '@/router/v1/library/scanning/cleanupAudiobookFile';
 import { extractAudiobookFileMetadata } from '@/router/v1/library/scanning/extractAudiobookFileMetadata';
+import { markAsUnmatched } from '@/router/v1/library/scanning/markAsUnmatched';
 import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiobookFile';
 
-import {
-  KnownSQLiteError,
-  NotFoundError,
-  QueryError,
-  db,
-  handleKyselyError,
-  toEffect,
-} from '@/libs/db';
+import { KnownSQLiteError, NotFoundError, QueryError, db, toEffect } from '@/libs/db';
 import { type AudiobookChapterTable } from '@/libs/db/schema';
 
 import { env } from '@/env';
@@ -98,40 +96,8 @@ const libraryMachine = setup({
             })
           );
 
-          yield* Stream.fromAsyncIterable(
-            db
-              .selectFrom('audiobookFile')
-              .where('audiobookFile.deletedAt', 'is', null)
-              .select('path')
-              .stream(),
-            handleKyselyError
-          ).pipe(
-            Stream.mapEffect((file) =>
-              fs.access(file.path).pipe(
-                Effect.catchAll(() =>
-                  Effect.gen(function* () {
-                    yield* toEffect(
-                      db
-                        .updateTable('audiobookFile')
-                        .where('path', '=', file.path)
-                        .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-                        .execute()
-                    );
-
-                    yield* Effect.logDebug(
-                      'File not found, so deleting file from library database'
-                    ).pipe(Effect.annotateLogs('path', file.path));
-                  })
-                )
-              )
-            ),
-            Stream.runDrain,
-            Effect.catchAll((error) =>
-              Effect.logError('Error while scanning library').pipe(
-                Effect.annotateLogs('error', error)
-              )
-            )
-          );
+          yield* cleanupAudiobookFile({ libraryId: context.id });
+          yield* cleanupUnmatchedAudiobookFile({ libraryId: context.id });
 
           yield* Stream.fromAsyncIterable(
             yield* fs.opendir({
@@ -144,9 +110,12 @@ const libraryMachine = setup({
           ).pipe(
             Stream.mapEffect(prepareAudiobookFile),
             Stream.filterMap((e) => e),
-            Stream.mapEffect(extractAudiobookFileMetadata, {
-              concurrency: env.METADATA_EXTRACTION_BATCH_SIZE,
-            }),
+            Stream.mapEffect(
+              (file) => extractAudiobookFileMetadata({ libraryId: context.id, file }),
+              {
+                concurrency: env.METADATA_EXTRACTION_BATCH_SIZE,
+              }
+            ),
             Stream.filterMap((e) => e),
             Stream.broadcast(2, { capacity: env.METADATA_EXTRACTION_BATCH_SIZE }),
             Stream.flatMap(([first, second]) =>
@@ -170,7 +139,10 @@ const libraryMachine = setup({
                         const book = yield* matchAudiobook(e);
 
                         if (Option.isNone(book)) {
-                          return Option.none();
+                          return {
+                            matched: false,
+                            reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+                          } as const;
                         }
 
                         const contributors = yield* getContributors(book.value);
@@ -178,7 +150,10 @@ const libraryMachine = setup({
                         const seriesArr = yield* getSeries(book.value);
 
                         if (Option.isNone(seriesArr)) {
-                          return Option.none();
+                          return {
+                            matched: false,
+                            reason: 'AUDIBLE_COULD_NOT_FETCH_SERIES',
+                          } as const;
                         }
 
                         const chapters = yield* audible
@@ -193,12 +168,8 @@ const libraryMachine = setup({
                                 })
                               )
                             ),
-                            Effect.option
+                            Effect.catchAll(() => Effect.succeed({ chapters: [] }))
                           );
-
-                        if (Option.isNone(chapters)) {
-                          return Option.none();
-                        }
 
                         const bookCoverThumbhash = yield* audible
                           .generateThumbhash({
@@ -245,7 +216,8 @@ const libraryMachine = setup({
                               : Effect.succeed(Option.none())
                         );
 
-                        return Option.some({
+                        return {
+                          matched: true as const,
                           book: {
                             asin: book.value.asin,
                             type: 'audio' as const,
@@ -270,8 +242,8 @@ const libraryMachine = setup({
 
                           series: seriesArr.value,
 
-                          chapters: chapters.value.chapters,
-                        });
+                          chapters: chapters.chapters,
+                        };
                       }).pipe(Effect.annotateLogs('path', path.join(e.parentPath, e.name))),
                     {
                       concurrency: env.MATCHER_BATCH_SIZE,
@@ -288,11 +260,16 @@ const libraryMachine = setup({
             ),
             Stream.mapEffect(([bookOption, files]) =>
               Effect.gen(function* () {
-                if (Option.isNone(bookOption)) {
+                if (!bookOption.matched) {
+                  yield* markAsUnmatched({
+                    libraryId: context.id,
+                    reason: bookOption.reason,
+                    files: Chunk.toArray(files),
+                  });
                   return yield* Effect.void;
                 }
 
-                const { book, contributors, bookContributors, series, chapters } = bookOption.value;
+                const { book, contributors, bookContributors, series, chapters } = bookOption;
 
                 if (bookContributors.length === 0) {
                   yield* Effect.logError(
@@ -304,13 +281,6 @@ const libraryMachine = setup({
                 if (files.length === 0) {
                   yield* Effect.logError(
                     'No files for audiobook, when we expected at least one to be present'
-                  );
-                  return yield* Effect.void;
-                }
-
-                if (chapters.length === 0) {
-                  yield* Effect.logError(
-                    'No Audible chapters for audiobook, when we expected at least one to be present'
                   );
                   return yield* Effect.void;
                 }
@@ -612,60 +582,59 @@ const libraryMachine = setup({
 
                 yield* toEffect(fileChaptersSoftDeleteQuery.execute());
 
-                const insertedAudibleChapterIds: number[] = [];
+                if (chapters.length > 0) {
+                  const insertedAudibleChapterIds: number[] = [];
 
-                const traverse = (
-                  chapter: (typeof chapters)[number],
-                  parentId: number | null
-                ): Effect.Effect<void, KnownSQLiteError | NotFoundError | QueryError> =>
-                  Effect.gen(function* () {
-                    const insertedChapter = yield* toEffect(
-                      trx
-                        .insertInto('audiobookChapter')
-                        .values({
-                          bookId: insertedBook.id,
-                          parentId,
-                          fileId: null,
-                          source: 'audible' as const,
-                          title: chapter.title,
-                          durationMs: chapter.length_ms,
-                          startOffsetMs: chapter.start_offset_ms,
-                        })
-                        .onConflict((oc) => oc.doUpdateSet({ deletedAt: null }))
-                        .returning('id')
-                        .executeTakeFirstOrThrow()
-                    );
-
-                    insertedAudibleChapterIds.push(insertedChapter.id);
-
-                    if (Schema.is(ParentChapterSchema)(chapter)) {
-                      yield* Effect.forEach(chapter.chapters, (childChapter) =>
-                        traverse(childChapter, insertedChapter.id)
+                  const traverse = (
+                    chapter: (typeof chapters)[number],
+                    parentId: number | null
+                  ): Effect.Effect<void, KnownSQLiteError | NotFoundError | QueryError> =>
+                    Effect.gen(function* () {
+                      const insertedChapter = yield* toEffect(
+                        trx
+                          .insertInto('audiobookChapter')
+                          .values({
+                            bookId: insertedBook.id,
+                            parentId,
+                            fileId: null,
+                            source: 'audible' as const,
+                            title: chapter.title,
+                            durationMs: chapter.length_ms,
+                            startOffsetMs: chapter.start_offset_ms,
+                          })
+                          .onConflict((oc) => oc.doUpdateSet({ deletedAt: null }))
+                          .returning('id')
+                          .executeTakeFirstOrThrow()
                       );
-                    }
-                  });
 
-                yield* Effect.forEach(chapters, (chapter) => traverse(chapter, null));
+                      insertedAudibleChapterIds.push(insertedChapter.id);
 
-                yield* toEffect(
-                  trx
-                    .updateTable('audiobookChapter')
-                    .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-                    .where('audiobookChapter.source', '=', 'audible')
-                    .where('audiobookChapter.bookId', '=', insertedBook.id)
-                    .where('audiobookChapter.id', 'not in', insertedAudibleChapterIds)
-                    .execute()
-                );
+                      if (Schema.is(ParentChapterSchema)(chapter)) {
+                        yield* Effect.forEach(chapter.chapters, (childChapter) =>
+                          traverse(childChapter, insertedChapter.id)
+                        );
+                      }
+                    });
+
+                  yield* Effect.forEach(chapters, (chapter) => traverse(chapter, null));
+
+                  yield* toEffect(
+                    trx
+                      .updateTable('audiobookChapter')
+                      .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                      .where('audiobookChapter.source', '=', 'audible')
+                      .where('audiobookChapter.bookId', '=', insertedBook.id)
+                      .where('audiobookChapter.id', 'not in', insertedAudibleChapterIds)
+                      .execute()
+                  );
+                }
 
                 // TODO: Delete audiobookFiles that are no longer in the filesystem
 
                 return yield* Effect.succeed(true);
               }).pipe(
                 Effect.catchAll((error) => Effect.logError(error)),
-                Effect.annotateLogs(
-                  'asin',
-                  Option.isNone(bookOption) ? 'None' : bookOption.value.book.asin
-                ),
+                Effect.annotateLogs('asin', bookOption.matched ? bookOption.book.asin : 'N/A'),
                 Effect.scoped
               )
             ),
