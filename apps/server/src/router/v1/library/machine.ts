@@ -1,17 +1,5 @@
 import { Path } from '@effect/platform';
-import {
-  Chunk,
-  Effect,
-  Exit,
-  GroupBy,
-  Layer,
-  LogLevel,
-  Logger,
-  Option,
-  Ref,
-  Schema,
-  Stream,
-} from 'effect';
+import { Chunk, Effect, Exit, GroupBy, Layer, Option, Ref, Schema, Stream } from 'effect';
 import { type Insertable } from 'kysely';
 import { Actor, createActor, setup } from 'xstate';
 
@@ -25,7 +13,14 @@ import { matchAudiobook } from '@/router/v1/library/matching/matchAudiobook';
 import { extractAudiobookFileMetadata } from '@/router/v1/library/scanning/extractAudiobookFileMetadata';
 import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiobookFile';
 
-import { db, toEffect } from '@/libs/db';
+import {
+  KnownSQLiteError,
+  NotFoundError,
+  QueryError,
+  db,
+  handleKyselyError,
+  toEffect,
+} from '@/libs/db';
 import { type AudiobookChapterTable } from '@/libs/db/schema';
 
 import { env } from '@/env';
@@ -91,7 +86,52 @@ const libraryMachine = setup({
           const path = yield* Path.Path;
           const audible = yield* Audible;
 
-          yield* Effect.logDebug(`Scanning path '${context.path}'`);
+          yield* Effect.logDebug('Scanning library');
+
+          yield* Effect.addFinalizer((exit) =>
+            Exit.matchEffect(exit, {
+              onFailure: (error) =>
+                Effect.logInfo('Error while scanning library').pipe(
+                  Effect.annotateLogs('error', error)
+                ),
+              onSuccess: () => Effect.logInfo('Scan completed'),
+            })
+          );
+
+          yield* Stream.fromAsyncIterable(
+            db
+              .selectFrom('audiobookFile')
+              .where('audiobookFile.deletedAt', 'is', null)
+              .select('path')
+              .stream(),
+            handleKyselyError
+          ).pipe(
+            Stream.mapEffect((file) =>
+              fs.access(file.path).pipe(
+                Effect.catchAll(() =>
+                  Effect.gen(function* () {
+                    yield* toEffect(
+                      db
+                        .updateTable('audiobookFile')
+                        .where('path', '=', file.path)
+                        .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                        .execute()
+                    );
+
+                    yield* Effect.logDebug(
+                      'File not found, so deleting file from library database'
+                    ).pipe(Effect.annotateLogs('path', file.path));
+                  })
+                )
+              )
+            ),
+            Stream.runDrain,
+            Effect.catchAll((error) =>
+              Effect.logError('Error while scanning library').pipe(
+                Effect.annotateLogs('error', error)
+              )
+            )
+          );
 
           yield* Stream.fromAsyncIterable(
             yield* fs.opendir({
@@ -322,6 +362,7 @@ const libraryMachine = setup({
                         ),
                         summary: fn.coalesce(ref('excluded.summary'), ref('book.summary')),
                         adultsOnly: fn.coalesce(ref('excluded.adultsOnly'), ref('book.adultsOnly')),
+                        deletedAt: null,
                       }))
                     )
                     .returning(['id as id'])
@@ -356,6 +397,7 @@ const libraryMachine = setup({
                                 ref('excluded.avatarThumbhash'),
                                 ref('contributor.avatarThumbhash')
                               ),
+                              deletedAt: null,
                             }))
                           )
                           .returning(['id as id', 'asin as asin'])
@@ -376,7 +418,7 @@ const libraryMachine = setup({
                         role: contributor.role,
                       }))
                     )
-                    .onConflict((oc) => oc.doNothing())
+                    .onConflict((oc) => oc.doUpdateSet({ deletedAt: null }))
                     .returning(['id as id'])
                     .execute()
                 );
@@ -394,6 +436,11 @@ const libraryMachine = setup({
                     .execute()
                 );
 
+                let bookSeriesSoftDeleteQuery = trx
+                  .updateTable('bookSeries')
+                  .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                  .where('bookSeries.bookId', '=', insertedBook.id);
+
                 if (series.length > 0) {
                   const insertedSeries = yield* toEffect(
                     trx
@@ -409,6 +456,7 @@ const libraryMachine = setup({
                         oc.column('asin').doUpdateSet(({ fn }) => ({
                           name: fn.coalesce('excluded.name', 'series.name'),
                           summary: fn.coalesce('excluded.summary', 'series.summary'),
+                          deletedAt: null,
                         }))
                       )
                       .returning(['id', 'asin'])
@@ -432,25 +480,21 @@ const libraryMachine = setup({
                         oc.columns(['bookId', 'seriesId']).doUpdateSet(({ fn, ref }) => ({
                           label: fn.coalesce(ref('excluded.label'), ref('bookSeries.label')),
                           sort: fn.coalesce(ref('excluded.sort'), ref('bookSeries.sort')),
+                          deletedAt: null,
                         }))
                       )
                       .returning(['id as id'])
                       .execute()
                   );
 
-                  yield* toEffect(
-                    trx
-                      .updateTable('bookSeries')
-                      .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-                      .where('bookSeries.bookId', '=', insertedBook.id)
-                      .where(
-                        'bookSeries.id',
-                        'not in',
-                        insertedBookSeries.map((s) => s.id)
-                      )
-                      .execute()
+                  bookSeriesSoftDeleteQuery = bookSeriesSoftDeleteQuery.where(
+                    'bookSeries.id',
+                    'not in',
+                    insertedBookSeries.map((s) => s.id)
                   );
                 }
+
+                yield* toEffect(bookSeriesSoftDeleteQuery.execute());
 
                 // TODO: Either support multiple versions (file groups or something like that) of the same book
                 // or detect and abort the transaction
@@ -481,6 +525,7 @@ const libraryMachine = setup({
                         track: eb.ref('excluded.track'),
                         mtimeMs: eb.ref('excluded.mtimeMs'),
                         metadataHash: eb.ref('excluded.metadataHash'),
+                        deletedAt: null,
                       }))
                     )
                     .returning(['id as id', 'path as path'])
@@ -517,6 +562,7 @@ const libraryMachine = setup({
                     trx
                       .insertInto('audiobookChapter')
                       .values(fileChapters)
+                      .onConflict((oc) => oc.doUpdateSet({ deletedAt: null }))
                       .returning(['id as id'])
                       .execute()
                   );
@@ -540,77 +586,66 @@ const libraryMachine = setup({
                           startOffsetMs: 0 as const,
                         }))
                       )
+                      .onConflict((oc) => oc.doUpdateSet({ deletedAt: null }))
                       .returning(['id as id'])
                       .execute()
                   );
                 }
 
+                let fileChaptersSoftDeleteQuery = trx
+                  .updateTable('audiobookChapter')
+                  .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                  .where('audiobookChapter.source', '=', 'file')
+                  .where(
+                    'audiobookChapter.fileId',
+                    'in',
+                    insertedFiles.map((file) => file.id)
+                  );
+
                 if (insertedFileChapters.length > 0) {
-                  yield* toEffect(
-                    trx
-                      .updateTable('audiobookChapter')
-                      .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-                      .where('audiobookChapter.source', '=', 'file')
-                      .where(
-                        'audiobookChapter.fileId',
-                        'in',
-                        insertedFiles.map((file) => file.id)
-                      )
-                      .where(
-                        'audiobookChapter.id',
-                        'not in',
-                        insertedFileChapters.map((chapter) => chapter.id)
-                      )
-                      .execute()
+                  fileChaptersSoftDeleteQuery = fileChaptersSoftDeleteQuery.where(
+                    'audiobookChapter.id',
+                    'not in',
+                    insertedFileChapters.map((chapter) => chapter.id)
                   );
                 }
 
-                const currentChapterPKeyId = yield* toEffect(
-                  trx
-                    .selectFrom('sqlite_sequence')
-                    .select('seq')
-                    .where('name', '=', 'audiobookChapter')
-                    .executeTakeFirstOrThrow()
-                ).pipe(Effect.catchTag('NotFoundError', () => Effect.succeed({ seq: 0 })));
+                yield* toEffect(fileChaptersSoftDeleteQuery.execute());
 
-                const flatChapters: {
-                  id: number;
-                  parentId: number | null;
-                  chapter: (typeof chapters)[number];
-                }[] = [];
+                const insertedAudibleChapterIds: number[] = [];
 
-                const traverse = (chapter: (typeof chapters)[number], parentId: number | null) => {
-                  const currentChapterId = ++currentChapterPKeyId.seq;
-                  flatChapters.push({ id: currentChapterId, parentId, chapter });
+                const traverse = (
+                  chapter: (typeof chapters)[number],
+                  parentId: number | null
+                ): Effect.Effect<void, KnownSQLiteError | NotFoundError | QueryError> =>
+                  Effect.gen(function* () {
+                    const insertedChapter = yield* toEffect(
+                      trx
+                        .insertInto('audiobookChapter')
+                        .values({
+                          bookId: insertedBook.id,
+                          parentId,
+                          fileId: null,
+                          source: 'audible' as const,
+                          title: chapter.title,
+                          durationMs: chapter.length_ms,
+                          startOffsetMs: chapter.start_offset_ms,
+                        })
+                        .onConflict((oc) => oc.doUpdateSet({ deletedAt: null }))
+                        .returning('id')
+                        .executeTakeFirstOrThrow()
+                    );
 
-                  if (Schema.is(ParentChapterSchema)(chapter)) {
-                    chapter.chapters.forEach((childChapter) => {
-                      traverse(childChapter, currentChapterId);
-                    });
-                  }
-                };
+                    insertedAudibleChapterIds.push(insertedChapter.id);
 
-                for (const chapter of chapters) {
-                  traverse(chapter, null);
-                }
+                    if (Schema.is(ParentChapterSchema)(chapter)) {
+                      yield* Effect.forEach(chapter.chapters, (childChapter) =>
+                        traverse(childChapter, insertedChapter.id)
+                      );
+                    }
+                  });
 
-                const insertedAudibleChapters = yield* toEffect(
-                  trx
-                    .insertInto('audiobookChapter')
-                    .values(
-                      flatChapters.map((chapter) => ({
-                        bookId: insertedBook.id,
-                        parentId: chapter.parentId,
-                        fileId: null,
-                        source: 'audible' as const,
-                        title: chapter.chapter.title,
-                        durationMs: chapter.chapter.length_ms,
-                        startOffsetMs: chapter.chapter.start_offset_ms,
-                      }))
-                    )
-                    .returning('id as id')
-                    .execute()
-                );
+                yield* Effect.forEach(chapters, (chapter) => traverse(chapter, null));
 
                 yield* toEffect(
                   trx
@@ -618,11 +653,7 @@ const libraryMachine = setup({
                     .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
                     .where('audiobookChapter.source', '=', 'audible')
                     .where('audiobookChapter.bookId', '=', insertedBook.id)
-                    .where(
-                      'audiobookChapter.id',
-                      'not in',
-                      insertedAudibleChapters.map((chapter) => chapter.id)
-                    )
+                    .where('audiobookChapter.id', 'not in', insertedAudibleChapterIds)
                     .execute()
                 );
 
@@ -638,10 +669,14 @@ const libraryMachine = setup({
                 Effect.scoped
               )
             ),
-            Stream.runDrain
+            Stream.runDrain,
+            Effect.catchAll((error) =>
+              Effect.logError('Error while scanning library').pipe(
+                Effect.annotateLogs('error', error.message)
+              )
+            )
           );
         }).pipe(
-          Logger.withMinimumLogLevel(LogLevel.Debug),
           Effect.annotateLogs({ op: 'scan', library: context.name }),
           Effect.provide(
             Layer.merge(Audible.Default, FsExtended.Default).pipe(
@@ -652,10 +687,8 @@ const libraryMachine = setup({
           Effect.scoped
         )
       ).catch((e) => {
-        console.log(e);
+        console.log('Unexpected error while scanning library', e);
       });
-
-      console.log('Scan complete');
 
       self.send({ type: 'scanComplete' });
     },

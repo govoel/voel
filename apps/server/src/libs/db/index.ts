@@ -85,22 +85,24 @@ export class QueryError extends Data.TaggedError('QueryError')<{
 export class NotFoundError extends Data.TaggedError('NotFoundError') {}
 export type DatabaseError = QueryError | NotFoundError;
 
+export const handleKyselyError = (error: unknown) => {
+  if (error instanceof SQLiteError) {
+    return new KnownSQLiteError(error);
+  }
+
+  if (error instanceof NoResultError) {
+    return new NotFoundError();
+  }
+
+  if (error instanceof Error) {
+    return new QueryError({ message: error.message });
+  }
+
+  return new QueryError({ message: String(error) });
+};
+
 export const toEffect = <O>(query: Promise<O>) =>
   Effect.tryPromise({
     try: () => query,
-    catch: (error) => {
-      if (error instanceof SQLiteError) {
-        return new KnownSQLiteError(error);
-      }
-
-      if (error instanceof NoResultError) {
-        return new NotFoundError();
-      }
-
-      if (error instanceof Error) {
-        return new QueryError({ message: error.message });
-      }
-
-      return new QueryError({ message: String(error) });
-    },
+    catch: handleKyselyError,
   });
