@@ -426,6 +426,6 @@ export const matchAudiobook = (book: {
       }
     }
 
-    yield* Effect.logError('Book could not be identified, ignoring');
+    yield* Effect.logError('Book could not be identified, will be marked as unmatched');
     return Option.none();
   });

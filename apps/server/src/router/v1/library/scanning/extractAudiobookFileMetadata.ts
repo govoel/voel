@@ -3,6 +3,7 @@ import { Effect, Either, Option, ParseResult } from 'effect';
 
 import { FsExtended } from '@/router/v1/library/fsExtended';
 import { Hash } from '@/router/v1/library/hash';
+import { markAsUnmatched } from '@/router/v1/library/scanning/markAsUnmatched';
 
 const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   for (const tagValue of possibleTags) {
@@ -25,15 +26,19 @@ const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   return 0;
 };
 
-export const extractAudiobookFileMetadata = (
+export const extractAudiobookFileMetadata = ({
+  libraryId,
+  file,
+}: {
+  libraryId: number;
   file: Readonly<{
     metadataHashFromDb: string | undefined;
     mtimeMs: number;
     parentPath: string;
     name: string;
     realPath: string | undefined;
-  }>
-) =>
+  }>;
+}) =>
   Effect.gen(function* () {
     const fs = yield* FsExtended;
     const path = yield* Path.Path;
@@ -103,22 +108,6 @@ export const extractAudiobookFileMetadata = (
     const albumTitle = (normalizedTags['album'] || normalizedTags['title'])?.trim();
     const artistName = (normalizedTags['artist'] || normalizedTags['album_artist'])?.trim();
 
-    if (
-      albumTitle === undefined ||
-      albumTitle.length === 0 ||
-      artistName === undefined ||
-      artistName.length === 0
-    ) {
-      yield* Effect.logError('Missing album title or artist name').pipe(
-        Effect.annotateLogs({
-          albumTitle,
-          artistName,
-        })
-      );
-
-      return Option.none();
-    }
-
     const discNumber = extractNumberFromTags(
       normalizedTags['discnumber'],
       normalizedTags['disc'],
@@ -132,6 +121,42 @@ export const extractAudiobookFileMetadata = (
       normalizedTags['trck'],
       normalizedTags['trk']
     );
+
+    if (
+      albumTitle === undefined ||
+      albumTitle.length === 0 ||
+      artistName === undefined ||
+      artistName.length === 0
+    ) {
+      yield* Effect.logError('Missing album title or artist name, marking file as unmatched').pipe(
+        Effect.annotateLogs({
+          albumTitle,
+          artistName,
+        })
+      );
+
+      yield* markAsUnmatched({
+        libraryId,
+        reason:
+          (albumTitle === undefined || albumTitle.length === 0) &&
+          (artistName === undefined || artistName.length === 0)
+            ? 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
+            : albumTitle === undefined || albumTitle.length === 0
+              ? 'METADATA_NO_ALBUM_TITLE'
+              : 'METADATA_NO_ARTIST_NAME',
+        files: [
+          {
+            parentPath: file.parentPath,
+            name: file.name,
+            discNumber,
+            trackNumber,
+            metadata: metadata.right,
+          },
+        ],
+      });
+
+      return Option.none();
+    }
 
     return Option.some({
       parentPath: file.parentPath,
