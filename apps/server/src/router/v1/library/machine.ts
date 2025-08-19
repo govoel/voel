@@ -149,13 +149,6 @@ const libraryMachine = setup({
 
                         const seriesArr = yield* getSeries(book.value);
 
-                        if (Option.isNone(seriesArr)) {
-                          return {
-                            matched: false,
-                            reason: 'AUDIBLE_COULD_NOT_FETCH_SERIES',
-                          } as const;
-                        }
-
                         const chapters = yield* audible
                           .getChaptersByAsin({ asin: book.value.asin })
                           .pipe(
@@ -240,7 +233,7 @@ const libraryMachine = setup({
                               : null,
                           })),
 
-                          series: seriesArr.value,
+                          series: seriesArr,
 
                           chapters: chapters.chapters,
                         };
@@ -370,7 +363,7 @@ const libraryMachine = setup({
                               deletedAt: null,
                             }))
                           )
-                          .returning(['id as id', 'asin as asin'])
+                          .returning(['id as id', 'asin as asin', 'name as name'])
                           .execute()
                       )
                     : [];
@@ -384,7 +377,9 @@ const libraryMachine = setup({
                         contributorId: insertedContributors.find(
                           (ic) => ic.asin === contributor.asin
                         )?.id,
-                        name: contributor.name,
+                        name:
+                          insertedContributors.find((ic) => ic.asin === contributor.asin)?.name ??
+                          contributor.name,
                         role: contributor.role,
                       }))
                     )
@@ -416,10 +411,10 @@ const libraryMachine = setup({
                     trx
                       .insertInto('series')
                       .values(
-                        series.map((serie) => ({
-                          asin: serie.asin,
-                          name: serie.name,
-                          summary: serie.summary,
+                        series.map(({ series }) => ({
+                          asin: series.asin,
+                          name: series.name,
+                          summary: series.summary,
                         }))
                       )
                       .onConflict((oc) =>
@@ -437,21 +432,30 @@ const libraryMachine = setup({
                     trx
                       .insertInto('bookSeries')
                       .values(
-                        series.map((serie) => ({
+                        series.map(({ series, bookSeries }) => ({
                           bookId: insertedBook.id,
                           seriesId: insertedSeries.find(
-                            (insertedSerie) => insertedSerie.asin === serie.asin
+                            (insertedSerie) => insertedSerie.asin === series.asin
                           )!.id,
-                          label: serie.label,
-                          sort: serie.sort,
+                          title: bookSeries.title,
+                          label: bookSeries.label,
+                          sort: bookSeries.sort,
                         }))
                       )
                       .onConflict((oc) =>
-                        oc.columns(['bookId', 'seriesId']).doUpdateSet(({ fn, ref }) => ({
-                          label: fn.coalesce(ref('excluded.label'), ref('bookSeries.label')),
-                          sort: fn.coalesce(ref('excluded.sort'), ref('bookSeries.sort')),
-                          deletedAt: null,
-                        }))
+                        oc
+                          .columns(['bookId', 'seriesId', 'title', 'label', 'sort'])
+                          .doUpdateSet(({ fn, ref }) => ({
+                            bookId: fn.coalesce(ref('excluded.bookId'), ref('bookSeries.bookId')),
+                            seriesId: fn.coalesce(
+                              ref('excluded.seriesId'),
+                              ref('bookSeries.seriesId')
+                            ),
+                            title: fn.coalesce(ref('excluded.title'), ref('bookSeries.title')),
+                            label: fn.coalesce(ref('excluded.label'), ref('bookSeries.label')),
+                            sort: fn.coalesce(ref('excluded.sort'), ref('bookSeries.sort')),
+                            deletedAt: null,
+                          }))
                       )
                       .returning(['id as id'])
                       .execute()
@@ -466,8 +470,8 @@ const libraryMachine = setup({
 
                 yield* toEffect(bookSeriesSoftDeleteQuery.execute());
 
-                // TODO: Either support multiple versions (file groups or something like that) of the same book
-                // or detect and abort the transaction
+                // TODO: Either support multiple versions (file groups or something like
+                // that) of the same book or detect and abort the transaction
 
                 const filesArr = Chunk.toArray(files);
 
@@ -537,6 +541,7 @@ const libraryMachine = setup({
                       .execute()
                   );
                 }
+
                 // insert files as chapters if the files didn't have chapters as metadata
                 else {
                   insertedFileChapters = yield* toEffect(
@@ -629,13 +634,11 @@ const libraryMachine = setup({
                   );
                 }
 
-                // TODO: Delete audiobookFiles that are no longer in the filesystem
-
                 return yield* Effect.succeed(true);
               }).pipe(
-                Effect.catchAll((error) => Effect.logError(error)),
-                Effect.annotateLogs('asin', bookOption.matched ? bookOption.book.asin : 'N/A'),
-                Effect.scoped
+                Effect.scoped,
+                Effect.catchAll(() => Effect.logError('Error while inserting book, ignoring book')),
+                Effect.annotateLogs('asin', bookOption.matched ? bookOption.book.asin : 'N/A')
               )
             ),
             Stream.runDrain,

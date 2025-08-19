@@ -175,6 +175,7 @@ export const syncRouter = createTRPCRouter({
               'id',
               'bookId',
               'seriesId',
+              'title',
               'label',
               'sort',
               'createdAt',

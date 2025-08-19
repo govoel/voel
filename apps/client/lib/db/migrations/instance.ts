@@ -108,43 +108,6 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .columns(['deletedAt'])
                 .execute();
 
-              await sql`CREATE VIRTUAL TABLE seriesFTS USING fts5(
-                          name, summary,
-                          content=series, content_rowid=id, tokenize=trigram
-                        );`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS seriesFTS_insert AFTER INSERT ON series FOR EACH ROW WHEN NEW.deletedAt IS NULL
-                        BEGIN
-                          INSERT INTO seriesFTS(rowid, name, summary)
-                            VALUES(NEW.id, NEW.name, NEW.summary);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS seriesFTS_soft_delete AFTER UPDATE OF deletedAt ON series FOR EACH ROW WHEN OLD.deletedAt IS NULL AND NEW.deletedAt IS NOT NULL
-                        BEGIN
-                          INSERT INTO seriesFTS(seriesFTS, rowid, name, summary)
-                            VALUES('delete', OLD.id, OLD.name, OLD.summary);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS seriesFTS_update AFTER UPDATE OF name, summary ON series FOR EACH ROW WHEN OLD.deletedAt IS NULL AND NEW.deletedAt IS NULL
-                        BEGIN
-                          INSERT INTO seriesFTS(seriesFTS, rowid, name, summary)
-                            VALUES('delete', OLD.id, OLD.name, OLD.summary);
-                          INSERT INTO seriesFTS(rowid, name, summary)
-                            VALUES(NEW.id, NEW.name, NEW.summary);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS seriesFTS_restore AFTER UPDATE OF deletedAt ON series FOR EACH ROW WHEN OLD.deletedAt IS NOT NULL AND NEW.deletedAt IS NULL
-                        BEGIN
-                          INSERT INTO seriesFTS(rowid, name, summary)
-                            VALUES(NEW.id, NEW.name, NEW.summary);
-                        END;`.execute(trx);
-
-              await sql`CREATE TRIGGER IF NOT EXISTS seriesFTS_delete AFTER DELETE ON series FOR EACH ROW
-                        BEGIN
-                          INSERT INTO seriesFTS(seriesFTS, rowid, name, summary)
-                            VALUES('delete', OLD.id, OLD.name, OLD.summary);
-                        END;`.execute(trx);
-
               await trx.schema
                 .createTable('book')
                 .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
@@ -256,8 +219,9 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                   col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
                 )
                 .addColumn('seriesId', 'integer', (col) =>
-                  col.notNull().references('series.id').onDelete('cascade').onUpdate('cascade')
+                  col.references('series.id').onDelete('cascade').onUpdate('cascade')
                 )
+                .addColumn('title', 'text', (col) => col.notNull())
                 .addColumn('label', 'text', (col) => col.notNull())
                 .addColumn('sort', 'integer', (col) => col.notNull())
                 .addColumn('createdAt', 'integer', (col) =>
@@ -283,6 +247,12 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
+                .createIndex('bookSeries_title_index')
+                .on('bookSeries')
+                .columns(['title'])
+                .execute();
+
+              await trx.schema
                 .createIndex('bookSeries_sort_index')
                 .on('bookSeries')
                 .columns(['sort'])
@@ -299,6 +269,43 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .on('bookSeries')
                 .columns(['deletedAt'])
                 .execute();
+
+              await sql`CREATE VIRTUAL TABLE bookSeriesFTS USING fts5(
+                          title,
+                          content=bookSeries, content_rowid=id, tokenize=trigram
+                        );`.execute(trx);
+
+              await sql`CREATE TRIGGER IF NOT EXISTS bookSeriesFTS_insert AFTER INSERT ON bookSeries FOR EACH ROW WHEN NEW.deletedAt IS NULL
+                        BEGIN
+                          INSERT INTO bookSeriesFTS(rowid, title)
+                            VALUES(NEW.id, NEW.title);
+                        END;`.execute(trx);
+
+              await sql`CREATE TRIGGER IF NOT EXISTS bookSeriesFTS_soft_delete AFTER UPDATE OF deletedAt ON bookSeries FOR EACH ROW WHEN OLD.deletedAt IS NULL AND NEW.deletedAt IS NOT NULL
+                        BEGIN
+                          INSERT INTO bookSeriesFTS(bookSeriesFTS, rowid, title)
+                            VALUES('delete', OLD.id, OLD.title);
+                        END;`.execute(trx);
+
+              await sql`CREATE TRIGGER IF NOT EXISTS bookSeriesFTS_update AFTER UPDATE OF title ON bookSeries FOR EACH ROW WHEN OLD.deletedAt IS NULL AND NEW.deletedAt IS NULL
+                        BEGIN
+                          INSERT INTO bookSeriesFTS(bookSeriesFTS, rowid, title)
+                            VALUES('delete', OLD.id, OLD.title);
+                          INSERT INTO bookSeriesFTS(rowid, title)
+                            VALUES(NEW.id, NEW.title);
+                        END;`.execute(trx);
+
+              await sql`CREATE TRIGGER IF NOT EXISTS bookSeriesFTS_restore AFTER UPDATE OF deletedAt ON bookSeries FOR EACH ROW WHEN OLD.deletedAt IS NOT NULL AND NEW.deletedAt IS NULL
+                        BEGIN
+                          INSERT INTO bookSeriesFTS(rowid, title)
+                            VALUES(NEW.id, NEW.title);
+                        END;`.execute(trx);
+
+              await sql`CREATE TRIGGER IF NOT EXISTS bookSeriesFTS_delete AFTER DELETE ON bookSeries FOR EACH ROW
+                        BEGIN
+                          INSERT INTO bookSeriesFTS(bookSeriesFTS, rowid, title)
+                            VALUES('delete', OLD.id, OLD.title);
+                        END;`.execute(trx);
 
               await trx.schema
                 .createTable('bookContributor')

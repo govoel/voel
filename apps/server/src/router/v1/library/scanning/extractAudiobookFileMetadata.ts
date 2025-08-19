@@ -153,7 +153,10 @@ export const extractAudiobookFileMetadata = ({
             metadata: metadata.right,
           },
         ],
-      });
+      }).pipe(
+        Effect.tapError(() => Effect.logError('Failed to mark file as unmatched, ignoring file')),
+        Effect.catchAll(() => Effect.void)
+      );
 
       return Option.none();
     }

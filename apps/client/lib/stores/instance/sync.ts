@@ -108,6 +108,7 @@ export const upsertBookSeries = (
       oc.columns(['id']).doUpdateSet({
         bookId: (eb) => eb.ref('excluded.bookId'),
         seriesId: (eb) => eb.ref('excluded.seriesId'),
+        title: (eb) => eb.ref('excluded.title'),
         label: (eb) => eb.ref('excluded.label'),
         sort: (eb) => eb.ref('excluded.sort'),
         createdAt: (eb) => eb.ref('excluded.createdAt'),

@@ -50,7 +50,9 @@ export interface BookTable {
 export interface BookSeriesTable {
   id: ColumnType<number, never, never>;
   bookId: number;
-  seriesId: number;
+  seriesId: number | null;
+  // when seriesId is non-null, title must be the same as series.name
+  title: string;
   label: string;
   sort: number;
   createdAt: ColumnType<number, never, never>;
@@ -110,7 +112,8 @@ export interface AudiobookFileTable {
 export interface UnmatchedAudiobookFileTable {
   id: ColumnType<number, never, never>;
   libraryId: number;
-  path: string;
+  parentPath: string;
+  name: string;
   durationMs: number;
   disc: number;
   track: number;
@@ -118,8 +121,7 @@ export interface UnmatchedAudiobookFileTable {
     | 'METADATA_NO_ALBUM_TITLE'
     | 'METADATA_NO_ARTIST_NAME'
     | 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
-    | 'AUDIBLE_COULD_NOT_ID_BOOK'
-    | 'AUDIBLE_COULD_NOT_FETCH_SERIES';
+    | 'AUDIBLE_COULD_NOT_ID_BOOK';
   metadata: string;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
