@@ -149,12 +149,7 @@ export function BookList({
                   <AspectRatio ratio={1 / 1}>
                     {item.cover ? (
                       <Image
-                        className={cn(
-                          'w-full h-full',
-                          item.totalDurationMs && item.totalDurationMs > 0
-                            ? 'rounded-t-md'
-                            : 'rounded-md'
-                        )}
+                        className="w-full h-full rounded-t-md"
                         source={item.cover}
                         placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
                       />
