@@ -17,7 +17,7 @@
         "@dev-plugins/react-query": "^0.3.1",
         "@gorhom/bottom-sheet": "5.2.3",
         "@op-engineering/op-sqlite": "14.1.4",
-        "@react-native-community/slider": "5.0.0",
+        "@react-native-community/slider": "5.0.1",
         "@react-navigation/native": "^7.1.6",
         "@rn-primitives/accordion": "1.2.0",
         "@rn-primitives/aspect-ratio": "1.2.0",
@@ -772,7 +772,7 @@
 
     "@radix-ui/rect": ["@radix-ui/rect@1.1.1", "", {}, "sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw=="],
 
-    "@react-native-community/slider": ["@react-native-community/slider@5.0.0", "", {}, "sha512-D7raJNcG6CID5JQO0V+VhHkLtWLdvPSosPGtE+azSgoPDJmp16gFhW4gBltP0GVECri3Xm+a+pfz49kDuBAlcQ=="],
+    "@react-native-community/slider": ["@react-native-community/slider@5.0.1", "", {}, "sha512-K3JRWkIW4wQ79YJ6+BPZzp1SamoikxfPRw7Yw4B4PElEQmqZFrmH9M5LxvIo460/3QSrZF/wCgi3qizJt7g/iw=="],
 
     "@react-native/assets-registry": ["@react-native/assets-registry@0.79.5", "", {}, "sha512-N4Kt1cKxO5zgM/BLiyzuuDNquZPiIgfktEQ6TqJ/4nKA8zr4e8KJgU6Tb2eleihDO4E24HmkvGc73naybKRz/w=="],
 
