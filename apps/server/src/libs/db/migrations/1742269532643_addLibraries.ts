@@ -102,7 +102,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('book')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
-    .addColumn('asin', 'text', (col) => col.unique().notNull())
+    .addColumn('asin', 'text', (col) => col.unique())
     .addColumn('type', 'text', (col) => col.notNull().check(sql`type in ('audio', 'ebook')`))
     .addColumn('otherTypeId', 'integer', (col) =>
       col.references('book.id').onDelete('set null').onUpdate('cascade')
@@ -172,11 +172,18 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
     )
     .addColumn('seriesId', 'integer', (col) =>
-      col.notNull().references('series.id').onDelete('cascade').onUpdate('cascade')
+      col.references('series.id').onDelete('cascade').onUpdate('cascade')
     )
-    .addUniqueConstraint('bookSeries_bookId_seriesId_unique', ['bookId', 'seriesId'])
+    .addColumn('title', 'text', (col) => col.notNull())
     .addColumn('label', 'text', (col) => col.notNull())
     .addColumn('sort', 'integer', (col) => col.notNull())
+    .addUniqueConstraint('bookSeries_bookId_seriesId_title_label_sort_unique', [
+      'bookId',
+      'seriesId',
+      'title',
+      'label',
+      'sort',
+    ])
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -195,6 +202,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .ifNotExists()
     .on('bookSeries')
     .columns(['seriesId'])
+    .execute();
+
+  await db.schema
+    .createIndex('bookSeries_title_index')
+    .ifNotExists()
+    .on('bookSeries')
+    .columns(['title'])
     .execute();
 
   await db.schema
@@ -218,7 +232,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_bookSeries_updatedAt BEFORE UPDATE OF bookId, seriesId, label, sort, deletedAt ON bookSeries FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_bookSeries_updatedAt BEFORE UPDATE OF bookId, seriesId, title, label, sort, deletedAt ON bookSeries FOR EACH ROW
             BEGIN
               UPDATE bookSeries SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
@@ -358,7 +372,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('libraryId', 'integer', (col) =>
       col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
     )
-    .addColumn('path', 'text', (col) => col.unique().notNull())
+    .addColumn('parentPath', 'text', (col) => col.notNull())
+    .addColumn('name', 'text', (col) => col.notNull())
+    .addUniqueConstraint('unmatchedAudiobookFile_parentPath_name_key', ['parentPath', 'name'])
     .addColumn('durationMs', 'integer', (col) => col.notNull())
     .addColumn('disc', 'integer', (col) => col.notNull())
     .addColumn('track', 'integer', (col) => col.notNull())

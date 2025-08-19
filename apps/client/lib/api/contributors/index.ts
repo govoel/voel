@@ -51,10 +51,7 @@ const list = {
           ])
           .select((eb) => [eb.fn.count<number>('bookContributor.bookId').as('bookCount')])
           .groupBy((eb) => eb.fn.coalesce('bookContributor.contributorId', 'bookContributor.name'))
-          .orderBy(
-            (eb) => eb.fn.coalesce('contributor.updatedAt', 'bookContributor.updatedAt'),
-            'desc'
-          );
+          .orderBy((eb) => eb.fn.max('bookContributor.updatedAt'), 'desc');
 
         if (role === 'under18') {
           query = query.innerJoin('book', (join) =>
@@ -385,10 +382,7 @@ const search = {
         }
 
         query = query
-          .orderBy(
-            (eb) => eb.fn.coalesce('contributor.updatedAt', 'bookContributor.updatedAt'),
-            'desc'
-          )
+          .orderBy((eb) => eb.fn.max('bookContributor.updatedAt'), 'desc')
           .orderBy('bookContributor.id', 'asc');
 
         return await query.execute();

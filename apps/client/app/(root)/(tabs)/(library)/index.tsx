@@ -12,7 +12,6 @@ import { floatingPlayerStore } from '~/components/floating-player';
 import { Search } from '~/components/icons/Search';
 import { PersonList, type PersonListPerson } from '~/components/person-list';
 import { SeriesList, type SeriesListSeries } from '~/components/series-list';
-import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';

@@ -36,13 +36,6 @@ export interface SeriesTable<Version extends 'realtime' | 'regular' = 'regular'>
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
 }
 
-export interface SeriesFTSTable<Version extends 'realtime' | 'regular' = 'regular'> {
-  rowid: Regularize<ColumnType<number, never, never>, Version>;
-  name: Regularize<ColumnType<string, never, never>, Version>;
-  summary: Regularize<ColumnType<string, never, never>, Version>;
-  rank: Regularize<ColumnType<number, never, never>, Version>;
-}
-
 export interface BookTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   asin: Regularize<ColumnType<string, string, string>, Version>;
@@ -70,12 +63,19 @@ export interface BookFTSTable<Version extends 'realtime' | 'regular' = 'regular'
 export interface BookSeriesTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   bookId: Regularize<ColumnType<number, number, number>, Version>;
-  seriesId: Regularize<ColumnType<number, number, number>, Version>;
+  seriesId: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
+  title: Regularize<ColumnType<string, string, string>, Version>;
   label: Regularize<ColumnType<string, string, string>, Version>;
   sort: Regularize<ColumnType<number, number, number>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;
   updatedAt: Regularize<ColumnType<number, number, number>, Version>;
   deletedAt: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
+}
+
+export interface BookSeriesFTSTable<Version extends 'realtime' | 'regular' = 'regular'> {
+  rowid: Regularize<ColumnType<number, never, never>, Version>;
+  title: Regularize<ColumnType<string, never, never>, Version>;
+  rank: Regularize<ColumnType<number, never, never>, Version>;
 }
 
 export interface BookContributorTable<Version extends 'realtime' | 'regular' = 'regular'> {
@@ -178,10 +178,10 @@ export interface InstanceDatabase<Version extends 'realtime' | 'regular' = 'regu
   library: LibraryTable<Version>;
   contributor: ContributorTable<Version>;
   series: SeriesTable<Version>;
-  seriesFTS: SeriesFTSTable<Version>;
   book: BookTable<Version>;
   bookFTS: BookFTSTable<Version>;
   bookSeries: BookSeriesTable<Version>;
+  bookSeriesFTS: BookSeriesFTSTable<Version>;
   bookContributor: BookContributorTable<Version>;
   bookContributorFTS: BookContributorFTSTable<Version>;
   audiobookChapter: AudiobookChapterTable<Version>;

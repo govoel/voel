@@ -22,13 +22,14 @@ export const markAsUnmatched = Effect.fn(function* ({
 }) {
   const path = yield* Path.Path;
 
-  yield* toEffect(
+  const dbPaths = yield* toEffect(
     db
       .insertInto('unmatchedAudiobookFile')
       .values(
         files.map((file) => ({
           libraryId,
-          path: path.join(file.parentPath, file.name),
+          parentPath: file.parentPath,
+          name: file.name,
           durationMs: Math.round(file.metadata.format.duration * 1000),
           disc: file.discNumber,
           track: file.trackNumber,
@@ -39,7 +40,8 @@ export const markAsUnmatched = Effect.fn(function* ({
       .onConflict((oc) =>
         oc.doUpdateSet((eb) => ({
           libraryId: eb.ref('excluded.libraryId'),
-          path: eb.ref('excluded.path'),
+          parentPath: eb.ref('excluded.parentPath'),
+          name: eb.ref('excluded.name'),
           durationMs: eb.ref('excluded.durationMs'),
           disc: eb.ref('excluded.disc'),
           track: eb.ref('excluded.track'),
@@ -47,11 +49,13 @@ export const markAsUnmatched = Effect.fn(function* ({
           metadata: eb.ref('excluded.metadata'),
         }))
       )
-      .returning('path')
+      .returning(['parentPath', 'name'])
       .execute()
-  ).pipe(
-    Effect.forEach((path) =>
-      Effect.logInfo('Marked as unmatched').pipe(Effect.annotateLogs('path', path))
+  );
+
+  yield* Effect.forEach(dbPaths, (dbPath) =>
+    Effect.logInfo('Marked as unmatched').pipe(
+      Effect.annotateLogs('path', path.join(dbPath.parentPath, dbPath.name))
     )
   );
 });

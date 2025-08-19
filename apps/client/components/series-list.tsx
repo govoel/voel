@@ -15,6 +15,7 @@ import { cn } from '~/lib/utils';
 
 export type SeriesListSeries = {
   id: number;
+  seriesId: number | null;
   name: string;
   books: { id: number; cover: string | null; coverThumbhash: string | null }[];
 };
@@ -66,10 +67,17 @@ export function SeriesList({
           ? undefined
           : ({ item, index }) => (
               <Link
-                href={{
-                  pathname: '/series/[seriesId]',
-                  params: { seriesId: item.id },
-                }}
+                href={
+                  item.seriesId
+                    ? {
+                        pathname: '/series/id/[seriesId]',
+                        params: { seriesId: item.id },
+                      }
+                    : {
+                        pathname: '/series/name/[seriesName]',
+                        params: { seriesName: item.name },
+                      }
+                }
                 asChild
                 push
                 withAnchor>

@@ -14,21 +14,21 @@ import { H2, Large, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 
-export default function SeriesScreen() {
+export default function SeriesIDScreen() {
   const { seriesId } = useLocalSearchParams<{ seriesId: string }>();
 
   const {
     data: serie,
     error: serieError,
     refetch: serieRefetch,
-  } = api.series.get.useQuery(parseInt(seriesId, 10));
+  } = api.series.getById.useQuery(parseInt(seriesId, 10));
 
   const {
     data: books,
     error: booksError,
     refetch: booksRefetch,
     isFetching: booksIsFetching,
-  } = api.series.listBooks.useQuery(parseInt(seriesId, 10));
+  } = api.series.listBooksById.useQuery(parseInt(seriesId, 10));
 
   return (
     <>

@@ -1,3 +1,4 @@
+import { Path } from '@effect/platform';
 import { Effect, Stream } from 'effect';
 
 import { FsExtended } from '@/router/v1/library/fsExtended';
@@ -49,6 +50,7 @@ export const cleanupUnmatchedAudiobookFile = Effect.fn(function* ({
 }: {
   libraryId: number;
 }) {
+  const path = yield* Path.Path;
   const fs = yield* FsExtended;
 
   yield* Stream.fromAsyncIterable(
@@ -56,25 +58,26 @@ export const cleanupUnmatchedAudiobookFile = Effect.fn(function* ({
       .selectFrom('unmatchedAudiobookFile')
       .where('unmatchedAudiobookFile.libraryId', '=', libraryId)
       .where('unmatchedAudiobookFile.deletedAt', 'is', null)
-      .select('path')
+      .select(['parentPath', 'name'])
       .stream(),
     handleKyselyError
   ).pipe(
     Stream.mapEffect((file) =>
-      fs.access(file.path).pipe(
+      fs.access(path.join(file.parentPath, file.name)).pipe(
         Effect.catchAll(() =>
           Effect.gen(function* () {
             yield* toEffect(
               db
                 .updateTable('unmatchedAudiobookFile')
-                .where('path', '=', file.path)
+                .where('parentPath', '=', file.parentPath)
+                .where('name', '=', file.name)
                 .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
                 .execute()
             );
 
             yield* Effect.logInfo(
               'Unmatched file not found, so deleting file from library database'
-            ).pipe(Effect.annotateLogs('path', file.path));
+            ).pipe(Effect.annotateLogs('path', path.join(file.parentPath, file.name)));
           })
         )
       )
