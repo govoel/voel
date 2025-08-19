@@ -62,6 +62,7 @@ export interface BookContributorTable {
   id: ColumnType<number, never, never>;
   bookId: number;
   contributorId: number | null;
+  // when contributorId is non-null, name must be the same as contributor.name
   name: string;
   role: 'author' | 'narrator' | 'editor' | 'translator' | 'foreword';
   createdAt: ColumnType<number, never, never>;

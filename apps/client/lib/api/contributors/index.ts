@@ -42,16 +42,19 @@ const list = {
               .onRef('contributor.id', '=', 'bookContributor.contributorId')
               .on('contributor.deletedAt', 'is', null)
           )
-          .select([
+          .select((eb) => [
             'bookContributor.id',
             'bookContributor.contributorId',
-            'bookContributor.name',
+            eb.fn.coalesce('contributor.name', 'bookContributor.name').as('name'),
             'contributor.avatar',
             'contributor.avatarThumbhash',
           ])
           .select((eb) => [eb.fn.count<number>('bookContributor.bookId').as('bookCount')])
           .groupBy((eb) => eb.fn.coalesce('bookContributor.contributorId', 'bookContributor.name'))
-          .orderBy('bookContributor.updatedAt', 'desc');
+          .orderBy(
+            (eb) => eb.fn.coalesce('contributor.updatedAt', 'bookContributor.updatedAt'),
+            'desc'
+          );
 
         if (role === 'under18') {
           query = query.innerJoin('book', (join) =>
@@ -345,14 +348,19 @@ const search = {
           .selectFrom('bookContributor')
           .where('bookContributor.role', '=', contributorRole)
           .where('bookContributor.deletedAt', 'is', null)
-          .select(['bookContributor.id', 'bookContributor.contributorId', 'bookContributor.name'])
-          .select((eb) => [eb.fn.count<number>('bookContributor.bookId').as('bookCount')])
           .leftJoin('contributor', (join) =>
             join
               .onRef('bookContributor.contributorId', '=', 'contributor.id')
               .on('contributor.deletedAt', 'is', null)
           )
-          .select(['contributor.avatar', 'contributor.avatarThumbhash'])
+          .select((eb) => [
+            'bookContributor.id',
+            'bookContributor.contributorId',
+            eb.fn.coalesce('contributor.name', 'bookContributor.name').as('name'),
+            'contributor.avatar',
+            'contributor.avatarThumbhash',
+            eb.fn.count<number>('bookContributor.bookId').as('bookCount'),
+          ])
           .groupBy((eb) => eb.fn.coalesce('bookContributor.contributorId', 'bookContributor.name'));
 
         if (searchQuery.length > 0) {
@@ -377,7 +385,10 @@ const search = {
         }
 
         query = query
-          .orderBy('bookContributor.updatedAt', 'desc')
+          .orderBy(
+            (eb) => eb.fn.coalesce('contributor.updatedAt', 'bookContributor.updatedAt'),
+            'desc'
+          )
           .orderBy('bookContributor.id', 'asc');
 
         return await query.execute();
