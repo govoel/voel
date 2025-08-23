@@ -249,7 +249,7 @@ const get = {
           .select((eb) => [
             eb
               .selectFrom('bookSeries')
-              .innerJoin('series', (join) =>
+              .leftJoin('series', (join) =>
                 join
                   .onRef('series.id', '=', 'bookSeries.seriesId')
                   .on('series.deletedAt', 'is', null)
@@ -261,13 +261,13 @@ const get = {
                   .agg<string>('json_group_array', [
                     eb.fn<string>('json_object', [
                       eb.val('id'),
-                      'series.id',
+                      'bookSeries.seriesId',
                       eb.val('sort'),
                       'bookSeries.sort',
                       eb.val('label'),
                       'bookSeries.label',
                       eb.val('name'),
-                      'series.name',
+                      eb.fn.coalesce('series.name', 'bookSeries.title'),
                     ]),
                   ])
                   .as('series')
@@ -407,11 +407,12 @@ const get = {
               })
             : { positionMs: 0, eventTimestampMs: 0 },
           series: result.series
-            ? (JSON.parse(result.series) as (Pick<
-                Selectable<InstanceDatabase['series']>,
-                'id' | 'name'
-              > &
-                Pick<Selectable<InstanceDatabase['bookSeries']>, 'sort' | 'label'>)[])
+            ? (JSON.parse(result.series) as ({
+                id: Selectable<InstanceDatabase['bookSeries']>['seriesId'];
+                name:
+                  | Selectable<InstanceDatabase['series']>['name']
+                  | Selectable<InstanceDatabase['bookSeries']>['title'];
+              } & Pick<Selectable<InstanceDatabase['bookSeries']>, 'sort' | 'label'>)[])
             : [],
           contributors: result.contributors
             ? (JSON.parse(result.contributors) as Pick<
