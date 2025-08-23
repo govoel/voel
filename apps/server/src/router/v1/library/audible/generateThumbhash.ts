@@ -25,7 +25,7 @@ export const GenerateThumbhashRequest = Request.tagged<GenerateThumbhashRequest>
   'GenerateThumbhashRequest'
 );
 
-export const GenerateThumbhashResolver = (client: HttpClient.HttpClient) =>
+export const makeGenerateThumbhashResolver = (client: HttpClient.HttpClient) =>
   RequestResolver.fromEffect(({ imageURL }: GenerateThumbhashRequest) =>
     HttpClientRequest.get(imageURL).pipe(
       client.execute,

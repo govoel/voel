@@ -16,25 +16,49 @@ export const BookSearchResponseSchema = Schema.Struct({
       subtitle: Schema.optional(Schema.String),
       copyright: Schema.String,
       publisher_name: Schema.String,
+
+      product_images: Schema.Struct({
+        '500': Schema.String,
+      }),
+
+      series: Schema.optional(
+        Schema.Array(
+          Schema.Struct({
+            asin: Schema.String,
+            title: Schema.String,
+            sequence: Schema.String,
+          })
+        )
+      ),
     })
   ),
 });
 
-interface GetBooksBySearchRequest
-  extends Request.Request<
-    (typeof BookSearchResponseSchema.Type)['products'],
-    RequestError | ResponseError | ParseResult.ParseError
-  > {
-  readonly _tag: 'GetBooksBySearchRequest';
-  readonly title: string;
-  readonly author?: string;
-  readonly publisher?: string;
-}
+export type GetBooksBySearchRequestParams =
+  | {
+      readonly asins: string[];
+      readonly title?: never;
+      readonly author?: never;
+      readonly publisher?: never;
+      readonly narrator?: never;
+    }
+  | {
+      readonly asins?: never;
+      readonly title: string;
+      readonly author?: string;
+      readonly publisher?: string;
+      readonly narrator?: string;
+    };
+
+type GetBooksBySearchRequest = Request.Request<
+  (typeof BookSearchResponseSchema.Type)['products'],
+  RequestError | ResponseError | ParseResult.ParseError
+> & { readonly _tag: 'GetBooksBySearchRequest' } & GetBooksBySearchRequestParams;
 
 export const GetBooksBySearchRequest =
   Request.tagged<GetBooksBySearchRequest>('GetBooksBySearchRequest');
 
-export const GetBooksBySearchResolver = (client: HttpClient.HttpClient) =>
+export const makeGetBooksBySearchResolver = (client: HttpClient.HttpClient) =>
   RequestResolver.fromEffect((params: GetBooksBySearchRequest) =>
     HttpClientRequest.get(`${env.AUDIBLE_API_BASE}/catalog/products`).pipe(
       HttpClientRequest.acceptJson,
@@ -42,7 +66,13 @@ export const GetBooksBySearchResolver = (client: HttpClient.HttpClient) =>
         ...params,
         num_results: 50,
         page: 0,
-        response_groups: ['contributors', 'product_desc', 'product_details'].join(','),
+        response_groups: [
+          'contributors',
+          'media',
+          'product_desc',
+          'product_details',
+          'series',
+        ].join(','),
       }),
       client.execute,
       Effect.tapErrorTag('RequestError', (error) =>
@@ -69,9 +99,11 @@ export const GetBooksBySearchResolver = (client: HttpClient.HttpClient) =>
       ),
       Effect.map((response) => response.products),
       Effect.annotateLogs({
+        asins: params.asins?.join(','),
         title: params.title,
         author: params.author,
         publisher: params.publisher,
+        narrator: params.narrator,
       })
     )
   );

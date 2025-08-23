@@ -296,7 +296,7 @@ interface GetProductByAsinRequest
 export const GetProductByAsinRequest =
   Request.tagged<GetProductByAsinRequest>('GetProductByAsinRequest');
 
-export const GetProductByAsinResolver = (client: HttpClient.HttpClient, turndown: Turndown) => {
+export const makeGetProductByAsinResolver = (client: HttpClient.HttpClient, turndown: Turndown) => {
   const ProductResponseSchema = makeProductResponseSchema(turndown);
 
   return RequestResolver.fromEffect(({ asin }: GetProductByAsinRequest) =>

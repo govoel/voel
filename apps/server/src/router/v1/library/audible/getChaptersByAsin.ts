@@ -58,7 +58,7 @@ export const GetChaptersByAsinRequest = Request.tagged<GetChaptersByAsinRequest>
   'GetChaptersByAsinRequest'
 );
 
-export const GetChaptersByAsinResolver = (client: HttpClient.HttpClient) =>
+export const makeGetChaptersByAsinResolver = (client: HttpClient.HttpClient) =>
   RequestResolver.fromEffect(({ asin }: GetChaptersByAsinRequest) =>
     HttpClientRequest.get(`${env.AUDIBLE_API_BASE}/content/${asin}/metadata`).pipe(
       HttpClientRequest.acceptJson,
