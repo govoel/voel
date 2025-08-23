@@ -32,7 +32,7 @@
     "prebuild:release": "RELEASE_CHANNEL=release expo prebuild",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "typecheck": "expo customize tsconfig.json && tsc --noEmit --project tsconfig.json"
   },
   "op-sqlite": {
     "fts5": true
