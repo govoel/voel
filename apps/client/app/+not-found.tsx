@@ -1,4 +1,4 @@
-import { Link, Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { View } from 'react-native';
 
 import { Button } from '~/components/ui/button';
@@ -12,11 +12,13 @@ export default function NotFoundScreen() {
       <View className="p-6">
         <Large>This screen doesn&rsquo;t exist.</Large>
 
-        <Link href="/" push asChild>
-          <Button className="mt-4">
-            <Text>Go home</Text>
-          </Button>
-        </Link>
+        <Button
+          className="mt-4"
+          onPress={() => {
+            router.dismissAll();
+          }}>
+          <Text>Head back</Text>
+        </Button>
       </View>
     </>
   );
