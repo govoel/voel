@@ -9,7 +9,7 @@ import { Text } from '~/components/ui/text';
 import { cn } from '~/lib/utils';
 
 const alertVariants = cva(
-  'relative bg-background w-full rounded-lg border border-border p-4 shadow shadow-foreground/10',
+  'flex flex-row bg-background w-full rounded-lg border border-border p-4 shadow shadow-foreground/10',
   {
     variants: {
       variant: {
@@ -29,7 +29,7 @@ const Alert = ({
   variant,
   children,
   icon: Icon,
-  iconSize = 16,
+  iconSize = 18,
   iconClassName,
   ...props
 }: React.ComponentPropsWithRef<typeof View> &
@@ -41,13 +41,12 @@ const Alert = ({
   const { colors } = useTheme();
   return (
     <View ref={ref} role="alert" className={alertVariants({ variant, className })} {...props}>
-      <View className="absolute left-3.5 top-4 -translate-y-0.5">
-        <Icon
-          size={iconSize}
-          color={variant === 'destructive' ? colors.notification : colors.text}
-        />
-      </View>
-      {children}
+      <Icon
+        className="mt-0.5"
+        size={iconSize}
+        color={variant === 'destructive' ? colors.notification : colors.text}
+      />
+      <View className="flex-1">{children}</View>
     </View>
   );
 };
@@ -62,10 +61,7 @@ const AlertTitle = ({
 }) => (
   <Text
     ref={ref}
-    className={cn(
-      'pl-7 font-medium text-base leading-none tracking-tight text-foreground',
-      className
-    )}
+    className={cn('pl-2 font-medium text-base text-foreground', className)}
     {...props}
   />
 );
@@ -80,7 +76,7 @@ const AlertDescription = ({
 }) => (
   <Text
     ref={ref}
-    className={cn('pl-7 mt-1 text-sm leading-relaxed text-foreground', className)}
+    className={cn('pl-2 mt-1 text-sm leading-relaxed text-foreground', className)}
     {...props}
   />
 );
