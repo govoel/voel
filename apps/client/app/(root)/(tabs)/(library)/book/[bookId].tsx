@@ -121,10 +121,17 @@ export default function BookScreen() {
                   {data.series.map((series, index) => (
                     <Link
                       key={`series-${index}`}
-                      href={{
-                        pathname: '/series/[seriesId]',
-                        params: { seriesId: series.id },
-                      }}
+                      href={
+                        series.id
+                          ? {
+                              pathname: '/series/id/[seriesId]',
+                              params: { seriesId: series.id },
+                            }
+                          : {
+                              pathname: '/series/name/[seriesName]',
+                              params: { seriesName: series.name },
+                            }
+                      }
                       push
                       asChild>
                       <Badge variant="secondary">
