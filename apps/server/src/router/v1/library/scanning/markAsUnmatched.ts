@@ -16,7 +16,8 @@ export const markAsUnmatched = Effect.fn(function* ({
     name: string;
     discNumber: number;
     trackNumber: number;
-    metadata: { format: { duration: number; tags: Record<string, string> } };
+    metadata: { format: { duration: number } };
+    normalizedTags: Record<string, string>;
   }[];
   reason: Insertable<UnmatchedAudiobookFileTable>['reason'];
 }) {
@@ -33,7 +34,7 @@ export const markAsUnmatched = Effect.fn(function* ({
           durationMs: Math.round(file.metadata.format.duration * 1000),
           disc: file.discNumber,
           track: file.trackNumber,
-          metadata: JSON.stringify(file.metadata.format.tags),
+          metadata: JSON.stringify(file.normalizedTags),
           reason,
         }))
       )
