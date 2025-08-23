@@ -151,6 +151,7 @@ export const extractAudiobookFileMetadata = ({
             discNumber,
             trackNumber,
             metadata: metadata.right,
+            normalizedTags,
           },
         ],
       }).pipe(
