@@ -2,7 +2,7 @@ import { Path } from '@effect/platform';
 import { Effect, Option, Schema } from 'effect';
 
 import { Audible, BookSearchResponseSchema, ProductBookSchema } from '@/router/v1/library/audible';
-import type { GetBooksBySearchRequest } from '@/router/v1/library/audible/getBooksBySearch';
+import type { GetBooksBySearchRequestParams } from '@/router/v1/library/audible/getBooksBySearch';
 
 const openingBrackets = new Set(['(', '[', '{']);
 const closingBrackets = new Set([')', ']', '}']);
@@ -202,7 +202,7 @@ const getAndProcessSearchResults = Effect.fn(function* ({
   filterParams,
 }: {
   audible: Audible;
-  searchParams: Parameters<typeof GetBooksBySearchRequest>[0];
+  searchParams: GetBooksBySearchRequestParams;
   filterParams: {
     title: string;
     artist?: string;
