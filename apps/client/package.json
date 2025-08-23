@@ -104,7 +104,7 @@
     "nativewind": "4.1.23",
     "react": "19.0.0",
     "react-native": "0.79.5",
-    "react-native-bottom-tabs": "0.10.0",
+    "react-native-bottom-tabs": "0.10.1",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-marked": "7.0.2",
     "react-native-reanimated": "~3.17.4",
