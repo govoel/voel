@@ -1,12 +1,11 @@
 import { Path } from '@effect/platform';
-import { Chunk, Effect, Exit, GroupBy, Layer, Option, Ref, Schema, Stream } from 'effect';
+import { Chunk, Effect, Exit, GroupBy, Option, Ref, Schema, Stream } from 'effect';
 import { type Insertable } from 'kysely';
 import { Actor, createActor, setup } from 'xstate';
 
 import { Audible } from '@/router/v1/library/audible';
 import { ParentChapterSchema } from '@/router/v1/library/audible/getChaptersByAsin';
 import { FsExtended } from '@/router/v1/library/fsExtended';
-import { Hash } from '@/router/v1/library/hash';
 import { getContributors } from '@/router/v1/library/matching/getContributors';
 import { getSeries } from '@/router/v1/library/matching/getSeries';
 import { matchAudiobook } from '@/router/v1/library/matching/matchAudiobook';
@@ -20,6 +19,7 @@ import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiob
 
 import { KnownSQLiteError, NotFoundError, QueryError, db, toEffect } from '@/libs/db';
 import { type AudiobookChapterTable } from '@/libs/db/schema';
+import { AppRuntime } from '@/libs/effect/runtime';
 
 import { env } from '@/env';
 
@@ -78,7 +78,7 @@ const libraryMachine = setup({
   },
   actions: {
     scanLibraryPath: async ({ context, self }) => {
-      await Effect.runPromise(
+      await AppRuntime.runPromise(
         Effect.gen(function* () {
           const fs = yield* FsExtended;
           const path = yield* Path.Path;
@@ -648,16 +648,7 @@ const libraryMachine = setup({
               )
             )
           );
-        }).pipe(
-          Effect.annotateLogs({ op: 'scan', library: context.name }),
-          Effect.provide(
-            Layer.merge(Audible.Default, FsExtended.Default).pipe(
-              Layer.merge(Path.layer),
-              Layer.merge(Hash.Default)
-            )
-          ),
-          Effect.scoped
-        )
+        }).pipe(Effect.annotateLogs({ op: 'scan', library: context.name }), Effect.scoped)
       ).catch((e) => {
         console.log('Unexpected error while scanning library', e);
       });
