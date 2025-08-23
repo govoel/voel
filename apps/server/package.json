@@ -20,7 +20,7 @@
     "@voel/source-tap": "workspace:*",
     "better-auth": "1.3.7",
     "effect": "3.17.8",
-    "hono": "4.9.2",
+    "hono": "4.9.4",
     "kysely": "0.28.5",
     "mime": "4.0.7",
     "pino": "9.9.0",
