@@ -1,5 +1,7 @@
+import { OctagonAlert } from '../icons/OctagonAlert';
+import { Alert, AlertTitle } from './alert';
 import { createFormHook, createFormHookContexts, useStore } from '@tanstack/react-form';
-import { type ComponentPropsWithRef, type ComponentPropsWithoutRef } from 'react';
+import { type ComponentPropsWithRef, type ComponentPropsWithoutRef, useMemo } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 
@@ -118,20 +120,36 @@ const SubmitButton = ({
   ...props
 }: ComponentPropsWithRef<typeof ButtonWithLoading> & { viewClassName?: string }) => {
   const form = useFormContext();
+  const errors = useStore(form.store, (state) => state.errors);
+  const formLevelErrors: { message: string }[] = useMemo(
+    () => errors.find((error) => '' in error)?.[''] ?? [],
+    [errors]
+  );
 
   return (
-    <form.Subscribe
-      selector={(state) => [state.canSubmit, state.isSubmitting]}
-      children={([canSubmit, isSubmitting]) => (
-        <ButtonWithLoading
-          ref={ref}
-          {...props}
-          disabled={!canSubmit || isSubmitting || disabled}
-          onPress={() => form.handleSubmit()}
-          isLoading={isSubmitting}
-        />
+    <>
+      {formLevelErrors.length > 0 && (
+        <View>
+          {formLevelErrors.map((error, index) => (
+            <Alert key={index} className="mb-2" icon={OctagonAlert} variant="destructive">
+              <AlertTitle className="pb-2">{error.message}</AlertTitle>
+            </Alert>
+          ))}
+        </View>
       )}
-    />
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+        children={([canSubmit, isSubmitting]) => (
+          <ButtonWithLoading
+            ref={ref}
+            {...props}
+            disabled={!canSubmit || isSubmitting || disabled}
+            onPress={() => form.handleSubmit()}
+            isLoading={isSubmitting}
+          />
+        )}
+      />
+    </>
   );
 };
 SubmitButton.displayName = 'SubmitButton';
