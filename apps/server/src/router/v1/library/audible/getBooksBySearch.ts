@@ -63,7 +63,14 @@ export const makeGetBooksBySearchResolver = (client: HttpClient.HttpClient) =>
     HttpClientRequest.get(`${env.AUDIBLE_API_BASE}/catalog/products`).pipe(
       HttpClientRequest.acceptJson,
       HttpClientRequest.setUrlParams({
-        ...params,
+        ...(params.asins
+          ? { asins: params.asins.join(',') }
+          : {
+              title: params.title,
+              author: params.author,
+              publisher: params.publisher,
+              narrator: params.narrator,
+            }),
         num_results: 50,
         page: 0,
         response_groups: [
