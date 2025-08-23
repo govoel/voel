@@ -71,7 +71,7 @@ interface GetAuthorByAsinRequest
 export const GetAuthorByAsinRequest =
   Request.tagged<GetAuthorByAsinRequest>('GetAuthorByAsinRequest');
 
-export const GetAuthorByAsinResolver = (client: HttpClient.HttpClient) =>
+export const makeGetAuthorByAsinResolver = (client: HttpClient.HttpClient) =>
   RequestResolver.fromEffect(({ asin }: GetAuthorByAsinRequest) =>
     Effect.gen(function* () {
       const response = yield* HttpClientRequest.get(
