@@ -43,6 +43,7 @@ type BadgeProps = SlottableViewProps & VariantProps<typeof badgeVariants>;
 
 const Badge = ({
   ref,
+  className,
   ...props
 }: BadgeProps & {
   ref?: React.RefObject<React.ComponentRef<typeof Slot.View | typeof View>>;
@@ -51,7 +52,7 @@ const Badge = ({
   return (
     <TextClassContext value={badgeTextVariants({ variant: props.variant })}>
       <Component
-        className={cn(badgeVariants({ variant: props.variant }), props.className)}
+        className={cn(badgeVariants({ variant: props.variant }), className)}
         {...props}
         ref={ref}
       />
