@@ -106,6 +106,7 @@ export function PersonList({
                         className="w-full h-full rounded-md"
                         source={item.avatar}
                         placeholder={{ thumbhash: item.avatarThumbhash ?? undefined }}
+                        recyclingKey={item.id.toString()}
                       />
                     ) : (
                       <Avatar

@@ -152,6 +152,7 @@ export function BookList({
                         className="w-full h-full rounded-t-md"
                         source={item.cover}
                         placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
+                        recyclingKey={item.id.toString()}
                       />
                     ) : null}
                   </AspectRatio>
