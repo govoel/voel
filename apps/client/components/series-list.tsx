@@ -99,6 +99,7 @@ export function SeriesList({
                         className="w-full h-full rounded-md"
                         source={item.books[0].cover}
                         placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[0].id.toString()}
                       />
                     ) : item.books.length === 2 ? (
                       <View className="flex flex-row">
@@ -107,6 +108,7 @@ export function SeriesList({
                             className="w-full h-full rounded-l-md"
                             source={item.books[0].cover}
                             placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                            recyclingKey={item.books[0].id.toString()}
                           />
                         </View>
                         <View className="w-1/2 h-full">
@@ -114,6 +116,7 @@ export function SeriesList({
                             className="w-full h-full rounded-r-md"
                             source={item.books[1].cover}
                             placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                            recyclingKey={item.books[1].id.toString()}
                           />
                         </View>
                       </View>
@@ -124,6 +127,7 @@ export function SeriesList({
                             className="w-full h-full rounded-l-md"
                             source={item.books[0].cover}
                             placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                            recyclingKey={item.books[0].id.toString()}
                           />
                         </View>
                         <View className="w-1/3 h-full">
@@ -131,6 +135,7 @@ export function SeriesList({
                             className="w-full h-full"
                             source={item.books[1].cover}
                             placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                            recyclingKey={item.books[1].id.toString()}
                           />
                         </View>
                         <View className="w-1/3 h-full">
@@ -138,6 +143,7 @@ export function SeriesList({
                             className="w-full h-full rounded-r-md"
                             source={item.books[2].cover}
                             placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
+                            recyclingKey={item.books[2].id.toString()}
                           />
                         </View>
                       </View>
@@ -149,6 +155,7 @@ export function SeriesList({
                               className="w-full h-full rounded-tl-md"
                               source={item.books[0].cover}
                               placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[0].id.toString()}
                             />
                           </View>
                           <View className="w-1/2 h-full">
@@ -156,6 +163,7 @@ export function SeriesList({
                               className="w-full h-full rounded-tr-md"
                               source={item.books[1].cover}
                               placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[1].id.toString()}
                             />
                           </View>
                         </View>
@@ -165,6 +173,7 @@ export function SeriesList({
                               className="w-full h-full rounded-bl-md"
                               source={item.books[2].cover}
                               placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[2].id.toString()}
                             />
                           </View>
                           <View className="w-1/2 h-full">
@@ -172,6 +181,7 @@ export function SeriesList({
                               className="w-full h-full rounded-br-md"
                               source={item.books[3].cover}
                               placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[3].id.toString()}
                             />
                           </View>
                         </View>
@@ -184,6 +194,7 @@ export function SeriesList({
                               className="w-full h-full rounded-tl-md"
                               source={item.books[0].cover}
                               placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[0].id.toString()}
                             />
                           </View>
                           <View className="w-1/2 h-full">
@@ -191,6 +202,7 @@ export function SeriesList({
                               className="w-full h-full rounded-tr-md"
                               source={item.books[1].cover}
                               placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[1].id.toString()}
                             />
                           </View>
                         </View>
@@ -200,6 +212,7 @@ export function SeriesList({
                               className="w-full h-full rounded-bl-md"
                               source={item.books[2].cover}
                               placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[2].id.toString()}
                             />
                           </View>
                           <View className="w-1/2 h-full">
@@ -207,6 +220,7 @@ export function SeriesList({
                               className="w-full h-full rounded-br-md"
                               source={item.books[3].cover}
                               placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
+                              recyclingKey={item.books[3].id.toString()}
                             />
                             <View className="w-full h-full flex justify-center items-center absolute bg-muted/80 rounded-br-md">
                               <Large>+{item.books.length - 3}</Large>
