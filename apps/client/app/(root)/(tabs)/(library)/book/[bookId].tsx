@@ -104,7 +104,7 @@ export default function BookScreen() {
               <BookPlayButton book={{ ...data, authors }} />
             </View>
 
-            <View className="flex flex-row flex-wrap gap-2 items-center pt-4">
+            <View className="flex flex-row flex-nowrap items-center gap-2 pt-4">
               <Timer className="text-muted-foreground" size={20} />
               <Badge variant="outline">
                 <Text>{formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}</Text>
@@ -115,9 +115,9 @@ export default function BookScreen() {
             <Contributors role="narrator" contributors={data.contributors} />
 
             {data.series.length > 0 ? (
-              <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
+              <View className="flex flex-row flex-nowrap items-start justify-start gap-2 pt-2">
                 <BookCopy className="text-muted-foreground" size={20} />
-                <View className="flex flex-row flex-wrap gap-2 items-center">
+                <View className="flex flex-row flex-wrap flex-shrink items-center gap-2">
                   {data.series.map((series, index) => (
                     <Link
                       key={`series-${index}`}
@@ -134,13 +134,13 @@ export default function BookScreen() {
                       }
                       push
                       asChild>
-                      <Badge variant="secondary">
-                        <View className="flex flex-row justify-center items-center">
-                          <Text className="border-r border-muted-foreground/50 pr-2">
-                            {series.label}
-                          </Text>
-                          <Text className="pl-2">{series.name}</Text>
-                        </View>
+                      <Badge
+                        variant="secondary"
+                        className="flex flex-row flex-nowrap justify-center items-center">
+                        <Text className="border-r border-muted-foreground/50 pr-2">
+                          {series.label}
+                        </Text>
+                        <Text className="flex-shrink pl-2">{series.name}</Text>
                       </Badge>
                     </Link>
                   ))}
@@ -201,12 +201,12 @@ const Contributors = ({
   if (filteredContributors.length === 0) return null;
 
   return (
-    <View className="flex flex-row flex-nowrap gap-2 items-center pt-2">
+    <View className="flex flex-row flex-nowrap items-start justify-start gap-2 pt-2">
       {role === 'author' && <UserPen className="text-muted-foreground" size={20} />}
       {role === 'narrator' && <MicVocal className="text-muted-foreground" size={20} />}
       {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
       {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
-      <View className="flex flex-row flex-wrap gap-2 items-center">
+      <View className="flex flex-row flex-wrap flex-shrink items-center gap-2">
         {filteredContributors.map((contributor, index) => (
           <Link
             key={`${role}-${index}`}
