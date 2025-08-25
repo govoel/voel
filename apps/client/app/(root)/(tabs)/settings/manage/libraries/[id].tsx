@@ -11,6 +11,7 @@ import {
   type Row,
   type RowSelectionState,
   type Table,
+  type VisibilityState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -29,6 +30,7 @@ import type * as z from 'zod';
 
 import { floatingPlayerStore } from '~/components/floating-player';
 import { BookCopy } from '~/components/icons/BookCopy';
+import { Check } from '~/components/icons/Check';
 import { ChevronDown } from '~/components/icons/ChevronDown';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { MicVocal } from '~/components/icons/MicVocal';
@@ -151,6 +153,7 @@ export default function LibraryPage() {
 
   const [grouping, setGrouping] = useState<GroupingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
   const table = useReactTable({
     data: data ?? [],
@@ -161,13 +164,14 @@ export default function LibraryPage() {
         { id: 'track', desc: false },
       ],
     },
-    state: { grouping, rowSelection },
+    state: { grouping, rowSelection, columnVisibility },
     getSortedRowModel: getSortedRowModel(),
     onGroupingChange: setGrouping,
     getGroupedRowModel: getGroupedRowModel(),
     enableRowSelection: true,
     enableSubRowSelection: true,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getRowId: (row) => `${row.parentPath}/${row.name}`,
@@ -194,28 +198,71 @@ export default function LibraryPage() {
                 <Text className="pt-2">Group By</Text>
 
                 <ScrollView className="flex flex-row pt-1 pb-2" horizontal>
-                  {table.getLeafHeaders().map((header, index) =>
-                    header.column.getCanGroup() ? (
+                  {table.getLeafHeaders().filter((header) => header.column.getCanGroup()).length >
+                  0 ? (
+                    table
+                      .getLeafHeaders()
+                      .filter((header) => header.column.getCanGroup())
+                      .map((header, index) => (
+                        <Button
+                          key={header.id}
+                          onPress={header.column.getToggleGroupingHandler()}
+                          size="sm"
+                          variant="outline"
+                          className={cn(
+                            'flex justify-center items-center flex-row gap-x-1',
+                            index === 0 ? '' : 'ml-2'
+                          )}>
+                          {header.column.getGroupedIndex() >= 0 ? (
+                            <Badge variant="secondary" className="px-1.5 py-0 mr-1">
+                              <Text>{header.column.getGroupedIndex() + 1}</Text>
+                            </Badge>
+                          ) : null}
+                          <Text>
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </Text>
+                        </Button>
+                      ))
+                  ) : (
+                    <Button size="sm" variant="outline" disabled>
+                      <Text>None of the visible columns can be grouped</Text>
+                    </Button>
+                  )}
+                </ScrollView>
+
+                <Text className="pt-2">Column Visibility</Text>
+
+                <ScrollView className="flex flex-row pt-1 pb-2" horizontal>
+                  {table
+                    .getAllColumns()
+                    .filter((column) => !column.getIsGrouped())
+                    .sort((a, b) => {
+                      // Sort so toggled on columns appear first, toggled off last
+                      const aVisible = a.getIsVisible();
+                      const bVisible = b.getIsVisible();
+                      if (aVisible === bVisible) return 0;
+                      return aVisible ? -1 : 1;
+                    })
+                    .map((column, index) => (
                       <Button
-                        key={header.id}
-                        onPress={header.column.getToggleGroupingHandler()}
+                        key={column.id}
+                        onPress={column.getToggleVisibilityHandler()}
                         size="sm"
-                        variant="outline"
+                        variant={column.getIsVisible() ? 'secondary' : 'outline'}
                         className={cn(
                           'flex justify-center items-center flex-row gap-x-1',
                           index === 0 ? '' : 'ml-2'
                         )}>
-                        {header.column.getGroupedIndex() >= 0 ? (
-                          <Badge variant="secondary" className="px-1.5 py-0 mr-1">
-                            <Text>{header.column.getGroupedIndex() + 1}</Text>
-                          </Badge>
+                        {column.getIsVisible() ? (
+                          <Check className="text-secondary-foreground" size={16} />
                         ) : null}
                         <Text>
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {typeof column.columnDef.header === 'string'
+                            ? column.columnDef.header
+                            : column.id}
                         </Text>
                       </Button>
-                    ) : null
-                  )}
+                    ))}
                 </ScrollView>
               </>
             ) : null}
