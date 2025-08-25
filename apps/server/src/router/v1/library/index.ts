@@ -308,6 +308,7 @@ const searchProgram = Effect.fn(function* ({
 }) {
   const audible = yield* Audible;
 
+  // TODO: turn errors into comprehensible error messages for the user
   if (asin) {
     return yield* audible.getBooksBySearch({
       asins: [asin],

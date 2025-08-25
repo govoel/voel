@@ -82,6 +82,8 @@ export const makeGetBooksBySearchResolver = (client: HttpClient.HttpClient) =>
           'product_details',
           'series',
         ].join(','),
+        products_sort_by: 'Relevance',
+        category_id: 18685552011,
       }),
       client.execute,
       Effect.tapErrorTag('RequestError', (error) =>
