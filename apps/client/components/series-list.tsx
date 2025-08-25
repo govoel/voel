@@ -62,188 +62,184 @@ export function SeriesList({
       horizontal={props.direction === 'horizontal' && series && series.length > 0}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
       extraData={props.direction === 'vertical' ? props.error : undefined}
-      renderItem={
-        props.direction === 'vertical' && props.error
-          ? undefined
-          : ({ item, index }) => (
-              <Link
-                href={
-                  item.seriesId
-                    ? {
-                        pathname: '/series/id/[seriesId]',
-                        params: { seriesId: item.id },
-                      }
-                    : {
-                        pathname: '/series/name/[seriesName]',
-                        params: { seriesName: item.name },
-                      }
+      renderItem={({ item, index }) => (
+        <Link
+          href={
+            item.seriesId
+              ? {
+                  pathname: '/series/id/[seriesId]',
+                  params: { seriesId: item.id },
                 }
-                asChild
-                push
-                withAnchor>
-                <Pressable
-                  className={cn(
-                    'h-full',
-                    props.direction === 'vertical' ? (index > 1 ? 'pt-4' : '') : 'w-48',
-                    props.direction === 'vertical'
-                      ? index % 2 === 0
-                        ? 'pr-2'
-                        : 'pl-2'
-                      : index === 0
-                        ? 'mb-2'
-                        : 'ml-4 mb-2'
-                  )}>
-                  <AspectRatio ratio={1 / 1}>
-                    {item.books.length === 1 ? (
+              : {
+                  pathname: '/series/name/[seriesName]',
+                  params: { seriesName: item.name },
+                }
+          }
+          asChild
+          push
+          withAnchor>
+          <Pressable
+            className={cn(
+              'h-full',
+              props.direction === 'vertical' ? (index > 1 ? 'pt-4' : '') : 'w-48',
+              props.direction === 'vertical'
+                ? index % 2 === 0
+                  ? 'pr-2'
+                  : 'pl-2'
+                : index === 0
+                  ? 'mb-2'
+                  : 'ml-4 mb-2'
+            )}>
+            <AspectRatio ratio={1 / 1}>
+              {item.books.length === 1 ? (
+                <Image
+                  className="w-full h-full rounded-md"
+                  source={item.books[0].cover}
+                  placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                  recyclingKey={item.books[0].id.toString()}
+                />
+              ) : item.books.length === 2 ? (
+                <View className="flex flex-row">
+                  <View className="w-1/2 h-full">
+                    <Image
+                      className="w-full h-full rounded-l-md"
+                      source={item.books[0].cover}
+                      placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                      recyclingKey={item.books[0].id.toString()}
+                    />
+                  </View>
+                  <View className="w-1/2 h-full">
+                    <Image
+                      className="w-full h-full rounded-r-md"
+                      source={item.books[1].cover}
+                      placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                      recyclingKey={item.books[1].id.toString()}
+                    />
+                  </View>
+                </View>
+              ) : item.books.length === 3 ? (
+                <View className="flex flex-row">
+                  <View className="w-1/3 h-full">
+                    <Image
+                      className="w-full h-full rounded-l-md"
+                      source={item.books[0].cover}
+                      placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                      recyclingKey={item.books[0].id.toString()}
+                    />
+                  </View>
+                  <View className="w-1/3 h-full">
+                    <Image
+                      className="w-full h-full"
+                      source={item.books[1].cover}
+                      placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                      recyclingKey={item.books[1].id.toString()}
+                    />
+                  </View>
+                  <View className="w-1/3 h-full">
+                    <Image
+                      className="w-full h-full rounded-r-md"
+                      source={item.books[2].cover}
+                      placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
+                      recyclingKey={item.books[2].id.toString()}
+                    />
+                  </View>
+                </View>
+              ) : item.books.length === 4 ? (
+                <>
+                  <View className="flex flex-row h-1/2">
+                    <View className="w-1/2 h-full">
                       <Image
-                        className="w-full h-full rounded-md"
+                        className="w-full h-full rounded-tl-md"
                         source={item.books[0].cover}
                         placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[0].id.toString()}
                       />
-                    ) : item.books.length === 2 ? (
-                      <View className="flex flex-row">
-                        <View className="w-1/2 h-full">
-                          <Image
-                            className="w-full h-full rounded-l-md"
-                            source={item.books[0].cover}
-                            placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
-                            recyclingKey={item.books[0].id.toString()}
-                          />
-                        </View>
-                        <View className="w-1/2 h-full">
-                          <Image
-                            className="w-full h-full rounded-r-md"
-                            source={item.books[1].cover}
-                            placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
-                            recyclingKey={item.books[1].id.toString()}
-                          />
-                        </View>
-                      </View>
-                    ) : item.books.length === 3 ? (
-                      <View className="flex flex-row">
-                        <View className="w-1/3 h-full">
-                          <Image
-                            className="w-full h-full rounded-l-md"
-                            source={item.books[0].cover}
-                            placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
-                            recyclingKey={item.books[0].id.toString()}
-                          />
-                        </View>
-                        <View className="w-1/3 h-full">
-                          <Image
-                            className="w-full h-full"
-                            source={item.books[1].cover}
-                            placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
-                            recyclingKey={item.books[1].id.toString()}
-                          />
-                        </View>
-                        <View className="w-1/3 h-full">
-                          <Image
-                            className="w-full h-full rounded-r-md"
-                            source={item.books[2].cover}
-                            placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
-                            recyclingKey={item.books[2].id.toString()}
-                          />
-                        </View>
-                      </View>
-                    ) : item.books.length === 4 ? (
-                      <>
-                        <View className="flex flex-row h-1/2">
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-tl-md"
-                              source={item.books[0].cover}
-                              placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[0].id.toString()}
-                            />
-                          </View>
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-tr-md"
-                              source={item.books[1].cover}
-                              placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[1].id.toString()}
-                            />
-                          </View>
-                        </View>
-                        <View className="flex flex-row h-1/2">
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-bl-md"
-                              source={item.books[2].cover}
-                              placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[2].id.toString()}
-                            />
-                          </View>
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-br-md"
-                              source={item.books[3].cover}
-                              placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[3].id.toString()}
-                            />
-                          </View>
-                        </View>
-                      </>
-                    ) : item.books.length > 4 ? (
-                      <>
-                        <View className="flex flex-row h-1/2">
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-tl-md"
-                              source={item.books[0].cover}
-                              placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[0].id.toString()}
-                            />
-                          </View>
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-tr-md"
-                              source={item.books[1].cover}
-                              placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[1].id.toString()}
-                            />
-                          </View>
-                        </View>
-                        <View className="flex flex-row h-1/2">
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-bl-md"
-                              source={item.books[2].cover}
-                              placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[2].id.toString()}
-                            />
-                          </View>
-                          <View className="w-1/2 h-full">
-                            <Image
-                              className="w-full h-full rounded-br-md"
-                              source={item.books[3].cover}
-                              placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
-                              recyclingKey={item.books[3].id.toString()}
-                            />
-                            <View className="w-full h-full flex justify-center items-center absolute bg-muted/80 rounded-br-md">
-                              <Large>+{item.books.length - 3}</Large>
-                            </View>
-                          </View>
-                        </View>
-                      </>
-                    ) : null}
-                  </AspectRatio>
-                  <View className="pt-2">
-                    <Large className="border-none text-lg" numberOfLines={1}>
-                      {item.name}
-                    </Large>
-                    <Muted numberOfLines={1}>
-                      {item.books.length === 1
-                        ? '1 book available'
-                        : `${item.books.length} books available`}
-                    </Muted>
+                    </View>
+                    <View className="w-1/2 h-full">
+                      <Image
+                        className="w-full h-full rounded-tr-md"
+                        source={item.books[1].cover}
+                        placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[1].id.toString()}
+                      />
+                    </View>
                   </View>
-                </Pressable>
-              </Link>
-            )
-      }
+                  <View className="flex flex-row h-1/2">
+                    <View className="w-1/2 h-full">
+                      <Image
+                        className="w-full h-full rounded-bl-md"
+                        source={item.books[2].cover}
+                        placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[2].id.toString()}
+                      />
+                    </View>
+                    <View className="w-1/2 h-full">
+                      <Image
+                        className="w-full h-full rounded-br-md"
+                        source={item.books[3].cover}
+                        placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[3].id.toString()}
+                      />
+                    </View>
+                  </View>
+                </>
+              ) : item.books.length > 4 ? (
+                <>
+                  <View className="flex flex-row h-1/2">
+                    <View className="w-1/2 h-full">
+                      <Image
+                        className="w-full h-full rounded-tl-md"
+                        source={item.books[0].cover}
+                        placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[0].id.toString()}
+                      />
+                    </View>
+                    <View className="w-1/2 h-full">
+                      <Image
+                        className="w-full h-full rounded-tr-md"
+                        source={item.books[1].cover}
+                        placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[1].id.toString()}
+                      />
+                    </View>
+                  </View>
+                  <View className="flex flex-row h-1/2">
+                    <View className="w-1/2 h-full">
+                      <Image
+                        className="w-full h-full rounded-bl-md"
+                        source={item.books[2].cover}
+                        placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[2].id.toString()}
+                      />
+                    </View>
+                    <View className="w-1/2 h-full">
+                      <Image
+                        className="w-full h-full rounded-br-md"
+                        source={item.books[3].cover}
+                        placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
+                        recyclingKey={item.books[3].id.toString()}
+                      />
+                      <View className="w-full h-full flex justify-center items-center absolute bg-muted/80 rounded-br-md">
+                        <Large>+{item.books.length - 3}</Large>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+            </AspectRatio>
+            <View className="pt-2">
+              <Large className="border-none text-lg" numberOfLines={1}>
+                {item.name}
+              </Large>
+              <Muted numberOfLines={1}>
+                {item.books.length === 1
+                  ? '1 book available'
+                  : `${item.books.length} books available`}
+              </Muted>
+            </View>
+          </Pressable>
+        </Link>
+      )}
       ListFooterComponent={
         <>
           {isFetchingNextPage ? (
@@ -261,7 +257,7 @@ export function SeriesList({
         </>
       }
       ListEmptyComponent={
-        props.direction === 'vertical' && props.error ? (
+        props.direction === 'vertical' && props.error && (!series || series.length === 0) ? (
           <Card className="mb-4">
             <CardContent className="pt-4">
               <Large>Error loading books</Large>

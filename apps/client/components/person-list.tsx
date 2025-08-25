@@ -67,71 +67,65 @@ export function PersonList({
       horizontal={props.direction === 'horizontal' && people && people.length > 0}
       numColumns={props.direction === 'vertical' ? 3 : undefined}
       extraData={props.direction === 'vertical' ? props.error : undefined}
-      renderItem={
-        props.direction === 'vertical' && props.error
-          ? undefined
-          : ({ item, index }) => (
-              <Link
-                href={
-                  item.contributorId
-                    ? {
-                        pathname: '/contributor/id/[contributorId]',
-                        params: { contributorId: item.contributorId },
-                      }
-                    : {
-                        pathname: '/contributor/name/[contributorName]',
-                        params: { contributorName: item.name },
-                      }
+      renderItem={({ item, index }) => (
+        <Link
+          href={
+            item.contributorId
+              ? {
+                  pathname: '/contributor/id/[contributorId]',
+                  params: { contributorId: item.contributorId },
                 }
-                asChild
-                push
-                withAnchor>
-                <Pressable
-                  className={cn(
-                    'h-full',
-                    props.direction === 'vertical' ? (index > 2 ? 'pt-4' : '') : 'w-36',
-                    props.direction === 'vertical'
-                      ? index % 3 === 0
-                        ? 'pr-2'
-                        : index % 3 === 1
-                          ? 'px-1'
-                          : 'pl-2'
-                      : index === 0
-                        ? 'mb-2'
-                        : 'ml-4 mb-2'
-                  )}>
-                  <AspectRatio ratio={1 / 1}>
-                    {item.avatar ? (
-                      <Image
-                        className="w-full h-full rounded-md"
-                        source={item.avatar}
-                        placeholder={{ thumbhash: item.avatarThumbhash ?? undefined }}
-                        recyclingKey={item.id.toString()}
-                      />
-                    ) : (
-                      <Avatar
-                        alt={`Fallback Avatar for ${item.name}`}
-                        className="rounded-md w-full h-full">
-                        <AvatarFallback className="rounded-none">
-                          <Large className="text-5xl">{getInitials(item.name)}</Large>
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                  </AspectRatio>
-                  <View className="pt-2">
-                    <Large className="border-none text-lg" numberOfLines={1}>
-                      {item.name}
-                    </Large>
-                    <Muted numberOfLines={1}>
-                      {item.bookCount === 1
-                        ? '1 book available'
-                        : `${item.bookCount} books available`}
-                    </Muted>
-                  </View>
-                </Pressable>
-              </Link>
-            )
-      }
+              : {
+                  pathname: '/contributor/name/[contributorName]',
+                  params: { contributorName: item.name },
+                }
+          }
+          asChild
+          push
+          withAnchor>
+          <Pressable
+            className={cn(
+              'h-full',
+              props.direction === 'vertical' ? (index > 2 ? 'pt-4' : '') : 'w-36',
+              props.direction === 'vertical'
+                ? index % 3 === 0
+                  ? 'pr-2'
+                  : index % 3 === 1
+                    ? 'px-1'
+                    : 'pl-2'
+                : index === 0
+                  ? 'mb-2'
+                  : 'ml-4 mb-2'
+            )}>
+            <AspectRatio ratio={1 / 1}>
+              {item.avatar ? (
+                <Image
+                  className="w-full h-full rounded-md"
+                  source={item.avatar}
+                  placeholder={{ thumbhash: item.avatarThumbhash ?? undefined }}
+                  recyclingKey={item.id.toString()}
+                />
+              ) : (
+                <Avatar
+                  alt={`Fallback Avatar for ${item.name}`}
+                  className="rounded-md w-full h-full">
+                  <AvatarFallback className="rounded-none">
+                    <Large className="text-5xl">{getInitials(item.name)}</Large>
+                  </AvatarFallback>
+                </Avatar>
+              )}
+            </AspectRatio>
+            <View className="pt-2">
+              <Large className="border-none text-lg" numberOfLines={1}>
+                {item.name}
+              </Large>
+              <Muted numberOfLines={1}>
+                {item.bookCount === 1 ? '1 book available' : `${item.bookCount} books available`}
+              </Muted>
+            </View>
+          </Pressable>
+        </Link>
+      )}
       ListFooterComponent={
         <>
           {isFetchingNextPage ? (
@@ -149,7 +143,7 @@ export function PersonList({
         </>
       }
       ListEmptyComponent={
-        props.direction === 'vertical' && props.error ? (
+        props.direction === 'vertical' && props.error && (!people || people.length === 0) ? (
           <Card className="mb-4">
             <CardContent className="pt-4">
               <Large>Error loading books</Large>
