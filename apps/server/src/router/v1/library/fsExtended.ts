@@ -54,6 +54,15 @@ const handleErrnoException =
     });
   };
 
+/**
+ * Creates a BadArgument error handler for filesystem operations.
+ *
+ * Used to wrap filesystem functions with proper Effect error handling
+ * when arguments are invalid or malformed.
+ *
+ * @param method - The filesystem method name for error context
+ * @returns Error handler function that creates BadArgument errors
+ */
 const handleBadArgument = (method: string) => (cause: unknown) =>
   new Error.BadArgument({
     module: 'FileSystem',
@@ -61,20 +70,35 @@ const handleBadArgument = (method: string) => (cause: unknown) =>
     cause,
   });
 
+/**
+ * Error class for known FFProbe failures with specific exit and error codes.
+ */
 class FFProbeKnownError extends Data.TaggedError('FFProbeKnownError')<{
   exitCode: number;
   errorCode: number;
   message: string;
 }> {}
 
+/**
+ * Error class for unexpected FFProbe failures with stdout/stderr output.
+ */
 class FFProbeUnknownError extends Data.TaggedError('FFProbeUnknownError')<{
   exitCode: number;
   stdout: Buffer<ArrayBufferLike>;
   stderr: Buffer<ArrayBufferLike>;
 }> {}
 
+/**
+ * Error class for Bun shell syntax errors during command execution.
+ */
 class BunShellSyntaxError extends Data.TaggedError('BunShellSyntaxError') {}
 
+/**
+ * Schema for validating FFProbe JSON output structure.
+ *
+ * Defines the expected format for audio file metadata including
+ * chapters, format information, and embedded tags.
+ */
 export const FFProbeStdoutSchema = Schema.Struct({
   chapters: Schema.Array(
     Schema.Struct({
@@ -104,6 +128,23 @@ interface AccessFileOptions {
   readonly writable?: boolean;
 }
 
+/**
+ * Extended filesystem service with Effect integration and enhanced error handling.
+ *
+ * Provides filesystem operations wrapped with Effect for better error handling,
+ * plus additional functionality like FFProbe for audio file metadata extraction.
+ * All operations return Effect types for composable error handling.
+ *
+ * @example
+ * ```typescript
+ * const program = Effect.gen(function* () {
+ *   const fs = yield* FsExtended;
+ *   const stats = yield* fs.stat('/path/to/file');
+ *   const metadata = yield* fs.ffprobe({ path: '/path/to/audio.mp3' });
+ *   return { stats, metadata };
+ * });
+ * ```
+ */
 export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
   succeed: {
     access: (() => {

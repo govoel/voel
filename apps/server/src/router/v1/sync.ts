@@ -7,6 +7,27 @@ import type { DatabaseSchema } from '@/libs/db/schema';
 
 import { createTRPCRouter, protectedProcedure } from '@/trpc';
 
+/**
+ * Converts a ReadableStream to an AsyncIterable for use with async iteration.
+ *
+ * Provides proper cleanup handling and supports cancellation through AbortSignal.
+ * The reader is automatically cancelled if the abort signal is triggered.
+ *
+ * @param stream - The ReadableStream to convert
+ * @param signal - Optional AbortSignal to handle cancellation
+ * @returns AsyncIterable that can be used with for-await-of loops
+ *
+ * @example
+ * ```typescript
+ * const stream = new ReadableStream({...});
+ * const controller = new AbortController();
+ *
+ * for await (const value of streamToAsyncIterable(stream, controller.signal)) {
+ *   console.log(value);
+ *   if (shouldStop) controller.abort();
+ * }
+ * ```
+ */
 function streamToAsyncIterable<TValue>(
   stream: ReadableStream<TValue>,
   signal?: AbortSignal

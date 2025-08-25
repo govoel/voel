@@ -13,6 +13,12 @@ import { Text } from '~/components/ui/text';
 
 import { cn } from '~/lib/utils';
 
+/**
+ * Animated child component for marquee effect positioning.
+ *
+ * Handles the positioning and translation of individual marquee instances
+ * based on the shared animation value and calculated text dimensions.
+ */
 const AnimatedChild = ({
   index,
   children,
@@ -48,7 +54,23 @@ export type MarqueeProps = React.PropsWithChildren<{
 }>;
 
 /**
- * Used to animate the given children in a horizontal manner.
+ * Horizontally scrolling marquee component with smooth animation.
+ *
+ * Automatically creates multiple clones of the content to ensure seamless
+ * continuous scrolling. Dynamically calculates the number of clones needed
+ * based on parent and content dimensions.
+ *
+ * @param speed - Animation speed in pixels per frame (default: 1)
+ * @param spacing - Space between repeated content instances (default: 0)
+ * @param style - Optional style for the container view
+ * @param children - Content to animate in marquee effect
+ *
+ * @example
+ * ```tsx
+ * <Marquee speed={2} spacing={20}>
+ *   <Text>This text will scroll horizontally</Text>
+ * </Marquee>
+ * ```
  */
 export const Marquee = memo(({ speed = 1, children, spacing = 0, style }: MarqueeProps) => {
   const parentWidth = useSharedValue(0);
@@ -124,6 +146,26 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', overflow: 'hidden' },
 });
 
+/**
+ * Smart marquee component that only animates when content overflows.
+ *
+ * Automatically measures content and container dimensions to determine
+ * if marquee animation is needed. If content fits and is single-line,
+ * displays static text. Otherwise, applies marquee scrolling effect.
+ *
+ * @param className - Tailwind CSS classes for container styling
+ * @param style - Text styling options
+ * @param speed - Animation speed (inherited from Marquee)
+ * @param spacing - Space between marquee instances (inherited from Marquee)
+ * @param children - Text content to display
+ *
+ * @example
+ * ```tsx
+ * <AutoMarquee className="w-48" speed={1.5}>
+ *   This long text will scroll if it doesn't fit
+ * </AutoMarquee>
+ * ```
+ */
 export const AutoMarquee = memo(
   (
     props: Omit<MarqueeProps, 'style'> & {

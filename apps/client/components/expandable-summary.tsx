@@ -7,6 +7,26 @@ import { renderer } from '~/components/markdown-renderer';
 import { Button } from '~/components/ui/button';
 import { Text } from '~/components/ui/text';
 
+/**
+ * Collapsible summary component with markdown rendering support.
+ *
+ * Renders markdown content with expand/collapse functionality. Shows only the
+ * first element initially, with a button to reveal the rest. Automatically
+ * returns simple content if there's only one element to show.
+ *
+ * @param summary - Markdown content to display and expand
+ * @param expandText - Text for the expand button
+ * @param collapseText - Text for the collapse button
+ *
+ * @example
+ * ```tsx
+ * <ExpandableSummary
+ *   summary="# Title\n\nThis is a long summary with multiple paragraphs..."
+ *   expandText="Show More"
+ *   collapseText="Show Less"
+ * />
+ * ```
+ */
 export function ExpandableSummary({
   summary,
   expandText,
