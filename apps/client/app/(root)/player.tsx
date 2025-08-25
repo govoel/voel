@@ -236,17 +236,20 @@ export default function PlayerScreen() {
                 <Button
                   variant="ghost"
                   className={cn(
-                    'flex-row justify-between rounded-none border-foreground/15 bg-secondary/40',
+                    'rounded-none border-foreground/15 bg-secondary/40 h-fit native:h-fit',
                     index === 0 ? '' : 'border-t'
                   )}
                   onPress={() => Player.seekToMediaItem(index, 0)}>
-                  <View className="flex-row gap-x-2 items-center">
-                    {(playerStatus.currentQueueIndex ?? 0) === index ? (
-                      <Play className="text-muted-foreground fill-muted-foreground" size={20} />
-                    ) : (
-                      <Play className="text-muted-foreground" size={20} />
-                    )}
-                    <Text>{item.chapterTitle}</Text>
+                  <View className="flex flex-row w-full items-center justify-between">
+                    <View className="flex flex-row flex-1 flex-nowrap gap-x-2 items-center">
+                      {(playerStatus.currentQueueIndex ?? 0) === index ? (
+                        <Play className="text-muted-foreground fill-muted-foreground" size={20} />
+                      ) : (
+                        <Play className="text-muted-foreground" size={20} />
+                      )}
+                      <Text className="flex-1">{item.chapterTitle}</Text>
+                    </View>
+                    <Muted>{formatTime(item.startTimeMs)}</Muted>
                   </View>
                 </Button>
               )}
