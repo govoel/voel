@@ -5,12 +5,8 @@ import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
 import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
-import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardFooter } from '~/components/ui/card';
-import { Text } from '~/components/ui/text';
-import { H2, Large } from '~/components/ui/typography';
+import { H2 } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import type { InstanceDatabase } from '~/lib/db/schema/instance';
@@ -23,7 +19,6 @@ export default function ContributorNameScreen() {
     error: booksAsAuthorError,
     refetch: booksAsAuthorRefetch,
     isFetching: booksAsAuthorFetching,
-    isLoading: booksAsAuthorLoading,
   } = api.contributors.listBooksByName.useQuery('author', contributorName);
 
   const {
@@ -31,7 +26,6 @@ export default function ContributorNameScreen() {
     error: booksAsNarratorError,
     refetch: booksAsNarratorRefetch,
     isFetching: booksAsNarratorFetching,
-    isLoading: booksAsNarratorLoading,
   } = api.contributors.listBooksByName.useQuery('narrator', contributorName);
 
   const {
@@ -39,7 +33,6 @@ export default function ContributorNameScreen() {
     error: booksAsEditorError,
     refetch: booksAsEditorRefetch,
     isFetching: booksAsEditorFetching,
-    isLoading: booksAsEditorLoading,
   } = api.contributors.listBooksByName.useQuery('editor', contributorName);
 
   const {
@@ -47,7 +40,6 @@ export default function ContributorNameScreen() {
     error: booksAsTranslatorError,
     refetch: booksAsTranslatorRefetch,
     isFetching: booksAsTranslatorFetching,
-    isLoading: booksAsTranslatorLoading,
   } = api.contributors.listBooksByName.useQuery('translator', contributorName);
 
   const {
@@ -55,7 +47,6 @@ export default function ContributorNameScreen() {
     error: booksAsForewordError,
     refetch: booksAsForewordRefetch,
     isFetching: booksAsForewordFetching,
-    isLoading: booksAsForewordLoading,
   } = api.contributors.listBooksByName.useQuery('foreword', contributorName);
 
   return (
@@ -65,6 +56,7 @@ export default function ContributorNameScreen() {
         <H2 className="border-0 pt-4 text-center">{contributorName}</H2>
 
         <AsRoleBookList
+          className="mt-4"
           role="author"
           books={booksAsAuthor}
           error={booksAsAuthorError}
@@ -103,16 +95,6 @@ export default function ContributorNameScreen() {
           isFetching={booksAsForewordFetching}
           refetch={booksAsForewordRefetch}
         />
-
-        {booksAsAuthorLoading ||
-        booksAsNarratorLoading ||
-        booksAsEditorLoading ||
-        booksAsTranslatorLoading ||
-        booksAsForewordLoading ? (
-          <View className="p-12 justify-center items-center">
-            <Spinner size={15} />
-          </View>
-        ) : null}
       </FloatingPlayerDodgingScrollView>
     </>
   );
@@ -124,45 +106,29 @@ export const AsRoleBookList = ({
   error,
   isFetching,
   refetch,
+  className,
 }: {
   role: Selectable<InstanceDatabase['bookContributor']>['role'];
   books: ComponentPropsWithoutRef<typeof BookList>['books'];
   error: Error | null;
   isFetching: boolean;
-  refetch: () => void;
+  refetch: () => Promise<unknown>;
+  className?: string;
 }) => {
-  if (error) {
-    return (
-      <>
-        <TitleWithRefetch refetch={refetch} isFetching={isFetching} className="mt-4 mb-2">
-          As {role.charAt(0).toUpperCase() + role.slice(1)}
-        </TitleWithRefetch>
-        <Card className="mb-4">
-          <CardContent className="pt-4">
-            <Large>Error loading books</Large>
-            <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" onPress={() => refetch()}>
-              <Text>Retry</Text>
-            </Button>
-          </CardFooter>
-        </Card>
-      </>
-    );
-  }
+  return (
+    <View className={className}>
+      <TitleWithRefetch refetch={refetch} isFetching={isFetching} className="mb-2">
+        As {role.charAt(0).toUpperCase() + role.slice(1)}
+        {books && books.length > 0 && ` (${books.length})`}
+      </TitleWithRefetch>
 
-  if (books && books.length > 0) {
-    return (
-      <>
-        <TitleWithRefetch refetch={refetch} isFetching={isFetching} className="mt-4 mb-2">
-          As {role.charAt(0).toUpperCase() + role.slice(1)} ({books.length})
-        </TitleWithRefetch>
-
-        <BookList books={books} key={`as-${role}`} direction="horizontal" />
-      </>
-    );
-  }
-
-  return null;
+      <BookList
+        books={books}
+        key={`as-${role}`}
+        direction="horizontal"
+        error={error}
+        refetch={refetch}
+      />
+    </View>
+  );
 };

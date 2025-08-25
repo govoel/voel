@@ -23,19 +23,21 @@ export type PersonListPerson = {
   bookCount: number;
 };
 
-type BaseOmitted =
+type EnsureProp<K extends keyof ComponentPropsWithoutRef<typeof FlashList>> = K;
+type BaseOmitted = EnsureProp<
   | 'data'
   | 'keyExtractor'
   | 'horizontal'
   | 'numColumns'
   | 'renderItem'
-  | 'ListEmptyComponent';
+  | 'ListEmptyComponent'
+  | 'onEndReached'
+>;
 
 export function PersonList({
   people,
   type,
   ref,
-  isFetchingNextPage,
   ListFooterComponent,
   ...props
 }: {
@@ -48,11 +50,23 @@ export function PersonList({
       ComponentPropsWithoutRef<typeof FlashList>,
       BaseOmitted | 'className'
     >)
-  | ({ direction: 'horizontal'; key: Key } & Omit<
-      ComponentPropsWithoutRef<typeof FlashList>,
-      BaseOmitted
-    >)
-)) {
+  | ({
+      direction: 'horizontal';
+      key: Key;
+      error: Error | null;
+      refetch: () => Promise<unknown>;
+    } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted>)
+) &
+  (
+    | {
+        onEndReached: () => void;
+        isFetchingNextPage: boolean;
+        isFetchNextPageError: boolean;
+      }
+    | {
+        onEndReached?: undefined;
+      }
+  )) {
   return (
     <FlashList
       {...props}
@@ -66,93 +80,118 @@ export function PersonList({
       }
       horizontal={props.direction === 'horizontal' && people && people.length > 0}
       numColumns={props.direction === 'vertical' ? 3 : undefined}
-      extraData={props.direction === 'vertical' ? props.error : undefined}
-      renderItem={
-        props.direction === 'vertical' && props.error
-          ? undefined
-          : ({ item, index }) => (
-              <Link
-                href={
-                  item.contributorId
-                    ? {
-                        pathname: '/contributor/id/[contributorId]',
-                        params: { contributorId: item.contributorId },
-                      }
-                    : {
-                        pathname: '/contributor/name/[contributorName]',
-                        params: { contributorName: item.name },
-                      }
+      renderItem={({ item, index }) => (
+        <Link
+          href={
+            item.contributorId
+              ? {
+                  pathname: '/contributor/id/[contributorId]',
+                  params: { contributorId: item.contributorId },
                 }
-                asChild
-                push
-                withAnchor>
-                <Pressable
-                  className={cn(
-                    'h-full',
-                    props.direction === 'vertical' ? (index > 2 ? 'pt-4' : '') : 'w-36',
-                    props.direction === 'vertical'
-                      ? index % 3 === 0
-                        ? 'pr-2'
-                        : index % 3 === 1
-                          ? 'px-1'
-                          : 'pl-2'
-                      : index === 0
-                        ? 'mb-2'
-                        : 'ml-4 mb-2'
-                  )}>
-                  <AspectRatio ratio={1 / 1}>
-                    {item.avatar ? (
-                      <Image
-                        className="w-full h-full rounded-md"
-                        source={item.avatar}
-                        placeholder={{ thumbhash: item.avatarThumbhash ?? undefined }}
-                        recyclingKey={item.id.toString()}
-                      />
-                    ) : (
-                      <Avatar
-                        alt={`Fallback Avatar for ${item.name}`}
-                        className="rounded-md w-full h-full">
-                        <AvatarFallback className="rounded-none">
-                          <Large className="text-5xl">{getInitials(item.name)}</Large>
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                  </AspectRatio>
-                  <View className="pt-2">
-                    <Large className="border-none text-lg" numberOfLines={1}>
-                      {item.name}
-                    </Large>
-                    <Muted numberOfLines={1}>
-                      {item.bookCount === 1
-                        ? '1 book available'
-                        : `${item.bookCount} books available`}
-                    </Muted>
-                  </View>
-                </Pressable>
-              </Link>
-            )
-      }
+              : {
+                  pathname: '/contributor/name/[contributorName]',
+                  params: { contributorName: item.name },
+                }
+          }
+          asChild
+          push
+          withAnchor>
+          <Pressable
+            className={cn(
+              'h-full',
+              props.direction === 'vertical' ? (index > 2 ? 'pt-4' : '') : 'w-36',
+              props.direction === 'vertical'
+                ? index % 3 === 0
+                  ? 'pr-2'
+                  : index % 3 === 1
+                    ? 'px-1'
+                    : 'pl-2'
+                : index === 0
+                  ? 'mb-2'
+                  : 'ml-4 mb-2'
+            )}>
+            <AspectRatio ratio={1 / 1}>
+              {item.avatar ? (
+                <Image
+                  className="w-full h-full rounded-md"
+                  source={item.avatar}
+                  placeholder={{ thumbhash: item.avatarThumbhash ?? undefined }}
+                  recyclingKey={item.id.toString()}
+                />
+              ) : (
+                <Avatar
+                  alt={`Fallback Avatar for ${item.name}`}
+                  className="rounded-md w-full h-full">
+                  <AvatarFallback className="rounded-none">
+                    <Large className="text-5xl">{getInitials(item.name)}</Large>
+                  </AvatarFallback>
+                </Avatar>
+              )}
+            </AspectRatio>
+            <View className="pt-2">
+              <Large className="border-none text-lg" numberOfLines={1}>
+                {item.name}
+              </Large>
+              <Muted numberOfLines={1}>
+                {item.bookCount === 1 ? '1 book available' : `${item.bookCount} books available`}
+              </Muted>
+            </View>
+          </Pressable>
+        </Link>
+      )}
       ListFooterComponent={
         <>
-          {isFetchingNextPage ? (
-            props.direction === 'vertical' ? (
-              <View className="p-12 justify-center items-center">
-                <Spinner size={15} />
-              </View>
-            ) : (
-              <View className="flex-1 w-36 pb-12 flex justify-center items-center">
-                <Spinner size={15} />
-              </View>
-            )
+          {props.onEndReached ? (
+            props.isFetchingNextPage ? (
+              props.direction === 'vertical' ? (
+                <View className="p-12 justify-center items-center">
+                  <Spinner size={15} />
+                </View>
+              ) : (
+                <View className="flex-1 ml-4 w-32 pb-12 flex justify-center items-center">
+                  <Spinner size={15} />
+                </View>
+              )
+            ) : props.isFetchNextPageError ? (
+              props.direction === 'vertical' ? (
+                <Card className="mt-4">
+                  <CardContent className="pt-4">
+                    <Large>Error loading more {type}s</Large>
+                    <Text className="text-muted-foreground">
+                      {props.error?.message || 'Unknown error'}
+                    </Text>
+                  </CardContent>
+                  <CardFooter>
+                    <Button className="w-full" onPress={() => props.onEndReached()}>
+                      <Text>Retry</Text>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ) : (
+                <Card className="mb-2 ml-4 w-64 flex-1 flex justify-between">
+                  <CardContent className="pt-4">
+                    <Large>Error loading more {type}s</Large>
+                    <Text className="text-muted-foreground">
+                      {props?.error?.message || 'Unknown error'}
+                    </Text>
+                  </CardContent>
+                  <CardFooter>
+                    <Button className="w-full" onPress={() => props?.onEndReached?.()}>
+                      <Text>Retry</Text>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )
+            ) : null
           ) : null}
           {ListFooterComponent}
         </>
       }
       ListEmptyComponent={
-        props.direction === 'vertical' && props.error ? (
+        props.error ? (
           <Card className="mb-4">
             <CardContent className="pt-4">
-              <Large>Error loading books</Large>
+              <Large>Error loading {type}s</Large>
               <Text className="text-muted-foreground">
                 {props.error.message || 'Unknown error'}
               </Text>
@@ -164,7 +203,7 @@ export function PersonList({
             </CardFooter>
           </Card>
         ) : people?.length === 0 ? (
-          <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4">
+          <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
             <Text className="text-center">No {type}s found</Text>
           </View>
         ) : (

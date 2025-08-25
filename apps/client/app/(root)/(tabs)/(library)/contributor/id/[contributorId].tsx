@@ -5,7 +5,6 @@ import { View } from 'react-native';
 import { ExpandableSummary } from '~/components/expandable-summary';
 import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { Image } from '~/components/image';
-import { Spinner } from '~/components/spinner';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
@@ -25,7 +24,6 @@ export default function ContributorIDScreen() {
     data: contributor,
     error: contributorError,
     refetch: contributorRefetch,
-    isLoading: contributorLoading,
   } = api.contributors.getById.useQuery(contributorId);
 
   const {
@@ -33,7 +31,6 @@ export default function ContributorIDScreen() {
     error: booksAsAuthorError,
     refetch: booksAsAuthorRefetch,
     isFetching: booksAsAuthorFetching,
-    isLoading: booksAsAuthorLoading,
   } = api.contributors.listBooksById.useQuery('author', contributorId);
 
   const {
@@ -41,7 +38,6 @@ export default function ContributorIDScreen() {
     error: booksAsNarratorError,
     refetch: booksAsNarratorRefetch,
     isFetching: booksAsNarratorFetching,
-    isLoading: booksAsNarratorLoading,
   } = api.contributors.listBooksById.useQuery('narrator', contributorId);
 
   const {
@@ -49,7 +45,6 @@ export default function ContributorIDScreen() {
     error: booksAsEditorError,
     refetch: booksAsEditorRefetch,
     isFetching: booksAsEditorFetching,
-    isLoading: booksAsEditorLoading,
   } = api.contributors.listBooksById.useQuery('editor', contributorId);
 
   const {
@@ -57,7 +52,6 @@ export default function ContributorIDScreen() {
     error: booksAsTranslatorError,
     refetch: booksAsTranslatorRefetch,
     isFetching: booksAsTranslatorFetching,
-    isLoading: booksAsTranslatorLoading,
   } = api.contributors.listBooksById.useQuery('translator', contributorId);
 
   const {
@@ -65,7 +59,6 @@ export default function ContributorIDScreen() {
     error: booksAsForewordError,
     refetch: booksAsForewordRefetch,
     isFetching: booksAsForewordFetching,
-    isLoading: booksAsForewordLoading,
   } = api.contributors.listBooksById.useQuery('foreword', contributorId);
 
   return (
@@ -114,6 +107,7 @@ export default function ContributorIDScreen() {
         ) : null}
 
         <AsRoleBookList
+          className="mt-4"
           role="author"
           books={booksAsAuthor}
           error={booksAsAuthorError}
@@ -152,17 +146,6 @@ export default function ContributorIDScreen() {
           isFetching={booksAsForewordFetching}
           refetch={booksAsForewordRefetch}
         />
-
-        {contributorLoading ||
-        booksAsAuthorLoading ||
-        booksAsNarratorLoading ||
-        booksAsEditorLoading ||
-        booksAsTranslatorLoading ||
-        booksAsForewordLoading ? (
-          <View className="p-12 justify-center items-center">
-            <Spinner size={15} />
-          </View>
-        ) : null}
       </FloatingPlayerDodgingScrollView>
     </>
   );

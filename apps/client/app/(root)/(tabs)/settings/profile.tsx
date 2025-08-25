@@ -72,21 +72,7 @@ export default function ProfileSettingsScreen() {
               Sessions
             </TitleWithRefetch>
 
-            {sessionsError ? (
-              <Card className="mt-4">
-                <CardContent className="pt-4">
-                  <Large>Error loading list of sessions</Large>
-                  <Text className="text-muted-foreground">
-                    {sessionsError.message || 'Unknown error'}
-                  </Text>
-                </CardContent>
-                <CardFooter>
-                  <Button className="w-full" onPress={() => sessionsRefetch()}>
-                    <Text>Retry</Text>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ) : currentSessionError ? (
+            {currentSessionError ? (
               <Card className="mt-4">
                 <CardContent className="pt-4">
                   <Large>Error loading current session</Large>
@@ -100,7 +86,7 @@ export default function ProfileSettingsScreen() {
                   </Button>
                 </CardFooter>
               </Card>
-            ) : !sessions || !currentSession ? (
+            ) : (!sessions && !sessionsError) || !currentSession ? (
               <Card className="mt-4">
                 <CardContent className="p-12 justify-center items-center">
                   <Spinner size={15} />
@@ -109,17 +95,34 @@ export default function ProfileSettingsScreen() {
             ) : null}
           </>
         }
-        renderItem={
-          sessionsError || currentSessionError
-            ? undefined
-            : ({ item }) => (
-                <Session
-                  session={item}
-                  userId={currentSession!.user.id}
-                  currentSessionToken={currentSession!.session.token}
-                  revokeSession={(token) => authInstance.revokeSession({ token })}
-                />
-              )
+        renderItem={({ item }) => (
+          <Session
+            session={item}
+            userId={currentSession!.user.id}
+            currentSessionToken={currentSession!.session.token}
+            revokeSession={(token) => authInstance.revokeSession({ token })}
+          />
+        )}
+        ListEmptyComponent={
+          sessionsError ? (
+            <Card className="mt-4">
+              <CardContent className="pt-4">
+                <Large>Error loading list of sessions</Large>
+                <Text className="text-muted-foreground">
+                  {sessionsError.message || 'Unknown error'}
+                </Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => sessionsRefetch()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </Card>
+          ) : sessions?.length === 0 ? (
+            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+              <Text className="text-center">No sessions found</Text>
+            </View>
+          ) : null
         }
       />
     </>

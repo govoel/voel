@@ -7,8 +7,15 @@ import { TitleWithRefetch } from '~/components/title-with-refetch';
 import api from '~/lib/api';
 
 export default function RecentlyAddedScreen() {
-  const { data, error, refetch, isFetching, fetchNextPage, isFetchingNextPage } =
-    api.books.listRecentlyAdded.useInfiniteQuery();
+  const {
+    data,
+    error,
+    refetch,
+    isFetching,
+    fetchNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = api.books.listRecentlyAdded.useInfiniteQuery();
 
   return (
     <>
@@ -21,6 +28,7 @@ export default function RecentlyAddedScreen() {
         contentContainerClassName={useFloatingPlayerPaddingClass()}
         onEndReached={fetchNextPage}
         isFetchingNextPage={isFetchingNextPage}
+        isFetchNextPageError={isFetchNextPageError}
         ListHeaderComponent={
           <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
             Recently Added

@@ -7,8 +7,6 @@ import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardFooter } from '~/components/ui/card';
-import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
@@ -30,6 +28,7 @@ export default function HomeScreen() {
     error: recentlyAddedError,
     fetchNextPage: fetchNextPageForRecentlyAdded,
     isFetchingNextPage: isRecentlyAddedFetchingNextPage,
+    isFetchNextPageError: isRecentlyAddedFetchingNextPageError,
   } = api.books.listRecentlyAdded.useInfiniteQuery();
 
   const {
@@ -58,29 +57,15 @@ export default function HomeScreen() {
               </Link>
             </TitleWithRefetch>
 
-            {continueListening ? (
-              <BookList
-                direction="horizontal"
-                key="continue-listening"
-                books={continueListening}
-                className="mb-2"
-                emptyListMessage="You haven&rsquo;t listened to any books yet"
-              />
-            ) : continueListeningError ? (
-              <Card className="mb-4">
-                <CardContent className="pt-4">
-                  <Large>Error loading books</Large>
-                  <Text className="text-muted-foreground">
-                    {continueListeningError.message || 'Unknown error'}
-                  </Text>
-                </CardContent>
-                <CardFooter>
-                  <Button size="sm" className="w-full" onPress={() => refetchContinueListening()}>
-                    <Text>Retry</Text>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ) : null}
+            <BookList
+              direction="horizontal"
+              key="continue-listening"
+              books={continueListening}
+              error={continueListeningError}
+              refetch={refetchContinueListening}
+              className="mb-2"
+              emptyListMessage="You haven&rsquo;t listened to any books yet"
+            />
           </>
         ) : null}
 
@@ -98,30 +83,17 @@ export default function HomeScreen() {
               </Link>
             </TitleWithRefetch>
 
-            {recentlyAdded ? (
-              <BookList
-                direction="horizontal"
-                key="recently-added"
-                books={recentlyAdded}
-                className="mb-2"
-                onEndReached={fetchNextPageForRecentlyAdded}
-                isFetchingNextPage={isRecentlyAddedFetchingNextPage}
-              />
-            ) : recentlyAddedError ? (
-              <Card className="mb-4">
-                <CardContent className="pt-4">
-                  <Large>Error loading books</Large>
-                  <Text className="text-muted-foreground">
-                    {recentlyAddedError.message || 'Unknown error'}
-                  </Text>
-                </CardContent>
-                <CardFooter>
-                  <Button size="sm" className="w-full" onPress={() => refetchRecentlyAdded()}>
-                    <Text>Retry</Text>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ) : null}
+            <BookList
+              direction="horizontal"
+              key="recently-added"
+              books={recentlyAdded}
+              className="mb-2"
+              onEndReached={fetchNextPageForRecentlyAdded}
+              error={recentlyAddedError}
+              refetch={refetchRecentlyAdded}
+              isFetchingNextPage={isRecentlyAddedFetchingNextPage}
+              isFetchNextPageError={isRecentlyAddedFetchingNextPageError}
+            />
           </>
         ) : null}
 
@@ -139,29 +111,15 @@ export default function HomeScreen() {
               </Link>
             </TitleWithRefetch>
 
-            {availableOffline ? (
-              <BookList
-                direction="horizontal"
-                key="available-offline"
-                books={availableOffline}
-                className="mb-2"
-                emptyListMessage="You haven&rsquo;t downloaded any books yet"
-              />
-            ) : availableOfflineError ? (
-              <Card className="mb-4">
-                <CardContent className="pt-4">
-                  <Large>Error loading books</Large>
-                  <Text className="text-muted-foreground">
-                    {availableOfflineError.message || 'Unknown error'}
-                  </Text>
-                </CardContent>
-                <CardFooter>
-                  <Button size="sm" className="w-full" onPress={() => refetchAvailableOffline()}>
-                    <Text>Retry</Text>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ) : null}
+            <BookList
+              direction="horizontal"
+              key="available-offline"
+              books={availableOffline}
+              error={availableOfflineError}
+              refetch={refetchAvailableOffline}
+              className="mb-2"
+              emptyListMessage="You haven&rsquo;t downloaded any books yet"
+            />
           </>
         ) : null}
 

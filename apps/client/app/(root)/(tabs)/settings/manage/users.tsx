@@ -27,28 +27,36 @@ const userRole = z.enum(['under18', 'user', 'admin']);
 export default function UsersListScreen() {
   const authInstance = useAuthInstance();
   const session = useAuthSession(authInstance);
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isFetching, error } =
-    useInfiniteQuery({
-      queryKey: ['users'],
-      queryFn: async ({ pageParam }) => {
-        const res = await authInstance.admin.listUsers({
-          query: {
-            limit: 20,
-            offset: pageParam * 20,
-          },
-        });
-        if (res.error) {
-          throw res.error;
-        }
-        return res.data;
-      },
-      getNextPageParam: (lastPage, allPages, lastPageParam) => {
-        const itemsSoFar = lastPageParam * 20 + lastPage.users.length;
-        return itemsSoFar < lastPage.total ? lastPageParam + 1 : undefined;
-      },
-      initialPageParam: 0,
-      select: (data) => data.pages.flatMap((page) => page.users),
-    });
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+    isFetching,
+    error,
+    isFetchNextPageError,
+  } = useInfiniteQuery({
+    queryKey: ['users'],
+    queryFn: async ({ pageParam }) => {
+      const res = await authInstance.admin.listUsers({
+        query: {
+          limit: 20,
+          offset: pageParam * 20,
+        },
+      });
+      if (res.error) {
+        throw res.error;
+      }
+      return res.data;
+    },
+    getNextPageParam: (lastPage, allPages, lastPageParam) => {
+      const itemsSoFar = lastPageParam * 20 + lastPage.users.length;
+      return itemsSoFar < lastPage.total ? lastPageParam + 1 : undefined;
+    },
+    initialPageParam: 0,
+    select: (data) => data.pages.flatMap((page) => page.users),
+  });
 
   const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -141,19 +149,7 @@ export default function UsersListScreen() {
               Users
             </TitleWithRefetch>
 
-            {error ? (
-              <Card className="mt-4">
-                <CardContent className="pt-4">
-                  <Large>Error loading users</Large>
-                  <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-                </CardContent>
-                <CardFooter>
-                  <Button className="w-full" onPress={() => refetch()}>
-                    <Text>Retry</Text>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ) : session.error ? (
+            {session.error ? (
               <Card className="mt-4">
                 <CardContent className="pt-4">
                   <Large>Error loading your session</Large>
@@ -167,7 +163,7 @@ export default function UsersListScreen() {
                   </Button>
                 </CardFooter>
               </Card>
-            ) : !data && !session.data ? (
+            ) : (!error && !data) || !session.data ? (
               <Card className="mt-4">
                 <CardContent className="p-12 justify-center items-center">
                   <Spinner size={15} />
@@ -176,59 +172,86 @@ export default function UsersListScreen() {
             ) : null}
           </>
         }
+        ItemSeparatorComponent={() => <View className="border-t border-foreground/15" />}
+        renderItem={({ item, index }) => (
+          <Link
+            href={
+              session.data?.user.id === item.id
+                ? '/settings/profile'
+                : { pathname: '/settings/manage/users/[id]', params: { id: item.id } }
+            }
+            asChild
+            push>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40 border-foreground/15 border-x',
+                index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
+                index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
+              )}>
+              <View className="flex-row gap-x-3 items-center">
+                <Avatar
+                  className="border border-foreground/15"
+                  alt={
+                    /* @ts-expect-error: Better-Auth isn't able to figure out username is present with the username plugin enabled */
+                    `${item.username}'s Avatar`
+                  }>
+                  <AvatarImage
+                    source={{
+                      uri: item.image ?? undefined,
+                    }}
+                  />
+                  <AvatarFallback>
+                    <Text>{getInitials(item.name)}</Text>
+                  </AvatarFallback>
+                </Avatar>
+                <View>
+                  {/* @ts-expect-error: Better-Auth isn't able to figure out username is present with the username plugin enabled */}
+                  <Text>{item.username}</Text>
+                  <Text className="text-muted-foreground">{item.role}</Text>
+                </View>
+              </View>
+              <ChevronRight className="text-muted-foreground" size="20" />
+            </Button>
+          </Link>
+        )}
         ListFooterComponent={
           isFetchingNextPage ? (
             <View className="py-4 items-center">
               <Spinner size={10} />
             </View>
+          ) : isFetchNextPageError ? (
+            <Card className="mt-4">
+              <CardContent className="pt-4">
+                <Large>Error loading more users</Large>
+                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => handleLoadMore()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </Card>
           ) : null
         }
-        ItemSeparatorComponent={() => <View className="border-t border-foreground/15" />}
-        renderItem={
-          error || session.error
-            ? undefined
-            : ({ item, index }) => (
-                <Link
-                  href={
-                    session.data?.user.id === item.id
-                      ? '/settings/profile'
-                      : { pathname: '/settings/manage/users/[id]', params: { id: item.id } }
-                  }
-                  asChild
-                  push>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40 border-foreground/15 border-x',
-                      index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
-                      index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
-                    )}>
-                    <View className="flex-row gap-x-3 items-center">
-                      <Avatar
-                        className="border border-foreground/15"
-                        alt={
-                          /* @ts-expect-error: Better-Auth isn't able to figure out username is present with the username plugin enabled */
-                          `${item.username}'s Avatar`
-                        }>
-                        <AvatarImage
-                          source={{
-                            uri: item.image ?? undefined,
-                          }}
-                        />
-                        <AvatarFallback>
-                          <Text>{getInitials(item.name)}</Text>
-                        </AvatarFallback>
-                      </Avatar>
-                      <View>
-                        {/* @ts-expect-error: Better-Auth isn't able to figure out username is present with the username plugin enabled */}
-                        <Text>{item.username}</Text>
-                        <Text className="text-muted-foreground">{item.role}</Text>
-                      </View>
-                    </View>
-                    <ChevronRight className="text-muted-foreground" size="20" />
-                  </Button>
-                </Link>
-              )
+        ListEmptyComponent={
+          error ? (
+            <Card className="mt-4">
+              <CardContent className="pt-4">
+                <Large>Error loading users</Large>
+                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onPress={() => refetch()}>
+                  <Text>Retry</Text>
+                </Button>
+              </CardFooter>
+            </Card>
+          ) : data?.length === 0 ? (
+            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+              <Text className="text-center">No users found</Text>
+            </View>
+          ) : null
         }
       />
 
