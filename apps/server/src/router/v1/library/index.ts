@@ -121,9 +121,6 @@ export const libraryRouter = createTRPCRouter({
             throw new TRPCError({
               code: 'BAD_REQUEST',
               message: result.left.message,
-              cause: {
-                description: 'description' in result.left ? result.left.description : undefined,
-              },
             });
           }
         }
