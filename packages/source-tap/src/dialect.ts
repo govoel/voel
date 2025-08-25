@@ -195,13 +195,28 @@ class SourceTapSqliteDriver implements Driver {
   }
 }
 
+/**
+ * SQLite database connection implementation optimized for SourceTap's needs.
+ *
+ * Provides enhanced query result handling that supports SourceTap's requirement
+ * to capture lastInsertRowid accurately even with RETURNING clauses.
+ */
 class SourceTapSqliteConnection implements DatabaseConnection {
   readonly #db: Database;
 
+  /**
+   * Creates a new SourceTapSqliteConnection instance.
+   */
   constructor(db: Database) {
     this.#db = db;
   }
 
+  /**
+   * Executes a compiled query and returns results with proper metadata.
+   *
+   * Uses a special technique to capture lastInsertRowid by querying it
+   * immediately after execution, which is safe due to the connection mutex.
+   */
   executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
     const { sql, parameters } = compiledQuery;
     const stmt = this.#db.prepare<O, SQLQueryBindings[]>(sql);
@@ -242,6 +257,22 @@ class SourceTapSqliteConnection implements DatabaseConnection {
   }
 }
 
+/**
+ * Standard Bun SQLite dialect for general use.
+ *
+ * Provides a simpler SQLite dialect implementation without the special
+ * enhancements needed for SourceTap. Use this for basic SQLite operations
+ * when you don't need change tracking.
+ *
+ * @example
+ * ```typescript
+ * const db = new Kysely<DB>({
+ *   dialect: new BunSqliteDialect({
+ *     database: new Database('simple.db')
+ *   })
+ * });
+ * ```
+ */
 export class BunSqliteDialect implements Dialect {
   readonly #config: SourceTapDialectConfig;
 
@@ -383,10 +414,19 @@ class BunSqliteConnection implements DatabaseConnection {
   }
 }
 
+/**
+ * A simple mutex implementation for ensuring single-threaded access to SQLite connection.
+ *
+ * Since SQLite only supports one connection at a time, this mutex ensures
+ * that concurrent database operations are properly serialized.
+ */
 class ConnectionMutex {
   #promise?: Promise<void>;
   #resolve?: () => void;
 
+  /**
+   * Acquires the mutex lock, blocking until available.
+   */
   async lock(): Promise<void> {
     while (this.#promise) {
       await this.#promise;
@@ -397,6 +437,9 @@ class ConnectionMutex {
     });
   }
 
+  /**
+   * Releases the mutex lock, allowing other waiters to proceed.
+   */
   unlock(): void {
     const resolve = this.#resolve;
 
