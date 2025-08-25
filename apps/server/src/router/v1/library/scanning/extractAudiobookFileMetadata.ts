@@ -1,9 +1,8 @@
 import { Path } from '@effect/platform';
-import { Effect, Either, Option, ParseResult } from 'effect';
+import { Data, Effect } from 'effect';
 
-import { FsExtended } from '@/router/v1/library/fsExtended';
+import { FFProbeStdoutSchema, FsExtended } from '@/router/v1/library/fsExtended';
 import { Hash } from '@/router/v1/library/hash';
-import { markAsUnmatched } from '@/router/v1/library/scanning/markAsUnmatched';
 
 const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   for (const tagValue of possibleTags) {
@@ -26,11 +25,25 @@ const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   return 0;
 };
 
+class UpToDateError extends Data.TaggedError('UpToDateError')<{ message: string }> {}
+
+class NoAlbumTitleOrArtistNameError extends Data.TaggedError('NoAlbumTitleOrArtistNameError')<{
+  parentPath: string;
+  name: string;
+  realPath: string | undefined;
+  mtimeMs: number;
+  metadata: typeof FFProbeStdoutSchema.Type;
+  metadataHash: string;
+  normalizedTags: Record<string, string>;
+  albumTitle?: string;
+  artistName?: string;
+  discNumber: number;
+  trackNumber: number;
+}> {}
+
 export const extractAudiobookFileMetadata = ({
-  libraryId,
   file,
 }: {
-  libraryId: number;
   file: Readonly<{
     metadataHashFromDb: string | undefined;
     mtimeMs: number;
@@ -46,52 +59,22 @@ export const extractAudiobookFileMetadata = ({
 
     yield* Effect.annotateLogsScoped({ path: path.join(file.parentPath, file.name) });
 
-    const metadata = yield* Effect.either(
-      fs.ffprobe({
-        path: path.join(file.parentPath, file.name),
-      })
-    );
-
-    if (Either.isLeft(metadata)) {
-      if (metadata.left._tag === 'FFProbeUnknownError') {
-        yield* Effect.logError('Failed to extract metadata').pipe(
-          Effect.annotateLogs({ exitCode: metadata.left.exitCode, stdout: metadata.left.stdout })
-        );
-      } else if (metadata.left._tag === 'FFProbeKnownError') {
-        yield* Effect.logError('Failed to extract metadata').pipe(
-          Effect.annotateLogs({
-            exitCode: metadata.left.exitCode,
-            errorCode: metadata.left.errorCode,
-            message: metadata.left.message,
-          })
-        );
-      } else if (metadata.left._tag === 'BunShellSyntaxError') {
-        yield* Effect.logError('Failed to parse metadata output');
-      } else if (metadata.left._tag === 'ParseError') {
-        yield* Effect.logError(
-          `Metadata was not in the expected format: ${ParseResult.TreeFormatter.formatErrorSync(metadata.left)}`
-        );
-      } else {
-        yield* Effect.logError('Unexpected error while extracting metadata').pipe(
-          Effect.annotateLogs('error', metadata.left.message)
-        );
-      }
-
-      return Option.none();
-    }
+    const metadata = yield* fs.ffprobe({
+      path: path.join(file.parentPath, file.name),
+    });
 
     // ok to compute hash on parsed metadata only instead of raw metadata
     // because if we ever change what we parse, the file gets re-processed
     const metadataHash = yield* hash.rapidhash({
-      data: JSON.stringify(metadata.right),
+      data: JSON.stringify(metadata),
     });
 
     if (file.metadataHashFromDb === metadataHash) {
-      return Option.none();
+      return yield* Effect.fail(new UpToDateError({ message: 'File is up to date' }));
     }
 
     const normalizedTags = yield* Effect.reduce(
-      Object.entries(metadata.right.format.tags),
+      Object.entries(metadata.format.tags),
       {} as Record<string, string>,
       (acc, [key, value]) =>
         Effect.gen(function* () {
@@ -128,51 +111,34 @@ export const extractAudiobookFileMetadata = ({
       artistName === undefined ||
       artistName.length === 0
     ) {
-      yield* Effect.logError('Missing album title or artist name, marking file as unmatched').pipe(
-        Effect.annotateLogs({
+      return yield* Effect.fail(
+        new NoAlbumTitleOrArtistNameError({
+          parentPath: file.parentPath,
+          name: file.name,
+          realPath: file.realPath,
+          mtimeMs: file.mtimeMs,
+          metadata,
+          metadataHash,
+          normalizedTags,
           albumTitle,
           artistName,
+          discNumber,
+          trackNumber,
         })
       );
-
-      yield* markAsUnmatched({
-        libraryId,
-        reason:
-          (albumTitle === undefined || albumTitle.length === 0) &&
-          (artistName === undefined || artistName.length === 0)
-            ? 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
-            : albumTitle === undefined || albumTitle.length === 0
-              ? 'METADATA_NO_ALBUM_TITLE'
-              : 'METADATA_NO_ARTIST_NAME',
-        files: [
-          {
-            parentPath: file.parentPath,
-            name: file.name,
-            discNumber,
-            trackNumber,
-            metadata: metadata.right,
-            normalizedTags,
-          },
-        ],
-      }).pipe(
-        Effect.tapError(() => Effect.logError('Failed to mark file as unmatched, ignoring file')),
-        Effect.catchAll(() => Effect.void)
-      );
-
-      return Option.none();
     }
 
-    return Option.some({
+    return {
       parentPath: file.parentPath,
       name: file.name,
       realPath: file.realPath,
       mtimeMs: file.mtimeMs,
-      metadata: metadata.right,
+      metadata,
       metadataHash,
       normalizedTags,
       albumTitle,
       artistName,
       discNumber,
       trackNumber,
-    });
+    };
   }).pipe(Effect.scoped);

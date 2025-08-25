@@ -19,7 +19,13 @@ const list = {
         instanceDb
           .selectFrom('library')
           .where('library.deletedAt', 'is', null)
-          .select(['library.id', 'library.name', 'library.createdAt', 'library.updatedAt'])
+          .select([
+            'library.id',
+            'library.name',
+            'library.path',
+            'library.createdAt',
+            'library.updatedAt',
+          ])
           .execute(),
     });
   },

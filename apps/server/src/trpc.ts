@@ -53,7 +53,11 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
       ...shape,
       data: {
         ...shape.data,
-        zodError: error.cause instanceof ZodError ? z.flattenError(error.cause) : null,
+        description:
+          error.cause && 'description' in error.cause && typeof error.cause.description === 'string'
+            ? error.cause.description
+            : undefined,
+        zodError: error.cause instanceof ZodError ? z.flattenError(error.cause) : undefined,
       },
     };
   },

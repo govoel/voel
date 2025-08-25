@@ -17,6 +17,8 @@ export const BookSearchResponseSchema = Schema.Struct({
       copyright: Schema.String,
       publisher_name: Schema.String,
 
+      runtime_length_min: Schema.Number,
+
       product_images: Schema.Struct({
         '500': Schema.String,
       }),
@@ -44,7 +46,7 @@ export type GetBooksBySearchRequestParams =
     }
   | {
       readonly asins?: never;
-      readonly title: string;
+      readonly title?: string;
       readonly author?: string;
       readonly publisher?: string;
       readonly narrator?: string;
