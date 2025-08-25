@@ -16,11 +16,14 @@ Always reference these instructions first and fallback to search or bash command
 - **Start client development**: `cd apps/client && bun run start` -- starts Expo development server
 
 ### Testing and Quality Assurance
-- **Run all tests**: `bun run --filter '*' --bun test` -- takes 3 seconds. NEVER CANCEL. Set timeout to 5+ minutes.
-- **Run all linting**: `bun run --filter '*' --bun lint` -- takes 44 seconds. NEVER CANCEL. Set timeout to 60+ minutes.
+- **Run all tests**: `bun run --filter '*' test` -- takes 3 seconds. NEVER CANCEL. Set timeout to 5+ minutes.
+- **Run all linting**: `bun run --filter '*' lint` -- takes 44 seconds. NEVER CANCEL. Set timeout to 60+ minutes.
 - **Run server tests only**: `cd apps/server && bun run test` -- takes 3 seconds
 - **Run server linting only**: `cd apps/server && bun run lint` -- takes 8 seconds
 - **Run client linting only**: `cd apps/client && bun run lint` -- takes 27 seconds
+- **Run all typescript checks**: `bun run --filter '*' typecheck` -- takes 1 minute. NEVER CANCEL. Set timeout to 5+ minutes.
+- **Run server type checks**: `cd apps/server && bun run typecheck` -- takes 30 seconds. NEVER CANCEL. Set timeout to 5+ minutes.
+- **Run client type checks**: `cd apps/client && bun run typecheck` -- takes 30 seconds. NEVER CANCEL. Set timeout to 5+ minutes.
 
 ### Build Processes
 - **Android builds**: Require extensive setup with JDK 17, Android SDK, Gradle, and ccache. See .github/workflows/build-client.yml for full setup
@@ -28,16 +31,9 @@ Always reference these instructions first and fallback to search or bash command
 
 ## Validation
 
-### Server Validation
-- **Always test server endpoints after changes**: 
-  - Start server: `cd apps/server && bun run dev`
-  - Test tRPC endpoints: `curl -s -X POST http://localhost:3000/api/trpc/v1.library.create -H "Content-Type: application/json" -d '{}' | head -1`
-  - Expected: Admin authentication error (FORBIDDEN)
-- **ALWAYS run through complete server startup and API request validation** after making server changes
-
-### CI/CD Validation
-- **ALWAYS run linting before committing**: `bun run --filter '*' --bun lint`
-- **ALWAYS run tests before committing**: `bun run --filter '*' --bun test` 
+- **ALWAYS run typechecks before committing**: `bun run --filter '*' typecheck`
+- **ALWAYS run linting before committing**: `bun run --filter '*' lint`
+- **ALWAYS run tests before committing**: `bun run --filter '*' test`
 - **Format code**: `cd apps/server && bun run format` or `cd apps/client && bun run format`
 
 ## Repository Structure
@@ -70,7 +66,7 @@ Always reference these instructions first and fallback to search or bash command
 - **All admin operations require authentication**
 - **API routes**: `/api/auth/*`, `/api/trpc/*`, `/api/v1/files/:id`
 
-### Client Development  
+### Client Development
 - **Uses Expo Router for navigation**
 - **Three build variants**: development, preview, release
 - **Android builds use ccache for native modules**
@@ -87,7 +83,7 @@ Always reference these instructions first and fallback to search or bash command
 
 ## Build Timing Reference
 - **bun install**: ~6 minutes
-- **Workspace linting**: ~44 seconds  
+- **Workspace linting**: ~44 seconds
 - **Workspace testing**: ~3 seconds
 - **Individual server lint**: ~8 seconds
 - **Individual client lint**: ~27 seconds
@@ -105,6 +101,7 @@ cd apps/server && bun run dev &
 cd apps/client && bun run start &
 
 # Validate changes before committing
-bun run --filter '*' --bun lint
-bun run --filter '*' --bun test
+bun run --filter '*' typecheck
+bun run --filter '*' lint
+bun run --filter '*' test
 ```
