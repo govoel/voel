@@ -11,6 +11,7 @@ import {
   type Row,
   type RowSelectionState,
   type Table,
+  type VisibilityState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -29,6 +30,7 @@ import type * as z from 'zod';
 
 import { floatingPlayerStore } from '~/components/floating-player';
 import { BookCopy } from '~/components/icons/BookCopy';
+import { Check } from '~/components/icons/Check';
 import { ChevronDown } from '~/components/icons/ChevronDown';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { MicVocal } from '~/components/icons/MicVocal';
@@ -151,6 +153,7 @@ export default function LibraryPage() {
 
   const [grouping, setGrouping] = useState<GroupingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
   const table = useReactTable({
     data: data ?? [],
@@ -160,14 +163,19 @@ export default function LibraryPage() {
         { id: 'disc', desc: false },
         { id: 'track', desc: false },
       ],
+      columnVisibility: unmatchedFilesColumns.reduce((acc, col) => {
+        acc[col.id!] = true; // All columns visible by default
+        return acc;
+      }, {} as VisibilityState),
     },
-    state: { grouping, rowSelection },
+    state: { grouping, rowSelection, columnVisibility },
     getSortedRowModel: getSortedRowModel(),
     onGroupingChange: setGrouping,
     getGroupedRowModel: getGroupedRowModel(),
     enableRowSelection: true,
     enableSubRowSelection: true,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getRowId: (row) => `${row.parentPath}/${row.name}`,
@@ -216,6 +224,39 @@ export default function LibraryPage() {
                       </Button>
                     ) : null
                   )}
+                </ScrollView>
+
+                <Text className="pt-2">Show Columns</Text>
+
+                <ScrollView className="flex flex-row pt-1 pb-2" horizontal>
+                  {table
+                    .getLeafHeaders()
+                    .filter((header) => !header.column.getIsGrouped()) // Hide toggles for grouped columns
+                    .sort((a, b) => {
+                      // Sort so toggled on columns appear first, toggled off last
+                      const aVisible = a.column.getIsVisible();
+                      const bVisible = b.column.getIsVisible();
+                      if (aVisible === bVisible) return 0;
+                      return aVisible ? -1 : 1;
+                    })
+                    .map((header, index) => (
+                      <Button
+                        key={header.id}
+                        onPress={header.column.getToggleVisibilityHandler()}
+                        size="sm"
+                        variant={header.column.getIsVisible() ? 'default' : 'outline'}
+                        className={cn(
+                          'flex justify-center items-center flex-row gap-x-1',
+                          index === 0 ? '' : 'ml-2'
+                        )}>
+                        {header.column.getIsVisible() ? (
+                          <Check className="text-background" size={16} />
+                        ) : null}
+                        <Text>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </Text>
+                      </Button>
+                    ))}
                 </ScrollView>
               </>
             ) : null}
