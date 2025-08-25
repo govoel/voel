@@ -10,7 +10,7 @@ export const BookSearchResponseSchema = Schema.Struct({
       asin: Schema.String,
 
       authors: Schema.Array(Schema.Struct({ name: Schema.String })),
-      narrators: Schema.Array(Schema.Struct({ name: Schema.String })),
+      narrators: Schema.optional(Schema.Array(Schema.Struct({ name: Schema.String }))),
 
       title: Schema.NonEmptyString,
       subtitle: Schema.optional(Schema.String),
@@ -19,9 +19,11 @@ export const BookSearchResponseSchema = Schema.Struct({
 
       runtime_length_min: Schema.Number,
 
-      product_images: Schema.Struct({
-        '500': Schema.String,
-      }),
+      product_images: Schema.optional(
+        Schema.Struct({
+          '500': Schema.String,
+        })
+      ),
 
       series: Schema.optional(
         Schema.Array(

@@ -102,20 +102,22 @@ export const gatherAuxiliaryAudiobookData = (book: typeof ProductBookSchema.Type
       Effect.catchAll(() => Effect.succeed({ chapters: [] }))
     );
 
-    const bookCoverThumbhash = yield* audible
-      .generateThumbhash({
-        imageURL: book.product_images[500].replace(/\._S[A-Z]+500_\./, '._SL100_.'),
-      })
-      .pipe(
-        Effect.tapError(() =>
-          Effect.logWarning('Failed to generate thumbhash for book cover').pipe(
-            Effect.annotateLogs({
-              bookAsin: book.asin,
-            })
+    const bookCoverThumbhash = book.product_images
+      ? yield* audible
+          .generateThumbhash({
+            imageURL: book.product_images[500].replace(/\._S[A-Z]+500_\./, '._SL100_.'),
+          })
+          .pipe(
+            Effect.tapError(() =>
+              Effect.logWarning('Failed to generate thumbhash for book cover').pipe(
+                Effect.annotateLogs({
+                  bookAsin: book.asin,
+                })
+              )
+            ),
+            Effect.option
           )
-        ),
-        Effect.option
-      );
+      : Option.none();
 
     const contributorAvatarThumbhashes = yield* Effect.forEach(contributors, (contributor) =>
       contributor.avatar
@@ -143,7 +145,7 @@ export const gatherAuxiliaryAudiobookData = (book: typeof ProductBookSchema.Type
         type: 'audio' as const,
         title: book.title,
         subtitle: book.subtitle,
-        cover: book.product_images[500],
+        cover: book.product_images?.[500] ?? null,
         coverThumbhash: Option.isSome(bookCoverThumbhash) ? bookCoverThumbhash.value : null,
         summary: book.publisher_summary_md,
         adultsOnly: book.is_adult_product ? (1 as const) : (0 as const),

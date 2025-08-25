@@ -79,8 +79,7 @@ const matchers = {
   ) => {
     return (
       narrators instanceof Set &&
-      Array.isArray(product.narrators) &&
-      product.narrators.some((n) =>
+      (product.narrators ?? []).some((n) =>
         [...narrators].some((name) => matchers.matchStrings(n.name, name))
       )
     );

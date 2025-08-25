@@ -60,11 +60,13 @@ const ContributorsSchemaIn = Schema.Struct({
     })
   ),
 
-  narrators: Schema.Array(
-    Schema.Struct({
-      asin: Schema.optional(Schema.String),
-      name: Schema.String,
-    })
+  narrators: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        asin: Schema.optional(Schema.String),
+        name: Schema.String,
+      })
+    )
   ),
 });
 
@@ -129,7 +131,7 @@ const ContributorsSchema = Schema.transformOrFail(ContributorsSchemaIn, Contribu
       editors,
       translators,
       forewords,
-      input.narrators.map((narrator) => ({
+      (input.narrators ?? []).map((narrator) => ({
         asin: narrator.asin,
         name: narrator.name,
         role: 'narrator' as const,
@@ -169,9 +171,11 @@ const ProductBookSchemaNoTransforms = Schema.extend(
     subtitle: Schema.optional(Schema.String),
     copyright: Schema.String,
     publisher_name: Schema.String,
-    product_images: Schema.Struct({
-      '500': Schema.String,
-    }),
+    product_images: Schema.optional(
+      Schema.Struct({
+        '500': Schema.String,
+      })
+    ),
 
     publisher_summary_md: Schema.optional(Schema.String),
   }),
