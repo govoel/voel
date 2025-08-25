@@ -111,7 +111,18 @@ export const libraryRouter = createTRPCRouter({
       .input(schemas.v1.library.unmatched.search)
       .mutation(async ({ input: { asin, title, author } }) => {
         if (asin || title || author) {
-          return await AppRuntime.runPromise(searchProgram({ asin, title, author }));
+          const result = await AppRuntime.runPromise(
+            searchProgram({ asin, title, author }).pipe(Effect.either)
+          );
+
+          if (Either.isRight(result)) {
+            return result.right;
+          } else {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: result.left.message,
+            });
+          }
         }
 
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid search parameters' });
@@ -308,18 +319,51 @@ const searchProgram = Effect.fn(function* ({
 }) {
   const audible = yield* Audible;
 
-  // TODO: turn errors into comprehensible error messages for the user
   if (asin) {
-    return yield* audible.getBooksBySearch({
-      asins: [asin],
-    });
+    return yield* audible
+      .getBooksBySearch({
+        asins: [asin],
+      })
+      .pipe(
+        Effect.catchTags({
+          ParseError: () =>
+            Effect.fail({
+              message: 'Error while parsing search results',
+            } as const),
+          RequestError: () =>
+            Effect.fail({
+              message: 'Error while making search request',
+            } as const),
+          ResponseError: () =>
+            Effect.fail({
+              message: 'Error while processing search response',
+            } as const),
+        })
+      );
   }
 
   if (title || author) {
-    return yield* audible.getBooksBySearch({
-      title,
-      author,
-    });
+    return yield* audible
+      .getBooksBySearch({
+        title,
+        author,
+      })
+      .pipe(
+        Effect.catchTags({
+          ParseError: () =>
+            Effect.fail({
+              message: 'Error while parsing search results',
+            } as const),
+          RequestError: () =>
+            Effect.fail({
+              message: 'Error while making search request',
+            } as const),
+          ResponseError: () =>
+            Effect.fail({
+              message: 'Error while processing search response',
+            } as const),
+        })
+      );
   }
 
   return [];
