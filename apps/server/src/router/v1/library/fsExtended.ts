@@ -2,7 +2,7 @@ import { effectify } from '@effect/platform/Effectify';
 import * as Error from '@effect/platform/Error';
 import { $ } from 'bun';
 import { Cause, Data, Effect, Schema } from 'effect';
-import { type PathLike, access, constants as fsConstants, realpath, stat } from 'node:fs';
+import { type PathLike, access, constants as fsConstants, lstat, realpath, stat } from 'node:fs';
 import { opendir } from 'node:fs/promises';
 
 const handleErrnoException =
@@ -75,7 +75,7 @@ class FFProbeUnknownError extends Data.TaggedError('FFProbeUnknownError')<{
 
 class BunShellSyntaxError extends Data.TaggedError('BunShellSyntaxError') {}
 
-const FFProbeStdoutSchema = Schema.Struct({
+export const FFProbeStdoutSchema = Schema.Struct({
   chapters: Schema.Array(
     Schema.Struct({
       id: Schema.Union(Schema.NumberFromString, Schema.Number),
@@ -131,6 +131,15 @@ export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
         handleBadArgument('realpath')
       );
       return (path: string) => nodeRealpath(path);
+    })(),
+
+    lstat: (() => {
+      const nodeLstat = effectify(
+        lstat,
+        handleErrnoException('FileSystem', 'lstat'),
+        handleBadArgument('lstat')
+      );
+      return (path: string) => nodeLstat(path);
     })(),
 
     stat: (() => {

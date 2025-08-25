@@ -32,7 +32,7 @@ export const ParentChapterSchema = Schema.Struct({
   ),
 });
 
-const ChapterResponseSchema = Schema.Struct({
+export const ChapterResponseSchema = Schema.Struct({
   content_metadata: Schema.Struct({
     chapter_info: Schema.Struct({
       brandIntroDurationMs: Schema.Number,

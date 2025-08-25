@@ -2,23 +2,25 @@ import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sh
 import { FlashList } from '@shopify/flash-list';
 import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
-import { Stack } from 'expo-router';
+import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
 import { View } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
+import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader } from '~/components/ui/card';
+import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { useAppForm } from '~/components/ui/form';
 import { Text } from '~/components/ui/text';
 import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { useApiInstance } from '~/lib/stores/instance';
+import { cn } from '~/lib/utils';
 
 export default function LibraryListScreen() {
   const apiInstance = useApiInstance();
@@ -58,8 +60,8 @@ export default function LibraryListScreen() {
       <Stack.Screen options={{ title: 'Manage Libraries', headerTitleAlign: 'center' }} />
       <FlashList
         data={data}
-        contentContainerClassName={useFloatingPlayerPaddingClass()}
         keyExtractor={(item) => item.id.toString()}
+        contentContainerClassName={useFloatingPlayerPaddingClass()}
         ListHeaderComponent={
           <>
             <Button
@@ -78,12 +80,25 @@ export default function LibraryListScreen() {
         renderItem={
           error
             ? undefined
-            : ({ item }) => (
-                <Card className="mt-4">
-                  <CardHeader className="flex-row justify-between items-center">
-                    <Library item={item} />
-                  </CardHeader>
-                </Card>
+            : ({ item, index }) => (
+                <Link
+                  href={{ pathname: '/settings/manage/libraries/[id]', params: { id: item.id } }}
+                  asChild
+                  push>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'flex-row native:h-fit h-fit justify-between items-center rounded-none bg-secondary/40 border-foreground/15 border-x',
+                      index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
+                      index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
+                    )}>
+                    <View className="flex-1">
+                      <Text>{item.name}</Text>
+                      <Text className="text-muted-foreground">{item.path}</Text>
+                    </View>
+                    <ChevronRight className="flex-shrink text-muted-foreground" size="20" />
+                  </Button>
+                </Link>
               )
         }
         ListEmptyComponent={

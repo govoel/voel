@@ -1,10 +1,20 @@
+import { FsExtended } from './fsExtended';
+import type { Hash } from './hash';
+import { gatherAuxiliaryAudiobookData } from './matching/gatherAuxiliaryAudiobookData';
+import { insertAudiobook } from './matching/insertAudiobook';
+import { extractAudiobookFileMetadata } from './scanning/extractAudiobookFileMetadata';
+import { prepareAudiobookFile } from './scanning/prepareAudiobookFile';
+import { Path } from '@effect/platform';
 import { TRPCError } from '@trpc/server';
 import { schemas } from '@voel/schemas';
+import { Effect, Either, Schema } from 'effect';
 import { NoResultError } from 'kysely';
 
+import { Audible, ProductBookSchema } from '@/router/v1/library/audible';
 import { getLibraryActor } from '@/router/v1/library/machine';
 
 import { db, isSQLiteError } from '@/libs/db';
+import { AppRuntime } from '@/libs/effect/runtime';
 
 import { adminProcedure, createTRPCRouter } from '@/trpc';
 
@@ -38,6 +48,7 @@ export const libraryRouter = createTRPCRouter({
 
     return library;
   }),
+
   scan: adminProcedure.input(schemas.v1.library.scan).mutation(async ({ input }) => {
     const library = await db
       .selectFrom('library')
@@ -78,4 +89,237 @@ export const libraryRouter = createTRPCRouter({
       });
     }
   }),
+
+  unmatched: createTRPCRouter({
+    getFiles: adminProcedure
+      .input(schemas.v1.library.unmatched.getFiles)
+      .query(async ({ input }) => {
+        const results = await db
+          .selectFrom('unmatchedAudiobookFile')
+          .where('libraryId', '=', input.id)
+          .where('deletedAt', 'is', null)
+          .select(['parentPath', 'name', 'durationMs', 'disc', 'track', 'reason', 'metadata'])
+          .execute();
+
+        return results.map((result) => ({
+          ...result,
+          metadata: JSON.parse(result.metadata) as Record<string, string | undefined>,
+        }));
+      }),
+
+    search: adminProcedure
+      .input(schemas.v1.library.unmatched.search)
+      .mutation(async ({ input: { asin, title, author } }) => {
+        if (asin || title || author) {
+          return await AppRuntime.runPromise(searchProgram({ asin, title, author }));
+        }
+
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid search parameters' });
+      }),
+
+    identify: adminProcedure
+      .input(schemas.v1.library.unmatched.identify)
+      .mutation(async ({ input }) => {
+        const result = await AppRuntime.runPromise(
+          Effect.gen(function* () {
+            const fs = yield* FsExtended;
+            const path = yield* Path.Path;
+            const fileStats = yield* Effect.forEach(input.files, (file) =>
+              fs.lstat(path.join(file.parentPath, file.name)).pipe(
+                Effect.catchTags({
+                  BadArgument: () =>
+                    Effect.fail({
+                      message: 'Error getting info for file',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  SystemError: () =>
+                    Effect.fail({
+                      message: 'Error getting info for file',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                }),
+                Effect.map((stat) => ({
+                  parentPath: file.parentPath,
+                  name: file.name,
+                  isDirectory: stat.isDirectory,
+                  isSymbolicLink: stat.isSymbolicLink,
+                }))
+              )
+            );
+
+            const files = yield* Effect.forEach(fileStats, (file) =>
+              prepareAudiobookFile({
+                parentPath: file.parentPath,
+                name: file.name,
+                isDirectory: file.isDirectory,
+                isSymbolicLink: file.isSymbolicLink,
+              }).pipe(
+                Effect.catchTags({
+                  StatError: (error) =>
+                    Effect.fail({
+                      message: 'Error getting info for file',
+                      description: error.message,
+                    } as const),
+                  DirectoryError: () =>
+                    Effect.fail({
+                      message: 'Cannot use directories in identifications',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  NoExtensionError: () =>
+                    Effect.fail({
+                      message: "File doesn't have an extension",
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  UnsupportedExtensionError: () =>
+                    Effect.fail({
+                      message: "File doesn't have an extension that is supported by this library",
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  DbError: () =>
+                    Effect.fail({
+                      message: 'Error getting file from database',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  UpToDateError: () =>
+                    Effect.fail({
+                      message:
+                        'File is up to date, please un-identify it first before re-identifying it',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  RealpathError: (error) =>
+                    Effect.fail({
+                      message: `Error resolving symbolic link for file`,
+                      description: error.message,
+                    } as const),
+                })
+              )
+            );
+
+            const fileMetadata = yield* Effect.forEach(files, (file) =>
+              extractAudiobookFileMetadata({ file }).pipe(
+                Effect.catchTags({
+                  NoAlbumTitleOrArtistNameError: (error) => Effect.succeed(error),
+                  UpToDateError: () =>
+                    Effect.fail({
+                      message:
+                        'File is up to date, please un-identify it first before re-identifying it',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  FFProbeKnownError: () =>
+                    Effect.fail({
+                      message: 'Error while extracting metadata for file',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  FFProbeUnknownError: () =>
+                    Effect.fail({
+                      message: 'Unknown error while extracting metadata for file',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  BunShellSyntaxError: () =>
+                    Effect.fail({
+                      message: 'Failed to parse metadata output for file',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  ParseError: () =>
+                    Effect.fail({
+                      message: 'Extracted metadata was not in the expected format for file',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                  UnknownException: () =>
+                    Effect.fail({
+                      message: 'Unknown error while extracting metadata for file',
+                      description: path.join(file.parentPath, file.name),
+                    } as const),
+                })
+              )
+            );
+
+            const audible = yield* Audible;
+            const product = yield* audible.getProductByAsin({ asin: input.asin }).pipe(
+              Effect.catchTags({
+                ParseError: () =>
+                  Effect.fail({
+                    message: 'Error while parsing response for full book data',
+                  } as const),
+                RequestError: () =>
+                  Effect.fail({
+                    message: 'Error while fetching full book data',
+                  } as const),
+                ResponseError: () =>
+                  Effect.fail({
+                    message: 'Error while processing response for full book data',
+                  } as const),
+              })
+            );
+
+            if (!Schema.is(ProductBookSchema)(product)) {
+              return yield* Effect.fail({
+                message: 'The provided ASIN was not for a book',
+              } as const);
+            }
+
+            const book = yield* gatherAuxiliaryAudiobookData(product);
+
+            return yield* insertAudiobook({
+              ...book,
+              libraryId: input.libraryId,
+              files: fileMetadata,
+            }).pipe(
+              Effect.catchTags({
+                NoContributorsError: (error) => Effect.fail({ message: error.message } as const),
+                NoFilesError: (error) => Effect.fail({ message: error.message } as const),
+              }),
+              Effect.catchAll(() =>
+                Effect.fail({
+                  message: 'Unknown error while inserting audiobook',
+                } as const)
+              )
+            );
+          }).pipe(Effect.either) satisfies Effect.Effect<
+            Either.Either<{ id: number }, { message: string; description?: string }>,
+            never,
+            Audible | Path.Path | FsExtended | Hash
+          >
+        );
+
+        if (Either.isRight(result)) {
+          return { id: result.right.id };
+        } else {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: result.left.message,
+            cause: {
+              description: 'description' in result.left ? result.left.description : undefined,
+            },
+          });
+        }
+      }),
+  }),
+});
+
+const searchProgram = Effect.fn(function* ({
+  asin,
+  title,
+  author,
+}: {
+  asin?: string;
+  title?: string;
+  author?: string;
+}) {
+  const audible = yield* Audible;
+
+  if (asin) {
+    return yield* audible.getBooksBySearch({
+      asins: [asin],
+    });
+  }
+
+  if (title || author) {
+    return yield* audible.getBooksBySearch({
+      title,
+      author,
+    });
+  }
+
+  return [];
 });
