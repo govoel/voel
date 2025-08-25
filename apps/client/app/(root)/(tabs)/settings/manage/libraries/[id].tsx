@@ -510,7 +510,7 @@ const IdentifyFilesModal = ({
                         className="flex-shrink w-32 flex items-center justify-center">
                         <Image
                           className="w-full h-full rounded-md"
-                          source={result.product_images[500]}
+                          source={result.product_images?.[500]}
                           cachePolicy="none"
                         />
                       </AspectRatio>
@@ -534,7 +534,7 @@ const IdentifyFilesModal = ({
                             </View>
                           </View>
                         ) : null}
-                        {result.narrators.length > 0 ? (
+                        {result.narrators && result.narrators.length > 0 ? (
                           <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
                             <MicVocal className="text-muted-foreground" size={20} />
                             <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
