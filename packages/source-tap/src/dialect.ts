@@ -32,30 +32,71 @@ interface SourceTapDialectConfig {
   onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
 }
 
+/**
+ * A custom Kysely dialect for SQLite with Bun runtime that supports SourceTap's
+ * enhanced tracking capabilities.
+ *
+ * This dialect provides better integration with SourceTap by offering more precise
+ * control over connection lifecycle and query execution compared to the standard
+ * BunSqliteDialect.
+ *
+ * @example
+ * ```typescript
+ * const db = new Kysely<DB>({
+ *   dialect: new SourceTapDialect({
+ *     database: new Database('app.db'),
+ *     onCreateConnection: async (connection) => {
+ *       await connection.executeQuery(CompiledQuery.raw('PRAGMA foreign_keys = ON'));
+ *     }
+ *   })
+ * });
+ * ```
+ */
 export class SourceTapDialect implements Dialect {
   readonly #config: SourceTapDialectConfig;
 
+  /**
+   * Creates a new SourceTapDialect instance.
+   */
   constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
+  /**
+   * Creates the database driver for this dialect.
+   */
   createDriver(): Driver {
     return new SourceTapSqliteDriver(this.#config);
   }
 
+  /**
+   * Creates the query compiler for SQLite.
+   */
   createQueryCompiler(): QueryCompiler {
     return new SqliteQueryCompiler();
   }
 
+  /**
+   * Creates the dialect adapter for SQLite.
+   */
   createAdapter(): DialectAdapter {
     return new SqliteAdapter();
   }
 
+  /**
+   * Creates the database introspector for schema inspection.
+   */
   createIntrospector(db: Kysely<unknown>): DatabaseIntrospector {
     return new SqliteIntrospector(db);
   }
 }
 
+/**
+ * Creates a sanitized savepoint command node to prevent SQL injection.
+ *
+ * @param command - The savepoint command type ('savepoint', 'rollback to', or 'release')
+ * @param savepointName - The name of the savepoint to operate on
+ */
 function parseSavepointCommand(command: string, savepointName: string): RawNode {
   return RawNode.createWithChildren([
     RawNode.createWithSql(`${command} `),
@@ -63,6 +104,12 @@ function parseSavepointCommand(command: string, savepointName: string): RawNode 
   ]);
 }
 
+/**
+ * SQLite driver implementation optimized for SourceTap's change tracking needs.
+ *
+ * Provides enhanced connection management and query result handling to support
+ * SourceTap's event emission requirements.
+ */
 class SourceTapSqliteDriver implements Driver {
   readonly #config: SourceTapDialectConfig;
   readonly #connectionMutex = new ConnectionMutex();
@@ -70,10 +117,16 @@ class SourceTapSqliteDriver implements Driver {
   #db?: Database;
   #connection?: DatabaseConnection;
 
+  /**
+   * Creates a new SourceTapSqliteDriver instance.
+   */
   constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
+  /**
+   * Initializes the driver and creates the database connection.
+   */
   async init(): Promise<void> {
     this.#db = this.#config.database;
 

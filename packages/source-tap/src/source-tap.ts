@@ -53,6 +53,16 @@ type SourceTapQueryId =
     ? PluginTransformQueryArgs['queryId']
     : never;
 
+/**
+ * Event interface for SourceTap database change notifications.
+ *
+ * @example
+ * ```typescript
+ * sourceTap.events.on('update', (payload) => {
+ *   console.log(`Table ${payload.table} was updated:`, payload.rows);
+ * });
+ * ```
+ */
 export interface SourceTapEvents<DB> {
   update: (
     payload: {
@@ -61,6 +71,30 @@ export interface SourceTapEvents<DB> {
   ) => void;
 }
 
+/**
+ * A Kysely plugin that provides real-time database change tracking for SQLite databases.
+ *
+ * Automatically transforms INSERT and UPDATE queries to include RETURNING statements,
+ * enabling event emission when data changes. Events are buffered during transactions
+ * and only emitted after successful commits.
+ *
+ * @example
+ * ```typescript
+ * const sourceTap = new SourceTap<DB>({
+ *   trackTables: new Set(['users', 'posts'])
+ * });
+ *
+ * const db = new Kysely<DB>({
+ *   dialect: new SourceTapDialect({ database: new Database('app.db') }),
+ *   plugins: [sourceTap],
+ *   log: sourceTap.transactionDetector
+ * });
+ *
+ * sourceTap.events.on('update', ({ table, rows }) => {
+ *   console.log(`Changes in ${table}:`, rows);
+ * });
+ * ```
+ */
 export class SourceTap<DB> implements KyselyPlugin {
   readonly events: TypedEmitter<SourceTapEvents<DB>>;
 
@@ -79,6 +113,12 @@ export class SourceTap<DB> implements KyselyPlugin {
   #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
   #currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>;
 
+  /**
+   * Creates a new SourceTap plugin instance.
+   *
+   * @param opts - Configuration options
+   * @param opts.trackTables - Set of table names to track changes for
+   */
   constructor(opts: { trackTables: Set<keyof DB> }) {
     this.#trackTables = opts.trackTables;
 
@@ -100,12 +140,21 @@ export class SourceTap<DB> implements KyselyPlugin {
     );
   }
 
+  /**
+   * Sets up tracking state for a specific query.
+   */
   private setUpQuery(queryId: SourceTapQueryId, tableName: string, queryType: 'insert' | 'update') {
     this.#currentTable.set(queryId, tableName);
     this.#currentQueryType.set(queryId, queryType);
     this.#transformerVars.set('currentQueryId', queryId);
   }
 
+  /**
+   * Transforms queries to add RETURNING clauses for tracked tables.
+   *
+   * Only INSERT and UPDATE queries on tracked tables are modified.
+   * The transformer adds 'RETURNING *' to capture changed rows for event emission.
+   */
   transformQuery(args: PluginTransformQueryArgs): RootOperationNode {
     if (
       InsertQueryNode.is(args.node) &&
@@ -129,6 +178,9 @@ export class SourceTap<DB> implements KyselyPlugin {
     return args.node;
   }
 
+  /**
+   * Cleans up tracking state after a query completes.
+   */
   private cleanUpQuery(queryId: SourceTapQueryId) {
     this.#currentTable.delete(queryId);
     this.#currentQueryType.delete(queryId);
@@ -136,6 +188,13 @@ export class SourceTap<DB> implements KyselyPlugin {
     this.#currentOriginalReturningAlias.delete(queryId);
   }
 
+  /**
+   * Processes query results to emit events and restore original query format.
+   *
+   * Extracts changed rows for event emission while preserving the exact format
+   * expected by the original query. Handles RETURNING clause filtering,
+   * alias removal for listeners, and transaction buffering.
+   */
   async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
     const currentTable = this.#currentTable.get(args.queryId)!;
     const currentQueryType = this.#currentQueryType.get(args.queryId)!;
@@ -233,6 +292,23 @@ export class SourceTap<DB> implements KyselyPlugin {
     return args.result;
   }
 
+  /**
+   * Detects and handles transaction lifecycle events.
+   *
+   * Must be called from Kysely's log function to properly track transaction
+   * state. Events are buffered during transactions and only emitted after
+   * successful commits. Throws an error for unsupported savepoint operations.
+   *
+   * @param event - The log event from Kysely
+   *
+   * @example
+   * ```typescript
+   * const db = new Kysely({
+   *   // ... other config
+   *   log: sourceTap.transactionDetector
+   * });
+   * ```
+   */
   transactionDetector(event: LogEvent) {
     if (event.query.sql === 'begin') {
       // we don't need to check if we are already in a transaction
@@ -260,6 +336,13 @@ export class SourceTap<DB> implements KyselyPlugin {
   }
 }
 
+/**
+ * Internal transformer that modifies INSERT and UPDATE queries to include RETURNING clauses.
+ *
+ * Handles the complex logic of preserving original query results while capturing
+ * full row data for event emission. Manages column aliases and selective RETURNING
+ * statements to ensure the original query format is maintained.
+ */
 class SourceTapTransformer extends OperationNodeTransformer {
   #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
   #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
@@ -268,6 +351,9 @@ class SourceTapTransformer extends OperationNodeTransformer {
   static returningNode = ReturningNode.create([SelectionNode.createSelectAll()]);
   static selectAllNode = SelectionNode.createSelectAll();
 
+  /**
+   * Creates a new SourceTapTransformer instance.
+   */
   constructor(
     transformerVars: Map<'currentQueryId', SourceTapQueryId>,
     currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>,
@@ -280,6 +366,9 @@ class SourceTapTransformer extends OperationNodeTransformer {
     this.#currentOriginalReturningAlias = currentOriginalReturningAlias;
   }
 
+  /**
+   * Adds RETURNING * clause to queries that don't already have one.
+   */
   private addReturning<T extends InsertQueryNode | UpdateQueryNode>(node: T): T {
     const currentQueryId = this.#transformerVars.get('currentQueryId')!;
     this.#currentOriginalReturning.set(currentQueryId, new Set<string>());
@@ -291,6 +380,9 @@ class SourceTapTransformer extends OperationNodeTransformer {
     };
   }
 
+  /**
+   * Transforms INSERT queries to include RETURNING clause if not already present.
+   */
   protected override transformInsertQuery(node: InsertQueryNode): InsertQueryNode {
     node = super.transformInsertQuery(node);
 
@@ -301,6 +393,9 @@ class SourceTapTransformer extends OperationNodeTransformer {
     return node;
   }
 
+  /**
+   * Transforms UPDATE queries to include RETURNING clause if not already present.
+   */
   protected override transformUpdateQuery(node: UpdateQueryNode): UpdateQueryNode {
     node = super.transformUpdateQuery(node);
 
@@ -311,6 +406,14 @@ class SourceTapTransformer extends OperationNodeTransformer {
     return node;
   }
 
+  /**
+   * Transforms RETURNING clauses to capture original columns while adding SELECT *.
+   *
+   * Analyzes the original RETURNING clause to track column names and aliases,
+   * then ensures SELECT * is included to capture complete row data for events.
+   * This allows preserving the exact original query result format while still
+   * getting full row data for change notifications.
+   */
   protected override transformReturning(returningNode: ReturningNode): ReturningNode {
     returningNode = super.transformReturning(returningNode);
     const currentQueryId = this.#transformerVars.get('currentQueryId')!;
