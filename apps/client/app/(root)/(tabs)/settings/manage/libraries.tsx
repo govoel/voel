@@ -77,30 +77,26 @@ export default function LibraryListScreen() {
             </TitleWithRefetch>
           </>
         }
-        renderItem={
-          error
-            ? undefined
-            : ({ item, index }) => (
-                <Link
-                  href={{ pathname: '/settings/manage/libraries/[id]', params: { id: item.id } }}
-                  asChild
-                  push>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      'flex-row native:h-fit h-fit justify-between items-center rounded-none bg-secondary/40 border-foreground/15 border-x',
-                      index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
-                      index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
-                    )}>
-                    <View className="flex-1">
-                      <Text>{item.name}</Text>
-                      <Text className="text-muted-foreground">{item.path}</Text>
-                    </View>
-                    <ChevronRight className="flex-shrink text-muted-foreground" size="20" />
-                  </Button>
-                </Link>
-              )
-        }
+        renderItem={({ item, index }) => (
+          <Link
+            href={{ pathname: '/settings/manage/libraries/[id]', params: { id: item.id } }}
+            asChild
+            push>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-row native:h-fit h-fit justify-between items-center rounded-none bg-secondary/40 border-foreground/15 border-x',
+                index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
+                index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
+              )}>
+              <View className="flex-1">
+                <Text>{item.name}</Text>
+                <Text className="text-muted-foreground">{item.path}</Text>
+              </View>
+              <ChevronRight className="flex-shrink text-muted-foreground" size="20" />
+            </Button>
+          </Link>
+        )}
         ListEmptyComponent={
           error ? (
             <Card className="mt-4">
@@ -165,43 +161,3 @@ export default function LibraryListScreen() {
     </>
   );
 }
-
-const Library = ({ item }: { item: { id: number; name: string } }) => {
-  const apiInstance = useApiInstance();
-
-  const scanLibraryMutation = useMutation(
-    apiInstance.v1.library.scan.mutationOptions({
-      onSuccess: (data) => {
-        toast.success(data.message);
-      },
-      onError: (error) => {
-        toast.error('Failed to start library scan', {
-          description: error.message || 'Unknown error',
-        });
-      },
-    })
-  );
-
-  const ScanLibraryForm = useAppForm({
-    defaultValues: { id: item.id },
-    validators: {
-      onChange: schemas.v1.library.scan,
-    },
-    onSubmit: async ({ value, formApi }) => {
-      await scanLibraryMutation.mutateAsync(schemas.v1.library.scan.parse(value));
-      scanLibraryMutation.reset();
-      formApi.reset();
-    },
-  });
-
-  return (
-    <>
-      <Large>{item.name}</Large>
-      <ScanLibraryForm.AppForm>
-        <ScanLibraryForm.SubmitButton size="sm" variant="secondary">
-          <Text>Scan</Text>
-        </ScanLibraryForm.SubmitButton>
-      </ScanLibraryForm.AppForm>
-    </>
-  );
-};

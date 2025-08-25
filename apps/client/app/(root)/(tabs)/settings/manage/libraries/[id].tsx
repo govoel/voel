@@ -221,7 +221,7 @@ export default function LibraryPage() {
             ) : null}
           </>
         }
-        renderItem={error ? undefined : ({ item: row }) => <RenderRow row={row} />}
+        renderItem={({ item: row }) => <RenderRow row={row} />}
         ListEmptyComponent={
           error ? (
             <Card className="mt-4">

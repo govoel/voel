@@ -134,19 +134,13 @@ export default function ManageUserScreen() {
             </TitleWithRefetch>
           </>
         }
-        renderItem={
-          sessionsError
-            ? undefined
-            : ({ item }) => (
-                <Session
-                  session={item}
-                  userId={id}
-                  revokeSession={(token) =>
-                    authInstance.admin.revokeUserSession({ sessionToken: token })
-                  }
-                />
-              )
-        }
+        renderItem={({ item }) => (
+          <Session
+            session={item}
+            userId={id}
+            revokeSession={(token) => authInstance.admin.revokeUserSession({ sessionToken: token })}
+          />
+        )}
         ListEmptyComponent={
           sessionsError ? (
             <Card className="mt-4">

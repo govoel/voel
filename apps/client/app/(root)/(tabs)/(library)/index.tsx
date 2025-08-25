@@ -13,12 +13,9 @@ import { Search } from '~/components/icons/Search';
 import { PersonList, type PersonListPerson } from '~/components/person-list';
 import { SeriesList, type SeriesListSeries } from '~/components/series-list';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
-import { Large } from '~/components/ui/typography';
 
 import api from '~/lib/api';
 import { cn } from '~/lib/utils';
@@ -210,35 +207,16 @@ const SearchTab = () => {
           />
         </SearchForm.AppForm>
 
-        {bookSearchError ? (
+        {bookSearchError || (bookSearchResults && bookSearchResults.length > 0) ? (
           <>
             <TitleWithRefetch
               className="mb-2"
               refetch={bookSearchRefetch}
               isFetching={bookSearchIsFetching}>
               Books
-            </TitleWithRefetch>
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <Large>Error loading books</Large>
-                <Text className="text-muted-foreground">
-                  {bookSearchError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => bookSearchRefetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        ) : bookSearchResults && bookSearchResults.length > 0 ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={bookSearchRefetch}
-              isFetching={bookSearchIsFetching}>
-              Books ({bookSearchResults.length})
+              {bookSearchResults &&
+                bookSearchResults.length > 0 &&
+                ` (${bookSearchResults.length})`}
             </TitleWithRefetch>
             <BookList
               ref={bookListRef}
@@ -246,43 +224,28 @@ const SearchTab = () => {
               key="book-search-results"
               books={bookSearchResults}
               className="mb-2"
+              error={bookSearchError}
+              refetch={bookSearchRefetch}
             />
           </>
         ) : null}
 
-        {authorSearchError ? (
+        {authorSearchError || (authorSearchResults && authorSearchResults.length > 0) ? (
           <>
             <TitleWithRefetch
               className="mb-2"
               refetch={authorSearchRefetch}
               isFetching={authorSearchIsFetching}>
               Authors
-            </TitleWithRefetch>
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <Large>Error loading authors</Large>
-                <Text className="text-muted-foreground">
-                  {authorSearchError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => authorSearchRefetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        ) : authorSearchResults && authorSearchResults.length > 0 ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={authorSearchRefetch}
-              isFetching={authorSearchIsFetching}>
-              Authors ({authorSearchResults.length})
+              {authorSearchResults &&
+                authorSearchResults.length > 0 &&
+                ` (${authorSearchResults.length})`}
             </TitleWithRefetch>
             <PersonList
               ref={authorListRef}
               people={authorSearchResults}
+              error={authorSearchError}
+              refetch={authorSearchRefetch}
               type="author"
               direction="horizontal"
               key="author-search-results"
@@ -291,39 +254,22 @@ const SearchTab = () => {
           </>
         ) : null}
 
-        {seriesSearchError ? (
+        {seriesSearchError || (seriesSearchResults && seriesSearchResults.length > 0) ? (
           <>
             <TitleWithRefetch
               className="mb-2"
               refetch={seriesSearchRefetch}
               isFetching={seriesSearchIsFetching}>
               Series
-            </TitleWithRefetch>
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <Large>Error loading series</Large>
-                <Text className="text-muted-foreground">
-                  {seriesSearchError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => seriesSearchRefetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        ) : seriesSearchResults && seriesSearchResults.length > 0 ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={seriesSearchRefetch}
-              isFetching={seriesSearchIsFetching}>
-              Series ({seriesSearchResults.length})
+              {seriesSearchResults &&
+                seriesSearchResults.length > 0 &&
+                ` (${seriesSearchResults.length})`}
             </TitleWithRefetch>
             <SeriesList
               ref={seriesListRef}
               series={seriesSearchResults}
+              error={seriesSearchError}
+              refetch={seriesSearchRefetch}
               direction="horizontal"
               key="series-search-results"
               className="mb-2"
@@ -331,39 +277,22 @@ const SearchTab = () => {
           </>
         ) : null}
 
-        {narratorSearchError ? (
+        {narratorSearchError || (narratorSearchResults && narratorSearchResults.length > 0) ? (
           <>
             <TitleWithRefetch
               className="mb-2"
               refetch={narratorSearchRefetch}
               isFetching={narratorSearchIsFetching}>
               Narrators
-            </TitleWithRefetch>
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <Large>Error loading narrators</Large>
-                <Text className="text-muted-foreground">
-                  {narratorSearchError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => narratorSearchRefetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        ) : narratorSearchResults && narratorSearchResults.length > 0 ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={narratorSearchRefetch}
-              isFetching={narratorSearchIsFetching}>
-              Narrators ({narratorSearchResults.length})
+              {narratorSearchResults &&
+                narratorSearchResults.length > 0 &&
+                ` (${narratorSearchResults.length})`}
             </TitleWithRefetch>
             <PersonList
               ref={narratorListRef}
               people={narratorSearchResults}
+              error={narratorSearchError}
+              refetch={narratorSearchRefetch}
               type="narrator"
               direction="horizontal"
               key="narrator-search-results"
@@ -372,39 +301,23 @@ const SearchTab = () => {
           </>
         ) : null}
 
-        {translatorSearchError ? (
+        {translatorSearchError ||
+        (translatorSearchResults && translatorSearchResults.length > 0) ? (
           <>
             <TitleWithRefetch
               className="mb-2"
               refetch={translatorSearchRefetch}
               isFetching={translatorSearchIsFetching}>
               Translators
-            </TitleWithRefetch>
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <Large>Error loading translators</Large>
-                <Text className="text-muted-foreground">
-                  {translatorSearchError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => translatorSearchRefetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        ) : translatorSearchResults && translatorSearchResults.length > 0 ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={translatorSearchRefetch}
-              isFetching={translatorSearchIsFetching}>
-              Translators ({translatorSearchResults.length})
+              {translatorSearchResults &&
+                translatorSearchResults.length > 0 &&
+                ` (${translatorSearchResults.length})`}
             </TitleWithRefetch>
             <PersonList
               ref={translatorListRef}
               people={translatorSearchResults}
+              error={translatorSearchError}
+              refetch={translatorSearchRefetch}
               type="translator"
               direction="horizontal"
               key="translator-search-results"
@@ -413,39 +326,22 @@ const SearchTab = () => {
           </>
         ) : null}
 
-        {editorSearchError ? (
+        {editorSearchError || (editorSearchResults && editorSearchResults.length > 0) ? (
           <>
             <TitleWithRefetch
               className="mb-2"
               refetch={editorSearchRefetch}
               isFetching={editorSearchIsFetching}>
               Editors
-            </TitleWithRefetch>
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <Large>Error loading editors</Large>
-                <Text className="text-muted-foreground">
-                  {editorSearchError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => editorSearchRefetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        ) : editorSearchResults && editorSearchResults.length > 0 ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={editorSearchRefetch}
-              isFetching={editorSearchIsFetching}>
-              Editors ({editorSearchResults.length})
+              {editorSearchResults &&
+                editorSearchResults.length > 0 &&
+                ` (${editorSearchResults.length})`}
             </TitleWithRefetch>
             <PersonList
               ref={editorListRef}
               people={editorSearchResults}
+              error={editorSearchError}
+              refetch={editorSearchRefetch}
               type="editor"
               direction="horizontal"
               key="editor-search-results"
@@ -454,39 +350,22 @@ const SearchTab = () => {
           </>
         ) : null}
 
-        {forewordSearchError ? (
+        {forewordSearchError || (forewordSearchResults && forewordSearchResults.length > 0) ? (
           <>
             <TitleWithRefetch
               className="mb-2"
               refetch={forewordSearchRefetch}
               isFetching={forewordSearchIsFetching}>
               Forewords
-            </TitleWithRefetch>
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <Large>Error loading forewords</Large>
-                <Text className="text-muted-foreground">
-                  {forewordSearchError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => forewordSearchRefetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        ) : forewordSearchResults && forewordSearchResults.length > 0 ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={forewordSearchRefetch}
-              isFetching={forewordSearchIsFetching}>
-              Forewords ({forewordSearchResults.length})
+              {forewordSearchResults &&
+                forewordSearchResults.length > 0 &&
+                ` (${forewordSearchResults.length})`}
             </TitleWithRefetch>
             <PersonList
               ref={forewordListRef}
               people={forewordSearchResults}
+              error={forewordSearchError}
+              refetch={forewordSearchRefetch}
               type="foreword"
               direction="horizontal"
               key="foreword-search-results"
@@ -532,8 +411,15 @@ const useFloatingPlayerAndTabsPaddingClass = () => {
 };
 
 const BookTab = () => {
-  const { data, error, refetch, isFetching, isFetchingNextPage, fetchNextPage } =
-    api.books.list.useInfiniteQuery();
+  const {
+    data,
+    error,
+    refetch,
+    isFetching,
+    isFetchingNextPage,
+    fetchNextPage,
+    isFetchNextPageError,
+  } = api.books.list.useInfiniteQuery();
 
   return (
     <BookList
@@ -542,6 +428,7 @@ const BookTab = () => {
       refetch={refetch}
       onEndReached={fetchNextPage}
       isFetchingNextPage={isFetchingNextPage}
+      isFetchNextPageError={isFetchNextPageError}
       direction="vertical"
       contentContainerClassName={useFloatingPlayerAndTabsPaddingClass()}
       ListHeaderComponent={
