@@ -73,12 +73,8 @@ export function PersonList({
       ref={ref}
       data={people}
       keyExtractor={(item) => item.id.toString()}
-      key={
-        props.direction === 'horizontal'
-          ? `person-list-${people && people.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
-          : undefined
-      }
-      horizontal={props.direction === 'horizontal' && people && people.length > 0}
+      key={props.direction === 'horizontal' ? `person-list-horizontal-${props.key}` : undefined}
+      horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 3 : undefined}
       renderItem={({ item, index }) => (
         <Link

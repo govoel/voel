@@ -67,12 +67,8 @@ export function SeriesList({
       ref={ref}
       data={series}
       keyExtractor={(item) => item.id.toString()}
-      key={
-        props.direction === 'horizontal'
-          ? `series-list-${series && series.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
-          : undefined
-      }
-      horizontal={props.direction === 'horizontal' && series && series.length > 0}
+      key={props.direction === 'horizontal' ? `series-list-horizontal-${props.key}` : undefined}
+      horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
       renderItem={({ item, index }) => (
         <Link

@@ -121,12 +121,8 @@ export function BookList({
       ref={ref}
       data={books}
       keyExtractor={(item) => item.id.toString()}
-      key={
-        props.direction === 'horizontal'
-          ? `books-list-${books && books.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
-          : undefined
-      }
-      horizontal={props.direction === 'horizontal' && books && books.length > 0}
+      key={props.direction === 'horizontal' ? `books-list-horizontal-${props.key}` : undefined}
+      horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
       renderItem={({ item, index }) => (
         <Link
