@@ -826,7 +826,7 @@ const RowCard = ({
         .map((cell, index) => (
           <View
             key={cell.id}
-            className={`py-1 px-3 border-foreground/15 ${selectable ? 'border-t' : index === 0 ? '' : 'border-t'}`}>
+            className={`py-1 px-3 border-foreground/15 ${selectable || index > 0 ? 'border-t' : ''}`}>
             {typeof cell.column.columnDef.header === 'string' ? (
               <Muted className="leading-tight">{cell.column.columnDef.header}</Muted>
             ) : null}
