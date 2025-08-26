@@ -23,7 +23,7 @@ import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { toast } from 'sonner-native';
 import type * as z from 'zod';
 
@@ -772,7 +772,7 @@ const TableCheckbox = ({
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
 }) => {
-  // TODO: row selection doesn't work correctly for parent rows
+  // NOTE: row selection doesn't work correctly for parent rows
   // with deeply nested rows or if a row is selected and then grouped
   // in tanstack table, so these calculations are a workaround for this
   // see: https://github.com/TanStack/table/issues/4878
@@ -785,12 +785,18 @@ const TableCheckbox = ({
   const indeterminate = leafRows.length > 0 && leafRows.some((row) => row.getIsSelected());
 
   return (
-    <Checkbox
-      checked={checked}
-      indeterminate={indeterminate}
-      onCheckedChange={row.getToggleSelectedHandler()}
-      className={`border-secondary ${checked || indeterminate ? 'bg-secondary' : ''}`}
-    />
+    <View>
+      <Pressable
+        className="flex-1 justify-center items-center"
+        onPress={row.getToggleSelectedHandler()}>
+        <Checkbox
+          checked={checked}
+          indeterminate={indeterminate}
+          onCheckedChange={row.getToggleSelectedHandler()}
+          className={`border-secondary ${checked || indeterminate ? 'bg-secondary' : ''}`}
+        />
+      </Pressable>
+    </View>
   );
 };
 
@@ -873,10 +879,12 @@ const RowCard = ({
   return (
     <View className={cn('overflow-hidden rounded-md border border-foreground/15 mt-2', className)}>
       {row.getCanSelect() ? (
-        <View className="py-2 px-3 flex flex-row gap-x-4 items-center">
+        <Pressable
+          className="py-2 px-3 flex flex-row gap-x-4 items-center"
+          onPress={row.getToggleSelectedHandler()}>
           <TableCheckbox row={row} />
-          <Text onPress={row.getToggleSelectedHandler()}>Select file to be identified</Text>
-        </View>
+          <Text>Select file to be identified</Text>
+        </Pressable>
       ) : null}
       {row
         .getVisibleCells()

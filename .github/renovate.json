@@ -12,9 +12,14 @@
   "timezone": "America/Chicago",
   "schedule": ["at any time"],
   "labels": ["dependencies"],
-  "packageRules": [{
-    "groupName": "better-auth-monorepo",
-    "matchPackageNames": ["/better-auth/"]
-  }],
+  "packageRules": [
+    {
+      "groupName": "better-auth-monorepo",
+      "matchPackageNames": ["/better-auth/"]
+    },{
+      "groupName": "react-native-bottom-tabs-monorepo",
+      "matchPackageNames": ["@bottom-tabs/react-navigation", "react-native-bottom-tabs"]
+    }
+  ],
   "recreateWhen": "never"
 }
