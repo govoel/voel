@@ -549,7 +549,7 @@ const IdentifyFilesModal = ({
                 <Text>{selectedRows.length === 1 ? 'Selected file' : 'Selected files'}</Text>
               </AccordionTrigger>
               <AccordionContent>
-                {selectedFilesTable.getSelectedRowModel().rows.map((row, index) => (
+                {selectedFilesTable.getRowModel().rows.map((row, index) => (
                   <RenderRow
                     className={index === 0 ? 'mt-0' : ''}
                     key={row.id}
