@@ -23,7 +23,7 @@ import type { inferRouterOutputs } from '@trpc/server';
 import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { toast } from 'sonner-native';
 import type * as z from 'zod';

@@ -13,10 +13,10 @@
       "dependencies": {
         "@azure/core-asynciterator-polyfill": "1.0.2",
         "@better-auth/expo": "1.3.7",
-        "@bottom-tabs/react-navigation": "0.10.1",
+        "@bottom-tabs/react-navigation": "0.10.2",
         "@dev-plugins/react-query": "^0.3.1",
         "@gorhom/bottom-sheet": "5.2.3",
-        "@op-engineering/op-sqlite": "15.0.0",
+        "@op-engineering/op-sqlite": "15.0.1",
         "@react-native-community/slider": "5.0.1",
         "@react-navigation/native": "^7.1.6",
         "@rn-primitives/accordion": "1.2.0",
@@ -72,8 +72,8 @@
         "expo-web-browser": "~14.2.0",
         "immer": "10.1.1",
         "kysely": "0.28.5",
-        "lucide-react-native": "0.541.0",
-        "lucide-static": "0.541.0",
+        "lucide-react-native": "0.542.0",
+        "lucide-static": "0.542.0",
         "nativewind": "4.1.23",
         "react": "19.0.0",
         "react-native": "0.79.5",
@@ -87,7 +87,7 @@
         "sonner-native": "0.21.0",
         "tailwind-merge": "3.3.1",
         "tailwindcss-animate": "1.0.7",
-        "zod": "4.1.1",
+        "zod": "4.1.3",
       },
       "devDependencies": {
         "@babel/core": "7.28.0",
@@ -134,7 +134,7 @@
         "thumbhash": "0.1.1",
         "turndown": "7.2.1",
         "xstate": "5.20.2",
-        "zod": "4.1.1",
+        "zod": "4.1.3",
       },
       "devDependencies": {
         "@effect/language-service": "0.36.0",
@@ -172,7 +172,7 @@
       },
       "peerDependencies": {
         "typescript": "^5",
-        "zod": "4.1.1",
+        "zod": "4.1.3",
       },
     },
     "packages/source-tap": {
@@ -402,7 +402,7 @@
 
     "@better-fetch/fetch": ["@better-fetch/fetch@1.1.18", "", {}, "sha512-rEFOE1MYIsBmoMJtQbl32PGHHXuG2hDxvEd7rUHE0vCBoFQVSDqaVs9hkZEtHCxRoY+CljXKFCOuJ8uxqw1LcA=="],
 
-    "@bottom-tabs/react-navigation": ["@bottom-tabs/react-navigation@0.10.1", "", { "dependencies": { "color": "^4.2.3" }, "peerDependencies": { "@react-navigation/native": ">=7", "react": "*", "react-native": "*", "react-native-bottom-tabs": "*" } }, "sha512-EcNUazhFIIcIP7VLr2MG6Lp0KwOGLiLRbeM+3DSG6fUvvkWR9Hbp5d79oXeTdt+d4UXRuyjrkU0YAFr7Pz4eLQ=="],
+    "@bottom-tabs/react-navigation": ["@bottom-tabs/react-navigation@0.10.2", "", { "dependencies": { "color": "^4.2.3" }, "peerDependencies": { "@react-navigation/native": ">=7", "react": "*", "react-native": "*", "react-native-bottom-tabs": "*" } }, "sha512-/o/RR5yn0AYGTG+1wy2UwMVc04E3Znq5kMy77MU7hXkf8mY1DENHoiSvMNImn5AuKTNzOtjWwBk/dtKQcbMy+w=="],
 
     "@dev-plugins/react-query": ["@dev-plugins/react-query@0.3.1", "", { "dependencies": { "flatted": "^3.3.1" }, "peerDependencies": { "@tanstack/react-query": "*", "expo": "^53.0.5" } }, "sha512-xmNfMIwHLhigE/usbGma+W/2G8bHRAfrP83nqTtjPMc7Rt2zSv1Ju3EK3KhkAh3WuHrUMpBIbNJdLgSc+K4tMg=="],
 
@@ -652,7 +652,7 @@
 
     "@oclif/core": ["@oclif/core@4.5.2", "", { "dependencies": { "ansi-escapes": "^4.3.2", "ansis": "^3.17.0", "clean-stack": "^3.0.1", "cli-spinners": "^2.9.2", "debug": "^4.4.0", "ejs": "^3.1.10", "get-package-type": "^0.1.0", "indent-string": "^4.0.0", "is-wsl": "^2.2.0", "lilconfig": "^3.1.3", "minimatch": "^9.0.5", "semver": "^7.6.3", "string-width": "^4.2.3", "supports-color": "^8", "tinyglobby": "^0.2.14", "widest-line": "^3.1.0", "wordwrap": "^1.0.0", "wrap-ansi": "^7.0.0" } }, "sha512-eQcKyrEcDYeZJKu4vUWiu0ii/1Gfev6GF4FsLSgNez5/+aQyAUCjg3ZWlurf491WiYZTXCWyKAxyPWk8DKv2MA=="],
 
-    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@15.0.0", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-y/ZTuYMOK3X1VyxSdz/O5AHU7FOzmWNNqK84pHznB0ibUm5cqkrDTwSeCLIXngnfcZnwzXJdOvn2raBK76zCqQ=="],
+    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@15.0.1", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-86tIMm/5OERUIguUq81YdRETlSsMzPdj9XYVdPA19fzNMT+Ptf5Vl5awLMEdvXPvOP9vyef5FealT+3llYwG8w=="],
 
     "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.36.0", "", {}, "sha512-TtxJSRD8Ohxp6bKkhrm27JRHAxPczQA7idtcTOMYI+wQRRrfgqxHv1cFbCApcSnNjtXkmzFozn6jQtFrOmbjPQ=="],
 
@@ -1886,9 +1886,9 @@
 
     "lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
 
-    "lucide-react-native": ["lucide-react-native@0.541.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-native": "*", "react-native-svg": "^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0" } }, "sha512-hU7lu0wGDLi0dhIoImTdErkKcLIfNe8TJsha75BIYN5hH54KTUzdhSa0fO2PH64e6mapnVxUpBXxL+edJkjBVw=="],
+    "lucide-react-native": ["lucide-react-native@0.542.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-native": "*", "react-native-svg": "^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0" } }, "sha512-9iI59TPMm7oqdq4/k5zd9DL5bl6s0a772KvpoafzTKEBZTMdu0rd7wg0mSMrCvMDD7SuCiKXk0tg55FyJH8i7Q=="],
 
-    "lucide-static": ["lucide-static@0.541.0", "", {}, "sha512-4ZII336adSatb5bSuD2GHNVp4LQWuVhMZlUlqt1j9lOb2ERpf0Kmja4ep4x+0QY59d+qsR9xstzZPNJ/kM3DoQ=="],
+    "lucide-static": ["lucide-static@0.542.0", "", {}, "sha512-jnXxFQYH0F24Nj5Zjje5jmMbGjClohnuSEYwTjAGuAa7UYDQiUjl0H7t4Ha19lkKryhCQA3VfeAJMjarrhzNZQ=="],
 
     "make-dir": ["make-dir@2.1.0", "", { "dependencies": { "pify": "^4.0.1", "semver": "^5.6.0" } }, "sha512-LS9X+dc8KLxXCb8dni79fLIIUA5VyZoyjSMCwTluaXA0o27cCK0bhXkpgw+sTXVpPy/lSO57ilRixqk0vDmtRA=="],
 
@@ -2626,7 +2626,7 @@
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 
-    "zod": ["zod@4.1.1", "", {}, "sha512-SgMZK/h8Tigt9nnKkfJMvB/mKjiJXaX26xegP4sa+0wHIFVFWVlsQGdhklDmuargBD3Hsi3rsQRIzwJIhTPJHA=="],
+    "zod": ["zod@4.1.3", "", {}, "sha512-1neef4bMce1hNTrxvHVKxWjKfGDn0oAli3Wy1Uwb7TRO1+wEwoZUZNP1NXIEESybOBiFnBOhI6a4m6tCLE8dog=="],
 
     "zod-validation-error": ["zod-validation-error@3.5.3", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-OT5Y8lbUadqVZCsnyFaTQ4/O2mys4tj7PqhdbBCp7McPwvIEKfPtdA6QfPeFQK2/Rz5LgwmAXRJTugBNBi0btw=="],
 
