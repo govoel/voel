@@ -40,6 +40,12 @@ import { UserPen } from '~/components/icons/UserPen';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '~/components/ui/accordion';
 import { Alert, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
@@ -190,7 +196,7 @@ export default function LibraryPage() {
             <ScanLibraryButton id={idNum} />
 
             <TitleWithRefetch className="pt-4" refetch={refetch} isFetching={isFetching}>
-              Unmatched Files
+              Unidentified Files
             </TitleWithRefetch>
 
             {data && data.length > 0 ? (
@@ -268,7 +274,9 @@ export default function LibraryPage() {
             ) : null}
           </>
         }
-        renderItem={({ item: row }) => <RenderRow row={row} />}
+        renderItem={({ item: row }) => (
+          <RenderRow row={row} variant="FlashList" selectable={true} />
+        )}
         ListEmptyComponent={
           error ? (
             <Card className="mt-4">
@@ -418,6 +426,29 @@ const IdentifyFilesModal = ({
                 : `Identify ${table.getSelectedRowModel().flatRows.length} files as a book`}
           </Large>
 
+          <Accordion type="single" collapsable className="mb-4">
+            <AccordionItem value="files">
+              <AccordionTrigger>
+                <Text>
+                  {table.getSelectedRowModel().flatRows.length === 1
+                    ? 'Selected file'
+                    : 'Selected files'}
+                </Text>
+              </AccordionTrigger>
+              <AccordionContent>
+                {table.getRowModel().rows.map((row, index) => (
+                  <RenderRow
+                    className={index === 0 ? 'mt-0' : ''}
+                    key={row.id}
+                    row={row}
+                    variant="View"
+                    selectable={false}
+                  />
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
           <SearchViaAudibleForm.AppForm>
             <SearchViaAudibleForm.AppField
               name="asin"
@@ -486,6 +517,29 @@ const IdentifyFilesModal = ({
               as
             </Muted>
           </View>
+
+          <Accordion type="single" collapsable className="mb-4">
+            <AccordionItem value="files">
+              <AccordionTrigger>
+                <Text>
+                  {table.getSelectedRowModel().flatRows.length === 1
+                    ? 'Selected file'
+                    : 'Selected files'}
+                </Text>
+              </AccordionTrigger>
+              <AccordionContent>
+                {table.getRowModel().rows.map((row, index) => (
+                  <RenderRow
+                    className={index === 0 ? 'mt-0' : ''}
+                    key={row.id}
+                    row={row}
+                    variant="View"
+                    selectable={false}
+                  />
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
           {searchViaAudibleMutation.data ? (
             searchViaAudibleMutation.data.length === 0 ? (
@@ -676,23 +730,40 @@ const TableCheckbox = ({
 
 const RenderRow = ({
   row,
+  variant,
+  selectable,
+  className,
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
-}) => (row.getIsGrouped() ? <GroupedRow row={row} /> : <RowCard row={row} />);
+  variant: 'FlashList' | 'View';
+  selectable: boolean;
+  className?: string;
+}) =>
+  row.getIsGrouped() ? (
+    <GroupedRow row={row} variant={variant} selectable={selectable} className={className} />
+  ) : (
+    <RowCard row={row} selectable={selectable} className={className} />
+  );
 
 const GroupedRow = ({
   row,
+  variant = 'FlashList',
+  selectable,
+  className,
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
+  variant: 'FlashList' | 'View';
+  selectable: boolean;
+  className?: string;
 }) => {
   const groupedCell = row.getVisibleCells().find((cell) => cell.getIsGrouped());
 
   if (!groupedCell) return null;
 
   return (
-    <View className="border border-border rounded-md px-3 py-2 mt-2">
+    <View className={cn('border border-border rounded-md px-3 py-2 mt-2', className)}>
       <View className="flex flex-row items-center gap-x-2">
-        <TableCheckbox row={row} />
+        {selectable ? <TableCheckbox row={row} /> : null}
         <Button
           onPress={row.getToggleExpandedHandler()}
           size="sm"
@@ -712,29 +783,50 @@ const GroupedRow = ({
         </Button>
       </View>
 
-      {row.getIsExpanded() && (
-        <FlashList data={row.subRows} renderItem={({ item: row }) => <RenderRow row={row} />} />
-      )}
+      {row.getIsExpanded() ? (
+        variant === 'FlashList' ? (
+          <FlashList
+            data={row.subRows}
+            renderItem={({ item: row }) => (
+              <RenderRow row={row} variant={variant} selectable={selectable} />
+            )}
+          />
+        ) : (
+          <View>
+            {row.subRows.map((subRow) => (
+              <RenderRow key={subRow.id} row={subRow} variant={variant} selectable={selectable} />
+            ))}
+          </View>
+        )
+      ) : null}
     </View>
   );
 };
 
 const RowCard = ({
   row,
+  selectable,
+  className,
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
+  selectable: boolean;
+  className?: string;
 }) => {
   return (
-    <View className="overflow-hidden rounded-md border border-foreground/15 mt-2">
-      <View className="py-2 px-3 flex flex-row gap-x-4 items-center">
-        <TableCheckbox row={row} />
-        <Text onPress={row.getToggleSelectedHandler()}>Select file to be identified</Text>
-      </View>
+    <View className={cn('overflow-hidden rounded-md border border-foreground/15 mt-2', className)}>
+      {selectable ? (
+        <View className="py-2 px-3 flex flex-row gap-x-4 items-center">
+          <TableCheckbox row={row} />
+          <Text onPress={row.getToggleSelectedHandler()}>Select file to be identified</Text>
+        </View>
+      ) : null}
       {row
         .getVisibleCells()
         .filter((cell) => !cell.getIsPlaceholder())
-        .map((cell) => (
-          <View key={cell.id} className="py-1 px-3 border-t border-foreground/15">
+        .map((cell, index) => (
+          <View
+            key={cell.id}
+            className={`py-1 px-3 border-foreground/15 ${selectable ? 'border-t' : index === 0 ? '' : 'border-t'}`}>
             {typeof cell.column.columnDef.header === 'string' ? (
               <Muted className="leading-tight">{cell.column.columnDef.header}</Muted>
             ) : null}
