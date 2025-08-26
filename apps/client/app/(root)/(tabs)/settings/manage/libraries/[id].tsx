@@ -69,21 +69,27 @@ const humanReadableReasons = {
   AUDIBLE_COULD_NOT_ID_BOOK: 'Book could not be identified',
 };
 
+const getAlbumArtist = (metadata: Record<string, string | undefined>) => {
+  return (metadata['artist'] || metadata['album_artist'])?.trim();
+};
+
+const getAlbumTitle = (metadata: Record<string, string | undefined>) => {
+  return (metadata['album'] || metadata['title'])?.trim();
+};
+
 const unmatchedFilesColumns: ColumnDef<
   inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]
 >[] = [
   {
     id: 'albumArtist',
     header: 'Album Artist',
-    accessorFn: (row) =>
-      (row.metadata['artist'] || row.metadata['album_artist'])?.trim() ?? 'No Album Artist',
+    accessorFn: (row) => getAlbumArtist(row.metadata) ?? 'No Album Artist',
     enableGrouping: true,
   },
   {
     id: 'albumTitle',
     header: 'Album Title',
-    accessorFn: (row) =>
-      (row.metadata['album'] || row.metadata['title'])?.trim() ?? 'No Album Title',
+    accessorFn: (row) => getAlbumTitle(row.metadata) ?? 'No Album Title',
     enableGrouping: true,
   },
   {
@@ -374,8 +380,52 @@ const IdentifyFilesModal = ({
     })
   );
 
+  const selectedRows = useMemo(() => {
+    return table.getSelectedRowModel().flatRows.map((r) => r.original);
+  }, [table]);
+
+  const selectedFilesTable = useReactTable({
+    data: selectedRows,
+    columns: unmatchedFilesColumns,
+    initialState: {
+      sorting: [
+        { id: 'disc', desc: false },
+        { id: 'track', desc: false },
+      ],
+      grouping,
+      columnVisibility,
+    },
+    getSortedRowModel: getSortedRowModel(),
+    getGroupedRowModel: getGroupedRowModel(),
+    enableRowSelection: false,
+    enableSubRowSelection: false,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => `${row.parentPath}/${row.name}`,
+  });
+
+  const firstSelectedWithTitle = useMemo(() => {
+    return selectedRows.find((r) => {
+      const title = getAlbumTitle(r.metadata);
+      return typeof title === 'string' && title.length > 0;
+    });
+  }, [selectedRows]);
+
+  const firstSelectedWithArtist = useMemo(() => {
+    return selectedRows.find((r) => {
+      const artist = getAlbumArtist(r.metadata);
+      return typeof artist === 'string' && artist.length > 0;
+    });
+  }, [selectedRows]);
+
   const SearchViaAudibleForm = useAppForm({
-    defaultValues: {} as z.infer<typeof schemas.v1.library.unmatched.search>,
+    defaultValues: {
+      title: firstSelectedWithTitle?.metadata
+        ? getAlbumTitle(firstSelectedWithTitle.metadata)
+        : undefined,
+      author: firstSelectedWithArtist?.metadata
+        ? getAlbumArtist(firstSelectedWithArtist.metadata)
+        : undefined,
+    } as z.infer<typeof schemas.v1.library.unmatched.search>,
     validators: {
       onChange: schemas.v1.library.unmatched.search,
     },
@@ -415,29 +465,6 @@ const IdentifyFilesModal = ({
       },
     })
   );
-
-  const selectedRows = useMemo(() => {
-    return table.getSelectedRowModel().flatRows.map((r) => r.original);
-  }, [table]);
-
-  const selectedFilesTable = useReactTable({
-    data: selectedRows,
-    columns: unmatchedFilesColumns,
-    initialState: {
-      sorting: [
-        { id: 'disc', desc: false },
-        { id: 'track', desc: false },
-      ],
-      grouping,
-      columnVisibility,
-    },
-    getSortedRowModel: getSortedRowModel(),
-    getGroupedRowModel: getGroupedRowModel(),
-    enableRowSelection: false,
-    enableSubRowSelection: false,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => `${row.parentPath}/${row.name}`,
-  });
 
   return (
     <>
