@@ -10,7 +10,6 @@ import {
   type GroupingState,
   type Row,
   type RowSelectionState,
-  type Table,
   type VisibilityState,
   flexRender,
   getCoreRowModel,
@@ -335,7 +334,7 @@ export default function LibraryPage() {
 
       <IdentifyFilesModal
         modalRef={identifyFilesModalRef}
-        table={table}
+        selectedRows={table.getSelectedRowModel().flatRows}
         grouping={grouping}
         columnVisibility={columnVisibility}
       />
@@ -344,12 +343,14 @@ export default function LibraryPage() {
 }
 
 const IdentifyFilesModal = ({
-  table,
+  selectedRows,
   modalRef,
   grouping,
   columnVisibility,
 }: {
-  table: Table<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
+  selectedRows: Row<
+    inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]
+  >[];
   modalRef: React.RefObject<BottomSheetModalType | null>;
   grouping: GroupingState;
   columnVisibility: VisibilityState;
@@ -380,21 +381,22 @@ const IdentifyFilesModal = ({
     })
   );
 
-  const selectedRows = useMemo(() => {
-    return table.getSelectedRowModel().flatRows.map((r) => r.original);
-  }, [table]);
+  const selectedRowsOriginal = useMemo(() => selectedRows.map((r) => r.original), [selectedRows]);
+
+  const selectedFilesDurationMs = useMemo(() => {
+    return selectedRowsOriginal.reduce((acc, row) => acc + row.durationMs, 0);
+  }, [selectedRowsOriginal]);
 
   const selectedFilesTable = useReactTable({
-    data: selectedRows,
+    data: selectedRowsOriginal,
     columns: unmatchedFilesColumns,
     initialState: {
       sorting: [
         { id: 'disc', desc: false },
         { id: 'track', desc: false },
       ],
-      grouping,
-      columnVisibility,
     },
+    state: { grouping, columnVisibility },
     getSortedRowModel: getSortedRowModel(),
     getGroupedRowModel: getGroupedRowModel(),
     enableRowSelection: false,
@@ -404,18 +406,18 @@ const IdentifyFilesModal = ({
   });
 
   const firstSelectedWithTitle = useMemo(() => {
-    return selectedRows.find((r) => {
+    return selectedRowsOriginal.find((r) => {
       const title = getAlbumTitle(r.metadata);
       return typeof title === 'string' && title.length > 0;
     });
-  }, [selectedRows]);
+  }, [selectedRowsOriginal]);
 
   const firstSelectedWithArtist = useMemo(() => {
-    return selectedRows.find((r) => {
+    return selectedRowsOriginal.find((r) => {
       const artist = getAlbumArtist(r.metadata);
       return typeof artist === 'string' && artist.length > 0;
     });
-  }, [selectedRows]);
+  }, [selectedRowsOriginal]);
 
   const SearchViaAudibleForm = useAppForm({
     defaultValues: {
@@ -617,11 +619,28 @@ const IdentifyFilesModal = ({
                       </AspectRatio>
                       <View className="flex-1 flex flex-col gap-y-1">
                         <Large>{result.title}</Large>
-                        <View className="flex flex-row flex-nowrap items-center gap-1">
+                        <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
                           <Timer className="text-muted-foreground" size={20} />
-                          <Badge variant="outline">
-                            <Text>{formatDuration(result.runtime_length_min * 60 * 1000)}</Text>
-                          </Badge>
+                          <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                            <Badge variant="outline">
+                              <Text>
+                                {formatDuration(result.runtime_length_min * 60 * 1000, 'short')}
+                              </Text>
+                            </Badge>
+                            <Badge variant="outline">
+                              <Text>
+                                {selectedFilesDurationMs > result.runtime_length_min * 60 * 1000
+                                  ? '+ '
+                                  : '- '}
+                                {formatDuration(
+                                  Math.abs(
+                                    selectedFilesDurationMs - result.runtime_length_min * 60 * 1000
+                                  ),
+                                  'short'
+                                )}
+                              </Text>
+                            </Badge>
+                          </View>
                         </View>
                         {result.authors.length > 0 ? (
                           <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
@@ -680,7 +699,7 @@ const IdentifyFilesModal = ({
                         identifyViaAudibleMutation.mutateAsync({
                           libraryId,
                           asin: result.asin,
-                          files: selectedRows.map((row) => ({
+                          files: selectedRowsOriginal.map((row) => ({
                             parentPath: row.parentPath,
                             name: row.name,
                           })),
