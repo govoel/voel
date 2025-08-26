@@ -20,6 +20,10 @@ export const library = {
         asin: z.string().optional(),
         title: z.string().optional(),
         author: z.string().optional(),
+        // File metadata for comparison and ordering
+        fileTitle: z.string().optional(),
+        fileAuthor: z.string().optional(),
+        fileDurationMs: z.number().int().positive().optional(),
       })
       .check((ctx) => {
         if (!ctx.value.asin && !ctx.value.title && !ctx.value.author) {

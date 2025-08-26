@@ -15,6 +15,7 @@ import { getLibraryActor } from '@/router/v1/library/machine';
 
 import { db, isSQLiteError } from '@/libs/db';
 import { AppRuntime } from '@/libs/effect/runtime';
+import { levenshteinDistance } from '@/libs/utils';
 
 import { adminProcedure, createTRPCRouter } from '@/trpc';
 
@@ -109,24 +110,33 @@ export const libraryRouter = createTRPCRouter({
 
     search: adminProcedure
       .input(schemas.v1.library.unmatched.search)
-      .mutation(async ({ input: { asin, title, author } }) => {
-        if (asin || title || author) {
-          const result = await AppRuntime.runPromise(
-            searchProgram({ asin, title, author }).pipe(Effect.either)
-          );
+      .mutation(
+        async ({ input: { asin, title, author, fileTitle, fileAuthor, fileDurationMs } }) => {
+          if (asin || title || author) {
+            const result = await AppRuntime.runPromise(
+              searchProgram({
+                asin,
+                title,
+                author,
+                fileTitle,
+                fileAuthor,
+                fileDurationMs,
+              }).pipe(Effect.either)
+            );
 
-          if (Either.isRight(result)) {
-            return result.right;
-          } else {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: result.left.message,
-            });
+            if (Either.isRight(result)) {
+              return result.right;
+            } else {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: result.left.message,
+              });
+            }
           }
-        }
 
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid search parameters' });
-      }),
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid search parameters' });
+        }
+      ),
 
     identify: adminProcedure
       .input(schemas.v1.library.unmatched.identify)
@@ -312,15 +322,21 @@ const searchProgram = Effect.fn(function* ({
   asin,
   title,
   author,
+  fileTitle,
+  fileAuthor,
+  fileDurationMs,
 }: {
   asin?: string;
   title?: string;
   author?: string;
+  fileTitle?: string;
+  fileAuthor?: string;
+  fileDurationMs?: number;
 }) {
   const audible = yield* Audible;
 
   if (asin) {
-    return yield* audible
+    const results = yield* audible
       .getBooksBySearch({
         asins: [asin],
       })
@@ -340,10 +356,20 @@ const searchProgram = Effect.fn(function* ({
             } as const),
         })
       );
+
+    // For ASIN searches, add duration difference if file duration is provided
+    if (fileDurationMs !== undefined) {
+      return results.map((result) => ({
+        ...result,
+        durationDifferenceMs: Math.abs(result.runtime_length_min * 60 * 1000 - fileDurationMs),
+      }));
+    }
+
+    return results;
   }
 
   if (title || author) {
-    return yield* audible
+    const results = yield* audible
       .getBooksBySearch({
         title,
         author,
@@ -364,6 +390,55 @@ const searchProgram = Effect.fn(function* ({
             } as const),
         })
       );
+
+    // If we have file metadata, calculate distances and sort the results
+    if (fileTitle || fileAuthor || fileDurationMs !== undefined) {
+      const enhancedResults = results.map((result) => {
+        // Calculate Levenshtein distances
+        const titleDistance = fileTitle
+          ? levenshteinDistance(fileTitle.toLowerCase().trim(), result.title.toLowerCase().trim())
+          : Number.MAX_SAFE_INTEGER;
+
+        const authorDistance = fileAuthor
+          ? Math.min(
+              ...result.authors.map((author) =>
+                levenshteinDistance(
+                  fileAuthor.toLowerCase().trim(),
+                  author.name.toLowerCase().trim()
+                )
+              )
+            )
+          : Number.MAX_SAFE_INTEGER;
+
+        // Calculate duration difference in milliseconds
+        const durationDifferenceMs =
+          fileDurationMs !== undefined
+            ? Math.abs(result.runtime_length_min * 60 * 1000 - fileDurationMs)
+            : Number.MAX_SAFE_INTEGER;
+
+        return {
+          ...result,
+          titleDistance,
+          authorDistance,
+          durationDifferenceMs,
+        };
+      });
+
+      // Sort by: 1) title distance, 2) author distance, 3) duration difference
+      enhancedResults.sort((a, b) => {
+        if (a.titleDistance !== b.titleDistance) {
+          return a.titleDistance - b.titleDistance;
+        }
+        if (a.authorDistance !== b.authorDistance) {
+          return a.authorDistance - b.authorDistance;
+        }
+        return a.durationDifferenceMs - b.durationDifferenceMs;
+      });
+
+      return enhancedResults;
+    }
+
+    return results;
   }
 
   return [];
