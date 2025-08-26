@@ -16,7 +16,7 @@
         "@bottom-tabs/react-navigation": "0.10.1",
         "@dev-plugins/react-query": "^0.3.1",
         "@gorhom/bottom-sheet": "5.2.3",
-        "@op-engineering/op-sqlite": "15.0.0",
+        "@op-engineering/op-sqlite": "15.0.1",
         "@react-native-community/slider": "5.0.1",
         "@react-navigation/native": "^7.1.6",
         "@rn-primitives/accordion": "1.2.0",
@@ -652,7 +652,7 @@
 
     "@oclif/core": ["@oclif/core@4.5.2", "", { "dependencies": { "ansi-escapes": "^4.3.2", "ansis": "^3.17.0", "clean-stack": "^3.0.1", "cli-spinners": "^2.9.2", "debug": "^4.4.0", "ejs": "^3.1.10", "get-package-type": "^0.1.0", "indent-string": "^4.0.0", "is-wsl": "^2.2.0", "lilconfig": "^3.1.3", "minimatch": "^9.0.5", "semver": "^7.6.3", "string-width": "^4.2.3", "supports-color": "^8", "tinyglobby": "^0.2.14", "widest-line": "^3.1.0", "wordwrap": "^1.0.0", "wrap-ansi": "^7.0.0" } }, "sha512-eQcKyrEcDYeZJKu4vUWiu0ii/1Gfev6GF4FsLSgNez5/+aQyAUCjg3ZWlurf491WiYZTXCWyKAxyPWk8DKv2MA=="],
 
-    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@15.0.0", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-y/ZTuYMOK3X1VyxSdz/O5AHU7FOzmWNNqK84pHznB0ibUm5cqkrDTwSeCLIXngnfcZnwzXJdOvn2raBK76zCqQ=="],
+    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@15.0.1", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-86tIMm/5OERUIguUq81YdRETlSsMzPdj9XYVdPA19fzNMT+Ptf5Vl5awLMEdvXPvOP9vyef5FealT+3llYwG8w=="],
 
     "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.36.0", "", {}, "sha512-TtxJSRD8Ohxp6bKkhrm27JRHAxPczQA7idtcTOMYI+wQRRrfgqxHv1cFbCApcSnNjtXkmzFozn6jQtFrOmbjPQ=="],
 
