@@ -366,7 +366,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
             END;`.execute(db);
 
   await db.schema
-    .createTable('unmatchedAudiobookFile')
+    .createTable('unidentifiedAudiobookFile')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
     .addColumn('libraryId', 'integer', (col) =>
@@ -374,7 +374,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addColumn('parentPath', 'text', (col) => col.notNull())
     .addColumn('name', 'text', (col) => col.notNull())
-    .addUniqueConstraint('unmatchedAudiobookFile_parentPath_name_key', ['parentPath', 'name'])
+    .addUniqueConstraint('unidentifiedAudiobookFile_parentPath_name_key', ['parentPath', 'name'])
     .addColumn('durationMs', 'integer', (col) => col.notNull())
     .addColumn('disc', 'integer', (col) => col.notNull())
     .addColumn('track', 'integer', (col) => col.notNull())
@@ -387,43 +387,43 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('unmatchedAudiobookFile_libraryId_index')
+    .createIndex('unidentifiedAudiobookFile_libraryId_index')
     .ifNotExists()
-    .on('unmatchedAudiobookFile')
+    .on('unidentifiedAudiobookFile')
     .columns(['libraryId'])
     .execute();
 
   await db.schema
-    .createIndex('unmatchedAudiobookFile_disc_track_index')
+    .createIndex('unidentifiedAudiobookFile_disc_track_index')
     .ifNotExists()
-    .on('unmatchedAudiobookFile')
+    .on('unidentifiedAudiobookFile')
     .columns(['disc', 'track'])
     .execute();
 
   await db.schema
-    .createIndex('unmatchedAudiobookFile_reason_index')
+    .createIndex('unidentifiedAudiobookFile_reason_index')
     .ifNotExists()
-    .on('unmatchedAudiobookFile')
+    .on('unidentifiedAudiobookFile')
     .columns(['reason'])
     .execute();
 
   await db.schema
-    .createIndex('unmatchedAudiobookFile_updatedAt_index')
+    .createIndex('unidentifiedAudiobookFile_updatedAt_index')
     .ifNotExists()
-    .on('unmatchedAudiobookFile')
+    .on('unidentifiedAudiobookFile')
     .columns(['updatedAt'])
     .execute();
 
   await db.schema
-    .createIndex('unmatchedAudiobookFile_deletedAt_index')
+    .createIndex('unidentifiedAudiobookFile_deletedAt_index')
     .ifNotExists()
-    .on('unmatchedAudiobookFile')
+    .on('unidentifiedAudiobookFile')
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_unmatchedAudiobookFile_updatedAt BEFORE UPDATE OF libraryId, path, durationMs, disc, track, reason, metadata, deletedAt ON unmatchedAudiobookFile FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_unidentifiedAudiobookFile_updatedAt BEFORE UPDATE OF libraryId, path, durationMs, disc, track, reason, metadata, deletedAt ON unidentifiedAudiobookFile FOR EACH ROW
             BEGIN
-              UPDATE unmatchedAudiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
+              UPDATE unidentifiedAudiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
 
   await db.schema

@@ -1,7 +1,7 @@
 import { FsExtended } from './fsExtended';
 import type { Hash } from './hash';
-import { gatherAuxiliaryAudiobookData } from './matching/gatherAuxiliaryAudiobookData';
-import { insertAudiobook } from './matching/insertAudiobook';
+import { gatherAuxiliaryAudiobookData } from './identifying/gatherAuxiliaryAudiobookData';
+import { insertAudiobook } from './identifying/insertAudiobook';
 import { extractAudiobookFileMetadata } from './scanning/extractAudiobookFileMetadata';
 import { prepareAudiobookFile } from './scanning/prepareAudiobookFile';
 import { Path } from '@effect/platform';
@@ -90,12 +90,12 @@ export const libraryRouter = createTRPCRouter({
     }
   }),
 
-  unmatched: createTRPCRouter({
+  unidentified: createTRPCRouter({
     getFiles: adminProcedure
-      .input(schemas.v1.library.unmatched.getFiles)
+      .input(schemas.v1.library.unidentified.getFiles)
       .query(async ({ input }) => {
         const results = await db
-          .selectFrom('unmatchedAudiobookFile')
+          .selectFrom('unidentifiedAudiobookFile')
           .where('libraryId', '=', input.id)
           .where('deletedAt', 'is', null)
           .select(['parentPath', 'name', 'durationMs', 'disc', 'track', 'reason', 'metadata'])
@@ -108,7 +108,7 @@ export const libraryRouter = createTRPCRouter({
       }),
 
     search: adminProcedure
-      .input(schemas.v1.library.unmatched.search)
+      .input(schemas.v1.library.unidentified.search)
       .mutation(async ({ input: { asin, title, author } }) => {
         if (asin || title || author) {
           const result = await AppRuntime.runPromise(
@@ -129,7 +129,7 @@ export const libraryRouter = createTRPCRouter({
       }),
 
     identify: adminProcedure
-      .input(schemas.v1.library.unmatched.identify)
+      .input(schemas.v1.library.unidentified.identify)
       .mutation(async ({ input }) => {
         const result = await AppRuntime.runPromise(
           Effect.gen(function* () {

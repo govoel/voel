@@ -13,7 +13,7 @@ const path = z.string().min(1, 'Absolute library path is required').trim();
 export const library = {
   create: z.object({ name, path }),
   scan: z.object({ id }),
-  unmatched: {
+  unidentified: {
     getFiles: z.object({ id }),
     search: z
       .object({

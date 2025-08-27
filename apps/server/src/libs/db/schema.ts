@@ -109,7 +109,7 @@ export interface AudiobookFileTable {
   deletedAt: ColumnType<number | null, never, number | null>;
 }
 
-export interface UnmatchedAudiobookFileTable {
+export interface UnidentifiedAudiobookFileTable {
   id: ColumnType<number, never, never>;
   libraryId: number;
   parentPath: string;
@@ -165,7 +165,7 @@ export interface DatabaseSchema {
   bookContributor: BookContributorTable;
   audiobookChapter: AudiobookChapterTable;
   audiobookFile: AudiobookFileTable;
-  unmatchedAudiobookFile: UnmatchedAudiobookFileTable;
+  unidentifiedAudiobookFile: UnidentifiedAudiobookFileTable;
   ebookFile: EBookFileTable;
   playbackHistory: PlaybackHistoryTable;
   sqlite_sequence: SQLiteSequenceTable;

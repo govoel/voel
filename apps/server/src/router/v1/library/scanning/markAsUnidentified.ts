@@ -3,9 +3,9 @@ import { Effect } from 'effect';
 import type { Insertable } from 'kysely';
 
 import { db, toEffect } from '@/libs/db';
-import type { UnmatchedAudiobookFileTable } from '@/libs/db/schema';
+import type { UnidentifiedAudiobookFileTable } from '@/libs/db/schema';
 
-export const markAsUnmatched = Effect.fn(function* ({
+export const markAsUnidentified = Effect.fn(function* ({
   libraryId,
   files,
   reason,
@@ -19,13 +19,13 @@ export const markAsUnmatched = Effect.fn(function* ({
     metadata: { format: { duration: number } };
     normalizedTags: Record<string, string>;
   }[];
-  reason: Insertable<UnmatchedAudiobookFileTable>['reason'];
+  reason: Insertable<UnidentifiedAudiobookFileTable>['reason'];
 }) {
   const path = yield* Path.Path;
 
   const dbPaths = yield* toEffect(
     db
-      .insertInto('unmatchedAudiobookFile')
+      .insertInto('unidentifiedAudiobookFile')
       .values(
         files.map((file) => ({
           libraryId,
@@ -55,7 +55,7 @@ export const markAsUnmatched = Effect.fn(function* ({
   );
 
   yield* Effect.forEach(dbPaths, (dbPath) =>
-    Effect.logInfo('Marked as unmatched').pipe(
+    Effect.logInfo('Marked as unidentified').pipe(
       Effect.annotateLogs('path', path.join(dbPath.parentPath, dbPath.name))
     )
   );

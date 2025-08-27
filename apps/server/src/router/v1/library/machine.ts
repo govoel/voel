@@ -1,6 +1,6 @@
 import type { Audible } from './audible';
 import type { Hash } from './hash';
-import { insertAudiobook } from './matching/insertAudiobook';
+import { insertAudiobook } from './identifying/insertAudiobook';
 import { Path } from '@effect/platform';
 import {
   Chunk,
@@ -17,14 +17,14 @@ import {
 import { Actor, createActor, setup } from 'xstate';
 
 import { FsExtended } from '@/router/v1/library/fsExtended';
-import { gatherAuxiliaryAudiobookData } from '@/router/v1/library/matching/gatherAuxiliaryAudiobookData';
-import { matchAudiobook } from '@/router/v1/library/matching/matchAudiobook';
+import { gatherAuxiliaryAudiobookData } from '@/router/v1/library/identifying/gatherAuxiliaryAudiobookData';
+import { identifyAudiobook } from '@/router/v1/library/identifying/identifyAudiobook';
 import {
   cleanupAudiobookFile,
-  cleanupUnmatchedAudiobookFile,
+  cleanupUnidentifiedAudiobookFile,
 } from '@/router/v1/library/scanning/cleanupAudiobookFile';
 import { extractAudiobookFileMetadata } from '@/router/v1/library/scanning/extractAudiobookFileMetadata';
-import { markAsUnmatched } from '@/router/v1/library/scanning/markAsUnmatched';
+import { markAsUnidentified } from '@/router/v1/library/scanning/markAsUnidentified';
 import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiobookFile';
 
 import { AppRuntime } from '@/libs/effect/runtime';
@@ -104,7 +104,7 @@ const libraryMachine = setup({
           );
 
           yield* cleanupAudiobookFile({ libraryId: context.id });
-          yield* cleanupUnmatchedAudiobookFile({ libraryId: context.id });
+          yield* cleanupUnidentifiedAudiobookFile({ libraryId: context.id });
 
           const dir = yield* fs
             .opendir({
@@ -178,7 +178,7 @@ const libraryMachine = setup({
                         NoAlbumTitleOrArtistNameError: (error) =>
                           Effect.gen(function* () {
                             yield* Effect.logError(
-                              'Missing album title or artist name, marking file as unmatched'
+                              'Missing album title or artist name, marking file as unidentified'
                             ).pipe(
                               Effect.annotateLogs({
                                 albumTitle: error.albumTitle,
@@ -186,7 +186,7 @@ const libraryMachine = setup({
                               })
                             );
 
-                            yield* markAsUnmatched({
+                            yield* markAsUnidentified({
                               libraryId: context.id,
                               reason:
                                 (error.albumTitle === undefined || error.albumTitle.length === 0) &&
@@ -207,7 +207,9 @@ const libraryMachine = setup({
                               ],
                             }).pipe(
                               Effect.tapError(() =>
-                                Effect.logError('Failed to mark file as unmatched, ignoring file')
+                                Effect.logError(
+                                  'Failed to mark file as unidentified, ignoring file'
+                                )
                               ),
                               Effect.catchAll(() => Effect.succeed(Option.none()))
                             );
@@ -272,17 +274,17 @@ const libraryMachine = setup({
                   Stream.mapEffect(
                     (e) =>
                       Effect.gen(function* () {
-                        const book = yield* matchAudiobook(e);
+                        const book = yield* identifyAudiobook(e);
 
                         if (Option.isNone(book)) {
                           return {
-                            matched: false,
+                            identified: false,
                             reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
                           } as const;
                         }
 
                         return {
-                          matched: true,
+                          identified: true,
                           ...(yield* gatherAuxiliaryAudiobookData(book.value)),
                         } as const;
                       }).pipe(Effect.annotateLogs('path', path.join(e.parentPath, e.name))),
@@ -301,14 +303,14 @@ const libraryMachine = setup({
             ),
             Stream.mapEffect(([bookOption, files]) =>
               Effect.gen(function* () {
-                if (!bookOption.matched) {
-                  return yield* markAsUnmatched({
+                if (!bookOption.identified) {
+                  return yield* markAsUnidentified({
                     libraryId: context.id,
                     reason: bookOption.reason,
                     files: Chunk.toArray(files),
                   }).pipe(
                     Effect.catchAll(() =>
-                      Effect.logError('Error while inserting unmatched files, ignoring files')
+                      Effect.logError('Error while inserting unidentified files, ignoring files')
                     )
                   );
                 }
@@ -325,7 +327,7 @@ const libraryMachine = setup({
                   )
                 );
               }).pipe(
-                Effect.annotateLogs('asin', bookOption.matched ? bookOption.book.asin : 'N/A')
+                Effect.annotateLogs('asin', bookOption.identified ? bookOption.book.asin : 'N/A')
               )
             ),
             Stream.runDrain,

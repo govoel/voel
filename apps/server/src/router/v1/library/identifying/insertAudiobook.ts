@@ -270,14 +270,14 @@ export const insertAudiobook = Effect.fn(
 
     yield* toEffect(
       trx
-        .updateTable('unmatchedAudiobookFile')
+        .updateTable('unidentifiedAudiobookFile')
         .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
         .where((eb) =>
           eb.or(
             files.map((file) =>
               eb.and([
-                eb('unmatchedAudiobookFile.parentPath', '=', file.parentPath),
-                eb('unmatchedAudiobookFile.name', '=', file.name),
+                eb('unidentifiedAudiobookFile.parentPath', '=', file.parentPath),
+                eb('unidentifiedAudiobookFile.name', '=', file.name),
               ])
             )
           )
