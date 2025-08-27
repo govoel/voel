@@ -72,9 +72,9 @@ export default function SettingsDownloadsScreen() {
           )
         ) : null}
 
-        <Card className="mt-4">
+        <View className="mt-4">
           {error ? (
-            <>
+            <Card>
               <CardContent className="pt-4">
                 <Large>Error loading books</Large>
                 <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
@@ -84,9 +84,9 @@ export default function SettingsDownloadsScreen() {
                   <Text>Retry</Text>
                 </Button>
               </CardFooter>
-            </>
+            </Card>
           ) : downloadError ? (
-            <>
+            <Card>
               <CardContent className="pt-4">
                 <Large>Error loading downloads</Large>
                 <Text className="text-muted-foreground">
@@ -98,7 +98,7 @@ export default function SettingsDownloadsScreen() {
                   <Text>Retry</Text>
                 </Button>
               </CardFooter>
-            </>
+            </Card>
           ) : data && downloads ? (
             <FlatList
               data={data}
@@ -148,17 +148,19 @@ export default function SettingsDownloadsScreen() {
                 </Link>
               )}
               ListEmptyComponent={
-                <View className="flex flex-col items-center justify-center p-8">
+                <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
                   <Text className="text-center">No downloads found</Text>
                 </View>
               }
             />
           ) : (
-            <CardContent className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </CardContent>
+            <Card>
+              <CardContent className="p-12 justify-center items-center">
+                <Spinner size={15} />
+              </CardContent>
+            </Card>
           )}
-        </Card>
+        </View>
       </FloatingPlayerDodgingScrollView>
     </>
   );

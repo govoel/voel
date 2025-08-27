@@ -793,7 +793,7 @@ const TableCheckbox = ({
           checked={checked}
           indeterminate={indeterminate}
           onCheckedChange={row.getToggleSelectedHandler()}
-          className={`border-secondary ${checked || indeterminate ? 'bg-secondary' : ''}`}
+          className={`border-border ${checked || indeterminate ? 'bg-secondary' : ''}`}
         />
       </Pressable>
     </View>
@@ -877,7 +877,7 @@ const RowCard = ({
   className?: string;
 }) => {
   return (
-    <View className={cn('overflow-hidden rounded-md border border-foreground/15 mt-2', className)}>
+    <View className={cn('overflow-hidden rounded-md border border-border mt-2', className)}>
       {row.getCanSelect() ? (
         <Pressable
           className="py-2 px-3 flex flex-row gap-x-4 items-center"
@@ -892,7 +892,7 @@ const RowCard = ({
         .map((cell, index) => (
           <View
             key={cell.id}
-            className={`py-1 px-3 border-foreground/15 ${row.getCanSelect() || index > 0 ? 'border-t' : ''}`}>
+            className={`py-1 px-3 border-border ${row.getCanSelect() || index > 0 ? 'border-t' : ''}`}>
             {typeof cell.column.columnDef.header === 'string' ? (
               <Muted className="leading-tight">{cell.column.columnDef.header}</Muted>
             ) : null}
