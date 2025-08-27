@@ -17,6 +17,12 @@ module.exports = defineConfig([
   importPlugin.flatConfigs.recommended,
   ...importZod.configs.recommended,
   {
+    languageOptions: {
+      globals: { __dirname: 'readonly' },
+      parserOptions: { tsconfigRootDir: __dirname },
+    },
+  },
+  {
     ignores: ['dist/*'],
     rules: {
       // TanStack Form uses children prop
