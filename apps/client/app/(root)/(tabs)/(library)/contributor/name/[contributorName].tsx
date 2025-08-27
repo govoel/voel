@@ -100,6 +100,14 @@ export default function ContributorNameScreen() {
   );
 }
 
+const roleToText = {
+  author: 'Author',
+  narrator: 'Narrator',
+  editor: 'Editor',
+  translator: 'Translator',
+  foreword: 'Foreword Author',
+} as const;
+
 export const AsRoleBookList = ({
   role,
   books,
@@ -118,8 +126,7 @@ export const AsRoleBookList = ({
   return (
     <View className={className}>
       <TitleWithRefetch refetch={refetch} isFetching={isFetching} className="mb-2">
-        As {role.charAt(0).toUpperCase() + role.slice(1)}
-        {books && books.length > 0 && ` (${books.length})`}
+        As {roleToText[role]} {books && books.length > 0 && `(${books.length})`}
       </TitleWithRefetch>
 
       <BookList
@@ -128,6 +135,7 @@ export const AsRoleBookList = ({
         direction="horizontal"
         error={error}
         refetch={refetch}
+        className="mb-2"
       />
     </View>
   );
