@@ -1,6 +1,6 @@
 import { Spinner } from '../spinner';
 import * as React from 'react';
-import { TextInput, type TextInputProps, View } from 'react-native';
+import { Platform, TextInput, type TextInputProps, View } from 'react-native';
 
 import { cn } from '~/lib/utils';
 
@@ -15,19 +15,34 @@ const Input = ({
   isLoading?: boolean;
 }) => {
   return (
-    <View className="border border-input rounded-md flex flex-row items-center justify-center bg-background">
+    <View className="rounded-md flex flex-row items-center justify-center">
       <TextInput
-        ref={ref}
         className={cn(
-          'flex-1 web:flex web:w-full bg-background px-3 web:py-2 text-base lg:text-sm native:text-lg text-foreground placeholder:text-muted-foreground web:ring-offset-background file:border-0 file:bg-transparent file:font-medium web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2 font-normal',
-          props.editable === false && 'opacity-50 web:cursor-not-allowed',
-          isLoading ? 'rounded-l-md' : 'rounded-md',
+          'flex-1 border-input bg-background text-foreground flex h-10 w-full min-w-0 flex-row items-center px-3 py-1 text-base leading-5 shadow-sm shadow-black/5 sm:h-9 font-normal',
+          props.editable === false &&
+            cn(
+              'opacity-50',
+              Platform.select({ web: 'disabled:pointer-events-none disabled:cursor-not-allowed' })
+            ),
+          isLoading ? 'rounded-l-md border border-r-0' : 'border rounded-md',
+          Platform.select({
+            web: cn(
+              'placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground outline-none transition-[color,box-shadow] md:text-sm',
+              'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+              'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
+            ),
+            native: 'placeholder:text-muted-foreground/50',
+          }),
           className
         )}
-        placeholderClassName={cn('text-muted-foreground', placeholderClassName)}
         {...props}
       />
-      {isLoading && <Spinner className="px-3" size={6} />}
+      {isLoading && (
+        <Spinner
+          className="px-3 border border-l-0 border-input h-full rounded-r-md flex items-center justify-center"
+          size={6}
+        />
+      )}
     </View>
   );
 };

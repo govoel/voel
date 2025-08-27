@@ -1,7 +1,7 @@
 import '~/global.css';
 
 import { useReactQueryDevTools } from '@dev-plugins/react-query';
-import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -16,17 +16,8 @@ import { Toaster } from 'sonner-native';
 
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
 import { queryClient } from '~/lib/api/query-client';
-import { NAV_THEME } from '~/lib/constants';
 import { themeStore } from '~/lib/stores/color-scheme';
-
-const LIGHT_THEME: Theme = {
-  ...DefaultTheme,
-  colors: NAV_THEME.light,
-};
-const DARK_THEME: Theme = {
-  ...DarkTheme,
-  colors: NAV_THEME.dark,
-};
+import { NAV_THEME } from '~/lib/theme';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -80,7 +71,7 @@ const ThemeAndPortalLayout = () => {
   const { colorScheme: nativeWindColorScheme } = useNativewindColorScheme();
 
   return (
-    <ThemeProvider value={nativeWindColorScheme === 'dark' ? DARK_THEME : LIGHT_THEME}>
+    <ThemeProvider value={nativeWindColorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light}>
       <Stack screenOptions={{ headerShown: false }} />
       <Toaster
         toastOptions={{
