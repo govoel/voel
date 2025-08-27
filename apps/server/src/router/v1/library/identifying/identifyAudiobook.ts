@@ -339,7 +339,7 @@ const searchStrategies = [
   },
 ] as const;
 
-export const matchAudiobook = (book: {
+export const identifyAudiobook = (book: {
   normalizedTags: Record<string, string>;
   realPath: string | undefined;
   parentPath: string;
@@ -394,7 +394,7 @@ export const matchAudiobook = (book: {
 
       if (Option.isSome(product)) {
         if (Schema.is(ProductBookSchema)(product.value)) {
-          yield* Effect.logDebug(`Matched as ${product.value.asin}`).pipe(
+          yield* Effect.logDebug(`Identified as ${product.value.asin}`).pipe(
             Effect.annotateLogs('metadataAsin', asin)
           );
           return Option.some(product.value);
@@ -425,6 +425,6 @@ export const matchAudiobook = (book: {
       }
     }
 
-    yield* Effect.logError('Book could not be identified, will be marked as unmatched');
+    yield* Effect.logError('Book could not be identified, will be marked as unidentified');
     return Option.none();
   });

@@ -45,7 +45,7 @@ export const cleanupAudiobookFile = Effect.fn(function* ({ libraryId }: { librar
   );
 });
 
-export const cleanupUnmatchedAudiobookFile = Effect.fn(function* ({
+export const cleanupUnidentifiedAudiobookFile = Effect.fn(function* ({
   libraryId,
 }: {
   libraryId: number;
@@ -55,9 +55,9 @@ export const cleanupUnmatchedAudiobookFile = Effect.fn(function* ({
 
   yield* Stream.fromAsyncIterable(
     db
-      .selectFrom('unmatchedAudiobookFile')
-      .where('unmatchedAudiobookFile.libraryId', '=', libraryId)
-      .where('unmatchedAudiobookFile.deletedAt', 'is', null)
+      .selectFrom('unidentifiedAudiobookFile')
+      .where('unidentifiedAudiobookFile.libraryId', '=', libraryId)
+      .where('unidentifiedAudiobookFile.deletedAt', 'is', null)
       .select(['parentPath', 'name'])
       .stream(),
     handleKyselyError
@@ -68,7 +68,7 @@ export const cleanupUnmatchedAudiobookFile = Effect.fn(function* ({
           Effect.gen(function* () {
             yield* toEffect(
               db
-                .updateTable('unmatchedAudiobookFile')
+                .updateTable('unidentifiedAudiobookFile')
                 .where('parentPath', '=', file.parentPath)
                 .where('name', '=', file.name)
                 .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
@@ -76,7 +76,7 @@ export const cleanupUnmatchedAudiobookFile = Effect.fn(function* ({
             );
 
             yield* Effect.logInfo(
-              'Unmatched file not found, so deleting file from library database'
+              'Unidentified file not found on disk, so deleting file from library database'
             ).pipe(Effect.annotateLogs('path', path.join(file.parentPath, file.name)));
           })
         )
@@ -84,7 +84,7 @@ export const cleanupUnmatchedAudiobookFile = Effect.fn(function* ({
     ),
     Stream.runDrain,
     Effect.catchAll((error) =>
-      Effect.logError('Error while cleaning up unmatched files').pipe(
+      Effect.logError('Error while cleaning up unidentified files').pipe(
         Effect.annotateLogs('error', error)
       )
     )

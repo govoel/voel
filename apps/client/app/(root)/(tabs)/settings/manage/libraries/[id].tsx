@@ -76,8 +76,8 @@ const getAlbumTitle = (metadata: Record<string, string | undefined>) => {
   return (metadata['album'] || metadata['title'])?.trim();
 };
 
-const unmatchedFilesColumns: ColumnDef<
-  inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]
+const unidentifiedFilesColumns: ColumnDef<
+  inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]
 >[] = [
   {
     id: 'albumArtist',
@@ -157,7 +157,7 @@ export default function LibraryPage() {
   const apiInstance = useApiInstance();
 
   const { data, error, refetch, isFetching } = useQuery(
-    apiInstance.v1.library.unmatched.getFiles.queryOptions({
+    apiInstance.v1.library.unidentified.getFiles.queryOptions({
       id: idNum,
     })
   );
@@ -168,7 +168,7 @@ export default function LibraryPage() {
 
   const table = useReactTable({
     data: data ?? [],
-    columns: unmatchedFilesColumns,
+    columns: unidentifiedFilesColumns,
     initialState: {
       sorting: [
         { id: 'disc', desc: false },
@@ -284,7 +284,7 @@ export default function LibraryPage() {
           error ? (
             <Card className="mt-4">
               <CardContent className="pt-4">
-                <Large>Error loading unmatched files</Large>
+                <Large>Error loading unidentified files</Large>
                 <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
               </CardContent>
               <CardFooter>
@@ -295,7 +295,7 @@ export default function LibraryPage() {
             </Card>
           ) : data?.length === 0 ? (
             <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mt-4 w-full">
-              <Text className="text-center">No unmatched files found in this library</Text>
+              <Text className="text-center">No unidentified files found in this library</Text>
             </View>
           ) : (
             <View className="p-12 justify-center items-center">
@@ -349,7 +349,7 @@ const IdentifyFilesModal = ({
   columnVisibility,
 }: {
   selectedRows: Row<
-    inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]
+    inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]
   >[];
   modalRef: React.RefObject<BottomSheetModalType | null>;
   grouping: GroupingState;
@@ -363,7 +363,7 @@ const IdentifyFilesModal = ({
   const pickSearchResultModalRef = useRef<BottomSheetModalType | null>(null);
 
   const searchViaAudibleMutation = useMutation(
-    apiInstance.v1.library.unmatched.search.mutationOptions({
+    apiInstance.v1.library.unidentified.search.mutationOptions({
       onSuccess: (data) => {
         if (data.length > 0) {
           pickSearchResultModalRef.current?.present();
@@ -389,7 +389,7 @@ const IdentifyFilesModal = ({
 
   const selectedFilesTable = useReactTable({
     data: selectedRowsOriginal,
-    columns: unmatchedFilesColumns,
+    columns: unidentifiedFilesColumns,
     initialState: {
       sorting: [
         { id: 'disc', desc: false },
@@ -427,19 +427,21 @@ const IdentifyFilesModal = ({
       author: firstSelectedWithArtist?.metadata
         ? getAlbumArtist(firstSelectedWithArtist.metadata)
         : undefined,
-    } as z.infer<typeof schemas.v1.library.unmatched.search>,
+    } as z.infer<typeof schemas.v1.library.unidentified.search>,
     validators: {
-      onChange: schemas.v1.library.unmatched.search,
+      onChange: schemas.v1.library.unidentified.search,
     },
     onSubmit: async ({ value, formApi }) => {
-      await searchViaAudibleMutation.mutateAsync(schemas.v1.library.unmatched.search.parse(value));
+      await searchViaAudibleMutation.mutateAsync(
+        schemas.v1.library.unidentified.search.parse(value)
+      );
     },
   });
 
   const { dismissAll } = useBottomSheetModal();
 
   const identifyViaAudibleMutation = useMutation(
-    apiInstance.v1.library.unmatched.identify.mutationOptions({
+    apiInstance.v1.library.unidentified.identify.mutationOptions({
       onSuccess: (data) => {
         toast.success(
           `${selectedRows.length === 0 ? 'Files' : selectedRows.length === 1 ? 'File' : `${selectedRows.length} files`} identified successfully`,
@@ -770,7 +772,7 @@ const ScanLibraryButton = ({ id }: { id: number }) => {
 const TableCheckbox = ({
   row,
 }: {
-  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
+  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
 }) => {
   // NOTE: row selection doesn't work correctly for parent rows
   // with deeply nested rows or if a row is selected and then grouped
@@ -805,7 +807,7 @@ const RenderRow = ({
   variant,
   className,
 }: {
-  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
+  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
   variant: 'FlashList' | 'View';
   className?: string;
 }) =>
@@ -820,7 +822,7 @@ const GroupedRow = ({
   variant = 'FlashList',
   className,
 }: {
-  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
+  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
   variant: 'FlashList' | 'View';
   className?: string;
 }) => {
@@ -873,7 +875,7 @@ const RowCard = ({
   row,
   className,
 }: {
-  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unmatched']['getFiles'][number]>;
+  row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
   className?: string;
 }) => {
   return (

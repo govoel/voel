@@ -70,7 +70,7 @@ function EmptyComponent({
           'flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full',
           className
         )}>
-        <Text className="text-center">No {type}s found</Text>
+        <Text className="text-center">Error loading {type}s</Text>
       </View>
     );
   }
