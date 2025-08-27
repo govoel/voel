@@ -142,9 +142,9 @@ function useFloatingPlayerAndButtonDodgingPaddingClass() {
   return 'pt-6 pb-20 px-6';
 }
 
-export default function LibraryPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const idNum = parseInt(id);
+export default function UnidentifiedFilesPage() {
+  const { libraryId } = useLocalSearchParams<{ libraryId: string }>();
+  const idNum = parseInt(libraryId);
 
   const isPlayerActive = useSelector(floatingPlayerStore, (state) => state.context.isPlayerActive);
   const isUpdatePending = useSelector(
@@ -190,7 +190,7 @@ export default function LibraryPage() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Manage Library' }} />
+      <Stack.Screen options={{ title: 'Unidentified Files' }} />
 
       <FlashList
         data={table.getRowModel().rows}
@@ -198,8 +198,6 @@ export default function LibraryPage() {
         contentContainerClassName={useFloatingPlayerAndButtonDodgingPaddingClass()}
         ListHeaderComponent={
           <>
-            <ScanLibraryButton id={idNum} />
-
             <TitleWithRefetch className="pt-4" refetch={refetch} isFetching={isFetching}>
               Unidentified Files
             </TitleWithRefetch>
@@ -355,8 +353,8 @@ const IdentifyFilesModal = ({
   grouping: GroupingState;
   columnVisibility: VisibilityState;
 }) => {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const libraryId = parseInt(id);
+  const { libraryId } = useLocalSearchParams<{ libraryId: string }>();
+  const idNum = parseInt(libraryId);
 
   const apiInstance = useApiInstance();
 
@@ -699,7 +697,7 @@ const IdentifyFilesModal = ({
                       disabled={identifyViaAudibleMutation.isPending}
                       onPress={() => {
                         identifyViaAudibleMutation.mutateAsync({
-                          libraryId,
+                          libraryId: idNum,
                           asin: result.asin,
                           files: selectedRowsOriginal.map((row) => ({
                             parentPath: row.parentPath,
@@ -729,43 +727,6 @@ const IdentifyFilesModal = ({
         </View>
       </BottomSheetModal>
     </>
-  );
-};
-
-const ScanLibraryButton = ({ id }: { id: number }) => {
-  const apiInstance = useApiInstance();
-
-  const scanLibraryMutation = useMutation(
-    apiInstance.v1.library.scan.mutationOptions({
-      onSuccess: (data) => {
-        toast.success(data.message);
-      },
-      onError: (error) => {
-        toast.error('Failed to start library scan', {
-          description: error.message || 'Unknown error',
-        });
-      },
-    })
-  );
-
-  const ScanLibraryForm = useAppForm({
-    defaultValues: { id },
-    validators: {
-      onChange: schemas.v1.library.scan,
-    },
-    onSubmit: async ({ value, formApi }) => {
-      await scanLibraryMutation.mutateAsync(schemas.v1.library.scan.parse(value));
-      scanLibraryMutation.reset();
-      formApi.reset();
-    },
-  });
-
-  return (
-    <ScanLibraryForm.AppForm>
-      <ScanLibraryForm.SubmitButton variant="secondary">
-        <Text>Scan Library</Text>
-      </ScanLibraryForm.SubmitButton>
-    </ScanLibraryForm.AppForm>
   );
 };
 

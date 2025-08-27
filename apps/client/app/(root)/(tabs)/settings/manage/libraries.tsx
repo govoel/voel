@@ -79,7 +79,10 @@ export default function LibraryListScreen() {
         }
         renderItem={({ item, index }) => (
           <Link
-            href={{ pathname: '/settings/manage/libraries/[id]', params: { id: item.id } }}
+            href={{
+              pathname: '/settings/manage/libraries/[libraryId]',
+              params: { libraryId: item.id },
+            }}
             asChild
             push>
             <Button
