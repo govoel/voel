@@ -34,11 +34,58 @@ type BaseOmitted = EnsureProp<
   | 'onEndReached'
 >;
 
+function EmptyComponent({
+  className,
+  type,
+  people,
+  error,
+  refetch,
+}: {
+  className?: string;
+  type: 'author' | 'editor' | 'narrator' | 'translator' | 'foreword';
+  people?: PersonListPerson[];
+  error: Error | null;
+  refetch: () => Promise<unknown>;
+}) {
+  if (error) {
+    return (
+      <Card className={cn('mb-4', className)}>
+        <CardContent className="pt-4">
+          <Large>Error loading {type}s</Large>
+          <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+        </CardContent>
+        <CardFooter>
+          <Button className="w-full" onPress={() => refetch()}>
+            <Text>Retry</Text>
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  if (people?.length === 0) {
+    return (
+      <View
+        className={cn(
+          'flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full',
+          className
+        )}>
+        <Text className="text-center">No {type}s found</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className={cn('p-12 justify-center items-center', className)}>
+      <Spinner size={15} />
+    </View>
+  );
+}
+
 export function PersonList({
   people,
   type,
   ref,
-  ListFooterComponent,
   ...props
 }: {
   people?: PersonListPerson[];
@@ -52,10 +99,12 @@ export function PersonList({
     >)
   | ({
       direction: 'horizontal';
-      key: Key;
       error: Error | null;
       refetch: () => Promise<unknown>;
-    } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted>)
+    } & Omit<
+      ComponentPropsWithoutRef<typeof FlashList>,
+      BaseOmitted | EnsureProp<'ListHeaderComponent' | 'ListEmptyComponent' | 'ListFooterComponent'>
+    >)
 ) &
   (
     | {
@@ -67,18 +116,25 @@ export function PersonList({
         onEndReached?: undefined;
       }
   )) {
+  if (props.direction === 'horizontal' && people?.length === 0) {
+    return (
+      <EmptyComponent
+        className={props.className}
+        type={type}
+        people={people}
+        error={props.error}
+        refetch={props.refetch}
+      />
+    );
+  }
+
   return (
     <FlashList
       {...props}
       ref={ref}
       data={people}
       keyExtractor={(item) => item.id.toString()}
-      key={
-        props.direction === 'horizontal'
-          ? `person-list-${people && people.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
-          : undefined
-      }
-      horizontal={props.direction === 'horizontal' && people && people.length > 0}
+      horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 3 : undefined}
       renderItem={({ item, index }) => (
         <Link
@@ -184,33 +240,13 @@ export function PersonList({
               )
             ) : null
           ) : null}
-          {ListFooterComponent}
+          {props.direction === 'vertical' ? props.ListFooterComponent : null}
         </>
       }
       ListEmptyComponent={
-        props.error ? (
-          <Card className="mb-4">
-            <CardContent className="pt-4">
-              <Large>Error loading {type}s</Large>
-              <Text className="text-muted-foreground">
-                {props.error.message || 'Unknown error'}
-              </Text>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full" onPress={() => props.refetch()}>
-                <Text>Retry</Text>
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : people?.length === 0 ? (
-          <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
-            <Text className="text-center">No {type}s found</Text>
-          </View>
-        ) : (
-          <View className="p-12 justify-center items-center">
-            <Spinner size={15} />
-          </View>
-        )
+        props.direction === 'vertical' ? (
+          <EmptyComponent type={type} people={people} error={props.error} refetch={props.refetch} />
+        ) : null
       }
     />
   );

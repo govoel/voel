@@ -59,7 +59,6 @@ export default function HomeScreen() {
 
             <BookList
               direction="horizontal"
-              key="continue-listening"
               books={continueListening}
               error={continueListeningError}
               refetch={refetchContinueListening}
@@ -85,7 +84,6 @@ export default function HomeScreen() {
 
             <BookList
               direction="horizontal"
-              key="recently-added"
               books={recentlyAdded}
               className="mb-2"
               onEndReached={fetchNextPageForRecentlyAdded}
@@ -113,7 +111,6 @@ export default function HomeScreen() {
 
             <BookList
               direction="horizontal"
-              key="available-offline"
               books={availableOffline}
               error={availableOfflineError}
               refetch={refetchAvailableOffline}

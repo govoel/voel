@@ -82,11 +82,58 @@ type BaseOmitted = EnsureProp<
   | 'onEndReached'
 >;
 
+function EmptyComponent({
+  className,
+  books,
+  error,
+  emptyListMessage,
+  refetch,
+}: {
+  className?: string;
+  books?: BookListBook[];
+  error: Error | null;
+  emptyListMessage: string;
+  refetch: () => Promise<unknown>;
+}) {
+  if (error) {
+    return (
+      <Card className={cn('mb-4', className)}>
+        <CardContent className="pt-4">
+          <Large>Error loading books</Large>
+          <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+        </CardContent>
+        <CardFooter>
+          <Button className="w-full" onPress={() => refetch()}>
+            <Text>Retry</Text>
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  if (books?.length === 0) {
+    return (
+      <View
+        className={cn(
+          'flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full',
+          className
+        )}>
+        <Text className="text-center">{emptyListMessage}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className={cn('p-12 justify-center items-center', className)}>
+      <Spinner size={15} />
+    </View>
+  );
+}
+
 export function BookList({
   books,
   ref,
   emptyListMessage = 'No books found',
-  ListFooterComponent,
   ...props
 }: {
   books?: BookListBook[];
@@ -100,10 +147,12 @@ export function BookList({
     } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted | EnsureProp<'className'>>)
   | ({
       direction: 'horizontal';
-      key: Key;
       error: Error | null;
       refetch: () => Promise<unknown>;
-    } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted>)
+    } & Omit<
+      ComponentPropsWithoutRef<typeof FlashList>,
+      BaseOmitted | EnsureProp<'ListHeaderComponent' | 'ListEmptyComponent' | 'ListFooterComponent'>
+    >)
 ) &
   (
     | {
@@ -115,18 +164,25 @@ export function BookList({
         onEndReached?: undefined;
       }
   )) {
+  if (props.direction === 'horizontal' && books?.length === 0) {
+    return (
+      <EmptyComponent
+        className={props.className}
+        books={books}
+        error={props.error}
+        emptyListMessage={emptyListMessage}
+        refetch={props.refetch}
+      />
+    );
+  }
+
   return (
     <FlashList
       {...props}
       ref={ref}
       data={books}
       keyExtractor={(item) => item.id.toString()}
-      key={
-        props.direction === 'horizontal'
-          ? `books-list-${books && books.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
-          : undefined
-      }
-      horizontal={props.direction === 'horizontal' && books && books.length > 0}
+      horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
       renderItem={({ item, index }) => (
         <Link
@@ -231,33 +287,18 @@ export function BookList({
               )
             ) : null
           ) : null}
-          {ListFooterComponent}
+          {props.direction === 'vertical' ? props.ListFooterComponent : null}
         </>
       }
       ListEmptyComponent={
-        props.error ? (
-          <Card className="mb-4">
-            <CardContent className="pt-4">
-              <Large>Error loading books</Large>
-              <Text className="text-muted-foreground">
-                {props.error.message || 'Unknown error'}
-              </Text>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full" onPress={() => props.refetch()}>
-                <Text>Retry</Text>
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : books?.length === 0 ? (
-          <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
-            <Text className="text-center">{emptyListMessage}</Text>
-          </View>
-        ) : (
-          <View className="p-12 justify-center items-center">
-            <Spinner size={15} />
-          </View>
-        )
+        props.direction === 'vertical' ? (
+          <EmptyComponent
+            books={books}
+            error={props.error}
+            emptyListMessage={emptyListMessage}
+            refetch={props.refetch}
+          />
+        ) : null
       }
     />
   );
