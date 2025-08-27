@@ -1,58 +1,39 @@
 import * as AvatarPrimitive from '@rn-primitives/avatar';
-import * as React from 'react';
 
 import { cn } from '~/lib/utils';
 
-const AvatarPrimitiveRoot = AvatarPrimitive.Root;
-const AvatarPrimitiveImage = AvatarPrimitive.Image;
-const AvatarPrimitiveFallback = AvatarPrimitive.Fallback;
-
-const Avatar = ({
-  ref,
+function Avatar({
   className,
   ...props
-}: AvatarPrimitive.RootProps & {
-  ref?: React.RefObject<AvatarPrimitive.RootRef>;
-}) => (
-  <AvatarPrimitiveRoot
-    ref={ref}
-    className={cn('relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full', className)}
-    {...props}
-  />
-);
-Avatar.displayName = AvatarPrimitiveRoot.displayName;
+}: AvatarPrimitive.RootProps & React.RefAttributes<AvatarPrimitive.RootRef>) {
+  return (
+    <AvatarPrimitive.Root
+      className={cn('relative flex size-10 shrink-0 overflow-hidden rounded-full', className)}
+      {...props}
+    />
+  );
+}
 
-const AvatarImage = ({
-  ref,
+function AvatarImage({
   className,
   ...props
-}: AvatarPrimitive.ImageProps & {
-  ref?: React.RefObject<AvatarPrimitive.ImageRef>;
-}) => (
-  <AvatarPrimitiveImage
-    ref={ref}
-    className={cn('aspect-square h-full w-full', className)}
-    {...props}
-  />
-);
-AvatarImage.displayName = AvatarPrimitiveImage.displayName;
+}: AvatarPrimitive.ImageProps & React.RefAttributes<AvatarPrimitive.ImageRef>) {
+  return <AvatarPrimitive.Image className={cn('aspect-square size-full', className)} {...props} />;
+}
 
-const AvatarFallback = ({
-  ref,
+function AvatarFallback({
   className,
   ...props
-}: AvatarPrimitive.FallbackProps & {
-  ref?: React.RefObject<AvatarPrimitive.FallbackRef>;
-}) => (
-  <AvatarPrimitiveFallback
-    ref={ref}
-    className={cn(
-      'flex h-full w-full items-center justify-center rounded-full bg-muted',
-      className
-    )}
-    {...props}
-  />
-);
-AvatarFallback.displayName = AvatarPrimitiveFallback.displayName;
+}: AvatarPrimitive.FallbackProps & React.RefAttributes<AvatarPrimitive.FallbackRef>) {
+  return (
+    <AvatarPrimitive.Fallback
+      className={cn(
+        'bg-muted flex size-full flex-row items-center justify-center rounded-full',
+        className
+      )}
+      {...props}
+    />
+  );
+}
 
 export { Avatar, AvatarFallback, AvatarImage };

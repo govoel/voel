@@ -134,13 +134,11 @@ export default function BookScreen() {
                       }
                       push
                       asChild>
-                      <Badge
-                        variant="secondary"
-                        className="flex flex-row flex-nowrap justify-center items-center">
+                      <Badge variant="secondary" className="flex-nowrap gap-2">
                         <Text className="border-r border-muted-foreground/50 pr-2">
                           {series.label}
                         </Text>
-                        <Text className="flex-shrink pl-2">{series.name}</Text>
+                        <Text className="flex-shrink">{series.name}</Text>
                       </Badge>
                     </Link>
                   ))}

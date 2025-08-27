@@ -674,11 +674,11 @@ const IdentifyFilesModal = ({
                                 <Badge
                                   key={index}
                                   variant="secondary"
-                                  className="flex flex-row flex-nowrap justify-center items-center">
+                                  className="flex-nowrap gap-2">
                                   <Text className="border-r border-muted-foreground/50 pr-2">
                                     {series.sequence}
                                   </Text>
-                                  <Text className="flex-shrink pl-2">{series.title}</Text>
+                                  <Text className="flex-shrink">{series.title}</Text>
                                 </Badge>
                               ))}
                             </View>
