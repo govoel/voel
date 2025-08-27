@@ -221,7 +221,6 @@ const SearchTab = () => {
             <BookList
               ref={bookListRef}
               direction="horizontal"
-              key="book-search-results"
               books={bookSearchResults}
               className="mb-2"
               error={bookSearchError}
@@ -248,7 +247,6 @@ const SearchTab = () => {
               refetch={authorSearchRefetch}
               type="author"
               direction="horizontal"
-              key="author-search-results"
               className="mb-2"
             />
           </>
@@ -271,7 +269,6 @@ const SearchTab = () => {
               error={seriesSearchError}
               refetch={seriesSearchRefetch}
               direction="horizontal"
-              key="series-search-results"
               className="mb-2"
             />
           </>
@@ -295,7 +292,6 @@ const SearchTab = () => {
               refetch={narratorSearchRefetch}
               type="narrator"
               direction="horizontal"
-              key="narrator-search-results"
               className="mb-2"
             />
           </>
@@ -320,7 +316,6 @@ const SearchTab = () => {
               refetch={translatorSearchRefetch}
               type="translator"
               direction="horizontal"
-              key="translator-search-results"
               className="mb-2"
             />
           </>
@@ -344,7 +339,6 @@ const SearchTab = () => {
               refetch={editorSearchRefetch}
               type="editor"
               direction="horizontal"
-              key="editor-search-results"
               className="mb-2"
             />
           </>
@@ -368,7 +362,6 @@ const SearchTab = () => {
               refetch={forewordSearchRefetch}
               type="foreword"
               direction="horizontal"
-              key="foreword-search-results"
               className="mb-2"
             />
           </>

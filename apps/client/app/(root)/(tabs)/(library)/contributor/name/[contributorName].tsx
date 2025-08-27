@@ -131,7 +131,6 @@ export const AsRoleBookList = ({
 
       <BookList
         books={books}
-        key={`as-${role}`}
         direction="horizontal"
         error={error}
         refetch={refetch}

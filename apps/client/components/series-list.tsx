@@ -31,10 +31,55 @@ type BaseOmitted = EnsureProp<
   | 'onEndReached'
 >;
 
+function EmptyComponent({
+  className,
+  series,
+  error,
+  refetch,
+}: {
+  className?: string;
+  series?: SeriesListSeries[];
+  error: Error | null;
+  refetch: () => Promise<unknown>;
+}) {
+  if (error) {
+    return (
+      <Card className={cn('mb-4', className)}>
+        <CardContent className="pt-4">
+          <Large>Error loading series</Large>
+          <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+        </CardContent>
+        <CardFooter>
+          <Button className="w-full" onPress={() => refetch()}>
+            <Text>Retry</Text>
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  if (series?.length === 0) {
+    return (
+      <View
+        className={cn(
+          'flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full',
+          className
+        )}>
+        <Text className="text-center">No series found</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className={cn('p-12 justify-center items-center', className)}>
+      <Spinner size={15} />
+    </View>
+  );
+}
+
 export function SeriesList({
   series,
   ref,
-  ListFooterComponent,
   ...props
 }: {
   series?: SeriesListSeries[];
@@ -46,10 +91,12 @@ export function SeriesList({
     >)
   | ({
       direction: 'horizontal';
-      key: Key;
       error: Error | null;
       refetch: () => Promise<unknown>;
-    } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted>)
+    } & Omit<
+      ComponentPropsWithoutRef<typeof FlashList>,
+      BaseOmitted | EnsureProp<'ListHeaderComponent' | 'ListEmptyComponent' | 'ListFooterComponent'>
+    >)
 ) &
   (
     | {
@@ -61,18 +108,17 @@ export function SeriesList({
         onEndReached?: undefined;
       }
   )) {
+  if (props.direction === 'horizontal' && series?.length === 0) {
+    return <EmptyComponent series={series} error={props.error} refetch={props.refetch} />;
+  }
+
   return (
     <FlashList
       {...props}
       ref={ref}
       data={series}
       keyExtractor={(item) => item.id.toString()}
-      key={
-        props.direction === 'horizontal'
-          ? `series-list-${series && series.length > 0 ? 'horizontal' : 'vertical'}-${props.key}`
-          : undefined
-      }
-      horizontal={props.direction === 'horizontal' && series && series.length > 0}
+      horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
       renderItem={({ item, index }) => (
         <Link
@@ -297,33 +343,13 @@ export function SeriesList({
               )
             ) : null
           ) : null}
-          {ListFooterComponent}
+          {props.direction === 'vertical' ? props.ListFooterComponent : null}
         </>
       }
       ListEmptyComponent={
-        props.error ? (
-          <Card className="mb-4">
-            <CardContent className="pt-4">
-              <Large>Error loading series</Large>
-              <Text className="text-muted-foreground">
-                {props.error.message || 'Unknown error'}
-              </Text>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full" onPress={() => props.refetch()}>
-                <Text>Retry</Text>
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : series?.length === 0 ? (
-          <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
-            <Text className="text-center">No series found</Text>
-          </View>
-        ) : (
-          <View className="p-12 justify-center items-center">
-            <Spinner size={15} />
-          </View>
-        )
+        props.direction === 'vertical' ? (
+          <EmptyComponent series={series} error={props.error} refetch={props.refetch} />
+        ) : null
       }
     />
   );
