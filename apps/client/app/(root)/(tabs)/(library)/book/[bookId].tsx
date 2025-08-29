@@ -1,4 +1,4 @@
-import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import { type BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { cssInterop } from 'nativewind';
 import { useMemo, useRef, useState } from 'react';
@@ -8,14 +8,19 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { ExpandableSummary } from '~/components/expandable-summary';
 import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { BookCopy } from '~/components/icons/BookCopy';
+import { ChevronRight } from '~/components/icons/ChevronRight';
+import { EllipsisVertical } from '~/components/icons/EllipsisVertical';
+import { FilePen } from '~/components/icons/FilePen';
 import { FilePenLine } from '~/components/icons/FilePenLine';
 import { History } from '~/components/icons/History';
 import { Languages } from '~/components/icons/Languages';
 import { MicVocal } from '~/components/icons/MicVocal';
+import { NotebookPen } from '~/components/icons/NotebookPen';
 import { OctagonAlert } from '~/components/icons/OctagonAlert';
+import { PenTool } from '~/components/icons/PenTool';
 import { Play } from '~/components/icons/Play';
 import { Timer } from '~/components/icons/Timer';
-import { UserPen } from '~/components/icons/UserPen';
+import { Trash } from '~/components/icons/Trash';
 import { Image } from '~/components/image';
 import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
 import { Spinner } from '~/components/spinner';
@@ -28,7 +33,7 @@ import {
 import { Alert, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
-import { BottomSheetModal } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal, BottomSheetModalFlatList } from '~/components/ui/bottom-sheet';
 import { Button, ButtonWithLoading } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { Progress } from '~/components/ui/progress';
@@ -92,6 +97,7 @@ export default function BookScreen() {
             ) : null}
 
             <View className="flex flex-row flex-wrap gap-x-2 items-center">
+              <MoreOptionsBottomSheet book={{ ...data, authors }} />
               <ManageDownloads
                 book={{
                   id: data.id,
@@ -100,7 +106,6 @@ export default function BookScreen() {
                 }}
                 files={data.files}
               />
-              <PlaybackHistory book={{ ...data, authors }} />
               <BookPlayButton book={{ ...data, authors }} />
             </View>
 
@@ -200,7 +205,7 @@ const Contributors = ({
 
   return (
     <View className="flex flex-row flex-nowrap items-start justify-start gap-2 pt-2">
-      {role === 'author' && <UserPen className="text-muted-foreground" size={20} />}
+      {role === 'author' && <PenTool className="text-muted-foreground" size={20} />}
       {role === 'narrator' && <MicVocal className="text-muted-foreground" size={20} />}
       {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
       {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
@@ -445,174 +450,180 @@ const ManageDownloads = ({
         )}
       </ButtonWithLoading>
 
-      <BottomSheetModal ref={bottomSheetModalRef} snapPoints={['95%']}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large>Manage Downloads</Large>
-          {downloads ? (
-            <Muted className="text-sm mb-4">
-              {formatBytes(Object.values(downloads).reduce((a, c) => a + c.bytesDownloaded, 0))}{' '}
-              downloaded
-            </Muted>
-          ) : isLoading ? (
-            <Muted className="text-sm mb-4">Loading...</Muted>
-          ) : error ? (
-            <Button
-              variant="destructive"
-              onPress={() => {
-                refetchDownloadsStatus();
-              }}>
-              <View className="pl-2 flex justify-center items-center">
-                <Text>Couldn&rsquo;t load downloads status</Text>
-                <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
-              </View>
-            </Button>
-          ) : null}
-
-          {downloads && Object.keys(downloads).length > 0 ? (
+      <BottomSheetModalFlatList
+        ref={bottomSheetModalRef}
+        enableDynamicSizing={true}
+        flatListProps={{
+          contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px]',
+          windowSize: 5,
+          data: files,
+          keyExtractor: (item) => item.id.toString(),
+          renderItem: ({ item, index }) => (
+            <Card className={index === 0 ? '' : 'mt-4'}>
+              <CardContent className="px-4 py-2">
+                <View className="flex flex-row flex-wrap gap-2">
+                  <Badge variant="outline">
+                    <Text>{formatDuration(item.durationMs)}</Text>
+                  </Badge>
+                  <Badge variant="outline">
+                    <Text>Disc {item.disc}</Text>
+                  </Badge>
+                  <Badge variant="outline">
+                    <Text>Track {item.track}</Text>
+                  </Badge>
+                </View>
+                <Small className="pt-2 leading-snug">{item.path}</Small>
+                {downloads && item.id in downloads ? (
+                  <>
+                    <Progress
+                      className="mt-2"
+                      value={
+                        downloads[item.id].contentLength === -1
+                          ? 0
+                          : (downloads[item.id].bytesDownloaded /
+                              downloads[item.id].contentLength) *
+                            100
+                      }
+                    />
+                    <Small className="mt-2 text-center leading-snug">
+                      {downloads[item.id].state === 0
+                        ? 'Queued'
+                        : downloads[item.id].state === 1
+                          ? 'Stopped'
+                          : downloads[item.id].state === 2
+                            ? 'In progress'
+                            : downloads[item.id].state === 3
+                              ? 'Completed'
+                              : downloads[item.id].state === 4
+                                ? 'Failed'
+                                : downloads[item.id].state === 5
+                                  ? 'Removing'
+                                  : downloads[item.id].state === 6
+                                    ? 'Restarting'
+                                    : ''}{' '}
+                      / {formatBytes(downloads[item.id].bytesDownloaded)} /{' '}
+                      {downloads[item.id].contentLength === -1
+                        ? 0.0
+                        : (
+                            (downloads[item.id].bytesDownloaded /
+                              downloads[item.id].contentLength) *
+                            100
+                          ).toFixed(2)}
+                      %
+                    </Small>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+          ),
+          ListHeaderComponent: (
             <>
-              <ButtonWithLoading
-                viewClassName="mb-1"
-                variant="destructive"
-                isLoading={isRemoveDownloadsLoading}
-                onPress={() => {
-                  setIsRemoveDownloadsLoading(true);
-                  setIsResumeDownloadsLoading(false);
-                  setIsPauseDownloadsLoading(false);
-                  setIsDownloadFilesLoading(false);
-                  Player.removeDownloads(
-                    instanceId,
-                    files.map((file) => file.id)
-                  );
-                }}>
-                <Text>Delete book files</Text>
-              </ButtonWithLoading>
-              {Object.values(downloads).some((d) => d.paused) ? (
-                <ButtonWithLoading
-                  viewClassName="mb-1"
-                  variant="secondary"
-                  isLoading={isResumeDownloadsLoading}
+              <Large>Manage Downloads</Large>
+              {downloads ? (
+                <Muted className="text-sm mb-4">
+                  {formatBytes(Object.values(downloads).reduce((a, c) => a + c.bytesDownloaded, 0))}{' '}
+                  downloaded
+                </Muted>
+              ) : isLoading ? (
+                <View className="p-12 justify-center items-center">
+                  <Spinner size={15} />
+                </View>
+              ) : error ? (
+                <Button
+                  variant="destructive"
                   onPress={() => {
-                    setIsResumeDownloadsLoading(true);
-                    setIsRemoveDownloadsLoading(false);
-                    setIsPauseDownloadsLoading(false);
-                    setIsDownloadFilesLoading(false);
-                    Player.setCookie(authInstance.getCookie());
-                    Player.resumeDownloads();
+                    refetchDownloadsStatus();
                   }}>
-                  <Text>Resume all downloads</Text>
-                </ButtonWithLoading>
+                  <View className="pl-2 flex justify-center items-center">
+                    <Text>Couldn&rsquo;t load downloads status</Text>
+                    <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
+                  </View>
+                </Button>
+              ) : null}
+
+              {downloads && Object.keys(downloads).length > 0 ? (
+                <>
+                  <ButtonWithLoading
+                    viewClassName="mb-1"
+                    variant="destructive"
+                    isLoading={isRemoveDownloadsLoading}
+                    onPress={() => {
+                      setIsRemoveDownloadsLoading(true);
+                      setIsResumeDownloadsLoading(false);
+                      setIsPauseDownloadsLoading(false);
+                      setIsDownloadFilesLoading(false);
+                      Player.removeDownloads(
+                        instanceId,
+                        files.map((file) => file.id)
+                      );
+                    }}>
+                    <Text>Delete book files</Text>
+                  </ButtonWithLoading>
+                  {Object.values(downloads).some((d) => d.paused) ? (
+                    <ButtonWithLoading
+                      viewClassName="mb-1"
+                      variant="secondary"
+                      isLoading={isResumeDownloadsLoading}
+                      onPress={() => {
+                        setIsResumeDownloadsLoading(true);
+                        setIsRemoveDownloadsLoading(false);
+                        setIsPauseDownloadsLoading(false);
+                        setIsDownloadFilesLoading(false);
+                        Player.setCookie(authInstance.getCookie());
+                        Player.resumeDownloads();
+                      }}>
+                      <Text>Resume all downloads</Text>
+                    </ButtonWithLoading>
+                  ) : (
+                    <ButtonWithLoading
+                      viewClassName="mb-1"
+                      variant="secondary"
+                      isLoading={isPauseDownloadsLoading}
+                      onPress={() => {
+                        setIsPauseDownloadsLoading(true);
+                        setIsResumeDownloadsLoading(false);
+                        setIsRemoveDownloadsLoading(false);
+                        setIsDownloadFilesLoading(false);
+                        Player.pauseDownloads();
+                      }}>
+                      <Text>Pause all downloads</Text>
+                    </ButtonWithLoading>
+                  )}
+                </>
               ) : (
                 <ButtonWithLoading
                   viewClassName="mb-1"
                   variant="secondary"
-                  isLoading={isPauseDownloadsLoading}
+                  isLoading={isDownloadFilesLoading}
                   onPress={() => {
-                    setIsPauseDownloadsLoading(true);
+                    setIsDownloadFilesLoading(true);
+                    setIsPauseDownloadsLoading(false);
                     setIsResumeDownloadsLoading(false);
                     setIsRemoveDownloadsLoading(false);
-                    setIsDownloadFilesLoading(false);
-                    Player.pauseDownloads();
+                    Player.setCookie(authInstance.getCookie());
+                    Player.addDownloads(
+                      instanceId,
+                      files.map((file) => ({
+                        uri: `${instanceURL}/api/v1/files/${file.id}`,
+                        fileId: file.id,
+                        filePath: file.path,
+                        bookId: book.id,
+                        bookTitle: book.title,
+                        bookAuthors: book.authors,
+                      }))
+                    );
                   }}>
-                  <Text>Pause all downloads</Text>
+                  <Text>Download all files</Text>
                 </ButtonWithLoading>
               )}
             </>
-          ) : (
-            <ButtonWithLoading
-              viewClassName="mb-1"
-              variant="secondary"
-              isLoading={isDownloadFilesLoading}
-              onPress={() => {
-                setIsDownloadFilesLoading(true);
-                setIsPauseDownloadsLoading(false);
-                setIsResumeDownloadsLoading(false);
-                setIsRemoveDownloadsLoading(false);
-                Player.setCookie(authInstance.getCookie());
-                Player.addDownloads(
-                  instanceId,
-                  files.map((file) => ({
-                    uri: `${instanceURL}/api/v1/files/${file.id}`,
-                    fileId: file.id,
-                    filePath: file.path,
-                    bookId: book.id,
-                    bookTitle: book.title,
-                    bookAuthors: book.authors,
-                  }))
-                );
-              }}>
-              <Text>Download all files</Text>
-            </ButtonWithLoading>
-          )}
-          <FlatList
-            data={files}
-            keyExtractor={(item) => item.id.toString()}
-            scrollEnabled={false}
-            renderItem={({ item, index }) => (
-              <Card className={index === 0 ? '' : 'mt-4'}>
-                <CardContent className="px-4 py-2">
-                  <View className="flex flex-row flex-wrap gap-2">
-                    <Badge variant="outline">
-                      <Text>{formatDuration(item.durationMs)}</Text>
-                    </Badge>
-                    <Badge variant="outline">
-                      <Text>Disc {item.disc}</Text>
-                    </Badge>
-                    <Badge variant="outline">
-                      <Text>Track {item.track}</Text>
-                    </Badge>
-                  </View>
-                  <Small className="pt-2 leading-snug">{item.path}</Small>
-                  {downloads && item.id in downloads ? (
-                    <>
-                      <Progress
-                        className="mt-2"
-                        value={
-                          downloads[item.id].contentLength === -1
-                            ? 0
-                            : (downloads[item.id].bytesDownloaded /
-                                downloads[item.id].contentLength) *
-                              100
-                        }
-                      />
-                      <Small className="mt-2 text-center leading-snug">
-                        {downloads[item.id].state === 0
-                          ? 'Queued'
-                          : downloads[item.id].state === 1
-                            ? 'Stopped'
-                            : downloads[item.id].state === 2
-                              ? 'In progress'
-                              : downloads[item.id].state === 3
-                                ? 'Completed'
-                                : downloads[item.id].state === 4
-                                  ? 'Failed'
-                                  : downloads[item.id].state === 5
-                                    ? 'Removing'
-                                    : downloads[item.id].state === 6
-                                      ? 'Restarting'
-                                      : ''}{' '}
-                        / {formatBytes(downloads[item.id].bytesDownloaded)} /{' '}
-                        {downloads[item.id].contentLength === -1
-                          ? 0.0
-                          : (
-                              (downloads[item.id].bytesDownloaded /
-                                downloads[item.id].contentLength) *
-                              100
-                            ).toFixed(2)}
-                        %
-                      </Small>
-                    </>
-                  ) : null}
-                </CardContent>
-              </Card>
-            )}
-            ListEmptyComponent={() => (
-              <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
-                <Text className="text-center">No files found</Text>
-              </View>
-            )}
-          />
-        </View>
-      </BottomSheetModal>
+          ),
+          ListEmptyComponent: !error ? (
+            <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
+              <Text className="text-center">No files found</Text>
+            </View>
+          ) : null,
+        }}></BottomSheetModalFlatList>
     </>
   );
 };
@@ -673,12 +684,10 @@ const PlayFromTimestampButton = ({
   );
 };
 
-const PlaybackHistory = ({ book }: { book: Parameters<typeof playBookFrom>[0] }) => {
-  const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
-  const authInstance = useAuthInstance();
-  const instanceId = useInstanceId();
-  const instanceURL = useInstanceURL();
-  const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(book.id);
+const MoreOptionsBottomSheet = ({ book }: { book: Parameters<typeof playBookFrom>[0] }) => {
+  const bottomSheetModalRef = useRef<BottomSheetModalType | null>(null);
+  const playbackHistoryModalRef = useRef<BottomSheetModalType | null>(null);
+  const editBookFilesModalRef = useRef<BottomSheetModalType | null>(null);
 
   return (
     <>
@@ -688,81 +697,167 @@ const PlaybackHistory = ({ book }: { book: Parameters<typeof playBookFrom>[0] })
         onPress={() => {
           bottomSheetModalRef.current?.present();
         }}>
-        <History className="text-secondary-foreground" size="20" />
+        <EllipsisVertical className="text-secondary-foreground" size="20" />
       </Button>
 
-      <BottomSheetModal ref={bottomSheetModalRef} snapPoints={['50%']}>
+      <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Playback History</Large>
-          {error ? (
-            <Alert className="mb-2" icon={OctagonAlert} variant="destructive">
-              <AlertTitle className="pb-2">
-                Failed to fetch playback history from the database
-              </AlertTitle>
-              <Button
-                size="sm"
-                variant="destructive"
-                onPress={() => {
-                  refetch();
-                }}>
-                <Text>Refetch</Text>
-              </Button>
-            </Alert>
-          ) : null}
-          <FlatList
-            data={mergedPlaybackHistory}
-            keyExtractor={(item) => `${item.source}-${item.id}`}
-            scrollEnabled={false}
-            renderItem={({ item, index }) => (
-              <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
-                <Button
-                  className="h-12 py-1 flex flex-row"
-                  variant="outline"
-                  size="sm"
-                  onPress={() => {
-                    playBookFrom(
-                      book,
-                      item.positionMs,
-                      authInstance.getCookie(),
-                      instanceId,
-                      instanceURL
-                    );
-                  }}>
-                  <Play className="text-muted-foreground mr-2" size={16} />
-                  <View className="border-l border-input pl-2 flex justify-center items-center">
-                    <Text>{formatTime(item.positionMs)}</Text>
-                  </View>
-                </Button>
-                <View>
-                  <View className="flex flex-row items-center gap-x-2">
-                    <Text>
-                      {item.type === 1002
-                        ? 'Begin Playback'
-                        : item.type === 1003 || item.type === 1006 || item.type === 1007
-                          ? 'Pause'
-                          : item.type === 1004
-                            ? 'Seek From'
-                            : item.type === 1005
-                              ? 'Seeked To'
-                              : 'Unknown Event'}
-                    </Text>
-                    <Badge variant="outline">
-                      <Text>{item.source === 'local' ? 'Local' : 'Database'}</Text>
-                    </Badge>
-                  </View>
-                  <Muted>{new Date(item.eventTimestampMs).toLocaleString()}</Muted>
-                </View>
+          <View className="overflow-hidden rounded-md border border-foreground/15">
+            <Button
+              variant="ghost"
+              className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40"
+              onPress={() => {
+                playbackHistoryModalRef.current?.present();
+              }}>
+              <View className="flex flex-row justify-center items-center gap-x-2">
+                <History className="text-secondary-foreground" size="20" />
+                <Text>Playback History</Text>
               </View>
-            )}
-            ListEmptyComponent={
-              <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-                <Text className="text-center">No playback history found</Text>
+              <ChevronRight className="text-muted-foreground" size="20" />
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40"
+              onPress={() => {
+                editBookFilesModalRef.current?.present();
+              }}>
+              <View className="flex flex-row justify-center items-center gap-x-2">
+                <FilePen className="text-muted-foreground" size="20" />
+                <Text>Edit Book Files</Text>
               </View>
-            }
-          />
+              <ChevronRight className="text-muted-foreground" size="20" />
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
+              <View className="flex flex-row justify-center items-center gap-x-2">
+                <NotebookPen className="text-muted-foreground" size="20" />
+                <Text>Edit Book Metadata</Text>
+              </View>
+              <ChevronRight className="text-muted-foreground" size="20" />
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-row justify-between rounded-none bg-secondary/40">
+              <View className="flex flex-row justify-center items-center gap-x-2">
+                <Trash className="text-muted-foreground" size="20" />
+                <Text>Delete Book</Text>
+              </View>
+              <ChevronRight className="text-muted-foreground" size="20" />
+            </Button>
+          </View>
         </View>
       </BottomSheetModal>
+
+      <PlaybackHistoryBottomSheet book={book} bottomSheetModalRef={playbackHistoryModalRef} />
+      <EditBookFilesBottomSheet bottomSheetModalRef={editBookFilesModalRef} />
     </>
+  );
+};
+
+const PlaybackHistoryBottomSheet = ({
+  book,
+  bottomSheetModalRef,
+}: {
+  book: Parameters<typeof playBookFrom>[0];
+  bottomSheetModalRef: React.RefObject<BottomSheetModalType | null>;
+}) => {
+  const authInstance = useAuthInstance();
+  const instanceId = useInstanceId();
+  const instanceURL = useInstanceURL();
+  const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(book.id);
+
+  return (
+    <BottomSheetModalFlatList
+      ref={bottomSheetModalRef}
+      enableDynamicSizing={true}
+      flatListProps={{
+        contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px]',
+        windowSize: 5,
+        data: mergedPlaybackHistory,
+        keyExtractor: (item) => `${item.source}-${item.id}`,
+        renderItem: ({ item, index }) => (
+          <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
+            <Button
+              className="h-12 py-1 flex flex-row"
+              variant="outline"
+              size="sm"
+              onPress={() => {
+                playBookFrom(
+                  book,
+                  item.positionMs,
+                  authInstance.getCookie(),
+                  instanceId,
+                  instanceURL
+                );
+              }}>
+              <Play className="text-muted-foreground mr-2" size={16} />
+              <View className="border-l border-input pl-2 flex justify-center items-center">
+                <Text>{formatTime(item.positionMs)}</Text>
+              </View>
+            </Button>
+            <View>
+              <View className="flex flex-row items-center gap-x-2">
+                <Text>
+                  {item.type === 1002
+                    ? 'Begin Playback'
+                    : item.type === 1003 || item.type === 1006 || item.type === 1007
+                      ? 'Pause'
+                      : item.type === 1004
+                        ? 'Seek From'
+                        : item.type === 1005
+                          ? 'Seeked To'
+                          : 'Unknown Event'}
+                </Text>
+                <Badge variant="outline">
+                  <Text>{item.source === 'local' ? 'Local' : 'Database'}</Text>
+                </Badge>
+              </View>
+              <Muted>{new Date(item.eventTimestampMs).toLocaleString()}</Muted>
+            </View>
+          </View>
+        ),
+        ListHeaderComponent: (
+          <>
+            <Large className="pb-2">Playback History</Large>
+            {error ? (
+              <Alert className="mb-2" icon={OctagonAlert} variant="destructive">
+                <AlertTitle className="pb-2">
+                  Failed to fetch playback history from the database
+                </AlertTitle>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onPress={() => {
+                    refetch();
+                  }}>
+                  <Text>Refetch</Text>
+                </Button>
+              </Alert>
+            ) : null}
+          </>
+        ),
+        ListEmptyComponent: !error ? (
+          <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+            <Text className="text-center">No playback history found</Text>
+          </View>
+        ) : null,
+      }}
+    />
+  );
+};
+
+const EditBookFilesBottomSheet = ({
+  bottomSheetModalRef,
+}: {
+  bottomSheetModalRef: React.RefObject<BottomSheetModalType | null>;
+}) => {
+  return (
+    <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
+      <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+        <Large className="pb-2">Edit Book Files</Large>
+      </View>
+    </BottomSheetModal>
   );
 };
 

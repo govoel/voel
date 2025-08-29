@@ -1,6 +1,7 @@
 import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
+  BottomSheetFlatList,
   BottomSheetModal,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
@@ -44,6 +45,37 @@ function BottomSheetModalImpl({
       backgroundClassName="bg-background"
       handleIndicatorClassName="bg-foreground">
       <BottomSheetScrollView>{children}</BottomSheetScrollView>
+    </NativewindBottomSheetModal>
+  );
+}
+
+export function BottomSheetModalFlatList<T>({
+  ref,
+  flatListProps,
+  ...props
+}: {
+  ref?: React.RefObject<BottomSheetModal | null>;
+  flatListProps: ComponentProps<typeof BottomSheetFlatList<T>>;
+} & Omit<ComponentProps<typeof BottomSheetModal>, 'children'>) {
+  const renderBackdrop = useCallback(
+    (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
+      <NativewindBottomSheetBackdrop
+        {...props}
+        className="bg-secondary/70"
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+      />
+    ),
+    []
+  );
+  return (
+    <NativewindBottomSheetModal
+      ref={ref}
+      {...props}
+      backdropComponent={renderBackdrop}
+      backgroundClassName="bg-background"
+      handleIndicatorClassName="bg-foreground">
+      <BottomSheetFlatList {...flatListProps} />
     </NativewindBottomSheetModal>
   );
 }

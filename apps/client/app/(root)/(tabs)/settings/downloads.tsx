@@ -1,9 +1,9 @@
+import { FlashList } from '@shopify/flash-list';
 import { Link, Stack } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { View } from 'react-native';
 
-import { AutoMarquee } from '~/components/auto-marquee';
-import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
+import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
@@ -39,129 +39,127 @@ export default function SettingsDownloadsScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Downloads' }} />
-      <FloatingPlayerDodgingScrollView>
-        <TitleWithRefetch refetch={refetch} isFetching={isFetching}>
-          All Downloads
-        </TitleWithRefetch>
-        {downloads && Object.values(downloads).some((d) => !d.isTerminalState) ? (
-          Object.values(downloads).some((d) => d.paused) ? (
-            <ButtonWithLoading
-              viewClassName="mt-2"
-              variant="secondary"
-              isLoading={isResumeDownloadsLoading}
-              onPress={() => {
-                setIsResumeDownloadsLoading(true);
-                setIsPauseDownloadsLoading(false);
-                Player.setCookie(authInstance.getCookie());
-                Player.resumeDownloads();
-              }}>
-              <Text>Resume all downloads</Text>
-            </ButtonWithLoading>
-          ) : (
-            <ButtonWithLoading
-              viewClassName="mt-2"
-              variant="secondary"
-              isLoading={isPauseDownloadsLoading}
-              onPress={() => {
-                setIsPauseDownloadsLoading(true);
-                setIsResumeDownloadsLoading(false);
-                Player.pauseDownloads();
-              }}>
-              <Text>Pause all downloads</Text>
-            </ButtonWithLoading>
-          )
-        ) : null}
-
-        <View className="mt-4">
-          {error ? (
-            <Card>
-              <CardContent className="pt-4">
-                <Large>Error loading books</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetch()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : downloadError ? (
-            <Card>
-              <CardContent className="pt-4">
-                <Large>Error loading downloads</Large>
-                <Text className="text-muted-foreground">
-                  {downloadError.message || 'Unknown error'}
-                </Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => refetchDownloadsStatus()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : data && downloads ? (
-            <FlatList
-              data={data}
-              keyExtractor={(item) => `download-book-${item.id}`}
-              scrollEnabled={false}
-              renderItem={({ item, index }) => (
-                <Link
-                  href={{
-                    pathname: '/book/[bookId]',
-                    params: { bookId: item.id },
-                  }}
-                  asChild
-                  push
-                  withAnchor>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40',
-                      index !== 0 ? 'border-t border-foreground/15' : ''
-                    )}>
-                    <View className="flex-1 flex-row items-center justify-center gap-x-2">
-                      <AspectRatio ratio={1 / 1} className="h-full">
-                        <Image
-                          className="h-full w-full rounded-md"
-                          source={{
-                            uri: item.cover ?? undefined,
-                            thumbhash: item.coverThumbhash ?? undefined,
-                          }}
-                        />
-                      </AspectRatio>
-                      <View className="flex-1">
-                        <AutoMarquee spacing={20} speed={0.3}>
-                          <Text>{item.title}</Text>
-                        </AutoMarquee>
-                        <AutoMarquee spacing={20} speed={0.3}>
-                          <Muted>{item.authors.map((author) => author.name).join(', ')}</Muted>
-                        </AutoMarquee>
-                        <Muted>
-                          {formatBytes(
-                            item.files.reduce((a, c) => a + downloads[c.id].bytesDownloaded, 0)
-                          )}
-                        </Muted>
-                      </View>
-                    </View>
-                    <ChevronRight className="ml-2 text-muted-foreground" size={20} />
+      <FlashList
+        contentContainerClassName={useFloatingPlayerPaddingClass()}
+        ListHeaderComponent={
+          <>
+            <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
+              All Downloads
+            </TitleWithRefetch>
+            {downloads && Object.values(downloads).some((d) => !d.isTerminalState) ? (
+              Object.values(downloads).some((d) => d.paused) ? (
+                <ButtonWithLoading
+                  viewClassName="mb-2"
+                  variant="secondary"
+                  isLoading={isResumeDownloadsLoading}
+                  onPress={() => {
+                    setIsResumeDownloadsLoading(true);
+                    setIsPauseDownloadsLoading(false);
+                    Player.setCookie(authInstance.getCookie());
+                    Player.resumeDownloads();
+                  }}>
+                  <Text>Resume all downloads</Text>
+                </ButtonWithLoading>
+              ) : (
+                <ButtonWithLoading
+                  viewClassName="mb-2"
+                  variant="secondary"
+                  isLoading={isPauseDownloadsLoading}
+                  onPress={() => {
+                    setIsPauseDownloadsLoading(true);
+                    setIsResumeDownloadsLoading(false);
+                    Player.pauseDownloads();
+                  }}>
+                  <Text>Pause all downloads</Text>
+                </ButtonWithLoading>
+              )
+            ) : null}
+            {error ? (
+              <Card className="mb-2">
+                <CardContent className="pt-4">
+                  <Large>Error loading books</Large>
+                  <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => refetch()}>
+                    <Text>Retry</Text>
                   </Button>
-                </Link>
-              )}
-              ListEmptyComponent={
-                <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
-                  <Text className="text-center">No downloads found</Text>
-                </View>
-              }
-            />
+                </CardFooter>
+              </Card>
+            ) : null}
+            {downloadError ? (
+              <Card className="mb-2">
+                <CardContent className="pt-4">
+                  <Large>Error loading downloads</Large>
+                  <Text className="text-muted-foreground">
+                    {downloadError.message || 'Unknown error'}
+                  </Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => refetchDownloadsStatus()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : null}
+          </>
+        }
+        ListEmptyComponent={
+          !error && !downloadError ? (
+            <View className="p-12 justify-center items-center">
+              <Spinner size={15} />
+            </View>
           ) : (
-            <Card>
-              <CardContent className="p-12 justify-center items-center">
-                <Spinner size={15} />
-              </CardContent>
-            </Card>
-          )}
-        </View>
-      </FloatingPlayerDodgingScrollView>
+            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+              <Text className="text-center">No downloads found</Text>
+            </View>
+          )
+        }
+        data={data && downloads ? data : []}
+        keyExtractor={(item) => `download-book-${item.id}`}
+        renderItem={({ item, index }) => (
+          <Link
+            href={{
+              pathname: '/book/[bookId]',
+              params: { bookId: item.id },
+            }}
+            asChild
+            push
+            withAnchor>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-row native:h-20 h-16 justify-between bg-secondary/40 rounded-none border border-b-0 border-foreground/15',
+                index === 0 ? 'rounded-t-md' : '',
+                index === (data?.length ?? 1) - 1 ? 'rounded-b-md border-b' : ''
+              )}>
+              <View className="flex-1 flex-row items-center justify-center gap-x-2">
+                <AspectRatio ratio={1 / 1} className="h-full">
+                  <Image
+                    className="h-full w-full rounded-md"
+                    source={{
+                      uri: item.cover ?? undefined,
+                      thumbhash: item.coverThumbhash ?? undefined,
+                    }}
+                  />
+                </AspectRatio>
+                <View className="flex-1">
+                  <Text numberOfLines={1}>{item.title}</Text>
+                  <Muted numberOfLines={1}>
+                    {item.authors.map((author) => author.name).join(', ')}
+                  </Muted>
+                  <Muted>
+                    {formatBytes(
+                      item.files.reduce((a, c) => a + (downloads?.[c.id].bytesDownloaded ?? 0), 0)
+                    )}
+                  </Muted>
+                </View>
+              </View>
+              <ChevronRight className="ml-2 text-muted-foreground" size={20} />
+            </Button>
+          </Link>
+        )}
+      />
     </>
   );
 }

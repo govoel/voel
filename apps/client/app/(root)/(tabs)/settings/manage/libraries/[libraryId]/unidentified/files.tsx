@@ -23,7 +23,7 @@ import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, View } from 'react-native';
 import { toast } from 'sonner-native';
 import type * as z from 'zod';
 
@@ -34,8 +34,8 @@ import { ChevronDown } from '~/components/icons/ChevronDown';
 import { ChevronRight } from '~/components/icons/ChevronRight';
 import { MicVocal } from '~/components/icons/MicVocal';
 import { OctagonAlert } from '~/components/icons/OctagonAlert';
+import { PenTool } from '~/components/icons/PenTool';
 import { Timer } from '~/components/icons/Timer';
-import { UserPen } from '~/components/icons/UserPen';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
@@ -45,10 +45,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '~/components/ui/accordion';
-import { Alert, AlertTitle } from '~/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
-import { BottomSheetModal } from '~/components/ui/bottom-sheet';
+import { BottomSheetModalFlatList } from '~/components/ui/bottom-sheet';
 import { Button, ButtonWithLoading } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { Checkbox } from '~/components/ui/checkbox';
@@ -470,262 +470,270 @@ const IdentifyFilesModal = ({
 
   return (
     <>
-      <BottomSheetModal
+      <BottomSheetModalFlatList
         ref={modalRef}
+        enableDynamicSizing={true}
         onDismiss={() => {
           SearchViaAudibleForm.reset();
           searchViaAudibleMutation.reset();
-        }}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">
-            {selectedRows.length === 0
-              ? 'Identify files as a book'
-              : selectedRows.length === 1
-                ? 'Identify 1 file as a book'
-                : `Identify ${selectedRows.length} files as a book`}
-          </Large>
+        }}
+        flatListProps={{
+          contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5',
+          data: [],
+          renderItem: null,
+          ListHeaderComponent: (
+            <>
+              <Large className="pb-2">
+                {selectedRows.length === 0
+                  ? 'Identify files as a book'
+                  : selectedRows.length === 1
+                    ? 'Identify 1 file as a book'
+                    : `Identify ${selectedRows.length} files as a book`}
+              </Large>
 
-          <Accordion type="single" collapsable className="mb-4">
-            <AccordionItem value="files">
-              <AccordionTrigger>
-                <Text>{selectedRows.length === 1 ? 'Selected file' : 'Selected files'}</Text>
-              </AccordionTrigger>
-              <AccordionContent>
-                {selectedFilesTable.getRowModel().rows.map((row, index) => (
-                  <RenderRow
-                    className={index === 0 ? 'mt-0' : ''}
-                    key={row.id}
-                    row={row}
-                    variant="View"
+              <Accordion type="single" collapsable className="mb-4">
+                <AccordionItem value="files">
+                  <AccordionTrigger>
+                    <Text>{selectedRows.length === 1 ? 'Selected file' : 'Selected files'}</Text>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {selectedFilesTable.getRowModel().rows.map((row, index) => (
+                      <RenderRow
+                        className={index === 0 ? 'mt-0' : ''}
+                        key={row.id}
+                        row={row}
+                        variant="FlatList"
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </>
+          ),
+          ListFooterComponent: (
+            <SearchViaAudibleForm.AppForm>
+              <SearchViaAudibleForm.AppField
+                name="asin"
+                children={(field) => (
+                  <field.TextField
+                    className="pb-2"
+                    label="ASIN"
+                    inputProps={{ autoCorrect: false, autoCapitalize: 'characters' }}
                   />
-                ))}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+                )}
+              />
 
-          <SearchViaAudibleForm.AppForm>
-            <SearchViaAudibleForm.AppField
-              name="asin"
-              children={(field) => (
-                <field.TextField
-                  className="pb-2"
-                  label="ASIN"
-                  inputProps={{ autoCorrect: false, autoCapitalize: 'characters' }}
-                />
-              )}
-            />
+              <View className="flex flex-row items-center">
+                <Separator orientation="horizontal" className="flex-1" />
+                <Text className="px-2">or</Text>
+                <Separator orientation="horizontal" className="flex-1" />
+              </View>
 
-            <View className="flex flex-row items-center">
-              <Separator orientation="horizontal" className="flex-1" />
-              <Text className="px-2">or</Text>
-              <Separator orientation="horizontal" className="flex-1" />
-            </View>
+              <SearchViaAudibleForm.AppField
+                name="title"
+                children={(field) => (
+                  <field.TextField label="Title" inputProps={{ autoCorrect: false }} />
+                )}
+              />
 
-            <SearchViaAudibleForm.AppField
-              name="title"
-              children={(field) => (
-                <field.TextField label="Title" inputProps={{ autoCorrect: false }} />
-              )}
-            />
+              <SearchViaAudibleForm.AppField
+                name="author"
+                children={(field) => (
+                  <field.TextField label="Author" inputProps={{ autoCorrect: false }} />
+                )}
+              />
 
-            <SearchViaAudibleForm.AppField
-              name="author"
-              children={(field) => (
-                <field.TextField label="Author" inputProps={{ autoCorrect: false }} />
-              )}
-            />
+              <SearchViaAudibleForm.SubmitButton>
+                <Text>Search via Audible</Text>
+              </SearchViaAudibleForm.SubmitButton>
+            </SearchViaAudibleForm.AppForm>
+          ),
+        }}
+      />
 
-            <SearchViaAudibleForm.SubmitButton>
-              <Text>Search via Audible</Text>
-            </SearchViaAudibleForm.SubmitButton>
-          </SearchViaAudibleForm.AppForm>
-          {/* TODO: Implement this */}
-          {/*<Button variant="secondary">
-            <Text>Skip and identify book manually</Text>
-          </Button>*/}
-        </View>
-      </BottomSheetModal>
-
-      <BottomSheetModal
+      <BottomSheetModalFlatList
         ref={pickSearchResultModalRef}
         onDismiss={() => {
           identifyViaAudibleMutation.reset();
-        }}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-2">
-          <View>
-            <Large>
-              {searchViaAudibleMutation.data
-                ? searchViaAudibleMutation.data.length === 0
-                  ? `No `
-                  : `${searchViaAudibleMutation.data.length} `
-                : null}
-              Search Results
-            </Large>
-            <Muted>
-              Pick a book to identify{' '}
-              {selectedRows.length === 0
-                ? 'files'
-                : selectedRows.length === 1
-                  ? '1 file'
-                  : `${selectedRows.length} files`}{' '}
-              as
-            </Muted>
-          </View>
-
-          <Accordion type="single" collapsable className="mb-4">
-            <AccordionItem value="files">
-              <AccordionTrigger>
-                <Text>{selectedRows.length === 1 ? 'Selected file' : 'Selected files'}</Text>
-              </AccordionTrigger>
-              <AccordionContent>
-                {selectedFilesTable.getRowModel().rows.map((row, index) => (
-                  <RenderRow
-                    className={index === 0 ? 'mt-0' : ''}
-                    key={row.id}
-                    row={row}
-                    variant="View"
+        }}
+        enableDynamicSizing={true}
+        flatListProps={{
+          contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px] flex-col gap-2',
+          windowSize: 5,
+          data: searchViaAudibleMutation.data,
+          renderItem: ({ item: result }) => (
+            <View className="flex flex-col border border-border rounded-md p-2 gap-y-2">
+              <View className="flex flex-row justify-center items-center gap-x-2">
+                <AspectRatio
+                  ratio={1 / 1}
+                  className="flex-shrink w-32 flex items-center justify-center">
+                  <Image
+                    className="w-full h-full rounded-md"
+                    source={result.product_images?.[500]}
+                    cachePolicy="none"
                   />
-                ))}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-
-          {searchViaAudibleMutation.data ? (
-            searchViaAudibleMutation.data.length === 0 ? (
-              <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
-                <Text className="text-center">No results found for your search query</Text>
-                <Button
-                  onPress={() => {
-                    pickSearchResultModalRef.current?.dismiss();
-                  }}>
-                  <Text>Try searching again</Text>
-                </Button>
-              </View>
-            ) : (
-              <>
-                {searchViaAudibleMutation.data.map((result) => (
-                  <View
-                    key={result.asin}
-                    className="flex flex-col border border-border rounded-md p-2 gap-y-2">
-                    <View className="flex flex-row justify-center items-center gap-x-2">
-                      <AspectRatio
-                        ratio={1 / 1}
-                        className="flex-shrink w-32 flex items-center justify-center">
-                        <Image
-                          className="w-full h-full rounded-md"
-                          source={result.product_images?.[500]}
-                          cachePolicy="none"
-                        />
-                      </AspectRatio>
-                      <View className="flex-1 flex flex-col gap-y-1">
-                        <Large>{result.title}</Large>
-                        <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
-                          <Timer className="text-muted-foreground" size={20} />
-                          <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
-                            <Badge variant="outline">
-                              <Text>
-                                {formatDuration(result.runtime_length_min * 60 * 1000, 'short')}
-                              </Text>
-                            </Badge>
-                            <Badge variant="outline">
-                              <Text>
-                                {selectedFilesDurationMs > result.runtime_length_min * 60 * 1000
-                                  ? '+ '
-                                  : '- '}
-                                {formatDuration(
-                                  Math.abs(
-                                    selectedFilesDurationMs - result.runtime_length_min * 60 * 1000
-                                  ),
-                                  'short'
-                                )}
-                              </Text>
-                            </Badge>
-                          </View>
-                        </View>
-                        {result.authors.length > 0 ? (
-                          <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
-                            <UserPen className="text-muted-foreground" size={20} />
-                            <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
-                              {result.authors.map((author, index) => (
-                                <Badge key={index} variant="secondary">
-                                  <Text>{author.name}</Text>
-                                </Badge>
-                              ))}
-                            </View>
-                          </View>
-                        ) : null}
-                        {result.narrators && result.narrators.length > 0 ? (
-                          <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
-                            <MicVocal className="text-muted-foreground" size={20} />
-                            <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
-                              {result.narrators.map((narrator, index) => (
-                                <Badge key={index} variant="secondary">
-                                  <Text>{narrator.name}</Text>
-                                </Badge>
-                              ))}
-                            </View>
-                          </View>
-                        ) : null}
-                        {result.series && result.series.length > 0 ? (
-                          <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
-                            <BookCopy className="text-muted-foreground" size={20} />
-                            <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
-                              {result.series.map((series, index) => (
-                                <Badge
-                                  key={index}
-                                  variant="secondary"
-                                  className="flex-nowrap gap-2">
-                                  <Text className="border-r border-muted-foreground/50 pr-2">
-                                    {series.sequence}
-                                  </Text>
-                                  <Text className="flex-shrink">{series.title}</Text>
-                                </Badge>
-                              ))}
-                            </View>
-                          </View>
-                        ) : null}
+                </AspectRatio>
+                <View className="flex-1 flex flex-col gap-y-1">
+                  <Large>{result.title}</Large>
+                  <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                    <Timer className="text-muted-foreground" size={20} />
+                    <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                      <Badge variant="outline">
+                        <Text>
+                          {formatDuration(result.runtime_length_min * 60 * 1000, 'short')}
+                        </Text>
+                      </Badge>
+                      <Badge variant="outline">
+                        <Text>
+                          {selectedFilesDurationMs > result.runtime_length_min * 60 * 1000
+                            ? '+ '
+                            : '- '}
+                          {formatDuration(
+                            Math.abs(
+                              selectedFilesDurationMs - result.runtime_length_min * 60 * 1000
+                            ),
+                            'short'
+                          )}
+                        </Text>
+                      </Badge>
+                    </View>
+                  </View>
+                  {result.authors.length > 0 ? (
+                    <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                      <PenTool className="text-muted-foreground" size={20} />
+                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                        {result.authors.map((author, index) => (
+                          <Badge key={index} variant="secondary">
+                            <Text>{author.name}</Text>
+                          </Badge>
+                        ))}
                       </View>
                     </View>
-                    <ButtonWithLoading
-                      className="w-full"
-                      size="sm"
-                      variant="secondary"
-                      isLoading={
-                        identifyViaAudibleMutation.isPending &&
-                        identifyViaAudibleMutation.variables.asin === result.asin
-                      }
-                      disabled={identifyViaAudibleMutation.isPending}
-                      onPress={() => {
-                        identifyViaAudibleMutation.mutateAsync({
-                          libraryId: idNum,
-                          asin: result.asin,
-                          files: selectedRowsOriginal.map((row) => ({
-                            parentPath: row.parentPath,
-                            name: row.name,
-                          })),
-                        });
-                      }}>
-                      <Text>Identify as book</Text>
-                    </ButtonWithLoading>
-                  </View>
-                ))}
-              </>
-            )
-          ) : (
-            <>
-              <Alert className="mb-2" icon={OctagonAlert} variant="destructive">
-                <AlertTitle className="pb-2">Failed to get search results via Audible</AlertTitle>
-              </Alert>
-              <Button
+                  ) : null}
+                  {result.narrators && result.narrators.length > 0 ? (
+                    <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                      <MicVocal className="text-muted-foreground" size={20} />
+                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                        {result.narrators.map((narrator, index) => (
+                          <Badge key={index} variant="secondary">
+                            <Text>{narrator.name}</Text>
+                          </Badge>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
+                  {result.series && result.series.length > 0 ? (
+                    <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                      <BookCopy className="text-muted-foreground" size={20} />
+                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                        {result.series.map((series, index) => (
+                          <Badge key={index} variant="secondary" className="flex-nowrap gap-2">
+                            <Text className="border-r border-muted-foreground/50 pr-2">
+                              {series.sequence}
+                            </Text>
+                            <Text className="flex-shrink">{series.title}</Text>
+                          </Badge>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+              <ButtonWithLoading
+                className="w-full"
+                size="sm"
+                variant="secondary"
+                isLoading={
+                  identifyViaAudibleMutation.isPending &&
+                  identifyViaAudibleMutation.variables.asin === result.asin
+                }
+                disabled={identifyViaAudibleMutation.isPending}
                 onPress={() => {
-                  pickSearchResultModalRef.current?.dismiss();
+                  identifyViaAudibleMutation.mutateAsync({
+                    libraryId: idNum,
+                    asin: result.asin,
+                    files: selectedRowsOriginal.map((row) => ({
+                      parentPath: row.parentPath,
+                      name: row.name,
+                    })),
+                  });
                 }}>
-                <Text>Try searching again</Text>
-              </Button>
+                <Text>Identify as book</Text>
+              </ButtonWithLoading>
+            </View>
+          ),
+          ListHeaderComponent: (
+            <>
+              <View>
+                <Large>
+                  {searchViaAudibleMutation.data
+                    ? searchViaAudibleMutation.data.length === 0
+                      ? `No `
+                      : `${searchViaAudibleMutation.data.length} `
+                    : null}
+                  Search Results
+                </Large>
+                <Muted>
+                  Pick a book to identify{' '}
+                  {selectedRows.length === 0
+                    ? 'files'
+                    : selectedRows.length === 1
+                      ? '1 file'
+                      : `${selectedRows.length} files`}{' '}
+                  as
+                </Muted>
+              </View>
+
+              <Accordion type="single" collapsable className="mb-4">
+                <AccordionItem value="files">
+                  <AccordionTrigger>
+                    <Text>{selectedRows.length === 1 ? 'Selected file' : 'Selected files'}</Text>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {selectedFilesTable.getRowModel().rows.map((row, index) => (
+                      <RenderRow
+                        className={index === 0 ? 'mt-0' : ''}
+                        key={row.id}
+                        row={row}
+                        variant="FlatList"
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {searchViaAudibleMutation.error ? (
+                <>
+                  <Alert className="mb-2" icon={OctagonAlert} variant="destructive">
+                    <AlertTitle className="pb-2">
+                      Failed to get search results via Audible
+                    </AlertTitle>
+                    <AlertDescription>
+                      {searchViaAudibleMutation.error.message ||
+                        'An unknown error occurred while searching via Audible'}
+                    </AlertDescription>
+                  </Alert>
+                  <Button
+                    onPress={() => {
+                      pickSearchResultModalRef.current?.dismiss();
+                    }}>
+                    <Text>Try searching again</Text>
+                  </Button>
+                </>
+              ) : null}
             </>
-          )}
-        </View>
-      </BottomSheetModal>
+          ),
+          ListEmptyComponent: searchViaAudibleMutation.isPending ? (
+            <View className="p-12 justify-center items-center">
+              <Spinner size={15} />
+            </View>
+          ) : (
+            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+              <Text className="text-center">No downloads found</Text>
+            </View>
+          ),
+        }}
+      />
     </>
   );
 };
@@ -769,7 +777,7 @@ const RenderRow = ({
   className,
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
-  variant: 'FlashList' | 'View';
+  variant: 'FlashList' | 'FlatList';
   className?: string;
 }) =>
   row.getIsGrouped() ? (
@@ -784,7 +792,7 @@ const GroupedRow = ({
   className,
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
-  variant: 'FlashList' | 'View';
+  variant: 'FlashList' | 'FlatList';
   className?: string;
 }) => {
   const groupedCell = row.getVisibleCells().find((cell) => cell.getIsGrouped());
@@ -821,11 +829,10 @@ const GroupedRow = ({
             renderItem={({ item: row }) => <RenderRow row={row} variant={variant} />}
           />
         ) : (
-          <View>
-            {row.subRows.map((subRow) => (
-              <RenderRow key={subRow.id} row={subRow} variant={variant} />
-            ))}
-          </View>
+          <FlatList
+            data={row.subRows}
+            renderItem={({ item: subRow }) => <RenderRow row={subRow} variant={variant} />}
+          />
         )
       ) : null}
     </View>
