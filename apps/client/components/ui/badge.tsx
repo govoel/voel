@@ -24,9 +24,7 @@ const badgeVariants = cva(
           'bg-secondary border-transparent',
           Platform.select({ web: '[a&]:hover:bg-secondary/90' })
         ),
-        success: cn(
-          'bg-green-500 border-transparent',
-          Platform.select({ web: '[a&]:hover:bg-success/90' })
+          Platform.select({ web: '[a&]:hover:bg-green-500/90' })
         ),
         destructive: cn(
           'bg-destructive border-transparent',
