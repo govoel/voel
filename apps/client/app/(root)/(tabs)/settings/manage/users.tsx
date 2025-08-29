@@ -255,7 +255,7 @@ export default function UsersListScreen() {
         }
       />
 
-      <BottomSheetModal ref={createUserModalRef}>
+      <BottomSheetModal ref={createUserModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Create New User</Large>
           <CreateUserForm.AppForm>

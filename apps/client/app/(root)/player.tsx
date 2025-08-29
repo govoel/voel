@@ -3,7 +3,7 @@ import Slider from '@react-native-community/slider';
 import { Link, useRouter } from 'expo-router';
 import { useUnstableNativeVariable } from 'nativewind';
 import { useRef, useState } from 'react';
-import { FlatList, Platform, View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { AutoMarquee } from '~/components/auto-marquee';
 import { List } from '~/components/icons/List';
@@ -16,7 +16,11 @@ import { Undo } from '~/components/icons/Undo';
 import { Image } from '~/components/image';
 import { Spinner } from '~/components/spinner';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
-import { BottomSheet, BottomSheetModal } from '~/components/ui/bottom-sheet';
+import {
+  BottomSheet,
+  BottomSheetModal,
+  BottomSheetModalFlatList,
+} from '~/components/ui/bottom-sheet';
 import { Button } from '~/components/ui/button';
 import { Progress } from '~/components/ui/progress';
 import { Text } from '~/components/ui/text';
@@ -71,6 +75,7 @@ export default function PlayerScreen() {
   return (
     <>
       <BottomSheet
+        enableDynamicSizing={true}
         enablePanDownToClose={true}
         enableContentPanningGesture={false}
         onChange={(i) => {
@@ -220,49 +225,47 @@ export default function PlayerScreen() {
         </View>
       </BottomSheet>
 
-      <BottomSheetModal
+      <BottomSheetModalFlatList
         ref={chapterBottomSheetModalRef}
         snapPoints={['50%']}
-        enableDynamicSizing={false}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large>Change Chapter</Large>
-
-          <View className="overflow-hidden rounded-md border border-foreground/15 mt-2">
-            <FlatList
-              data={currentQueue}
-              keyExtractor={(item) => item.chapterId.toString()}
-              scrollEnabled={false}
-              renderItem={({ item, index }) => (
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    'rounded-none border-foreground/15 bg-secondary/40 h-fit native:h-fit',
-                    index === 0 ? '' : 'border-t'
-                  )}
-                  onPress={() => Player.seekToMediaItem(index, 0)}>
-                  <View className="flex flex-row w-full items-center justify-between">
-                    <View className="flex flex-row flex-1 flex-nowrap gap-x-2 items-center">
-                      {(playerStatus.currentQueueIndex ?? 0) === index ? (
-                        <Play className="text-muted-foreground fill-muted-foreground" size={20} />
-                      ) : (
-                        <Play className="text-muted-foreground" size={20} />
-                      )}
-                      <Text className="flex-1">{item.chapterTitle}</Text>
-                    </View>
-                    <Muted>{formatTime(item.startTimeMs)}</Muted>
-                  </View>
-                </Button>
+        enableDynamicSizing={true}
+        flatListProps={{
+          contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px]',
+          ListHeaderComponent: <Large className="pb-2">Change Chapter</Large>,
+          windowSize: 5,
+          data: currentQueue,
+          keyExtractor: (item) => item.chapterId.toString(),
+          renderItem: ({ item, index }) => (
+            <Button
+              variant="ghost"
+              className={cn(
+                'rounded-none border-foreground/15 bg-secondary/40 h-fit native:h-fit border border-b-0',
+                index === 0 ? 'rounded-t-md' : '',
+                index === currentQueue.length - 1 ? 'rounded-b-md border-b' : ''
               )}
-              extraData={playerStatus.currentQueueIndex}
-            />
-          </View>
-        </View>
-      </BottomSheetModal>
+              onPress={() => Player.seekToMediaItem(index, 0)}>
+              <View className="flex flex-row w-full items-center justify-between">
+                <View className="flex flex-row flex-1 flex-nowrap gap-x-2 items-center">
+                  {(playerStatus.currentQueueIndex ?? 0) === index ? (
+                    <Play className="text-muted-foreground fill-muted-foreground" size={20} />
+                  ) : (
+                    <Play className="text-muted-foreground" size={20} />
+                  )}
+                  <Text className="flex-1">{item.chapterTitle}</Text>
+                </View>
+                <Muted>{formatTime(item.startTimeMs)}</Muted>
+              </View>
+            </Button>
+          ),
+          extraData: playerStatus.currentQueueIndex,
+        }}
+      />
 
       <BottomSheetModal
         ref={playbackSpeedBottomSheetModalRef}
         enablePanDownToClose={true}
-        enableContentPanningGesture={false}>
+        enableContentPanningGesture={false}
+        enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large>Change Playback Speed</Large>
 

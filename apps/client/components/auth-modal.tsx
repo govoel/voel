@@ -61,7 +61,7 @@ export function AuthModal() {
   }, [presentModal]);
 
   return (
-    <BottomSheetModal ref={bottomSheetModalRef}>
+    <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
       <Tabs
         value={bottomSheetTab}
         onValueChange={setBottomSheetTab}

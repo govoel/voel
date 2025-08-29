@@ -467,7 +467,7 @@ const Profile = ({
         </CardFooter>
       </Card>
 
-      <BottomSheetModal ref={setRoleModalRef}>
+      <BottomSheetModal ref={setRoleModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Set Role</Large>
           <SetRoleForm.AppForm>
@@ -488,7 +488,7 @@ const Profile = ({
         </View>
       </BottomSheetModal>
 
-      <BottomSheetModal ref={banUserModalRef}>
+      <BottomSheetModal ref={banUserModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Ban User</Large>
 
@@ -523,7 +523,7 @@ const Profile = ({
         </View>
       </BottomSheetModal>
 
-      <BottomSheetModal ref={unbanUserModalRef}>
+      <BottomSheetModal ref={unbanUserModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Unban User</Large>
           <Text className="pb-4">Are you sure you want to unban this user?</Text>
@@ -535,7 +535,7 @@ const Profile = ({
         </View>
       </BottomSheetModal>
 
-      <BottomSheetModal ref={changePasswordModalRef}>
+      <BottomSheetModal ref={changePasswordModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Change Password</Large>
 
@@ -577,7 +577,7 @@ const Profile = ({
         </View>
       </BottomSheetModal>
 
-      <BottomSheetModal ref={deleteUserModalRef}>
+      <BottomSheetModal ref={deleteUserModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Delete User</Large>
 

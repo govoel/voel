@@ -2,7 +2,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardFooter } from './ui/card';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Link } from 'expo-router';
-import type { ComponentPropsWithoutRef, Key } from 'react';
+import type { ComponentPropsWithoutRef } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Image } from '~/components/image';

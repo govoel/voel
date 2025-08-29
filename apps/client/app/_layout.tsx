@@ -17,7 +17,7 @@ import { Toaster } from 'sonner-native';
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
 import { queryClient } from '~/lib/api/query-client';
 import { themeStore } from '~/lib/stores/color-scheme';
-import { NAV_THEME } from '~/lib/theme';
+import { NAV_THEME, THEME } from '~/lib/theme';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -77,6 +77,12 @@ const ThemeAndPortalLayout = () => {
         toastOptions={{
           titleStyle: { fontFamily: 'Voel-Inter-SemiBold' },
           descriptionStyle: { fontFamily: 'Voel-Inter-Regular' },
+          style: {
+            backgroundColor:
+              nativeWindColorScheme === 'dark'
+                ? THEME.light.secondaryForeground
+                : THEME.dark.secondaryForeground,
+          },
         }}
       />
       <PortalHost />

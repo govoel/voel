@@ -289,7 +289,7 @@ const Profile = () => {
         </Card>
       )}
 
-      <BottomSheetModal ref={editProfileModalRef}>
+      <BottomSheetModal ref={editProfileModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Edit Profile</Large>
           <EditProfileForm.AppForm>
@@ -327,7 +327,7 @@ const Profile = () => {
         </View>
       </BottomSheetModal>
 
-      <BottomSheetModal ref={changePasswordModalRef}>
+      <BottomSheetModal ref={changePasswordModalRef} enableDynamicSizing={true}>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large className="pb-2">Change Password</Large>
 
