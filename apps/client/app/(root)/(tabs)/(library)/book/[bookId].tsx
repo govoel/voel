@@ -109,20 +109,24 @@ export default function BookScreen() {
               <BookPlayButton book={{ ...data, authors }} />
             </View>
 
-            <View className="flex flex-row flex-nowrap items-center gap-2 pt-4">
+            <View className="flex flex-row flex-nowrap items-center gap-1 pt-4">
               <Timer className="text-muted-foreground" size={20} />
-              <Badge variant="outline">
-                <Text>{formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}</Text>
-              </Badge>
+              <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                <Badge variant="outline">
+                  <Text>
+                    {formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}
+                  </Text>
+                </Badge>
+              </View>
             </View>
 
             <Contributors role="author" contributors={data.contributors} />
             <Contributors role="narrator" contributors={data.contributors} />
 
             {data.series.length > 0 ? (
-              <View className="flex flex-row flex-nowrap items-start justify-start gap-2 pt-2">
+              <View className="flex flex-row flex-nowrap items-center justify-start gap-1 pt-2">
                 <BookCopy className="text-muted-foreground" size={20} />
-                <View className="flex flex-row flex-wrap flex-shrink items-center gap-2">
+                <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                   {data.series.map((series, index) => (
                     <Link
                       key={`series-${index}`}
@@ -140,10 +144,10 @@ export default function BookScreen() {
                       push
                       asChild>
                       <Badge variant="secondary" className="flex-nowrap gap-2">
-                        <Text className="border-r border-muted-foreground/50 pr-2">
-                          {series.label}
+                        <Text>{series.label}</Text>
+                        <Text className="border-l border-muted-foreground/50 pl-2 flex-shrink">
+                          {series.name}
                         </Text>
-                        <Text className="flex-shrink">{series.name}</Text>
                       </Badge>
                     </Link>
                   ))}
@@ -204,12 +208,12 @@ const Contributors = ({
   if (filteredContributors.length === 0) return null;
 
   return (
-    <View className="flex flex-row flex-nowrap items-start justify-start gap-2 pt-2">
+    <View className="flex flex-row flex-nowrap items-center justify-start gap-1 pt-2">
       {role === 'author' && <PenTool className="text-muted-foreground" size={20} />}
       {role === 'narrator' && <MicVocal className="text-muted-foreground" size={20} />}
       {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
       {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
-      <View className="flex flex-row flex-wrap flex-shrink items-center gap-2">
+      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
         {filteredContributors.map((contributor, index) => (
           <Link
             key={`${role}-${index}`}
