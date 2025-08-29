@@ -24,6 +24,10 @@ const badgeVariants = cva(
           'bg-secondary border-transparent',
           Platform.select({ web: '[a&]:hover:bg-secondary/90' })
         ),
+        success: cn(
+          'bg-green-500 border-transparent',
+          Platform.select({ web: '[a&]:hover:bg-success/90' })
+        ),
         destructive: cn(
           'bg-destructive border-transparent',
           Platform.select({ web: '[a&]:hover:bg-destructive/90' })
@@ -42,6 +46,7 @@ const badgeTextVariants = cva('text-sm font-semibold ', {
     variant: {
       default: 'text-primary-foreground',
       secondary: 'text-secondary-foreground',
+      success: 'text-white',
       destructive: 'text-white',
       outline: 'text-foreground',
     },

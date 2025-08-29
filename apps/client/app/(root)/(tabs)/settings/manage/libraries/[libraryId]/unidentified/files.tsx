@@ -575,15 +575,23 @@ const IdentifyFilesModal = ({
                 </AspectRatio>
                 <View className="flex-1 flex flex-col gap-y-1">
                   <Large>{result.title}</Large>
-                  <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                  <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                     <Timer className="text-muted-foreground" size={20} />
-                    <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                    <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                       <Badge variant="outline">
                         <Text>
                           {formatDuration(result.runtime_length_min * 60 * 1000, 'short')}
                         </Text>
                       </Badge>
-                      <Badge variant="outline">
+                      <Badge
+                        variant={
+                          Math.abs(
+                            selectedFilesDurationMs - result.runtime_length_min * 60 * 1000
+                          ) <=
+                          5 * 60 * 1000
+                            ? 'success'
+                            : 'outline'
+                        }>
                         <Text>
                           {selectedFilesDurationMs > result.runtime_length_min * 60 * 1000
                             ? '+ '
@@ -599,9 +607,9 @@ const IdentifyFilesModal = ({
                     </View>
                   </View>
                   {result.authors.length > 0 ? (
-                    <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                    <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                       <PenTool className="text-muted-foreground" size={20} />
-                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                         {result.authors.map((author, index) => (
                           <Badge key={index} variant="secondary">
                             <Text>{author.name}</Text>
@@ -611,9 +619,9 @@ const IdentifyFilesModal = ({
                     </View>
                   ) : null}
                   {result.narrators && result.narrators.length > 0 ? (
-                    <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                    <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                       <MicVocal className="text-muted-foreground" size={20} />
-                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                         {result.narrators.map((narrator, index) => (
                           <Badge key={index} variant="secondary">
                             <Text>{narrator.name}</Text>
@@ -623,15 +631,15 @@ const IdentifyFilesModal = ({
                     </View>
                   ) : null}
                   {result.series && result.series.length > 0 ? (
-                    <View className="flex flex-row flex-nowrap items-start justify-start gap-1">
+                    <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                       <BookCopy className="text-muted-foreground" size={20} />
-                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                         {result.series.map((series, index) => (
                           <Badge key={index} variant="secondary" className="flex-nowrap gap-2">
-                            <Text className="border-r border-muted-foreground/50 pr-2">
-                              {series.sequence}
+                            <Text>{series.sequence}</Text>
+                            <Text className="border-l border-muted-foreground/50 pl-2 flex-shrink">
+                              {series.title}
                             </Text>
-                            <Text className="flex-shrink">{series.title}</Text>
                           </Badge>
                         ))}
                       </View>
