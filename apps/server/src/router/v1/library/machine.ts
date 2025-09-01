@@ -1,6 +1,3 @@
-import type { Audible } from './audible';
-import type { Hash } from './hash';
-import { insertAudiobook } from './identifying/insertAudiobook';
 import { Path } from '@effect/platform';
 import {
   Chunk,
@@ -16,14 +13,18 @@ import {
 } from 'effect';
 import { Actor, createActor, setup } from 'xstate';
 
+import type { Audible } from '@/router/v1/library/audible';
 import { FsExtended } from '@/router/v1/library/fsExtended';
+import type { Hash } from '@/router/v1/library/hash';
 import { gatherAuxiliaryAudiobookData } from '@/router/v1/library/identifying/gatherAuxiliaryAudiobookData';
 import { identifyAudiobook } from '@/router/v1/library/identifying/identifyAudiobook';
+import { insertAudiobook } from '@/router/v1/library/identifying/insertAudiobook';
 import {
   cleanupAudiobookFile,
   cleanupUnidentifiedAudiobookFile,
 } from '@/router/v1/library/scanning/cleanupAudiobookFile';
 import { extractAudiobookFileMetadata } from '@/router/v1/library/scanning/extractAudiobookFileMetadata';
+import { getLibraryDirents } from '@/router/v1/library/scanning/getLibraryDirents';
 import { markAsUnidentified } from '@/router/v1/library/scanning/markAsUnidentified';
 import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiobookFile';
 
@@ -135,7 +136,7 @@ const libraryMachine = setup({
             return yield* Effect.void;
           }
 
-          yield* Stream.fromAsyncIterable(dir.value, (err) => new Error(String(err))).pipe(
+          yield* Stream.fromChunk(yield* getLibraryDirents(dir.value)).pipe(
             Stream.mapEffect((e) =>
               prepareAudiobookFile(e).pipe(
                 Effect.annotateLogs({ path: path.join(e.parentPath, e.name) }),
@@ -330,12 +331,7 @@ const libraryMachine = setup({
                 Effect.annotateLogs('asin', bookOption.identified ? bookOption.book.asin : 'N/A')
               )
             ),
-            Stream.runDrain,
-            Effect.catchAll((error) =>
-              Effect.logError('Error while scanning library').pipe(
-                Effect.annotateLogs('error', error.message)
-              )
-            )
+            Stream.runDrain
           ) satisfies Effect.Effect<
             void,
             never,

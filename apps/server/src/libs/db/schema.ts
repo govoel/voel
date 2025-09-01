@@ -112,8 +112,7 @@ export interface AudiobookFileTable {
 export interface UnidentifiedAudiobookFileTable {
   id: ColumnType<number, never, never>;
   libraryId: number;
-  parentPath: string;
-  name: string;
+  path: string;
   durationMs: number;
   disc: number;
   track: number;

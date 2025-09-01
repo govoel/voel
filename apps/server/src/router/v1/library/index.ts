@@ -9,6 +9,7 @@ import { TRPCError } from '@trpc/server';
 import { schemas } from '@voel/schemas';
 import { Effect, Either, Schema } from 'effect';
 import { NoResultError } from 'kysely';
+import * as path from 'node:path';
 
 import { Audible, ProductBookSchema } from '@/router/v1/library/audible';
 import { getLibraryActor } from '@/router/v1/library/machine';
@@ -98,11 +99,16 @@ export const libraryRouter = createTRPCRouter({
           .selectFrom('unidentifiedAudiobookFile')
           .where('libraryId', '=', input.id)
           .where('deletedAt', 'is', null)
-          .select(['parentPath', 'name', 'durationMs', 'disc', 'track', 'reason', 'metadata'])
+          .select(['path', 'durationMs', 'disc', 'track', 'reason', 'metadata'])
           .execute();
 
         return results.map((result) => ({
-          ...result,
+          directory: path.dirname(result.path),
+          name: path.basename(result.path),
+          durationMs: result.durationMs,
+          disc: result.disc,
+          track: result.track,
+          reason: result.reason,
           metadata: JSON.parse(result.metadata) as Record<string, string | undefined>,
         }));
       }),
@@ -136,21 +142,21 @@ export const libraryRouter = createTRPCRouter({
             const fs = yield* FsExtended;
             const path = yield* Path.Path;
             const fileStats = yield* Effect.forEach(input.files, (file) =>
-              fs.lstat(path.join(file.parentPath, file.name)).pipe(
+              fs.lstat(path.join(file.directory, file.name)).pipe(
                 Effect.catchTags({
                   BadArgument: () =>
                     Effect.fail({
                       message: 'Error getting info for file',
-                      description: path.join(file.parentPath, file.name),
+                      description: path.join(file.directory, file.name),
                     } as const),
                   SystemError: () =>
                     Effect.fail({
                       message: 'Error getting info for file',
-                      description: path.join(file.parentPath, file.name),
+                      description: path.join(file.directory, file.name),
                     } as const),
                 }),
                 Effect.map((stat) => ({
-                  parentPath: file.parentPath,
+                  parentPath: file.directory,
                   name: file.name,
                   isDirectory: stat.isDirectory,
                   isSymbolicLink: stat.isSymbolicLink,

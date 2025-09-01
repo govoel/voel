@@ -18,7 +18,7 @@ describe('better-auth customizations', () => {
       provider: new FileMigrationProvider({
         fs,
         path,
-        migrationFolder: path.join(__dirname, '..', 'db', 'migrations'),
+        migrationFolder: path.join(import.meta.dir, '..', 'db', 'migrations'),
       }),
     });
     await migrator.migrateToLatest().catch((err) => {

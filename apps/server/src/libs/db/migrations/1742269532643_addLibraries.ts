@@ -372,9 +372,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('libraryId', 'integer', (col) =>
       col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
     )
-    .addColumn('parentPath', 'text', (col) => col.notNull())
-    .addColumn('name', 'text', (col) => col.notNull())
-    .addUniqueConstraint('unidentifiedAudiobookFile_parentPath_name_key', ['parentPath', 'name'])
+    .addColumn('path', 'text', (col) => col.unique().notNull())
     .addColumn('durationMs', 'integer', (col) => col.notNull())
     .addColumn('disc', 'integer', (col) => col.notNull())
     .addColumn('track', 'integer', (col) => col.notNull())
