@@ -80,7 +80,7 @@ export default function PlayerScreen() {
         enableContentPanningGesture={false}
         onChange={(i) => {
           if (i === -1) {
-            router.back();
+            router.dismiss();
           }
         }}>
         <View className="px-6 pt-2 pb-5 mx-auto w-full max-w-[400px] flex-col gap-1.5">

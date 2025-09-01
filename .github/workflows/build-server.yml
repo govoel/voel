@@ -34,7 +34,7 @@ jobs:
           skip_after_successful_duplicate: 'false'
 
   build-server:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     needs:
       - should-skip
