@@ -47,7 +47,7 @@ jobs:
           skip_after_successful_duplicate: 'true'
 
   android-app:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     needs:
       - should-skip
@@ -249,7 +249,7 @@ jobs:
           echo "- [x86_64](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86_64-release.apk)" >> $GITHUB_STEP_SUMMARY
 
   ota-update:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     needs:
       - should-skip

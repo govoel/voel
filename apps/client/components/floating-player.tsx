@@ -142,7 +142,16 @@ export function FloatingPlayer({ className }: { className?: string }) {
       ? currentQueue[playerStatus?.currentQueueIndex ?? 0]
       : null;
 
-  if (!playerStatus || !currentTrack) return null;
+  const shouldRenderPlayer = playerStatus && currentTrack !== null;
+
+  // Sync global store after render; avoid triggering updates during render
+  useEffect(() => {
+    floatingPlayerStore.trigger.setIsPlayerActive({ isPlayerActive: shouldRenderPlayer });
+  }, [shouldRenderPlayer]);
+
+  if (!shouldRenderPlayer) {
+    return null;
+  }
 
   return (
     <FloatingPlayerImpl
@@ -242,13 +251,6 @@ function FloatingPlayerImpl({
     timeControlStatus: string;
   };
 }) {
-  useEffect(() => {
-    floatingPlayerStore.trigger.setIsPlayerActive({ isPlayerActive: true });
-    return () => {
-      floatingPlayerStore.trigger.setIsPlayerActive({ isPlayerActive: false });
-    };
-  }, []);
-
   useEffect(() => {
     if (playerStatus?.errorCode !== null) {
       const errorCodeStr = playerStatus.errorCode.toString();
