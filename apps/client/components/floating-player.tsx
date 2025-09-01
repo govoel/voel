@@ -101,19 +101,17 @@ export function FloatingPlayerDodgingScrollView({
 export function OTAUpdateNotification({ className }: { className?: string }) {
   const { isUpdatePending } = useUpdates();
 
+  // Sync global store after render; avoid triggering updates during render
+  useEffect(() => {
+    floatingPlayerStore.trigger.setIsUpdatePending({ isUpdatePending });
+  }, [isUpdatePending]);
+
   if (!isUpdatePending) return null;
 
   return <OTAUpdateNotificationImpl className={className} />;
 }
 
 function OTAUpdateNotificationImpl({ className }: { className?: string }) {
-  useEffect(() => {
-    floatingPlayerStore.trigger.setIsUpdatePending({ isUpdatePending: true });
-    return () => {
-      floatingPlayerStore.trigger.setIsUpdatePending({ isUpdatePending: false });
-    };
-  }, []);
-
   return (
     <View className={cn(className, 'w-full px-4 pb-2 bg-transparent')}>
       <View className="rounded-md bg-muted overflow-hidden flex flex-row flex-nowrap items-center justify-between w-full py-2 px-4 max-h-14">
