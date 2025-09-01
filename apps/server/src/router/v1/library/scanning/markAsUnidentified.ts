@@ -29,8 +29,7 @@ export const markAsUnidentified = Effect.fn(function* ({
       .values(
         files.map((file) => ({
           libraryId,
-          parentPath: file.parentPath,
-          name: file.name,
+          path: path.join(file.parentPath, file.name),
           durationMs: Math.round(file.metadata.format.duration * 1000),
           disc: file.discNumber,
           track: file.trackNumber,
@@ -41,8 +40,7 @@ export const markAsUnidentified = Effect.fn(function* ({
       .onConflict((oc) =>
         oc.doUpdateSet((eb) => ({
           libraryId: eb.ref('excluded.libraryId'),
-          parentPath: eb.ref('excluded.parentPath'),
-          name: eb.ref('excluded.name'),
+          path: eb.ref('excluded.path'),
           durationMs: eb.ref('excluded.durationMs'),
           disc: eb.ref('excluded.disc'),
           track: eb.ref('excluded.track'),
@@ -50,13 +48,11 @@ export const markAsUnidentified = Effect.fn(function* ({
           metadata: eb.ref('excluded.metadata'),
         }))
       )
-      .returning(['parentPath', 'name'])
+      .returning(['path'])
       .execute()
   );
 
   yield* Effect.forEach(dbPaths, (dbPath) =>
-    Effect.logInfo('Marked as unidentified').pipe(
-      Effect.annotateLogs('path', path.join(dbPath.parentPath, dbPath.name))
-    )
+    Effect.logInfo('Marked as unidentified').pipe(Effect.annotateLogs('path', dbPath.path))
   );
 });

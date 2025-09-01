@@ -94,7 +94,7 @@ const unidentifiedFilesColumns: ColumnDef<
   {
     id: 'directory',
     header: 'Directory',
-    accessorFn: (row) => row.parentPath,
+    accessorFn: (row) => row.directory,
     enableGrouping: true,
   },
   {
@@ -185,7 +185,7 @@ export default function UnidentifiedFilesPage() {
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getRowId: (row) => `${row.parentPath}/${row.name}`,
+    getRowId: (row) => `${row.directory}/${row.name}`,
   });
 
   return (
@@ -400,7 +400,7 @@ const IdentifyFilesModal = ({
     enableRowSelection: false,
     enableSubRowSelection: false,
     getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => `${row.parentPath}/${row.name}`,
+    getRowId: (row) => `${row.directory}/${row.name}`,
   });
 
   const firstSelectedWithTitle = useMemo(() => {
@@ -661,7 +661,7 @@ const IdentifyFilesModal = ({
                     libraryId: idNum,
                     asin: result.asin,
                     files: selectedRowsOriginal.map((row) => ({
-                      parentPath: row.parentPath,
+                      directory: row.directory,
                       name: row.name,
                     })),
                   });

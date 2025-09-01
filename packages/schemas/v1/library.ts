@@ -41,7 +41,7 @@ export const library = {
     identify: z.object({
       libraryId: id,
       asin: z.string(),
-      files: z.array(z.object({ parentPath: z.string(), name: z.string() })),
+      files: z.array(z.object({ directory: z.string(), name: z.string() })),
     }),
   },
 };

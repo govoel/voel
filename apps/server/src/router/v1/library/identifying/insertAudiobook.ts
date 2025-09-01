@@ -275,10 +275,7 @@ export const insertAudiobook = Effect.fn(
         .where((eb) =>
           eb.or(
             files.map((file) =>
-              eb.and([
-                eb('unidentifiedAudiobookFile.parentPath', '=', file.parentPath),
-                eb('unidentifiedAudiobookFile.name', '=', file.name),
-              ])
+              eb('unidentifiedAudiobookFile.path', '=', path.join(file.parentPath, file.name))
             )
           )
         )
