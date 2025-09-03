@@ -1,4 +1,3 @@
-import { Path } from '@effect/platform';
 import { Effect } from 'effect';
 import type { Insertable } from 'kysely';
 
@@ -12,27 +11,28 @@ export const markAsUnidentified = Effect.fn(function* ({
 }: {
   libraryId: number;
   files: {
-    parentPath: string;
-    name: string;
+    path: string;
     discNumber: number;
     trackNumber: number;
+    mtimeMs: number;
+    metadataHash: string;
     metadata: { format: { duration: number } };
     normalizedTags: Record<string, string>;
   }[];
   reason: Insertable<UnidentifiedAudiobookFileTable>['reason'];
 }) {
-  const path = yield* Path.Path;
-
   const dbPaths = yield* toEffect(
     db
       .insertInto('unidentifiedAudiobookFile')
       .values(
         files.map((file) => ({
           libraryId,
-          path: path.join(file.parentPath, file.name),
+          path: file.path,
           durationMs: Math.round(file.metadata.format.duration * 1000),
           disc: file.discNumber,
           track: file.trackNumber,
+          mtimeMs: file.mtimeMs,
+          metadataHash: file.metadataHash,
           metadata: JSON.stringify(file.normalizedTags),
           reason,
         }))
@@ -46,6 +46,7 @@ export const markAsUnidentified = Effect.fn(function* ({
           track: eb.ref('excluded.track'),
           reason: eb.ref('excluded.reason'),
           metadata: eb.ref('excluded.metadata'),
+          deletedAt: null,
         }))
       )
       .returning(['path'])

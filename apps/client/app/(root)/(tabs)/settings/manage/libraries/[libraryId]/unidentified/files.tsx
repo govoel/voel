@@ -66,6 +66,7 @@ const humanReadableReasons = {
   METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME:
     "No album title and artist name was found in file's metadata",
   AUDIBLE_COULD_NOT_ID_BOOK: 'Book could not be identified',
+  USER_DELETED_FROM_BOOK: 'File was previously part of a book but was deleted by the user',
 };
 
 const getAlbumArtist = (metadata: Record<string, string | undefined>) => {

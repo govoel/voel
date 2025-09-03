@@ -213,9 +213,24 @@ export const libraryRouter = createTRPCRouter({
             );
 
             const fileMetadata = yield* Effect.forEach(files, (file) =>
-              extractAudiobookFileMetadata({ file }).pipe(
+              extractAudiobookFileMetadata({
+                file: {
+                  metadataHashFromDb: file.metadataHashFromDb,
+                  path: path.join(file.parentPath, file.name),
+                },
+              }).pipe(
+                Effect.map((result) => ({
+                  ...result,
+                  path: path.join(file.parentPath, file.name),
+                  mtimeMs: file.mtimeMs,
+                })),
                 Effect.catchTags({
-                  NoAlbumTitleOrArtistNameError: (error) => Effect.succeed(error),
+                  NoAlbumTitleOrArtistNameError: (error) =>
+                    Effect.succeed({
+                      ...error.data,
+                      path: path.join(file.parentPath, file.name),
+                      mtimeMs: file.mtimeMs,
+                    }),
                   UpToDateError: () =>
                     Effect.fail({
                       message:
