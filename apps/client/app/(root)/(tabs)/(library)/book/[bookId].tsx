@@ -747,7 +747,7 @@ const MoreOptionsBottomSheet = ({
         onPress={() => {
           bottomSheetModalRef.current?.present();
         }}>
-        <EllipsisVertical className="text-secondary-foreground" size="20" />
+        <EllipsisVertical className="text-muted-foreground" size="20" />
       </Button>
 
       <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
