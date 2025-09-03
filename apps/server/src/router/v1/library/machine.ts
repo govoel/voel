@@ -28,6 +28,7 @@ import { getLibraryDirents } from '@/router/v1/library/scanning/getLibraryDirent
 import { markAsUnidentified } from '@/router/v1/library/scanning/markAsUnidentified';
 import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiobookFile';
 
+import { db, toEffect } from '@/libs/db';
 import { AppRuntime } from '@/libs/effect/runtime';
 
 import { env } from '@/env';
@@ -157,7 +158,28 @@ const libraryMachine = setup({
                         Effect.logError('Error fetching file from database, ignoring').pipe(
                           Effect.annotateLogs('error', error.error)
                         ),
-                      UpToDateError: () => Effect.logDebug('Ignoring up-to-date file'),
+                      UpToDateError: (error) =>
+                        Effect.gen(function* () {
+                          if (error.deletedAt) {
+                            yield* toEffect(
+                              db
+                                .updateTable('audiobookFile')
+                                .set({ deletedAt: null })
+                                .where('audiobookFile.path', '=', path.join(e.parentPath, e.name))
+                                .execute()
+                            ).pipe(
+                              Effect.tapBoth({
+                                onFailure: () =>
+                                  Effect.logError(
+                                    'Database error while restoring up-to-date deleted file, ignoring file'
+                                  ),
+                                onSuccess: () => Effect.logInfo('Restored up-to-date deleted file'),
+                              })
+                            );
+                          } else {
+                            yield* Effect.logDebug('Ignoring up-to-date file');
+                          }
+                        }),
                       RealpathError: (error) =>
                         Effect.logDebug('Error resolving symbolic link, ignoring file').pipe(
                           Effect.annotateLogs('error', error.error.message)
@@ -171,7 +193,18 @@ const libraryMachine = setup({
             Stream.filterMap((e) => e),
             Stream.mapEffect(
               (file) =>
-                extractAudiobookFileMetadata({ file }).pipe(
+                extractAudiobookFileMetadata({
+                  file: {
+                    metadataHashFromDb: file.metadataHashFromDb,
+                    path: path.join(file.parentPath, file.name),
+                  },
+                }).pipe(
+                  Effect.map((result) => ({
+                    ...result,
+                    realPath: file.realPath,
+                    mtimeMs: file.mtimeMs,
+                    path: path.join(file.parentPath, file.name),
+                  })),
                   Effect.annotateLogs({ path: path.join(file.parentPath, file.name) }),
                   Effect.tapError((error) =>
                     Match.value(error).pipe(
@@ -182,28 +215,32 @@ const libraryMachine = setup({
                               'Missing album title or artist name, marking file as unidentified'
                             ).pipe(
                               Effect.annotateLogs({
-                                albumTitle: error.albumTitle,
-                                artistName: error.artistName,
+                                albumTitle: error.data.albumTitle,
+                                artistName: error.data.artistName,
                               })
                             );
 
                             yield* markAsUnidentified({
                               libraryId: context.id,
                               reason:
-                                (error.albumTitle === undefined || error.albumTitle.length === 0) &&
-                                (error.artistName === undefined || error.artistName.length === 0)
+                                (error.data.albumTitle === undefined ||
+                                  error.data.albumTitle.length === 0) &&
+                                (error.data.artistName === undefined ||
+                                  error.data.artistName.length === 0)
                                   ? 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
-                                  : error.albumTitle === undefined || error.albumTitle.length === 0
+                                  : error.data.albumTitle === undefined ||
+                                      error.data.albumTitle.length === 0
                                     ? 'METADATA_NO_ALBUM_TITLE'
                                     : 'METADATA_NO_ARTIST_NAME',
                               files: [
                                 {
-                                  parentPath: file.parentPath,
-                                  name: file.name,
-                                  discNumber: error.discNumber,
-                                  trackNumber: error.trackNumber,
-                                  metadata: error.metadata,
-                                  normalizedTags: error.normalizedTags,
+                                  path: path.join(file.parentPath, file.name),
+                                  discNumber: error.data.discNumber,
+                                  trackNumber: error.data.trackNumber,
+                                  mtimeMs: file.mtimeMs,
+                                  metadataHash: error.data.metadataHash,
+                                  metadata: error.data.metadata,
+                                  normalizedTags: error.data.normalizedTags,
                                 },
                               ],
                             }).pipe(
@@ -215,7 +252,33 @@ const libraryMachine = setup({
                               Effect.catchAll(() => Effect.succeed(Option.none()))
                             );
                           }),
-                        UpToDateError: () => Effect.logDebug('File is up to date, ignoring file'),
+                        UpToDateError: () =>
+                          Effect.gen(function* () {
+                            if (file.deletedAt) {
+                              yield* toEffect(
+                                db
+                                  .updateTable('audiobookFile')
+                                  .set({ deletedAt: null })
+                                  .where(
+                                    'audiobookFile.path',
+                                    '=',
+                                    path.join(file.parentPath, file.name)
+                                  )
+                                  .execute()
+                              ).pipe(
+                                Effect.tapBoth({
+                                  onFailure: () =>
+                                    Effect.logError(
+                                      'Database error while restoring up-to-date deleted file, ignoring file'
+                                    ),
+                                  onSuccess: () =>
+                                    Effect.logInfo('Restored up-to-date deleted file'),
+                                })
+                              );
+                            } else {
+                              yield* Effect.logDebug('File is up to date, ignoring file');
+                            }
+                          }),
                         FFProbeUnknownError: (error) =>
                           Effect.logError('Failed to extract metadata, ignoring file').pipe(
                             Effect.annotateLogs({
@@ -256,6 +319,63 @@ const libraryMachine = setup({
               }
             ),
             Stream.filterMap((e) => e),
+            Stream.filterEffect((entry) =>
+              Effect.gen(function* () {
+                const dbFile = yield* toEffect(
+                  db
+                    .selectFrom('unidentifiedAudiobookFile')
+                    .where('unidentifiedAudiobookFile.path', '=', entry.path)
+                    .select([
+                      'unidentifiedAudiobookFile.reason',
+                      'unidentifiedAudiobookFile.metadataHash',
+                      'unidentifiedAudiobookFile.deletedAt',
+                    ])
+                    .executeTakeFirst()
+                ).pipe(
+                  Effect.tapError(() =>
+                    Effect.logError('Error while querying database for file, ignoring file').pipe(
+                      Effect.andThen(() => Effect.succeed(false))
+                    )
+                  ),
+                  Effect.option
+                );
+
+                if (
+                  Option.isSome(dbFile) &&
+                  dbFile.value &&
+                  dbFile.value.reason === 'USER_DELETED_FROM_BOOK'
+                ) {
+                  if (dbFile.value.deletedAt !== null) {
+                    yield* Effect.logDebug('Restoring user-deleted file as unidentified');
+                    yield* toEffect(
+                      db
+                        .updateTable('unidentifiedAudiobookFile')
+                        .set({ deletedAt: null })
+                        .where('unidentifiedAudiobookFile.path', '=', entry.path)
+                        .execute()
+                    ).pipe(
+                      Effect.catchAll(() =>
+                        Effect.logError(
+                          'Error while restoring file in database as unidentified, ignoring file'
+                        ).pipe(Effect.andThen(() => Effect.succeed(false)))
+                      )
+                    );
+                  }
+
+                  // we only ignore user-deleted unidentified files if their metadata is
+                  // up-to-date to ensure that the user deletion is respected as long as the
+                  // file they deleted is the same
+                  if (dbFile.value.metadataHash === entry.metadataHash) {
+                    yield* Effect.logDebug(
+                      "User-deleted unidentified file's metadata is up-to-date, ignoring file"
+                    );
+                    return yield* Effect.succeed(false);
+                  }
+                }
+
+                return yield* Effect.succeed(true);
+              }).pipe(Effect.annotateLogs('path', entry.path))
+            ),
             Stream.broadcast(2, { capacity: env.METADATA_EXTRACTION_BATCH_SIZE }),
             Stream.flatMap(([first, second]) =>
               Stream.zip(
@@ -288,7 +408,7 @@ const libraryMachine = setup({
                           identified: true,
                           ...(yield* gatherAuxiliaryAudiobookData(book.value)),
                         } as const;
-                      }).pipe(Effect.annotateLogs('path', path.join(e.parentPath, e.name))),
+                      }).pipe(Effect.annotateLogs('path', e.path)),
                     {
                       concurrency: env.MATCHER_BATCH_SIZE,
                     }

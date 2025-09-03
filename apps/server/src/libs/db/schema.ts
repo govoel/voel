@@ -113,6 +113,8 @@ export interface UnidentifiedAudiobookFileTable {
   id: ColumnType<number, never, never>;
   libraryId: number;
   path: string;
+  mtimeMs: number;
+  metadataHash: string;
   durationMs: number;
   disc: number;
   track: number;
@@ -120,7 +122,8 @@ export interface UnidentifiedAudiobookFileTable {
     | 'METADATA_NO_ALBUM_TITLE'
     | 'METADATA_NO_ARTIST_NAME'
     | 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
-    | 'AUDIBLE_COULD_NOT_ID_BOOK';
+    | 'AUDIBLE_COULD_NOT_ID_BOOK'
+    | 'USER_DELETED_FROM_BOOK';
   metadata: string;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;

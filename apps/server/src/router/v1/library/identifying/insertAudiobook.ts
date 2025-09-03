@@ -46,8 +46,7 @@ export const insertAudiobook = Effect.fn(
     }[];
     chapters: (typeof ChapterResponseSchema.Type)['content_metadata']['chapter_info']['chapters'];
     files: {
-      parentPath: string;
-      name: string;
+      path: string;
       metadataHash: string;
       metadata: typeof FFProbeStdoutSchema.Type;
       mtimeMs: number;
@@ -244,7 +243,7 @@ export const insertAudiobook = Effect.fn(
           files.map((file) => ({
             libraryId,
             bookId: insertedBook.id,
-            path: path.join(file.parentPath, file.name),
+            path: file.path,
             durationMs: Math.round(file.metadata.format.duration * 1000),
             disc: file.discNumber,
             track: file.trackNumber,
@@ -273,11 +272,7 @@ export const insertAudiobook = Effect.fn(
         .updateTable('unidentifiedAudiobookFile')
         .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
         .where((eb) =>
-          eb.or(
-            files.map((file) =>
-              eb('unidentifiedAudiobookFile.path', '=', path.join(file.parentPath, file.name))
-            )
-          )
+          eb.or(files.map((file) => eb('unidentifiedAudiobookFile.path', '=', file.path)))
         )
         .execute()
     );
@@ -292,9 +287,7 @@ export const insertAudiobook = Effect.fn(
           return {
             bookId: insertedBook.id,
             parentId: null,
-            fileId: insertedFiles.find(
-              (insertedFile) => insertedFile.path === path.join(file.parentPath, file.name)
-            )!.id,
+            fileId: insertedFiles.find((insertedFile) => insertedFile.path === file.path)!.id,
             source: 'file' as const,
             title: chapter.tags.title,
             durationMs: Math.round(endTimeMs - startTimeMs),
@@ -331,11 +324,9 @@ export const insertAudiobook = Effect.fn(
             files.map((file) => ({
               bookId: insertedBook.id,
               parentId: null,
-              fileId: insertedFiles.find(
-                (insertedFile) => insertedFile.path === path.join(file.parentPath, file.name)
-              )!.id,
+              fileId: insertedFiles.find((insertedFile) => insertedFile.path === file.path)!.id,
               source: 'file' as const,
-              title: file.metadata.format.tags.title || path.basename(file.name),
+              title: file.metadata.format.tags.title || path.basename(file.path),
               durationMs: Math.round(file.metadata.format.duration * 1000),
               startOffsetMs: 0 as const,
             }))

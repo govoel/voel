@@ -1,4 +1,3 @@
-import { Path } from '@effect/platform';
 import { Effect, Option, Schema } from 'effect';
 
 import { Audible, BookSearchResponseSchema, ProductBookSchema } from '@/router/v1/library/audible';
@@ -342,11 +341,9 @@ const searchStrategies = [
 export const identifyAudiobook = (book: {
   normalizedTags: Record<string, string>;
   realPath: string | undefined;
-  parentPath: string;
-  name: string;
+  path: string;
 }) =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
     const audible = yield* Audible;
 
     const metadata = {
@@ -355,7 +352,7 @@ export const identifyAudiobook = (book: {
           book.normalizedTags['asin']?.trim(),
           book.normalizedTags['audible_asin']?.trim(),
           book.normalizedTags['isbn']?.trim(),
-          ...path.join(book.parentPath, book.name).matchAll(asinRegex).toArray().flat(),
+          ...book.path.matchAll(asinRegex).toArray().flat(),
           ...(book.realPath ? book.realPath.matchAll(asinRegex).toArray().flat() : []),
         ].filter((i) => i !== undefined)
       ),

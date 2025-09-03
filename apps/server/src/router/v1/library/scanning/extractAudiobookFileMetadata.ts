@@ -1,4 +1,3 @@
-import { Path } from '@effect/platform';
 import { Data, Effect } from 'effect';
 
 import { FFProbeStdoutSchema, FsExtended } from '@/router/v1/library/fsExtended';
@@ -28,17 +27,16 @@ const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
 class UpToDateError extends Data.TaggedError('UpToDateError')<{ message: string }> {}
 
 class NoAlbumTitleOrArtistNameError extends Data.TaggedError('NoAlbumTitleOrArtistNameError')<{
-  parentPath: string;
-  name: string;
-  realPath: string | undefined;
-  mtimeMs: number;
-  metadata: typeof FFProbeStdoutSchema.Type;
-  metadataHash: string;
-  normalizedTags: Record<string, string>;
-  albumTitle?: string;
-  artistName?: string;
-  discNumber: number;
-  trackNumber: number;
+  message: string;
+  data: {
+    metadata: typeof FFProbeStdoutSchema.Type;
+    metadataHash: string;
+    normalizedTags: Record<string, string>;
+    albumTitle?: string;
+    artistName?: string;
+    discNumber: number;
+    trackNumber: number;
+  };
 }> {}
 
 export const extractAudiobookFileMetadata = ({
@@ -46,22 +44,16 @@ export const extractAudiobookFileMetadata = ({
 }: {
   file: Readonly<{
     metadataHashFromDb: string | undefined;
-    mtimeMs: number;
-    parentPath: string;
-    name: string;
-    realPath: string | undefined;
+    path: string;
   }>;
 }) =>
   Effect.gen(function* () {
     const fs = yield* FsExtended;
-    const path = yield* Path.Path;
     const hash = yield* Hash;
 
-    yield* Effect.annotateLogsScoped({ path: path.join(file.parentPath, file.name) });
+    yield* Effect.annotateLogsScoped({ path: file.path });
 
-    const metadata = yield* fs.ffprobe({
-      path: path.join(file.parentPath, file.name),
-    });
+    const metadata = yield* fs.ffprobe({ path: file.path });
 
     // ok to compute hash on parsed metadata only instead of raw metadata
     // because if we ever change what we parse, the file gets re-processed
@@ -113,26 +105,21 @@ export const extractAudiobookFileMetadata = ({
     ) {
       return yield* Effect.fail(
         new NoAlbumTitleOrArtistNameError({
-          parentPath: file.parentPath,
-          name: file.name,
-          realPath: file.realPath,
-          mtimeMs: file.mtimeMs,
-          metadata,
-          metadataHash,
-          normalizedTags,
-          albumTitle,
-          artistName,
-          discNumber,
-          trackNumber,
+          message: 'No album title or artist name found in metadata',
+          data: {
+            metadata,
+            metadataHash,
+            normalizedTags,
+            albumTitle,
+            artistName,
+            discNumber,
+            trackNumber,
+          },
         })
       );
     }
 
     return {
-      parentPath: file.parentPath,
-      name: file.name,
-      realPath: file.realPath,
-      mtimeMs: file.mtimeMs,
       metadata,
       metadataHash,
       normalizedTags,

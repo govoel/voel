@@ -340,6 +340,8 @@ describe('cleanupAudiobookFile', () => {
           disc: 0,
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+          mtimeMs: 0,
+          metadataHash: '',
           metadata: '{}',
         })
         .execute();
@@ -374,6 +376,8 @@ describe('cleanupAudiobookFile', () => {
           disc: 0,
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+          mtimeMs: 0,
+          metadataHash: '',
           metadata: '{}',
         })
         .execute();
@@ -410,6 +414,8 @@ describe('cleanupAudiobookFile', () => {
           disc: 0,
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+          mtimeMs: 0,
+          metadataHash: '',
           metadata: '{}',
         })
         .execute();
@@ -444,6 +450,8 @@ describe('cleanupAudiobookFile', () => {
           disc: 0,
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+          mtimeMs: 0,
+          metadataHash: '',
           metadata: '{}',
         })
         .execute();
@@ -480,6 +488,8 @@ describe('cleanupAudiobookFile', () => {
           disc: 0,
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+          mtimeMs: 0,
+          metadataHash: '',
           metadata: '{}',
         })
         .execute();
@@ -520,6 +530,8 @@ describe('cleanupAudiobookFile', () => {
             disc: 0,
             track: 0,
             reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+            mtimeMs: 0,
+            metadataHash: '',
             metadata: '{}',
           },
           {
@@ -529,6 +541,8 @@ describe('cleanupAudiobookFile', () => {
             disc: 0,
             track: 0,
             reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+            mtimeMs: 0,
+            metadataHash: '',
             metadata: '{}',
           },
           {
@@ -538,6 +552,8 @@ describe('cleanupAudiobookFile', () => {
             disc: 0,
             track: 0,
             reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
+            mtimeMs: 0,
+            metadataHash: '',
             metadata: '{}',
           },
         ])

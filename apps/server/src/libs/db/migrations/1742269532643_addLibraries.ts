@@ -377,6 +377,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('disc', 'integer', (col) => col.notNull())
     .addColumn('track', 'integer', (col) => col.notNull())
     .addColumn('reason', 'text', (col) => col.notNull())
+    .addColumn('mtimeMs', 'integer', (col) => col.notNull())
+    .addColumn('metadataHash', 'text', (col) => col.notNull())
     .addColumn('metadata', 'text', (col) => col.notNull())
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
@@ -419,7 +421,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_unidentifiedAudiobookFile_updatedAt BEFORE UPDATE OF libraryId, path, durationMs, disc, track, reason, metadata, deletedAt ON unidentifiedAudiobookFile FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_unidentifiedAudiobookFile_updatedAt BEFORE UPDATE OF libraryId, path, durationMs, disc, track, reason, mtimeMs, metadataHash, metadata, deletedAt ON unidentifiedAudiobookFile FOR EACH ROW
             BEGIN
               UPDATE unidentifiedAudiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
@@ -645,6 +647,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('playbackHistory').ifExists().execute();
   await db.schema.dropTable('ebookFile').ifExists().execute();
   await db.schema.dropTable('audiobookChapter').ifExists().execute();
+  await db.schema.dropTable('unidentifiedAudiobookFile').ifExists().execute();
   await db.schema.dropTable('audiobookFile').ifExists().execute();
   await db.schema.dropTable('bookContributor').ifExists().execute();
   await db.schema.dropTable('bookSeries').ifExists().execute();

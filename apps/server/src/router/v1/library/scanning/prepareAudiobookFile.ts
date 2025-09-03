@@ -24,7 +24,10 @@ class UnsupportedExtensionError extends Data.TaggedError('UnsupportedExtensionEr
   message: string;
   extension: string;
 }> {}
-class UpToDateError extends Data.TaggedError('UpToDateError')<{ message: string }> {}
+class UpToDateError extends Data.TaggedError('UpToDateError')<{
+  message: string;
+  deletedAt: number | null;
+}> {}
 
 const SUPPORTED_AUDIO_EXTENSIONS = new Set([
   'm4b',
@@ -97,7 +100,11 @@ export const prepareAudiobookFile = (file: {
       toEffect(
         db
           .selectFrom('audiobookFile')
-          .select(['audiobookFile.mtimeMs', 'audiobookFile.metadataHash'])
+          .select([
+            'audiobookFile.mtimeMs',
+            'audiobookFile.metadataHash',
+            'audiobookFile.deletedAt',
+          ])
           .where('audiobookFile.path', '=', path.join(file.parentPath, file.name))
           .executeTakeFirst()
       )
@@ -110,7 +117,9 @@ export const prepareAudiobookFile = (file: {
     }
 
     if (dbFile.right && stat.right.mtimeMs <= dbFile.right.mtimeMs) {
-      return yield* Effect.fail(new UpToDateError({ message: 'File is up to date' }));
+      return yield* Effect.fail(
+        new UpToDateError({ message: 'File is up to date', deletedAt: dbFile.right.deletedAt })
+      );
     }
 
     let realPath: string | undefined = undefined;
@@ -137,5 +146,6 @@ export const prepareAudiobookFile = (file: {
       parentPath: file.parentPath,
       name: file.name,
       realPath,
+      deletedAt: dbFile.right?.deletedAt ?? null,
     };
   }).pipe(Effect.scoped);
