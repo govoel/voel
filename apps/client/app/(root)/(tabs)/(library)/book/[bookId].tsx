@@ -747,7 +747,7 @@ const MoreOptionsBottomSheet = ({
         onPress={() => {
           bottomSheetModalRef.current?.present();
         }}>
-        <EllipsisVertical className="text-muted-foreground" size="20" />
+        <EllipsisVertical className="text-secondary-foreground" size="20" />
       </Button>
 
       <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
@@ -761,7 +761,7 @@ const MoreOptionsBottomSheet = ({
                   playbackHistoryModalRef.current?.present();
                 }}>
                 <View className="flex flex-row justify-center items-center gap-x-2">
-                  <History className="text-secondary-foreground" size="20" />
+                  <History className="text-muted-foreground" size="20" />
                   <Text>Playback History</Text>
                 </View>
                 <ChevronRight className="text-muted-foreground" size="20" />
