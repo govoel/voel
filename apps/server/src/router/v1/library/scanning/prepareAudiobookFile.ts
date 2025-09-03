@@ -18,6 +18,11 @@ class DbError extends Data.TaggedError('DbError')<{
 class RealpathError extends Data.TaggedError('RealpathError')<{
   message: string;
   error: Error.PlatformError;
+  data: {
+    metadataHashFromDb: string | undefined;
+    mtimeMs: number;
+    deletedAt: number | null | undefined;
+  };
 }> {}
 class NoExtensionError extends Data.TaggedError('NoExtensionError')<{ message: string }> {}
 class UnsupportedExtensionError extends Data.TaggedError('UnsupportedExtensionError')<{
@@ -26,7 +31,11 @@ class UnsupportedExtensionError extends Data.TaggedError('UnsupportedExtensionEr
 }> {}
 class UpToDateError extends Data.TaggedError('UpToDateError')<{
   message: string;
-  deletedAt: number | null;
+  data: {
+    metadataHashFromDb: string;
+    mtimeMs: number;
+    deletedAt: number | null;
+  };
 }> {}
 
 const SUPPORTED_AUDIO_EXTENSIONS = new Set([
@@ -118,7 +127,14 @@ export const prepareAudiobookFile = (file: {
 
     if (dbFile.right && stat.right.mtimeMs <= dbFile.right.mtimeMs) {
       return yield* Effect.fail(
-        new UpToDateError({ message: 'File is up to date', deletedAt: dbFile.right.deletedAt })
+        new UpToDateError({
+          message: 'File is up to date',
+          data: {
+            metadataHashFromDb: dbFile.right.metadataHash,
+            mtimeMs: stat.right.mtimeMs,
+            deletedAt: dbFile.right.deletedAt,
+          },
+        })
       );
     }
 
@@ -133,6 +149,11 @@ export const prepareAudiobookFile = (file: {
           new RealpathError({
             message: 'Error resolving symbolic link',
             error: realPathEither.left,
+            data: {
+              metadataHashFromDb: dbFile.right?.metadataHash,
+              mtimeMs: stat.right.mtimeMs,
+              deletedAt: dbFile.right?.deletedAt,
+            },
           })
         );
       } else {
@@ -143,8 +164,6 @@ export const prepareAudiobookFile = (file: {
     return {
       metadataHashFromDb: dbFile.right?.metadataHash,
       mtimeMs: stat.right.mtimeMs,
-      parentPath: file.parentPath,
-      name: file.name,
       realPath,
       deletedAt: dbFile.right?.deletedAt ?? null,
     };

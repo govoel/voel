@@ -212,6 +212,7 @@ export const syncRouter = createTRPCRouter({
               'mtimeMs',
               'metadataHash',
               'durationMs',
+              'customOrder',
               'disc',
               'track',
               'createdAt',

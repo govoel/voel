@@ -413,6 +413,7 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .addColumn('mtimeMs', 'text', (col) => col.notNull())
                 .addColumn('metadataHash', 'text', (col) => col.notNull())
                 .addColumn('durationMs', 'integer', (col) => col.notNull())
+                .addColumn('customOrder', 'integer')
                 .addColumn('disc', 'integer', (col) => col.notNull())
                 .addColumn('track', 'integer', (col) => col.notNull())
                 .addColumn('createdAt', 'integer', (col) =>
@@ -438,9 +439,9 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .execute();
 
               await trx.schema
-                .createIndex('audiobookFile_disc_track_index')
+                .createIndex('audiobookFile_customOrder_disc_track_index')
                 .on('audiobookFile')
-                .columns(['disc', 'track'])
+                .columns(['customOrder', 'disc', 'track'])
                 .execute();
 
               await trx.schema

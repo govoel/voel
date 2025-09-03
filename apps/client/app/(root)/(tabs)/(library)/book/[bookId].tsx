@@ -1,14 +1,25 @@
-import { type BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import {
+  BottomSheetBackdrop,
+  type BottomSheetBackdropProps,
+  BottomSheetFlatList,
+  type BottomSheetModal as BottomSheetModalType,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
+import { useMutation } from '@tanstack/react-query';
+import { schemas } from '@voel/schemas';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { cssInterop } from 'nativewind';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { toast } from 'sonner-native';
 
 import { ExpandableSummary } from '~/components/expandable-summary';
 import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { BookCopy } from '~/components/icons/BookCopy';
+import { ChevronDown } from '~/components/icons/ChevronDown';
 import { ChevronRight } from '~/components/icons/ChevronRight';
+import { ChevronUp } from '~/components/icons/ChevronUp';
 import { EllipsisVertical } from '~/components/icons/EllipsisVertical';
 import { FilePen } from '~/components/icons/FilePen';
 import { FilePenLine } from '~/components/icons/FilePenLine';
@@ -33,16 +44,22 @@ import {
 import { Alert, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
-import { BottomSheetModal, BottomSheetModalFlatList } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button, ButtonWithLoading } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
+import { useAppForm } from '~/components/ui/form';
 import { Progress } from '~/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
 import { H2, Large, Muted, Small } from '~/components/ui/typography';
 
 import api from '~/lib/api';
-import { useAuthInstance, useInstanceId, useInstanceURL } from '~/lib/stores/instance';
+import {
+  useApiInstance,
+  useAuthInstance,
+  useInstanceId,
+  useInstanceURL,
+} from '~/lib/stores/instance';
 import { cn, formatBytes, formatDuration, formatTime } from '~/lib/utils';
 
 import Player, {
@@ -301,7 +318,7 @@ const playBookFrom = (
         { length: endFileIndex - (startFileIndex - 1) },
         (e, i) => ({
           fileArrayIndex: i + startFileIndex,
-          fileId: i + startFileIndex + book.files[0].id,
+          fileId: book.files[i + startFileIndex].id,
         })
       );
 
@@ -371,7 +388,14 @@ const ManageDownloads = ({
   files,
 }: {
   book: { id: number; title: string; authors: string };
-  files: { id: number; path: string; disc: number; track: number; durationMs: number }[];
+  files: {
+    id: number;
+    path: string;
+    customOrder: number | null;
+    disc: number;
+    track: number;
+    durationMs: number;
+  }[];
 }) => {
   const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
   const authInstance = useAuthInstance();
@@ -454,27 +478,33 @@ const ManageDownloads = ({
         )}
       </ButtonWithLoading>
 
-      <BottomSheetModalFlatList
-        ref={bottomSheetModalRef}
-        enableDynamicSizing={true}
-        flatListProps={{
-          contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px]',
-          windowSize: 5,
-          data: files,
-          keyExtractor: (item) => item.id.toString(),
-          renderItem: ({ item, index }) => (
+      <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
+        <BottomSheetFlatList
+          contentContainerClassName="p-6 mx-auto w-full max-w-[400px]"
+          windowSize={5}
+          data={files}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, index }) => (
             <Card className={index === 0 ? '' : 'mt-4'}>
               <CardContent className="px-4 py-2">
                 <View className="flex flex-row flex-wrap gap-2">
                   <Badge variant="outline">
                     <Text>{formatDuration(item.durationMs)}</Text>
                   </Badge>
-                  <Badge variant="outline">
-                    <Text>Disc {item.disc}</Text>
-                  </Badge>
-                  <Badge variant="outline">
-                    <Text>Track {item.track}</Text>
-                  </Badge>
+                  {item.customOrder ? (
+                    <Badge variant="outline">
+                      <Text>Custom Order {item.customOrder}</Text>
+                    </Badge>
+                  ) : (
+                    <>
+                      <Badge variant="outline">
+                        <Text>Disc {item.disc}</Text>
+                      </Badge>
+                      <Badge variant="outline">
+                        <Text>Track {item.track}</Text>
+                      </Badge>
+                    </>
+                  )}
                 </View>
                 <Small className="pt-2 leading-snug">{item.path}</Small>
                 {downloads && item.id in downloads ? (
@@ -519,8 +549,8 @@ const ManageDownloads = ({
                 ) : null}
               </CardContent>
             </Card>
-          ),
-          ListHeaderComponent: (
+          )}
+          ListHeaderComponent={
             <>
               <Large>Manage Downloads</Large>
               {downloads ? (
@@ -621,13 +651,16 @@ const ManageDownloads = ({
                 </ButtonWithLoading>
               )}
             </>
-          ),
-          ListEmptyComponent: !error ? (
-            <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
-              <Text className="text-center">No files found</Text>
-            </View>
-          ) : null,
-        }}></BottomSheetModalFlatList>
+          }
+          ListEmptyComponent={
+            !error ? (
+              <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
+                <Text className="text-center">No files found</Text>
+              </View>
+            ) : null
+          }
+        />
+      </BottomSheetModal>
     </>
   );
 };
@@ -688,7 +721,20 @@ const PlayFromTimestampButton = ({
   );
 };
 
-const MoreOptionsBottomSheet = ({ book }: { book: Parameters<typeof playBookFrom>[0] }) => {
+const MoreOptionsBottomSheet = ({
+  book,
+}: {
+  book: Parameters<typeof playBookFrom>[0] & {
+    files: {
+      id: number;
+      path: string;
+      customOrder: number | null;
+      disc: number;
+      track: number;
+      durationMs: number;
+    }[];
+  };
+}) => {
   const bottomSheetModalRef = useRef<BottomSheetModalType | null>(null);
   const playbackHistoryModalRef = useRef<BottomSheetModalType | null>(null);
   const editBookFilesModalRef = useRef<BottomSheetModalType | null>(null);
@@ -705,56 +751,62 @@ const MoreOptionsBottomSheet = ({ book }: { book: Parameters<typeof playBookFrom
       </Button>
 
       <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <View className="overflow-hidden rounded-md border border-foreground/15">
-            <Button
-              variant="ghost"
-              className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40"
-              onPress={() => {
-                playbackHistoryModalRef.current?.present();
-              }}>
-              <View className="flex flex-row justify-center items-center gap-x-2">
-                <History className="text-secondary-foreground" size="20" />
-                <Text>Playback History</Text>
-              </View>
-              <ChevronRight className="text-muted-foreground" size="20" />
-            </Button>
-            <Button
-              variant="ghost"
-              className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40"
-              onPress={() => {
-                editBookFilesModalRef.current?.present();
-              }}>
-              <View className="flex flex-row justify-center items-center gap-x-2">
-                <FilePen className="text-muted-foreground" size="20" />
-                <Text>Edit Book Files</Text>
-              </View>
-              <ChevronRight className="text-muted-foreground" size="20" />
-            </Button>
-            <Button
-              variant="ghost"
-              className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-              <View className="flex flex-row justify-center items-center gap-x-2">
-                <NotebookPen className="text-muted-foreground" size="20" />
-                <Text>Edit Book Metadata</Text>
-              </View>
-              <ChevronRight className="text-muted-foreground" size="20" />
-            </Button>
-            <Button
-              variant="ghost"
-              className="flex-row justify-between rounded-none bg-secondary/40">
-              <View className="flex flex-row justify-center items-center gap-x-2">
-                <Trash className="text-muted-foreground" size="20" />
-                <Text>Delete Book</Text>
-              </View>
-              <ChevronRight className="text-muted-foreground" size="20" />
-            </Button>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <View className="overflow-hidden rounded-md border border-foreground/15">
+              <Button
+                variant="ghost"
+                className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40"
+                onPress={() => {
+                  playbackHistoryModalRef.current?.present();
+                }}>
+                <View className="flex flex-row justify-center items-center gap-x-2">
+                  <History className="text-secondary-foreground" size="20" />
+                  <Text>Playback History</Text>
+                </View>
+                <ChevronRight className="text-muted-foreground" size="20" />
+              </Button>
+              <Button
+                variant="ghost"
+                className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40"
+                onPress={() => {
+                  editBookFilesModalRef.current?.present();
+                }}>
+                <View className="flex flex-row justify-center items-center gap-x-2">
+                  <FilePen className="text-muted-foreground" size="20" />
+                  <Text>Edit Book Files</Text>
+                </View>
+                <ChevronRight className="text-muted-foreground" size="20" />
+              </Button>
+              <Button
+                variant="ghost"
+                className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
+                <View className="flex flex-row justify-center items-center gap-x-2">
+                  <NotebookPen className="text-muted-foreground" size="20" />
+                  <Text>Edit Book Metadata</Text>
+                </View>
+                <ChevronRight className="text-muted-foreground" size="20" />
+              </Button>
+              <Button
+                variant="ghost"
+                className="flex-row justify-between rounded-none bg-secondary/40">
+                <View className="flex flex-row justify-center items-center gap-x-2">
+                  <Trash className="text-muted-foreground" size="20" />
+                  <Text>Delete Book</Text>
+                </View>
+                <ChevronRight className="text-muted-foreground" size="20" />
+              </Button>
+            </View>
           </View>
-        </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
 
       <PlaybackHistoryBottomSheet book={book} bottomSheetModalRef={playbackHistoryModalRef} />
-      <EditBookFilesBottomSheet bottomSheetModalRef={editBookFilesModalRef} />
+      <EditBookFilesBottomSheet
+        bookId={book.id}
+        files={book.files}
+        bottomSheetModalRef={editBookFilesModalRef}
+      />
     </>
   );
 };
@@ -772,15 +824,13 @@ const PlaybackHistoryBottomSheet = ({
   const { mergedPlaybackHistory, refetch, error } = api.books.getPlaybackHistory.useQuery(book.id);
 
   return (
-    <BottomSheetModalFlatList
-      ref={bottomSheetModalRef}
-      enableDynamicSizing={true}
-      flatListProps={{
-        contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px]',
-        windowSize: 5,
-        data: mergedPlaybackHistory,
-        keyExtractor: (item) => `${item.source}-${item.id}`,
-        renderItem: ({ item, index }) => (
+    <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
+      <BottomSheetFlatList
+        contentContainerClassName="p-6 mx-auto w-full max-w-[400px]"
+        windowSize={5}
+        data={mergedPlaybackHistory}
+        keyExtractor={(item) => `${item.source}-${item.id}`}
+        renderItem={({ item, index }) => (
           <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
             <Button
               className="h-12 py-1 flex flex-row"
@@ -820,8 +870,8 @@ const PlaybackHistoryBottomSheet = ({
               <Muted>{new Date(item.eventTimestampMs).toLocaleString()}</Muted>
             </View>
           </View>
-        ),
-        ListHeaderComponent: (
+        )}
+        ListHeaderComponent={
           <>
             <Large className="pb-2">Playback History</Large>
             {error ? (
@@ -840,27 +890,243 @@ const PlaybackHistoryBottomSheet = ({
               </Alert>
             ) : null}
           </>
-        ),
-        ListEmptyComponent: !error ? (
-          <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
-            <Text className="text-center">No playback history found</Text>
-          </View>
-        ) : null,
-      }}
-    />
+        }
+        ListEmptyComponent={
+          !error ? (
+            <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+              <Text className="text-center">No playback history found</Text>
+            </View>
+          ) : null
+        }
+      />
+    </BottomSheetModal>
   );
 };
 
 const EditBookFilesBottomSheet = ({
   bottomSheetModalRef,
+  bookId,
+  files,
 }: {
   bottomSheetModalRef: React.RefObject<BottomSheetModalType | null>;
+  bookId: number;
+  files: {
+    id: number;
+    path: string;
+    customOrder: number | null;
+    disc: number;
+    track: number;
+    durationMs: number;
+  }[];
 }) => {
+  const apiInstance = useApiInstance();
+  const editBookFilesMutation = useMutation(
+    apiInstance.v1.library.book.editFiles.mutationOptions({
+      onSuccess: (result) => {
+        if (result && 'fileErrors' in result && result.fileErrors.length > 0) {
+          toast.success(
+            'Files have been saved successfully. But, some files were deleted from the book, and there were errors re-adding them as unidentified files. Please identify these files as the correct book, or they may get re-identified as this book again on the next scan if their database metadata is out-of-date with the actual file.',
+            {
+              description: result.fileErrors
+                .map((fileError) =>
+                  fileError.path ? `${fileError.path} (${fileError.message})` : fileError.message
+                )
+                .join('\n'),
+            }
+          );
+        } else {
+          toast.success('Successfully saved changes to book files');
+        }
+        bottomSheetModalRef.current?.dismiss();
+        editBookFilesMutation.reset();
+        EditBookFilesForm.reset();
+      },
+      onError: (error) => {
+        toast.error('Failed to save changes to book files', {
+          description: error.message || 'Unknown error',
+        });
+      },
+    })
+  );
+
+  const EditBookFilesForm = useAppForm({
+    defaultValues: {
+      bookId,
+      files: files.map((file, index) => ({
+        id: file.id,
+        customOrder: (file.customOrder ?? index + 1).toString(),
+      })),
+    },
+    validators: { onChange: schemas.v1.library.book.editFiles },
+    onSubmit: async ({ value, formApi }) => {
+      editBookFilesMutation.reset();
+      await editBookFilesMutation.mutateAsync(value);
+    },
+  });
+
+  const renderBackdrop = useCallback(
+    (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+    ),
+    []
+  );
+
   return (
-    <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
-      <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-        <Large className="pb-2">Edit Book Files</Large>
-      </View>
+    <BottomSheetModal
+      ref={bottomSheetModalRef}
+      enableDynamicSizing={true}
+      backdropComponent={renderBackdrop}
+      onChange={() => {
+        editBookFilesMutation.reset();
+        EditBookFilesForm.reset();
+      }}>
+      <EditBookFilesForm.AppForm>
+        <EditBookFilesForm.Field
+          name="files"
+          mode="array"
+          children={(field) => (
+            <BottomSheetFlatList
+              contentContainerClassName="p-6 mx-auto w-full max-w-[400px]"
+              windowSize={5}
+              data={field.state.value}
+              keyExtractor={(item, index) => `${item.id}-${index}`}
+              renderItem={({ item, index }) => {
+                const file = files.find((file) => file.id === item.id);
+                if (!file) return null;
+
+                return (
+                  <Card className={index === 0 ? '' : 'mt-4'}>
+                    <CardContent className="px-4 py-2">
+                      <View className="flex flex-row flex-wrap gap-x-2">
+                        <View className="flex-col flex-nowrap gap-y-1 justify-center items-center">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            disabled={EditBookFilesForm.state.isSubmitting || index === 0}
+                            onPress={() =>
+                              field.setValue((prev) => {
+                                if (index === 0) return prev;
+
+                                const next = [...prev];
+                                const a = next[index - 1].id;
+                                next[index - 1].id = next[index].id;
+                                next[index].id = a;
+                                return [...next];
+                              })
+                            }>
+                            <ChevronUp className="text-foreground" />
+                          </Button>
+                          <EditBookFilesForm.AppField
+                            name={`files[${index}].customOrder`}
+                            children={(subField) => (
+                              <subField.TextField
+                                className="w-full max-w-10 pb-0"
+                                inputProps={{
+                                  className: 'p-1',
+                                  textAlign: 'center',
+                                  keyboardType: 'numeric',
+                                  onBlur: () => {
+                                    if (EditBookFilesForm.state.isValid) {
+                                      field.setValue((prev) => {
+                                        const next = [...prev];
+                                        return next.sort(
+                                          (a, b) =>
+                                            parseInt(a.customOrder) - parseInt(b.customOrder)
+                                        );
+                                      });
+                                    }
+                                  },
+                                }}
+                              />
+                            )}
+                          />
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            disabled={
+                              EditBookFilesForm.state.isSubmitting ||
+                              index === field.state.value.length - 1
+                            }
+                            onPress={() =>
+                              field.setValue((prev) => {
+                                if (index === prev.length - 1) return prev;
+
+                                const next = [...prev];
+                                const a = next[index + 1].id;
+                                next[index + 1].id = next[index].id;
+                                next[index].id = a;
+                                return next;
+                              })
+                            }>
+                            <ChevronDown className="text-foreground" />
+                          </Button>
+                        </View>
+                        <View className="flex-1 justify-center">
+                          <View className="flex flex-row flex-wrap gap-2">
+                            <Badge variant="outline">
+                              <Text>{formatDuration(file.durationMs)}</Text>
+                            </Badge>
+                            <Badge variant="outline">
+                              <Text>Disc {file.disc}</Text>
+                            </Badge>
+                            <Badge variant="outline">
+                              <Text>Track {file.track}</Text>
+                            </Badge>
+                          </View>
+                          <Small className="pt-2 leading-snug">{file.path}</Small>
+                          <Button
+                            className="mt-2 py-1 h-fit native:h-fit"
+                            size="sm"
+                            variant="secondary"
+                            onPress={() => field.removeValue(index)}>
+                            <Text>Delete from book</Text>
+                          </Button>
+                        </View>
+                      </View>
+                    </CardContent>
+                  </Card>
+                );
+              }}
+              ListEmptyComponent={
+                <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+                  <Text className="text-center">
+                    No files in book, which will cause the book to be deleted
+                  </Text>
+                </View>
+              }
+              ListHeaderComponent={<Large className="pb-2">Edit Book Files</Large>}
+              ListFooterComponent={
+                <View className="flex flex-col flex-wrap gap-2 mt-2">
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    disabled={EditBookFilesForm.state.isSubmitting}
+                    onPress={() => EditBookFilesForm.reset()}>
+                    <Text>Reset</Text>
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    disabled={EditBookFilesForm.state.isSubmitting}
+                    onPress={() =>
+                      field.setValue((prev) =>
+                        prev.map((file, index) => ({
+                          ...file,
+                          customOrder: (index + 1).toString(),
+                        }))
+                      )
+                    }>
+                    <Text>Renumber Sequentially</Text>
+                  </Button>
+                  <EditBookFilesForm.SubmitButton>
+                    <Text>Save Changes</Text>
+                  </EditBookFilesForm.SubmitButton>
+                </View>
+              }
+            />
+          )}
+        />
+      </EditBookFilesForm.AppForm>
     </BottomSheetModal>
   );
 };

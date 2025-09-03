@@ -324,6 +324,11 @@ const get = {
               .where('audiobookChapter.bookId', '=', bookId)
               .where('audiobookChapter.source', '=', 'file')
               .where('audiobookChapter.deletedAt', 'is', null)
+              .innerJoin('audiobookFile', (join) =>
+                join
+                  .onRef('audiobookFile.id', '=', 'audiobookChapter.fileId')
+                  .on('audiobookFile.deletedAt', 'is', null)
+              )
               .select((eb) =>
                 eb.fn
                   .agg<string>('json_group_array', [
@@ -342,6 +347,9 @@ const get = {
                       'audiobookChapter.startOffsetMs',
                     ]),
                   ])
+                  .orderBy('audiobookFile.customOrder', 'asc')
+                  .orderBy('audiobookFile.disc', 'asc')
+                  .orderBy('audiobookFile.track', 'asc')
                   .orderBy('audiobookChapter.startOffsetMs', 'asc')
                   .as('fileChapters')
               )
@@ -358,6 +366,8 @@ const get = {
                       'audiobookFile.id',
                       eb.val('durationMs'),
                       'audiobookFile.durationMs',
+                      eb.val('customOrder'),
+                      'audiobookFile.customOrder',
                       eb.val('disc'),
                       'audiobookFile.disc',
                       eb.val('track'),
@@ -366,6 +376,7 @@ const get = {
                       'audiobookFile.path',
                     ]),
                   ])
+                  .orderBy('audiobookFile.customOrder', 'asc')
                   .orderBy('audiobookFile.disc', 'asc')
                   .orderBy('audiobookFile.track', 'asc')
                   .as('files')
@@ -437,7 +448,7 @@ const get = {
           files: result.files
             ? (JSON.parse(result.files) as Pick<
                 Selectable<InstanceDatabase['audiobookFile']>,
-                'id' | 'durationMs' | 'disc' | 'track' | 'path'
+                'id' | 'durationMs' | 'customOrder' | 'disc' | 'track' | 'path'
               >[])
             : [],
         };

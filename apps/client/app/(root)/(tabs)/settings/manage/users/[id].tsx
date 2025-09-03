@@ -1,5 +1,8 @@
 import { Session } from '../../profile';
-import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import {
+  type BottomSheetModal as BottomSheetModalType,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from 'better-auth';
@@ -468,127 +471,137 @@ const Profile = ({
       </Card>
 
       <BottomSheetModal ref={setRoleModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Set Role</Large>
-          <SetRoleForm.AppForm>
-            <SetRoleForm.AppField
-              name="role"
-              children={(field) => (
-                <field.RadioGroup
-                  label="Role"
-                  optionLabels={['Under 18', 'User', 'Admin']}
-                  optionValues={userRole.options}
-                />
-              )}
-            />
-            <SetRoleForm.SubmitButton>
-              <Text>Set Role</Text>
-            </SetRoleForm.SubmitButton>
-          </SetRoleForm.AppForm>
-        </View>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Set Role</Large>
+            <SetRoleForm.AppForm>
+              <SetRoleForm.AppField
+                name="role"
+                children={(field) => (
+                  <field.RadioGroup
+                    label="Role"
+                    optionLabels={['Under 18', 'User', 'Admin']}
+                    optionValues={userRole.options}
+                  />
+                )}
+              />
+              <SetRoleForm.SubmitButton>
+                <Text>Set Role</Text>
+              </SetRoleForm.SubmitButton>
+            </SetRoleForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
 
       <BottomSheetModal ref={banUserModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Ban User</Large>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Ban User</Large>
 
-          <BanUserForm.AppForm>
-            <BanUserForm.AppField
-              name="banReason"
-              children={(field) => (
-                <field.TextField
-                  label="Ban Reason"
-                  inputProps={{
-                    placeholder: 'Spamming',
-                  }}
-                />
-              )}
-            />
-            <BanUserForm.AppField
-              name="banExpiresIn"
-              children={(field) => (
-                <field.TextField
-                  label="Ban Duration (seconds)"
-                  inputProps={{
-                    inputMode: 'numeric',
-                    placeholder: 'If empty, ban never expires',
-                  }}
-                />
-              )}
-            />
-            <BanUserForm.SubmitButton>
-              <Text>Ban User</Text>
-            </BanUserForm.SubmitButton>
-          </BanUserForm.AppForm>
-        </View>
+            <BanUserForm.AppForm>
+              <BanUserForm.AppField
+                name="banReason"
+                children={(field) => (
+                  <field.TextField
+                    label="Ban Reason"
+                    inputProps={{
+                      placeholder: 'Spamming',
+                    }}
+                  />
+                )}
+              />
+              <BanUserForm.AppField
+                name="banExpiresIn"
+                children={(field) => (
+                  <field.TextField
+                    label="Ban Duration (seconds)"
+                    inputProps={{
+                      inputMode: 'numeric',
+                      placeholder: 'If empty, ban never expires',
+                    }}
+                  />
+                )}
+              />
+              <BanUserForm.SubmitButton>
+                <Text>Ban User</Text>
+              </BanUserForm.SubmitButton>
+            </BanUserForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
 
       <BottomSheetModal ref={unbanUserModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Unban User</Large>
-          <Text className="pb-4">Are you sure you want to unban this user?</Text>
-          <UnbanUserForm.AppForm>
-            <UnbanUserForm.SubmitButton>
-              <Text>Unban User</Text>
-            </UnbanUserForm.SubmitButton>
-          </UnbanUserForm.AppForm>
-        </View>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Unban User</Large>
+            <Text className="pb-4">Are you sure you want to unban this user?</Text>
+            <UnbanUserForm.AppForm>
+              <UnbanUserForm.SubmitButton>
+                <Text>Unban User</Text>
+              </UnbanUserForm.SubmitButton>
+            </UnbanUserForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
 
       <BottomSheetModal ref={changePasswordModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Change Password</Large>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Change Password</Large>
 
-          <ChangePasswordForm.AppForm>
-            <ChangePasswordForm.AppField
-              name="newPassword"
-              children={(field) => (
-                <field.TextField
-                  label="New Password"
-                  inputProps={{
-                    autoComplete: 'new-password',
-                    secureTextEntry: true,
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'ha!NiceTry',
-                  }}
-                />
-              )}
-            />
-            <ChangePasswordForm.AppField
-              name="confirmNewPassword"
-              children={(field) => (
-                <field.TextField
-                  label="Confirm New Password"
-                  inputProps={{
-                    autoComplete: 'new-password',
-                    secureTextEntry: true,
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'ha!NiceTry',
-                  }}
-                />
-              )}
-            />
-            <ChangePasswordForm.SubmitButton>
-              <Text>Change Password</Text>
-            </ChangePasswordForm.SubmitButton>
-          </ChangePasswordForm.AppForm>
-        </View>
+            <ChangePasswordForm.AppForm>
+              <ChangePasswordForm.AppField
+                name="newPassword"
+                children={(field) => (
+                  <field.TextField
+                    label="New Password"
+                    inputProps={{
+                      autoComplete: 'new-password',
+                      secureTextEntry: true,
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'ha!NiceTry',
+                    }}
+                  />
+                )}
+              />
+              <ChangePasswordForm.AppField
+                name="confirmNewPassword"
+                children={(field) => (
+                  <field.TextField
+                    label="Confirm New Password"
+                    inputProps={{
+                      autoComplete: 'new-password',
+                      secureTextEntry: true,
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'ha!NiceTry',
+                    }}
+                  />
+                )}
+              />
+              <ChangePasswordForm.SubmitButton>
+                <Text>Change Password</Text>
+              </ChangePasswordForm.SubmitButton>
+            </ChangePasswordForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
 
       <BottomSheetModal ref={deleteUserModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Delete User</Large>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Delete User</Large>
 
-          <Text className="pb-4">Are you sure you want to delete this user?</Text>
+            <Text className="pb-4">Are you sure you want to delete this user?</Text>
 
-          <DeleteUserForm.AppForm>
-            <DeleteUserForm.SubmitButton>
-              <Text>Delete User</Text>
-            </DeleteUserForm.SubmitButton>
-          </DeleteUserForm.AppForm>
-        </View>
+            <DeleteUserForm.AppForm>
+              <DeleteUserForm.SubmitButton>
+                <Text>Delete User</Text>
+              </DeleteUserForm.SubmitButton>
+            </DeleteUserForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     </>
   );

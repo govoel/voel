@@ -140,7 +140,6 @@ const libraryMachine = setup({
           yield* Stream.fromChunk(yield* getLibraryDirents(dir.value)).pipe(
             Stream.mapEffect((e) =>
               prepareAudiobookFile(e).pipe(
-                Effect.annotateLogs({ path: path.join(e.parentPath, e.name) }),
                 Effect.tapError((error) =>
                   Match.value(error).pipe(
                     Match.tagsExhaustive({
@@ -160,7 +159,7 @@ const libraryMachine = setup({
                         ),
                       UpToDateError: (error) =>
                         Effect.gen(function* () {
-                          if (error.deletedAt) {
+                          if (error.data.deletedAt) {
                             yield* toEffect(
                               db
                                 .updateTable('audiobookFile')
@@ -187,6 +186,8 @@ const libraryMachine = setup({
                     })
                   )
                 ),
+                Effect.map((result) => ({ ...result, path: path.join(e.parentPath, e.name) })),
+                Effect.annotateLogs({ path: path.join(e.parentPath, e.name) }),
                 Effect.option
               )
             ),
@@ -196,16 +197,16 @@ const libraryMachine = setup({
                 extractAudiobookFileMetadata({
                   file: {
                     metadataHashFromDb: file.metadataHashFromDb,
-                    path: path.join(file.parentPath, file.name),
+                    path: file.path,
                   },
                 }).pipe(
                   Effect.map((result) => ({
                     ...result,
                     realPath: file.realPath,
                     mtimeMs: file.mtimeMs,
-                    path: path.join(file.parentPath, file.name),
+                    path: file.path,
                   })),
-                  Effect.annotateLogs({ path: path.join(file.parentPath, file.name) }),
+                  Effect.annotateLogs({ path: file.path }),
                   Effect.tapError((error) =>
                     Match.value(error).pipe(
                       Match.tagsExhaustive({
@@ -234,7 +235,7 @@ const libraryMachine = setup({
                                     : 'METADATA_NO_ARTIST_NAME',
                               files: [
                                 {
-                                  path: path.join(file.parentPath, file.name),
+                                  path: file.path,
                                   discNumber: error.data.discNumber,
                                   trackNumber: error.data.trackNumber,
                                   mtimeMs: file.mtimeMs,
@@ -259,11 +260,7 @@ const libraryMachine = setup({
                                 db
                                   .updateTable('audiobookFile')
                                   .set({ deletedAt: null })
-                                  .where(
-                                    'audiobookFile.path',
-                                    '=',
-                                    path.join(file.parentPath, file.name)
-                                  )
+                                  .where('audiobookFile.path', '=', file.path)
                                   .execute()
                               ).pipe(
                                 Effect.tapBoth({

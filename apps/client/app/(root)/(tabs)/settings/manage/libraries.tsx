@@ -1,4 +1,7 @@
-import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import {
+  type BottomSheetModal as BottomSheetModalType,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
@@ -126,40 +129,42 @@ export default function LibraryListScreen() {
       />
 
       <BottomSheetModal ref={createLibraryModalRef}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Create New Library</Large>
-          <CreateLibraryForm.AppForm>
-            <CreateLibraryForm.AppField
-              name="name"
-              children={(field) => (
-                <field.TextField
-                  label="Name"
-                  inputProps={{
-                    autoComplete: 'name',
-                    autoCorrect: false,
-                    placeholder: 'Alexandria',
-                  }}
-                />
-              )}
-            />
-            <CreateLibraryForm.AppField
-              name="path"
-              children={(field) => (
-                <field.TextField
-                  label="Absolute Path"
-                  inputProps={{
-                    autoCorrect: false,
-                    placeholder: '/path/to/library',
-                  }}
-                />
-              )}
-            />
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Create New Library</Large>
+            <CreateLibraryForm.AppForm>
+              <CreateLibraryForm.AppField
+                name="name"
+                children={(field) => (
+                  <field.TextField
+                    label="Name"
+                    inputProps={{
+                      autoComplete: 'name',
+                      autoCorrect: false,
+                      placeholder: 'Alexandria',
+                    }}
+                  />
+                )}
+              />
+              <CreateLibraryForm.AppField
+                name="path"
+                children={(field) => (
+                  <field.TextField
+                    label="Absolute Path"
+                    inputProps={{
+                      autoCorrect: false,
+                      placeholder: '/path/to/library',
+                    }}
+                  />
+                )}
+              />
 
-            <CreateLibraryForm.SubmitButton>
-              <Text>Create New Library</Text>
-            </CreateLibraryForm.SubmitButton>
-          </CreateLibraryForm.AppForm>
-        </View>
+              <CreateLibraryForm.SubmitButton>
+                <Text>Create New Library</Text>
+              </CreateLibraryForm.SubmitButton>
+            </CreateLibraryForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     </>
   );

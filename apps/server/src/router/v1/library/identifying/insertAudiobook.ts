@@ -7,7 +7,6 @@ import {
   ChapterResponseSchema,
   ParentChapterSchema,
 } from '@/router/v1/library/audible/getChaptersByAsin';
-import type { FFProbeStdoutSchema } from '@/router/v1/library/fsExtended';
 
 import { KnownSQLiteError, NotFoundError, QueryError, db, toEffect } from '@/libs/db';
 import type {
@@ -48,7 +47,14 @@ export const insertAudiobook = Effect.fn(
     files: {
       path: string;
       metadataHash: string;
-      metadata: typeof FFProbeStdoutSchema.Type;
+      metadata: {
+        format: { duration: number; tags: Record<string, string> };
+        readonly chapters: readonly {
+          readonly start_time: number;
+          readonly end_time: number;
+          readonly tags: { title: string };
+        }[];
+      };
       mtimeMs: number;
       discNumber: number;
       trackNumber: number;
@@ -252,10 +258,18 @@ export const insertAudiobook = Effect.fn(
           }))
         )
         .onConflict((oc) =>
-          oc.doUpdateSet(({ ref }) => ({
+          oc.doUpdateSet(({ ref, eb }) => ({
             libraryId: ref('excluded.libraryId'),
             bookId: ref('excluded.bookId'),
             durationMs: ref('excluded.durationMs'),
+            // TODO: write a test for this! if the existing file is being re-identified
+            // as the same book, keep its custom order, otherwise set to null
+            customOrder: eb
+              .case()
+              .when('audiobookFile.bookId', '=', ref('excluded.bookId'))
+              .then(ref('audiobookFile.customOrder'))
+              .else(null)
+              .end(),
             disc: ref('excluded.disc'),
             track: ref('excluded.track'),
             mtimeMs: ref('excluded.mtimeMs'),

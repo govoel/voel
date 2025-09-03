@@ -1,13 +1,14 @@
 import { FsExtended } from './fsExtended';
-import type { Hash } from './hash';
+import { Hash } from './hash';
 import { gatherAuxiliaryAudiobookData } from './identifying/gatherAuxiliaryAudiobookData';
 import { insertAudiobook } from './identifying/insertAudiobook';
 import { extractAudiobookFileMetadata } from './scanning/extractAudiobookFileMetadata';
+import { markAsUnidentified } from './scanning/markAsUnidentified';
 import { prepareAudiobookFile } from './scanning/prepareAudiobookFile';
 import { Path } from '@effect/platform';
 import { TRPCError } from '@trpc/server';
 import { schemas } from '@voel/schemas';
-import { Effect, Either, Schema } from 'effect';
+import { Effect, Either, Match, Option, Schema } from 'effect';
 import { NoResultError } from 'kysely';
 import * as path from 'node:path';
 
@@ -197,18 +198,15 @@ export const libraryRouter = createTRPCRouter({
                       message: 'Error getting file from database',
                       description: path.join(file.parentPath, file.name),
                     } as const),
-                  UpToDateError: () =>
-                    Effect.fail({
-                      message:
-                        'File is up to date, please un-identify it first before re-identifying it',
-                      description: path.join(file.parentPath, file.name),
-                    } as const),
-                  RealpathError: (error) =>
-                    Effect.fail({
-                      message: `Error resolving symbolic link for file`,
-                      description: error.message,
-                    } as const),
-                })
+                  // TODO: write a test for these cases! we don't care if the file is part of a book already,
+                  // we are re-identifying it. we also don't care if the file is deleted and considered
+                  // to be up-to-date in the identified files table, we are *always* extracting metadata
+                  UpToDateError: (error) => Effect.succeed(error.data),
+                  // TODO: write a test for this case! we don't care if the file is a symlink or not,
+                  // since the realPath is only used during automatic file identification when scanning
+                  RealpathError: (error) => Effect.succeed(error.data),
+                }),
+                Effect.map((data) => ({ ...data, path: path.join(file.parentPath, file.name) }))
               )
             );
 
@@ -216,53 +214,47 @@ export const libraryRouter = createTRPCRouter({
               extractAudiobookFileMetadata({
                 file: {
                   metadataHashFromDb: file.metadataHashFromDb,
-                  path: path.join(file.parentPath, file.name),
+                  path: file.path,
                 },
               }).pipe(
-                Effect.map((result) => ({
-                  ...result,
-                  path: path.join(file.parentPath, file.name),
-                  mtimeMs: file.mtimeMs,
-                })),
                 Effect.catchTags({
-                  NoAlbumTitleOrArtistNameError: (error) =>
-                    Effect.succeed({
-                      ...error.data,
-                      path: path.join(file.parentPath, file.name),
-                      mtimeMs: file.mtimeMs,
-                    }),
-                  UpToDateError: () =>
-                    Effect.fail({
-                      message:
-                        'File is up to date, please un-identify it first before re-identifying it',
-                      description: path.join(file.parentPath, file.name),
-                    } as const),
+                  // TODO: write a test for this case! we want the file's metadata,
+                  // even if it doesn't have album title or artist name
+                  NoAlbumTitleOrArtistNameError: (error) => Effect.succeed(error.data),
+                  // TODO: write a test for this case! we want the file's metadata,
+                  // even if the file is considered up-to-date
+                  UpToDateError: (error) => Effect.succeed(error.data),
                   FFProbeKnownError: () =>
                     Effect.fail({
                       message: 'Error while extracting metadata for file',
-                      description: path.join(file.parentPath, file.name),
+                      description: file.path,
                     } as const),
                   FFProbeUnknownError: () =>
                     Effect.fail({
                       message: 'Unknown error while extracting metadata for file',
-                      description: path.join(file.parentPath, file.name),
+                      description: file.path,
                     } as const),
                   BunShellSyntaxError: () =>
                     Effect.fail({
                       message: 'Failed to parse metadata output for file',
-                      description: path.join(file.parentPath, file.name),
+                      description: file.path,
                     } as const),
                   ParseError: () =>
                     Effect.fail({
                       message: 'Extracted metadata was not in the expected format for file',
-                      description: path.join(file.parentPath, file.name),
+                      description: file.path,
                     } as const),
                   UnknownException: () =>
                     Effect.fail({
                       message: 'Unknown error while extracting metadata for file',
-                      description: path.join(file.parentPath, file.name),
+                      description: file.path,
                     } as const),
-                })
+                }),
+                Effect.map((result) => ({
+                  ...result,
+                  path: file.path,
+                  mtimeMs: file.mtimeMs,
+                }))
               )
             );
 
@@ -324,6 +316,258 @@ export const libraryRouter = createTRPCRouter({
               description: 'description' in result.left ? result.left.description : undefined,
             },
           });
+        }
+      }),
+  }),
+
+  book: createTRPCRouter({
+    editFiles: adminProcedure
+      .input(schemas.v1.library.book.editFiles)
+      .mutation(async ({ input }) => {
+        const deletedFiles = await db.transaction().execute(async (trx) => {
+          for (const file of input.files) {
+            await trx
+              .updateTable('audiobookFile')
+              .set({ customOrder: file.customOrder, bookId: input.bookId })
+              .where('id', '=', file.id)
+              .execute();
+          }
+
+          const deletedFiles = await trx
+            .updateTable('audiobookFile')
+            .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+            .where('audiobookFile.bookId', '=', input.bookId)
+            .where(
+              'audiobookFile.id',
+              'not in',
+              input.files.map((file) => file.id)
+            )
+            .returning([
+              'audiobookFile.libraryId',
+              'audiobookFile.path',
+              'audiobookFile.mtimeMs',
+              'audiobookFile.metadataHash',
+              'audiobookFile.durationMs',
+              'audiobookFile.disc',
+              'audiobookFile.track',
+            ])
+            .execute();
+
+          if (deletedFiles.length > 0) {
+            await trx
+              .insertInto('unidentifiedAudiobookFile')
+              .values(
+                deletedFiles.map((deletedFile) => ({
+                  libraryId: deletedFile.libraryId,
+                  path: deletedFile.path,
+                  mtimeMs: deletedFile.mtimeMs,
+                  metadataHash: deletedFile.metadataHash,
+                  durationMs: deletedFile.durationMs,
+                  disc: deletedFile.disc,
+                  track: deletedFile.track,
+                  reason: 'USER_DELETED_FROM_BOOK' as const,
+                  metadata: '{}',
+                }))
+              )
+              .onConflict((oc) =>
+                oc.doUpdateSet((eb) => ({
+                  libraryId: eb.ref('excluded.libraryId'),
+                  durationMs: eb.ref('excluded.durationMs'),
+                  disc: eb.ref('excluded.disc'),
+                  track: eb.ref('excluded.track'),
+                  reason: eb.ref('excluded.reason'),
+                  // because if there is a row already, better to have metadata with
+                  // something in it than {}. consequently, we don't update metadataHash
+                  // or mtimeMs since that should accurately reflect the current contents
+                  // of the metadata column
+                  mtimeMs: eb.ref('unidentifiedAudiobookFile.mtimeMs'),
+                  metadataHash: eb.ref('unidentifiedAudiobookFile.metadataHash'),
+                  metadata: eb.ref('unidentifiedAudiobookFile.metadata'),
+                  deletedAt: null,
+                }))
+              )
+              .execute();
+          }
+
+          return deletedFiles;
+        });
+
+        if (deletedFiles.length > 0) {
+          const fileErrors: { path?: string; message: string }[] = [];
+          await AppRuntime.runPromise(
+            Effect.gen(function* () {
+              const fs = yield* FsExtended;
+              const path = yield* Path.Path;
+              const fileStats = (yield* Effect.forEach(deletedFiles, (file) =>
+                fs.lstat(file.path).pipe(
+                  Effect.tapError((error) =>
+                    Match.value(error).pipe(
+                      Match.tagsExhaustive({
+                        BadArgument: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({ path: file.path, message: "couldn't get file info" })
+                          ),
+                        SystemError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({ path: file.path, message: "couldn't get file info" })
+                          ),
+                      })
+                    )
+                  ),
+                  Effect.map((stat) => ({
+                    parentPath: path.dirname(file.path),
+                    name: path.basename(file.path),
+                    path: file.path,
+                    isDirectory: stat.isDirectory,
+                    isSymbolicLink: stat.isSymbolicLink,
+                  })),
+                  Effect.option
+                )
+              ))
+                .filter((i) => Option.isSome(i))
+                .map((i) => i.value);
+
+              const files = (yield* Effect.forEach(fileStats, (file) =>
+                prepareAudiobookFile({
+                  parentPath: file.parentPath,
+                  name: file.name,
+                  isDirectory: file.isDirectory,
+                  isSymbolicLink: file.isSymbolicLink,
+                }).pipe(
+                  Effect.tapError((error) =>
+                    Match.value(error).pipe(
+                      Match.tagsExhaustive({
+                        StatError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({ path: file.path, message: "couldn't get file info" })
+                          ),
+                        // TODO: write a test for this case! we rely on the next scanning process to cleanup
+                        // these files from the unidentified files table if they throw DirectoryError,
+                        // NoExtensionError, or UnsupportedExtensionError
+                        DirectoryError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({ path: file.path, message: 'file is a directory' })
+                          ),
+                        NoExtensionError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: "file doesn't have an extension",
+                            })
+                          ),
+                        UnsupportedExtensionError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: "file extension isn't supported by this library",
+                            })
+                          ),
+                        DbError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: "couldn't get file info from database",
+                            })
+                          ),
+                        // TODO: write a test for these cases! we don't care if the file is part of a book already,
+                        // since it is deleted. and if it is considered to be up-to-date in the identified files table,
+                        // we want the metadata since we are moving it to unidentified files
+                        UpToDateError: (error) => Effect.succeed(error.data),
+                        // TODO: write a test for this case! we don't care if the file is a symlink or not,
+                        // since the realPath is only used during automatic file identification when scanning
+                        RealpathError: (error) => Effect.succeed(error.data),
+                      })
+                    )
+                  ),
+                  Effect.map((data) => ({ ...data, path: path.join(file.parentPath, file.name) })),
+                  Effect.option
+                )
+              ))
+                .filter((i) => Option.isSome(i))
+                .map((i) => i.value);
+
+              const fileMetadata = (yield* Effect.forEach(files, (file) =>
+                extractAudiobookFileMetadata({
+                  file: {
+                    metadataHashFromDb: file.metadataHashFromDb,
+                    path: file.path,
+                  },
+                }).pipe(
+                  Effect.tapError((error) =>
+                    Match.value(error).pipe(
+                      Match.tagsExhaustive({
+                        NoAlbumTitleOrArtistNameError: (error) => Effect.succeed(error.data),
+                        UpToDateError: (error) => Effect.succeed(error.data),
+                        FFProbeKnownError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: 'error extracting metadata',
+                            })
+                          ),
+                        FFProbeUnknownError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: 'unknown error extracting metadata',
+                            })
+                          ),
+                        BunShellSyntaxError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: 'could not parse metadata output',
+                            })
+                          ),
+                        ParseError: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: 'metadata was not in expected format',
+                            })
+                          ),
+                        UnknownException: () =>
+                          Effect.sync(() =>
+                            fileErrors.push({
+                              path: file.path,
+                              message: 'unknown error extracting metadata',
+                            })
+                          ),
+                      })
+                    )
+                  ),
+                  Effect.map((result) => ({ ...result, path: file.path, mtimeMs: file.mtimeMs })),
+                  Effect.option
+                )
+              ))
+                .filter((i) => Option.isSome(i))
+                .map((i) => i.value);
+
+              if (fileMetadata.length > 0) {
+                yield* markAsUnidentified({
+                  // TODO: fix this! add proper support for the same book in multiple libraries for the client
+                  libraryId: deletedFiles[0]!.libraryId,
+                  files: fileMetadata,
+                  reason: 'USER_DELETED_FROM_BOOK',
+                }).pipe(
+                  Effect.tapError(() =>
+                    Effect.sync(() =>
+                      fileErrors.push({ message: "Couldn't update unidentified files" })
+                    )
+                  ),
+                  Effect.asVoid
+                );
+              }
+            })
+          );
+
+          if (fileErrors.length > 0) {
+            return {
+              message:
+                'Files have been saved sucessfully. But, some files were deleted from the book, and there were errors re-adding them as unidentified files. Please identify these files as the correct book, or they may get re-identified as this book again on the next scan if their database metadata is out-of-date with the actual file.',
+              fileErrors,
+            } as const;
+          }
         }
       }),
   }),

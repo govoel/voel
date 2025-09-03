@@ -102,6 +102,7 @@ export interface AudiobookFileTable {
   mtimeMs: number;
   metadataHash: string;
   durationMs: number;
+  customOrder: number | null;
   disc: number;
   track: number;
   createdAt: ColumnType<number, never, never>;

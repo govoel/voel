@@ -315,6 +315,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addColumn('path', 'text', (col) => col.unique().notNull())
     .addColumn('durationMs', 'integer', (col) => col.notNull())
+    .addColumn('customOrder', 'integer')
     .addColumn('disc', 'integer', (col) => col.notNull())
     .addColumn('track', 'integer', (col) => col.notNull())
     .addColumn('mtimeMs', 'integer', (col) => col.notNull())
@@ -340,10 +341,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('audiobookFile_disc_track_index')
+    .createIndex('audiobookFile_customOrder_disc_track_index')
     .ifNotExists()
     .on('audiobookFile')
-    .columns(['disc', 'track'])
+    .columns(['customOrder', 'disc', 'track'])
     .execute();
 
   await db.schema
@@ -360,7 +361,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_audiobookFile_updatedAt BEFORE UPDATE OF libraryId, bookId, path, durationMs, disc, track, mtimeMs, metadataHash, deletedAt ON audiobookFile FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_audiobookFile_updatedAt BEFORE UPDATE OF libraryId, bookId, path, durationMs, customOrder, disc, track, mtimeMs, metadataHash, deletedAt ON audiobookFile FOR EACH ROW
             BEGIN
               UPDATE audiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
