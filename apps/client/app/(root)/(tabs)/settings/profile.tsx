@@ -1,4 +1,7 @@
-import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import {
+  type BottomSheetModal as BottomSheetModalType,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { SnapshotFromStore } from '@xstate/store';
@@ -290,98 +293,102 @@ const Profile = () => {
       )}
 
       <BottomSheetModal ref={editProfileModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Edit Profile</Large>
-          <EditProfileForm.AppForm>
-            <EditProfileForm.AppField
-              name="name"
-              children={(field) => (
-                <field.TextField
-                  label="Name"
-                  inputProps={{
-                    autoComplete: 'name',
-                    autoCorrect: false,
-                    placeholder: 'One and only you',
-                  }}
-                />
-              )}
-            />
-            <EditProfileForm.AppField
-              name="username"
-              children={(field) => (
-                <field.TextField
-                  label="Username"
-                  inputProps={{
-                    autoComplete: 'username',
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'you',
-                  }}
-                />
-              )}
-            />
-            <EditProfileForm.SubmitButton>
-              <Text>Save Changes</Text>
-            </EditProfileForm.SubmitButton>
-          </EditProfileForm.AppForm>
-        </View>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Edit Profile</Large>
+            <EditProfileForm.AppForm>
+              <EditProfileForm.AppField
+                name="name"
+                children={(field) => (
+                  <field.TextField
+                    label="Name"
+                    inputProps={{
+                      autoComplete: 'name',
+                      autoCorrect: false,
+                      placeholder: 'One and only you',
+                    }}
+                  />
+                )}
+              />
+              <EditProfileForm.AppField
+                name="username"
+                children={(field) => (
+                  <field.TextField
+                    label="Username"
+                    inputProps={{
+                      autoComplete: 'username',
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'you',
+                    }}
+                  />
+                )}
+              />
+              <EditProfileForm.SubmitButton>
+                <Text>Save Changes</Text>
+              </EditProfileForm.SubmitButton>
+            </EditProfileForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
 
       <BottomSheetModal ref={changePasswordModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Change Password</Large>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Change Password</Large>
 
-          <ChangePasswordForm.AppForm>
-            <ChangePasswordForm.AppField
-              name="currentPassword"
-              children={(field) => (
-                <field.TextField
-                  label="Password"
-                  inputProps={{
-                    autoComplete: 'current-password',
-                    secureTextEntry: true,
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'ha!NiceTry',
-                  }}
-                />
-              )}
-            />
-            <ChangePasswordForm.AppField
-              name="newPassword"
-              children={(field) => (
-                <field.TextField
-                  label="New Password"
-                  inputProps={{
-                    autoComplete: 'new-password',
-                    secureTextEntry: true,
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'ha!NiceTry',
-                  }}
-                />
-              )}
-            />
-            <ChangePasswordForm.AppField
-              name="confirmNewPassword"
-              children={(field) => (
-                <field.TextField
-                  label="Confirm New Password"
-                  inputProps={{
-                    autoComplete: 'new-password',
-                    secureTextEntry: true,
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'ha!NiceTry',
-                  }}
-                />
-              )}
-            />
-            <ChangePasswordForm.SubmitButton>
-              <Text>Change Password</Text>
-            </ChangePasswordForm.SubmitButton>
-          </ChangePasswordForm.AppForm>
-        </View>
+            <ChangePasswordForm.AppForm>
+              <ChangePasswordForm.AppField
+                name="currentPassword"
+                children={(field) => (
+                  <field.TextField
+                    label="Password"
+                    inputProps={{
+                      autoComplete: 'current-password',
+                      secureTextEntry: true,
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'ha!NiceTry',
+                    }}
+                  />
+                )}
+              />
+              <ChangePasswordForm.AppField
+                name="newPassword"
+                children={(field) => (
+                  <field.TextField
+                    label="New Password"
+                    inputProps={{
+                      autoComplete: 'new-password',
+                      secureTextEntry: true,
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'ha!NiceTry',
+                    }}
+                  />
+                )}
+              />
+              <ChangePasswordForm.AppField
+                name="confirmNewPassword"
+                children={(field) => (
+                  <field.TextField
+                    label="Confirm New Password"
+                    inputProps={{
+                      autoComplete: 'new-password',
+                      secureTextEntry: true,
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'ha!NiceTry',
+                    }}
+                  />
+                )}
+              />
+              <ChangePasswordForm.SubmitButton>
+                <Text>Change Password</Text>
+              </ChangePasswordForm.SubmitButton>
+            </ChangePasswordForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     </>
   );

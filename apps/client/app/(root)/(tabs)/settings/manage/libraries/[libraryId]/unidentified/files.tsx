@@ -1,5 +1,6 @@
 import type { AppRouter } from '@/router/root';
 import {
+  BottomSheetFlatList,
   type BottomSheetModal as BottomSheetModalType,
   useBottomSheetModal,
 } from '@gorhom/bottom-sheet';
@@ -48,7 +49,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
-import { BottomSheetModalFlatList } from '~/components/ui/bottom-sheet';
+import { BottomSheetModal } from '~/components/ui/bottom-sheet';
 import { Button, ButtonWithLoading } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
 import { Checkbox } from '~/components/ui/checkbox';
@@ -471,18 +472,18 @@ const IdentifyFilesModal = ({
 
   return (
     <>
-      <BottomSheetModalFlatList
+      <BottomSheetModal
         ref={modalRef}
         enableDynamicSizing={true}
         onDismiss={() => {
           SearchViaAudibleForm.reset();
           searchViaAudibleMutation.reset();
-        }}
-        flatListProps={{
-          contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5',
-          data: [],
-          renderItem: null,
-          ListHeaderComponent: (
+        }}>
+        <BottomSheetFlatList
+          contentContainerClassName="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5"
+          data={[]}
+          renderItem={null}
+          ListHeaderComponent={
             <>
               <Large className="pb-2">
                 {selectedRows.length === 0
@@ -510,8 +511,8 @@ const IdentifyFilesModal = ({
                 </AccordionItem>
               </Accordion>
             </>
-          ),
-          ListFooterComponent: (
+          }
+          ListFooterComponent={
             <SearchViaAudibleForm.AppForm>
               <SearchViaAudibleForm.AppField
                 name="asin"
@@ -548,21 +549,21 @@ const IdentifyFilesModal = ({
                 <Text>Search via Audible</Text>
               </SearchViaAudibleForm.SubmitButton>
             </SearchViaAudibleForm.AppForm>
-          ),
-        }}
-      />
+          }
+        />
+      </BottomSheetModal>
 
-      <BottomSheetModalFlatList
+      <BottomSheetModal
         ref={pickSearchResultModalRef}
+        enableDynamicSizing={true}
         onDismiss={() => {
           identifyViaAudibleMutation.reset();
-        }}
-        enableDynamicSizing={true}
-        flatListProps={{
-          contentContainerClassName: 'p-6 mx-auto w-full max-w-[400px] flex-col gap-2',
-          windowSize: 5,
-          data: searchViaAudibleMutation.data,
-          renderItem: ({ item: result }) => (
+        }}>
+        <BottomSheetFlatList
+          contentContainerClassName="p-6 mx-auto w-full max-w-[400px] flex-col gap-2"
+          windowSize={5}
+          data={searchViaAudibleMutation.data}
+          renderItem={({ item: result }) => (
             <View className="flex flex-col border border-foreground/15 rounded-md p-2 gap-y-2">
               <View className="flex flex-row justify-center items-center gap-x-2">
                 <AspectRatio
@@ -670,8 +671,8 @@ const IdentifyFilesModal = ({
                 <Text>Identify as book</Text>
               </ButtonWithLoading>
             </View>
-          ),
-          ListHeaderComponent: (
+          )}
+          ListHeaderComponent={
             <>
               <View>
                 <Large>
@@ -731,18 +732,20 @@ const IdentifyFilesModal = ({
                 </>
               ) : null}
             </>
-          ),
-          ListEmptyComponent: searchViaAudibleMutation.isPending ? (
-            <View className="p-12 justify-center items-center">
-              <Spinner size={15} />
-            </View>
-          ) : (
-            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
-              <Text className="text-center">No downloads found</Text>
-            </View>
-          ),
-        }}
-      />
+          }
+          ListEmptyComponent={
+            searchViaAudibleMutation.isPending ? (
+              <View className="p-12 justify-center items-center">
+                <Spinner size={15} />
+              </View>
+            ) : (
+              <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+                <Text className="text-center">No downloads found</Text>
+              </View>
+            )
+          }
+        />
+      </BottomSheetModal>
     </>
   );
 };

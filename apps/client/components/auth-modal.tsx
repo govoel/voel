@@ -1,4 +1,7 @@
-import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import {
+  type BottomSheetModal as BottomSheetModalType,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import * as SecureStore from 'expo-secure-store';
@@ -62,26 +65,28 @@ export function AuthModal() {
 
   return (
     <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
-      <Tabs
-        value={bottomSheetTab}
-        onValueChange={setBottomSheetTab}
-        className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
-        <TabsList className="mb-4 w-full flex-row">
-          <TabsTrigger value="sign-in" className="flex-1">
-            <Text>Sign In</Text>
-          </TabsTrigger>
-          <TabsTrigger value="sign-up" className="flex-1">
-            <Text>Sign Up</Text>
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="sign-in">
-          <SignInTab bottomSheetModalRef={bottomSheetModalRef} />
-        </TabsContent>
+      <BottomSheetScrollView>
+        <Tabs
+          value={bottomSheetTab}
+          onValueChange={setBottomSheetTab}
+          className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
+          <TabsList className="mb-4 w-full flex-row">
+            <TabsTrigger value="sign-in" className="flex-1">
+              <Text>Sign In</Text>
+            </TabsTrigger>
+            <TabsTrigger value="sign-up" className="flex-1">
+              <Text>Sign Up</Text>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="sign-in">
+            <SignInTab bottomSheetModalRef={bottomSheetModalRef} />
+          </TabsContent>
 
-        <TabsContent value="sign-up">
-          <SignUpTab setTab={setBottomSheetTab} />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="sign-up">
+            <SignUpTab setTab={setBottomSheetTab} />
+          </TabsContent>
+        </Tabs>
+      </BottomSheetScrollView>
     </BottomSheetModal>
   );
 }

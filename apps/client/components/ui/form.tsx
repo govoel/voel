@@ -57,7 +57,10 @@ function TextField({
         {...inputProps}
         editable={!isSubmitting}
         value={field.state.value}
-        onBlur={field.handleBlur}
+        onBlur={(e) => {
+          field.handleBlur();
+          inputProps?.onBlur?.(e);
+        }}
         onChangeText={field.handleChange}
       />
       {field.state.meta.isTouched && field.state.meta.errors.length ? (

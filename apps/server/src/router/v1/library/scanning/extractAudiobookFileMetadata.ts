@@ -24,7 +24,18 @@ const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   return 0;
 };
 
-class UpToDateError extends Data.TaggedError('UpToDateError')<{ message: string }> {}
+class UpToDateError extends Data.TaggedError('UpToDateError')<{
+  message: string;
+  data: {
+    metadata: typeof FFProbeStdoutSchema.Type;
+    metadataHash: string;
+    normalizedTags: Record<string, string>;
+    albumTitle?: string;
+    artistName?: string;
+    discNumber: number;
+    trackNumber: number;
+  };
+}> {}
 
 class NoAlbumTitleOrArtistNameError extends Data.TaggedError('NoAlbumTitleOrArtistNameError')<{
   message: string;
@@ -54,16 +65,6 @@ export const extractAudiobookFileMetadata = ({
     yield* Effect.annotateLogsScoped({ path: file.path });
 
     const metadata = yield* fs.ffprobe({ path: file.path });
-
-    // ok to compute hash on parsed metadata only instead of raw metadata
-    // because if we ever change what we parse, the file gets re-processed
-    const metadataHash = yield* hash.rapidhash({
-      data: JSON.stringify(metadata),
-    });
-
-    if (file.metadataHashFromDb === metadataHash) {
-      return yield* Effect.fail(new UpToDateError({ message: 'File is up to date' }));
-    }
 
     const normalizedTags = yield* Effect.reduce(
       Object.entries(metadata.format.tags),
@@ -96,6 +97,29 @@ export const extractAudiobookFileMetadata = ({
       normalizedTags['trck'],
       normalizedTags['trk']
     );
+
+    // ok to compute hash on parsed metadata only instead of raw metadata
+    // because if we ever change what we parse, the file gets re-processed
+    const metadataHash = yield* hash.rapidhash({
+      data: JSON.stringify(metadata),
+    });
+
+    if (file.metadataHashFromDb === metadataHash) {
+      return yield* Effect.fail(
+        new UpToDateError({
+          message: 'File is up to date',
+          data: {
+            metadata,
+            metadataHash,
+            normalizedTags,
+            albumTitle,
+            artistName,
+            discNumber,
+            trackNumber,
+          },
+        })
+      );
+    }
 
     if (
       albumTitle === undefined ||

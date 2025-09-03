@@ -136,6 +136,7 @@ export interface AudiobookFileTable<Version extends 'realtime' | 'regular' = 're
   mtimeMs: Regularize<ColumnType<number, number, number>, Version>;
   metadataHash: Regularize<ColumnType<string, string, string>, Version>;
   durationMs: Regularize<ColumnType<number, number, number>, Version>;
+  customOrder: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
   disc: Regularize<ColumnType<number, number, number>, Version>;
   track: Regularize<ColumnType<number, number, number>, Version>;
   createdAt: Regularize<ColumnType<number, number, number>, Version>;

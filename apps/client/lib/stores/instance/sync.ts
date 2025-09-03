@@ -152,6 +152,7 @@ export const upsertAudiobookFile = (
         mtimeMs: (eb) => eb.ref('excluded.mtimeMs'),
         metadataHash: (eb) => eb.ref('excluded.metadataHash'),
         durationMs: (eb) => eb.ref('excluded.durationMs'),
+        customOrder: (eb) => eb.ref('excluded.customOrder'),
         disc: (eb) => eb.ref('excluded.disc'),
         track: (eb) => eb.ref('excluded.track'),
         createdAt: (eb) => eb.ref('excluded.createdAt'),

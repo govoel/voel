@@ -44,4 +44,18 @@ export const library = {
       files: z.array(z.object({ directory: z.string(), name: z.string() })),
     }),
   },
+  book: {
+    editFiles: z.object({
+      bookId: z.number().int().positive('Book ID must be a positive integer'),
+      files: z.array(
+        z.object({
+          id: z.number().int().positive('File ID must be a positive integer'),
+          customOrder: z.coerce
+            .number<string>('Custom order must be an integer')
+            .int('Custom order must be an integer')
+            .nonnegative('Custom order must be a non-negative integer'),
+        })
+      ),
+    }),
+  },
 };

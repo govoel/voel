@@ -1,4 +1,7 @@
-import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import {
+  type BottomSheetModal as BottomSheetModalType,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { Link, Stack } from 'expo-router';
@@ -256,96 +259,98 @@ export default function UsersListScreen() {
       />
 
       <BottomSheetModal ref={createUserModalRef} enableDynamicSizing={true}>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Create New User</Large>
-          <CreateUserForm.AppForm>
-            <CreateUserForm.AppField
-              name="email"
-              children={(field) => (
-                <field.TextField
-                  label="Email"
-                  inputProps={{
-                    autoComplete: 'email',
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'you@domain.tld',
-                  }}
-                />
-              )}
-            />
-            <CreateUserForm.AppField
-              name="username"
-              children={(field) => (
-                <field.TextField
-                  label="Username"
-                  inputProps={{
-                    autoComplete: 'username',
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'you',
-                  }}
-                />
-              )}
-            />
-            <CreateUserForm.AppField
-              name="name"
-              children={(field) => (
-                <field.TextField
-                  label="Name"
-                  inputProps={{
-                    autoComplete: 'name',
-                    autoCorrect: false,
-                    placeholder: 'One and only you',
-                  }}
-                />
-              )}
-            />
-            <CreateUserForm.AppField
-              name="role"
-              children={(field) => (
-                <field.RadioGroup
-                  label="Role"
-                  optionValues={userRole.options}
-                  optionLabels={['Under 18', 'User', 'Admin']}
-                />
-              )}
-            />
-            <CreateUserForm.AppField
-              name="password"
-              children={(field) => (
-                <field.TextField
-                  label="Password"
-                  inputProps={{
-                    autoComplete: 'new-password',
-                    secureTextEntry: true,
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'ha!NiceTry',
-                  }}
-                />
-              )}
-            />
-            <CreateUserForm.AppField
-              name="confirmPassword"
-              children={(field) => (
-                <field.TextField
-                  label="Confirm Password"
-                  inputProps={{
-                    autoComplete: 'new-password',
-                    secureTextEntry: true,
-                    autoCorrect: false,
-                    autoCapitalize: 'none',
-                    placeholder: 'ha!NiceTry',
-                  }}
-                />
-              )}
-            />
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large className="pb-2">Create New User</Large>
+            <CreateUserForm.AppForm>
+              <CreateUserForm.AppField
+                name="email"
+                children={(field) => (
+                  <field.TextField
+                    label="Email"
+                    inputProps={{
+                      autoComplete: 'email',
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'you@domain.tld',
+                    }}
+                  />
+                )}
+              />
+              <CreateUserForm.AppField
+                name="username"
+                children={(field) => (
+                  <field.TextField
+                    label="Username"
+                    inputProps={{
+                      autoComplete: 'username',
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'you',
+                    }}
+                  />
+                )}
+              />
+              <CreateUserForm.AppField
+                name="name"
+                children={(field) => (
+                  <field.TextField
+                    label="Name"
+                    inputProps={{
+                      autoComplete: 'name',
+                      autoCorrect: false,
+                      placeholder: 'One and only you',
+                    }}
+                  />
+                )}
+              />
+              <CreateUserForm.AppField
+                name="role"
+                children={(field) => (
+                  <field.RadioGroup
+                    label="Role"
+                    optionValues={userRole.options}
+                    optionLabels={['Under 18', 'User', 'Admin']}
+                  />
+                )}
+              />
+              <CreateUserForm.AppField
+                name="password"
+                children={(field) => (
+                  <field.TextField
+                    label="Password"
+                    inputProps={{
+                      autoComplete: 'new-password',
+                      secureTextEntry: true,
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'ha!NiceTry',
+                    }}
+                  />
+                )}
+              />
+              <CreateUserForm.AppField
+                name="confirmPassword"
+                children={(field) => (
+                  <field.TextField
+                    label="Confirm Password"
+                    inputProps={{
+                      autoComplete: 'new-password',
+                      secureTextEntry: true,
+                      autoCorrect: false,
+                      autoCapitalize: 'none',
+                      placeholder: 'ha!NiceTry',
+                    }}
+                  />
+                )}
+              />
 
-            <CreateUserForm.SubmitButton>
-              <Text>Create New User</Text>
-            </CreateUserForm.SubmitButton>
-          </CreateUserForm.AppForm>
-        </View>
+              <CreateUserForm.SubmitButton>
+                <Text>Create New User</Text>
+              </CreateUserForm.SubmitButton>
+            </CreateUserForm.AppForm>
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     </>
   );

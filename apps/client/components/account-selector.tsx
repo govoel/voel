@@ -1,4 +1,7 @@
-import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import {
+  type BottomSheetModal as BottomSheetModalType,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -162,13 +165,15 @@ export const AccountSelector = () => {
 
   return (
     <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
-      <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-        <Large className="pb-2">Switch account</Large>
-        <AccountList />
-        <Button onPress={() => authModalStore.trigger.presentAuthModal()}>
-          <Text>Add account</Text>
-        </Button>
-      </View>
+      <BottomSheetScrollView>
+        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <Large className="pb-2">Switch account</Large>
+          <AccountList />
+          <Button onPress={() => authModalStore.trigger.presentAuthModal()}>
+            <Text>Add account</Text>
+          </Button>
+        </View>
+      </BottomSheetScrollView>
     </BottomSheetModal>
   );
 };
