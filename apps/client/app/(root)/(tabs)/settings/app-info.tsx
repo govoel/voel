@@ -45,7 +45,7 @@ export default function SettingsAppInfoScreen() {
           <Button
             variant="ghost"
             size="sm"
-            className="items-start py-1 h-fit native:h-fit rounded-none bg-secondary/40"
+            className="items-start py-1 h-fit native:h-fit rounded-none border-b border-foreground/15 bg-secondary/40"
             onPress={async () => {
               await setStringAsync(runtimeVersion ?? 'Unknown', {
                 inputFormat: StringFormat.PLAIN_TEXT,
@@ -55,13 +55,10 @@ export default function SettingsAppInfoScreen() {
             <Muted>Runtime Version</Muted>
             <Text>{runtimeVersion ?? 'Unknown'}</Text>
           </Button>
-        </View>
-
-        <View className="overflow-hidden rounded-md border border-foreground/15">
           <Button
             variant="ghost"
             size="sm"
-            className="items-start py-1 h-fit native:h-fit rounded-none border-b border-foreground/15 bg-secondary/40"
+            className="items-start py-1 h-fit native:h-fit rounded-none bg-secondary/40"
             onPress={async () => {
               await setStringAsync(manifest.id ?? 'Unknown', {
                 inputFormat: StringFormat.PLAIN_TEXT,
@@ -70,30 +67,6 @@ export default function SettingsAppInfoScreen() {
             }}>
             <Muted>Manifest ID</Muted>
             <Text>{manifest.id ?? 'Unknown'}</Text>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="items-start py-1 h-fit native:h-fit rounded-none bg-secondary/40"
-            onPress={async () => {
-              await setStringAsync(
-                'commitTime' in manifest ? `${manifest.commitTime ?? 'Unknown'}` : 'Unknown',
-                {
-                  inputFormat: StringFormat.PLAIN_TEXT,
-                }
-              );
-              toast.success('Commit time copied to clipboard');
-            }}>
-            <Muted>Commit Time</Muted>
-            <Text>
-              {'commitTime' in manifest
-                ? manifest.commitTime
-                  ? new Date(manifest.commitTime).toLocaleString(undefined, {
-                      timeZoneName: 'short',
-                    })
-                  : 'Unknown'
-                : 'Unknown'}
-            </Text>
           </Button>
         </View>
       </FloatingPlayerDodgingScrollView>
