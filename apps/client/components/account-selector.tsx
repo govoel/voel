@@ -4,7 +4,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { authModalStore } from '~/components/auth-modal';
@@ -119,7 +119,9 @@ const LoggedInUserAvatar = ({
           ? 'border-foreground'
           : syncStatus === 'error'
             ? 'border-red-500'
-            : 'border-green-500'
+            : syncStatus === 'processing'
+              ? 'border-primary'
+              : 'border-green-500'
       )}>
       <Avatar
         className="rounded-full border-transparent border-2"
@@ -132,6 +134,7 @@ const LoggedInUserAvatar = ({
           </AvatarFallback>
         </Pressable>
       </Avatar>
+      {syncStatus === 'processing' ? <SyncCount /> : null}
       {(syncStatus === 'idle' || syncStatus === 'connecting') && (
         <Button
           variant="ghost"
@@ -145,8 +148,49 @@ const LoggedInUserAvatar = ({
   );
 };
 
+const SyncCount = () => {
+  const [syncCount, setSyncCount] = useState(() => instanceStore.getSnapshot().context.syncCount);
+
+  const latestRef = useRef(syncCount);
+  const rafId = useRef(0);
+  const rafScheduled = useRef(false);
+  useEffect(() => {
+    const flush = (time: number) => {
+      rafScheduled.current = false;
+      setSyncCount(latestRef.current);
+    };
+
+    const schedule = () => {
+      if (rafScheduled.current) return;
+      rafScheduled.current = true;
+      rafId.current = requestAnimationFrame(flush);
+    };
+
+    const { unsubscribe } = instanceStore
+      .select((state) => state.syncCount)
+      .subscribe((count) => {
+        latestRef.current = count;
+        schedule();
+      });
+
+    return () => {
+      unsubscribe();
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+      }
+    };
+  }, []);
+
+  return (
+    <View className="absolute -bottom-1 -right-1 bg-primary rounded-full min-w-5 max-w-7 p-0.5">
+      <Text className="text-xs text-center">{syncCount}</Text>
+    </View>
+  );
+};
+
 export const AccountSelector = () => {
   const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
+  const activityIndicatorTipsModalRef = useRef<BottomSheetModalType>(null);
 
   const presentModal = useSelector(accountSelectorModalStore, (s) => s.context.present);
   const dismissModal = useSelector(accountSelectorModalStore, (s) => s.context.dismiss);
@@ -164,14 +208,112 @@ export const AccountSelector = () => {
   }, [dismissModal]);
 
   return (
+    <>
+      <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
+        <BottomSheetScrollView>
+          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+            <Large>Switch account</Large>
+            <AccountList />
+            <Button onPress={() => authModalStore.trigger.presentAuthModal()}>
+              <Text>Add account</Text>
+            </Button>
+            <Button
+              variant="secondary"
+              onPress={() => activityIndicatorTipsModalRef.current?.present()}>
+              <Text>View avatar indicator tips</Text>
+            </Button>
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
+
+      <AvatarIndicatorTips bottomSheetModalRef={activityIndicatorTipsModalRef} />
+    </>
+  );
+};
+
+const AvatarIndicatorTips = ({
+  bottomSheetModalRef,
+}: {
+  bottomSheetModalRef: RefObject<BottomSheetModalType | null>;
+}) => {
+  return (
     <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
       <BottomSheetScrollView>
         <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-          <Large className="pb-2">Switch account</Large>
-          <AccountList />
-          <Button onPress={() => authModalStore.trigger.presentAuthModal()}>
-            <Text>Add account</Text>
-          </Button>
+          <Large>Avatar indicator tips</Large>
+
+          <View className="flex-row gap-x-2">
+            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+              <View>
+                <View className="relative border-2 rounded-full border-foreground">
+                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                    <AvatarFallback>
+                      <Text>TIP</Text>
+                    </AvatarFallback>
+                  </Avatar>
+                  <View className="absolute rounded-full inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90">
+                    <Spinner size={3} />
+                  </View>
+                </View>
+              </View>
+              <View className="flex-1">
+                <Text>Attempting connection to realtime sync</Text>
+              </View>
+            </View>
+
+            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+              <View>
+                <View className="relative border-2 rounded-full border-green-500">
+                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                    <AvatarFallback>
+                      <Text>TIP</Text>
+                    </AvatarFallback>
+                  </Avatar>
+                </View>
+              </View>
+
+              <View className="flex-1">
+                <Text>Connected and waiting for realtime updates</Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="flex-row gap-x-2">
+            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+              <View>
+                <View className="relative border-2 rounded-full border-red-500">
+                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                    <AvatarFallback>
+                      <Text>TIP</Text>
+                    </AvatarFallback>
+                  </Avatar>
+                </View>
+              </View>
+              <View className="flex-1">
+                <Text>Error connecting to realtime sync</Text>
+              </View>
+            </View>
+
+            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+              <View>
+                <View className="relative border-2 rounded-full border-primary">
+                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                    <AvatarFallback>
+                      <Text>TIP</Text>
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <View className="absolute -bottom-1 -right-1 bg-primary rounded-full min-w-5 max-w-7 p-0.5">
+                    <Text className="text-xs text-center">99</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View className="flex-1">
+                <Text>Processing 99 realtime updates</Text>
+              </View>
+            </View>
+          </View>
         </View>
       </BottomSheetScrollView>
     </BottomSheetModal>
