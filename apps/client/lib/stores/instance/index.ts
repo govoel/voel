@@ -102,6 +102,8 @@ export const createApiInstance = (
   });
 };
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const startRealtimeSync = (
   instanceId: string | null,
   instanceDb: Kysely<InstanceDatabase<'regular'>>,
@@ -188,7 +190,11 @@ const startRealtimeSync = (
             try {
               if (data.type === 'history') {
                 historyData.rowCount += 1;
-                instanceStore.trigger.setSyncStatus({ instanceId, status: 'processing' });
+                instanceStore.trigger.setSyncStatus({
+                  instanceId,
+                  status: 'processing',
+                  count: historyData.rowCount,
+                });
                 if (data.payload.table === 'library') {
                   historyData.library.push(
                     ensureExact<Insertable<LibraryTable<'realtime'>>, typeof data.payload.row>(
@@ -255,21 +261,31 @@ const startRealtimeSync = (
                   );
                 }
 
-                if (historyData.rowCount % 100 === 0) {
+                if (historyData.rowCount % 999 === 0) {
                   await instanceDb.transaction().execute(async (trx) => {
                     await flushHistoryData(trx, historyData);
                   });
+                  instanceStore.trigger.setSyncStatus({
+                    instanceId,
+                    status: 'processing',
+                    count: 0,
+                  });
                   queryClient.invalidateQueries({ queryKey: ['instance'] });
+                  await delay(1); // small delay to let invalidateQueries run
+                }
+              } else if (data.type === 'historyComplete') {
+                if (historyData.rowCount > 0) {
+                  await instanceDb.transaction().execute(async (trx) => {
+                    await flushHistoryData(trx, historyData);
+                  });
+                  instanceStore.trigger.setSyncStatus({ instanceId, status: 'waiting' });
+                  queryClient.invalidateQueries({ queryKey: ['instance'] });
+                  await delay(1); // small delay to let invalidateQueries run
+                } else {
                   instanceStore.trigger.setSyncStatus({ instanceId, status: 'waiting' });
                 }
-              } else if (data.type === 'historyComplete' && historyData.rowCount > 0) {
-                await instanceDb.transaction().execute(async (trx) => {
-                  await flushHistoryData(trx, historyData);
-                });
-                queryClient.invalidateQueries({ queryKey: ['instance'] });
-                instanceStore.trigger.setSyncStatus({ instanceId, status: 'waiting' });
               } else if (data.type === 'live') {
-                instanceStore.trigger.setSyncStatus({ instanceId, status: 'processing' });
+                instanceStore.trigger.setSyncStatus({ instanceId, status: 'processing', count: 1 });
                 if (data.payload.table === 'library') {
                   await upsertLibrary(
                     instanceDb,
@@ -277,7 +293,6 @@ const startRealtimeSync = (
                       data.payload.rows
                     )
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'contributor') {
                   await upsertContributor(
                     instanceDb,
@@ -286,7 +301,6 @@ const startRealtimeSync = (
                       typeof data.payload.rows
                     >(data.payload.rows)
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'series') {
                   await upsertSeries(
                     instanceDb,
@@ -294,7 +308,6 @@ const startRealtimeSync = (
                       data.payload.rows
                     )
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'book') {
                   await upsertBook(
                     instanceDb,
@@ -302,7 +315,6 @@ const startRealtimeSync = (
                       data.payload.rows
                     )
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'bookSeries') {
                   await upsertBookSeries(
                     instanceDb,
@@ -311,7 +323,6 @@ const startRealtimeSync = (
                       typeof data.payload.rows
                     >(data.payload.rows)
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'bookContributor') {
                   await upsertBookContributor(
                     instanceDb,
@@ -320,7 +331,6 @@ const startRealtimeSync = (
                       typeof data.payload.rows
                     >(data.payload.rows)
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'audiobookFile') {
                   await upsertAudiobookFile(
                     instanceDb,
@@ -329,7 +339,6 @@ const startRealtimeSync = (
                       typeof data.payload.rows
                     >(data.payload.rows)
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'audiobookChapter') {
                   await upsertAudiobookChapter(
                     instanceDb,
@@ -338,7 +347,6 @@ const startRealtimeSync = (
                       typeof data.payload.rows
                     >(data.payload.rows)
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'ebookFile') {
                   await upsertEBookFile(
                     instanceDb,
@@ -346,7 +354,6 @@ const startRealtimeSync = (
                       data.payload.rows
                     )
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 } else if (data.payload.table === 'playbackHistory') {
                   await upsertPlaybackHistory(
                     instanceDb,
@@ -355,9 +362,10 @@ const startRealtimeSync = (
                       typeof data.payload.rows
                     >(data.payload.rows)
                   );
-                  queryClient.invalidateQueries({ queryKey: ['instance'] });
                 }
                 instanceStore.trigger.setSyncStatus({ instanceId, status: 'waiting' });
+                queryClient.invalidateQueries({ queryKey: ['instance'] });
+                await delay(1); // small delay to let invalidateQueries run
               }
             } catch (error) {
               if (data.type === 'live') {
@@ -526,12 +534,13 @@ type MigrationStatusNoError = { migrationStatus: 'pending' | 'completed'; migrat
 type MigrationStatusWithError = { migrationStatus: 'error'; migrationError: Error };
 type MigrationStatus = MigrationStatusNoError | MigrationStatusWithError;
 
-type SyncStatus = 'idle' | 'processing' | 'waiting' | 'connecting' | 'error';
+type SyncStatus = 'idle' | 'connecting' | 'processing' | 'waiting' | 'error';
 
 export const instanceStore = createStore({
   context: {
     error: null as string | null,
     syncStatus: 'idle' as SyncStatus,
+    syncCount: 0,
     syncUnsubscriber: () => {},
     instanceId: SecureStore.getItem('currentInstanceId'),
     instanceURL: SecureStore.getItem('currentInstanceURL'),
@@ -562,6 +571,7 @@ export const instanceStore = createStore({
       return {
         error: null,
         syncStatus: 'idle' as SyncStatus,
+        syncCount: 0,
         syncUnsubscriber: () => {},
         instanceId: event.instanceId,
         instanceURL: event.instanceURL,
@@ -574,10 +584,15 @@ export const instanceStore = createStore({
     },
     setSyncStatus: (
       context,
-      { instanceId, status }: { instanceId: string | null; status: SyncStatus }
+      event:
+        | { instanceId: string | null; status: Exclude<SyncStatus, 'processing'> }
+        | { instanceId: string | null; status: Extract<SyncStatus, 'processing'>; count: number }
     ) => {
-      if (context.instanceId === instanceId) {
-        return { ...context, syncStatus: status };
+      if (context.instanceId === event.instanceId) {
+        if (event.status === 'processing') {
+          return { ...context, syncStatus: event.status, syncCount: event.count };
+        }
+        return { ...context, syncStatus: event.status, syncCount: 0 };
       } else {
         return context;
       }
