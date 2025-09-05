@@ -121,7 +121,6 @@ describe('cleanupAudiobookFile', () => {
         .execute();
 
       const layer = Layer.merge(makeFsLayer(new Set(['/lib12/existing.mp3'])), Path.layer);
-
       await Effect.runPromise(cleanupAudiobookFile({ libraryId: 12 }).pipe(Effect.provide(layer)));
 
       const rows = await db
@@ -130,8 +129,20 @@ describe('cleanupAudiobookFile', () => {
         .select(['audiobookFile.path'])
         .execute();
 
-      // libraryId 11 row should be removed (missing file), libraryId 12 should remain
+      // libraryId 11 row should not be removed (missing file), libraryId 12 should remain
       expect(rows).toHaveLength(2);
+
+      const layer2 = Layer.merge(makeFsLayer(new Set([])), Path.layer);
+      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 12 }).pipe(Effect.provide(layer2)));
+
+      const rows2 = await db
+        .selectFrom('audiobookFile')
+        .where('audiobookFile.deletedAt', 'is', null)
+        .select(['audiobookFile.path', 'audiobookFile.libraryId'])
+        .execute();
+
+      expect(rows2).toHaveLength(1);
+      expect(rows2).toEqual([{ libraryId: 11, path: '/lib11/missing.mp3' }]);
     });
 
     it('keeps audiobookFile row when file exists', async () => {
