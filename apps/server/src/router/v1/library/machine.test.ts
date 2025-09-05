@@ -99,17 +99,17 @@ describe('machine', () => {
 
   afterEach(async () => {
     const { db } = await import('@/libs/db');
-    await db.schema.dropTable('playbackHistory').ifExists().execute();
-    await db.schema.dropTable('ebookFile').ifExists().execute();
-    await db.schema.dropTable('audiobookChapter').ifExists().execute();
-    await db.schema.dropTable('unidentifiedAudiobookFile').ifExists().execute();
-    await db.schema.dropTable('audiobookFile').ifExists().execute();
-    await db.schema.dropTable('bookContributor').ifExists().execute();
-    await db.schema.dropTable('bookSeries').ifExists().execute();
-    await db.schema.dropTable('book').ifExists().execute();
-    await db.schema.dropTable('series').ifExists().execute();
-    await db.schema.dropTable('contributor').ifExists().execute();
-    await db.schema.dropTable('library').ifExists().execute();
+    await db.deleteFrom('playbackHistory').execute();
+    await db.deleteFrom('ebookFile').execute();
+    await db.deleteFrom('audiobookChapter').execute();
+    await db.deleteFrom('unidentifiedAudiobookFile').execute();
+    await db.deleteFrom('audiobookFile').execute();
+    await db.deleteFrom('bookContributor').execute();
+    await db.deleteFrom('bookSeries').execute();
+    await db.deleteFrom('book').execute();
+    await db.deleteFrom('series').execute();
+    await db.deleteFrom('contributor').execute();
+    await db.deleteFrom('library').execute();
   });
 
   test('should delete identified files after .voelignore is added', async () => {

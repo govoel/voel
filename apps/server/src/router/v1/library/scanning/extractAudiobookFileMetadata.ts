@@ -106,6 +106,7 @@ export const extractAudiobookFileMetadata = ({
 
     if (file.metadataHashFromDb === metadataHash) {
       return yield* Effect.fail(
+        // TODO: test that change in mtimeMs but not in metadataHash updates DB's mtimeMs
         new UpToDateError({
           message: 'File is up to date',
           data: {
