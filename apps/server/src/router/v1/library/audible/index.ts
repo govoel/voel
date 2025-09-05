@@ -31,6 +31,8 @@ export {
 
 export { BookSearchResponseSchema } from '@/router/v1/library/audible/getBooksBySearch';
 
+export { ChapterResponseSchema } from '@/router/v1/library/audible/getChaptersByAsin';
+
 export const requestWithCacheInvalidateOnError = <
   A extends Request.Request<unknown, unknown>,
   Ds extends
