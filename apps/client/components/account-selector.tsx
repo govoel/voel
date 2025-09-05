@@ -239,11 +239,11 @@ const AvatarIndicatorTips = ({
   return (
     <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
       <BottomSheetScrollView>
-        <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+        <View className="px-6 pb-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large>Avatar indicator tips</Large>
 
           <View className="flex-row gap-x-2">
-            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
               <View>
                 <View className="relative border-2 rounded-full border-foreground">
                   <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
@@ -256,12 +256,10 @@ const AvatarIndicatorTips = ({
                   </View>
                 </View>
               </View>
-              <View className="flex-1">
-                <Text>Attempting connection to realtime sync</Text>
-              </View>
+              <Text className="text-center">Attempting connection to realtime sync</Text>
             </View>
 
-            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
               <View>
                 <View className="relative border-2 rounded-full border-green-500">
                   <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
@@ -272,14 +270,12 @@ const AvatarIndicatorTips = ({
                 </View>
               </View>
 
-              <View className="flex-1">
-                <Text>Connected and waiting for realtime updates</Text>
-              </View>
+              <Text className="text-center">Connected and waiting for realtime updates</Text>
             </View>
           </View>
 
           <View className="flex-row gap-x-2">
-            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
               <View>
                 <View className="relative border-2 rounded-full border-red-500">
                   <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
@@ -289,12 +285,11 @@ const AvatarIndicatorTips = ({
                   </Avatar>
                 </View>
               </View>
-              <View className="flex-1">
-                <Text>Error connecting to realtime sync</Text>
-              </View>
+
+              <Text className="text-center">Error connecting to realtime sync</Text>
             </View>
 
-            <View className="flex-1 flex-row gap-x-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
               <View>
                 <View className="relative border-2 rounded-full border-primary">
                   <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
@@ -309,9 +304,7 @@ const AvatarIndicatorTips = ({
                 </View>
               </View>
 
-              <View className="flex-1">
-                <Text>Processing 99 realtime updates</Text>
-              </View>
+              <Text className="text-center">Processing 99 realtime updates</Text>
             </View>
           </View>
         </View>
