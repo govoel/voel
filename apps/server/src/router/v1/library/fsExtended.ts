@@ -1,7 +1,7 @@
 import { effectify } from '@effect/platform/Effectify';
 import * as Error from '@effect/platform/Error';
 import { $ } from 'bun';
-import { Cause, Data, Effect, Schema } from 'effect';
+import { Cause, Data, Effect, Layer, Schema } from 'effect';
 import { type PathLike, access, constants as fsConstants, lstat, realpath, stat } from 'node:fs';
 import { opendir } from 'node:fs/promises';
 
@@ -104,106 +104,121 @@ interface AccessFileOptions {
   readonly writable?: boolean;
 }
 
-export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
-  succeed: {
-    access: (() => {
-      const nodeAccess = effectify(
-        access,
-        handleErrnoException('FileSystem', 'access'),
-        handleBadArgument('access')
-      );
-      return (path: string, options?: AccessFileOptions) => {
-        let mode = fsConstants.F_OK;
-        if (options?.readable) {
-          mode |= fsConstants.R_OK;
-        }
-        if (options?.writable) {
-          mode |= fsConstants.W_OK;
-        }
-        return nodeAccess(path, mode);
-      };
-    })(),
+export const makeFsExtended = () => ({
+  access: (() => {
+    const nodeAccess = effectify(
+      access,
+      handleErrnoException('FileSystem', 'access'),
+      handleBadArgument('access')
+    );
+    return (path: string, options?: AccessFileOptions) => {
+      let mode = fsConstants.F_OK;
+      if (options?.readable) {
+        mode |= fsConstants.R_OK;
+      }
+      if (options?.writable) {
+        mode |= fsConstants.W_OK;
+      }
+      return nodeAccess(path, mode);
+    };
+  })(),
 
-    realpath: (() => {
-      const nodeRealpath = effectify(
-        realpath,
-        handleErrnoException('FileSystem', 'realpath'),
-        handleBadArgument('realpath')
-      );
-      return (path: string) => nodeRealpath(path);
-    })(),
+  realpath: (() => {
+    const nodeRealpath = effectify(
+      realpath,
+      handleErrnoException('FileSystem', 'realpath'),
+      handleBadArgument('realpath')
+    );
+    return (path: string) => nodeRealpath(path);
+  })(),
 
-    lstat: (() => {
-      const nodeLstat = effectify(
-        lstat,
-        handleErrnoException('FileSystem', 'lstat'),
-        handleBadArgument('lstat')
-      );
-      return (path: string) => nodeLstat(path);
-    })(),
+  lstat: (() => {
+    const nodeLstat = effectify(
+      lstat,
+      handleErrnoException('FileSystem', 'lstat'),
+      handleBadArgument('lstat')
+    );
+    return (path: string) => nodeLstat(path);
+  })(),
 
-    stat: (() => {
-      const nodeStat = effectify(
-        stat,
-        handleErrnoException('FileSystem', 'stat'),
-        handleBadArgument('stat')
-      );
-      return (path: string) => nodeStat(path);
-    })(),
+  stat: (() => {
+    const nodeStat = effectify(
+      stat,
+      handleErrnoException('FileSystem', 'stat'),
+      handleBadArgument('stat')
+    );
+    return (path: string) => nodeStat(path);
+  })(),
 
-    opendir: ({
-      path,
-      options,
-    }: {
-      path: Parameters<typeof opendir>[0];
-      options: Parameters<typeof opendir>[1];
-    }) =>
-      Effect.acquireUseRelease(
-        Effect.tryPromise({
-          try: () => opendir(path, options),
-          catch: (error) =>
-            handleErrnoException('FileSystem', 'opendir')(error as NodeJS.ErrnoException, [
-              path,
-              options,
-            ]),
-        }),
-        (dir) => Effect.succeed(dir),
-        (dir) => Effect.sync(() => dir.closeSync())
-      ),
-
-    ffprobe: ({ path }: { path: string }) =>
+  opendir: ({
+    path,
+    options,
+  }: {
+    path: Parameters<typeof opendir>[0];
+    options: Parameters<typeof opendir>[1];
+  }) =>
+    Effect.acquireUseRelease(
       Effect.tryPromise({
-        try: () =>
-          $`ffprobe -v quiet -print_format json -show_error -show_format -show_chapters -show_streams ${path}`
-            .quiet()
-            .json() as Promise<unknown>,
-        catch: (error) => {
-          if (error instanceof $.ShellError) {
-            try {
-              const errorJSON = error.json();
-              if (Schema.is(FFProbeStdoutErrorSchema)(errorJSON)) {
-                return new FFProbeKnownError({
-                  exitCode: error.exitCode,
-                  errorCode: errorJSON.error.code,
-                  message: errorJSON.error.string,
-                });
-              }
-            } catch {
-              // ignore that errorJSON can throw SyntaxError,
-              // we silently fall through to FFProbeUnknownError
-            }
-            return new FFProbeUnknownError({
-              exitCode: error.exitCode,
-              stdout: error.stdout,
-              stderr: error.stderr,
-            });
-          } else if (error instanceof SyntaxError) {
-            return new BunShellSyntaxError();
-          }
-          return new Cause.UnknownException(error);
-        },
-      }).pipe(Effect.andThen(Schema.decodeUnknown(FFProbeStdoutSchema))),
-  },
+        try: () => opendir(path, options),
+        catch: (error) =>
+          handleErrnoException('FileSystem', 'opendir')(error as NodeJS.ErrnoException, [
+            path,
+            options,
+          ]),
+      }),
+      (dir) => Effect.succeed(dir),
+      (dir) => Effect.sync(() => dir.closeSync())
+    ),
 
+  ffprobe: ({ path }: { path: string }) =>
+    Effect.tryPromise({
+      try: () =>
+        $`ffprobe -v quiet -print_format json -show_error -show_format -show_chapters -show_streams ${path}`
+          .quiet()
+          .json() as Promise<unknown>,
+      catch: (error) => {
+        if (error instanceof $.ShellError) {
+          try {
+            const errorJSON = error.json();
+            if (Schema.is(FFProbeStdoutErrorSchema)(errorJSON)) {
+              return new FFProbeKnownError({
+                exitCode: error.exitCode,
+                errorCode: errorJSON.error.code,
+                message: errorJSON.error.string,
+              });
+            }
+          } catch {
+            // ignore that errorJSON can throw SyntaxError,
+            // we silently fall through to FFProbeUnknownError
+          }
+          return new FFProbeUnknownError({
+            exitCode: error.exitCode,
+            stdout: error.stdout,
+            stderr: error.stderr,
+          });
+        } else if (error instanceof SyntaxError) {
+          return new BunShellSyntaxError();
+        }
+        return new Cause.UnknownException(error);
+      },
+    }).pipe(Effect.andThen(Schema.decodeUnknown(FFProbeStdoutSchema))),
+});
+
+export class FsExtended extends Effect.Service<FsExtended>()('FsExtended', {
+  succeed: makeFsExtended(),
   dependencies: [],
 }) {}
+
+export const layerNoop = (fsExtended: Partial<FsExtended>) =>
+  Layer.succeed(
+    FsExtended,
+    new FsExtended({
+      access: () => Effect.die('not implemented'),
+      realpath: () => Effect.die('not implemented'),
+      lstat: () => Effect.die('not implemented'),
+      stat: () => Effect.die('not implemented'),
+      opendir: () => Effect.die('not implemented'),
+      ffprobe: () => Effect.die('not implemented'),
+      ...fsExtended,
+    })
+  );

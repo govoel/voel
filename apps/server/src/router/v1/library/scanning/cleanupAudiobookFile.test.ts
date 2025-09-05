@@ -6,26 +6,18 @@ import { FileMigrationProvider, Migrator, sql } from 'kysely';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { FsExtended } from '@/router/v1/library/fsExtended';
+import { layerNoop } from '@/router/v1/library/fsExtended';
 
 // Minimal FsExtended mock: provide `access` that succeeds for given paths.
 const makeFsLayer = (existingPaths: Set<string>) =>
-  Layer.succeed(
-    FsExtended,
-    new FsExtended({
-      access: (path: string) =>
-        existingPaths.has(path)
-          ? Effect.succeed(true)
-          : Effect.fail(
-              new SystemError({ module: 'FileSystem', reason: 'NotFound', method: 'access' })
-            ),
-      realpath: () => Effect.die('not implemented'),
-      lstat: () => Effect.die('not implemented'),
-      stat: () => Effect.die('not implemented'),
-      opendir: () => Effect.die('not implemented'),
-      ffprobe: () => Effect.die('not implemented'),
-    })
-  );
+  layerNoop({
+    access: (path: string) =>
+      existingPaths.has(path)
+        ? Effect.succeed(true)
+        : Effect.fail(
+            new SystemError({ module: 'FileSystem', reason: 'NotFound', method: 'access' })
+          ),
+  });
 
 describe('cleanupAudiobookFile', () => {
   beforeAll(async () => {
