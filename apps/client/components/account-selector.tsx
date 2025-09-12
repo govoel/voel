@@ -7,7 +7,7 @@ import { useSelector } from '@xstate/store/react';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { authModalStore } from '~/components/auth-modal';
+import { authModalStore, initialSyncModalStore } from '~/components/auth-modal';
 import { LogIn } from '~/components/icons/LogIn';
 import { Spinner } from '~/components/spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
@@ -226,12 +226,43 @@ export const AccountSelector = () => {
         </BottomSheetScrollView>
       </BottomSheetModal>
 
-      <AvatarIndicatorTips bottomSheetModalRef={activityIndicatorTipsModalRef} />
+      <AvatarIndicatorTipsModal bottomSheetModalRef={activityIndicatorTipsModalRef} />
+
+      <InitialSyncModal />
     </>
   );
 };
 
-const AvatarIndicatorTips = ({
+const InitialSyncModal = () => {
+  const bottomSheetModalRef = useRef<BottomSheetModalType>(null);
+
+  const presentModal = useSelector(initialSyncModalStore, (s) => s.context.present);
+  useEffect(() => {
+    if (presentModal) {
+      bottomSheetModalRef.current?.present();
+      initialSyncModalStore.trigger.resetPresent();
+    }
+  }, [presentModal]);
+
+  return (
+    <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
+      <BottomSheetScrollView>
+        <View className="pt-2 px-6 pb-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <Large>Initial sync in progress</Large>
+          <Text className="text-muted-foreground">
+            Your account is currently syncing. This may take a while depending on the size of your
+            account. You can continue to use the app while the sync is in progress.
+          </Text>
+
+          <Large>Avatar indicators</Large>
+          <AvatarIndicatorTips />
+        </View>
+      </BottomSheetScrollView>
+    </BottomSheetModal>
+  );
+};
+
+const AvatarIndicatorTipsModal = ({
   bottomSheetModalRef,
 }: {
   bottomSheetModalRef: RefObject<BottomSheetModalType | null>;
@@ -242,74 +273,82 @@ const AvatarIndicatorTips = ({
         <View className="px-6 pb-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
           <Large>Avatar indicator tips</Large>
 
-          <View className="flex-row gap-x-2">
-            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
-              <View>
-                <View className="relative border-2 rounded-full border-foreground">
-                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
-                    <AvatarFallback>
-                      <Text>TIP</Text>
-                    </AvatarFallback>
-                  </Avatar>
-                  <View className="absolute rounded-full inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90">
-                    <Spinner size={3} />
-                  </View>
-                </View>
-              </View>
-              <Text className="text-center">Attempting connection to realtime sync</Text>
-            </View>
-
-            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
-              <View>
-                <View className="relative border-2 rounded-full border-green-500">
-                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
-                    <AvatarFallback>
-                      <Text>TIP</Text>
-                    </AvatarFallback>
-                  </Avatar>
-                </View>
-              </View>
-
-              <Text className="text-center">Connected and waiting for realtime updates</Text>
-            </View>
-          </View>
-
-          <View className="flex-row gap-x-2">
-            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
-              <View>
-                <View className="relative border-2 rounded-full border-red-500">
-                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
-                    <AvatarFallback>
-                      <Text>TIP</Text>
-                    </AvatarFallback>
-                  </Avatar>
-                </View>
-              </View>
-
-              <Text className="text-center">Error connecting to realtime sync</Text>
-            </View>
-
-            <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
-              <View>
-                <View className="relative border-2 rounded-full border-primary">
-                  <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
-                    <AvatarFallback>
-                      <Text>TIP</Text>
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <View className="absolute -bottom-1 -right-1 bg-primary rounded-full min-w-5 max-w-7 p-0.5">
-                    <Text className="text-xs text-center">99</Text>
-                  </View>
-                </View>
-              </View>
-
-              <Text className="text-center">Processing 99 realtime updates</Text>
-            </View>
-          </View>
+          <AvatarIndicatorTips />
         </View>
       </BottomSheetScrollView>
     </BottomSheetModal>
+  );
+};
+
+const AvatarIndicatorTips = () => {
+  return (
+    <>
+      <View className="flex-row gap-x-2">
+        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+          <View>
+            <View className="relative border-2 rounded-full border-foreground">
+              <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                <AvatarFallback>
+                  <Text>TIP</Text>
+                </AvatarFallback>
+              </Avatar>
+              <View className="absolute rounded-full inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90">
+                <Spinner size={3} />
+              </View>
+            </View>
+          </View>
+          <Text className="text-center">Attempting connection to realtime sync</Text>
+        </View>
+
+        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+          <View>
+            <View className="relative border-2 rounded-full border-green-500">
+              <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                <AvatarFallback>
+                  <Text>TIP</Text>
+                </AvatarFallback>
+              </Avatar>
+            </View>
+          </View>
+
+          <Text className="text-center">Connected and waiting for realtime updates</Text>
+        </View>
+      </View>
+
+      <View className="flex-row gap-x-2">
+        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+          <View>
+            <View className="relative border-2 rounded-full border-red-500">
+              <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                <AvatarFallback>
+                  <Text>TIP</Text>
+                </AvatarFallback>
+              </Avatar>
+            </View>
+          </View>
+
+          <Text className="text-center">Error connecting to realtime sync</Text>
+        </View>
+
+        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+          <View>
+            <View className="relative border-2 rounded-full border-primary">
+              <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
+                <AvatarFallback>
+                  <Text>TIP</Text>
+                </AvatarFallback>
+              </Avatar>
+
+              <View className="absolute -bottom-1 -right-1 bg-primary rounded-full min-w-5 max-w-7 p-0.5">
+                <Text className="text-xs text-center">99</Text>
+              </View>
+            </View>
+          </View>
+
+          <Text className="text-center">Processing 99 realtime updates</Text>
+        </View>
+      </View>
+    </>
   );
 };
 
