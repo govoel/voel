@@ -205,6 +205,16 @@ function SignInModal({
   );
 }
 
+export const initialSyncModalStore = createStore({
+  context: {
+    present: false,
+  },
+  on: {
+    presentInitialSyncModal: () => ({ present: true }),
+    resetPresent: () => ({ present: false }),
+  },
+});
+
 const switchInstance = async ({
   current,
   switchTo,
@@ -249,6 +259,8 @@ const switchInstance = async ({
         instanceStore.trigger.setError({ error: 'Failed to insert new instance' });
         return;
       }
+
+      initialSyncModalStore.trigger.presentInitialSyncModal();
     } else {
       await mainDb
         .updateTable('accounts')

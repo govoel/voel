@@ -47,7 +47,7 @@ jobs:
           skip_after_successful_duplicate: 'true'
 
   android-app:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     needs:
       - should-skip
@@ -137,7 +137,7 @@ jobs:
             return path.join(os.homedir(), '.cache', 'ccache');
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
+        uses: hendrikmuhs/ccache-action@bfa03e1de4d7f7c3e80ad9109feedd05c4f5a716 # v1.2.19
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           create-symlink: false
