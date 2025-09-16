@@ -196,7 +196,7 @@ jobs:
 
       - name: Upload Debug Android App
         if: steps.debug-runtimeversion.outputs.exists == 'false'
-        uses: LanceMcCarthy/Action-AzureBlobUpload@f5900ad6fa57b2faf83b2a1652e9c65b8442a5f1 # v3.4.0
+        uses: LanceMcCarthy/Action-AzureBlobUpload@caa002d5a92f7436062e44f38031c0c3ff17011e # v3.5.0
         with:
           connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           container_name: artifacts
@@ -230,7 +230,7 @@ jobs:
           NODE_ENV: production
 
       - name: Upload Preview Android App
-        uses: LanceMcCarthy/Action-AzureBlobUpload@f5900ad6fa57b2faf83b2a1652e9c65b8442a5f1 # v3.4.0
+        uses: LanceMcCarthy/Action-AzureBlobUpload@caa002d5a92f7436062e44f38031c0c3ff17011e # v3.5.0
         if: steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
