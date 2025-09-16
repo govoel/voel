@@ -8,6 +8,6 @@
     "packages/*"
   ],
   "devDependencies": {
-    "bun-types": "1.2.21"
+    "bun-types": "1.2.22"
   }
 }
