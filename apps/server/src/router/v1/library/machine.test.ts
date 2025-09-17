@@ -79,6 +79,166 @@ const makeFsLayer = async (
   });
 };
 
+const makeCachedAudibleLayer = async () => {
+  const {
+    Audible,
+    ProductBookSchema,
+    ProductSeriesSchema,
+    BookSearchResponseSchema,
+    ChapterResponseSchema,
+  } = await import('./audible');
+
+  return Effect.provideServiceEffect(
+    Audible,
+    Effect.gen(function* () {
+      const realAudible = yield* Audible;
+
+      const kv = yield* KeyValueStore.KeyValueStore;
+
+      const getAuthorsByAsinKV = kv.forSchema(
+        Schema.Struct({
+          asin: Schema.String,
+          name: Schema.String,
+          avatar: Schema.String,
+          about: Schema.NullOr(Schema.String),
+        })
+      );
+
+      const getBooksBySearchKV = kv.forSchema(BookSearchResponseSchema.fields.products);
+
+      const getChaptersByAsinKV = kv.forSchema(
+        ChapterResponseSchema.fields.content_metadata.fields.chapter_info
+      );
+
+      const getProductByAsinKV = kv.forSchema(Schema.Union(ProductBookSchema, ProductSeriesSchema));
+
+      const generateThumbhashKV = kv.forSchema(Schema.String);
+
+      return new Audible({
+        getAuthorByAsin: (params) =>
+          Effect.gen(function* () {
+            const cache = yield* getAuthorsByAsinKV
+              .get(`getAuthorsByAsin:${params.asin}`)
+              .pipe(Effect.catchAll(() => Effect.die('unreachable')));
+
+            if (Option.isSome(cache)) {
+              return cache.value;
+            } else if (process.env.LOAD_CACHE === 'yes') {
+              return yield* realAudible
+                .getAuthorByAsin(params)
+                .pipe(
+                  Effect.tap((result) =>
+                    getAuthorsByAsinKV
+                      .set(`getAuthorsByAsin:${params.asin}`, result)
+                      .pipe(Effect.catchAll(() => Effect.die('unreachable')))
+                  )
+                );
+            } else {
+              return yield* Effect.die('unreachable');
+            }
+          }),
+        getBooksBySearch: (params) =>
+          Effect.gen(function* () {
+            const cache = yield* getBooksBySearchKV
+              .get(`getBooksBySearch:${Bun.hash.rapidhash(JSON.stringify(params))}`)
+              .pipe(Effect.catchAll(() => Effect.die('unreachable')));
+
+            if (Option.isSome(cache)) {
+              return cache.value;
+            } else if (process.env.LOAD_CACHE === 'yes') {
+              return yield* realAudible
+                .getBooksBySearch(params)
+                .pipe(
+                  Effect.tap((result) =>
+                    getBooksBySearchKV
+                      .set(`getBooksBySearch:${Bun.hash.rapidhash(JSON.stringify(params))}`, result)
+                      .pipe(Effect.catchAll(() => Effect.die('unreachable')))
+                  )
+                );
+            } else {
+              return yield* Effect.die('unreachable');
+            }
+          }),
+        getChaptersByAsin: (params) =>
+          Effect.gen(function* () {
+            const cache = yield* getChaptersByAsinKV
+              .get(`getChaptersByAsin:${params.asin}`)
+              .pipe(Effect.catchAll(() => Effect.die('unreachable')));
+
+            if (Option.isSome(cache)) {
+              return cache.value;
+            } else if (process.env.LOAD_CACHE === 'yes') {
+              return yield* realAudible
+                .getChaptersByAsin(params)
+                .pipe(
+                  Effect.tap((result) =>
+                    getChaptersByAsinKV
+                      .set(`getChaptersByAsin:${params.asin}`, result)
+                      .pipe(Effect.catchAll(() => Effect.die('unreachable')))
+                  )
+                );
+            } else {
+              return yield* Effect.die('unreachable');
+            }
+          }),
+        getProductByAsin: (params) =>
+          Effect.gen(function* () {
+            const cache = yield* getProductByAsinKV
+              .get(`getProductByAsin:${params.asin}`)
+              .pipe(Effect.catchAll(() => Effect.die('unreachable')));
+
+            if (Option.isSome(cache)) {
+              return cache.value;
+            } else if (process.env.LOAD_CACHE === 'yes') {
+              return yield* realAudible
+                .getProductByAsin(params)
+                .pipe(
+                  Effect.tap((result) =>
+                    getProductByAsinKV
+                      .set(`getProductByAsin:${params.asin}`, result)
+                      .pipe(Effect.catchAll(() => Effect.die('unreachable')))
+                  )
+                );
+            } else {
+              return yield* Effect.die('unreachable');
+            }
+          }),
+        generateThumbhash: (params) =>
+          Effect.gen(function* () {
+            const cache = yield* generateThumbhashKV
+              .get(`generateThumbhash:${Bun.hash.rapidhash(params.imageURL)}`)
+              .pipe(Effect.catchAll(() => Effect.die('unreachable')));
+
+            if (Option.isSome(cache)) {
+              return cache.value;
+            } else if (process.env.LOAD_CACHE === 'yes') {
+              return yield* realAudible
+                .generateThumbhash(params)
+                .pipe(
+                  Effect.tap((result) =>
+                    generateThumbhashKV
+                      .set(`generateThumbhash:${Bun.hash.rapidhash(params.imageURL)}`, result)
+                      .pipe(Effect.catchAll(() => Effect.die('unreachable')))
+                  )
+                );
+            } else {
+              return yield* Effect.die('unreachable');
+            }
+          }),
+      });
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          Audible.Default,
+          KeyValueStore.layerFileSystem(`${import.meta.dir}/__http__`).pipe(
+            Layer.provide(Layer.mergeAll(Path.layer, BunFileSystem.layer))
+          )
+        )
+      )
+    )
+  );
+};
+
 describe('machine', () => {
   beforeEach(async () => {
     process.env.DATABASE_PATH = ':memory:';
@@ -112,320 +272,161 @@ describe('machine', () => {
     await db.deleteFrom('library').execute();
   });
 
-  test('should delete identified files after .voelignore is added', async () => {
-    const { db } = await import('@/libs/db');
-    const { libraryScanEffect } = await import('./machine');
-    const {
-      Audible,
-      ProductBookSchema,
-      ProductSeriesSchema,
-      BookSearchResponseSchema,
-      ChapterResponseSchema,
-    } = await import('./audible');
+  test.each(['.voelignore', '.nomedia'])(
+    'should delete identified files after %p is added',
+    async (ignoreFilename) => {
+      const { db } = await import('@/libs/db');
+      const { libraryScanEffect } = await import('./machine');
+      const { Audible } = await import('./audible');
 
-    const insertedLibrary = await db
-      .insertInto('library')
-      .values({ name: 'LibOne', path: '/library' })
-      .returning(['id', 'name', 'path'])
-      .executeTakeFirstOrThrow();
+      const insertedLibrary = await db
+        .insertInto('library')
+        .values({ name: 'LibOne', path: '/library' })
+        .returning(['id', 'name', 'path'])
+        .executeTakeFirstOrThrow();
 
-    const layer1 = Layer.mergeAll(
-      await makeFsLayer([
-        {
-          path: '/library/a/fake.m4b',
-          ffprobe: {
-            chapters: [],
-            format: {
-              start_time: 0,
-              duration: 1000,
-              tags: {
-                asin: 'B0DNNM3KN4',
-                album: 'We Are All Guilty Here',
-                artist: 'Karin Slaughter',
+      const layer1 = Layer.mergeAll(
+        await makeFsLayer([
+          {
+            path: '/library/a/fake.m4b',
+            ffprobe: {
+              chapters: [],
+              format: {
+                start_time: 0,
+                duration: 1000,
+                tags: {
+                  asin: 'B0DNNM3KN4',
+                  album: 'We Are All Guilty Here',
+                  artist: 'Karin Slaughter',
+                },
               },
             },
           },
-        },
-      ]),
-      Path.layer,
-      Hash.Default
-    );
+        ]),
+        Path.layer,
+        Hash.Default
+      );
 
-    await Effect.runPromise(
-      libraryScanEffect({
-        id: insertedLibrary.id,
-        name: insertedLibrary.name,
-        path: insertedLibrary.path,
-      }).pipe(
-        Effect.provide(layer1),
-        Effect.provideServiceEffect(
-          Audible,
-          Effect.gen(function* () {
-            const realAudible = yield* Audible;
+      await Effect.runPromise(
+        libraryScanEffect({
+          id: insertedLibrary.id,
+          name: insertedLibrary.name,
+          path: insertedLibrary.path,
+        }).pipe(Effect.provide(layer1), await makeCachedAudibleLayer())
+      );
 
-            const kv = yield* KeyValueStore.KeyValueStore;
+      const dbBook1 = await db
+        .selectFrom('book')
+        .select(['book.id', 'book.asin'])
+        .where('book.asin', '=', 'B0DNNM3KN4')
+        .executeTakeFirstOrThrow();
 
-            const getAuthorsByAsinKV = kv.forSchema(
-              Schema.Struct({
-                asin: Schema.String,
-                name: Schema.String,
-                avatar: Schema.String,
-                about: Schema.NullOr(Schema.String),
-              })
-            );
+      expect(dbBook1.asin).toBe('B0DNNM3KN4');
 
-            const getBooksBySearchKV = kv.forSchema(BookSearchResponseSchema.fields.products);
+      const dbFile = await db
+        .selectFrom('audiobookFile')
+        .select(['audiobookFile.id', 'audiobookFile.path', 'audiobookFile.deletedAt'])
+        .where('audiobookFile.bookId', '=', dbBook1.id)
+        .executeTakeFirstOrThrow();
 
-            const getChaptersByAsinKV = kv.forSchema(
-              ChapterResponseSchema.fields.content_metadata.fields.chapter_info
-            );
+      expect(dbFile.path).toBe('/library/a/fake.m4b');
+      expect(dbFile.deletedAt).toBeNull();
 
-            const getProductByAsinKV = kv.forSchema(
-              Schema.Union(ProductBookSchema, ProductSeriesSchema)
-            );
+      const layer2 = Layer.mergeAll(
+        await makeFsLayer([
+          { path: `/library/a/${ignoreFilename}` },
+          {
+            path: '/library/a/fake.m4b',
+            ffprobe: {
+              chapters: [],
+              format: {
+                start_time: 0,
+                duration: 1000,
+                tags: {
+                  asin: 'B0DNNM3KN4',
+                  album: 'We Are All Guilty Here',
+                  artist: 'Karin Slaughter',
+                },
+              },
+            },
+          },
+        ]),
+        Path.layer,
+        Hash.Default,
+        Audible.Default
+      );
 
-            const generateThumbhashKV = kv.forSchema(Schema.String);
+      await Effect.runPromise(
+        libraryScanEffect({
+          id: insertedLibrary.id,
+          name: insertedLibrary.name,
+          path: insertedLibrary.path,
+        }).pipe(Effect.provide(layer2))
+      );
 
-            return new Audible({
-              getAuthorByAsin: (params) =>
-                Effect.gen(function* () {
-                  const cache = yield* getAuthorsByAsinKV
-                    .get(`getAuthorsByAsin:${params.asin}`)
-                    .pipe(Effect.catchAll(() => Effect.die('unreachable')));
+      const dbFile2 = await db
+        .selectFrom('audiobookFile')
+        .select(['audiobookFile.id', 'audiobookFile.path', 'audiobookFile.deletedAt'])
+        .where('audiobookFile.bookId', '=', dbBook1.id)
+        .executeTakeFirstOrThrow();
 
-                  if (Option.isSome(cache)) {
-                    return cache.value;
-                  } else if (process.env.LOAD_CACHE === 'yes') {
-                    return yield* realAudible
-                      .getAuthorByAsin(params)
-                      .pipe(
-                        Effect.tap((result) =>
-                          getAuthorsByAsinKV
-                            .set(`getAuthorsByAsin:${params.asin}`, result)
-                            .pipe(Effect.catchAll(() => Effect.die('unreachable')))
-                        )
-                      );
-                  } else {
-                    return yield* Effect.die('unreachable');
-                  }
-                }),
-              getBooksBySearch: (params) =>
-                Effect.gen(function* () {
-                  const cache = yield* getBooksBySearchKV
-                    .get(`getBooksBySearch:${Bun.hash.rapidhash(JSON.stringify(params))}`)
-                    .pipe(Effect.catchAll(() => Effect.die('unreachable')));
+      expect(dbFile2.path).toBe('/library/a/fake.m4b');
+      expect(dbFile2.deletedAt).not.toBeNull();
 
-                  if (Option.isSome(cache)) {
-                    return cache.value;
-                  } else if (process.env.LOAD_CACHE === 'yes') {
-                    return yield* realAudible
-                      .getBooksBySearch(params)
-                      .pipe(
-                        Effect.tap((result) =>
-                          getBooksBySearchKV
-                            .set(
-                              `getBooksBySearch:${Bun.hash.rapidhash(JSON.stringify(params))}`,
-                              result
-                            )
-                            .pipe(Effect.catchAll(() => Effect.die('unreachable')))
-                        )
-                      );
-                  } else {
-                    return yield* Effect.die('unreachable');
-                  }
-                }),
-              getChaptersByAsin: (params) =>
-                Effect.gen(function* () {
-                  const cache = yield* getChaptersByAsinKV
-                    .get(`getChaptersByAsin:${params.asin}`)
-                    .pipe(Effect.catchAll(() => Effect.die('unreachable')));
-
-                  if (Option.isSome(cache)) {
-                    return cache.value;
-                  } else if (process.env.LOAD_CACHE === 'yes') {
-                    return yield* realAudible
-                      .getChaptersByAsin(params)
-                      .pipe(
-                        Effect.tap((result) =>
-                          getChaptersByAsinKV
-                            .set(`getChaptersByAsin:${params.asin}`, result)
-                            .pipe(Effect.catchAll(() => Effect.die('unreachable')))
-                        )
-                      );
-                  } else {
-                    return yield* Effect.die('unreachable');
-                  }
-                }),
-              getProductByAsin: (params) =>
-                Effect.gen(function* () {
-                  const cache = yield* getProductByAsinKV
-                    .get(`getProductByAsin:${params.asin}`)
-                    .pipe(Effect.catchAll(() => Effect.die('unreachable')));
-
-                  if (Option.isSome(cache)) {
-                    return cache.value;
-                  } else if (process.env.LOAD_CACHE === 'yes') {
-                    return yield* realAudible
-                      .getProductByAsin(params)
-                      .pipe(
-                        Effect.tap((result) =>
-                          getProductByAsinKV
-                            .set(`getProductByAsin:${params.asin}`, result)
-                            .pipe(Effect.catchAll(() => Effect.die('unreachable')))
-                        )
-                      );
-                  } else {
-                    return yield* Effect.die('unreachable');
-                  }
-                }),
-              generateThumbhash: (params) =>
-                Effect.gen(function* () {
-                  const cache = yield* generateThumbhashKV
-                    .get(`generateThumbhash:${Bun.hash.rapidhash(params.imageURL)}`)
-                    .pipe(Effect.catchAll(() => Effect.die('unreachable')));
-
-                  if (Option.isSome(cache)) {
-                    return cache.value;
-                  } else if (process.env.LOAD_CACHE === 'yes') {
-                    return yield* realAudible
-                      .generateThumbhash(params)
-                      .pipe(
-                        Effect.tap((result) =>
-                          generateThumbhashKV
-                            .set(`generateThumbhash:${Bun.hash.rapidhash(params.imageURL)}`, result)
-                            .pipe(Effect.catchAll(() => Effect.die('unreachable')))
-                        )
-                      );
-                  } else {
-                    return yield* Effect.die('unreachable');
-                  }
-                }),
-            });
-          }).pipe(
-            Effect.provide(
-              Layer.mergeAll(
-                Audible.Default,
-                KeyValueStore.layerFileSystem(`${import.meta.dir}/__http__`).pipe(
-                  Layer.provide(Layer.mergeAll(Path.layer, BunFileSystem.layer))
+      const spyFetch = spyOn(global, 'fetch');
+      const layer3 = Layer.mergeAll(
+        await makeFsLayer([
+          {
+            path: '/library/a/fake.m4b',
+            ffprobe: {
+              chapters: [],
+              format: {
+                start_time: 0,
+                duration: 1000,
+                tags: {
+                  asin: 'B0DNNM3KN4',
+                  album: 'We Are All Guilty Here',
+                  artist: 'Karin Slaughter',
+                },
+              },
+            },
+          },
+        ]),
+        Path.layer,
+        Hash.Default,
+        Audible.DefaultWithoutDependencies.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              Turndown.Default,
+              FetchHttpClient.layer.pipe(
+                Layer.provide(
+                  Layer.succeed(FetchHttpClient.Fetch, spyFetch as unknown as typeof fetch)
                 )
               )
             )
           )
         )
-      )
-    );
+      );
 
-    const dbBook1 = await db
-      .selectFrom('book')
-      .select(['book.id', 'book.asin'])
-      .where('book.asin', '=', 'B0DNNM3KN4')
-      .executeTakeFirstOrThrow();
+      await Effect.runPromise(
+        libraryScanEffect({
+          id: insertedLibrary.id,
+          name: insertedLibrary.name,
+          path: insertedLibrary.path,
+        }).pipe(Effect.provide(layer3))
+      );
 
-    expect(dbBook1.asin).toBe('B0DNNM3KN4');
+      const dbFile3 = await db
+        .selectFrom('audiobookFile')
+        .select(['audiobookFile.id', 'audiobookFile.path', 'audiobookFile.deletedAt'])
+        .where('audiobookFile.bookId', '=', dbBook1.id)
+        .executeTakeFirstOrThrow();
 
-    const dbFile = await db
-      .selectFrom('audiobookFile')
-      .select(['audiobookFile.id', 'audiobookFile.path', 'audiobookFile.deletedAt'])
-      .where('audiobookFile.bookId', '=', dbBook1.id)
-      .executeTakeFirstOrThrow();
+      expect(dbFile3.path).toBe('/library/a/fake.m4b');
+      expect(dbFile3.deletedAt).toBeNull();
 
-    expect(dbFile.path).toBe('/library/a/fake.m4b');
-    expect(dbFile.deletedAt).toBeNull();
-
-    const layer2 = Layer.mergeAll(
-      await makeFsLayer([
-        { path: '/library/a/.voelignore' },
-        {
-          path: '/library/a/fake.m4b',
-          ffprobe: {
-            chapters: [],
-            format: {
-              start_time: 0,
-              duration: 1000,
-              tags: {
-                asin: 'B0DNNM3KN4',
-                album: 'We Are All Guilty Here',
-                artist: 'Karin Slaughter',
-              },
-            },
-          },
-        },
-      ]),
-      Path.layer,
-      Hash.Default,
-      Audible.Default
-    );
-
-    await Effect.runPromise(
-      libraryScanEffect({
-        id: insertedLibrary.id,
-        name: insertedLibrary.name,
-        path: insertedLibrary.path,
-      }).pipe(Effect.provide(layer2))
-    );
-
-    const dbFile2 = await db
-      .selectFrom('audiobookFile')
-      .select(['audiobookFile.id', 'audiobookFile.path', 'audiobookFile.deletedAt'])
-      .where('audiobookFile.bookId', '=', dbBook1.id)
-      .executeTakeFirstOrThrow();
-
-    expect(dbFile2.path).toBe('/library/a/fake.m4b');
-    expect(dbFile2.deletedAt).not.toBeNull();
-
-    const spyFetch = spyOn(global, 'fetch');
-    const layer3 = Layer.mergeAll(
-      await makeFsLayer([
-        {
-          path: '/library/a/fake.m4b',
-          ffprobe: {
-            chapters: [],
-            format: {
-              start_time: 0,
-              duration: 1000,
-              tags: {
-                asin: 'B0DNNM3KN4',
-                album: 'We Are All Guilty Here',
-                artist: 'Karin Slaughter',
-              },
-            },
-          },
-        },
-      ]),
-      Path.layer,
-      Hash.Default,
-      Audible.DefaultWithoutDependencies.pipe(
-        Layer.provide(
-          Layer.mergeAll(
-            Turndown.Default,
-            FetchHttpClient.layer.pipe(
-              Layer.provide(
-                Layer.succeed(FetchHttpClient.Fetch, spyFetch as unknown as typeof fetch)
-              )
-            )
-          )
-        )
-      )
-    );
-
-    await Effect.runPromise(
-      libraryScanEffect({
-        id: insertedLibrary.id,
-        name: insertedLibrary.name,
-        path: insertedLibrary.path,
-      }).pipe(Effect.provide(layer3))
-    );
-
-    const dbFile3 = await db
-      .selectFrom('audiobookFile')
-      .select(['audiobookFile.id', 'audiobookFile.path', 'audiobookFile.deletedAt'])
-      .where('audiobookFile.bookId', '=', dbBook1.id)
-      .executeTakeFirstOrThrow();
-
-    expect(dbFile3.path).toBe('/library/a/fake.m4b');
-    expect(dbFile3.deletedAt).toBeNull();
-
-    // book should come back without the identification process being triggered
-    expect(spyFetch).not.toHaveBeenCalled();
-  });
+      // book should come back without the identification process being triggered
+      expect(spyFetch).not.toHaveBeenCalled();
+    }
+  );
 });
