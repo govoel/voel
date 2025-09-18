@@ -134,7 +134,7 @@
         "sharp": "0.34.3",
         "thumbhash": "0.1.1",
         "turndown": "7.2.1",
-        "xstate": "5.21.0",
+        "xstate": "5.22.0",
         "zod": "4.1.9",
       },
       "devDependencies": {
@@ -2613,7 +2613,7 @@
 
     "xmlbuilder": ["xmlbuilder@14.0.0", "", {}, "sha512-ts+B2rSe4fIckR6iquDjsKbQFK2NlUk6iG5nf14mDEyldgoc2nEKZ3jZWMPTxGQwVgToSjt6VGIho1H8/fNFTg=="],
 
-    "xstate": ["xstate@5.21.0", "", {}, "sha512-y4wmqxjyAa0tgz4k3m/MgTF1kDOahE5+xLfWt5eh1sk+43DatLhKlI8lQDJZpvihZavjbD3TUgy2PRMphhhqgQ=="],
+    "xstate": ["xstate@5.22.0", "", {}, "sha512-5d73WWQaAozOaHl/la5TuriybLab9DNkzzYEte5UG2YwsVCR7SSDZJkyS6qfaOYGCFOjZjjSwEEVro4iqN3Slw=="],
 
     "y18n": ["y18n@5.0.8", "", {}, "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA=="],
 

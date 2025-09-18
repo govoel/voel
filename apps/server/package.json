@@ -28,7 +28,7 @@
     "sharp": "0.34.3",
     "thumbhash": "0.1.1",
     "turndown": "7.2.1",
-    "xstate": "5.21.0",
+    "xstate": "5.22.0",
     "zod": "4.1.9"
   },
   "devDependencies": {
