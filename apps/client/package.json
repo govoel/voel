@@ -125,7 +125,7 @@
     "ajv": "8.17.1",
     "bun-types": "1.2.22",
     "eoas": "2.3.9",
-    "eslint": "9.35.0",
+    "eslint": "9.36.0",
     "eslint-config-expo": "~9.2.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import": "2.32.0",
