@@ -49,7 +49,7 @@
         "better-auth": "1.3.7",
         "class-variance-authority": "0.7.1",
         "clsx": "2.1.1",
-        "eventsource-client": "1.1.4",
+        "eventsource-client": "1.2.0",
         "expo": "53.0.22",
         "expo-application": "~6.1.5",
         "expo-build-properties": "~0.14.8",
@@ -1427,7 +1427,7 @@
 
     "event-target-shim": ["event-target-shim@5.0.1", "", {}, "sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ=="],
 
-    "eventsource-client": ["eventsource-client@1.1.4", "", { "dependencies": { "eventsource-parser": "^3.0.0" } }, "sha512-CKnqZTwXCnHN2EqrEB9eLSjMMRqHum09VOsikkgSPoa2Jr2XgQnX7P1Fxhnnj/UHxi3GQ2xVsXDKIktEes07bg=="],
+    "eventsource-client": ["eventsource-client@1.2.0", "", { "dependencies": { "eventsource-parser": "^3.0.0" } }, "sha512-kDI75RSzO3TwyG/K9w1ap8XwqSPcwi6jaMkNulfVeZmSeUM49U8kUzk1s+vKNt0tGrXgK47i+620Yasn1ccFiw=="],
 
     "eventsource-parser": ["eventsource-parser@3.0.3", "", {}, "sha512-nVpZkTMM9rF6AQ9gPJpFsNAMt48wIzB5TQgiTLdHiuO8XEDhUgZEhqKlZWXbIzo9VmJ/HvysHqEaVeD5v9TPvA=="],
 
