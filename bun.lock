@@ -88,7 +88,7 @@
         "sonner-native": "0.21.1",
         "tailwind-merge": "3.3.1",
         "tailwindcss-animate": "1.0.7",
-        "zod": "4.1.9",
+        "zod": "4.1.11",
       },
       "devDependencies": {
         "@babel/core": "7.28.0",
@@ -135,7 +135,7 @@
         "thumbhash": "0.1.1",
         "turndown": "7.2.1",
         "xstate": "5.21.0",
-        "zod": "4.1.9",
+        "zod": "4.1.11",
       },
       "devDependencies": {
         "@effect/language-service": "0.40.0",
@@ -173,7 +173,7 @@
       },
       "peerDependencies": {
         "typescript": "^5",
-        "zod": "4.1.9",
+        "zod": "4.1.11",
       },
     },
     "packages/source-tap": {
@@ -2627,7 +2627,7 @@
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 
-    "zod": ["zod@4.1.9", "", {}, "sha512-HI32jTq0AUAC125z30E8bQNz0RQ+9Uc+4J7V97gLYjZVKRjeydPgGt6dvQzFrav7MYOUGFqqOGiHpA/fdbd0cQ=="],
+    "zod": ["zod@4.1.11", "", {}, "sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg=="],
 
     "zod-validation-error": ["zod-validation-error@3.5.3", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-OT5Y8lbUadqVZCsnyFaTQ4/O2mys4tj7PqhdbBCp7McPwvIEKfPtdA6QfPeFQK2/Rz5LgwmAXRJTugBNBi0btw=="],
 
