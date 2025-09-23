@@ -10,6 +10,7 @@ import { useSelector } from '@xstate/store/react';
 import { useAuthQuery } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
+import * as ExpoCrypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { CompiledQuery, type Insertable, Kysely } from 'kysely';
 import { toast } from 'sonner-native';
@@ -50,6 +51,9 @@ import {
 import Player from '~/modules/voel-audio';
 
 import '@azure/core-asynciterator-polyfill';
+
+// @ts-expect-error enough of a polyfill for better-auth, they don't use crypto.subtle
+global.crypto = ExpoCrypto;
 
 export const createAuthClient = (
   baseURL: string,
