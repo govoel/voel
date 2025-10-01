@@ -19,7 +19,7 @@ const makeFsLayer = (existingPaths: Set<string>) =>
           ),
   });
 
-describe('cleanupAudiobookFile', () => {
+describe('cleans up audiobook files', () => {
   beforeAll(async () => {
     process.env.DATABASE_PATH = ':memory:';
     const { db } = await import('@/libs/db');
@@ -53,12 +53,11 @@ describe('cleanupAudiobookFile', () => {
   afterEach(async () => {
     const { db } = await import('@/libs/db');
     await sql`delete from "audiobookFile"`.execute(db);
-    await sql`delete from "unidentifiedAudiobookFile"`.execute(db);
     await sql`delete from "book"`.execute(db);
     await sql`delete from "library"`.execute(db);
   });
 
-  describe('cleanupAudiobookFile', () => {
+  describe('indentified audiobook files', () => {
     it('removes audiobookFile row if file is missing', async () => {
       const { db } = await import('@/libs/db');
       const { cleanupAudiobookFile } = await import('./cleanupAudiobookFile');
@@ -70,7 +69,7 @@ describe('cleanupAudiobookFile', () => {
           bookId: 1,
           path: '/missing/file.mp3',
           mtimeMs: 0,
-          metadataHash: '',
+          partialFileHash: '',
           durationMs: 0,
           disc: 0,
           track: 0,
@@ -79,7 +78,9 @@ describe('cleanupAudiobookFile', () => {
 
       const layer = Layer.merge(makeFsLayer(new Set()), Path.layer);
 
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 1 }).pipe(Effect.provide(layer)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 1, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
+      );
 
       const rows = await db
         .selectFrom('audiobookFile')
@@ -102,7 +103,7 @@ describe('cleanupAudiobookFile', () => {
             bookId: 11,
             path: '/lib11/missing.mp3',
             mtimeMs: 0,
-            metadataHash: '',
+            partialFileHash: '',
             durationMs: 0,
             disc: 0,
             track: 0,
@@ -112,7 +113,7 @@ describe('cleanupAudiobookFile', () => {
             bookId: 12,
             path: '/lib12/existing.mp3',
             mtimeMs: 0,
-            metadataHash: '',
+            partialFileHash: '',
             durationMs: 0,
             disc: 0,
             track: 0,
@@ -121,7 +122,9 @@ describe('cleanupAudiobookFile', () => {
         .execute();
 
       const layer = Layer.merge(makeFsLayer(new Set(['/lib12/existing.mp3'])), Path.layer);
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 12 }).pipe(Effect.provide(layer)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 12, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
+      );
 
       const rows = await db
         .selectFrom('audiobookFile')
@@ -133,7 +136,9 @@ describe('cleanupAudiobookFile', () => {
       expect(rows).toHaveLength(2);
 
       const layer2 = Layer.merge(makeFsLayer(new Set([])), Path.layer);
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 12 }).pipe(Effect.provide(layer2)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 12, ignoredDirs: new Set() }).pipe(Effect.provide(layer2))
+      );
 
       const rows2 = await db
         .selectFrom('audiobookFile')
@@ -156,7 +161,7 @@ describe('cleanupAudiobookFile', () => {
           bookId: 2,
           path: '/existing/file.mp3',
           mtimeMs: 0,
-          metadataHash: '',
+          partialFileHash: '',
           durationMs: 0,
           disc: 0,
           track: 0,
@@ -165,7 +170,9 @@ describe('cleanupAudiobookFile', () => {
 
       const layer = Layer.merge(makeFsLayer(new Set(['/existing/file.mp3'])), Path.layer);
 
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 2 }).pipe(Effect.provide(layer)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 2, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
+      );
 
       const rows = await db
         .selectFrom('audiobookFile')
@@ -189,7 +196,7 @@ describe('cleanupAudiobookFile', () => {
           bookId: 3,
           path: filePath,
           mtimeMs: 0,
-          metadataHash: '',
+          partialFileHash: '',
           durationMs: 0,
           disc: 0,
           track: 0,
@@ -200,11 +207,13 @@ describe('cleanupAudiobookFile', () => {
 
       const layer = Layer.merge(makeFsLayer(new Set([nomediaPath, filePath])), Path.layer);
 
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 3 }).pipe(Effect.provide(layer)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 3, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
+      );
 
       const rows = await db
         .selectFrom('audiobookFile')
-        .where('audiobookFile.deletedAt', 'is', null)
+        .where('audiobookFile.deletedAt', 'is not', null)
         .select('audiobookFile.path')
         .execute();
 
@@ -224,7 +233,7 @@ describe('cleanupAudiobookFile', () => {
           bookId: 4,
           path: filePath,
           mtimeMs: 0,
-          metadataHash: '',
+          partialFileHash: '',
           durationMs: 0,
           disc: 0,
           track: 0,
@@ -235,11 +244,13 @@ describe('cleanupAudiobookFile', () => {
 
       const layer = Layer.merge(makeFsLayer(new Set([voelignorePath, filePath])), Path.layer);
 
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 4 }).pipe(Effect.provide(layer)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 4, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
+      );
 
       const rows = await db
         .selectFrom('audiobookFile')
-        .where('audiobookFile.deletedAt', 'is', null)
+        .where('audiobookFile.deletedAt', 'is not', null)
         .select('audiobookFile.path')
         .execute();
 
@@ -259,7 +270,7 @@ describe('cleanupAudiobookFile', () => {
           bookId: 13,
           path: filePath,
           mtimeMs: 0,
-          metadataHash: '',
+          partialFileHash: '',
           durationMs: 0,
           disc: 0,
           track: 0,
@@ -271,7 +282,9 @@ describe('cleanupAudiobookFile', () => {
 
       const layer = Layer.merge(makeFsLayer(new Set([nomediaPath, filePath])), Path.layer);
 
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 13 }).pipe(Effect.provide(layer)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 13, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
+      );
 
       const rows = await db
         .selectFrom('audiobookFile')
@@ -297,7 +310,7 @@ describe('cleanupAudiobookFile', () => {
             bookId: 14,
             path: file1,
             mtimeMs: 0,
-            metadataHash: '',
+            partialFileHash: '',
             durationMs: 0,
             disc: 0,
             track: 0,
@@ -307,7 +320,7 @@ describe('cleanupAudiobookFile', () => {
             bookId: 15,
             path: file2,
             mtimeMs: 0,
-            metadataHash: '',
+            partialFileHash: '',
             durationMs: 0,
             disc: 0,
             track: 0,
@@ -317,7 +330,9 @@ describe('cleanupAudiobookFile', () => {
 
       const layer = Layer.merge(makeFsLayer(new Set([file1, file2])), Path.layer);
 
-      await Effect.runPromise(cleanupAudiobookFile({ libraryId: 14 }).pipe(Effect.provide(layer)));
+      await Effect.runPromise(
+        cleanupAudiobookFile({ libraryId: 14, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
+      );
 
       const rows = await db
         .selectFrom('audiobookFile')
@@ -329,13 +344,13 @@ describe('cleanupAudiobookFile', () => {
     });
   });
 
-  describe('cleanupUnidentifiedAudiobookFile', () => {
-    it('removes unidentifiedAudiobookFile if file is missing', async () => {
+  describe('unidentified audiobook files', () => {
+    it('removes unidentified audiobookFile if file is missing', async () => {
       const { db } = await import('@/libs/db');
-      const { cleanupUnidentifiedAudiobookFile } = await import('./cleanupAudiobookFile');
+      const { cleanupAudiobookFile } = await import('./cleanupAudiobookFile');
 
       await db
-        .insertInto('unidentifiedAudiobookFile')
+        .insertInto('audiobookFile')
         .values({
           libraryId: 5,
           path: '/missing/unidentified.mp3',
@@ -344,34 +359,33 @@ describe('cleanupAudiobookFile', () => {
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
           mtimeMs: 0,
-          metadataHash: '',
-          metadata: '{}',
+          partialFileHash: null,
         })
         .execute();
 
       const layer = Layer.merge(makeFsLayer(new Set()), Path.layer);
 
       await Effect.runPromise(
-        cleanupUnidentifiedAudiobookFile({ libraryId: 5 }).pipe(Effect.provide(layer))
+        cleanupAudiobookFile({ libraryId: 5, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
       );
 
       const rows = await db
-        .selectFrom('unidentifiedAudiobookFile')
-        .where('unidentifiedAudiobookFile.deletedAt', 'is', null)
-        .select('unidentifiedAudiobookFile.path')
+        .selectFrom('audiobookFile')
+        .where('audiobookFile.deletedAt', 'is', null)
+        .select('audiobookFile.path')
         .execute();
 
       expect(rows).toHaveLength(0);
     });
 
-    it('removes unidentifiedAudiobookFile when parent dir contains .nomedia', async () => {
+    it('removes unidentified audiobookFile when parent dir contains .nomedia', async () => {
       const { db } = await import('@/libs/db');
-      const { cleanupUnidentifiedAudiobookFile } = await import('./cleanupAudiobookFile');
+      const { cleanupAudiobookFile } = await import('./cleanupAudiobookFile');
 
       const filePath = '/x/y/unidentified.mp3';
 
       await db
-        .insertInto('unidentifiedAudiobookFile')
+        .insertInto('audiobookFile')
         .values({
           libraryId: 6,
           path: filePath,
@@ -380,8 +394,7 @@ describe('cleanupAudiobookFile', () => {
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
           mtimeMs: 0,
-          metadataHash: '',
-          metadata: '{}',
+          partialFileHash: null,
         })
         .execute();
 
@@ -390,26 +403,26 @@ describe('cleanupAudiobookFile', () => {
       const layer = Layer.merge(makeFsLayer(new Set([nomediaPath])), Path.layer);
 
       await Effect.runPromise(
-        cleanupUnidentifiedAudiobookFile({ libraryId: 6 }).pipe(Effect.provide(layer))
+        cleanupAudiobookFile({ libraryId: 6, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
       );
 
       const rows = await db
-        .selectFrom('unidentifiedAudiobookFile')
-        .where('unidentifiedAudiobookFile.deletedAt', 'is', null)
-        .select('unidentifiedAudiobookFile.path')
+        .selectFrom('audiobookFile')
+        .where('audiobookFile.deletedAt', 'is', null)
+        .select('audiobookFile.path')
         .execute();
 
       expect(rows).toHaveLength(0);
     });
 
-    it('keeps unidentifiedAudiobookFile when file exists', async () => {
+    it('keeps unidentified audiobookFile when file exists', async () => {
       const { db } = await import('@/libs/db');
-      const { cleanupUnidentifiedAudiobookFile } = await import('./cleanupAudiobookFile');
+      const { cleanupAudiobookFile } = await import('./cleanupAudiobookFile');
 
       const filePath = '/existing/unidentified.mp3';
 
       await db
-        .insertInto('unidentifiedAudiobookFile')
+        .insertInto('audiobookFile')
         .values({
           libraryId: 8,
           path: filePath,
@@ -418,34 +431,33 @@ describe('cleanupAudiobookFile', () => {
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
           mtimeMs: 0,
-          metadataHash: '',
-          metadata: '{}',
+          partialFileHash: null,
         })
         .execute();
 
       const layer = Layer.merge(makeFsLayer(new Set([filePath])), Path.layer);
 
       await Effect.runPromise(
-        cleanupUnidentifiedAudiobookFile({ libraryId: 8 }).pipe(Effect.provide(layer))
+        cleanupAudiobookFile({ libraryId: 8, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
       );
 
       const rows = await db
-        .selectFrom('unidentifiedAudiobookFile')
-        .where('unidentifiedAudiobookFile.deletedAt', 'is', null)
-        .select('unidentifiedAudiobookFile.path')
+        .selectFrom('audiobookFile')
+        .where('audiobookFile.deletedAt', 'is', null)
+        .select('audiobookFile.path')
         .execute();
 
       expect(rows).toHaveLength(1);
     });
 
-    it('removes unidentifiedAudiobookFile when parent dir contains .voelignore', async () => {
+    it('removes unidentified audiobookFile when parent dir contains .voelignore', async () => {
       const { db } = await import('@/libs/db');
-      const { cleanupUnidentifiedAudiobookFile } = await import('./cleanupAudiobookFile');
+      const { cleanupAudiobookFile } = await import('./cleanupAudiobookFile');
 
       const filePath = '/z/w/unidentified.mp3';
 
       await db
-        .insertInto('unidentifiedAudiobookFile')
+        .insertInto('audiobookFile')
         .values({
           libraryId: 9,
           path: filePath,
@@ -454,8 +466,7 @@ describe('cleanupAudiobookFile', () => {
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
           mtimeMs: 0,
-          metadataHash: '',
-          metadata: '{}',
+          partialFileHash: null,
         })
         .execute();
 
@@ -464,26 +475,28 @@ describe('cleanupAudiobookFile', () => {
       const layer = Layer.merge(makeFsLayer(new Set([voelignorePath])), Path.layer);
 
       await Effect.runPromise(
-        cleanupUnidentifiedAudiobookFile({ libraryId: 9 }).pipe(Effect.provide(layer))
+        cleanupAudiobookFile({ libraryId: 9, ignoredDirs: new Set([path.dirname(filePath)]) }).pipe(
+          Effect.provide(layer)
+        )
       );
 
       const rows = await db
-        .selectFrom('unidentifiedAudiobookFile')
-        .where('unidentifiedAudiobookFile.deletedAt', 'is', null)
-        .select('unidentifiedAudiobookFile.path')
+        .selectFrom('audiobookFile')
+        .where('audiobookFile.deletedAt', 'is', null)
+        .select('audiobookFile.path')
         .execute();
 
       expect(rows).toHaveLength(0);
     });
 
-    it('keeps unidentifiedAudiobookFile when an ancestor directory contains .voelignore', async () => {
+    it('keeps unidentified audiobookFile when an ancestor directory contains .voelignore', async () => {
       const { db } = await import('@/libs/db');
-      const { cleanupUnidentifiedAudiobookFile } = await import('./cleanupAudiobookFile');
+      const { cleanupAudiobookFile } = await import('./cleanupAudiobookFile');
 
       const filePath = '/p/q/r/s/unidentified.mp3';
 
       await db
-        .insertInto('unidentifiedAudiobookFile')
+        .insertInto('audiobookFile')
         .values({
           libraryId: 20,
           path: filePath,
@@ -492,8 +505,7 @@ describe('cleanupAudiobookFile', () => {
           track: 0,
           reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
           mtimeMs: 0,
-          metadataHash: '',
-          metadata: '{}',
+          partialFileHash: null,
         })
         .execute();
 
@@ -503,28 +515,31 @@ describe('cleanupAudiobookFile', () => {
       const layer = Layer.merge(makeFsLayer(new Set([voelignorePath, filePath])), Path.layer);
 
       await Effect.runPromise(
-        cleanupUnidentifiedAudiobookFile({ libraryId: 20 }).pipe(Effect.provide(layer))
+        cleanupAudiobookFile({
+          libraryId: 20,
+          ignoredDirs: new Set([path.dirname(filePath)]),
+        }).pipe(Effect.provide(layer))
       );
 
       const rows = await db
-        .selectFrom('unidentifiedAudiobookFile')
-        .where('unidentifiedAudiobookFile.deletedAt', 'is', null)
-        .select('unidentifiedAudiobookFile.path')
+        .selectFrom('audiobookFile')
+        .where('audiobookFile.deletedAt', 'is not', null)
+        .select('audiobookFile.path')
         .execute();
 
       expect(rows).toHaveLength(1);
     });
 
-    it('keeps unidentifiedAudiobookFile when mixed: some exist, some ignored in other library', async () => {
+    it('keeps unidentified audiobookFile when mixed: some exist, some ignored in other library', async () => {
       const { db } = await import('@/libs/db');
-      const { cleanupUnidentifiedAudiobookFile } = await import('./cleanupAudiobookFile');
+      const { cleanupAudiobookFile } = await import('./cleanupAudiobookFile');
 
       const fileA = '/mixed/existingA.mp3';
       const fileB = '/mixed/missingB.mp3';
       const fileC = '/other/existingC.mp3';
 
       await db
-        .insertInto('unidentifiedAudiobookFile')
+        .insertInto('audiobookFile')
         .values([
           {
             libraryId: 21,
@@ -534,8 +549,7 @@ describe('cleanupAudiobookFile', () => {
             track: 0,
             reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
             mtimeMs: 0,
-            metadataHash: '',
-            metadata: '{}',
+            partialFileHash: null,
           },
           {
             libraryId: 21,
@@ -545,8 +559,7 @@ describe('cleanupAudiobookFile', () => {
             track: 0,
             reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
             mtimeMs: 0,
-            metadataHash: '',
-            metadata: '{}',
+            partialFileHash: null,
           },
           {
             libraryId: 22,
@@ -556,8 +569,7 @@ describe('cleanupAudiobookFile', () => {
             track: 0,
             reason: 'AUDIBLE_COULD_NOT_ID_BOOK',
             mtimeMs: 0,
-            metadataHash: '',
-            metadata: '{}',
+            partialFileHash: null,
           },
         ])
         .execute();
@@ -566,13 +578,13 @@ describe('cleanupAudiobookFile', () => {
       const layer = Layer.merge(makeFsLayer(new Set([fileA, fileC])), Path.layer);
 
       await Effect.runPromise(
-        cleanupUnidentifiedAudiobookFile({ libraryId: 21 }).pipe(Effect.provide(layer))
+        cleanupAudiobookFile({ libraryId: 21, ignoredDirs: new Set() }).pipe(Effect.provide(layer))
       );
 
       const rows = await db
-        .selectFrom('unidentifiedAudiobookFile')
-        .where('unidentifiedAudiobookFile.deletedAt', 'is', null)
-        .select(['unidentifiedAudiobookFile.libraryId', 'unidentifiedAudiobookFile.path'])
+        .selectFrom('audiobookFile')
+        .where('audiobookFile.deletedAt', 'is', null)
+        .select(['audiobookFile.libraryId', 'audiobookFile.path'])
         .execute();
 
       // For library 21 only fileA should remain; for library 22 fileC remains untouched

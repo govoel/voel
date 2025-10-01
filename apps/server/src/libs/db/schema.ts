@@ -97,35 +97,21 @@ export type AudiobookChapterTable = {
 export interface AudiobookFileTable {
   id: ColumnType<number, never, never>;
   libraryId: number;
-  bookId: number;
-  path: string;
-  mtimeMs: number;
-  metadataHash: string;
-  durationMs: number;
-  customOrder: number | null;
-  disc: number;
-  track: number;
-  createdAt: ColumnType<number, never, never>;
-  updatedAt: ColumnType<number, never, never>;
-  deletedAt: ColumnType<number | null, never, number | null>;
-}
-
-export interface UnidentifiedAudiobookFileTable {
-  id: ColumnType<number, never, never>;
-  libraryId: number;
-  path: string;
-  mtimeMs: number;
-  metadataHash: string;
-  durationMs: number;
-  disc: number;
-  track: number;
+  bookId: number | null;
   reason:
     | 'METADATA_NO_ALBUM_TITLE'
     | 'METADATA_NO_ARTIST_NAME'
     | 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
     | 'AUDIBLE_COULD_NOT_ID_BOOK'
-    | 'USER_DELETED_FROM_BOOK';
-  metadata: string;
+    | 'USER_DELETED_FROM_BOOK'
+    | null;
+  path: string;
+  mtimeMs: number;
+  partialFileHash: string | null;
+  durationMs: number;
+  customOrder: number | null;
+  disc: number;
+  track: number;
   createdAt: ColumnType<number, never, never>;
   updatedAt: ColumnType<number, never, never>;
   deletedAt: ColumnType<number | null, never, number | null>;
@@ -168,7 +154,6 @@ export interface DatabaseSchema {
   bookContributor: BookContributorTable;
   audiobookChapter: AudiobookChapterTable;
   audiobookFile: AudiobookFileTable;
-  unidentifiedAudiobookFile: UnidentifiedAudiobookFileTable;
   ebookFile: EBookFileTable;
   playbackHistory: PlaybackHistoryTable;
   sqlite_sequence: SQLiteSequenceTable;

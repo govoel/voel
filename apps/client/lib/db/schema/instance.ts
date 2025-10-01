@@ -131,10 +131,11 @@ export type AudiobookChapterTable<Version extends 'realtime' | 'regular' = 'regu
 export interface AudiobookFileTable<Version extends 'realtime' | 'regular' = 'regular'> {
   id: Regularize<ColumnType<number, number, never>, Version>;
   libraryId: Regularize<ColumnType<number, number, number>, Version>;
-  bookId: Regularize<ColumnType<number, number, number>, Version>;
+  bookId: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
+  reason: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
   path: Regularize<ColumnType<string, string, string>, Version>;
   mtimeMs: Regularize<ColumnType<number, number, number>, Version>;
-  metadataHash: Regularize<ColumnType<string, string, string>, Version>;
+  partialFileHash: Regularize<ColumnType<string | null, string | null, string | null>, Version>;
   durationMs: Regularize<ColumnType<number, number, number>, Version>;
   customOrder: Regularize<ColumnType<number | null, number | null, number | null>, Version>;
   disc: Regularize<ColumnType<number, number, number>, Version>;

@@ -15,14 +15,12 @@ import { Actor, createActor, setup } from 'xstate';
 
 import type { Audible } from '@/router/v1/library/audible';
 import { FsExtended } from '@/router/v1/library/fsExtended';
-import type { Hash } from '@/router/v1/library/hash';
+import { Hash } from '@/router/v1/library/hash';
 import { gatherAuxiliaryAudiobookData } from '@/router/v1/library/identifying/gatherAuxiliaryAudiobookData';
 import { identifyAudiobook } from '@/router/v1/library/identifying/identifyAudiobook';
 import { insertAudiobook } from '@/router/v1/library/identifying/insertAudiobook';
-import {
-  cleanupAudiobookFile,
-  cleanupUnidentifiedAudiobookFile,
-} from '@/router/v1/library/scanning/cleanupAudiobookFile';
+import { cleanupAudiobookFile } from '@/router/v1/library/scanning/cleanupAudiobookFile';
+import { deleteAudiobookFile } from '@/router/v1/library/scanning/deleteAudiobookFile';
 import { extractAudiobookFileMetadata } from '@/router/v1/library/scanning/extractAudiobookFileMetadata';
 import { getLibraryDirents } from '@/router/v1/library/scanning/getLibraryDirents';
 import { markAsUnidentified } from '@/router/v1/library/scanning/markAsUnidentified';
@@ -131,9 +129,6 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
       })
     );
 
-    yield* cleanupAudiobookFile({ libraryId: context.id });
-    yield* cleanupUnidentifiedAudiobookFile({ libraryId: context.id });
-
     const dir = yield* fs
       .opendir({
         path: context.path,
@@ -163,303 +158,448 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
       return yield* Effect.void;
     }
 
-    yield* Stream.fromChunk(yield* getLibraryDirents(dir.value)).pipe(
-      // TODO: ignored files should be marked as deleted if they exist in the database
-      Stream.mapEffect((e) =>
-        prepareAudiobookFile(e).pipe(
-          Effect.tapError((error) =>
-            Match.value(error).pipe(
-              Match.tagsExhaustive({
-                StatError: (error) =>
-                  Effect.logError('Error getting file info, ignoring file').pipe(
-                    Effect.annotateLogs('error', error.error.message)
-                  ),
-                DirectoryError: () => Effect.logDebug('Ignoring directory'),
-                NoExtensionError: () => Effect.logDebug('Ignoring file without extension'),
-                UnsupportedExtensionError: (error) =>
-                  Effect.logDebug('Ignoring unsupported extension').pipe(
-                    Effect.annotateLogs('extension', error.extension)
-                  ),
-                DbError: (error) =>
-                  Effect.logError('Error fetching file from database, ignoring').pipe(
-                    Effect.annotateLogs('error', error.error)
-                  ),
-                UpToDateError: (error) =>
-                  Effect.gen(function* () {
-                    if (error.data.deletedAt) {
-                      const dbUnidentifiedFile = yield* toEffect(
-                        db
-                          .selectFrom('unidentifiedAudiobookFile')
-                          .select([
-                            'unidentifiedAudiobookFile.reason',
-                            'unidentifiedAudiobookFile.deletedAt',
-                          ])
-                          .where(
-                            'unidentifiedAudiobookFile.path',
-                            '=',
-                            path.join(e.parentPath, e.name)
-                          )
-                          .executeTakeFirst()
-                      ).pipe(
-                        Effect.tapError(() =>
-                          Effect.logError(
-                            'Database error while checking if up-to-date file is unidentified, ignoring file'
-                          )
-                        )
-                      );
+    const { ignoredDirs, files } = yield* getLibraryDirents(dir.value);
 
-                      if (dbUnidentifiedFile && dbUnidentifiedFile.deletedAt === null) {
-                        yield* Effect.logDebug(
-                          'Up-to-date file is unidentified and not deleted, ignoring file'
-                        );
-                      } else if (
-                        dbUnidentifiedFile &&
-                        dbUnidentifiedFile.reason === 'USER_DELETED_FROM_BOOK' &&
-                        dbUnidentifiedFile.deletedAt !== null
-                      ) {
-                        yield* toEffect(
-                          db
-                            .updateTable('unidentifiedAudiobookFile')
-                            .set({ deletedAt: null })
-                            .where(
-                              'unidentifiedAudiobookFile.path',
-                              '=',
-                              path.join(e.parentPath, e.name)
-                            )
-                            .execute()
-                        ).pipe(
-                          Effect.tapBoth({
-                            onFailure: () =>
-                              Effect.logError(
-                                'Database error while restoring up-to-date deleted unidentified file, ignoring file'
-                              ),
-                            onSuccess: () =>
-                              Effect.logInfo(
-                                'Restored up-to-date deleted unidentified file, ignoring file'
-                              ),
-                          })
-                        );
-                      } else {
-                        yield* toEffect(
-                          db
-                            .updateTable('audiobookFile')
-                            .set({ deletedAt: null })
-                            .where('audiobookFile.path', '=', path.join(e.parentPath, e.name))
-                            .execute()
-                        ).pipe(
-                          Effect.tapBoth({
-                            onFailure: () =>
-                              Effect.logError(
-                                'Database error while restoring up-to-date deleted identified file, ignoring file'
-                              ),
-                            onSuccess: () =>
-                              Effect.logInfo(
-                                'Restored up-to-date deleted identified file, ignoring file'
-                              ),
-                          })
-                        );
-                      }
-                    } else {
-                      yield* Effect.logDebug('Ignoring up-to-date file');
-                    }
-                  }),
-                RealpathError: (error) =>
-                  Effect.logDebug('Error resolving symbolic link, ignoring file').pipe(
-                    Effect.annotateLogs('error', error.error.message)
-                  ),
-              })
-            )
+    yield* cleanupAudiobookFile({ libraryId: context.id, ignoredDirs });
+
+    yield* Stream.fromChunk(files).pipe(
+      Stream.mapEffect((file) =>
+        prepareAudiobookFile(file).pipe(
+          Effect.map((result) =>
+            Option.some({ ...result, path: path.join(file.parentPath, file.name) })
           ),
-          Effect.map((result) => ({ ...result, path: path.join(e.parentPath, e.name) })),
-          Effect.annotateLogs({ path: path.join(e.parentPath, e.name) }),
-          Effect.option
+          Effect.catchTags({
+            StatError: (error) =>
+              deleteAudiobookFile({
+                path: path.join(file.parentPath, file.name),
+              }).pipe(
+                Effect.andThen(() =>
+                  Effect.logError(
+                    'Ignoring file since there was an error getting file info and deleting from database if it exists'
+                  ).pipe(Effect.annotateLogs('error', error.error.message))
+                ),
+                Effect.catchTags({
+                  DatabaseError: () =>
+                    Effect.logError(
+                      'Ignoring file since there was an error getting file info, and there was a database error when attempting to delete the file from the database'
+                    ),
+                }),
+                Effect.as(Option.none())
+              ),
+            DirectoryError: () =>
+              deleteAudiobookFile({
+                path: path.join(file.parentPath, file.name),
+              }).pipe(
+                Effect.andThen(() =>
+                  Effect.logDebug(
+                    'Ignoring file since it is a directory and deleting from database if it exists'
+                  )
+                ),
+                Effect.catchTags({
+                  DatabaseError: () =>
+                    Effect.logError(
+                      'Ignoring file since it is a directory, and there was a database error when attempting to delete file from the database'
+                    ),
+                }),
+                Effect.as(Option.none())
+              ),
+            NoExtensionError: () =>
+              deleteAudiobookFile({
+                path: path.join(file.parentPath, file.name),
+              }).pipe(
+                Effect.andThen(() =>
+                  Effect.logDebug(
+                    'Ignoring file since it has no extension and deleting from database if it exists'
+                  )
+                ),
+                Effect.catchTags({
+                  DatabaseError: () =>
+                    Effect.logError(
+                      'Ignoring file since it has no extension, and there was a database error when attempting to delete file from the database'
+                    ),
+                }),
+                Effect.as(Option.none())
+              ),
+            UnsupportedExtensionError: (error) =>
+              deleteAudiobookFile({
+                path: path.join(file.parentPath, file.name),
+              }).pipe(
+                Effect.andThen(() =>
+                  Effect.logDebug(
+                    'Ignoring file with unsupported extension and deleting from database if it exists'
+                  ).pipe(Effect.annotateLogs('extension', error.extension))
+                ),
+                Effect.catchTags({
+                  DatabaseError: () =>
+                    Effect.logError(
+                      'Ignoring file with unsupported extension, and there was a database error when attempting to delete file from the database'
+                    ),
+                }),
+                Effect.as(Option.none())
+              ),
+            RealpathError: (error) =>
+              deleteAudiobookFile({
+                path: path.join(file.parentPath, file.name),
+              }).pipe(
+                Effect.andThen(() =>
+                  Effect.logDebug(
+                    'Ignoring file since there was an error resolving symbolic link and deleting from database if it exists'
+                  ).pipe(Effect.annotateLogs('error', error.error.message))
+                ),
+                Effect.catchTags({
+                  DatabaseError: () =>
+                    Effect.logError(
+                      'Ignoring file since there was an error resolving symbolic link, and there was a database error when attempting to delete the file from the database'
+                    ),
+                }),
+                Effect.as(Option.none())
+              ),
+          }),
+          Effect.annotateLogs({ path: path.join(file.parentPath, file.name) })
         )
       ),
-      Stream.filterMap((e) => e),
+      Stream.filterMap((file) => file),
+      // for identified files only, calculate filehash, and only if different, proceed with
+      // metadata extraction
+      // for unidentified files, we always proceed with metadata extraction in case the
+      // metadata extractor/ffprobe has improved
       Stream.mapEffect(
         (file) =>
-          extractAudiobookFileMetadata({
-            file: {
-              metadataHashFromDb: file.metadataHashFromDb,
-              path: file.path,
-            },
-          }).pipe(
-            Effect.map((result) => ({
-              ...result,
-              realPath: file.realPath,
-              mtimeMs: file.mtimeMs,
-              path: file.path,
-            })),
-            Effect.annotateLogs({ path: file.path }),
-            Effect.tapError((error) =>
-              Match.value(error).pipe(
-                Match.tagsExhaustive({
-                  NoAlbumTitleOrArtistNameError: (error) =>
-                    Effect.gen(function* () {
-                      yield* Effect.logError(
-                        'Missing album title or artist name, marking file as unidentified'
-                      ).pipe(
-                        Effect.annotateLogs({
-                          albumTitle: error.data.albumTitle,
-                          artistName: error.data.artistName,
-                        })
-                      );
+          Effect.gen(function* () {
+            const dbFile = yield* toEffect(
+              db
+                .selectFrom('audiobookFile')
+                .where('audiobookFile.path', '=', file.path)
+                .select([
+                  'audiobookFile.bookId',
+                  'audiobookFile.mtimeMs',
+                  'audiobookFile.partialFileHash',
+                  'audiobookFile.deletedAt',
+                ])
+                .executeTakeFirstOrThrow()
+            ).pipe(
+              Effect.map((result) => Option.some(result)),
+              Effect.catchTags({
+                NotFoundError: () => Effect.succeed(Option.some(null)),
+                QueryError: () =>
+                  Effect.logError(
+                    'Ignoring file since there was an error while querying database for file'
+                  ).pipe(Effect.as(Option.none())),
+                KnownSQLiteError: () =>
+                  Effect.logError(
+                    'Ignoring file since there was an error while querying database for file'
+                  ).pipe(Effect.as(Option.none())),
+              })
+            );
 
-                      yield* markAsUnidentified({
-                        libraryId: context.id,
-                        reason:
-                          (error.data.albumTitle === undefined ||
-                            error.data.albumTitle.length === 0) &&
-                          (error.data.artistName === undefined ||
-                            error.data.artistName.length === 0)
-                            ? 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
-                            : error.data.albumTitle === undefined ||
-                                error.data.albumTitle.length === 0
-                              ? 'METADATA_NO_ALBUM_TITLE'
-                              : 'METADATA_NO_ARTIST_NAME',
-                        files: [
-                          {
-                            path: file.path,
-                            discNumber: error.data.discNumber,
-                            trackNumber: error.data.trackNumber,
-                            mtimeMs: file.mtimeMs,
-                            metadataHash: error.data.metadataHash,
-                            metadata: error.data.metadata,
-                            normalizedTags: error.data.normalizedTags,
-                          },
-                        ],
-                      }).pipe(
-                        Effect.tapError(() =>
-                          Effect.logError('Failed to mark file as unidentified, ignoring file')
-                        ),
-                        Effect.catchAll(() => Effect.succeed(Option.none()))
-                      );
-                    }),
-                  UpToDateError: () =>
-                    Effect.gen(function* () {
-                      if (file.deletedAt) {
-                        yield* toEffect(
-                          db
-                            .updateTable('audiobookFile')
-                            .set({ deletedAt: null })
-                            .where('audiobookFile.path', '=', file.path)
-                            .execute()
-                        ).pipe(
-                          Effect.tapBoth({
-                            onFailure: () =>
-                              Effect.logError(
-                                'Database error while restoring up-to-date deleted file, ignoring file'
-                              ),
-                            onSuccess: () => Effect.logInfo('Restored up-to-date deleted file'),
-                          })
-                        );
-                      } else {
-                        yield* Effect.logDebug('File is up to date, ignoring file');
-                      }
-                    }),
-                  FFProbeUnknownError: (error) =>
-                    Effect.logError('Failed to extract metadata, ignoring file').pipe(
-                      Effect.annotateLogs({
-                        exitCode: error.exitCode,
-                        stdout: error.stdout,
-                      })
+            if (
+              // file is identified and up-to-date, so ignore it
+              Option.isSome(dbFile) &&
+              dbFile.value !== null &&
+              dbFile.value.bookId !== null &&
+              dbFile.value.mtimeMs === file.mtimeMs
+            ) {
+              if (dbFile.value.deletedAt !== null) {
+                yield* toEffect(
+                  db
+                    .updateTable('audiobookFile')
+                    .where('audiobookFile.path', '=', file.path)
+                    .set({ deletedAt: null })
+                    .execute()
+                ).pipe(
+                  Effect.catchTags({
+                    NotFoundError: () =>
+                      Effect.logError(
+                        'Ignoring file since there was a database error when attempting to restore up-to-date (via mtime) identified file'
+                      ),
+                    QueryError: () =>
+                      Effect.logError(
+                        'Ignoring file since there was a database error when attempting to restore up-to-date (via mtime) identified file'
+                      ),
+                    KnownSQLiteError: () =>
+                      Effect.logError(
+                        'Ignoring file since there was a database error when attempting to restore up-to-date (via mtime) identified file'
+                      ),
+                  })
+                );
+
+                yield* Effect.logDebug(
+                  'Restored up-to-date (via mtime) identified file from deleted state and ignoring file'
+                );
+                return yield* Effect.succeed(Option.none());
+              } else {
+                yield* Effect.logDebug(
+                  'File is already identified and up-to-date (via mtime), ignoring file'
+                );
+                return yield* Effect.succeed(Option.none());
+              }
+            }
+
+            const fh = yield* fs.open(file.path, 'r').pipe(
+              Effect.map((result) => Option.some(result)),
+              Effect.catchAll(() =>
+                Effect.if(Option.isSome(dbFile) && dbFile.value !== null, {
+                  onTrue: () =>
+                    deleteAudiobookFile({
+                      path: file.path,
+                    }).pipe(
+                      Effect.andThen(() =>
+                        Effect.logError(
+                          'Ignoring file since there was an error while attempting to open the file, and deleting from database if it exists'
+                        )
+                      ),
+                      Effect.catchTags({
+                        DatabaseError: () =>
+                          Effect.logError(
+                            'Ignoring file since there was an error while attempting to open the file, and there was a database error when attempting to delete the file from the database'
+                          ),
+                      }),
+                      Effect.as(Option.none())
                     ),
-                  FFProbeKnownError: (error) =>
-                    Effect.logError('Failed to extract metadata, ignoring file').pipe(
-                      Effect.annotateLogs({
-                        exitCode: error.exitCode,
-                        errorCode: error.errorCode,
-                        message: error.message,
-                      })
-                    ),
-                  BunShellSyntaxError: () =>
-                    Effect.logError('Failed to parse metadata output, ignoring file'),
-                  ParseError: (error) =>
+                  onFalse: () =>
                     Effect.logError(
-                      'Extracted metadata was not in the expected format, ignoring file'
-                    ).pipe(
-                      Effect.annotateLogs('error', ParseResult.TreeFormatter.formatErrorSync(error))
-                    ),
-                  UnknownException: (error) =>
-                    Effect.logError(
-                      'Unexpected error while extracting metadata, ignoring file'
-                    ).pipe(Effect.annotateLogs('error', error.message)),
+                      'Ignoring file since there was an error while attempting to open the file'
+                    ).pipe(Effect.as(Option.none())),
                 })
               )
-            ),
-            Effect.option
-          ),
-        {
-          concurrency: env.METADATA_EXTRACTION_BATCH_SIZE,
-        }
-      ),
-      Stream.filterMap((e) => e),
-      Stream.filterEffect((entry) =>
-        Effect.gen(function* () {
-          const dbFile = yield* toEffect(
-            db
-              .selectFrom('unidentifiedAudiobookFile')
-              .where('unidentifiedAudiobookFile.path', '=', entry.path)
-              .select([
-                'unidentifiedAudiobookFile.reason',
-                'unidentifiedAudiobookFile.metadataHash',
-                'unidentifiedAudiobookFile.deletedAt',
-              ])
-              .executeTakeFirst()
-          ).pipe(
-            Effect.tapError(() =>
-              Effect.logError('Error while querying database for file, ignoring file').pipe(
-                Effect.andThen(() => Effect.succeed(false))
-              )
-            ),
-            Effect.option
-          );
+            );
 
-          if (
-            Option.isSome(dbFile) &&
-            dbFile.value &&
-            dbFile.value.reason === 'USER_DELETED_FROM_BOOK'
-          ) {
-            if (dbFile.value.deletedAt !== null) {
-              yield* Effect.logDebug('Restoring user-deleted file as unidentified');
+            if (Option.isNone(fh)) {
+              return yield* Effect.succeed(Option.none());
+            }
+
+            // partialFileHash is only needed for identified files, they are not needed
+            // for unidentified files because unidentified files should always go through
+            // the identification process again however, we still calculate it here
+            const partialFileHash = yield* fs.partialHash(fh.value).pipe(
+              Effect.map((result) => Option.some(result)),
+              Effect.catchAll(() =>
+                Effect.if(Option.isSome(dbFile) && dbFile.value !== null, {
+                  onTrue: () =>
+                    deleteAudiobookFile({
+                      path: file.path,
+                    }).pipe(
+                      Effect.andThen(() =>
+                        Effect.logError(
+                          "Ignoring file since there was an error while attempting to calculate file's hash, and deleting from database if it exists"
+                        )
+                      ),
+                      Effect.catchTags({
+                        DatabaseError: () =>
+                          Effect.logError(
+                            "Ignoring file since there was an error while attempting to calculate file's hash, and there was a database error when attempting to delete the file from the database"
+                          ),
+                      }),
+                      Effect.as(Option.none())
+                    ),
+                  onFalse: () =>
+                    Effect.logError(
+                      "Ignoring file since there was an error while attempting to calculate file's hash"
+                    ).pipe(Effect.as(Option.none())),
+                })
+              )
+            );
+
+            if (Option.isNone(partialFileHash)) {
+              return yield* Effect.succeed(Option.none());
+            }
+
+            if (
+              // file is identified and up-to-date, so ignore it
+              Option.isSome(dbFile) &&
+              dbFile.value !== null &&
+              dbFile.value.bookId !== null &&
+              dbFile.value.partialFileHash === partialFileHash.value
+            ) {
               yield* toEffect(
                 db
-                  .updateTable('unidentifiedAudiobookFile')
-                  .set({ deletedAt: null })
-                  .where('unidentifiedAudiobookFile.path', '=', entry.path)
+                  .updateTable('audiobookFile')
+                  .where('audiobookFile.path', '=', file.path)
+                  .set({ deletedAt: null, mtimeMs: file.mtimeMs })
                   .execute()
               ).pipe(
-                Effect.catchAll(() =>
-                  Effect.logError(
-                    'Error while restoring file in database as unidentified, ignoring file'
-                  ).pipe(Effect.andThen(() => Effect.succeed(false)))
-                )
+                Effect.catchTags({
+                  NotFoundError: () =>
+                    Effect.logError(
+                      "Ignoring file since there was a database error when attempting to update up-to-date (via hash) identified file's mtime"
+                    ),
+                  QueryError: () =>
+                    Effect.logError(
+                      "Ignoring file since there was a database error when attempting to update up-to-date (via hash) identified file's mtime"
+                    ),
+                  KnownSQLiteError: () =>
+                    Effect.logError(
+                      "Ignoring file since there was a database error when attempting to update up-to-date (via hash) identified file's mtime"
+                    ),
+                })
               );
-            }
-
-            // we only ignore user-deleted unidentified files if their metadata is
-            // up-to-date to ensure that the user deletion is respected as long as the
-            // file they deleted is the same
-            if (dbFile.value.metadataHash === entry.metadataHash) {
               yield* Effect.logDebug(
-                "User-deleted unidentified file's metadata is up-to-date, ignoring file"
+                'File is already identified and up-to-date (via hash), ignoring file'
               );
-              return yield* Effect.succeed(false);
+              return yield* Effect.succeed(Option.none());
             }
-          }
 
-          return yield* Effect.succeed(true);
-        }).pipe(Effect.annotateLogs('path', entry.path))
+            const metadata = yield* extractAudiobookFileMetadata({ fileDescriptor: fh.value }).pipe(
+              Effect.map((result) => Option.some(result)),
+              Effect.catchTags({
+                NoAlbumTitleOrArtistNameError: (error) =>
+                  // mark as unidentified only if the DB's partialHash is NOT the same
+                  // as the one we just calculated (no need to check here because just
+                  // the fact that we're here means the partialFileHash does not match
+                  // that of the db).
+                  markAsUnidentified({
+                    libraryId: context.id,
+                    reason:
+                      (error.data.albumTitle === undefined || error.data.albumTitle.length === 0) &&
+                      (error.data.artistName === undefined || error.data.artistName.length === 0)
+                        ? 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME'
+                        : error.data.albumTitle === undefined || error.data.albumTitle.length === 0
+                          ? 'METADATA_NO_ALBUM_TITLE'
+                          : 'METADATA_NO_ARTIST_NAME',
+                    files: [
+                      {
+                        path: file.path,
+                        discNumber: error.data.discNumber,
+                        trackNumber: error.data.trackNumber,
+                        mtimeMs: file.mtimeMs,
+                        metadata: error.data.metadata,
+                      },
+                    ],
+                  }).pipe(
+                    Effect.andThen(() =>
+                      Effect.logDebug(
+                        'Ignoring file and marking as unidentified since it is missing an album title or artist name'
+                      )
+                    ),
+                    Effect.catchTags({
+                      DatabaseError: () =>
+                        Effect.logError(
+                          'Ignoring file since it is missing an album title or artist name, but there was a database error when attempting to mark the file as unidentified'
+                        ),
+                    }),
+                    Effect.as(Option.none())
+                  ),
+                FFProbeUnknownError: (error) =>
+                  deleteAudiobookFile({
+                    path: file.path,
+                  }).pipe(
+                    Effect.andThen(() =>
+                      Effect.logError(
+                        'Ignoring file since there was an unknown ffprobe error while attempting to extract metadata, and deleting from database if it exists'
+                      )
+                    ),
+                    Effect.catchTags({
+                      DatabaseError: () =>
+                        Effect.logError(
+                          'Ignoring file since there was an unknown ffprobe error while attempting to extract metadata, and there was a database error when attempting to delete the file from the database'
+                        ),
+                    }),
+                    Effect.annotateLogs({
+                      exitCode: error.exitCode,
+                      stdout: error.stdout,
+                    }),
+                    Effect.as(Option.none())
+                  ),
+                FFProbeKnownError: (error) =>
+                  deleteAudiobookFile({
+                    path: file.path,
+                  }).pipe(
+                    Effect.andThen(() =>
+                      Effect.logError(
+                        'Ignoring file since there was a ffprobe error while attempting to extract metadata, and deleting from database if it exists'
+                      )
+                    ),
+                    Effect.catchTags({
+                      DatabaseError: () =>
+                        Effect.logError(
+                          'Ignoring file since there was a ffprobe error while attempting to extract metadata, and there was a database error when attempting to delete the file from the database'
+                        ),
+                    }),
+                    Effect.annotateLogs({
+                      exitCode: error.exitCode,
+                      errorCode: error.errorCode,
+                      message: error.message,
+                    }),
+                    Effect.as(Option.none())
+                  ),
+                BunShellSyntaxError: () =>
+                  deleteAudiobookFile({
+                    path: file.path,
+                  }).pipe(
+                    Effect.andThen(() =>
+                      Effect.logError(
+                        'Ignoring file since there was a shell error while attempting to parse extracted metadata output, and deleting from database if it exists'
+                      )
+                    ),
+                    Effect.catchTags({
+                      DatabaseError: () =>
+                        Effect.logError(
+                          'Ignoring file since there was a shell error while attempting to parse extracted metadata output, and there was a database error when attempting to delete the file from the database'
+                        ),
+                    }),
+                    Effect.as(Option.none())
+                  ),
+                ParseError: (error) =>
+                  deleteAudiobookFile({
+                    path: file.path,
+                  }).pipe(
+                    Effect.andThen(() =>
+                      Effect.logError(
+                        'Ignoring file since the extracted metadata was not in the expected format, and deleting from database if it exists'
+                      )
+                    ),
+                    Effect.catchTags({
+                      DatabaseError: () =>
+                        Effect.logError(
+                          'Ignoring file since the extracted metadata was not in the expected format, and there was a database error when attempting to delete the file from the database'
+                        ),
+                    }),
+                    Effect.annotateLogs('error', ParseResult.TreeFormatter.formatErrorSync(error)),
+                    Effect.as(Option.none())
+                  ),
+                UnknownException: (error) =>
+                  deleteAudiobookFile({
+                    path: file.path,
+                  }).pipe(
+                    Effect.andThen(() =>
+                      Effect.logError(
+                        'Ignoring file since there was an unexpected error while extracting metadata, and deleting from database if it exists'
+                      )
+                    ),
+                    Effect.catchTags({
+                      DatabaseError: () =>
+                        Effect.logError(
+                          'Ignoring file since there was an unexpected error while extracting metadata, and there was a database error when attempting to delete the file from the database'
+                        ),
+                    }),
+                    Effect.annotateLogs('error', error.message),
+                    Effect.as(Option.none())
+                  ),
+              })
+            );
+
+            if (Option.isNone(metadata)) {
+              return yield* Effect.succeed(Option.none());
+            }
+
+            return yield* Effect.succeed(
+              Option.some({
+                ...metadata.value,
+                realPath: file.realPath,
+                mtimeMs: file.mtimeMs,
+                path: file.path,
+                partialFileHash: partialFileHash.value,
+              })
+            );
+          }).pipe(Effect.annotateLogs('path', file.path), Effect.scoped),
+        { concurrency: env.METADATA_EXTRACTION_BATCH_SIZE }
       ),
+      Stream.filterMap((file) => file),
       Stream.broadcast(2, { capacity: env.METADATA_EXTRACTION_BATCH_SIZE }),
       Stream.flatMap(([first, second]) =>
         Stream.zip(
           first.pipe(
-            // TODO: Change from metadata-first matching to path-first matching
-            // note that this would need changes in `extractAudiobookFileMetadata`
-            // to put metadata found in path first so that metadata from path is at a
-            // higher priority than metadata from file
-            Stream.groupByKey((e) => `${e.albumTitle} by ${e.artistName}`),
+            Stream.groupByKey((file) => `${file.albumTitle} by ${file.artistName}`),
             GroupBy.evaluate((_, stream) =>
               stream.pipe(
                 Stream.runHead,
@@ -468,9 +608,9 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
             ),
             Stream.buffer({ capacity: env.MATCHER_BATCH_SIZE }),
             Stream.mapEffect(
-              (e) =>
+              (file) =>
                 Effect.gen(function* () {
-                  const book = yield* identifyAudiobook(e);
+                  const book = yield* identifyAudiobook(file);
 
                   if (Option.isNone(book)) {
                     return {
@@ -483,16 +623,14 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
                     identified: true,
                     ...(yield* gatherAuxiliaryAudiobookData(book.value)),
                   } as const;
-                }).pipe(Effect.annotateLogs('path', e.path)),
+                }).pipe(Effect.annotateLogs('path', file.path)),
               {
                 concurrency: env.MATCHER_BATCH_SIZE,
               }
             )
           ),
           second.pipe(
-            // TODO: If possible, figure out early when we are done with a group
-            // instead of waiting for the entire stream to complete
-            Stream.groupByKey((e) => `${e.albumTitle} by ${e.artistName}`),
+            Stream.groupByKey((file) => `${file.albumTitle} by ${file.artistName}`),
             GroupBy.evaluate((_, stream) => stream.pipe(Stream.runCollect))
           )
         )
@@ -505,8 +643,9 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
               reason: bookOption.reason,
               files: Chunk.toArray(files),
             }).pipe(
+              Effect.andThen(() => Effect.logDebug('Marked files as unidentified')),
               Effect.catchAll(() =>
-                Effect.logError('Error while inserting unidentified files, ignoring files')
+                Effect.logError('Database error while inserting unidentified files, ignoring files')
               )
             );
           }

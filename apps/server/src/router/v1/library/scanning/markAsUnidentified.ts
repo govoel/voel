@@ -1,10 +1,12 @@
-import { Effect } from 'effect';
+import { Data, Effect } from 'effect';
 import type { Insertable } from 'kysely';
 
 import { db, toEffect } from '@/libs/db';
-import type { UnidentifiedAudiobookFileTable } from '@/libs/db/schema';
+import type { AudiobookFileTable } from '@/libs/db/schema';
 
-export const markAsUnidentified = Effect.fn(function* ({
+class DatabaseError extends Data.TaggedError('DatabaseError') {}
+
+export const markAsUnidentified = ({
   libraryId,
   files,
   reason,
@@ -15,45 +17,46 @@ export const markAsUnidentified = Effect.fn(function* ({
     discNumber: number;
     trackNumber: number;
     mtimeMs: number;
-    metadataHash: string;
     metadata: { format: { duration: number } };
-    normalizedTags: Record<string, string>;
   }[];
-  reason: Insertable<UnidentifiedAudiobookFileTable>['reason'];
-}) {
-  const dbPaths = yield* toEffect(
+  reason: Insertable<AudiobookFileTable>['reason'];
+}) =>
+  toEffect(
     db
-      .insertInto('unidentifiedAudiobookFile')
+      .insertInto('audiobookFile')
       .values(
         files.map((file) => ({
           libraryId,
+          bookId: null,
+          partialFileHash: null,
+          reason,
           path: file.path,
           durationMs: Math.round(file.metadata.format.duration * 1000),
           disc: file.discNumber,
           track: file.trackNumber,
           mtimeMs: file.mtimeMs,
-          metadataHash: file.metadataHash,
-          metadata: JSON.stringify(file.normalizedTags),
-          reason,
         }))
       )
       .onConflict((oc) =>
         oc.doUpdateSet((eb) => ({
           libraryId: eb.ref('excluded.libraryId'),
+          bookId: eb.ref('excluded.bookId'),
+          partialFileHash: eb.ref('excluded.partialFileHash'),
+          reason: eb.ref('excluded.reason'),
           path: eb.ref('excluded.path'),
           durationMs: eb.ref('excluded.durationMs'),
           disc: eb.ref('excluded.disc'),
           track: eb.ref('excluded.track'),
-          reason: eb.ref('excluded.reason'),
-          metadata: eb.ref('excluded.metadata'),
+          mtimeMs: eb.ref('excluded.mtimeMs'),
           deletedAt: null,
         }))
       )
       .returning(['path'])
       .execute()
+  ).pipe(
+    Effect.catchTags({
+      NotFoundError: () => Effect.fail(new DatabaseError()),
+      QueryError: () => Effect.fail(new DatabaseError()),
+      KnownSQLiteError: () => Effect.fail(new DatabaseError()),
+    })
   );
-
-  yield* Effect.forEach(dbPaths, (dbPath) =>
-    Effect.logInfo('Marked as unidentified').pipe(Effect.annotateLogs('path', dbPath.path))
-  );
-});

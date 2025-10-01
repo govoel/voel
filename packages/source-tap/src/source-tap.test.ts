@@ -380,7 +380,7 @@ describe('SourceTap', () => {
     ],
   ] as const;
 
-  test.each(cases)('%s', async (_, { trackTables }, queries) => {
+  test.each(cases)('%s', async (_, { trackTables }, queries, _err) => {
     for (let i = 0; i < 2; i++) {
       const listener1 = mock();
       const listener2 = mock();
@@ -447,7 +447,7 @@ describe('SourceTap', () => {
     }
   });
 
-  test.each(cases)('Transaction (callback): %s', async (_, { trackTables }, queries) => {
+  test.each(cases)('Transaction (callback): %s', async (_, { trackTables }, queries, _err) => {
     for (let i = 0; i < 2; i++) {
       const listener1 = mock();
       const listener2 = mock();
@@ -516,7 +516,7 @@ describe('SourceTap', () => {
     }
   });
 
-  test.each(cases)('Transaction (variable): %s', async (_, { trackTables }, queries) => {
+  test.each(cases)('Transaction (variable): %s', async (_, { trackTables }, queries, _err) => {
     for (let i = 0; i < 2; i++) {
       const listener1 = mock();
       const listener2 = mock();
@@ -596,7 +596,7 @@ describe('SourceTap', () => {
 
   test.each(cases)(
     'Transaction (callback) rollback discards events: %s',
-    async (_, { trackTables }, queries) => {
+    async (_, { trackTables }, queries, _err) => {
       for (let i = 0; i < 2; i++) {
         const listener1 = mock();
         const listener2 = mock();
@@ -657,7 +657,7 @@ describe('SourceTap', () => {
 
   test.each(cases)(
     'Transaction (variable) rollback discards events: %s',
-    async (_, { trackTables }, queries) => {
+    async (_, { trackTables }, queries, _err) => {
       for (let i = 0; i < 2; i++) {
         const listener1 = mock();
         const listener2 = mock();
@@ -724,7 +724,7 @@ describe('SourceTap', () => {
 
   test.each(cases)(
     'Transaction (variable) savepoint throws an error: %s',
-    async (_, { trackTables }, queries) => {
+    async (_, { trackTables }, queries, _err) => {
       for (let i = 0; i < 2; i++) {
         const listener1 = mock();
         const listener2 = mock();

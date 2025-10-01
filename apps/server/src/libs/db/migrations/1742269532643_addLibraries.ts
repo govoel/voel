@@ -311,7 +311,16 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
     )
     .addColumn('bookId', 'integer', (col) =>
-      col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
+      col.references('book.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('reason', 'text', (col) =>
+      col.check(
+        sql`reason in ('METADATA_NO_ALBUM_TITLE', 'METADATA_NO_ARTIST_NAME', 'METADATA_NO_ALBUM_TITLE_NO_ARTIST_NAME', 'AUDIBLE_COULD_NOT_ID_BOOK', 'USER_DELETED_FROM_BOOK')`
+      )
+    )
+    .addCheckConstraint(
+      'audiobookFile_identified_books_check',
+      sql`(bookId is null and reason is not null and partialFileHash is null) or (bookId is not null and reason is null and partialFileHash is not null)`
     )
     .addColumn('path', 'text', (col) => col.unique().notNull())
     .addColumn('durationMs', 'integer', (col) => col.notNull())
@@ -319,7 +328,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('disc', 'integer', (col) => col.notNull())
     .addColumn('track', 'integer', (col) => col.notNull())
     .addColumn('mtimeMs', 'integer', (col) => col.notNull())
-    .addColumn('metadataHash', 'text', (col) => col.notNull())
+    .addColumn('partialFileHash', 'text')
     .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
     .addColumn('deletedAt', 'integer')
@@ -338,6 +347,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .ifNotExists()
     .on('audiobookFile')
     .columns(['bookId'])
+    .execute();
+
+  await db.schema
+    .createIndex('audiobookFile_path_index')
+    .ifNotExists()
+    .on('audiobookFile')
+    .columns(['path'])
     .execute();
 
   await db.schema
@@ -361,70 +377,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['deletedAt'])
     .execute();
 
-  await sql`CREATE TRIGGER IF NOT EXISTS update_audiobookFile_updatedAt BEFORE UPDATE OF libraryId, bookId, path, durationMs, customOrder, disc, track, mtimeMs, metadataHash, deletedAt ON audiobookFile FOR EACH ROW
+  await sql`CREATE TRIGGER IF NOT EXISTS update_audiobookFile_updatedAt BEFORE UPDATE OF libraryId, bookId, reason, path, durationMs, customOrder, disc, track, mtimeMs, partialFileHash, deletedAt ON audiobookFile FOR EACH ROW
             BEGIN
               UPDATE audiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
-            END;`.execute(db);
-
-  await db.schema
-    .createTable('unidentifiedAudiobookFile')
-    .ifNotExists()
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement().notNull())
-    .addColumn('libraryId', 'integer', (col) =>
-      col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
-    )
-    .addColumn('path', 'text', (col) => col.unique().notNull())
-    .addColumn('durationMs', 'integer', (col) => col.notNull())
-    .addColumn('disc', 'integer', (col) => col.notNull())
-    .addColumn('track', 'integer', (col) => col.notNull())
-    .addColumn('reason', 'text', (col) => col.notNull())
-    .addColumn('mtimeMs', 'integer', (col) => col.notNull())
-    .addColumn('metadataHash', 'text', (col) => col.notNull())
-    .addColumn('metadata', 'text', (col) => col.notNull())
-    .addColumn('createdAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
-    .addColumn('updatedAt', 'integer', (col) => col.defaultTo(sql`(unixepoch())`).notNull())
-    .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`STRICT`)
-    .execute();
-
-  await db.schema
-    .createIndex('unidentifiedAudiobookFile_libraryId_index')
-    .ifNotExists()
-    .on('unidentifiedAudiobookFile')
-    .columns(['libraryId'])
-    .execute();
-
-  await db.schema
-    .createIndex('unidentifiedAudiobookFile_disc_track_index')
-    .ifNotExists()
-    .on('unidentifiedAudiobookFile')
-    .columns(['disc', 'track'])
-    .execute();
-
-  await db.schema
-    .createIndex('unidentifiedAudiobookFile_reason_index')
-    .ifNotExists()
-    .on('unidentifiedAudiobookFile')
-    .columns(['reason'])
-    .execute();
-
-  await db.schema
-    .createIndex('unidentifiedAudiobookFile_updatedAt_index')
-    .ifNotExists()
-    .on('unidentifiedAudiobookFile')
-    .columns(['updatedAt'])
-    .execute();
-
-  await db.schema
-    .createIndex('unidentifiedAudiobookFile_deletedAt_index')
-    .ifNotExists()
-    .on('unidentifiedAudiobookFile')
-    .columns(['deletedAt'])
-    .execute();
-
-  await sql`CREATE TRIGGER IF NOT EXISTS update_unidentifiedAudiobookFile_updatedAt BEFORE UPDATE OF libraryId, path, durationMs, disc, track, reason, mtimeMs, metadataHash, metadata, deletedAt ON unidentifiedAudiobookFile FOR EACH ROW
-            BEGIN
-              UPDATE unidentifiedAudiobookFile SET updatedAt = unixepoch() WHERE rowid = NEW.rowid;
             END;`.execute(db);
 
   await db.schema
@@ -648,7 +603,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('playbackHistory').ifExists().execute();
   await db.schema.dropTable('ebookFile').ifExists().execute();
   await db.schema.dropTable('audiobookChapter').ifExists().execute();
-  await db.schema.dropTable('unidentifiedAudiobookFile').ifExists().execute();
   await db.schema.dropTable('audiobookFile').ifExists().execute();
   await db.schema.dropTable('bookContributor').ifExists().execute();
   await db.schema.dropTable('bookSeries').ifExists().execute();

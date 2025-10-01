@@ -923,20 +923,7 @@ const EditBookFilesBottomSheet = ({
   const editBookFilesMutation = useMutation(
     apiInstance.v1.library.book.editFiles.mutationOptions({
       onSuccess: (result) => {
-        if (result && 'fileErrors' in result && result.fileErrors.length > 0) {
-          toast.success(
-            'Files have been saved successfully. But, some files were deleted from the book, and there were errors re-adding them as unidentified files. Please identify these files as the correct book, or they may get re-identified as this book again on the next scan if their database metadata is out-of-date with the actual file.',
-            {
-              description: result.fileErrors
-                .map((fileError) =>
-                  fileError.path ? `${fileError.path} (${fileError.message})` : fileError.message
-                )
-                .join('\n'),
-            }
-          );
-        } else {
-          toast.success('Successfully saved changes to book files');
-        }
+        toast.success(result.message);
         bottomSheetModalRef.current?.dismiss();
         editBookFilesMutation.reset();
         EditBookFilesForm.reset();
