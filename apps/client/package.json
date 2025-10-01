@@ -40,7 +40,7 @@
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "1.0.2",
     "@better-auth/expo": "1.3.24",
-    "@bottom-tabs/react-navigation": "0.11.2",
+    "@bottom-tabs/react-navigation": "0.12.0",
     "@dev-plugins/react-query": "^0.3.1",
     "@gorhom/bottom-sheet": "5.2.6",
     "@op-engineering/op-sqlite": "15.0.5",
@@ -106,7 +106,7 @@
     "nativewind": "4.1.23",
     "react": "19.0.0",
     "react-native": "0.79.5",
-    "react-native-bottom-tabs": "0.11.2",
+    "react-native-bottom-tabs": "0.12.0",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-marked": "7.0.2",
     "react-native-reanimated": "~3.17.4",
