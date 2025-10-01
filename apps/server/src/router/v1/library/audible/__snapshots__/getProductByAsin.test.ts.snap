@@ -427,64 +427,6 @@ In _A Vast Horizon_, biographer Anna Thomasson tells the story of their creativi
 }
 `;
 
-exports[`books author without ASIN 1`] = `
-{
-  "asin": "B0DT29BJGC",
-  "content_delivery_type": "SinglePartBook",
-  "contributors": [
-    {
-      "asin": undefined,
-      "name": "Peter Kenny",
-      "role": "narrator",
-    },
-    {
-      "asin": undefined,
-      "name": "Ryan English",
-      "role": "author",
-    },
-  ],
-  "copyright": "©2025 Ryan English (P)2025 Podium Audio",
-  "format_type": "unabridged",
-  "is_adult_product": false,
-  "product_images": {
-    "500": "https://m.media-amazon.com/images/I/51JPc5o5IJL._SL500_.jpg",
-  },
-  "publisher_name": "Podium Audio",
-  "publisher_summary_md": 
-"**In a world of wonder, mystery, and lurking threats, a young boy and a giant wolf must rely on each other to escape the things that hunt them both.**
-
-The age of mankind is over, its empire reduced to a land of rubble and broken roads. Vicious things nest in the old, forgotten ruins, and what's left of humanity huddles in tiny communities that grow smaller every generation. But when a young boy is taken in by an unlikely ally, a glimmer of hope is born.
-
-After waking up in a mysterious forest with no weapons, supplies, or even memories of his life before, Dirt should have ended up a barely adequate snack. Luckily, he attracts the attention of a gigantic, curious wolf pup, who rescues him, and they quickly become friends.
-
-The world is beautiful and wondrous, perfect for a pair of adventurous youngsters, but that doesn't mean it's safe. Dirt is small and frail, and the mighty Socks has problems of his own. His Mother, an immense being of unfathomable power, sets a high bar for her offspring. If Socks can't meet the challenge, he'll die. Mother's not too fond of the clingy little human he insists on keeping either.
-
-If the two of them are to survive long enough to grow up, they'll need all of Dirt's sincerity, discipline, and cunning as well as Socks's valor and tremendous strength. And they'll also need to beware: not everything that was lost should be rediscovered, and not everything that sleeps should be disturbed.
-
-**The first volume of the hit fantasy adventure series—with more than a million views on Royal Road—now available on Kindle, Kindle Unlimited, and Audible!**"
-,
-  "relationships": [
-    {
-      "asin": "B0DT7GY283",
-      "content_delivery_type": "BookSeries",
-      "relationship_to_product": "parent",
-      "relationship_type": "series",
-      "sequence": "1",
-      "sort": 1,
-      "title": "The Land of Broken Roads",
-    },
-  ],
-  "series": [
-    {
-      "asin": "B0DT7GY283",
-      "title": "The Land of Broken Roads",
-    },
-  ],
-  "subtitle": "The Land of Broken Roads, Book 1",
-  "title": "Ancient Things: A High Fantasy Adventure",
-}
-`;
-
 exports[`books books part of a bundle parse correctly and narrator has ASIN 1`] = `
 {
   "asin": "B002UUKHII",
@@ -659,19 +601,19 @@ Church is book one of The Boys of Chapel Crest. It’s a dark bully romance with
 ,
   "relationships": [
     {
-      "asin": "B0FDH5WBG6",
-      "relationship_to_product": "child",
-      "relationship_type": "component",
-      "sort": 1,
-    },
-    {
-      "asin": "B0FDMBRMPC",
+      "asin": "B0F9WCJHYL",
       "content_delivery_type": "BookSeries",
       "relationship_to_product": "parent",
       "relationship_type": "series",
       "sequence": "1",
       "sort": 1,
       "title": "The Boys of Chapel Crest",
+    },
+    {
+      "asin": "B0FDH5WBG6",
+      "relationship_to_product": "child",
+      "relationship_type": "component",
+      "sort": 1,
     },
     {
       "asin": "B0FDH6JGCH",
@@ -682,7 +624,7 @@ Church is book one of The Boys of Chapel Crest. It’s a dark bully romance with
   ],
   "series": [
     {
-      "asin": "B0FDMBRMPC",
+      "asin": "B0F9WCJHYL",
       "title": "The Boys of Chapel Crest",
     },
   ],
@@ -917,5 +859,63 @@ Each audiobook in the series is narrated by Travis Baldree, an established narra
     },
   ],
   "title": "The Beginning After the End",
+}
+`;
+
+exports[`books author without ASIN 1`] = `
+{
+  "asin": "B0DT29BJGC",
+  "content_delivery_type": "SinglePartBook",
+  "contributors": [
+    {
+      "asin": undefined,
+      "name": "Peter Kenny",
+      "role": "narrator",
+    },
+    {
+      "asin": undefined,
+      "name": "Ryan English",
+      "role": "author",
+    },
+  ],
+  "copyright": "©2025 Ryan English (P)2025 Podium Audio",
+  "format_type": "unabridged",
+  "is_adult_product": false,
+  "product_images": {
+    "500": "https://m.media-amazon.com/images/I/51JPc5o5IJL._SL500_.jpg",
+  },
+  "publisher_name": "Podium Audio",
+  "publisher_summary_md": 
+"**In a world of wonder, mystery, and lurking threats, a young boy and a giant wolf must rely on each other to escape the things that hunt them both.**
+
+The age of mankind is over, its empire reduced to a land of rubble and broken roads. Vicious things nest in the old, forgotten ruins, and what's left of humanity huddles in tiny communities that grow smaller every generation. But when a young boy is taken in by an unlikely ally, a glimmer of hope is born.
+
+After waking up in a mysterious forest with no weapons, supplies, or even memories of his life before, Dirt should have ended up a barely adequate snack. Luckily, he attracts the attention of a gigantic, curious wolf pup, who rescues him, and they quickly become friends.
+
+The world is beautiful and wondrous, perfect for a pair of adventurous youngsters, but that doesn't mean it's safe. Dirt is small and frail, and the mighty Socks has problems of his own. His Mother, an immense being of unfathomable power, sets a high bar for her offspring. If Socks can't meet the challenge, he'll die. Mother's not too fond of the clingy little human he insists on keeping either.
+
+If the two of them are to survive long enough to grow up, they'll need all of Dirt's sincerity, discipline, and cunning as well as Socks's valor and tremendous strength. And they'll also need to beware: not everything that was lost should be rediscovered, and not everything that sleeps should be disturbed.
+
+**The first volume of the hit fantasy adventure series—with more than a million views on Royal Road—now available on Kindle, Kindle Unlimited, and Audible!**"
+,
+  "relationships": [
+    {
+      "asin": "B0DT7GY283",
+      "content_delivery_type": "BookSeries",
+      "relationship_to_product": "parent",
+      "relationship_type": "series",
+      "sequence": "1",
+      "sort": 1,
+      "title": "The Land of Broken Roads",
+    },
+  ],
+  "series": [
+    {
+      "asin": "B0DT7GY283",
+      "title": "The Land of Broken Roads",
+    },
+  ],
+  "subtitle": "The Land of Broken Roads, Book 1",
+  "title": "Ancient Things: A High Fantasy Adventure",
 }
 `;

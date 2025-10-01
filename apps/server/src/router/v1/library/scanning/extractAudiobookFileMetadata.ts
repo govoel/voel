@@ -1,7 +1,6 @@
 import { Data, Effect } from 'effect';
 
 import { FFProbeStdoutSchema, FsExtended } from '@/router/v1/library/fsExtended';
-import { Hash } from '@/router/v1/library/hash';
 
 const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   for (const tagValue of possibleTags) {
@@ -24,24 +23,10 @@ const extractNumberFromTags = (...possibleTags: (string | undefined)[]) => {
   return 0;
 };
 
-class UpToDateError extends Data.TaggedError('UpToDateError')<{
-  message: string;
-  data: {
-    metadata: typeof FFProbeStdoutSchema.Type;
-    metadataHash: string;
-    normalizedTags: Record<string, string>;
-    albumTitle?: string;
-    artistName?: string;
-    discNumber: number;
-    trackNumber: number;
-  };
-}> {}
-
 class NoAlbumTitleOrArtistNameError extends Data.TaggedError('NoAlbumTitleOrArtistNameError')<{
   message: string;
   data: {
     metadata: typeof FFProbeStdoutSchema.Type;
-    metadataHash: string;
     normalizedTags: Record<string, string>;
     albumTitle?: string;
     artistName?: string;
@@ -50,21 +35,11 @@ class NoAlbumTitleOrArtistNameError extends Data.TaggedError('NoAlbumTitleOrArti
   };
 }> {}
 
-export const extractAudiobookFileMetadata = ({
-  file,
-}: {
-  file: Readonly<{
-    metadataHashFromDb: string | undefined;
-    path: string;
-  }>;
-}) =>
+export const extractAudiobookFileMetadata = ({ fileDescriptor }: { fileDescriptor: number }) =>
   Effect.gen(function* () {
     const fs = yield* FsExtended;
-    const hash = yield* Hash;
 
-    yield* Effect.annotateLogsScoped({ path: file.path });
-
-    const metadata = yield* fs.ffprobe({ path: file.path });
+    const metadata = yield* fs.ffprobe(fileDescriptor);
 
     const normalizedTags = yield* Effect.reduce(
       Object.entries(metadata.format.tags),
@@ -98,30 +73,6 @@ export const extractAudiobookFileMetadata = ({
       normalizedTags['trk']
     );
 
-    // ok to compute hash on parsed metadata only instead of raw metadata
-    // because if we ever change what we parse, the file gets re-processed
-    const metadataHash = yield* hash.rapidhash({
-      data: JSON.stringify(metadata),
-    });
-
-    if (file.metadataHashFromDb === metadataHash) {
-      return yield* Effect.fail(
-        // TODO: test that change in mtimeMs but not in metadataHash updates DB's mtimeMs
-        new UpToDateError({
-          message: 'File is up to date',
-          data: {
-            metadata,
-            metadataHash,
-            normalizedTags,
-            albumTitle,
-            artistName,
-            discNumber,
-            trackNumber,
-          },
-        })
-      );
-    }
-
     if (
       albumTitle === undefined ||
       albumTitle.length === 0 ||
@@ -133,7 +84,6 @@ export const extractAudiobookFileMetadata = ({
           message: 'No album title or artist name found in metadata',
           data: {
             metadata,
-            metadataHash,
             normalizedTags,
             albumTitle,
             artistName,
@@ -146,11 +96,10 @@ export const extractAudiobookFileMetadata = ({
 
     return {
       metadata,
-      metadataHash,
       normalizedTags,
       albumTitle,
       artistName,
       discNumber,
       trackNumber,
     };
-  }).pipe(Effect.scoped);
+  });

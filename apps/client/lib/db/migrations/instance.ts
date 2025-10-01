@@ -407,15 +407,16 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                   col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
                 )
                 .addColumn('bookId', 'integer', (col) =>
-                  col.notNull().references('book.id').onDelete('cascade').onUpdate('cascade')
+                  col.references('book.id').onDelete('cascade').onUpdate('cascade')
                 )
                 .addColumn('path', 'text', (col) => col.notNull())
-                .addColumn('mtimeMs', 'text', (col) => col.notNull())
-                .addColumn('metadataHash', 'text', (col) => col.notNull())
                 .addColumn('durationMs', 'integer', (col) => col.notNull())
                 .addColumn('customOrder', 'integer')
                 .addColumn('disc', 'integer', (col) => col.notNull())
                 .addColumn('track', 'integer', (col) => col.notNull())
+                .addColumn('reason', 'text')
+                .addColumn('mtimeMs', 'text', (col) => col.notNull())
+                .addColumn('partialFileHash', 'text')
                 .addColumn('createdAt', 'integer', (col) =>
                   col.defaultTo(sql`(unixepoch())`).notNull()
                 )
@@ -436,6 +437,12 @@ export const createInstanceDbMigrator = (instanceDb: Kysely<InstanceDatabase>) =
                 .createIndex('audiobookFile_bookId_index')
                 .on('audiobookFile')
                 .columns(['bookId'])
+                .execute();
+
+              await trx.schema
+                .createIndex('audiobookFile_path_index')
+                .on('audiobookFile')
+                .columns(['path'])
                 .execute();
 
               await trx.schema

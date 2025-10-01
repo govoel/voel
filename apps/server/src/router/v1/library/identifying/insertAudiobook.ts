@@ -46,7 +46,7 @@ export const insertAudiobook = Effect.fn(
     chapters: (typeof ChapterResponseSchema.Type)['content_metadata']['chapter_info']['chapters'];
     files: {
       path: string;
-      metadataHash: string;
+      partialFileHash: string;
       metadata: {
         format: { duration: number; tags: Record<string, string> };
         readonly chapters: readonly {
@@ -242,6 +242,8 @@ export const insertAudiobook = Effect.fn(
     // TODO: Either support multiple versions (file groups or something like
     // that) of the same book or detect and abort the transaction
 
+    // TODO: write a test to ensure soft-deleted files are restored when
+    // they are re-identified (could or could not be as the same book)
     const insertedFiles = yield* toEffect(
       trx
         .insertInto('audiobookFile')
@@ -249,18 +251,21 @@ export const insertAudiobook = Effect.fn(
           files.map((file) => ({
             libraryId,
             bookId: insertedBook.id,
+            partialFileHash: file.partialFileHash,
+            reason: null,
             path: file.path,
             durationMs: Math.round(file.metadata.format.duration * 1000),
             disc: file.discNumber,
             track: file.trackNumber,
             mtimeMs: file.mtimeMs,
-            metadataHash: file.metadataHash,
           }))
         )
         .onConflict((oc) =>
           oc.doUpdateSet(({ ref, eb }) => ({
             libraryId: ref('excluded.libraryId'),
             bookId: ref('excluded.bookId'),
+            partialFileHash: ref('excluded.partialFileHash'),
+            reason: ref('excluded.reason'),
             durationMs: ref('excluded.durationMs'),
             // TODO: write a test for this! if the existing file is being re-identified
             // as the same book, keep its custom order, otherwise set to null
@@ -273,21 +278,10 @@ export const insertAudiobook = Effect.fn(
             disc: ref('excluded.disc'),
             track: ref('excluded.track'),
             mtimeMs: ref('excluded.mtimeMs'),
-            metadataHash: ref('excluded.metadataHash'),
             deletedAt: null,
           }))
         )
         .returning(['id as id', 'path as path'])
-        .execute()
-    );
-
-    yield* toEffect(
-      trx
-        .updateTable('unidentifiedAudiobookFile')
-        .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-        .where((eb) =>
-          eb.or(files.map((file) => eb('unidentifiedAudiobookFile.path', '=', file.path)))
-        )
         .execute()
     );
 

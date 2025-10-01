@@ -11,7 +11,7 @@ const createProgram = (asin: string) =>
 
 const layer = Layer.merge(Logger.minimumLogLevel(LogLevel.None), Audible.Default);
 
-describe('regular author', async () => {
+describe.concurrent('regular author', async () => {
   test('with about and avatar', async () => {
     const result = await Effect.runPromise(createProgram('B019ZTQ5IM').pipe(Effect.provide(layer)));
 
@@ -35,7 +35,7 @@ describe('regular author', async () => {
   });
 });
 
-test('narrator with ASIN', async () => {
+test.concurrent('narrator with ASIN', async () => {
   const result = await Effect.runPromise(createProgram('B0C9M9M74R').pipe(Effect.provide(layer)));
 
   expect(result).toEqual(
@@ -44,7 +44,7 @@ test('narrator with ASIN', async () => {
   );
 });
 
-test('translator with ASIN', async () => {
+test.concurrent('translator with ASIN', async () => {
   const result = await Effect.runPromise(createProgram('B000APTDDU').pipe(Effect.provide(layer)));
 
   expect(result).toEqual(

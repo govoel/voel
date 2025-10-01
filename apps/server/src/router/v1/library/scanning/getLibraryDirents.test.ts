@@ -2,7 +2,7 @@ import { getLibraryDirents } from './getLibraryDirents';
 import { describe, expect, test } from 'bun:test';
 import { Chunk, Effect } from 'effect';
 
-describe('getLibraryDirents', () => {
+describe.concurrent('getLibraryDirents', () => {
   test('returns all dirents when no ignore marker files are present', async () => {
     const entries = [
       { name: 'a.mp3', parentPath: '/root' },
@@ -15,7 +15,8 @@ describe('getLibraryDirents', () => {
 
     const result = await Effect.runPromise(getLibraryDirents(asyncIterable));
 
-    expect(Chunk.toArray(result)).toEqual(entries);
+    expect(result.ignoredDirs).toBeEmpty();
+    expect(Chunk.toArray(result.files)).toEqual(entries);
   });
 
   test('filters out dirents whose parentPath matches a discovered .nomedia file', async () => {
@@ -31,7 +32,8 @@ describe('getLibraryDirents', () => {
 
     const result = await Effect.runPromise(getLibraryDirents(asyncIterable));
 
-    expect(Chunk.toArray(result)).toEqual([{ name: 'b.mp3', parentPath: '/root' }]);
+    expect([...result.ignoredDirs]).toEqual(['/root/sub']);
+    expect(Chunk.toArray(result.files)).toEqual([{ name: 'b.mp3', parentPath: '/root' }]);
   });
 
   test('filters out dirents whose parentPath matches a discovered .voelignore file', async () => {
@@ -47,7 +49,8 @@ describe('getLibraryDirents', () => {
 
     const result = await Effect.runPromise(getLibraryDirents(asyncIterable));
 
-    expect(Chunk.toArray(result)).toEqual([{ name: 'b.mp3', parentPath: '/root' }]);
+    expect([...result.ignoredDirs]).toEqual(['/root/ignored']);
+    expect(Chunk.toArray(result.files)).toEqual([{ name: 'b.mp3', parentPath: '/root' }]);
   });
 
   test('returns empty chunk when source iteration throws an error', async () => {
@@ -58,7 +61,8 @@ describe('getLibraryDirents', () => {
 
     const result = await Effect.runPromise(getLibraryDirents(asyncIterable));
 
-    expect(Chunk.toArray(result)).toEqual([]);
+    expect([...result.ignoredDirs]).toEqual([]);
+    expect(Chunk.toArray(result.files)).toEqual([]);
   });
 
   test('does not ignore deeper subdirectories when .nomedia is present on parentPath only', async () => {
@@ -75,8 +79,9 @@ describe('getLibraryDirents', () => {
 
     const result = await Effect.runPromise(getLibraryDirents(asyncIterable));
 
+    expect([...result.ignoredDirs]).toEqual(['/root/sub']);
     // Only the entry with parentPath '/root/sub' should be removed.
-    expect(Chunk.toArray(result)).toEqual([
+    expect(Chunk.toArray(result.files)).toEqual([
       { name: 'b.mp3', parentPath: '/root/sub/deeper' },
       { name: 'c.mp3', parentPath: '/root' },
     ]);
@@ -98,10 +103,11 @@ describe('getLibraryDirents', () => {
 
     const result = await Effect.runPromise(getLibraryDirents(asyncIterable));
 
+    expect([...result.ignoredDirs]).toEqual(['/root/ignored', '/root/ignored/sub']);
     // '/root/ignored' and '/root/ignored/sub' should be ignored exactly,
     // but '/root/ignored/sub/deeper' remains because the implementation
     // only ignores based on exact parentPath matches.
-    expect(Chunk.toArray(result)).toEqual([
+    expect(Chunk.toArray(result.files)).toEqual([
       { name: 'c.mp3', parentPath: '/root/ignored/sub/deeper' },
       { name: 'd.mp3', parentPath: '/root/other' },
     ]);

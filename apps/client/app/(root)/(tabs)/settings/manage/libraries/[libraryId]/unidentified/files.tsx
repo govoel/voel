@@ -70,29 +70,9 @@ const humanReadableReasons = {
   USER_DELETED_FROM_BOOK: 'File was previously part of a book but was deleted by the user',
 };
 
-const getAlbumArtist = (metadata: Record<string, string | undefined>) => {
-  return (metadata['artist'] || metadata['album_artist'])?.trim();
-};
-
-const getAlbumTitle = (metadata: Record<string, string | undefined>) => {
-  return (metadata['album'] || metadata['title'])?.trim();
-};
-
 const unidentifiedFilesColumns: ColumnDef<
   inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]
 >[] = [
-  {
-    id: 'albumArtist',
-    header: 'Album Artist',
-    accessorFn: (row) => getAlbumArtist(row.metadata) ?? 'No Album Artist',
-    enableGrouping: true,
-  },
-  {
-    id: 'albumTitle',
-    header: 'Album Title',
-    accessorFn: (row) => getAlbumTitle(row.metadata) ?? 'No Album Title',
-    enableGrouping: true,
-  },
   {
     id: 'directory',
     header: 'Directory',
@@ -102,7 +82,7 @@ const unidentifiedFilesColumns: ColumnDef<
   {
     id: 'reason',
     header: 'Reason',
-    accessorFn: (row) => humanReadableReasons[row.reason],
+    accessorFn: (row) => (row.reason ? humanReadableReasons[row.reason] : 'No reason was provided'),
     enableGrouping: true,
   },
   {
@@ -405,29 +385,8 @@ const IdentifyFilesModal = ({
     getRowId: (row) => `${row.directory}/${row.name}`,
   });
 
-  const firstSelectedWithTitle = useMemo(() => {
-    return selectedRowsOriginal.find((r) => {
-      const title = getAlbumTitle(r.metadata);
-      return typeof title === 'string' && title.length > 0;
-    });
-  }, [selectedRowsOriginal]);
-
-  const firstSelectedWithArtist = useMemo(() => {
-    return selectedRowsOriginal.find((r) => {
-      const artist = getAlbumArtist(r.metadata);
-      return typeof artist === 'string' && artist.length > 0;
-    });
-  }, [selectedRowsOriginal]);
-
   const SearchViaAudibleForm = useAppForm({
-    defaultValues: {
-      title: firstSelectedWithTitle?.metadata
-        ? getAlbumTitle(firstSelectedWithTitle.metadata)
-        : undefined,
-      author: firstSelectedWithArtist?.metadata
-        ? getAlbumArtist(firstSelectedWithArtist.metadata)
-        : undefined,
-    } as z.infer<typeof schemas.v1.library.unidentified.search>,
+    defaultValues: {} as z.infer<typeof schemas.v1.library.unidentified.search>,
     validators: {
       onChange: schemas.v1.library.unidentified.search,
     },

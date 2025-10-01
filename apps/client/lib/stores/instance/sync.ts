@@ -148,9 +148,10 @@ export const upsertAudiobookFile = (
       oc.columns(['id']).doUpdateSet({
         libraryId: (eb) => eb.ref('excluded.libraryId'),
         bookId: (eb) => eb.ref('excluded.bookId'),
+        reason: (eb) => eb.ref('excluded.reason'),
         path: (eb) => eb.ref('excluded.path'),
         mtimeMs: (eb) => eb.ref('excluded.mtimeMs'),
-        metadataHash: (eb) => eb.ref('excluded.metadataHash'),
+        partialFileHash: (eb) => eb.ref('excluded.partialFileHash'),
         durationMs: (eb) => eb.ref('excluded.durationMs'),
         customOrder: (eb) => eb.ref('excluded.customOrder'),
         disc: (eb) => eb.ref('excluded.disc'),

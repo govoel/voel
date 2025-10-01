@@ -4,38 +4,19 @@ import { Data, Effect, Either } from 'effect';
 
 import { FsExtended } from '@/router/v1/library/fsExtended';
 
-import { KnownSQLiteError, NotFoundError, QueryError, db, toEffect } from '@/libs/db';
-
 class DirectoryError extends Data.TaggedError('DirectoryError')<{ message: string }> {}
 class StatError extends Data.TaggedError('StatError')<{
   message: string;
   error: Error.PlatformError;
 }> {}
-class DbError extends Data.TaggedError('DbError')<{
-  message: string;
-  error: KnownSQLiteError | NotFoundError | QueryError;
-}> {}
 class RealpathError extends Data.TaggedError('RealpathError')<{
   message: string;
   error: Error.PlatformError;
-  data: {
-    metadataHashFromDb: string | undefined;
-    mtimeMs: number;
-    deletedAt: number | null | undefined;
-  };
 }> {}
 class NoExtensionError extends Data.TaggedError('NoExtensionError')<{ message: string }> {}
 class UnsupportedExtensionError extends Data.TaggedError('UnsupportedExtensionError')<{
   message: string;
   extension: string;
-}> {}
-class UpToDateError extends Data.TaggedError('UpToDateError')<{
-  message: string;
-  data: {
-    metadataHashFromDb: string;
-    mtimeMs: number;
-    deletedAt: number | null;
-  };
 }> {}
 
 const SUPPORTED_AUDIO_EXTENSIONS = new Set([
@@ -105,39 +86,6 @@ export const prepareAudiobookFile = (file: {
       );
     }
 
-    const dbFile = yield* Effect.either(
-      toEffect(
-        db
-          .selectFrom('audiobookFile')
-          .select([
-            'audiobookFile.mtimeMs',
-            'audiobookFile.metadataHash',
-            'audiobookFile.deletedAt',
-          ])
-          .where('audiobookFile.path', '=', path.join(file.parentPath, file.name))
-          .executeTakeFirst()
-      )
-    );
-
-    if (Either.isLeft(dbFile)) {
-      return yield* Effect.fail(
-        new DbError({ message: 'Error fetching file from database', error: dbFile.left })
-      );
-    }
-
-    if (dbFile.right && stat.right.mtimeMs <= dbFile.right.mtimeMs) {
-      return yield* Effect.fail(
-        new UpToDateError({
-          message: 'File is up to date',
-          data: {
-            metadataHashFromDb: dbFile.right.metadataHash,
-            mtimeMs: stat.right.mtimeMs,
-            deletedAt: dbFile.right.deletedAt,
-          },
-        })
-      );
-    }
-
     let realPath: string | undefined = undefined;
     if (file.isSymbolicLink()) {
       const realPathEither = yield* Effect.either(
@@ -149,11 +97,6 @@ export const prepareAudiobookFile = (file: {
           new RealpathError({
             message: 'Error resolving symbolic link',
             error: realPathEither.left,
-            data: {
-              metadataHashFromDb: dbFile.right?.metadataHash,
-              mtimeMs: stat.right.mtimeMs,
-              deletedAt: dbFile.right?.deletedAt,
-            },
           })
         );
       } else {
@@ -162,9 +105,7 @@ export const prepareAudiobookFile = (file: {
     }
 
     return {
-      metadataHashFromDb: dbFile.right?.metadataHash,
       mtimeMs: stat.right.mtimeMs,
       realPath,
-      deletedAt: dbFile.right?.deletedAt ?? null,
     };
   }).pipe(Effect.scoped);

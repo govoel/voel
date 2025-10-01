@@ -25,6 +25,9 @@ export const getLibraryDirents = Effect.fn(function* <
         Effect.as(Chunk.empty<T>())
       )
     ),
-    Effect.map((e) => Chunk.filter(e, (dirent) => !ignoredDirs.has(dirent.parentPath)))
+    Effect.map((entries) => ({
+      ignoredDirs,
+      files: Chunk.filter(entries, (dirent) => !ignoredDirs.has(dirent.parentPath)),
+    }))
   );
 });
