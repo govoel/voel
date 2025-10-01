@@ -105,7 +105,7 @@ export default function SettingsDownloadsScreen() {
           </>
         }
         ListEmptyComponent={
-          !error && !downloadError ? (
+          !error && !downloadError && !data && !downloads ? (
             <View className="p-12 justify-center items-center">
               <Spinner size={15} />
             </View>

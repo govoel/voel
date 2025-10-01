@@ -595,7 +595,7 @@ const ManageDownloads = ({
                   </ButtonWithLoading>
                   {Object.values(downloads).some((d) => d.paused) ? (
                     <ButtonWithLoading
-                      viewClassName="mb-1"
+                      viewClassName="mb-2"
                       variant="secondary"
                       isLoading={isResumeDownloadsLoading}
                       onPress={() => {
@@ -610,7 +610,7 @@ const ManageDownloads = ({
                     </ButtonWithLoading>
                   ) : (
                     <ButtonWithLoading
-                      viewClassName="mb-1"
+                      viewClassName="mb-2"
                       variant="secondary"
                       isLoading={isPauseDownloadsLoading}
                       onPress={() => {
@@ -626,7 +626,7 @@ const ManageDownloads = ({
                 </>
               ) : (
                 <ButtonWithLoading
-                  viewClassName="mb-1"
+                  viewClassName="mb-2"
                   variant="secondary"
                   isLoading={isDownloadFilesLoading}
                   onPress={() => {
