@@ -16,9 +16,6 @@
     {
       "groupName": "better-auth-monorepo",
       "matchPackageNames": ["/better-auth/"]
-    },{
-      "groupName": "react-native-bottom-tabs-monorepo",
-      "matchPackageNames": ["@bottom-tabs/react-navigation", "react-native-bottom-tabs"]
     }
   ],
   "recreateWhen": "never"
