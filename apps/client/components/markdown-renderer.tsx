@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import React, { type ReactNode } from 'react';
 import { Linking, TouchableHighlight, View } from 'react-native';
-import { Renderer } from 'react-native-marked';
+import { Renderer, useMarkdown } from 'react-native-marked';
 import type { RendererInterface } from 'react-native-marked';
 
 import { Text } from '~/components/ui/text';
@@ -117,4 +117,10 @@ class CustomRenderer extends Renderer implements RendererInterface {
   }
 }
 
-export const renderer = new CustomRenderer();
+const renderer = new CustomRenderer();
+
+export function Markdown({ content }: { content: string }) {
+  const contentElements = useMarkdown(content, { renderer });
+
+  return contentElements;
+}

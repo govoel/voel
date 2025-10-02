@@ -29,7 +29,7 @@ const Input = ({
               'opacity-50',
               Platform.select({ web: 'disabled:pointer-events-none disabled:cursor-not-allowed' })
             ),
-          isLoading ? 'rounded-l-md border border-r-0' : 'border rounded-md',
+          isLoading ? 'rounded-l-md border border-r-0' : 'border border-r rounded-md',
           Platform.select({
             web: cn(
               'placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground outline-none transition-[color,box-shadow] md:text-sm',

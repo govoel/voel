@@ -3,8 +3,8 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { BookList } from '~/components/book-list';
-import { ExpandableSummary } from '~/components/expandable-summary';
 import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
+import { Markdown } from '~/components/markdown-renderer';
 import { Spinner } from '~/components/spinner';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { Button } from '~/components/ui/button';
@@ -66,11 +66,7 @@ export default function SeriesIDScreen() {
 
                 {serie.summary ? (
                   <View className="pt-4">
-                    <ExpandableSummary
-                      summary={serie.summary}
-                      expandText="Expand Summary"
-                      collapseText="Collapse Summary"
-                    />
+                    <Markdown content={serie.summary} />
                   </View>
                 ) : null}
               </>

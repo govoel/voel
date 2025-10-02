@@ -7,15 +7,15 @@ import {
 } from '@gorhom/bottom-sheet';
 import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
+import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { cssInterop } from 'nativewind';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, ScrollView, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { toast } from 'sonner-native';
 
-import { ExpandableSummary } from '~/components/expandable-summary';
-import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
+import { FloatingPlayerDodgingScrollView, floatingPlayerStore } from '~/components/floating-player';
 import { BookCopy } from '~/components/icons/BookCopy';
 import { ChevronDown } from '~/components/icons/ChevronDown';
 import { ChevronRight } from '~/components/icons/ChevronRight';
@@ -33,14 +33,9 @@ import { Play } from '~/components/icons/Play';
 import { Timer } from '~/components/icons/Timer';
 import { Trash } from '~/components/icons/Trash';
 import { Image } from '~/components/image';
+import { Markdown } from '~/components/markdown-renderer';
 import { usePlaybackHistoryContext } from '~/components/playback-history-provider';
 import { Spinner } from '~/components/spinner';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '~/components/ui/accordion';
 import { Alert, AlertTitle } from '~/components/ui/alert';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
@@ -70,6 +65,19 @@ import Player, {
 
 const SvgInterop = cssInterop(Svg, { className: 'style' });
 
+const useFloatingPlayerAndTabsPaddingClass = () => {
+  const isPlayerActive = useSelector(floatingPlayerStore, (state) => state.context.isPlayerActive);
+  const isUpdatePending = useSelector(
+    floatingPlayerStore,
+    (state) => state.context.isUpdatePending
+  );
+
+  if (isPlayerActive && isUpdatePending) return 'pt-6 pb-52';
+  if (isPlayerActive) return 'pt-6 pb-40';
+  if (isUpdatePending) return 'pt-6 pb-32';
+  return 'pt-6 pb-20';
+};
+
 export default function BookScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
 
@@ -80,11 +88,21 @@ export default function BookScreen() {
     return data.contributors.filter((a) => a.role === 'author');
   }, [data]);
 
+  const [currentTab, setCurrentTab] = useState('summary');
+
+  const isPlayerActive = useSelector(floatingPlayerStore, (state) => state.context.isPlayerActive);
+  const isUpdatePending = useSelector(
+    floatingPlayerStore,
+    (state) => state.context.isUpdatePending
+  );
+
+  const floatingPlayerPadding = useFloatingPlayerAndTabsPaddingClass();
+
   return (
     <>
       <Stack.Screen options={{ headerTitle: 'Book' }} />
-      <FloatingPlayerDodgingScrollView>
-        {error ? (
+      {error ? (
+        <FloatingPlayerDodgingScrollView>
           <Card>
             <CardContent className="pt-4">
               <Large>Error loading book {bookId}</Large>
@@ -96,24 +114,117 @@ export default function BookScreen() {
               </Button>
             </CardFooter>
           </Card>
-        ) : data ? (
-          <>
-            {data.cover ? (
-              <AspectRatio ratio={1 / 1} className="mx-12">
-                <Image
-                  className="w-full h-full rounded-md"
-                  source={data.cover}
-                  placeholder={{ thumbhash: data.coverThumbhash ?? undefined }}
-                />
-              </AspectRatio>
-            ) : null}
+        </FloatingPlayerDodgingScrollView>
+      ) : data ? (
+        <>
+          <ScrollView className="px-6">
+            <View className={floatingPlayerPadding}>
+              {data.cover ? (
+                <AspectRatio ratio={1 / 1} className="mx-12">
+                  <Image
+                    className="w-full h-full rounded-md"
+                    source={data.cover}
+                    placeholder={{ thumbhash: data.coverThumbhash ?? undefined }}
+                  />
+                </AspectRatio>
+              ) : null}
 
-            <H2 className="border-0 pt-4 text-center">{data.title}</H2>
-            {data.subtitle ? (
-              <Small className="text-center leading-snug pb-2">{data.subtitle}</Small>
-            ) : null}
+              <H2 className="border-0 pt-4 text-center">{data.title}</H2>
+              {data.subtitle ? (
+                <Small className="text-center leading-snug pb-2">{data.subtitle}</Small>
+              ) : null}
 
-            <View className="flex flex-row flex-wrap gap-x-2 items-center">
+              <View className="flex flex-row flex-nowrap items-center gap-1 pt-4">
+                <Badge variant="outline">
+                  <Timer className="text-muted-foreground" size={20} />
+                </Badge>
+                <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                  <Badge variant="outline">
+                    <Text>
+                      {formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}
+                    </Text>
+                  </Badge>
+                </View>
+              </View>
+
+              <Contributors role="author" contributors={data.contributors} />
+              <Contributors role="narrator" contributors={data.contributors} />
+
+              {data.series.length > 0 ? (
+                <View className="flex flex-row flex-nowrap items-center justify-start gap-1 pt-2">
+                  <Badge variant="outline">
+                    <BookCopy className="text-muted-foreground" size={20} />
+                  </Badge>
+                  <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                    {data.series.map((series, index) => (
+                      <Link
+                        key={`series-${index}`}
+                        href={
+                          series.id
+                            ? {
+                                pathname: '/series/id/[seriesId]',
+                                params: { seriesId: series.id },
+                              }
+                            : {
+                                pathname: '/series/name/[seriesName]',
+                                params: { seriesName: series.name },
+                              }
+                        }
+                        push
+                        asChild>
+                        <Badge variant="secondary" className="flex-nowrap gap-2">
+                          <Text>{series.label}</Text>
+                          <Text className="border-l border-muted-foreground/50 pl-2 flex-shrink">
+                            {series.name}
+                          </Text>
+                        </Badge>
+                      </Link>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              <Contributors role="translator" contributors={data.contributors} />
+              <Contributors role="editor" contributors={data.contributors} />
+
+              <Tabs
+                value={currentTab}
+                onValueChange={(value) => {
+                  setCurrentTab(value);
+                }}
+                className="flex-1 pt-4">
+                <TabsList className="w-full flex-row">
+                  <TabsTrigger value="summary" className="flex-1">
+                    <Text>Summary</Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="chapters" className="flex-1">
+                    <Text>Chapters</Text>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="summary" className="pt-2">
+                  <Markdown content={data.summary ?? '_No summary available._'} />
+                </TabsContent>
+
+                <TabsContent value="chapters" className="pt-2">
+                  <BookChapters book={{ ...data, authors }} />
+                </TabsContent>
+              </Tabs>
+            </View>
+          </ScrollView>
+
+          <View
+            className={cn(
+              'w-full absolute px-4',
+              isPlayerActive && isUpdatePending
+                ? 'bottom-[126]'
+                : isPlayerActive
+                  ? 'bottom-[75]'
+                  : isUpdatePending
+                    ? 'bottom-[60]'
+                    : 'bottom-[10]'
+            )}>
+            <View className="bg-background/85 rounded-md w-full flex-row gap-x-2">
               <MoreOptionsBottomSheet book={{ ...data, authors }} />
               <ManageDownloads
                 book={{
@@ -125,83 +236,13 @@ export default function BookScreen() {
               />
               <BookPlayButton book={{ ...data, authors }} />
             </View>
-
-            <View className="flex flex-row flex-nowrap items-center gap-1 pt-4">
-              <Timer className="text-muted-foreground" size={20} />
-              <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
-                <Badge variant="outline">
-                  <Text>
-                    {formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}
-                  </Text>
-                </Badge>
-              </View>
-            </View>
-
-            <Contributors role="author" contributors={data.contributors} />
-            <Contributors role="narrator" contributors={data.contributors} />
-
-            {data.series.length > 0 ? (
-              <View className="flex flex-row flex-nowrap items-center justify-start gap-1 pt-2">
-                <BookCopy className="text-muted-foreground" size={20} />
-                <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
-                  {data.series.map((series, index) => (
-                    <Link
-                      key={`series-${index}`}
-                      href={
-                        series.id
-                          ? {
-                              pathname: '/series/id/[seriesId]',
-                              params: { seriesId: series.id },
-                            }
-                          : {
-                              pathname: '/series/name/[seriesName]',
-                              params: { seriesName: series.name },
-                            }
-                      }
-                      push
-                      asChild>
-                      <Badge variant="secondary" className="flex-nowrap gap-2">
-                        <Text>{series.label}</Text>
-                        <Text className="border-l border-muted-foreground/50 pl-2 flex-shrink">
-                          {series.name}
-                        </Text>
-                      </Badge>
-                    </Link>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-
-            <Contributors role="translator" contributors={data.contributors} />
-            <Contributors role="editor" contributors={data.contributors} />
-
-            {data.summary ? (
-              <View className="pt-4">
-                <ExpandableSummary
-                  summary={data.summary}
-                  expandText="Expand Summary"
-                  collapseText="Collapse Summary"
-                />
-              </View>
-            ) : null}
-
-            <Accordion className="pt-4" type="multiple" collapsable>
-              <AccordionItem value="chapters">
-                <AccordionTrigger>
-                  <Text className="font-semibold">Chapters</Text>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <BookChapters book={{ ...data, authors }} />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </>
-        ) : (
-          <View className="p-12 justify-center items-center">
-            <Spinner size={15} />
           </View>
-        )}
-      </FloatingPlayerDodgingScrollView>
+        </>
+      ) : (
+        <View className="p-12 justify-center items-center">
+          <Spinner size={15} />
+        </View>
+      )}
     </>
   );
 }
@@ -226,11 +267,13 @@ const Contributors = ({
 
   return (
     <View className="flex flex-row flex-nowrap items-center justify-start gap-1 pt-2">
-      {role === 'author' && <PenTool className="text-muted-foreground" size={20} />}
-      {role === 'narrator' && <MicVocal className="text-muted-foreground" size={20} />}
-      {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
-      {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
-      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+      <Badge variant="outline">
+        {role === 'author' && <PenTool className="text-muted-foreground" size={20} />}
+        {role === 'narrator' && <MicVocal className="text-muted-foreground" size={20} />}
+        {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
+        {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
+      </Badge>
+      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
         {filteredContributors.map((contributor, index) => (
           <Link
             key={`${role}-${index}`}
@@ -316,7 +359,7 @@ const playBookFrom = (
 
       const chapterFileIds = Array.from(
         { length: endFileIndex - (startFileIndex - 1) },
-        (e, i) => ({
+        (_e, i) => ({
           fileArrayIndex: i + startFileIndex,
           fileId: book.files[i + startFileIndex].id,
         })
@@ -708,7 +751,7 @@ const PlayFromTimestampButton = ({
 
   return (
     <Button
-      className="mt-4 flex-1"
+      className="flex-1"
       onPress={() => {
         playBookFrom(book, positionMs, authInstance.getCookie(), instanceId, instanceURL);
       }}>

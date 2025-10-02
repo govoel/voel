@@ -183,8 +183,8 @@ const SearchTab = () => {
   }, [searchQuery]);
 
   return (
-    <ScrollView className={cn(useFloatingPlayerAndTabsPaddingClass(), 'py-0')}>
-      <View className={cn(useFloatingPlayerAndTabsPaddingClass(), 'px-0')}>
+    <ScrollView className="px-6">
+      <View className={useFloatingPlayerAndTabsPaddingClass()}>
         <SearchForm.AppForm>
           <SearchForm.AppField
             name="query"
@@ -397,10 +397,10 @@ const useFloatingPlayerAndTabsPaddingClass = () => {
     (state) => state.context.isUpdatePending
   );
 
-  if (isPlayerActive && isUpdatePending) return 'pt-6 pb-52 px-6';
-  if (isPlayerActive) return 'pt-6 pb-40 px-6';
-  if (isUpdatePending) return 'pt-6 pb-32 px-6';
-  return 'pt-6 pb-20 px-6';
+  if (isPlayerActive && isUpdatePending) return 'pt-6 pb-52';
+  if (isPlayerActive) return 'pt-6 pb-40';
+  if (isUpdatePending) return 'pt-6 pb-32';
+  return 'pt-6 pb-20';
 };
 
 const BookTab = () => {
