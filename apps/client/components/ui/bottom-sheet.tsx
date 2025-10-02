@@ -5,6 +5,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import { type ComponentProps, type ReactNode, useCallback } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const NativewindBottomSheetModal = cssInterop(BottomSheetModal, {
   className: 'style',
@@ -24,6 +25,8 @@ function BottomSheetModalImpl({
   ref?: React.RefObject<BottomSheetModal | null>;
   children: ReactNode;
 } & ComponentProps<typeof BottomSheetModal>) {
+  const { top, bottom } = useSafeAreaInsets();
+
   const renderBackdrop = useCallback(
     (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
       <NativewindBottomSheetBackdrop
@@ -35,13 +38,21 @@ function BottomSheetModalImpl({
     ),
     []
   );
+
   return (
+    // @ts-expect-error cssInterop has some broken types
     <NativewindBottomSheetModal
       ref={ref}
       {...props}
+      detached
+      className="mx-3"
       backdropComponent={renderBackdrop}
       backgroundClassName="bg-background"
-      handleIndicatorClassName="bg-foreground">
+      handleIndicatorClassName="bg-foreground"
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      topInset={top}
+      bottomInset={bottom}>
       {children}
     </NativewindBottomSheetModal>
   );
@@ -61,6 +72,8 @@ function BottomSheetImpl({
   ref?: React.RefObject<BottomSheetModal | null>;
   children: ReactNode;
 } & ComponentProps<typeof BottomSheetModal>) {
+  const { top, bottom } = useSafeAreaInsets();
+
   const renderBackdrop = useCallback(
     (props: Exclude<BottomSheetBackdropProps, 'disappearsOnIndex' | 'appearsOnIndex'>) => (
       <NativewindBottomSheetBackdrop
@@ -72,13 +85,21 @@ function BottomSheetImpl({
     ),
     []
   );
+
   return (
+    // @ts-expect-error cssInterop has some broken types
     <NativewindBottomSheet
       ref={ref}
       {...props}
+      detached
+      className="mx-3"
       backdropComponent={renderBackdrop}
       backgroundClassName="bg-background"
-      handleIndicatorClassName="bg-foreground">
+      handleIndicatorClassName="bg-foreground"
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      topInset={top}
+      bottomInset={bottom}>
       {children}
     </NativewindBottomSheet>
   );

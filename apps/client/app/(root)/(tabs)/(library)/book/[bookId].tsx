@@ -483,8 +483,8 @@ const ManageDownloads = ({
           contentContainerClassName="p-6 mx-auto w-full max-w-[400px]"
           windowSize={5}
           data={files}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item, index }) => (
+          keyExtractor={(item: (typeof files)[number]) => item.id.toString()}
+          renderItem={({ item, index }: { item: (typeof files)[number]; index: number }) => (
             <Card className={index === 0 ? '' : 'mt-4'}>
               <CardContent className="px-4 py-2">
                 <View className="flex flex-row flex-wrap gap-2">
@@ -829,8 +829,14 @@ const PlaybackHistoryBottomSheet = ({
         contentContainerClassName="p-6 mx-auto w-full max-w-[400px]"
         windowSize={5}
         data={mergedPlaybackHistory}
-        keyExtractor={(item) => `${item.source}-${item.id}`}
-        renderItem={({ item, index }) => (
+        keyExtractor={(item: (typeof mergedPlaybackHistory)[number]) => `${item.source}-${item.id}`}
+        renderItem={({
+          item,
+          index,
+        }: {
+          item: (typeof mergedPlaybackHistory)[number];
+          index: number;
+        }) => (
           <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
             <Button
               className="h-12 py-1 flex flex-row"
@@ -976,8 +982,16 @@ const EditBookFilesBottomSheet = ({
               contentContainerClassName="p-6 mx-auto w-full max-w-[400px]"
               windowSize={5}
               data={field.state.value}
-              keyExtractor={(item, index) => `${item.id}-${index}`}
-              renderItem={({ item, index }) => {
+              keyExtractor={(item: (typeof field.state.value)[number], index: number) =>
+                `${item.id}-${index}`
+              }
+              renderItem={({
+                item,
+                index,
+              }: {
+                item: (typeof field.state.value)[number];
+                index: number;
+              }) => {
                 const file = files.find((file) => file.id === item.id);
                 if (!file) return null;
 

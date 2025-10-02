@@ -1,4 +1,5 @@
 import { Spinner } from '../spinner';
+import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
 import * as React from 'react';
 import { Platform, TextInput, type TextInputProps, View } from 'react-native';
 
@@ -14,9 +15,13 @@ const Input = ({
   ref?: React.RefObject<React.ComponentRef<typeof TextInput>>;
   isLoading?: boolean;
 }) => {
+  const bsInternal = useBottomSheetInternal(true);
+
+  const InputComponent = bsInternal ? BottomSheetTextInput : TextInput;
+
   return (
     <View className="rounded-md flex flex-row items-center justify-center">
-      <TextInput
+      <InputComponent
         className={cn(
           'flex-1 border-input bg-background text-foreground flex h-10 w-full min-w-0 flex-row items-center px-3 py-1 text-base leading-5 shadow-sm shadow-black/5 sm:h-9 font-normal',
           props.editable === false &&

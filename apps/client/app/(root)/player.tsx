@@ -236,8 +236,8 @@ export default function PlayerScreen() {
           ListHeaderComponent={<Large className="pb-2">Change Chapter</Large>}
           windowSize={5}
           data={currentQueue}
-          keyExtractor={(item) => item.chapterId.toString()}
-          renderItem={({ item, index }) => (
+          keyExtractor={(item: AudioSource) => item.chapterId.toString()}
+          renderItem={({ item, index }: { item: AudioSource; index: number }) => (
             <Button
               variant="ghost"
               className={cn(

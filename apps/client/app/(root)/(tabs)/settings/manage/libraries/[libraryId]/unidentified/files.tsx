@@ -522,7 +522,11 @@ const IdentifyFilesModal = ({
           contentContainerClassName="p-6 mx-auto w-full max-w-[400px] flex-col gap-2"
           windowSize={5}
           data={searchViaAudibleMutation.data}
-          renderItem={({ item: result }) => (
+          renderItem={({
+            item: result,
+          }: {
+            item: NonNullable<typeof searchViaAudibleMutation.data>[number];
+          }) => (
             <View className="flex flex-col border border-foreground/15 rounded-md p-2 gap-y-2">
               <View className="flex flex-row justify-center items-center gap-x-2">
                 <AspectRatio

@@ -9,5 +9,8 @@
   ],
   "devDependencies": {
     "bun-types": "1.2.23"
+  },
+  "patchedDependencies": {
+    "@gorhom/bottom-sheet@5.2.6": "packages/patches/@gorhom%2Fbottom-sheet@5.2.6.patch"
   }
 }
