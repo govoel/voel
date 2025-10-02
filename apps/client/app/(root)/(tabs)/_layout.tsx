@@ -7,6 +7,7 @@ import type { ParamListBase, TabNavigationState } from '@react-navigation/native
 import { withLayoutContext } from 'expo-router';
 import { useUnstableNativeVariable } from 'nativewind';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingPlayer, OTAUpdateNotification } from '~/components/floating-player';
 
@@ -20,6 +21,8 @@ const Tabs = withLayoutContext<
 >(BottomTabNavigator);
 
 export default function TabLayout() {
+  const { bottom } = useSafeAreaInsets();
+
   return (
     <>
       <Tabs
@@ -53,7 +56,7 @@ export default function TabLayout() {
         />
       </Tabs>
 
-      <View className="absolute bottom-[80] w-full">
+      <View className="absolute w-full" style={{ bottom: bottom + 80 }}>
         <FloatingPlayer />
         <OTAUpdateNotification />
       </View>
