@@ -423,7 +423,7 @@ const BookTab = () => {
       isFetchingNextPage={isFetchingNextPage}
       isFetchNextPageError={isFetchNextPageError}
       direction="vertical"
-      contentContainerClassName={useFloatingPlayerAndTabsPaddingClass()}
+      contentContainerClassName={cn(useFloatingPlayerAndTabsPaddingClass(), 'px-6')}
       ListHeaderComponent={
         <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
           All Books
@@ -443,7 +443,7 @@ const AuthorTab = () => {
       refetch={refetch}
       type="author"
       direction="vertical"
-      contentContainerClassName={useFloatingPlayerAndTabsPaddingClass()}
+      contentContainerClassName={cn(useFloatingPlayerAndTabsPaddingClass(), 'px-6')}
       ListHeaderComponent={
         <>
           <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
@@ -464,7 +464,7 @@ const SeriesTab = () => {
       error={error}
       refetch={refetch}
       direction="vertical"
-      contentContainerClassName={useFloatingPlayerAndTabsPaddingClass()}
+      contentContainerClassName={cn(useFloatingPlayerAndTabsPaddingClass(), 'px-6')}
       ListHeaderComponent={() => (
         <>
           <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
