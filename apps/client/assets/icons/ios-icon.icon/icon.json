@@ -1,18 +1,19 @@
 {
-  "fill": {
-    "automatic-gradient": "extended-srgb:0.00000,0.53333,1.00000,1.00000"
-  },
+  "fill": "system-dark",
   "groups": [
     {
       "layers": [
         {
-          "fill": "automatic",
+          "fill": {
+            "solid": "srgb:0.00000,0.53333,1.00000,1.00000"
+          },
           "glass": true,
-          "image-name": "favicon.svg",
-          "name": "favicon",
+          "hidden": false,
+          "image-name": "icon.svg",
+          "name": "icon",
           "position": {
             "scale": 1.8,
-            "translation-in-points": [-0.0007293668552392774, -0.00200633311214915]
+            "translation-in-points": [0, 0]
           }
         }
       ],

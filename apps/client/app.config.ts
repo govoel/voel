@@ -59,8 +59,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-build-properties',
       { android: { usesCleartextTraffic: true }, ios: { useFrameworks: 'static' } },
     ],
+    ['expo-plugin-ios-static-libraries', { libraries: ['op-sqlite'] }],
     'expo-updates',
-    ['./app.plugin'],
+    ['./android-variants.plugin'],
+    ['./op-sqlite-fixes.plugin'],
   ],
   experiments: {
     typedRoutes: true,
