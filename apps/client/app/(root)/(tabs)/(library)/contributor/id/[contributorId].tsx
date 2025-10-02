@@ -2,9 +2,9 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
 
-import { ExpandableSummary } from '~/components/expandable-summary';
 import { FloatingPlayerDodgingScrollView } from '~/components/floating-player';
 import { Image } from '~/components/image';
+import { Markdown } from '~/components/markdown-renderer';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardFooter } from '~/components/ui/card';
@@ -96,11 +96,7 @@ export default function ContributorIDScreen() {
 
             {contributor.about ? (
               <View className="pt-4">
-                <ExpandableSummary
-                  summary={contributor.about}
-                  expandText="Expand About"
-                  collapseText="Collapse About"
-                />
+                <Markdown content={contributor.about} />
               </View>
             ) : null}
           </>
