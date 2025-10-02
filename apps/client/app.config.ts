@@ -78,15 +78,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         : process.env.RELEASE_CHANNEL === 'preview'
           ? 'app.voel.ios.preview'
           : 'app.voel.ios',
-    icon: {
-      dark: './assets/icons/ios-dark.png',
-      light: './assets/icons/ios-light.png',
-      tinted: './assets/icons/ios-tinted.png',
-    },
+    icon: './assets/icons/ios-icon.icon',
   },
   android: {
-    // TODO: keyboards in @gorhom/bottom-sheet don't work properly
-    // with edge-to-edge enabled
     edgeToEdgeEnabled: true,
     package:
       process.env.RELEASE_CHANNEL === 'development'
