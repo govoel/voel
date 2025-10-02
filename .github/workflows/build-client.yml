@@ -47,7 +47,7 @@ jobs:
           skip_after_successful_duplicate: 'true'
 
   android-app:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     needs:
       - should-skip
