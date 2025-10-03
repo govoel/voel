@@ -166,6 +166,7 @@ export function FloatingPlayer({ className }: { className?: string }) {
         playbackRate: +playerStatus.playbackRate.toFixed(1),
         playbackState: playerStatus.playbackState,
         timeControlStatus: playerStatus.timeControlStatus,
+        isBuffering: playerStatus.isBuffering,
       }}
     />
   );
@@ -247,6 +248,7 @@ function FloatingPlayerImpl({
     playbackRate: number;
     playbackState: string;
     timeControlStatus: string;
+    isBuffering: boolean;
   };
 }) {
   useEffect(() => {
@@ -304,7 +306,7 @@ function FloatingPlayerImpl({
                 }}>
                 <Text>{playerStatus.playbackRate}x</Text>
               </Button>
-              {playerStatus.playbackState === 'buffering' ? (
+              {playerStatus.isBuffering ? (
                 <View className="h-10 w-10 flex items-center justify-center">
                   <Spinner size={4} />
                 </View>

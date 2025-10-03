@@ -1,37 +1,59 @@
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import {
+  type NativeBottomTabNavigationEventMap,
+  type NativeBottomTabNavigationOptions,
+  createNativeBottomTabNavigator,
+} from '@bottom-tabs/react-navigation';
+import type { ParamListBase, TabNavigationState } from '@react-navigation/native';
+import { withLayoutContext } from 'expo-router';
 import { useUnstableNativeVariable } from 'nativewind';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingPlayer, OTAUpdateNotification } from '~/components/floating-player';
 
+const BottomTabNavigator = createNativeBottomTabNavigator().Navigator;
+
+const Tabs = withLayoutContext<
+  NativeBottomTabNavigationOptions,
+  typeof BottomTabNavigator,
+  TabNavigationState<ParamListBase>,
+  NativeBottomTabNavigationEventMap
+>(BottomTabNavigator);
+
 export default function TabLayout() {
   const { bottom } = useSafeAreaInsets();
 
   return (
     <>
-      <NativeTabs
-        backgroundColor={`hsl(${useUnstableNativeVariable('--background')})`}
-        indicatorColor={`hsl(${useUnstableNativeVariable('--muted')})`}
-        tintColor={`hsl(${useUnstableNativeVariable('--foreground')})`}
-        iconColor={`hsl(${useUnstableNativeVariable('--muted-foreground')})`}
-        labelStyle={{
-          color: `hsl(${useUnstableNativeVariable('--muted-foreground')})`,
-          fontFamily: 'Voel-Inter-Medium',
-        }}>
-        <NativeTabs.Trigger name="(library)">
-          <Label>Library</Label>
-          <Icon sf="books.vertical" drawable="native_tab_icon_library" />
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="(home)">
-          <Label>Home</Label>
-          <Icon sf="house" drawable="native_tab_icon_house" />
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="settings">
-          <Label>Settings</Label>
-          <Icon sf="gear" drawable="native_tab_icon_settings" />
-        </NativeTabs.Trigger>
-      </NativeTabs>
+      <Tabs
+        initialRouteName="(home)"
+        tabBarStyle={{ backgroundColor: `hsl(${useUnstableNativeVariable('--background')})` }}
+        tabLabelStyle={{ fontFamily: 'Voel-Inter-Medium' }}
+        tabBarActiveTintColor={`hsl(${useUnstableNativeVariable('--foreground')})`}
+        activeIndicatorColor={`hsl(${useUnstableNativeVariable('--muted')})`}
+        disablePageAnimations={true}>
+        <Tabs.Screen
+          name="(library)"
+          options={{
+            title: 'Library',
+            tabBarIcon: () => require('lucide-static/icons/library.svg'),
+          }}
+        />
+        <Tabs.Screen
+          name="(home)"
+          options={{
+            title: 'Home',
+            tabBarIcon: () => require('lucide-static/icons/house.svg'),
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: 'Settings',
+            tabBarIcon: () => require('lucide-static/icons/settings.svg'),
+          }}
+        />
+      </Tabs>
 
       <View className="absolute w-full" style={{ bottom: bottom + 80 }}>
         <FloatingPlayer />
