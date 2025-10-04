@@ -132,26 +132,22 @@ export const AutoMarquee = memo(
     }
   ) => {
     const [textWidth, setTextWidth] = useState(0);
-    const [textLines, setTextLines] = useState(1);
     const [viewWidth, setViewWidth] = useState(0);
 
     return (
       <View
         className={cn('w-full', props.className)}
-        onLayout={(e) => setViewWidth(e.nativeEvent.layout.width)}>
+        onLayout={(e) => {
+          setViewWidth(e.nativeEvent.layout.width);
+        }}>
         <View
           style={{ height: 0, alignSelf: 'flex-start' }}
           onLayout={(e) => {
             setTextWidth(e.nativeEvent.layout.width);
           }}>
-          <Text
-            onTextLayout={(e) => {
-              setTextLines(e.nativeEvent.lines.length);
-            }}>
-            {props.children}
-          </Text>
+          {props.children}
         </View>
-        {textWidth < viewWidth && textLines <= 1 ? (
+        {textWidth < viewWidth ? (
           props.children
         ) : (
           <Marquee {...{ ...props, style: undefined, children: undefined, textWidth }}>
