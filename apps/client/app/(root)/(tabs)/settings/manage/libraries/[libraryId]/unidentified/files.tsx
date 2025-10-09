@@ -191,7 +191,7 @@ export default function UnidentifiedFilesPage() {
               <>
                 <Text className="pt-2">Group By</Text>
 
-                <ScrollView className="flex flex-row pt-1 pb-2" horizontal>
+                <ScrollView className="flex flex-row pb-2 pt-1" horizontal>
                   {table.getLeafHeaders().filter((header) => header.column.getCanGroup()).length >
                   0 ? (
                     table
@@ -204,11 +204,11 @@ export default function UnidentifiedFilesPage() {
                           size="sm"
                           variant="outline"
                           className={cn(
-                            'flex justify-center items-center flex-row gap-x-1',
+                            'flex flex-row items-center justify-center gap-x-1',
                             index === 0 ? '' : 'ml-2'
                           )}>
                           {header.column.getGroupedIndex() >= 0 ? (
-                            <Badge variant="secondary" className="px-1.5 py-0 mr-1">
+                            <Badge variant="secondary" className="mr-1 px-1.5 py-0">
                               <Text>{header.column.getGroupedIndex() + 1}</Text>
                             </Badge>
                           ) : null}
@@ -226,7 +226,7 @@ export default function UnidentifiedFilesPage() {
 
                 <Text className="pt-2">Column Visibility</Text>
 
-                <ScrollView className="flex flex-row pt-1 pb-2" horizontal>
+                <ScrollView className="flex flex-row pb-2 pt-1" horizontal>
                   {table
                     .getAllColumns()
                     .filter((column) => !column.getIsGrouped())
@@ -244,7 +244,7 @@ export default function UnidentifiedFilesPage() {
                         size="sm"
                         variant={column.getIsVisible() ? 'secondary' : 'outline'}
                         className={cn(
-                          'flex justify-center items-center flex-row gap-x-1',
+                          'flex flex-row items-center justify-center gap-x-1',
                           index === 0 ? '' : 'ml-2'
                         )}>
                         {column.getIsVisible() ? (
@@ -277,11 +277,11 @@ export default function UnidentifiedFilesPage() {
               </CardFooter>
             </Card>
           ) : data?.length === 0 ? (
-            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mt-4 w-full">
+            <View className="mt-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
               <Text className="text-center">No unidentified files found in this library</Text>
             </View>
           ) : (
-            <View className="p-12 justify-center items-center">
+            <View className="items-center justify-center p-12">
               <Spinner size={15} />
             </View>
           )
@@ -532,22 +532,22 @@ const IdentifyFilesModal = ({
           }: {
             item: NonNullable<typeof searchViaAudibleMutation.data>[number];
           }) => (
-            <View className="flex flex-col border border-foreground/15 rounded-md p-2 gap-y-2">
-              <View className="flex flex-row justify-center items-center gap-x-2">
+            <View className="flex flex-col gap-y-2 rounded-md border border-foreground/15 p-2">
+              <View className="flex flex-row items-center justify-center gap-x-2">
                 <AspectRatio
                   ratio={1 / 1}
-                  className="flex-shrink w-32 flex items-center justify-center">
+                  className="flex w-32 flex-shrink items-center justify-center">
                   <Image
-                    className="w-full h-full rounded-md"
+                    className="h-full w-full rounded-md"
                     source={result.product_images?.[500]}
                     cachePolicy="none"
                   />
                 </AspectRatio>
-                <View className="flex-1 flex flex-col gap-y-1">
+                <View className="flex flex-1 flex-col gap-y-1">
                   <Large>{result.title}</Large>
                   <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                     <Timer className="text-muted-foreground" size={20} />
-                    <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                    <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                       <Badge variant="outline">
                         <Text>
                           {formatDuration(result.runtime_length_min * 60 * 1000, 'short')}
@@ -579,7 +579,7 @@ const IdentifyFilesModal = ({
                   {result.authors.length > 0 ? (
                     <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                       <PenTool className="text-muted-foreground" size={20} />
-                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                         {result.authors.map((author, index) => (
                           <Badge key={index} variant="secondary">
                             <Text>{author.name}</Text>
@@ -591,7 +591,7 @@ const IdentifyFilesModal = ({
                   {result.narrators && result.narrators.length > 0 ? (
                     <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                       <MicVocal className="text-muted-foreground" size={20} />
-                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                         {result.narrators.map((narrator, index) => (
                           <Badge key={index} variant="secondary">
                             <Text>{narrator.name}</Text>
@@ -603,11 +603,11 @@ const IdentifyFilesModal = ({
                   {result.series && result.series.length > 0 ? (
                     <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
                       <BookCopy className="text-muted-foreground" size={20} />
-                      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
                         {result.series.map((series, index) => (
                           <Badge key={index} variant="secondary" className="flex-nowrap gap-2">
                             <Text>{series.sequence}</Text>
-                            <Text className="border-l border-muted-foreground/50 pl-2 flex-shrink">
+                            <Text className="flex-shrink border-l border-muted-foreground/50 pl-2">
                               {series.title}
                             </Text>
                           </Badge>
@@ -703,11 +703,11 @@ const IdentifyFilesModal = ({
           }
           ListEmptyComponent={
             searchViaAudibleMutation.isPending ? (
-              <View className="p-12 justify-center items-center">
+              <View className="items-center justify-center p-12">
                 <Spinner size={15} />
               </View>
             ) : (
-              <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+              <View className="mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
                 <Text className="text-center">No downloads found</Text>
               </View>
             )
@@ -738,7 +738,7 @@ const TableCheckbox = ({
   return (
     <View>
       <Pressable
-        className="flex-1 justify-center items-center"
+        className="flex-1 items-center justify-center"
         onPress={row.getToggleSelectedHandler()}>
         <Checkbox
           checked={checked}
@@ -780,18 +780,18 @@ const GroupedRow = ({
   if (!groupedCell) return null;
 
   return (
-    <View className={cn('border border-foreground/15 rounded-md px-3 py-2 mt-2', className)}>
+    <View className={cn('mt-2 rounded-md border border-foreground/15 px-3 py-2', className)}>
       <View className="flex flex-row items-center gap-x-2">
         {row.getCanSelect() ? <TableCheckbox row={row} /> : null}
         <Button
           onPress={row.getToggleExpandedHandler()}
           size="sm"
           variant="ghost"
-          className="flex-row gap-x-1 flex-1 justify-start h-fit native:h-fit w-full">
+          className="native:h-fit h-fit w-full flex-1 flex-row justify-start gap-x-1">
           {row.getIsExpanded() ? (
-            <ChevronDown className="text-muted-foreground -ml-2" size={18} />
+            <ChevronDown className="-ml-2 text-muted-foreground" size={18} />
           ) : (
-            <ChevronRight className="text-muted-foreground -ml-2" size={18} />
+            <ChevronRight className="-ml-2 text-muted-foreground" size={18} />
           )}
           <View>
             {typeof groupedCell.column.columnDef.header === 'string' ? (
@@ -827,10 +827,10 @@ const RowCard = ({
   className?: string;
 }) => {
   return (
-    <View className={cn('overflow-hidden rounded-md border border-foreground/15 mt-2', className)}>
+    <View className={cn('mt-2 overflow-hidden rounded-md border border-foreground/15', className)}>
       {row.getCanSelect() ? (
         <Pressable
-          className="py-2 px-3 flex flex-row gap-x-4 items-center"
+          className="flex flex-row items-center gap-x-4 px-3 py-2"
           onPress={row.getToggleSelectedHandler()}>
           <TableCheckbox row={row} />
           <Text>Select file to be identified</Text>
@@ -842,7 +842,7 @@ const RowCard = ({
         .map((cell, index) => (
           <View
             key={cell.id}
-            className={`py-1 px-3 border-foreground/15 ${row.getCanSelect() || index > 0 ? 'border-t' : ''}`}>
+            className={`border-foreground/15 px-3 py-1 ${row.getCanSelect() || index > 0 ? 'border-t' : ''}`}>
             {typeof cell.column.columnDef.header === 'string' ? (
               <Muted className="leading-tight">{cell.column.columnDef.header}</Muted>
             ) : null}

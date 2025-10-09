@@ -19,7 +19,7 @@ export default function SettingsAppInfoScreen() {
           <Button
             variant="ghost"
             size="sm"
-            className="items-start py-1 h-fit native:h-fit rounded-none border-b border-foreground/15 bg-secondary/40"
+            className="native:h-fit h-fit items-start rounded-none border-b border-foreground/15 bg-secondary/40 py-1"
             onPress={async () => {
               await setStringAsync(applicationName ?? 'Unknown', {
                 inputFormat: StringFormat.PLAIN_TEXT,
@@ -32,7 +32,7 @@ export default function SettingsAppInfoScreen() {
           <Button
             variant="ghost"
             size="sm"
-            className="items-start py-1 h-fit native:h-fit rounded-none border-b border-foreground/15 bg-secondary/40"
+            className="native:h-fit h-fit items-start rounded-none border-b border-foreground/15 bg-secondary/40 py-1"
             onPress={async () => {
               await setStringAsync(applicationId ?? 'Unknown', {
                 inputFormat: StringFormat.PLAIN_TEXT,
@@ -45,7 +45,7 @@ export default function SettingsAppInfoScreen() {
           <Button
             variant="ghost"
             size="sm"
-            className="items-start py-1 h-fit native:h-fit rounded-none border-b border-foreground/15 bg-secondary/40"
+            className="native:h-fit h-fit items-start rounded-none border-b border-foreground/15 bg-secondary/40 py-1"
             onPress={async () => {
               await setStringAsync(runtimeVersion ?? 'Unknown', {
                 inputFormat: StringFormat.PLAIN_TEXT,
@@ -58,7 +58,7 @@ export default function SettingsAppInfoScreen() {
           <Button
             variant="ghost"
             size="sm"
-            className="items-start py-1 h-fit native:h-fit rounded-none bg-secondary/40"
+            className="native:h-fit h-fit items-start rounded-none bg-secondary/40 py-1"
             onPress={async () => {
               await setStringAsync(manifest.id ?? 'Unknown', {
                 inputFormat: StringFormat.PLAIN_TEXT,

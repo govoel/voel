@@ -58,7 +58,7 @@ export default function LibraryScreen() {
         </TabsContent>
 
         <View
-          className="w-full absolute px-4"
+          className="absolute w-full px-4"
           style={{
             bottom:
               (Platform.OS === 'ios' ? tabBarHeight : 0) +
@@ -386,7 +386,7 @@ const SearchTab = () => {
           editorSearchResults.length === 0 &&
           forewordSearchResults &&
           forewordSearchResults.length === 0 && (
-            <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
+            <View className="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted p-8">
               <Text className="text-center">No results found</Text>
             </View>
           )}

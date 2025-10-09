@@ -125,7 +125,7 @@ export default function BookScreen() {
               {data.cover ? (
                 <AspectRatio ratio={1 / 1} className="mx-12">
                   <Image
-                    className="w-full h-full rounded-md"
+                    className="h-full w-full rounded-md"
                     source={data.cover}
                     placeholder={{ thumbhash: data.coverThumbhash ?? undefined }}
                   />
@@ -134,14 +134,14 @@ export default function BookScreen() {
 
               <H2 className="border-0 pt-4 text-center">{data.title}</H2>
               {data.subtitle ? (
-                <Small className="text-center leading-snug pb-2">{data.subtitle}</Small>
+                <Small className="pb-2 text-center leading-snug">{data.subtitle}</Small>
               ) : null}
 
               <View className="flex flex-row flex-nowrap items-center gap-1 pt-4">
                 <Badge variant="outline">
                   <Timer className="text-muted-foreground" size={20} />
                 </Badge>
-                <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                <View className="flex flex-shrink flex-row flex-wrap items-center gap-1">
                   <Badge variant="outline">
                     <Text>
                       {formatDuration(data.files.reduce((sum, i) => sum + i.durationMs, 0))}
@@ -158,7 +158,7 @@ export default function BookScreen() {
                   <Badge variant="outline">
                     <BookCopy className="text-muted-foreground" size={20} />
                   </Badge>
-                  <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+                  <View className="flex flex-shrink flex-row flex-wrap items-center gap-1">
                     {data.series.map((series, index) => (
                       <Link
                         key={`series-${index}`}
@@ -177,7 +177,7 @@ export default function BookScreen() {
                         asChild>
                         <Badge variant="secondary" className="flex-nowrap gap-2">
                           <Text>{series.label}</Text>
-                          <Text className="border-l border-muted-foreground/50 pl-2 flex-shrink">
+                          <Text className="flex-shrink border-l border-muted-foreground/50 pl-2">
                             {series.name}
                           </Text>
                         </Badge>
@@ -217,7 +217,7 @@ export default function BookScreen() {
           </ScrollView>
 
           <View
-            className="w-full absolute px-4"
+            className="absolute w-full px-4"
             style={{
               bottom:
                 (Platform.OS === 'ios' ? tabBarHeight : 0) +
@@ -229,7 +229,7 @@ export default function BookScreen() {
                       ? 60
                       : 10),
             }}>
-            <View className="bg-background/85 rounded-md w-full flex-row gap-x-2">
+            <View className="w-full flex-row gap-x-2 rounded-md bg-background/85">
               <MoreOptionsBottomSheet book={{ ...data, authors }} />
               <ManageDownloads
                 book={{
@@ -244,7 +244,7 @@ export default function BookScreen() {
           </View>
         </>
       ) : (
-        <View className="p-12 justify-center items-center">
+        <View className="items-center justify-center p-12">
           <Spinner size={15} />
         </View>
       )}
@@ -278,7 +278,7 @@ const Contributors = ({
         {role === 'editor' && <FilePenLine className="text-muted-foreground" size={20} />}
         {role === 'translator' && <Languages className="text-muted-foreground" size={20} />}
       </Badge>
-      <View className="flex flex-row flex-wrap flex-shrink items-center gap-1">
+      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1">
         {filteredContributors.map((contributor, index) => (
           <Link
             key={`${role}-${index}`}
@@ -471,11 +471,11 @@ const ManageDownloads = ({
         isLoading={isLoading}
         spinnerSize={3}
         variant="secondary"
-        className="text-secondary-foreground w-10 native:w-12 p-0 native:p-0"
+        className="native:w-12 native:p-0 w-10 p-0 text-secondary-foreground"
         onPress={() => {
           bottomSheetModalRef.current?.present();
         }}>
-        <View className="absolute inset-0 flex justify-center items-center">
+        <View className="absolute inset-0 flex items-center justify-center">
           <SvgInterop
             className={cn(error ? 'text-red-300/30' : 'text-muted-foreground/30')}
             width={24}
@@ -602,22 +602,22 @@ const ManageDownloads = ({
             <>
               <Large>Manage Downloads</Large>
               {downloads ? (
-                <Muted className="text-sm mb-4">
+                <Muted className="mb-4 text-sm">
                   {formatBytes(Object.values(downloads).reduce((a, c) => a + c.bytesDownloaded, 0))}{' '}
                   downloaded
                 </Muted>
               ) : isLoading ? (
-                <View className="p-12 justify-center items-center">
+                <View className="items-center justify-center p-12">
                   <Spinner size={15} />
                 </View>
               ) : error ? (
                 <Button
-                  className="mt-2 mb-1"
+                  className="mb-1 mt-2"
                   variant="destructive"
                   onPress={() => {
                     refetchDownloadsStatus();
                   }}>
-                  <View className="pl-2 flex justify-center items-center">
+                  <View className="flex items-center justify-center pl-2">
                     <Text>Couldn&rsquo;t load downloads status</Text>
                     <Small className="text-destructive-foreground">Click to Retry</Small>
                   </View>
@@ -703,7 +703,7 @@ const ManageDownloads = ({
           }
           ListEmptyComponent={
             !error ? (
-              <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
+              <View className="mt-4 flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted p-8">
                 <Text className="text-center">No files found</Text>
               </View>
             ) : null
@@ -792,7 +792,7 @@ const MoreOptionsBottomSheet = ({
     <>
       <Button
         variant="secondary"
-        className="text-secondary-foreground w-10 native:w-12 p-0 native:p-0"
+        className="native:w-12 native:p-0 w-10 p-0 text-secondary-foreground"
         onPress={() => {
           bottomSheetModalRef.current?.present();
         }}>
@@ -801,7 +801,7 @@ const MoreOptionsBottomSheet = ({
 
       <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <View className="overflow-hidden rounded-md border border-foreground/15">
               <Button
                 variant="ghost"
@@ -809,7 +809,7 @@ const MoreOptionsBottomSheet = ({
                 onPress={() => {
                   playbackHistoryModalRef.current?.present();
                 }}>
-                <View className="flex flex-row justify-center items-center gap-x-2">
+                <View className="flex flex-row items-center justify-center gap-x-2">
                   <History className="text-muted-foreground" size="20" />
                   <Text>Playback History</Text>
                 </View>
@@ -821,7 +821,7 @@ const MoreOptionsBottomSheet = ({
                 onPress={() => {
                   editBookFilesModalRef.current?.present();
                 }}>
-                <View className="flex flex-row justify-center items-center gap-x-2">
+                <View className="flex flex-row items-center justify-center gap-x-2">
                   <FilePen className="text-muted-foreground" size="20" />
                   <Text>Edit Book Files</Text>
                 </View>
@@ -830,7 +830,7 @@ const MoreOptionsBottomSheet = ({
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-                <View className="flex flex-row justify-center items-center gap-x-2">
+                <View className="flex flex-row items-center justify-center gap-x-2">
                   <NotebookPen className="text-muted-foreground" size="20" />
                   <Text>Edit Book Metadata</Text>
                 </View>
@@ -839,7 +839,7 @@ const MoreOptionsBottomSheet = ({
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
-                <View className="flex flex-row justify-center items-center gap-x-2">
+                <View className="flex flex-row items-center justify-center gap-x-2">
                   <Trash className="text-muted-foreground" size="20" />
                   <Text>Delete Book</Text>
                 </View>
@@ -888,7 +888,7 @@ const PlaybackHistoryBottomSheet = ({
         }) => (
           <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
             <Button
-              className="h-12 py-1 flex flex-row"
+              className="flex h-12 flex-row py-1"
               variant="outline"
               size="sm"
               onPress={() => {
@@ -900,8 +900,8 @@ const PlaybackHistoryBottomSheet = ({
                   instanceURL
                 );
               }}>
-              <Play className="text-muted-foreground mr-2" size={16} />
-              <View className="border-l border-input pl-2 flex justify-center items-center">
+              <Play className="mr-2 text-muted-foreground" size={16} />
+              <View className="flex items-center justify-center border-l border-input pl-2">
                 <Text>{formatTime(item.positionMs)}</Text>
               </View>
             </Button>
@@ -948,7 +948,7 @@ const PlaybackHistoryBottomSheet = ({
         }
         ListEmptyComponent={
           !error ? (
-            <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+            <View className="mb-4 flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted p-8">
               <Text className="text-center">No playback history found</Text>
             </View>
           ) : null
@@ -1048,7 +1048,7 @@ const EditBookFilesBottomSheet = ({
                   <Card className={index === 0 ? '' : 'mt-4'}>
                     <CardContent className="px-4 py-2">
                       <View className="flex flex-row flex-wrap gap-x-2">
-                        <View className="flex-col flex-nowrap gap-y-1 justify-center items-center">
+                        <View className="flex-col flex-nowrap items-center justify-center gap-y-1">
                           <Button
                             size="icon"
                             variant="outline"
@@ -1125,7 +1125,7 @@ const EditBookFilesBottomSheet = ({
                           </View>
                           <Small className="pt-2 leading-snug">{file.path}</Small>
                           <Button
-                            className="mt-2 py-1 h-fit native:h-fit"
+                            className="native:h-fit mt-2 h-fit py-1"
                             size="sm"
                             variant="secondary"
                             onPress={() => field.removeValue(index)}>
@@ -1138,7 +1138,7 @@ const EditBookFilesBottomSheet = ({
                 );
               }}
               ListEmptyComponent={
-                <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+                <View className="mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
                   <Text className="text-center">
                     No files in book, which will cause the book to be deleted
                   </Text>
@@ -1146,7 +1146,7 @@ const EditBookFilesBottomSheet = ({
               }
               ListHeaderComponent={<Large className="pb-2">Edit Book Files</Large>}
               ListFooterComponent={
-                <View className="flex flex-col flex-wrap gap-2 mt-2">
+                <View className="mt-2 flex flex-col flex-wrap gap-2">
                   <Button
                     className="w-full"
                     variant="secondary"
@@ -1236,7 +1236,7 @@ const ChapterList = ({
         <View className={cn('flex flex-row flex-wrap items-center', index === 0 ? '' : 'mt-4')}>
           <View className="flex flex-row flex-wrap items-center gap-2">
             <Button
-              className="h-12 py-1 flex flex-row"
+              className="flex h-12 flex-row py-1"
               variant="outline"
               size="sm"
               onPress={() => {
@@ -1253,8 +1253,8 @@ const ChapterList = ({
                   source === 'audible'
                 );
               }}>
-              <Play className="text-muted-foreground mr-2" size={16} />
-              <View className="border-l border-input pl-2 flex justify-center items-center">
+              <Play className="mr-2 text-muted-foreground" size={16} />
+              <View className="flex items-center justify-center border-l border-input pl-2">
                 <Text>
                   {formatTime(
                     source === 'audible'
@@ -1274,7 +1274,7 @@ const ChapterList = ({
               {typeof item.title === 'string' && item.title.length > 0 ? (
                 <Small className="leading-snug">{item.title}</Small>
               ) : (
-                <Small className="leading-snug font-mediumitalic">
+                <Small className="font-mediumitalic leading-snug">
                   Untitled chapter #{index + 1}
                 </Small>
               )}
@@ -1283,7 +1283,7 @@ const ChapterList = ({
         </View>
       )}
       ListEmptyComponent={() => (
-        <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted">
+        <View className="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted p-8">
           <Text className="text-center">No chapters found</Text>
         </View>
       )}

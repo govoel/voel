@@ -84,10 +84,10 @@ export default function PlayerScreen() {
           }
         }}>
         <BottomSheetScrollView>
-          <View className="px-6 pt-2 pb-5 mx-auto w-full max-w-[400px] flex-col gap-1.5">
-            <View className="flex justify-center items-center">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 px-6 pb-5 pt-2">
+            <View className="flex items-center justify-center">
               <Muted className="leading-snug">Playing book</Muted>
-              <AutoMarquee className="flex justify-center items-center" spacing={20} speed={0.3}>
+              <AutoMarquee className="flex items-center justify-center" spacing={20} speed={0.3}>
                 <Link
                   href={{ pathname: '/book/[bookId]', params: { bookId: currentItem.bookId } }}
                   asChild
@@ -97,19 +97,19 @@ export default function PlayerScreen() {
               </AutoMarquee>
             </View>
 
-            <AspectRatio className="pt-4 mx-12" ratio={1 / 1}>
-              <Image className="w-full h-full rounded-md" source={currentItem.artworkUri} />
+            <AspectRatio className="mx-12 pt-4" ratio={1 / 1}>
+              <Image className="h-full w-full rounded-md" source={currentItem.artworkUri} />
             </AspectRatio>
 
             <View className="mx-12 mt-4">
               <Progress value={(totalPlayedMs / totalDurationMs) * 100} />
-              <View className="pt-2 flex flex-row justify-between">
+              <View className="flex flex-row justify-between pt-2">
                 <Muted>{formatTime(totalPlayedMs)}</Muted>
                 <Muted>{formatTime(totalDurationMs)}</Muted>
               </View>
             </View>
 
-            <AutoMarquee className="flex justify-center items-center pt-6" spacing={20} speed={0.3}>
+            <AutoMarquee className="flex items-center justify-center pt-6" spacing={20} speed={0.3}>
               <Large
                 onPress={() => {
                   chapterBottomSheetModalRef.current?.present();
@@ -117,7 +117,7 @@ export default function PlayerScreen() {
                 {currentItem.chapterTitle}
               </Large>
             </AutoMarquee>
-            <AutoMarquee className="flex justify-center items-center" spacing={20} speed={0.3}>
+            <AutoMarquee className="flex items-center justify-center" spacing={20} speed={0.3}>
               <Muted>{currentItem.author}</Muted>
             </AutoMarquee>
 
@@ -147,7 +147,7 @@ export default function PlayerScreen() {
               </View>
             </View>
 
-            <View className="flex flex-row justify-between items-center pt-6">
+            <View className="flex flex-row items-center justify-between pt-6">
               <Button
                 variant="ghost"
                 size="icon"
@@ -166,7 +166,7 @@ export default function PlayerScreen() {
                 <SkipBack className="h-full text-foreground group-active:opacity-80" />
               </Button>
               {playerStatus.playbackState === 'buffering' ? (
-                <View className="h-16 w-16 flex items-center justify-center">
+                <View className="flex h-16 w-16 items-center justify-center">
                   <Spinner size={10} />
                 </View>
               ) : playerStatus.timeControlStatus === 'paused' ? (
@@ -205,7 +205,7 @@ export default function PlayerScreen() {
               </Button>
             </View>
 
-            <View className="flex flex-row justify-between items-center pt-6">
+            <View className="flex flex-row items-center justify-between pt-6">
               <Button
                 variant="ghost"
                 size="icon"
@@ -241,15 +241,15 @@ export default function PlayerScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'rounded-none border-foreground/15 bg-secondary/40 h-fit native:h-fit border border-b-0',
+                'native:h-fit h-fit rounded-none border border-b-0 border-foreground/15 bg-secondary/40',
                 index === 0 ? 'rounded-t-md' : '',
                 index === currentQueue.length - 1 ? 'rounded-b-md border-b' : ''
               )}
               onPress={() => Player.seekToMediaItem(index, 0)}>
-              <View className="flex flex-row w-full items-center justify-between">
-                <View className="flex flex-row flex-1 flex-nowrap gap-x-2 items-center">
+              <View className="flex w-full flex-row items-center justify-between">
+                <View className="flex flex-1 flex-row flex-nowrap items-center gap-x-2">
                   {(playerStatus.currentQueueIndex ?? 0) === index ? (
-                    <Play className="text-muted-foreground fill-muted-foreground" size={20} />
+                    <Play className="fill-muted-foreground text-muted-foreground" size={20} />
                   ) : (
                     <Play className="text-muted-foreground" size={20} />
                   )}
@@ -269,11 +269,11 @@ export default function PlayerScreen() {
         enableContentPanningGesture={false}
         enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large>Change Playback Speed</Large>
 
             <View className="pt-4">
-              <Text className="text-center pb-2">
+              <Text className="pb-2 text-center">
                 {(playbackSpeedSliderValue ?? playerStatus.playbackRate).toFixed(2)}x
               </Text>
               <Slider

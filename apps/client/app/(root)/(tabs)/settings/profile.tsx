@@ -91,7 +91,7 @@ export default function ProfileSettingsScreen() {
               </Card>
             ) : (!sessions && !sessionsError) || !currentSession ? (
               <Card className="mt-4">
-                <CardContent className="p-12 justify-center items-center">
+                <CardContent className="items-center justify-center p-12">
                   <Spinner size={15} />
                 </CardContent>
               </Card>
@@ -122,7 +122,7 @@ export default function ProfileSettingsScreen() {
               </CardFooter>
             </Card>
           ) : sessions?.length === 0 ? (
-            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+            <View className="mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
               <Text className="text-center">No sessions found</Text>
             </View>
           ) : null
@@ -239,7 +239,7 @@ const Profile = () => {
 
       {data ? (
         <Card>
-          <CardContent className="pt-4 flex flex-row gap-3 group items-center justify-center">
+          <CardContent className="group flex flex-row items-center justify-center gap-3 pt-4">
             <Avatar alt={`${data.user.name}'s Avatar`}>
               <AvatarImage
                 source={{
@@ -286,7 +286,7 @@ const Profile = () => {
         </Card>
       ) : (
         <Card>
-          <CardContent className="p-12 justify-center items-center">
+          <CardContent className="items-center justify-center p-12">
             <Spinner size={15} />
           </CardContent>
         </Card>
@@ -294,7 +294,7 @@ const Profile = () => {
 
       <BottomSheetModal ref={editProfileModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Edit Profile</Large>
             <EditProfileForm.AppForm>
               <EditProfileForm.AppField
@@ -334,7 +334,7 @@ const Profile = () => {
 
       <BottomSheetModal ref={changePasswordModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Change Password</Large>
 
             <ChangePasswordForm.AppForm>

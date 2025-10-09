@@ -106,11 +106,11 @@ export default function SettingsDownloadsScreen() {
         }
         ListEmptyComponent={
           !error && !downloadError && !data && !downloads ? (
-            <View className="p-12 justify-center items-center">
+            <View className="items-center justify-center p-12">
               <Spinner size={15} />
             </View>
           ) : (
-            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+            <View className="mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
               <Text className="text-center">No downloads found</Text>
             </View>
           )
@@ -129,7 +129,7 @@ export default function SettingsDownloadsScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'flex-row native:h-20 h-16 justify-between bg-secondary/40 rounded-none border border-b-0 border-foreground/15',
+                'native:h-20 h-16 flex-row justify-between rounded-none border border-b-0 border-foreground/15 bg-secondary/40',
                 index === 0 ? 'rounded-t-md' : '',
                 index === (data?.length ?? 1) - 1 ? 'rounded-b-md border-b' : ''
               )}>

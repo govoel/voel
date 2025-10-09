@@ -168,7 +168,7 @@ export default function UsersListScreen() {
               </Card>
             ) : (!error && !data) || !session.data ? (
               <Card className="mt-4">
-                <CardContent className="p-12 justify-center items-center">
+                <CardContent className="items-center justify-center p-12">
                   <Spinner size={15} />
                 </CardContent>
               </Card>
@@ -188,11 +188,11 @@ export default function UsersListScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'flex-row native:h-20 h-16 justify-between rounded-none bg-secondary/40 border-foreground/15 border-x',
-                index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
+                'native:h-20 h-16 flex-row justify-between rounded-none border-x border-foreground/15 bg-secondary/40',
+                index === 0 ? 'mt-4 rounded-tl-md rounded-tr-md border-t' : '',
                 index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
               )}>
-              <View className="flex-row gap-x-3 items-center">
+              <View className="flex-row items-center gap-x-3">
                 <Avatar
                   className="border border-foreground/15"
                   alt={
@@ -220,7 +220,7 @@ export default function UsersListScreen() {
         )}
         ListFooterComponent={
           isFetchingNextPage ? (
-            <View className="py-4 items-center">
+            <View className="items-center py-4">
               <Spinner size={10} />
             </View>
           ) : isFetchNextPageError ? (
@@ -251,7 +251,7 @@ export default function UsersListScreen() {
               </CardFooter>
             </Card>
           ) : data?.length === 0 ? (
-            <View className="flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full">
+            <View className="mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
               <Text className="text-center">No users found</Text>
             </View>
           ) : null
@@ -260,7 +260,7 @@ export default function UsersListScreen() {
 
       <BottomSheetModal ref={createUserModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Create New User</Large>
             <CreateUserForm.AppForm>
               <CreateUserForm.AppField

@@ -91,8 +91,8 @@ export default function LibraryListScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'flex-row native:h-fit h-fit justify-between items-center rounded-none bg-secondary/40 border-foreground/15 border-x',
-                index === 0 ? 'rounded-tl-md rounded-tr-md mt-4 border-t' : '',
+                'native:h-fit h-fit flex-row items-center justify-between rounded-none border-x border-foreground/15 bg-secondary/40',
+                index === 0 ? 'mt-4 rounded-tl-md rounded-tr-md border-t' : '',
                 index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
               )}>
               <View className="flex-1">
@@ -117,11 +117,11 @@ export default function LibraryListScreen() {
               </CardFooter>
             </Card>
           ) : data?.length === 0 ? (
-            <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+            <View className="mb-4 mt-4 flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted p-8">
               <Text className="text-center">No libraries found</Text>
             </View>
           ) : (
-            <CardContent className="p-12 justify-center items-center">
+            <CardContent className="items-center justify-center p-12">
               <Spinner size={15} />
             </CardContent>
           )
@@ -130,7 +130,7 @@ export default function LibraryListScreen() {
 
       <BottomSheetModal ref={createLibraryModalRef}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Create New Library</Large>
             <CreateLibraryForm.AppForm>
               <CreateLibraryForm.AppField

@@ -20,7 +20,7 @@ export function TitleWithRefetch<TData = unknown, TError = DefaultError>({
   children: ReactNode;
 }) {
   return (
-    <View className={cn('flex flex-row justify-between items-center', className)}>
+    <View className={cn('flex flex-row items-center justify-between', className)}>
       <Large className="flex-1">{children}</Large>
       <Button
         variant="ghost"
