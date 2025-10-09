@@ -62,7 +62,7 @@ function EmptyComponent({
     return (
       <View
         className={cn(
-          'flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full',
+          'mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16',
           className
         )}>
         <Text className="text-center">No series found</Text>
@@ -71,7 +71,7 @@ function EmptyComponent({
   }
 
   return (
-    <View className={cn('p-12 justify-center items-center', className)}>
+    <View className={cn('items-center justify-center p-12', className)}>
       <Spinner size={15} />
     </View>
   );
@@ -153,29 +153,29 @@ export function SeriesList({
                   : 'pl-2'
                 : index === 0
                   ? 'mb-2'
-                  : 'ml-4 mb-2'
+                  : 'mb-2 ml-4'
             )}>
             <AspectRatio ratio={1 / 1}>
               {item.books.length === 1 ? (
                 <Image
-                  className="w-full h-full rounded-md"
+                  className="h-full w-full rounded-md"
                   source={item.books[0].cover}
                   placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
                   recyclingKey={item.books[0].id.toString()}
                 />
               ) : item.books.length === 2 ? (
                 <View className="flex flex-row">
-                  <View className="w-1/2 h-full">
+                  <View className="h-full w-1/2">
                     <Image
-                      className="w-full h-full rounded-l-md"
+                      className="h-full w-full rounded-l-md"
                       source={item.books[0].cover}
                       placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
                       recyclingKey={item.books[0].id.toString()}
                     />
                   </View>
-                  <View className="w-1/2 h-full">
+                  <View className="h-full w-1/2">
                     <Image
-                      className="w-full h-full rounded-r-md"
+                      className="h-full w-full rounded-r-md"
                       source={item.books[1].cover}
                       placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
                       recyclingKey={item.books[1].id.toString()}
@@ -184,25 +184,25 @@ export function SeriesList({
                 </View>
               ) : item.books.length === 3 ? (
                 <View className="flex flex-row">
-                  <View className="w-1/3 h-full">
+                  <View className="h-full w-1/3">
                     <Image
-                      className="w-full h-full rounded-l-md"
+                      className="h-full w-full rounded-l-md"
                       source={item.books[0].cover}
                       placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
                       recyclingKey={item.books[0].id.toString()}
                     />
                   </View>
-                  <View className="w-1/3 h-full">
+                  <View className="h-full w-1/3">
                     <Image
-                      className="w-full h-full"
+                      className="h-full w-full"
                       source={item.books[1].cover}
                       placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
                       recyclingKey={item.books[1].id.toString()}
                     />
                   </View>
-                  <View className="w-1/3 h-full">
+                  <View className="h-full w-1/3">
                     <Image
-                      className="w-full h-full rounded-r-md"
+                      className="h-full w-full rounded-r-md"
                       source={item.books[2].cover}
                       placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
                       recyclingKey={item.books[2].id.toString()}
@@ -211,36 +211,36 @@ export function SeriesList({
                 </View>
               ) : item.books.length === 4 ? (
                 <>
-                  <View className="flex flex-row h-1/2">
-                    <View className="w-1/2 h-full">
+                  <View className="flex h-1/2 flex-row">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-tl-md"
+                        className="h-full w-full rounded-tl-md"
                         source={item.books[0].cover}
                         placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[0].id.toString()}
                       />
                     </View>
-                    <View className="w-1/2 h-full">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-tr-md"
+                        className="h-full w-full rounded-tr-md"
                         source={item.books[1].cover}
                         placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[1].id.toString()}
                       />
                     </View>
                   </View>
-                  <View className="flex flex-row h-1/2">
-                    <View className="w-1/2 h-full">
+                  <View className="flex h-1/2 flex-row">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-bl-md"
+                        className="h-full w-full rounded-bl-md"
                         source={item.books[2].cover}
                         placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[2].id.toString()}
                       />
                     </View>
-                    <View className="w-1/2 h-full">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-br-md"
+                        className="h-full w-full rounded-br-md"
                         source={item.books[3].cover}
                         placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[3].id.toString()}
@@ -250,41 +250,41 @@ export function SeriesList({
                 </>
               ) : item.books.length > 4 ? (
                 <>
-                  <View className="flex flex-row h-1/2">
-                    <View className="w-1/2 h-full">
+                  <View className="flex h-1/2 flex-row">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-tl-md"
+                        className="h-full w-full rounded-tl-md"
                         source={item.books[0].cover}
                         placeholder={{ thumbhash: item.books[0].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[0].id.toString()}
                       />
                     </View>
-                    <View className="w-1/2 h-full">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-tr-md"
+                        className="h-full w-full rounded-tr-md"
                         source={item.books[1].cover}
                         placeholder={{ thumbhash: item.books[1].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[1].id.toString()}
                       />
                     </View>
                   </View>
-                  <View className="flex flex-row h-1/2">
-                    <View className="w-1/2 h-full">
+                  <View className="flex h-1/2 flex-row">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-bl-md"
+                        className="h-full w-full rounded-bl-md"
                         source={item.books[2].cover}
                         placeholder={{ thumbhash: item.books[2].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[2].id.toString()}
                       />
                     </View>
-                    <View className="w-1/2 h-full">
+                    <View className="h-full w-1/2">
                       <Image
-                        className="w-full h-full rounded-br-md"
+                        className="h-full w-full rounded-br-md"
                         source={item.books[3].cover}
                         placeholder={{ thumbhash: item.books[3].coverThumbhash ?? undefined }}
                         recyclingKey={item.books[3].id.toString()}
                       />
-                      <View className="w-full h-full flex justify-center items-center absolute bg-muted/80 rounded-br-md">
+                      <View className="absolute flex h-full w-full items-center justify-center rounded-br-md bg-muted/80">
                         <Large>+{item.books.length - 3}</Large>
                       </View>
                     </View>
@@ -310,11 +310,11 @@ export function SeriesList({
           {props.onEndReached ? (
             props.isFetchingNextPage ? (
               props.direction === 'vertical' ? (
-                <View className="p-12 justify-center items-center">
+                <View className="items-center justify-center p-12">
                   <Spinner size={15} />
                 </View>
               ) : (
-                <View className="flex-1 ml-4 w-64 pb-12 flex justify-center items-center">
+                <View className="ml-4 flex w-64 flex-1 items-center justify-center pb-12">
                   <Spinner size={15} />
                 </View>
               )
@@ -334,7 +334,7 @@ export function SeriesList({
                   </CardFooter>
                 </Card>
               ) : (
-                <Card className="mb-2 ml-4 w-64 flex-1 flex justify-between">
+                <Card className="mb-2 ml-4 flex w-64 flex-1 justify-between">
                   <CardContent className="pt-4">
                     <Large>Error loading more books</Large>
                     <Text className="text-muted-foreground">

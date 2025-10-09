@@ -85,7 +85,7 @@ export default function ContributorIDScreen() {
             {contributor.avatar ? (
               <AspectRatio ratio={1 / 1} className="mx-20">
                 <Image
-                  className="w-full h-full rounded-md"
+                  className="h-full w-full rounded-md"
                   source={contributor.avatar}
                   placeholder={{ thumbhash: contributor.avatarThumbhash ?? undefined }}
                 />

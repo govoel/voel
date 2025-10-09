@@ -71,7 +71,7 @@ export const AccountSelectorAvatar = () => {
             variant="ghost"
             size="icon"
             onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
-            className="absolute inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90 rounded-md">
+            className="absolute inset-0 flex h-full w-full items-center justify-center rounded-md bg-muted/80 active:bg-muted/90">
             <Spinner size={3} />
           </Button>
         )}
@@ -88,7 +88,7 @@ export const AccountSelectorAvatar = () => {
             variant="ghost"
             size="icon"
             onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
-            className="absolute inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90 rounded-md">
+            className="absolute inset-0 flex h-full w-full items-center justify-center rounded-md bg-muted/80 active:bg-muted/90">
             <Spinner size={3} />
           </Button>
         )}
@@ -114,7 +114,7 @@ const LoggedInUserAvatar = ({
   return (
     <View
       className={cn(
-        'relative border-2 rounded-full',
+        'relative rounded-full border-2',
         syncStatus === 'idle' || syncStatus === 'connecting'
           ? 'border-foreground'
           : syncStatus === 'error'
@@ -124,7 +124,7 @@ const LoggedInUserAvatar = ({
               : 'border-green-500'
       )}>
       <Avatar
-        className="rounded-full border-transparent border-2"
+        className="rounded-full border-2 border-transparent"
         alt={`${user.name}'s Avatar`}
         asChild>
         <Pressable onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}>
@@ -140,7 +140,7 @@ const LoggedInUserAvatar = ({
           variant="ghost"
           size="icon"
           onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
-          className="absolute rounded-full inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90">
+          className="absolute inset-0 flex h-full w-full items-center justify-center rounded-full bg-muted/80 active:bg-muted/90">
           <Spinner size={3} />
         </Button>
       )}
@@ -182,8 +182,8 @@ const SyncCount = () => {
   }, []);
 
   return (
-    <View className="absolute -bottom-1 -right-1 bg-primary rounded-full min-w-5 max-w-7 p-0.5">
-      <Text className="text-xs text-center">{syncCount}</Text>
+    <View className="absolute -bottom-1 -right-1 min-w-5 max-w-7 rounded-full bg-primary p-0.5">
+      <Text className="text-center text-xs">{syncCount}</Text>
     </View>
   );
 };
@@ -211,7 +211,7 @@ export const AccountSelector = () => {
     <>
       <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large>Switch account</Large>
             <AccountList />
             <Button onPress={() => authModalStore.trigger.presentAuthModal()}>
@@ -247,7 +247,7 @@ const InitialSyncModal = () => {
   return (
     <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
       <BottomSheetScrollView>
-        <View className="pt-2 px-6 pb-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+        <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 px-6 pb-6 pt-2">
           <Large>Initial sync in progress</Large>
           <Text className="text-muted-foreground">
             Your account is currently syncing. This may take a while depending on the size of your
@@ -270,7 +270,7 @@ const AvatarIndicatorTipsModal = ({
   return (
     <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
       <BottomSheetScrollView>
-        <View className="px-6 pb-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+        <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 px-6 pb-6">
           <Large>Avatar indicator tips</Large>
 
           <AvatarIndicatorTips />
@@ -284,15 +284,15 @@ const AvatarIndicatorTips = () => {
   return (
     <>
       <View className="flex-row gap-x-2">
-        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+        <View className="flex-1 items-center gap-y-2 rounded-md border border-foreground/15 bg-secondary/40 p-2">
           <View>
-            <View className="relative border-2 rounded-full border-foreground">
+            <View className="relative rounded-full border-2 border-foreground">
               <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
                 <AvatarFallback>
                   <Text>TIP</Text>
                 </AvatarFallback>
               </Avatar>
-              <View className="absolute rounded-full inset-0 flex items-center justify-center w-full h-full bg-muted/80 active:bg-muted/90">
+              <View className="absolute inset-0 flex h-full w-full items-center justify-center rounded-full bg-muted/80 active:bg-muted/90">
                 <Spinner size={3} />
               </View>
             </View>
@@ -300,9 +300,9 @@ const AvatarIndicatorTips = () => {
           <Text className="text-center">Attempting connection to realtime sync</Text>
         </View>
 
-        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+        <View className="flex-1 items-center gap-y-2 rounded-md border border-foreground/15 bg-secondary/40 p-2">
           <View>
-            <View className="relative border-2 rounded-full border-green-500">
+            <View className="relative rounded-full border-2 border-green-500">
               <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
                 <AvatarFallback>
                   <Text>TIP</Text>
@@ -316,9 +316,9 @@ const AvatarIndicatorTips = () => {
       </View>
 
       <View className="flex-row gap-x-2">
-        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+        <View className="flex-1 items-center gap-y-2 rounded-md border border-foreground/15 bg-secondary/40 p-2">
           <View>
-            <View className="relative border-2 rounded-full border-red-500">
+            <View className="relative rounded-full border-2 border-red-500">
               <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
                 <AvatarFallback>
                   <Text>TIP</Text>
@@ -330,17 +330,17 @@ const AvatarIndicatorTips = () => {
           <Text className="text-center">Error connecting to realtime sync</Text>
         </View>
 
-        <View className="flex-1 gap-y-2 border border-foreground/15 bg-secondary/40 rounded-md p-2 items-center">
+        <View className="flex-1 items-center gap-y-2 rounded-md border border-foreground/15 bg-secondary/40 p-2">
           <View>
-            <View className="relative border-2 rounded-full border-primary">
+            <View className="relative rounded-full border-2 border-primary">
               <Avatar className="rounded-full border-2 border-transparent" alt="Tip's Avatar">
                 <AvatarFallback>
                   <Text>TIP</Text>
                 </AvatarFallback>
               </Avatar>
 
-              <View className="absolute -bottom-1 -right-1 bg-primary rounded-full min-w-5 max-w-7 p-0.5">
-                <Text className="text-xs text-center">99</Text>
+              <View className="absolute -bottom-1 -right-1 min-w-5 max-w-7 rounded-full bg-primary p-0.5">
+                <Text className="text-center text-xs">99</Text>
               </View>
             </View>
           </View>
@@ -359,7 +359,7 @@ const AccountList = () => {
     return (
       <>
         {accounts.data.length === 0 ? (
-          <View className="flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+          <View className="mb-4 flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted p-8">
             <Text className="text-center">No accounts found</Text>
           </View>
         ) : (
@@ -392,7 +392,7 @@ const AccountList = () => {
   }
 
   return (
-    <View className="flex items-center justify-center mb-4 rounded-md border border-foreground/15 p-12">
+    <View className="mb-4 flex items-center justify-center rounded-md border border-foreground/15 p-12">
       <Spinner size={10} />
     </View>
   );
@@ -426,7 +426,7 @@ const Account = ({
     <Button
       variant="ghost"
       className={cn(
-        'flex-row gap-x-3 native:h-20 h-16 rounded-none border-foreground/15 bg-secondary/40',
+        'native:h-20 h-16 flex-row gap-x-3 rounded-none border-foreground/15 bg-secondary/40',
         className
       )}
       onPress={() => {

@@ -24,7 +24,7 @@ export default function LibraryPage() {
       <FloatingPlayerDodgingScrollView>
         <ScanLibraryButton id={idNum} />
 
-        <View className="overflow-hidden rounded-md border border-foreground/15 mt-4">
+        <View className="mt-4 overflow-hidden rounded-md border border-foreground/15">
           <Link
             href={{
               pathname: '/settings/manage/libraries/[libraryId]/unidentified/files',
@@ -35,7 +35,7 @@ export default function LibraryPage() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-              <View className="flex flex-row justify-center items-center gap-x-2">
+              <View className="flex flex-row items-center justify-center gap-x-2">
                 <FileWarning className="text-muted-foreground" size="20" />
                 <Text>Unidentified Files</Text>
               </View>
@@ -43,7 +43,7 @@ export default function LibraryPage() {
             </Button>
           </Link>
           <Button variant="ghost" className="flex-row justify-between rounded-none bg-secondary/40">
-            <View className="flex flex-row justify-center items-center gap-x-2">
+            <View className="flex flex-row items-center justify-center gap-x-2">
               <BookAlert className="text-muted-foreground" size="20" />
               <Text>Unidentified Books</Text>
             </View>

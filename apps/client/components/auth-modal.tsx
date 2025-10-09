@@ -138,7 +138,7 @@ function SignInModal({
   return (
     <BottomSheetModal ref={signInBottomSheetModalRef} enableDynamicSizing={true}>
       <BottomSheetScrollView>
-        <View className="pt-2 px-6 pb-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+        <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 px-6 pb-6 pt-2">
           <Large>Sign In</Large>
 
           <SignInForm.AppForm>
@@ -368,7 +368,7 @@ function SetupNewServerModal({
       enableDynamicSizing={true}
       enablePanDownToClose={true}>
       <BottomSheetScrollView>
-        <View className="pt-2 px-6 pb-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+        <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 px-6 pb-6 pt-2">
           <Large>Setup new server</Large>
 
           <SignUpForm.AppForm>

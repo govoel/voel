@@ -20,20 +20,20 @@ const Input = ({
   const InputComponent = bsInternal ? BottomSheetTextInput : TextInput;
 
   return (
-    <View className="rounded-md flex flex-row items-center justify-center">
+    <View className="flex flex-row items-center justify-center rounded-md">
       <InputComponent
         className={cn(
-          'flex-1 border-input bg-background text-foreground flex h-10 w-full min-w-0 flex-row items-center px-3 py-1 text-base leading-5 shadow-sm shadow-black/5 sm:h-9 font-normal',
+          'flex h-10 w-full min-w-0 flex-1 flex-row items-center border-input bg-background px-3 py-1 text-base font-normal leading-5 text-foreground shadow-sm shadow-black/5 sm:h-9',
           props.editable === false &&
             cn(
               'opacity-50',
               Platform.select({ web: 'disabled:pointer-events-none disabled:cursor-not-allowed' })
             ),
-          isLoading ? 'rounded-l-md border border-r-0' : 'border border-r rounded-md',
+          isLoading ? 'rounded-l-md border border-r-0' : 'rounded-md border border-r',
           Platform.select({
             web: cn(
-              'placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground outline-none transition-[color,box-shadow] md:text-sm',
-              'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+              'outline-none transition-[color,box-shadow] selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground md:text-sm',
+              'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
               'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
             ),
             native: 'placeholder:text-muted-foreground/50',
@@ -44,7 +44,7 @@ const Input = ({
       />
       {isLoading && (
         <Spinner
-          className="px-3 border border-l-0 border-input h-full rounded-r-md flex items-center justify-center"
+          className="flex h-full items-center justify-center rounded-r-md border border-l-0 border-input px-3"
           size={6}
         />
       )}

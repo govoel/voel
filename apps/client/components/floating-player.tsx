@@ -84,11 +84,11 @@ export function FloatingPlayerDodgingScrollView({
       <View
         className={cn(
           isPlayerActive && isUpdatePending
-            ? 'pt-6 pb-40'
+            ? 'pb-40 pt-6'
             : isPlayerActive
-              ? 'pt-6 pb-24'
+              ? 'pb-24 pt-6'
               : isUpdatePending
-                ? 'pt-6 pb-20'
+                ? 'pb-20 pt-6'
                 : 'py-6',
           className
         )}>
@@ -113,8 +113,8 @@ export function OTAUpdateNotification({ className }: { className?: string }) {
 
 function OTAUpdateNotificationImpl({ className }: { className?: string }) {
   return (
-    <View className={cn(className, 'w-full px-4 pb-2 bg-transparent')}>
-      <View className="rounded-md bg-muted overflow-hidden flex flex-row flex-nowrap items-center justify-between w-full py-2 px-4 max-h-14">
+    <View className={cn(className, 'w-full bg-transparent px-4 pb-2')}>
+      <View className="flex max-h-14 w-full flex-row flex-nowrap items-center justify-between overflow-hidden rounded-md bg-muted px-4 py-2">
         <View>
           <Text>New update is available</Text>
         </View>
@@ -275,15 +275,15 @@ function FloatingPlayerImpl({
   }));
 
   return (
-    <View className={cn(className, 'w-full px-4 py-2 bg-transparent')}>
-      <View className="rounded-md bg-muted overflow-hidden">
+    <View className={cn(className, 'w-full bg-transparent px-4 py-2')}>
+      <View className="overflow-hidden rounded-md bg-muted">
         <Link href="/player" asChild push>
-          <Pressable className="flex-row items-center justify-stretch w-full flex-nowrap p-2">
-            <View className="flex-1 flex-row items-center justify-center gap-x-2 max-h-12">
+          <Pressable className="w-full flex-row flex-nowrap items-center justify-stretch p-2">
+            <View className="max-h-12 flex-1 flex-row items-center justify-center gap-x-2">
               {currentTrack.artworkUri ? (
                 <AspectRatio ratio={1 / 1} className="h-full">
                   <Image
-                    className="w-full h-full rounded-md"
+                    className="h-full w-full rounded-md"
                     source={{ uri: currentTrack.artworkUri }}
                   />
                 </AspectRatio>
@@ -297,7 +297,7 @@ function FloatingPlayerImpl({
                 </AutoMarquee>
               </View>
             </View>
-            <View className="flex-none flex-row items-center justify-center gap-x-1 h-full pr-1 pl-2">
+            <View className="h-full flex-none flex-row items-center justify-center gap-x-1 pl-2 pr-1">
               <Button
                 variant="ghost"
                 size="icon"
@@ -307,7 +307,7 @@ function FloatingPlayerImpl({
                 <Text>{playerStatus.playbackRate}x</Text>
               </Button>
               {playerStatus.isBuffering ? (
-                <View className="h-10 w-10 flex items-center justify-center">
+                <View className="flex h-10 w-10 items-center justify-center">
                   <Spinner size={4} />
                 </View>
               ) : playerStatus.timeControlStatus === 'paused' ? (

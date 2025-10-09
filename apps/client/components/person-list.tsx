@@ -67,7 +67,7 @@ function EmptyComponent({
     return (
       <View
         className={cn(
-          'flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full',
+          'mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16',
           className
         )}>
         <Text className="text-center">No {type}s found</Text>
@@ -76,7 +76,7 @@ function EmptyComponent({
   }
 
   return (
-    <View className={cn('p-12 justify-center items-center', className)}>
+    <View className={cn('items-center justify-center p-12', className)}>
       <Spinner size={15} />
     </View>
   );
@@ -164,12 +164,12 @@ export function PersonList({
                     : 'pl-2'
                 : index === 0
                   ? 'mb-2'
-                  : 'ml-4 mb-2'
+                  : 'mb-2 ml-4'
             )}>
             <AspectRatio ratio={1 / 1}>
               {item.avatar ? (
                 <Image
-                  className="w-full h-full rounded-md"
+                  className="h-full w-full rounded-md"
                   source={item.avatar}
                   placeholder={{ thumbhash: item.avatarThumbhash ?? undefined }}
                   recyclingKey={item.id.toString()}
@@ -177,7 +177,7 @@ export function PersonList({
               ) : (
                 <Avatar
                   alt={`Fallback Avatar for ${item.name}`}
-                  className="rounded-md w-full h-full">
+                  className="h-full w-full rounded-md">
                   <AvatarFallback className="rounded-none">
                     <Large className="text-5xl">{getInitials(item.name)}</Large>
                   </AvatarFallback>
@@ -200,11 +200,11 @@ export function PersonList({
           {props.onEndReached ? (
             props.isFetchingNextPage ? (
               props.direction === 'vertical' ? (
-                <View className="p-12 justify-center items-center">
+                <View className="items-center justify-center p-12">
                   <Spinner size={15} />
                 </View>
               ) : (
-                <View className="flex-1 ml-4 w-32 pb-12 flex justify-center items-center">
+                <View className="ml-4 flex w-32 flex-1 items-center justify-center pb-12">
                   <Spinner size={15} />
                 </View>
               )
@@ -224,7 +224,7 @@ export function PersonList({
                   </CardFooter>
                 </Card>
               ) : (
-                <Card className="mb-2 ml-4 w-64 flex-1 flex justify-between">
+                <Card className="mb-2 ml-4 flex w-64 flex-1 justify-between">
                   <CardContent className="pt-4">
                     <Large>Error loading more {type}s</Large>
                     <Text className="text-muted-foreground">

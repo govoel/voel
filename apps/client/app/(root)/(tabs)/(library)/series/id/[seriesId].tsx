@@ -71,7 +71,7 @@ export default function SeriesIDScreen() {
                 ) : null}
               </>
             ) : (
-              <View className="p-12 justify-center items-center">
+              <View className="items-center justify-center p-12">
                 <Spinner size={15} />
               </View>
             )}
@@ -79,7 +79,7 @@ export default function SeriesIDScreen() {
             <TitleWithRefetch
               refetch={booksRefetch}
               isFetching={booksIsFetching}
-              className="mt-4 mb-2">
+              className="mb-2 mt-4">
               Books
             </TitleWithRefetch>
           </>

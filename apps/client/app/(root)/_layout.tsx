@@ -39,7 +39,7 @@ const DbMigrator = ({ children }: { children: ReactNode }) => {
 
   if (mainDbMigration.status === 'pending') {
     return (
-      <View className="flex flex-1 justify-center items-center">
+      <View className="flex flex-1 items-center justify-center">
         <Spinner size={15} />
       </View>
     );
@@ -47,7 +47,7 @@ const DbMigrator = ({ children }: { children: ReactNode }) => {
 
   if (mainDbMigration.status === 'error') {
     return (
-      <View className="flex flex-1 p-12 justify-center items-center">
+      <View className="flex flex-1 items-center justify-center p-12">
         <Text>Main database migration failed: {mainDbMigration.error.message}</Text>
       </View>
     );
@@ -62,7 +62,7 @@ const InstanceDbMigrator = ({ children }: { children: ReactNode }) => {
 
   if (migrationStatus === 'pending') {
     return (
-      <View className="flex flex-1 justify-center items-center">
+      <View className="flex flex-1 items-center justify-center">
         <Spinner size={15} />
       </View>
     );
@@ -70,7 +70,7 @@ const InstanceDbMigrator = ({ children }: { children: ReactNode }) => {
 
   if (migrationStatus === 'error') {
     return (
-      <View className="flex flex-1 p-12 justify-center items-center">
+      <View className="flex flex-1 items-center justify-center p-12">
         <Text>
           Instance database migration failed: {migrationError?.message ?? 'Unknown error'}
         </Text>

@@ -7,6 +7,9 @@
     "apps/*",
     "packages/*"
   ],
+  "op-sqlite": {
+    "fts5": true
+  },
   "devDependencies": {
     "bun-types": "1.2.23"
   },

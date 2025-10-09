@@ -32,7 +32,7 @@ export default function SettingsIndexScreen() {
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
-                <View className="flex flex-row justify-center items-center gap-x-2">
+                <View className="flex flex-row items-center justify-center gap-x-2">
                   <UserCog className="text-muted-foreground" size="20" />
                   <Text>Profile</Text>
                 </View>
@@ -47,7 +47,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-              <View className="flex flex-row justify-center items-center gap-x-2">
+              <View className="flex flex-row items-center justify-center gap-x-2">
                 <Smartphone className="text-muted-foreground" size="20" />
                 <Text>Interface</Text>
               </View>
@@ -57,7 +57,7 @@ export default function SettingsIndexScreen() {
           <Button
             variant="ghost"
             className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-            <View className="flex flex-row justify-center items-center gap-x-2">
+            <View className="flex flex-row items-center justify-center gap-x-2">
               <Play className="text-muted-foreground" size="20" />
               <Text>Playback</Text>
             </View>
@@ -67,7 +67,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none bg-secondary/40">
-              <View className="flex flex-row justify-center items-center gap-x-2">
+              <View className="flex flex-row items-center justify-center gap-x-2">
                 <Download className="text-muted-foreground" size="20" />
                 <Text>Downloads</Text>
               </View>
@@ -81,7 +81,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-              <View className="flex flex-row justify-center items-center gap-x-2">
+              <View className="flex flex-row items-center justify-center gap-x-2">
                 <ServerCog className="text-muted-foreground" size="20" />
                 <Text>Server</Text>
               </View>
@@ -91,7 +91,7 @@ export default function SettingsIndexScreen() {
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
-                <View className="flex flex-row justify-center items-center gap-x-2">
+                <View className="flex flex-row items-center justify-center gap-x-2">
                   <FolderCog className="text-muted-foreground" size="20" />
                   <Text>Manage Libraries</Text>
                 </View>
@@ -102,7 +102,7 @@ export default function SettingsIndexScreen() {
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none bg-secondary/40">
-                <View className="flex flex-row justify-center items-center gap-x-2">
+                <View className="flex flex-row items-center justify-center gap-x-2">
                   <Users className="text-muted-foreground" size="20" />
                   <Text>Manage Users</Text>
                 </View>
@@ -117,7 +117,7 @@ export default function SettingsIndexScreen() {
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none bg-secondary/40">
-              <View className="flex flex-row justify-center items-center gap-x-2">
+              <View className="flex flex-row items-center justify-center gap-x-2">
                 <Info className="text-muted-foreground" size="20" />
                 <Text>App Info</Text>
               </View>

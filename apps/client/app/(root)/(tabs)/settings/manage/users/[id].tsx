@@ -123,7 +123,7 @@ export default function ManageUserScreen() {
               </Card>
             ) : (
               <Card>
-                <CardContent className="p-12 justify-center items-center">
+                <CardContent className="items-center justify-center p-12">
                   <Spinner size={15} />
                 </CardContent>
               </Card>
@@ -160,12 +160,12 @@ export default function ManageUserScreen() {
               </CardFooter>
             </Card>
           ) : sessions?.length === 0 ? (
-            <View className="mt-4 flex flex-col items-center justify-center p-8 border-dashed border-2 rounded-md border-muted mb-4">
+            <View className="mb-4 mt-4 flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted p-8">
               <Text className="text-center">No sessions found</Text>
             </View>
           ) : (
             <Card className="mt-4">
-              <CardContent className="p-12 justify-center items-center">
+              <CardContent className="items-center justify-center p-12">
                 <Spinner size={15} />
               </CardContent>
             </Card>
@@ -402,7 +402,7 @@ const Profile = ({
         </Alert>
       )}
       <Card>
-        <CardContent className="p-6 flex flex-row gap-3 group items-center justify-center">
+        <CardContent className="group flex flex-row items-center justify-center gap-3 p-6">
           <Avatar alt={`${user.name}'s Avatar`}>
             <AvatarImage
               source={{
@@ -472,7 +472,7 @@ const Profile = ({
 
       <BottomSheetModal ref={setRoleModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Set Role</Large>
             <SetRoleForm.AppForm>
               <SetRoleForm.AppField
@@ -495,7 +495,7 @@ const Profile = ({
 
       <BottomSheetModal ref={banUserModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Ban User</Large>
 
             <BanUserForm.AppForm>
@@ -532,7 +532,7 @@ const Profile = ({
 
       <BottomSheetModal ref={unbanUserModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Unban User</Large>
             <Text className="pb-4">Are you sure you want to unban this user?</Text>
             <UnbanUserForm.AppForm>
@@ -546,7 +546,7 @@ const Profile = ({
 
       <BottomSheetModal ref={changePasswordModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Change Password</Large>
 
             <ChangePasswordForm.AppForm>
@@ -590,7 +590,7 @@ const Profile = ({
 
       <BottomSheetModal ref={deleteUserModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
-          <View className="p-6 mx-auto w-full max-w-[400px] flex-col gap-1.5">
+          <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
             <Large className="pb-2">Delete User</Large>
 
             <Text className="pb-4">Are you sure you want to delete this user?</Text>

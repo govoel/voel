@@ -61,7 +61,7 @@ const AlertTitle = ({
 }) => (
   <Text
     ref={ref}
-    className={cn('pl-2 font-medium text-base text-foreground', className)}
+    className={cn('pl-2 text-base font-medium text-foreground', className)}
     {...props}
   />
 );
@@ -76,7 +76,7 @@ const AlertDescription = ({
 }) => (
   <Text
     ref={ref}
-    className={cn('pl-2 mt-1 text-sm leading-relaxed text-foreground', className)}
+    className={cn('mt-1 pl-2 text-sm leading-relaxed text-foreground', className)}
     {...props}
   />
 );

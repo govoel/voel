@@ -115,7 +115,7 @@ function EmptyComponent({
     return (
       <View
         className={cn(
-          'flex flex-col items-center justify-center px-8 py-16 border-dashed border-2 rounded-md border-muted mb-4 w-full',
+          'mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16',
           className
         )}>
         <Text className="text-center">{emptyListMessage}</Text>
@@ -124,7 +124,7 @@ function EmptyComponent({
   }
 
   return (
-    <View className={cn('p-12 justify-center items-center', className)}>
+    <View className={cn('items-center justify-center p-12', className)}>
       <Spinner size={15} />
     </View>
   );
@@ -203,7 +203,7 @@ export function BookList({
                   : 'pl-2'
                 : index === 0
                   ? 'mb-2'
-                  : 'ml-4 mb-2'
+                  : 'mb-2 ml-4'
             )}>
             {item.label ? (
               <View className="flex flex-row items-center pb-2">
@@ -215,7 +215,7 @@ export function BookList({
             <AspectRatio ratio={1 / 1}>
               {item.cover ? (
                 <Image
-                  className="w-full h-full rounded-t-md"
+                  className="h-full w-full rounded-t-md"
                   source={item.cover}
                   placeholder={{ thumbhash: item.coverThumbhash ?? undefined }}
                   recyclingKey={item.id.toString()}
@@ -247,11 +247,11 @@ export function BookList({
           {props.onEndReached ? (
             props.isFetchingNextPage ? (
               props.direction === 'vertical' ? (
-                <View className="p-12 justify-center items-center">
+                <View className="items-center justify-center p-12">
                   <Spinner size={15} />
                 </View>
               ) : (
-                <View className="flex-1 ml-4 w-64 pb-12 flex justify-center items-center">
+                <View className="ml-4 flex w-64 flex-1 items-center justify-center pb-12">
                   <Spinner size={15} />
                 </View>
               )
@@ -271,7 +271,7 @@ export function BookList({
                   </CardFooter>
                 </Card>
               ) : (
-                <Card className="mb-2 ml-4 w-64 flex-1 flex justify-between">
+                <Card className="mb-2 ml-4 flex w-64 flex-1 justify-between">
                   <CardContent className="pt-4">
                     <Large>Error loading more books</Large>
                     <Text className="text-muted-foreground">

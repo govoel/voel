@@ -121,7 +121,7 @@ export default function HomeScreen() {
         ) : null}
 
         {isAvailableOfflineLoading || isRecentlyAddedLoading || isContinueListeningLoading ? (
-          <View className="p-12 justify-center items-center">
+          <View className="items-center justify-center p-12">
             <Spinner size={15} />
           </View>
         ) : null}

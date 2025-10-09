@@ -39,7 +39,7 @@ export default function SeriesNameScreen() {
             <TitleWithRefetch
               refetch={booksRefetch}
               isFetching={booksIsFetching}
-              className="mt-4 mb-2">
+              className="mb-2 mt-4">
               Books
             </TitleWithRefetch>
           </>

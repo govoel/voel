@@ -109,7 +109,7 @@ const ButtonWithLoading = ({
       <Button ref={ref} {...props} />
 
       {isLoading && (
-        <View className="absolute inset-0 flex items-center justify-center w-full bg-muted/80 rounded-md">
+        <View className="absolute inset-0 flex w-full items-center justify-center rounded-md bg-muted/80">
           <Spinner size={spinnerSize} />
         </View>
       )}

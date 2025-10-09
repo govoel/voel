@@ -5,12 +5,10 @@ module.exports = {
   bracketSameLine: true,
   trailingComma: 'es5',
 
-  plugins: [
-    require.resolve('prettier-plugin-tailwindcss'),
-    '@trivago/prettier-plugin-sort-imports',
-  ],
+  plugins: ['@trivago/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss'],
 
   tailwindAttributes: ['className'],
+  tailwindFunctions: ['cn'],
 
   importOrder: ['^~/components/(.*)$', '^~/lib/(.*)$', '^~/(.*)$'],
   importOrderSeparation: true,
