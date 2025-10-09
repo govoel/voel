@@ -108,8 +108,15 @@ export function SeriesList({
         onEndReached?: undefined;
       }
   )) {
-  if (props.direction === 'horizontal' && series?.length === 0) {
-    return <EmptyComponent series={series} error={props.error} refetch={props.refetch} />;
+  if (props.direction === 'horizontal' && (series?.length === 0 || props.error)) {
+    return (
+      <EmptyComponent
+        className={props.className}
+        series={series}
+        error={props.error}
+        refetch={props.refetch}
+      />
+    );
   }
 
   return (

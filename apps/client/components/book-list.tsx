@@ -164,7 +164,7 @@ export function BookList({
         onEndReached?: undefined;
       }
   )) {
-  if (props.direction === 'horizontal' && books?.length === 0) {
+  if (props.direction === 'horizontal' && (books?.length === 0 || props.error)) {
     return (
       <EmptyComponent
         className={props.className}
