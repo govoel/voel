@@ -24,7 +24,8 @@ import { schemas } from '@voel/schemas';
 import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, View } from 'react-native';
+import { FlatList, Platform, Pressable, ScrollView, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import { toast } from 'sonner-native';
 import type * as z from 'zod';
 
@@ -170,6 +171,8 @@ export default function UnidentifiedFilesPage() {
     getRowId: (row) => `${row.directory}/${row.name}`,
   });
 
+  const tabBarHeight = useBottomTabBarHeight();
+
   return (
     <>
       <Stack.Screen options={{ title: 'Unidentified Files' }} />
@@ -286,16 +289,18 @@ export default function UnidentifiedFilesPage() {
       />
 
       <View
-        className={cn(
-          'absolute w-full px-4',
-          isPlayerActive && isUpdatePending
-            ? 'bottom-[126]'
-            : isPlayerActive
-              ? 'bottom-[75]'
-              : isUpdatePending
-                ? 'bottom-[60]'
-                : 'bottom-[10]'
-        )}>
+        className="absolute w-full px-4"
+        style={{
+          bottom:
+            (Platform.OS === 'ios' ? tabBarHeight : 0) +
+            (isPlayerActive && isUpdatePending
+              ? 126
+              : isPlayerActive
+                ? 75
+                : isUpdatePending
+                  ? 60
+                  : 10),
+        }}>
         {/* because disabled button uses a background color with transparency */}
         <View className="bg-background">
           <Button
