@@ -116,7 +116,7 @@ export function PersonList({
         onEndReached?: undefined;
       }
   )) {
-  if (props.direction === 'horizontal' && people?.length === 0) {
+  if (props.direction === 'horizontal' && (people?.length === 0 || props.error)) {
     return (
       <EmptyComponent
         className={props.className}
