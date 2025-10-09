@@ -117,7 +117,7 @@
     "sonner-native": "0.21.1",
     "tailwind-merge": "3.3.1",
     "tailwindcss-animate": "1.0.7",
-    "zod": "4.1.11"
+    "zod": "4.1.12"
   },
   "devDependencies": {
     "@babel/core": "7.28.4",

@@ -29,7 +29,7 @@
     "thumbhash": "0.1.1",
     "turndown": "7.2.1",
     "xstate": "5.22.1",
-    "zod": "4.1.11"
+    "zod": "4.1.12"
   },
   "devDependencies": {
     "@effect/language-service": "0.41.1",
