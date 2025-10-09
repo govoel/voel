@@ -4,10 +4,11 @@ import {
   createNativeBottomTabNavigator,
 } from '@bottom-tabs/react-navigation';
 import type { ParamListBase, TabNavigationState } from '@react-navigation/native';
+import { createStore } from '@xstate/store';
+import { useSelector } from '@xstate/store/react';
 import { withLayoutContext } from 'expo-router';
 import { useUnstableNativeVariable } from 'nativewind';
 import { View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingPlayer, OTAUpdateNotification } from '~/components/floating-player';
 
@@ -20,8 +21,20 @@ const Tabs = withLayoutContext<
   NativeBottomTabNavigationEventMap
 >(BottomTabNavigator);
 
+export const bottomTabBarHeightStore = createStore({
+  context: {
+    height: 0,
+  },
+  on: {
+    setHeight: (context, event: { height: number }) => {
+      if (context.height === event.height) return context;
+      return { ...context, height: event.height };
+    },
+  },
+});
+
 export default function TabLayout() {
-  const { bottom } = useSafeAreaInsets();
+  const tabBarHeight = useSelector(bottomTabBarHeightStore, (state) => state.context.height);
 
   return (
     <>
@@ -55,7 +68,7 @@ export default function TabLayout() {
         />
       </Tabs>
 
-      <View className="absolute w-full" style={{ bottom: bottom + 80 }}>
+      <View className="absolute w-full" style={{ bottom: tabBarHeight }}>
         <FloatingPlayer />
         <OTAUpdateNotification />
       </View>

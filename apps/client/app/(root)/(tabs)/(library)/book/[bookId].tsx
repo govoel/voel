@@ -11,7 +11,8 @@ import { useSelector } from '@xstate/store/react';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { cssInterop } from 'nativewind';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, ScrollView, View } from 'react-native';
+import { FlatList, Platform, ScrollView, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { toast } from 'sonner-native';
 
@@ -97,6 +98,8 @@ export default function BookScreen() {
   );
 
   const floatingPlayerPadding = useFloatingPlayerAndTabsPaddingClass();
+
+  const tabBarHeight = useBottomTabBarHeight();
 
   return (
     <>
@@ -214,16 +217,18 @@ export default function BookScreen() {
           </ScrollView>
 
           <View
-            className={cn(
-              'w-full absolute px-4',
-              isPlayerActive && isUpdatePending
-                ? 'bottom-[126]'
-                : isPlayerActive
-                  ? 'bottom-[75]'
-                  : isUpdatePending
-                    ? 'bottom-[60]'
-                    : 'bottom-[10]'
-            )}>
+            className="w-full absolute px-4"
+            style={{
+              bottom:
+                (Platform.OS === 'ios' ? tabBarHeight : 0) +
+                (isPlayerActive && isUpdatePending
+                  ? 126
+                  : isPlayerActive
+                    ? 75
+                    : isUpdatePending
+                      ? 60
+                      : 10),
+            }}>
             <View className="bg-background/85 rounded-md w-full flex-row gap-x-2">
               <MoreOptionsBottomSheet book={{ ...data, authors }} />
               <ManageDownloads

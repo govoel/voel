@@ -4,7 +4,8 @@ import { useStore } from '@tanstack/react-form';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import * as z from 'zod';
 
 import { BookList, type BookListBook } from '~/components/book-list';
@@ -28,6 +29,8 @@ export default function LibraryScreen() {
     floatingPlayerStore,
     (state) => state.context.isUpdatePending
   );
+
+  const tabBarHeight = useBottomTabBarHeight();
 
   return (
     <>
@@ -55,16 +58,18 @@ export default function LibraryScreen() {
         </TabsContent>
 
         <View
-          className={cn(
-            'w-full absolute px-4',
-            isPlayerActive && isUpdatePending
-              ? 'bottom-[126]'
-              : isPlayerActive
-                ? 'bottom-[75]'
-                : isUpdatePending
-                  ? 'bottom-[60]'
-                  : 'bottom-[10]'
-          )}>
+          className="w-full absolute px-4"
+          style={{
+            bottom:
+              (Platform.OS === 'ios' ? tabBarHeight : 0) +
+              (isPlayerActive && isUpdatePending
+                ? 126
+                : isPlayerActive
+                  ? 75
+                  : isUpdatePending
+                    ? 60
+                    : 10),
+          }}>
           <TabsList className="w-full flex-row">
             <TabsTrigger value="authors" className="flex-1">
               <Text>Authors</Text>
