@@ -472,7 +472,7 @@ const ManageDownloads = ({
         }}>
         <View className="absolute inset-0 flex justify-center items-center">
           <SvgInterop
-            className={cn(error ? 'text-red-300/20' : 'text-muted-foreground/30')}
+            className={cn(error ? 'text-red-300/30' : 'text-muted-foreground/30')}
             width={24}
             height={24}
             viewBox="0 0 24 24"
@@ -484,17 +484,17 @@ const ManageDownloads = ({
             <Circle cx="50%" cy="50%" r="10" />
           </SvgInterop>
         </View>
-        {downloads && (
-          <SvgInterop
-            className={cn(error ? 'text-red-300' : 'text-secondary-foreground')}
-            width={24}
-            height={24}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.75}
-            strokeLinecap="round"
-            strokeLinejoin="round">
+        <SvgInterop
+          className={cn(error ? 'text-red-300' : 'text-secondary-foreground')}
+          width={24}
+          height={24}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.75}
+          strokeLinecap="round"
+          strokeLinejoin="round">
+          {downloads && (
             <Circle
               cx="50%"
               cy="50%"
@@ -515,10 +515,10 @@ const ManageDownloads = ({
               }
               transform="rotate(-90 12 12)"
             />
-            <Path d="M12 8v8" />
-            <Path d="m8 12 4 4 4-4" />
-          </SvgInterop>
-        )}
+          )}
+          <Path d="M12 8v8" />
+          <Path d="m8 12 4 4 4-4" />
+        </SvgInterop>
       </ButtonWithLoading>
 
       <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
@@ -607,13 +607,14 @@ const ManageDownloads = ({
                 </View>
               ) : error ? (
                 <Button
+                  className="mt-2 mb-1"
                   variant="destructive"
                   onPress={() => {
                     refetchDownloadsStatus();
                   }}>
                   <View className="pl-2 flex justify-center items-center">
                     <Text>Couldn&rsquo;t load downloads status</Text>
-                    <Muted className="text-xs font-semibold text-red-200">Click to Retry</Muted>
+                    <Small className="text-destructive-foreground">Click to Retry</Small>
                   </View>
                 </Button>
               ) : null}
