@@ -187,9 +187,13 @@ const SearchTab = () => {
     forewordListRef.current?.scrollToTop({ animated: false });
   }, [searchQuery]);
 
+  const tabBarHeight = useBottomTabBarHeight();
+
   return (
     <ScrollView className="px-6">
-      <View className={useFloatingPlayerAndTabsPaddingClass()}>
+      <View
+        className={useFloatingPlayerAndTabsPaddingClass()}
+        style={{ marginBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }}>
         <SearchForm.AppForm>
           <SearchForm.AppField
             name="query"
@@ -212,165 +216,160 @@ const SearchTab = () => {
           />
         </SearchForm.AppForm>
 
-        {bookSearchError || (bookSearchResults && bookSearchResults.length > 0) ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={bookSearchRefetch}
-              isFetching={bookSearchIsFetching}>
-              Books
-              {bookSearchResults &&
-                bookSearchResults.length > 0 &&
-                ` (${bookSearchResults.length})`}
-            </TitleWithRefetch>
-            <BookList
-              ref={bookListRef}
-              direction="horizontal"
-              books={bookSearchResults}
-              className="mb-2"
-              error={bookSearchError}
-              refetch={bookSearchRefetch}
-            />
-          </>
-        ) : null}
+        <View className="flex gap-y-2">
+          {bookSearchError || (bookSearchResults && bookSearchResults.length > 0) ? (
+            <View>
+              <TitleWithRefetch
+                className="mb-2"
+                refetch={bookSearchRefetch}
+                isFetching={bookSearchIsFetching}>
+                Books
+                {bookSearchResults &&
+                  bookSearchResults.length > 0 &&
+                  ` (${bookSearchResults.length})`}
+              </TitleWithRefetch>
+              <BookList
+                ref={bookListRef}
+                direction="horizontal"
+                books={bookSearchResults}
+                error={bookSearchError}
+                refetch={bookSearchRefetch}
+              />
+            </View>
+          ) : null}
 
-        {authorSearchError || (authorSearchResults && authorSearchResults.length > 0) ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={authorSearchRefetch}
-              isFetching={authorSearchIsFetching}>
-              Authors
-              {authorSearchResults &&
-                authorSearchResults.length > 0 &&
-                ` (${authorSearchResults.length})`}
-            </TitleWithRefetch>
-            <PersonList
-              ref={authorListRef}
-              people={authorSearchResults}
-              error={authorSearchError}
-              refetch={authorSearchRefetch}
-              type="author"
-              direction="horizontal"
-              className="mb-2"
-            />
-          </>
-        ) : null}
+          {authorSearchError || (authorSearchResults && authorSearchResults.length > 0) ? (
+            <View>
+              <TitleWithRefetch
+                className="mb-2"
+                refetch={authorSearchRefetch}
+                isFetching={authorSearchIsFetching}>
+                Authors
+                {authorSearchResults &&
+                  authorSearchResults.length > 0 &&
+                  ` (${authorSearchResults.length})`}
+              </TitleWithRefetch>
+              <PersonList
+                ref={authorListRef}
+                people={authorSearchResults}
+                error={authorSearchError}
+                refetch={authorSearchRefetch}
+                type="author"
+                direction="horizontal"
+              />
+            </View>
+          ) : null}
 
-        {seriesSearchError || (seriesSearchResults && seriesSearchResults.length > 0) ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={seriesSearchRefetch}
-              isFetching={seriesSearchIsFetching}>
-              Series
-              {seriesSearchResults &&
-                seriesSearchResults.length > 0 &&
-                ` (${seriesSearchResults.length})`}
-            </TitleWithRefetch>
-            <SeriesList
-              ref={seriesListRef}
-              series={seriesSearchResults}
-              error={seriesSearchError}
-              refetch={seriesSearchRefetch}
-              direction="horizontal"
-              className="mb-2"
-            />
-          </>
-        ) : null}
+          {seriesSearchError || (seriesSearchResults && seriesSearchResults.length > 0) ? (
+            <View>
+              <TitleWithRefetch
+                className="mb-2"
+                refetch={seriesSearchRefetch}
+                isFetching={seriesSearchIsFetching}>
+                Series
+                {seriesSearchResults &&
+                  seriesSearchResults.length > 0 &&
+                  ` (${seriesSearchResults.length})`}
+              </TitleWithRefetch>
+              <SeriesList
+                ref={seriesListRef}
+                series={seriesSearchResults}
+                error={seriesSearchError}
+                refetch={seriesSearchRefetch}
+                direction="horizontal"
+              />
+            </View>
+          ) : null}
 
-        {narratorSearchError || (narratorSearchResults && narratorSearchResults.length > 0) ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={narratorSearchRefetch}
-              isFetching={narratorSearchIsFetching}>
-              Narrators
-              {narratorSearchResults &&
-                narratorSearchResults.length > 0 &&
-                ` (${narratorSearchResults.length})`}
-            </TitleWithRefetch>
-            <PersonList
-              ref={narratorListRef}
-              people={narratorSearchResults}
-              error={narratorSearchError}
-              refetch={narratorSearchRefetch}
-              type="narrator"
-              direction="horizontal"
-              className="mb-2"
-            />
-          </>
-        ) : null}
+          {narratorSearchError || (narratorSearchResults && narratorSearchResults.length > 0) ? (
+            <View>
+              <TitleWithRefetch
+                className="mb-2"
+                refetch={narratorSearchRefetch}
+                isFetching={narratorSearchIsFetching}>
+                Narrators
+                {narratorSearchResults &&
+                  narratorSearchResults.length > 0 &&
+                  ` (${narratorSearchResults.length})`}
+              </TitleWithRefetch>
+              <PersonList
+                ref={narratorListRef}
+                people={narratorSearchResults}
+                error={narratorSearchError}
+                refetch={narratorSearchRefetch}
+                type="narrator"
+                direction="horizontal"
+              />
+            </View>
+          ) : null}
 
-        {translatorSearchError ||
-        (translatorSearchResults && translatorSearchResults.length > 0) ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={translatorSearchRefetch}
-              isFetching={translatorSearchIsFetching}>
-              Translators
-              {translatorSearchResults &&
-                translatorSearchResults.length > 0 &&
-                ` (${translatorSearchResults.length})`}
-            </TitleWithRefetch>
-            <PersonList
-              ref={translatorListRef}
-              people={translatorSearchResults}
-              error={translatorSearchError}
-              refetch={translatorSearchRefetch}
-              type="translator"
-              direction="horizontal"
-              className="mb-2"
-            />
-          </>
-        ) : null}
+          {translatorSearchError ||
+          (translatorSearchResults && translatorSearchResults.length > 0) ? (
+            <View>
+              <TitleWithRefetch
+                className="mb-2"
+                refetch={translatorSearchRefetch}
+                isFetching={translatorSearchIsFetching}>
+                Translators
+                {translatorSearchResults &&
+                  translatorSearchResults.length > 0 &&
+                  ` (${translatorSearchResults.length})`}
+              </TitleWithRefetch>
+              <PersonList
+                ref={translatorListRef}
+                people={translatorSearchResults}
+                error={translatorSearchError}
+                refetch={translatorSearchRefetch}
+                type="translator"
+                direction="horizontal"
+              />
+            </View>
+          ) : null}
 
-        {editorSearchError || (editorSearchResults && editorSearchResults.length > 0) ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={editorSearchRefetch}
-              isFetching={editorSearchIsFetching}>
-              Editors
-              {editorSearchResults &&
-                editorSearchResults.length > 0 &&
-                ` (${editorSearchResults.length})`}
-            </TitleWithRefetch>
-            <PersonList
-              ref={editorListRef}
-              people={editorSearchResults}
-              error={editorSearchError}
-              refetch={editorSearchRefetch}
-              type="editor"
-              direction="horizontal"
-              className="mb-2"
-            />
-          </>
-        ) : null}
+          {editorSearchError || (editorSearchResults && editorSearchResults.length > 0) ? (
+            <View>
+              <TitleWithRefetch
+                className="mb-2"
+                refetch={editorSearchRefetch}
+                isFetching={editorSearchIsFetching}>
+                Editors
+                {editorSearchResults &&
+                  editorSearchResults.length > 0 &&
+                  ` (${editorSearchResults.length})`}
+              </TitleWithRefetch>
+              <PersonList
+                ref={editorListRef}
+                people={editorSearchResults}
+                error={editorSearchError}
+                refetch={editorSearchRefetch}
+                type="editor"
+                direction="horizontal"
+              />
+            </View>
+          ) : null}
 
-        {forewordSearchError || (forewordSearchResults && forewordSearchResults.length > 0) ? (
-          <>
-            <TitleWithRefetch
-              className="mb-2"
-              refetch={forewordSearchRefetch}
-              isFetching={forewordSearchIsFetching}>
-              Forewords
-              {forewordSearchResults &&
-                forewordSearchResults.length > 0 &&
-                ` (${forewordSearchResults.length})`}
-            </TitleWithRefetch>
-            <PersonList
-              ref={forewordListRef}
-              people={forewordSearchResults}
-              error={forewordSearchError}
-              refetch={forewordSearchRefetch}
-              type="foreword"
-              direction="horizontal"
-              className="mb-2"
-            />
-          </>
-        ) : null}
+          {forewordSearchError || (forewordSearchResults && forewordSearchResults.length > 0) ? (
+            <View>
+              <TitleWithRefetch
+                className="mb-2"
+                refetch={forewordSearchRefetch}
+                isFetching={forewordSearchIsFetching}>
+                Forewords
+                {forewordSearchResults &&
+                  forewordSearchResults.length > 0 &&
+                  ` (${forewordSearchResults.length})`}
+              </TitleWithRefetch>
+              <PersonList
+                ref={forewordListRef}
+                people={forewordSearchResults}
+                error={forewordSearchError}
+                refetch={forewordSearchRefetch}
+                type="foreword"
+                direction="horizontal"
+              />
+            </View>
+          ) : null}
+        </View>
 
         {bookSearchResults &&
           bookSearchResults.length === 0 &&
@@ -419,6 +418,8 @@ const BookTab = () => {
     isFetchNextPageError,
   } = api.books.list.useInfiniteQuery();
 
+  const tabBarHeight = useBottomTabBarHeight();
+
   return (
     <BookList
       books={data}
@@ -434,12 +435,17 @@ const BookTab = () => {
           All Books
         </TitleWithRefetch>
       }
+      ListFooterComponent={
+        <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
+      }
     />
   );
 };
 
 const AuthorTab = () => {
   const { data, error, refetch, isFetching } = api.contributors.list.useQuery('author');
+
+  const tabBarHeight = useBottomTabBarHeight();
 
   return (
     <PersonList
@@ -456,12 +462,17 @@ const AuthorTab = () => {
           </TitleWithRefetch>
         </>
       }
+      ListFooterComponent={
+        <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
+      }
     />
   );
 };
 
 const SeriesTab = () => {
   const { data, error, refetch, isFetching } = api.series.list.useQuery();
+
+  const tabBarHeight = useBottomTabBarHeight();
 
   return (
     <SeriesList
@@ -477,6 +488,9 @@ const SeriesTab = () => {
           </TitleWithRefetch>
         </>
       )}
+      ListFooterComponent={
+        <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
+      }
     />
   );
 };

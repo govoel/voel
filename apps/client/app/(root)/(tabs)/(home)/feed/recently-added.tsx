@@ -1,4 +1,6 @@
 import { Stack } from 'expo-router';
+import { Platform, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 
 import { BookList } from '~/components/book-list';
 import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
@@ -7,6 +9,7 @@ import { TitleWithRefetch } from '~/components/title-with-refetch';
 import api from '~/lib/api';
 
 export default function RecentlyAddedScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
   const {
     data,
     error,
@@ -33,6 +36,9 @@ export default function RecentlyAddedScreen() {
           <TitleWithRefetch className="mb-2" refetch={refetch} isFetching={isFetching}>
             Recently Added
           </TitleWithRefetch>
+        }
+        ListFooterComponent={
+          <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
         }
       />
     </>

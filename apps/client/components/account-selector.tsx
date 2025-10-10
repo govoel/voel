@@ -71,7 +71,7 @@ export const AccountSelectorAvatar = () => {
             variant="ghost"
             size="icon"
             onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
-            className="absolute inset-0 flex h-full w-full items-center justify-center rounded-md bg-muted/80 active:bg-muted/90">
+            className="absolute inset-0 flex size-9 items-center justify-center rounded-md bg-muted/80 active:bg-muted/90">
             <Spinner size={3} />
           </Button>
         )}
@@ -88,7 +88,7 @@ export const AccountSelectorAvatar = () => {
             variant="ghost"
             size="icon"
             onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
-            className="absolute inset-0 flex h-full w-full items-center justify-center rounded-md bg-muted/80 active:bg-muted/90">
+            className="absolute inset-0 flex size-9 items-center justify-center rounded-md bg-muted/80 active:bg-muted/90">
             <Spinner size={3} />
           </Button>
         )}
@@ -112,7 +112,8 @@ const LoggedInUserAvatar = ({
   const syncStatus = useSelector(instanceStore, (state) => state.context.syncStatus);
 
   return (
-    <View
+    <Pressable
+      onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
       className={cn(
         'relative rounded-full border-2',
         syncStatus === 'idle' || syncStatus === 'connecting'
@@ -123,16 +124,11 @@ const LoggedInUserAvatar = ({
               ? 'border-primary'
               : 'border-green-500'
       )}>
-      <Avatar
-        className="rounded-full border-2 border-transparent"
-        alt={`${user.name}'s Avatar`}
-        asChild>
-        <Pressable onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}>
-          <AvatarImage source={{ uri: user.image ?? undefined }} />
-          <AvatarFallback>
-            <Text>{userInitials}</Text>
-          </AvatarFallback>
-        </Pressable>
+      <Avatar className="rounded-full border-2 border-transparent" alt={`${user.name}'s Avatar`}>
+        <AvatarImage source={{ uri: user.image ?? undefined }} />
+        <AvatarFallback>
+          <Text>{userInitials}</Text>
+        </AvatarFallback>
       </Avatar>
       {syncStatus === 'processing' ? <SyncCount /> : null}
       {(syncStatus === 'idle' || syncStatus === 'connecting') && (
@@ -140,11 +136,11 @@ const LoggedInUserAvatar = ({
           variant="ghost"
           size="icon"
           onPress={() => accountSelectorModalStore.trigger.presentAccountSelectorModal()}
-          className="absolute inset-0 flex h-full w-full items-center justify-center rounded-full bg-muted/80 active:bg-muted/90">
+          className="absolute inset-0 flex size-9 items-center justify-center rounded-full bg-muted/80 active:bg-muted/90">
           <Spinner size={3} />
         </Button>
       )}
-    </View>
+    </Pressable>
   );
 };
 

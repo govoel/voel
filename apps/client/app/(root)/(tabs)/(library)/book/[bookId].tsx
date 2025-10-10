@@ -121,7 +121,9 @@ export default function BookScreen() {
       ) : data ? (
         <>
           <ScrollView className="px-6">
-            <View className={floatingPlayerPadding}>
+            <View
+              className={floatingPlayerPadding}
+              style={{ marginBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }}>
               {data.cover ? (
                 <AspectRatio ratio={1 / 1} className="mx-12">
                   <Image

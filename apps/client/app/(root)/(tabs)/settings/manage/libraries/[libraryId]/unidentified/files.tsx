@@ -286,6 +286,9 @@ export default function UnidentifiedFilesPage() {
             </View>
           )
         }
+        ListFooterComponent={
+          <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
+        }
       />
 
       <View

@@ -1,7 +1,8 @@
 import { FlashList } from '@shopify/flash-list';
 import { Link, Stack } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 
 import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
 import { ChevronRight } from '~/components/icons/ChevronRight';
@@ -28,6 +29,7 @@ export default function SettingsDownloadsScreen() {
     error: downloadError,
     refetch: refetchDownloadsStatus,
   } = useDownloadStatus(instanceId);
+  const tabBarHeight = useBottomTabBarHeight();
 
   const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
   const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
@@ -131,7 +133,7 @@ export default function SettingsDownloadsScreen() {
               className={cn(
                 'native:h-20 h-16 flex-row justify-between rounded-none border border-b-0 border-foreground/15 bg-secondary/40',
                 index === 0 ? 'rounded-t-md' : '',
-                index === (data?.length ?? 1) - 1 ? 'rounded-b-md border-b' : ''
+                index === data!.length - 1 ? 'rounded-b-md border-b' : ''
               )}>
               <View className="flex-1 flex-row items-center justify-center gap-x-2">
                 <AspectRatio ratio={1 / 1} className="h-full">
@@ -159,6 +161,9 @@ export default function SettingsDownloadsScreen() {
             </Button>
           </Link>
         )}
+        ListFooterComponent={
+          <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
+        }
       />
     </>
   );
