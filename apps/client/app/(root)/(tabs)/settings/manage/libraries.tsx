@@ -7,7 +7,8 @@ import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
 import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import { toast } from 'sonner-native';
 
 import { useFloatingPlayerPaddingClass } from '~/components/floating-player';
@@ -28,6 +29,7 @@ import { cn } from '~/lib/utils';
 export default function LibraryListScreen() {
   const apiInstance = useApiInstance();
   const { data, error, refetch, isFetching } = api.libraries.list.useQuery();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const createLibraryModalRef = useRef<BottomSheetModalType>(null);
 
@@ -91,9 +93,9 @@ export default function LibraryListScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'native:h-fit h-fit flex-row items-center justify-between rounded-none border-x border-foreground/15 bg-secondary/40',
-                index === 0 ? 'mt-4 rounded-tl-md rounded-tr-md border-t' : '',
-                index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
+                'native:h-fit h-fit flex-row items-center justify-between rounded-none border border-b-0 border-foreground/15 bg-secondary/40',
+                index === 0 ? 'mt-4 rounded-t-md' : '',
+                index === data!.length - 1 ? 'rounded-b-md border-b' : ''
               )}>
               <View className="flex-1">
                 <Text>{item.name}</Text>
@@ -125,6 +127,9 @@ export default function LibraryListScreen() {
               <Spinner size={15} />
             </CardContent>
           )
+        }
+        ListFooterComponent={
+          <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
         }
       />
 

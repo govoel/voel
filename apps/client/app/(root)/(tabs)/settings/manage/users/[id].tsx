@@ -8,7 +8,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from 'better-auth';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import { toast } from 'sonner-native';
 import * as z from 'zod';
 
@@ -42,6 +43,7 @@ const banUserValidator = z.object({
 export default function ManageUserScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const authInstance = useAuthInstance();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const {
     data: user,
@@ -170,6 +172,9 @@ export default function ManageUserScreen() {
               </CardContent>
             </Card>
           )
+        }
+        ListFooterComponent={
+          <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
         }
       />
     </>

@@ -5,7 +5,8 @@ import { Link } from 'expo-router';
 import { reloadAsync, useUpdates } from 'expo-updates';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -79,6 +80,8 @@ export function FloatingPlayerDodgingScrollView({
     (state) => state.context.isUpdatePending
   );
 
+  const tabBarHeight = useBottomTabBarHeight();
+
   return (
     <ScrollView className="px-6">
       <View
@@ -91,7 +94,8 @@ export function FloatingPlayerDodgingScrollView({
                 ? 'pb-20 pt-6'
                 : 'py-6',
           className
-        )}>
+        )}
+        style={{ marginBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }}>
         {children}
       </View>
     </ScrollView>

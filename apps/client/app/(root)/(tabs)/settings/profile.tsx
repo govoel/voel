@@ -122,7 +122,7 @@ export default function ProfileSettingsScreen() {
               </CardFooter>
             </Card>
           ) : sessions?.length === 0 ? (
-            <View className="mb-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
+            <View className="mt-4 flex w-full flex-col items-center justify-center rounded-md border-2 border-dashed border-muted px-8 py-16">
               <Text className="text-center">No sessions found</Text>
             </View>
           ) : null

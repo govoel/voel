@@ -6,7 +6,8 @@ import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import { toast } from 'sonner-native';
 import * as z from 'zod';
 
@@ -28,6 +29,7 @@ import { cn, getInitials } from '~/lib/utils';
 const userRole = z.enum(['under18', 'user', 'admin']);
 
 export default function UsersListScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
   const authInstance = useAuthInstance();
   const session = useAuthSession(authInstance);
   const {
@@ -175,7 +177,6 @@ export default function UsersListScreen() {
             ) : null}
           </>
         }
-        ItemSeparatorComponent={() => <View className="border-t border-foreground/15" />}
         renderItem={({ item, index }) => (
           <Link
             href={
@@ -188,11 +189,11 @@ export default function UsersListScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'native:h-20 h-16 flex-row justify-between rounded-none border-x border-foreground/15 bg-secondary/40',
-                index === 0 ? 'mt-4 rounded-tl-md rounded-tr-md border-t' : '',
-                index === data!.length - 1 ? 'rounded-bl-md rounded-br-md border-b' : ''
+                'native:h-20 h-16 flex-row justify-between rounded-none border border-b-0 border-foreground/15 bg-secondary/40',
+                index === 0 ? 'mt-4 rounded-t-md' : '',
+                index === data!.length - 1 ? 'rounded-b-md border-b' : ''
               )}>
-              <View className="flex-row items-center gap-x-3">
+              <View className="flex-1 flex-row items-center gap-x-3">
                 <Avatar
                   className="border border-foreground/15"
                   alt={
@@ -219,23 +220,26 @@ export default function UsersListScreen() {
           </Link>
         )}
         ListFooterComponent={
-          isFetchingNextPage ? (
-            <View className="items-center py-4">
-              <Spinner size={10} />
-            </View>
-          ) : isFetchNextPageError ? (
-            <Card className="mt-4">
-              <CardContent className="pt-4">
-                <Large>Error loading more users</Large>
-                <Text className="text-muted-foreground">{error.message || 'Unknown error'}</Text>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onPress={() => handleLoadMore()}>
-                  <Text>Retry</Text>
-                </Button>
-              </CardFooter>
-            </Card>
-          ) : null
+          <>
+            {isFetchingNextPage ? (
+              <View className="items-center py-4">
+                <Spinner size={10} />
+              </View>
+            ) : isFetchNextPageError ? (
+              <Card className="mt-4">
+                <CardContent className="pt-4">
+                  <Large>Error loading more users</Large>
+                  <Text className="text-muted-foreground">{error?.message || 'Unknown error'}</Text>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onPress={() => handleLoadMore()}>
+                    <Text>Retry</Text>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : null}
+            <View style={{ paddingBottom: Platform.OS === 'ios' ? tabBarHeight : 0 }} />
+          </>
         }
         ListEmptyComponent={
           error ? (

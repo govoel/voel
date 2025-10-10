@@ -8,7 +8,7 @@ function Avatar({
 }: AvatarPrimitive.RootProps & React.RefAttributes<AvatarPrimitive.RootRef>) {
   return (
     <AvatarPrimitive.Root
-      className={cn('relative flex size-10 shrink-0 overflow-hidden rounded-full', className)}
+      className={cn('relative flex size-9 shrink-0 overflow-hidden rounded-full', className)}
       {...props}
     />
   );
