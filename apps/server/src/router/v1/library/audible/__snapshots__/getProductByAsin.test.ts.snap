@@ -882,7 +882,7 @@ exports[`books author without ASIN 1`] = `
   "format_type": "unabridged",
   "is_adult_product": false,
   "product_images": {
-    "500": "https://m.media-amazon.com/images/I/51JPc5o5IJL._SL500_.jpg",
+    "500": "https://m.media-amazon.com/images/I/51DOmt0o-8L._SL500_.jpg",
   },
   "publisher_name": "Podium Audio",
   "publisher_summary_md": 

@@ -549,8 +549,10 @@ const IdentifyFilesModal = ({
                 <View className="flex flex-1 flex-col gap-y-1">
                   <Large>{result.title}</Large>
                   <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
-                    <Timer className="text-muted-foreground" size={20} />
-                    <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                    <Badge variant="outline">
+                      <Timer className="text-muted-foreground" size={20} />
+                    </Badge>
+                    <View className="flex flex-shrink flex-row flex-wrap items-center gap-1">
                       <Badge variant="outline">
                         <Text>
                           {formatDuration(result.runtime_length_min * 60 * 1000, 'short')}
@@ -581,8 +583,10 @@ const IdentifyFilesModal = ({
                   </View>
                   {result.authors.length > 0 ? (
                     <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
-                      <PenTool className="text-muted-foreground" size={20} />
-                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                      <Badge variant="outline">
+                        <PenTool className="text-muted-foreground" size={20} />
+                      </Badge>
+                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1">
                         {result.authors.map((author, index) => (
                           <Badge key={index} variant="secondary">
                             <Text>{author.name}</Text>
@@ -593,8 +597,10 @@ const IdentifyFilesModal = ({
                   ) : null}
                   {result.narrators && result.narrators.length > 0 ? (
                     <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
-                      <MicVocal className="text-muted-foreground" size={20} />
-                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                      <Badge variant="outline">
+                        <MicVocal className="text-muted-foreground" size={20} />
+                      </Badge>
+                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1">
                         {result.narrators.map((narrator, index) => (
                           <Badge key={index} variant="secondary">
                             <Text>{narrator.name}</Text>
@@ -605,8 +611,10 @@ const IdentifyFilesModal = ({
                   ) : null}
                   {result.series && result.series.length > 0 ? (
                     <View className="flex flex-row flex-nowrap items-center justify-start gap-1">
-                      <BookCopy className="text-muted-foreground" size={20} />
-                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1 border-l border-muted-foreground/50 pl-1.5">
+                      <Badge variant="outline">
+                        <BookCopy className="text-muted-foreground" size={20} />
+                      </Badge>
+                      <View className="flex flex-shrink flex-row flex-wrap items-center gap-1">
                         {result.series.map((series, index) => (
                           <Badge key={index} variant="secondary" className="flex-nowrap gap-2">
                             <Text>{series.sequence}</Text>
