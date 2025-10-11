@@ -15,7 +15,7 @@ export default function SettingsAppInfoScreen() {
     <>
       <Stack.Screen options={{ title: 'App Info' }} />
       <FloatingPlayerDodgingScrollView className="gap-y-4">
-        <View className="overflow-hidden rounded-md border border-foreground/15">
+        <View className="overflow-hidden rounded-md">
           <Button
             variant="ghost"
             size="sm"

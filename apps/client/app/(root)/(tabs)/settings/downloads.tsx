@@ -119,6 +119,7 @@ export default function SettingsDownloadsScreen() {
         }
         data={data && downloads ? data : []}
         keyExtractor={(item) => `download-book-${item.id}`}
+        ItemSeparatorComponent={() => <View className="h-px bg-foreground/15" />}
         renderItem={({ item, index }) => (
           <Link
             href={{
@@ -131,9 +132,9 @@ export default function SettingsDownloadsScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'native:h-20 h-16 flex-row justify-between rounded-none border border-b-0 border-foreground/15 bg-secondary/40',
+                'native:h-20 h-16 flex-row justify-between rounded-none bg-secondary/40',
                 index === 0 ? 'rounded-t-md' : '',
-                index === data!.length - 1 ? 'rounded-b-md border-b' : ''
+                index === data!.length - 1 ? 'rounded-b-md' : ''
               )}>
               <View className="flex-1 flex-row items-center justify-center gap-x-2">
                 <AspectRatio ratio={1 / 1} className="h-full">
