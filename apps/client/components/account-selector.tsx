@@ -359,7 +359,7 @@ const AccountList = () => {
             <Text className="text-center">No accounts found</Text>
           </View>
         ) : (
-          <View className="mb-4 overflow-hidden rounded-md border border-foreground/15">
+          <View className="mb-4 overflow-hidden rounded-md">
             {accounts.data.map((account, index) => (
               <Account
                 className={index === accounts.data.length - 1 ? '' : 'border-b'}

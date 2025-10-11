@@ -24,7 +24,7 @@ export default function LibraryPage() {
       <FloatingPlayerDodgingScrollView>
         <ScanLibraryButton id={idNum} />
 
-        <View className="mt-4 overflow-hidden rounded-md border border-foreground/15">
+        <View className="mt-4 overflow-hidden rounded-md">
           <Link
             href={{
               pathname: '/settings/manage/libraries/[libraryId]/unidentified/files',
