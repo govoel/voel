@@ -27,7 +27,7 @@ export default function InterfaceScreen() {
           onValueChange={(value) => {
             themeStore.send({ type: 'setTheme', theme: value as Theme });
           }}
-          className="gap-0 divide-y divide-foreground overflow-hidden rounded-md border border-foreground/15 bg-secondary/40">
+          className="gap-0 divide-y divide-foreground overflow-hidden rounded-md bg-secondary/40">
           <RadioGroupItemWithLabel
             value="system"
             onButtonPress={onLabelPress('system')}

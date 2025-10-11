@@ -82,6 +82,7 @@ export default function LibraryListScreen() {
             </TitleWithRefetch>
           </>
         }
+        ItemSeparatorComponent={() => <View className="h-px bg-foreground/15" />}
         renderItem={({ item, index }) => (
           <Link
             href={{
@@ -93,9 +94,9 @@ export default function LibraryListScreen() {
             <Button
               variant="ghost"
               className={cn(
-                'native:h-fit h-fit flex-row items-center justify-between rounded-none border border-b-0 border-foreground/15 bg-secondary/40',
+                'native:h-fit h-fit flex-row items-center justify-between rounded-none bg-secondary/40',
                 index === 0 ? 'mt-4 rounded-t-md' : '',
-                index === data!.length - 1 ? 'rounded-b-md border-b' : ''
+                index === data!.length - 1 ? 'rounded-b-md' : ''
               )}>
               <View className="flex-1">
                 <Text>{item.name}</Text>

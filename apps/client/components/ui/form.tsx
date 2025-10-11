@@ -96,13 +96,16 @@ function RadioGroup<T extends readonly [] | readonly string[]>({
         value={field.state.value}
         onValueChange={field.handleChange}
         disabled={!isSubmitting}
-        className="gap-0 divide-y divide-foreground overflow-hidden rounded-md border border-input">
+        className="gap-0 divide-y divide-foreground overflow-hidden rounded-md">
         {optionLabels.map((label, index) => (
           <RadioGroupItemWithLabel
             key={index}
             value={optionValues[index]}
             onButtonPress={() => field.handleChange(optionValues[index])}
-            buttonClassName={index === 0 ? 'rounded-none' : 'rounded-none border-t border-input'}>
+            buttonClassName={cn(
+              'bg-secondary/40',
+              index === 0 ? 'rounded-none' : 'rounded-none border-t border-input'
+            )}>
             <Text>{label}</Text>
           </RadioGroupItemWithLabel>
         ))}

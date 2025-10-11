@@ -27,7 +27,7 @@ export default function SettingsIndexScreen() {
       <Stack.Screen options={{ title: 'Settings' }} />
       <FloatingPlayerDodgingScrollView className="gap-y-4">
         {data && (
-          <View className="overflow-hidden rounded-md border border-foreground/15">
+          <View className="overflow-hidden rounded-md">
             <Link href="/settings/profile" asChild push>
               <Button
                 variant="ghost"
@@ -42,7 +42,7 @@ export default function SettingsIndexScreen() {
           </View>
         )}
 
-        <View className="overflow-hidden rounded-md border border-foreground/15">
+        <View className="overflow-hidden rounded-md">
           <Link href="/settings/interface" asChild push>
             <Button
               variant="ghost"
@@ -77,7 +77,7 @@ export default function SettingsIndexScreen() {
         </View>
 
         {data && data.user.role === 'admin' && (
-          <View className="overflow-hidden rounded-md border border-foreground/15">
+          <View className="overflow-hidden rounded-md">
             <Button
               variant="ghost"
               className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40">
@@ -112,7 +112,7 @@ export default function SettingsIndexScreen() {
           </View>
         )}
 
-        <View className="overflow-hidden rounded-md border border-foreground/15">
+        <View className="overflow-hidden rounded-md">
           <Link href="/settings/app-info" asChild push>
             <Button
               variant="ghost"

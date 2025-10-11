@@ -804,7 +804,7 @@ const MoreOptionsBottomSheet = ({
       <BottomSheetModal ref={bottomSheetModalRef} enableDynamicSizing={true}>
         <BottomSheetScrollView>
           <View className="mx-auto w-full max-w-[400px] flex-col gap-1.5 p-6">
-            <View className="overflow-hidden rounded-md border border-foreground/15">
+            <View className="overflow-hidden rounded-md">
               <Button
                 variant="ghost"
                 className="flex-row justify-between rounded-none border-b border-foreground/15 bg-secondary/40"
