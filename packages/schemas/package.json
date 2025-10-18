@@ -8,17 +8,17 @@
   },
   "module": "index.ts",
   "devDependencies": {
-    "@eslint/js": "9.37.0",
+    "@eslint/js": "9.38.0",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
     "bun-types": "1.2.23",
-    "eslint": "9.37.0",
+    "eslint": "9.38.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import": "2.32.0",
     "eslint-plugin-import-zod": "1.2.0",
     "eslint-plugin-prettier": "5.5.4",
     "globals": "16.4.0",
     "prettier": "3.6.2",
-    "typescript-eslint": "8.46.0"
+    "typescript-eslint": "8.46.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3",
