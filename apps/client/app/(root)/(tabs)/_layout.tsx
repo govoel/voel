@@ -41,7 +41,7 @@ export default function TabLayout() {
       <Tabs
         initialRouteName="(home)"
         tabBarStyle={{ backgroundColor: `hsl(${useUnstableNativeVariable('--background')})` }}
-        tabLabelStyle={{ fontFamily: 'Voel-Inter-Medium' }}
+        tabLabelStyle={{ fontFamily: 'VoelInter-Medium' }}
         tabBarActiveTintColor={`hsl(${useUnstableNativeVariable('--foreground')})`}
         activeIndicatorColor={`hsl(${useUnstableNativeVariable('--muted')})`}
         disablePageAnimations={true}>
