@@ -75,8 +75,8 @@ const ThemeAndPortalLayout = () => {
       <Stack screenOptions={{ headerShown: false }} />
       <Toaster
         toastOptions={{
-          titleStyle: { fontFamily: 'Voel-Inter-SemiBold' },
-          descriptionStyle: { fontFamily: 'Voel-Inter-Regular' },
+          titleStyle: { fontFamily: 'VoelInter-SemiBold' },
+          descriptionStyle: { fontFamily: 'VoelInter-Regular' },
           style: {
             backgroundColor:
               nativeWindColorScheme === 'dark'

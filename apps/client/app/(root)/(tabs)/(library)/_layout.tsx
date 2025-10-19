@@ -21,7 +21,7 @@ export default function LibraryLayout() {
     <Stack
       screenOptions={{
         headerTitleAlign: 'center',
-        headerTitleStyle: { fontFamily: 'Voel-Inter-SemiBold' },
+        headerTitleStyle: { fontFamily: 'VoelInter-SemiBold' },
         headerRight: () => <AccountSelectorAvatar />,
       }}
     />
