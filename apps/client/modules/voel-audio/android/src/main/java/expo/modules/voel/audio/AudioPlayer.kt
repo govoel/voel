@@ -127,7 +127,7 @@ class VoelAudioPlayer(
       .setClippingConfiguration(
         MediaItem.ClippingConfiguration.Builder()
           .setStartPositionMs(source.startTimeMs)
-          .setEndPositionMs(source.endTimeMs ?: C.TIME_END_OF_SOURCE)
+          .setEndPositionMs(source.endTimeMs)
           .build()
       )
       .build()

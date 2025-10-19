@@ -5,7 +5,6 @@ import android.os.Build
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
-import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -17,6 +16,7 @@ import expo.modules.core.utilities.ifNull
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlin.math.min
 
 const val AUDIO_EVENT_PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
 const val AUDIO_EVENT_PLAYBACK_HISTORY_UPDATE = "playbackHistoryUpdate"
@@ -171,7 +170,7 @@ class VoelAudioModule : Module() {
 
     Function("setCookie") { cookie: String -> runOnMain { AudioSingletonHolder.setCookie(cookie) } }
 
-    Function("replace") { sources: List<AudioSource>, startIndex: Int, startPositionMs: Long ->
+    AsyncFunction("replace") { sources: List<AudioSource>, startIndex: Int, startPositionMs: Long ->
       runOnMain {
         if (player.controller.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
           if (sources.isNotEmpty()) {
@@ -209,9 +208,7 @@ class VoelAudioModule : Module() {
                 },
               artworkUri = mediaItem.mediaMetadata.artworkUri?.toString(),
               startTimeMs = mediaItem.clippingConfiguration.startPositionMs,
-              endTimeMs =
-                if (mediaItem.clippingConfiguration.endPositionMs == C.TIME_END_OF_SOURCE) null
-                else mediaItem.clippingConfiguration.endPositionMs,
+              endTimeMs = mediaItem.clippingConfiguration.endPositionMs,
             )
           }
         } else {

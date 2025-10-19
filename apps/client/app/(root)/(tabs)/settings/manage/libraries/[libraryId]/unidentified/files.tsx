@@ -637,8 +637,8 @@ const IdentifyFilesModal = ({
                   identifyViaAudibleMutation.variables.asin === result.asin
                 }
                 disabled={identifyViaAudibleMutation.isPending}
-                onPress={() => {
-                  identifyViaAudibleMutation.mutateAsync({
+                onPress={async () => {
+                  await identifyViaAudibleMutation.mutateAsync({
                     libraryId: idNum,
                     asin: result.asin,
                     files: selectedRowsOriginal.map((row) => ({

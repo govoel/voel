@@ -124,7 +124,9 @@ const SubmitButton = ({
   viewClassName,
   disabled,
   ...props
-}: ComponentPropsWithRef<typeof ButtonWithLoading> & { viewClassName?: string }) => {
+}: Omit<ComponentPropsWithRef<typeof ButtonWithLoading>, 'onPress'> & {
+  viewClassName?: string;
+}) => {
   const form = useFormContext();
   const errors = useStore(form.store, (state) => state.errors);
   const formLevelErrors: { message: string }[] = useMemo(

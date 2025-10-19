@@ -10,7 +10,8 @@ const withUseThirdPartySQLitePod = (config) =>
   withPodfileProperties(config, async (config) => {
     config.modResults = {
       ...config.modResults,
-      'expo.updates.useThirdPartySQLitePod': true,
+      'expo.updates.useThirdPartySQLitePod': 'true',
+      'apple.ccacheEnabled': 'true',
     };
     return config;
   });

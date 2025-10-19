@@ -284,14 +284,14 @@ class VoelAudioPlaybackService : MediaSessionService() {
                     .build()
                 )
 
+              var durationSoFar = 0L
+
               if (index == 0 || index == files.size - 1) {
                 val clipStartPositionMs =
                   if (index == 0) mediaItem.clippingConfiguration.startPositionMs else 0
                 val clipEndPositionMs =
                   if (index == 0) file.durationMs
-                  else
-                    mediaItem.clippingConfiguration.endPositionMs -
-                      (files.sumOf { it.durationMs } - files.last().durationMs)
+                  else mediaItem.clippingConfiguration.endPositionMs - durationSoFar
 
                 add(
                   ClippingMediaSource.Builder(concatMediaSource)
@@ -303,6 +303,8 @@ class VoelAudioPlaybackService : MediaSessionService() {
               } else {
                 add(concatMediaSource, file.durationMs)
               }
+
+              durationSoFar += file.durationMs
             }
 
             setMediaItem(mediaItem)
