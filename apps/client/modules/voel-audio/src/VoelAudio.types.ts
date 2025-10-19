@@ -10,7 +10,7 @@ export type AudioSource = {
   files: AudioFile[];
   artworkUri: string | null;
   startTimeMs: number;
-  endTimeMs: number | null;
+  endTimeMs: number;
 };
 
 export type AudioFile = {
@@ -22,7 +22,6 @@ export type AudioFile = {
 export type AudioDownload = {
   uri: string;
   fileId: number;
-  filePath: string;
   bookId: number;
   bookTitle: string;
   bookAuthors: string;
@@ -91,7 +90,7 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   play(): void;
   pause(): void;
   setCookie(cookie: string): void;
-  replace(sources: AudioSource[], startIndex: number, startPositionMs: number): void;
+  replace(sources: AudioSource[], startIndex: number, startPositionMs: number): Promise<void>;
   getCurrentQueue(): AudioSource[];
   clearQueue(): void;
   canSkipToNext(): boolean;

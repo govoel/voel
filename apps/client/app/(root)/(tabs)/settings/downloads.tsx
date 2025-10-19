@@ -31,8 +31,9 @@ export default function SettingsDownloadsScreen() {
   } = useDownloadStatus(instanceId);
   const tabBarHeight = useBottomTabBarHeight();
 
-  const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
-  const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
+  const [currentButtonLoading, setCurrentButtonLoading] = useState<'none' | 'resume' | 'pause'>(
+    'none'
+  );
 
   const { data, error, refetch, isFetching } = api.books.getByFileIds.useQuery(
     Object.keys(downloads ?? {})
@@ -53,10 +54,9 @@ export default function SettingsDownloadsScreen() {
                 <ButtonWithLoading
                   viewClassName="mb-2"
                   variant="secondary"
-                  isLoading={isResumeDownloadsLoading}
-                  onPress={() => {
-                    setIsResumeDownloadsLoading(true);
-                    setIsPauseDownloadsLoading(false);
+                  isLoading={currentButtonLoading === 'resume'}
+                  onPress={async () => {
+                    setCurrentButtonLoading('resume');
                     Player.setCookie(authInstance.getCookie());
                     Player.resumeDownloads();
                   }}>
@@ -66,10 +66,9 @@ export default function SettingsDownloadsScreen() {
                 <ButtonWithLoading
                   viewClassName="mb-2"
                   variant="secondary"
-                  isLoading={isPauseDownloadsLoading}
-                  onPress={() => {
-                    setIsPauseDownloadsLoading(true);
-                    setIsResumeDownloadsLoading(false);
+                  isLoading={currentButtonLoading === 'pause'}
+                  onPress={async () => {
+                    setCurrentButtonLoading('pause');
                     Player.pauseDownloads();
                   }}>
                   <Text>Pause all downloads</Text>

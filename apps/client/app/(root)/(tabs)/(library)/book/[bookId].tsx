@@ -307,7 +307,7 @@ const Contributors = ({
   );
 };
 
-const playBookFrom = (
+const playBookFrom = async (
   book: {
     id: number;
     title: string;
@@ -427,9 +427,14 @@ const playBookFrom = (
       }
     }
 
-    replaceAudioSources(authCookie, chapters, startFromChapter, absolutePositionMs - durationSoFar);
+    await replaceAudioSources(
+      authCookie,
+      chapters,
+      startFromChapter,
+      absolutePositionMs - durationSoFar
+    );
   } else {
-    replaceAudioSources(authCookie, chapters, 0, 0);
+    await replaceAudioSources(authCookie, chapters, 0, 0);
   }
 };
 
@@ -452,10 +457,9 @@ const ManageDownloads = ({
   const instanceId = useInstanceId();
   const instanceURL = useInstanceURL();
 
-  const [isRemoveDownloadsLoading, setIsRemoveDownloadsLoading] = useState(false);
-  const [isResumeDownloadsLoading, setIsResumeDownloadsLoading] = useState(false);
-  const [isPauseDownloadsLoading, setIsPauseDownloadsLoading] = useState(false);
-  const [isDownloadFilesLoading, setIsDownloadFilesLoading] = useState(false);
+  const [currentButtonLoading, setCurrentButtonLoading] = useState<
+    'none' | 'delete' | 'resume' | 'pause' | 'download'
+  >('none');
 
   const {
     data: downloads,
@@ -474,7 +478,7 @@ const ManageDownloads = ({
         spinnerSize={3}
         variant="secondary"
         className="native:w-12 native:p-0 w-10 p-0 text-secondary-foreground"
-        onPress={() => {
+        onPress={async () => {
           bottomSheetModalRef.current?.present();
         }}>
         <View className="absolute inset-0 flex items-center justify-center">
@@ -631,12 +635,9 @@ const ManageDownloads = ({
                   <ButtonWithLoading
                     viewClassName="mb-1"
                     variant="destructive"
-                    isLoading={isRemoveDownloadsLoading}
-                    onPress={() => {
-                      setIsRemoveDownloadsLoading(true);
-                      setIsResumeDownloadsLoading(false);
-                      setIsPauseDownloadsLoading(false);
-                      setIsDownloadFilesLoading(false);
+                    isLoading={currentButtonLoading === 'delete'}
+                    onPress={async () => {
+                      setCurrentButtonLoading('delete');
                       Player.removeDownloads(
                         instanceId,
                         files.map((file) => file.id)
@@ -648,12 +649,9 @@ const ManageDownloads = ({
                     <ButtonWithLoading
                       viewClassName="mb-2"
                       variant="secondary"
-                      isLoading={isResumeDownloadsLoading}
-                      onPress={() => {
-                        setIsResumeDownloadsLoading(true);
-                        setIsRemoveDownloadsLoading(false);
-                        setIsPauseDownloadsLoading(false);
-                        setIsDownloadFilesLoading(false);
+                      isLoading={currentButtonLoading === 'resume'}
+                      onPress={async () => {
+                        setCurrentButtonLoading('resume');
                         Player.setCookie(authInstance.getCookie());
                         Player.resumeDownloads();
                       }}>
@@ -663,12 +661,9 @@ const ManageDownloads = ({
                     <ButtonWithLoading
                       viewClassName="mb-2"
                       variant="secondary"
-                      isLoading={isPauseDownloadsLoading}
-                      onPress={() => {
-                        setIsPauseDownloadsLoading(true);
-                        setIsResumeDownloadsLoading(false);
-                        setIsRemoveDownloadsLoading(false);
-                        setIsDownloadFilesLoading(false);
+                      isLoading={currentButtonLoading === 'pause'}
+                      onPress={async () => {
+                        setCurrentButtonLoading('pause');
                         Player.pauseDownloads();
                       }}>
                       <Text>Pause all downloads</Text>
@@ -679,19 +674,15 @@ const ManageDownloads = ({
                 <ButtonWithLoading
                   viewClassName="mb-2"
                   variant="secondary"
-                  isLoading={isDownloadFilesLoading}
-                  onPress={() => {
-                    setIsDownloadFilesLoading(true);
-                    setIsPauseDownloadsLoading(false);
-                    setIsResumeDownloadsLoading(false);
-                    setIsRemoveDownloadsLoading(false);
+                  isLoading={currentButtonLoading === 'download'}
+                  onPress={async () => {
+                    setCurrentButtonLoading('download');
                     Player.setCookie(authInstance.getCookie());
                     Player.addDownloads(
                       instanceId,
                       files.map((file) => ({
                         uri: `${instanceURL}/api/v1/files/${file.id}`,
                         fileId: file.id,
-                        filePath: file.path,
                         bookId: book.id,
                         bookTitle: book.title,
                         bookAuthors: book.authors,
@@ -758,17 +749,18 @@ const PlayFromTimestampButton = ({
   const instanceURL = useInstanceURL();
 
   return (
-    <Button
+    <ButtonWithLoading
+      viewClassName="flex-1"
       className="flex-1"
-      onPress={() => {
-        playBookFrom(book, positionMs, authInstance.getCookie(), instanceId, instanceURL);
+      onPress={async () => {
+        await playBookFrom(book, positionMs, authInstance.getCookie(), instanceId, instanceURL);
       }}>
       {positionMs > 0 ? (
         <Text>Play from {formatTime(positionMs)}</Text>
       ) : (
         <Text>Play from beginning</Text>
       )}
-    </Button>
+    </ButtonWithLoading>
   );
 };
 
@@ -889,12 +881,12 @@ const PlaybackHistoryBottomSheet = ({
           index: number;
         }) => (
           <View className={cn('flex flex-row items-center gap-x-2', index === 0 ? '' : 'mt-4')}>
-            <Button
+            <ButtonWithLoading
               className="flex h-12 flex-row py-1"
               variant="outline"
               size="sm"
-              onPress={() => {
-                playBookFrom(
+              onPress={async () => {
+                await playBookFrom(
                   book,
                   item.positionMs,
                   authInstance.getCookie(),
@@ -906,7 +898,7 @@ const PlaybackHistoryBottomSheet = ({
               <View className="flex items-center justify-center border-l border-input pl-2">
                 <Text>{formatTime(item.positionMs)}</Text>
               </View>
-            </Button>
+            </ButtonWithLoading>
             <View>
               <View className="flex flex-row items-center gap-x-2">
                 <Text>
@@ -1237,12 +1229,12 @@ const ChapterList = ({
       renderItem={({ item, index }) => (
         <View className={cn('flex flex-row flex-wrap items-center', index === 0 ? '' : 'mt-4')}>
           <View className="flex flex-row flex-wrap items-center gap-2">
-            <Button
+            <ButtonWithLoading
               className="flex h-12 flex-row py-1"
               variant="outline"
               size="sm"
-              onPress={() => {
-                playBookFrom(
+              onPress={async () => {
+                await playBookFrom(
                   book,
                   source === 'audible'
                     ? item.startOffsetMs
@@ -1270,7 +1262,7 @@ const ChapterList = ({
                   {formatDuration(item.durationMs, 'short')}
                 </Muted>
               </View>
-            </Button>
+            </ButtonWithLoading>
 
             <View className="flex-1">
               {typeof item.title === 'string' && item.title.length > 0 ? (

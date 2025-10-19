@@ -1,6 +1,7 @@
+import { useMutation } from '@tanstack/react-query';
 import { type VariantProps, cva } from 'class-variance-authority';
-import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import type { ComponentProps, ComponentPropsWithRef } from 'react';
+import { type GestureResponderEvent, Pressable, View } from 'react-native';
 
 import { Spinner } from '~/components/spinner';
 import { TextClassContext } from '~/components/ui/text';
@@ -60,18 +61,9 @@ const buttonTextVariants = cva(
   }
 );
 
-type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
-  VariantProps<typeof buttonVariants>;
+type ButtonProps = ComponentPropsWithRef<typeof Pressable> & VariantProps<typeof buttonVariants>;
 
-const Button = ({
-  ref,
-  className,
-  variant,
-  size,
-  ...props
-}: ButtonProps & {
-  ref?: React.RefObject<React.ComponentRef<typeof Pressable>>;
-}) => {
+const Button = ({ ref, className, variant, size, ...props }: ButtonProps) => {
   return (
     <TextClassContext
       value={cn(
@@ -97,22 +89,35 @@ const ButtonWithLoading = ({
   viewClassName,
   isLoading = false,
   spinnerSize = 6,
+  onPress,
+  disabled,
   ...props
-}: ButtonProps & {
-  ref?: React.RefObject<React.ComponentRef<typeof Pressable>>;
+}: Omit<ButtonProps, 'onPress'> & {
+  onPress: (event: GestureResponderEvent) => Promise<void>;
   viewClassName?: string;
   isLoading?: boolean;
   spinnerSize?: number;
 }) => {
+  const onPressMutation = useMutation({
+    retry: 0,
+    networkMode: 'always',
+    mutationFn: onPress,
+  });
+
   return (
     <View className={cn(viewClassName, 'relative')}>
-      <Button ref={ref} {...props} />
+      <Button
+        ref={ref}
+        disabled={disabled || isLoading || onPressMutation.isPending}
+        onPress={(e) => onPressMutation.mutate(e)}
+        {...props}
+      />
 
-      {isLoading && (
+      {isLoading || onPressMutation.isPending ? (
         <View className="absolute inset-0 flex w-full items-center justify-center rounded-md bg-muted/80">
           <Spinner size={spinnerSize} />
         </View>
-      )}
+      ) : null}
     </View>
   );
 };

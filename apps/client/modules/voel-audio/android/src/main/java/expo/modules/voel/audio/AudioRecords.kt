@@ -15,7 +15,7 @@ class AudioSource(
   @Field val files: Array<AudioFile>,
   @Field val artworkUri: String?,
   @Field val startTimeMs: Long,
-  @Field val endTimeMs: Long?,
+  @Field val endTimeMs: Long,
 ) : Record
 
 class AudioFile(@Field val id: Long, @Field val uri: String, @Field val durationMs: Long) :
@@ -45,7 +45,6 @@ class AudioFile(@Field val id: Long, @Field val uri: String, @Field val duration
 
 class AudioDownload(
   @Field val uri: String,
-  @Field val filePath: String,
   @Field val fileId: Long,
   @Field val bookId: Long,
   @Field val bookTitle: String,

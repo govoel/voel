@@ -24,14 +24,14 @@ export function useAudioPlayerStatus(): AudioStatus {
   );
 }
 
-export function replaceAudioSources(
+export async function replaceAudioSources(
   cookie: string,
   sources: AudioSource[],
   startIndex: number,
   startPositionMs: number
 ) {
   NativeVoelAudioModule.setCookie(cookie);
-  NativeVoelAudioModule.replace(sources, startIndex, startPositionMs);
+  await NativeVoelAudioModule.replace(sources, startIndex, startPositionMs);
 }
 
 export function usePlaybackHistory(instanceId: string): PlaybackHistoryUpdateEvent {

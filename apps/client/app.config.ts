@@ -76,11 +76,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: false,
     bundleIdentifier:
       process.env.RELEASE_CHANNEL === 'development'
-        ? 'app.voel.ios'
+        ? 'app.voel.ios.dev'
         : process.env.RELEASE_CHANNEL === 'preview'
           ? 'app.voel.ios.preview'
           : 'app.voel.ios',
     icon: './assets/icons/ios-icon.icon',
+    infoPlist: {
+      UIBackgroundModes: ['audio'],
+    },
   },
   android: {
     edgeToEdgeEnabled: true,
