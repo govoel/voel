@@ -32,7 +32,7 @@
     "zod": "4.1.12"
   },
   "devDependencies": {
-    "@effect/language-service": "0.47.0",
+    "@effect/language-service": "0.53.3",
     "@eslint/js": "9.39.0",
     "@trivago/prettier-plugin-sort-imports": "5.2.2",
     "@types/turndown": "5.0.5",
