@@ -7,7 +7,7 @@
     "baseUrl": ".",
     "paths": {
       "~/*": ["*"],
-      "@/*": ["node_modules/@voel/server/src/*"]
+      "@/*": ["../../node_modules/@voel/server/src/*"]
     },
     "types": ["bun-types"]
   },
