@@ -3,12 +3,12 @@ name: Test
 on:
   pull_request:
     branches:
-      - '*'
+      - "*"
   push:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   merge_group:
 
 concurrency:
@@ -26,4 +26,4 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
       - name: Run tests
-        run: bun run --filter '*' --bun test
+        run: bun test --only-failures
