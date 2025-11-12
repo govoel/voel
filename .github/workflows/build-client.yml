@@ -287,7 +287,7 @@ jobs:
             metro-cache-${{ runner.os }}-${{ github.job }}-
 
       - name: Bypass Cloudflare for GitHub Action
-        uses: xiaotianxt/bypass-cloudflare-for-github-action@66bd0eda370b44957a1cb49f0ecbf3f7ca9909ee # v2.0.0
+        uses: xiaotianxt/bypass-cloudflare-for-github-action@7f364fea9bbe61fa3a50170cfee4be7f8e94bcd3 # v2.0.1
         with:
           cf_account_id: ${{ secrets.CF_BYPASS_ACCOUNT_ID }}
           cf_api_token: ${{ secrets.CF_BYPASS_API_TOKEN }}
