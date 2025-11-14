@@ -131,7 +131,7 @@
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import": "2.32.0",
-    "eslint-plugin-import-zod": "1.2.0",
+    "eslint-plugin-import-zod": "1.2.1",
     "eslint-plugin-prettier": "5.5.4",
     "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "prettier": "3.6.2",
