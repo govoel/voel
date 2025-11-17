@@ -78,7 +78,7 @@ jobs:
           echo "Debug runtime version is: $HASH"
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
 
-          if wget --quiet --spider https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/$HASH/app-arm64-v8a-debug.apk ; then
+          if wget --quiet --spider https://artifacts.voel.app/debug/android/$HASH/app-arm64-v8a-debug.apk ; then
             echo "Debug Android APKs for this runtime version exist"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
@@ -98,7 +98,7 @@ jobs:
           echo "Preview runtime version is: $HASH"
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
 
-          if wget --quiet --spider https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/$HASH/app-arm64-v8a-release.apk ; then
+          if wget --quiet --spider https://artifacts.voel.app/preview/android/$HASH/app-arm64-v8a-release.apk ; then
             echo "Preview Android APKs for this runtime version exist"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
@@ -196,22 +196,25 @@ jobs:
 
       - name: Upload Debug Android App
         if: steps.debug-runtimeversion.outputs.exists == 'false'
-        uses: LanceMcCarthy/Action-AzureBlobUpload@caa002d5a92f7436062e44f38031c0c3ff17011e # v3.5.0
-        with:
-          connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-          container_name: artifacts
-          source_folder: apps/client/android/app/build/outputs/apk/debug
-          destination_folder: debug/android/${{ steps.debug-runtimeversion.outputs.hash }}
-          fail_if_source_empty: true
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: "https://2365912f37ae5914a23644799e325b04.r2.cloudflarestorage.com"
+          R2_BUCKET: "voel-gh-actions-artifacts"
+        run: |
+          for file in apps/client/android/app/build/outputs/apk/debug/*.apk; do
+            echo "Uploading $file to R2"
+            bun run packages/scripts/upload-client-artifacts.ts --src "$(realpath $file)" --dest "debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/$(basename $file)"
+          done
 
       - name: Debug Android App APK Links
         run: |
           echo "Debug Android App APK Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [arm64-v8a](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-arm64-v8a-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [armeabi-v7a](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-armeabi-v7a-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [universal](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-universal-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [x86](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [x86_64](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86_64-debug.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [arm64-v8a](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-arm64-v8a-debug.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [armeabi-v7a](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-armeabi-v7a-debug.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [universal](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-universal-debug.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [x86](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86-debug.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [x86_64](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86_64-debug.apk)" >> $GITHUB_STEP_SUMMARY
 
       - name: Generate Native Preview Module
         if: steps.preview-runtimeversion.outputs.exists == 'false'
@@ -230,26 +233,29 @@ jobs:
           NODE_ENV: production
 
       - name: Upload Preview Android App
-        uses: LanceMcCarthy/Action-AzureBlobUpload@caa002d5a92f7436062e44f38031c0c3ff17011e # v3.5.0
         if: steps.preview-runtimeversion.outputs.exists == 'false'
-        with:
-          connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-          container_name: artifacts
-          source_folder: apps/client/android/app/build/outputs/apk/release
-          destination_folder: preview/android/${{ steps.preview-runtimeversion.outputs.hash }}
-          fail_if_source_empty: true
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: "https://2365912f37ae5914a23644799e325b04.r2.cloudflarestorage.com"
+          R2_BUCKET: "voel-gh-actions-artifacts"
+        run: |
+          for file in apps/client/android/app/build/outputs/apk/release/*.apk; do
+            echo "Uploading $file to R2"
+            bun run packages/scripts/upload-client-artifacts.ts --src $(realpath $file) --dest preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/$(basename $file)
+          done
 
       - name: Preview Android App APK Links
         run: |
           echo "Preview Android App APK Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [arm64-v8a](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-arm64-v8a-release.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [armeabi-v7a](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-armeabi-v7a-release.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [universal](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-universal-release.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [x86](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86-release.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [x86_64](https://vlmdougbybmkenlwow.blob.core.windows.net/artifacts/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86_64-release.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [arm64-v8a](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-arm64-v8a-release.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [armeabi-v7a](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-armeabi-v7a-release.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [universal](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-universal-release.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [x86](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86-release.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- [x86_64](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86_64-release.apk)" >> $GITHUB_STEP_SUMMARY
 
   ota-update:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     needs:
       - should-skip
@@ -285,13 +291,6 @@ jobs:
           key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             metro-cache-${{ runner.os }}-${{ github.job }}-
-
-      - name: Bypass Cloudflare for GitHub Action
-        uses: xiaotianxt/bypass-cloudflare-for-github-action@7f364fea9bbe61fa3a50170cfee4be7f8e94bcd3 # v2.0.1
-        with:
-          cf_account_id: ${{ secrets.CF_BYPASS_ACCOUNT_ID }}
-          cf_api_token: ${{ secrets.CF_BYPASS_API_TOKEN }}
-          cf_zone_id: ${{ secrets.CF_BYPASS_ZONE_ID }}
 
       - name: Publish Debug OTA Update
         working-directory: apps/client
