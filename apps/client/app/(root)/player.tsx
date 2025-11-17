@@ -165,7 +165,7 @@ export default function PlayerScreen() {
                 className="h-14 w-14">
                 <SkipBack className="h-full text-foreground group-active:opacity-80" />
               </Button>
-              {playerStatus.playbackState === 'buffering' ? (
+              {playerStatus.isBuffering ? (
                 <View className="flex h-16 w-16 items-center justify-center">
                   <Spinner size={10} />
                 </View>
