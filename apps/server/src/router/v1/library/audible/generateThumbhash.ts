@@ -12,11 +12,10 @@ class ThumbhashError extends Data.TaggedClass('ThumbhashError')<{
   error: Error;
 }> {}
 
-interface GenerateThumbhashRequest
-  extends Request.Request<
-    string,
-    RequestError | ResponseError | ParseResult.ParseError | SharpError | ThumbhashError
-  > {
+interface GenerateThumbhashRequest extends Request.Request<
+  string,
+  RequestError | ResponseError | ParseResult.ParseError | SharpError | ThumbhashError
+> {
   readonly _tag: 'GenerateThumbhashRequest';
   readonly imageURL: string;
 }

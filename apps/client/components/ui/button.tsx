@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { type VariantProps, cva } from 'class-variance-authority';
-import type { ComponentProps, ComponentPropsWithRef } from 'react';
+import type { ComponentPropsWithRef } from 'react';
 import { type GestureResponderEvent, Pressable, View } from 'react-native';
 
 import { Spinner } from '~/components/spinner';

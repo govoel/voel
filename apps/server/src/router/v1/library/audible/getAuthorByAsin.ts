@@ -59,11 +59,10 @@ const AuthorAboutSchema = Schema.transformOrFail(
 
 class PartialAuthorError extends Data.TaggedError('PartialAuthorError') {}
 
-interface GetAuthorByAsinRequest
-  extends Request.Request<
-    { asin: string; name: string; avatar: string; about: string | null },
-    RequestError | ResponseError | ParseResult.ParseError | PartialAuthorError
-  > {
+interface GetAuthorByAsinRequest extends Request.Request<
+  { asin: string; name: string; avatar: string; about: string | null },
+  RequestError | ResponseError | ParseResult.ParseError | PartialAuthorError
+> {
   readonly _tag: 'GetAuthorByAsinRequest';
   readonly asin: string;
 }

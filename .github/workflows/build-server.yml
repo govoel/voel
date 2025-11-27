@@ -3,12 +3,12 @@ name: Build Server
 on:
   pull_request:
     branches:
-      - '*'
+      - "*"
   push:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
 
 concurrency:
   # Only cancel in-progress runs for pull_request events
@@ -29,9 +29,9 @@ jobs:
         uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5.3.1
         with:
           paths: '["apps/server/**", "packages/schemas/**", "packages/source-tap/**", "Dockerfile", ".dockerignore", ".github/workflows/build-server.yml", ".github/actions/setup-bun/action.yml"]'
-          cancel_others: 'false'
-          concurrent_skipping: 'never'
-          skip_after_successful_duplicate: 'false'
+          cancel_others: "false"
+          concurrent_skipping: "never"
+          skip_after_successful_duplicate: "false"
 
   build-server:
     runs-on: ubuntu-latest
@@ -47,10 +47,10 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@318604b99e75e41977312d83839a89be02ca4893 # v5.9.0
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ghcr.io/${{ github.repository }}
           flavor: |

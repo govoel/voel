@@ -45,11 +45,10 @@ export const ChapterResponseSchema = Schema.Struct({
   }),
 });
 
-interface GetChaptersByAsinRequest
-  extends Request.Request<
-    (typeof ChapterResponseSchema.Type)['content_metadata']['chapter_info'],
-    RequestError | ResponseError | ParseResult.ParseError
-  > {
+interface GetChaptersByAsinRequest extends Request.Request<
+  (typeof ChapterResponseSchema.Type)['content_metadata']['chapter_info'],
+  RequestError | ResponseError | ParseResult.ParseError
+> {
   readonly _tag: 'GetChaptersByAsinRequest';
   readonly asin: string;
 }
