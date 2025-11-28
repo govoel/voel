@@ -288,11 +288,10 @@ const makeProductResponseSchema = (turndown: Turndown) =>
     ),
   });
 
-interface GetProductByAsinRequest
-  extends Request.Request<
-    ReturnType<typeof makeProductResponseSchema>['Type']['product'],
-    RequestError | ResponseError | ParseResult.ParseError
-  > {
+interface GetProductByAsinRequest extends Request.Request<
+  ReturnType<typeof makeProductResponseSchema>['Type']['product'],
+  RequestError | ResponseError | ParseResult.ParseError
+> {
   readonly _tag: 'GetProductByAsinRequest';
   readonly asin: string;
 }
