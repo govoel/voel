@@ -178,53 +178,63 @@ jobs:
         env:
           VOEL_ANDROID_APP_JKS_FILE: ${{ secrets.VOEL_ANDROID_APP_JKS_FILE }}
 
-      - name: Generate Native Debug Module
-        if: steps.debug-runtimeversion.outputs.exists == 'false'
-        working-directory: apps/client
-        run: bun run prebuild --platform android --clean
+      # - name: Generate Native Debug Module
+      #   if: steps.debug-runtimeversion.outputs.exists == 'false'
+      #   working-directory: apps/client
+      #   run: bun run prebuild --platform android --clean
 
-      - name: Build Android Debug App
-        if: steps.debug-runtimeversion.outputs.exists == 'false'
-        working-directory: apps/client/android
-        run: chmod +x ./gradlew && ./gradlew assembleDebug --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M
-        env:
-          RELEASE_CHANNEL: development
-          VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
-          CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
-          NODE_ENV: development
+      # - name: Build Android Debug Assets
+      #   if: steps.debug-runtimeversion.outputs.exists == 'false'
+      #   working-directory: apps/client/android
+      #   run: |
+      #     chmod +x ./gradlew
+      #     ./gradlew assembleDebug --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M # build apk
+      #     ./gradlew bundleDebug --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M # build aab
+      #   env:
+      #     RELEASE_CHANNEL: development
+      #     VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
+      #     CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
+      #     CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
+      #     NODE_ENV: development
 
-      - name: Upload Debug Android App
-        if: steps.debug-runtimeversion.outputs.exists == 'false'
-        env:
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_ENDPOINT: "https://2365912f37ae5914a23644799e325b04.r2.cloudflarestorage.com"
-          R2_BUCKET: "voel-gh-actions-artifacts"
-        run: |
-          for file in apps/client/android/app/build/outputs/apk/debug/*.apk; do
-            echo "Uploading $file to R2"
-            bun run packages/scripts/upload-client-artifacts.ts --src "$(realpath $file)" --dest "debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/$(basename $file)"
-          done
+      # - name: Upload Debug Android Assets
+      #   if: steps.debug-runtimeversion.outputs.exists == 'false'
+      #   env:
+      #     R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #     R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #     R2_ENDPOINT: "https://2365912f37ae5914a23644799e325b04.r2.cloudflarestorage.com"
+      #     R2_BUCKET: "voel-gh-actions-artifacts"
+      #   run: |
+      #     for file in apps/client/android/app/build/outputs/apk/debug/*.apk; do
+      #       echo "Uploading $file to R2"
+      #       bun run packages/scripts/upload-client-artifacts.ts --src "$(realpath $file)" --dest "debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/$(basename $file)"
+      #     done
 
-      - name: Debug Android App APK Links
-        run: |
-          echo "Debug Android App APK Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [arm64-v8a](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-arm64-v8a-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [armeabi-v7a](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-armeabi-v7a-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [universal](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-universal-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [x86](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86-debug.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [x86_64](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86_64-debug.apk)" >> $GITHUB_STEP_SUMMARY
+      #     for file in apps/client/android/app/build/outputs/bundle/debug/*.aab; do
+      #       echo "Uploading $file to R2"
+      #       bun run packages/scripts/upload-client-artifacts.ts --src "$(realpath $file)" --dest "debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/$(basename $file)"
+      #     done
+
+      # - name: Debug Android App APK Links
+      #   run: |
+      #     echo "Debug Android App APK Links" >> $GITHUB_STEP_SUMMARY
+      #     echo "- [arm64-v8a](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-arm64-v8a-debug.apk)" >> $GITHUB_STEP_SUMMARY
+      #     echo "- [armeabi-v7a](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-armeabi-v7a-debug.apk)" >> $GITHUB_STEP_SUMMARY
+      #     echo "- [x86](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86-debug.apk)" >> $GITHUB_STEP_SUMMARY
+      #     echo "- [x86_64](https://artifacts.voel.app/debug/android/${{ steps.debug-runtimeversion.outputs.hash }}/app-x86_64-debug.apk)" >> $GITHUB_STEP_SUMMARY
 
       - name: Generate Native Preview Module
         if: steps.preview-runtimeversion.outputs.exists == 'false'
         working-directory: apps/client
         run: bun run prebuild:preview --platform android --clean
 
-      - name: Build Android Preview App
+      - name: Build Android Preview Assets
         if: steps.preview-runtimeversion.outputs.exists == 'false'
         working-directory: apps/client/android
-        run: chmod +x ./gradlew && ./gradlew assembleRelease --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M # build apk
+        #  ./gradlew bundleRelease --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M # build aab
         env:
           RELEASE_CHANNEL: preview
           VOEL_ANDROID_APP_JKS_PASSWORD: ${{ secrets.VOEL_ANDROID_APP_JKS_PASSWORD }}
@@ -232,7 +242,7 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
           NODE_ENV: production
 
-      - name: Upload Preview Android App
+      - name: Upload Preview Android Assets
         if: steps.preview-runtimeversion.outputs.exists == 'false'
         env:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -245,12 +255,16 @@ jobs:
             bun run packages/scripts/upload-client-artifacts.ts --src $(realpath $file) --dest preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/$(basename $file)
           done
 
+      #     for file in apps/client/android/app/build/outputs/bundle/release/*.aab; do
+      #       echo "Uploading $file to R2"
+      #       bun run packages/scripts/upload-client-artifacts.ts --src "$(realpath $file)" --dest "preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/$(basename $file)"
+      #     done
+
       - name: Preview Android App APK Links
         run: |
           echo "Preview Android App APK Links" >> $GITHUB_STEP_SUMMARY
           echo "- [arm64-v8a](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-arm64-v8a-release.apk)" >> $GITHUB_STEP_SUMMARY
           echo "- [armeabi-v7a](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-armeabi-v7a-release.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "- [universal](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-universal-release.apk)" >> $GITHUB_STEP_SUMMARY
           echo "- [x86](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86-release.apk)" >> $GITHUB_STEP_SUMMARY
           echo "- [x86_64](https://artifacts.voel.app/preview/android/${{ steps.preview-runtimeversion.outputs.hash }}/app-x86_64-release.apk)" >> $GITHUB_STEP_SUMMARY
 
