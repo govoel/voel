@@ -102,7 +102,7 @@
     "expo-updates": "~29.0.13",
     "expo-web-browser": "~15.0.9",
     "immer": "11.0.0",
-    "kysely": "0.28.8",
+    "kysely": "0.28.9",
     "lucide-react-native": "0.555.0",
     "lucide-static": "0.555.0",
     "nativewind": "4.2.1",
