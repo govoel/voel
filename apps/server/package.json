@@ -14,7 +14,7 @@
     "@effect/platform": "0.93.5",
     "@effect/platform-bun": "0.84.0",
     "@hono/trpc-server": "0.4.0",
-    "@t3-oss/env-core": "0.13.8",
+    "@t3-oss/env-core": "0.13.10",
     "@trpc/server": "11.7.2",
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
