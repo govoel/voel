@@ -72,7 +72,7 @@
     "@trpc/tanstack-react-query": "11.7.2",
     "@voel/schemas": "workspace:*",
     "@voel/server": "workspace:*",
-    "@xstate/store": "3.12.0",
+    "@xstate/store": "3.14.0",
     "better-auth": "1.4.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
