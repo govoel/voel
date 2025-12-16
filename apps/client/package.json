@@ -73,7 +73,7 @@
     "@voel/schemas": "workspace:*",
     "@voel/server": "workspace:*",
     "@xstate/store": "3.12.0",
-    "better-auth": "1.4.3",
+    "better-auth": "1.4.5",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "eventsource-client": "1.2.0",
