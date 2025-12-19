@@ -12,7 +12,7 @@
     "@better-auth/expo": "1.4.3",
     "@effect/eslint-plugin": "0.3.2",
     "@effect/platform": "0.93.5",
-    "@effect/platform-bun": "0.84.0",
+    "@effect/platform-bun": "0.87.0",
     "@hono/trpc-server": "0.4.0",
     "@t3-oss/env-core": "0.13.8",
     "@trpc/server": "11.7.2",
