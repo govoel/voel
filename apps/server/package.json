@@ -19,7 +19,7 @@
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
     "better-auth": "1.4.3",
-    "effect": "3.19.8",
+    "effect": "3.19.13",
     "hono": "4.10.7",
     "kysely": "0.28.8",
     "mime": "4.1.0",
