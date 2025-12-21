@@ -2,7 +2,7 @@ import { Path } from '@effect/platform';
 import { TRPCError } from '@trpc/server';
 import { schemas } from '@voel/schemas';
 import { Effect, Either } from 'effect';
-import { NoResultError } from 'kysely';
+import { NoResultError, sql } from 'kysely';
 import * as path from 'node:path';
 
 import { Audible } from '@/router/v1/library/audible';
@@ -15,6 +15,148 @@ import { db, isSQLiteError } from '@/libs/db';
 import { AppRuntime } from '@/libs/effect/runtime';
 
 import { adminProcedure, createTRPCRouter } from '@/trpc';
+
+/**
+ * Cleans up all orphaned database records in a single query using CTEs.
+ * This soft-deletes:
+ * 1. Orphaned books (audio books with no files)
+ * 2. Orphaned chapters (chapters for deleted books)
+ * 3. Orphaned book-contributor associations (for deleted books)
+ * 4. Orphaned book-series associations (for deleted books)
+ * 5. Orphaned contributors (not linked to any active book)
+ * 6. Orphaned series (not linked to any active book)
+ * 7. Orphaned playback history (for deleted books)
+ *
+ * The CTEs ensure proper ordering: books are marked deleted first, then dependent
+ * records are cleaned up based on the updated book.deletedAt values.
+ */
+export async function runDatabaseCleanup(): Promise<void> {
+  const now = sql<number>`(unixepoch())`;
+
+  await db
+    // 1. Soft-delete orphaned books (audio books with no active files)
+    .with('orphaned_books', (qc) =>
+      qc
+        .updateTable('book')
+        .set({ deletedAt: now })
+        .where('type', '=', 'audio')
+        .where('deletedAt', 'is', null)
+        .where(({ not, exists, selectFrom }) =>
+          not(
+            exists(
+              selectFrom('audiobookFile')
+                .whereRef('audiobookFile.bookId', '=', 'book.id')
+                .where('audiobookFile.deletedAt', 'is', null)
+                .select('audiobookFile.id')
+            )
+          )
+        )
+        .returning('id')
+    )
+    // 2. Soft-delete orphaned chapters (chapters for deleted books)
+    .with('orphaned_chapters', (qc) =>
+      qc
+        .updateTable('audiobookChapter')
+        .set({ deletedAt: now })
+        .where('deletedAt', 'is', null)
+        .where(({ exists, selectFrom }) =>
+          exists(
+            selectFrom('book')
+              .whereRef('book.id', '=', 'audiobookChapter.bookId')
+              .where('book.deletedAt', 'is not', null)
+              .select('book.id')
+          )
+        )
+        .returning('id')
+    )
+    // 3. Soft-delete orphaned book-contributor associations (for deleted books)
+    .with('orphaned_book_contributors', (qc) =>
+      qc
+        .updateTable('bookContributor')
+        .set({ deletedAt: now })
+        .where('deletedAt', 'is', null)
+        .where(({ exists, selectFrom }) =>
+          exists(
+            selectFrom('book')
+              .whereRef('book.id', '=', 'bookContributor.bookId')
+              .where('book.deletedAt', 'is not', null)
+              .select('book.id')
+          )
+        )
+        .returning('id')
+    )
+    // 4. Soft-delete orphaned book-series associations (for deleted books)
+    .with('orphaned_book_series', (qc) =>
+      qc
+        .updateTable('bookSeries')
+        .set({ deletedAt: now })
+        .where('deletedAt', 'is', null)
+        .where(({ exists, selectFrom }) =>
+          exists(
+            selectFrom('book')
+              .whereRef('book.id', '=', 'bookSeries.bookId')
+              .where('book.deletedAt', 'is not', null)
+              .select('book.id')
+          )
+        )
+        .returning('id')
+    )
+    // 5. Soft-delete orphaned contributors (not linked to any active book)
+    .with('orphaned_contributors', (qc) =>
+      qc
+        .updateTable('contributor')
+        .set({ deletedAt: now })
+        .where('deletedAt', 'is', null)
+        .where(({ not, exists, selectFrom }) =>
+          not(
+            exists(
+              selectFrom('bookContributor')
+                .whereRef('bookContributor.contributorId', '=', 'contributor.id')
+                .where('bookContributor.deletedAt', 'is', null)
+                .select('bookContributor.id')
+            )
+          )
+        )
+        .returning('id')
+    )
+    // 6. Soft-delete orphaned series (not linked to any active book)
+    .with('orphaned_series', (qc) =>
+      qc
+        .updateTable('series')
+        .set({ deletedAt: now })
+        .where('deletedAt', 'is', null)
+        .where(({ not, exists, selectFrom }) =>
+          not(
+            exists(
+              selectFrom('bookSeries')
+                .whereRef('bookSeries.seriesId', '=', 'series.id')
+                .where('bookSeries.deletedAt', 'is', null)
+                .select('bookSeries.id')
+            )
+          )
+        )
+        .returning('id')
+    )
+    // 7. Soft-delete orphaned playback history (for deleted books)
+    .with('orphaned_playback_history', (qc) =>
+      qc
+        .updateTable('playbackHistory')
+        .set({ deletedAt: now })
+        .where('deletedAt', 'is', null)
+        .where(({ exists, selectFrom }) =>
+          exists(
+            selectFrom('book')
+              .whereRef('book.id', '=', 'playbackHistory.bookId')
+              .where('book.deletedAt', 'is not', null)
+              .select('book.id')
+          )
+        )
+        .returning('id')
+    )
+    // Final SELECT to execute all CTEs
+    .selectNoFrom((eb) => [eb.fn.countAll<number>().as('total')])
+    .execute();
+}
 
 export const libraryRouter = createTRPCRouter({
   create: adminProcedure.input(schemas.v1.library.create).mutation(async ({ input }) => {
@@ -143,6 +285,7 @@ export const libraryRouter = createTRPCRouter({
         );
 
         if (Either.isRight(result)) {
+          await runDatabaseCleanup();
           return { id: result.right.id };
         } else {
           throw new TRPCError({
@@ -180,10 +323,12 @@ export const libraryRouter = createTRPCRouter({
             )
             .returning(['audiobookFile.libraryId', 'audiobookFile.path'])
             .execute();
-
-          // TODO: trigger a re-scan ONLY for the files that were just un-identefied, so that
-          // the file is up-to-date when the user attempts to re-identify it
         });
+
+        await runDatabaseCleanup();
+
+        // TODO: trigger a re-scan ONLY for the files that were just un-identified, so that
+        // the file is up-to-date when the user attempts to re-identify it
 
         return {
           message:

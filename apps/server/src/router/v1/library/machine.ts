@@ -11,6 +11,7 @@ import {
   Scope,
   Stream,
 } from 'effect';
+import { sql } from 'kysely';
 import { Actor, createActor, setup } from 'xstate';
 
 import type { Audible } from '@/router/v1/library/audible';
@@ -92,6 +93,13 @@ const libraryMachine = setup({
 
       self.send({ type: 'scanComplete' });
     },
+    cleanupDatabase: async ({ context, self }) => {
+      await AppRuntime.runPromise(libraryCleanupEffect(context)).catch((e) => {
+        console.log('Unexpected error while cleaning library', e);
+      });
+
+      self.send({ type: 'cleanDbComplete' });
+    },
   },
 }).createMachine({
   id: 'library',
@@ -102,13 +110,26 @@ const libraryMachine = setup({
       on: {
         scan: { target: 'scanning' },
         scanComplete: { target: undefined },
+        cleanDb: { target: 'cleaning' },
+        cleanDbComplete: { target: undefined },
       },
     },
     scanning: {
       entry: [{ type: 'scanLibraryPath' }],
       on: {
         scan: { target: undefined },
-        scanComplete: { target: 'idle' },
+        scanComplete: { target: 'cleaning' },
+        cleanDb: { target: undefined },
+        cleanDbComplete: { target: undefined },
+      },
+    },
+    cleaning: {
+      entry: [{ type: 'cleanupDatabase' }],
+      on: {
+        scan: { target: undefined },
+        scanComplete: { target: undefined },
+        cleanDb: { target: undefined },
+        cleanDbComplete: { target: 'idle' },
       },
     },
   },
@@ -323,6 +344,24 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
                   })
                 );
 
+                // Also restore the book and all related entities if they were soft-deleted
+                yield* restoreBookAndRelatedEntities(dbFile.value.bookId).pipe(
+                  Effect.catchTags({
+                    NotFoundError: () =>
+                      Effect.logError(
+                        'Error restoring book and related entities (via mtime match)'
+                      ),
+                    QueryError: () =>
+                      Effect.logError(
+                        'Error restoring book and related entities (via mtime match)'
+                      ),
+                    KnownSQLiteError: () =>
+                      Effect.logError(
+                        'Error restoring book and related entities (via mtime match)'
+                      ),
+                  })
+                );
+
                 yield* Effect.logDebug(
                   'Restored up-to-date (via mtime) identified file from deleted state and ignoring file'
                 );
@@ -433,6 +472,19 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
                     ),
                 })
               );
+
+              // Also restore the book and all related entities if they were soft-deleted
+              yield* restoreBookAndRelatedEntities(dbFile.value.bookId).pipe(
+                Effect.catchTags({
+                  NotFoundError: () =>
+                    Effect.logError('Error restoring book and related entities (via hash match)'),
+                  QueryError: () =>
+                    Effect.logError('Error restoring book and related entities (via hash match)'),
+                  KnownSQLiteError: () =>
+                    Effect.logError('Error restoring book and related entities (via hash match)'),
+                })
+              );
+
               yield* Effect.logDebug(
                 'File is already identified and up-to-date (via hash), ignoring file'
               );
@@ -665,7 +717,253 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
       ),
       Stream.runDrain
     ) satisfies Effect.Effect<void, never, Audible | FsExtended | Path.Path | Hash | Scope.Scope>;
+
+    // TODO: cleanup deleted books
   }).pipe(
     Effect.annotateLogs({ op: 'scan', library: context.name }),
     Effect.scoped
   ) satisfies Effect.Effect<void, never, Audible | FsExtended | Path.Path | Hash>;
+
+/**
+ * Restores a soft-deleted book and all its related entities.
+ * This is used when a file that belongs to a previously deleted book is found during scanning.
+ *
+ * Restores in this order:
+ * 1. The book itself
+ * 2. Book-contributor associations for the book
+ * 3. Book-series associations for the book
+ * 4. Chapters for the book
+ * 5. Contributors linked via bookContributor
+ * 6. Series linked via bookSeries
+ * 7. Playback history for the book
+ */
+const restoreBookAndRelatedEntities = (bookId: number) =>
+  Effect.gen(function* () {
+    // Restore the book
+    yield* toEffect(
+      db.updateTable('book').set({ deletedAt: null }).where('id', '=', bookId).execute()
+    );
+
+    // Restore book-contributor associations
+    yield* toEffect(
+      db
+        .updateTable('bookContributor')
+        .set({ deletedAt: null })
+        .where('bookId', '=', bookId)
+        .execute()
+    );
+
+    // Restore book-series associations
+    yield* toEffect(
+      db.updateTable('bookSeries').set({ deletedAt: null }).where('bookId', '=', bookId).execute()
+    );
+
+    // Restore chapters for the book
+    yield* toEffect(
+      db
+        .updateTable('audiobookChapter')
+        .set({ deletedAt: null })
+        .where('bookId', '=', bookId)
+        .execute()
+    );
+
+    // Restore contributors linked to this book via bookContributor
+    yield* toEffect(
+      db
+        .updateTable('contributor')
+        .set({ deletedAt: null })
+        .where(({ exists, selectFrom }) =>
+          exists(
+            selectFrom('bookContributor')
+              .whereRef('bookContributor.contributorId', '=', 'contributor.id')
+              .where('bookContributor.bookId', '=', bookId)
+              .select('bookContributor.id')
+          )
+        )
+        .execute()
+    );
+
+    // Restore series linked to this book via bookSeries
+    yield* toEffect(
+      db
+        .updateTable('series')
+        .set({ deletedAt: null })
+        .where(({ exists, selectFrom }) =>
+          exists(
+            selectFrom('bookSeries')
+              .whereRef('bookSeries.seriesId', '=', 'series.id')
+              .where('bookSeries.bookId', '=', bookId)
+              .select('bookSeries.id')
+          )
+        )
+        .execute()
+    );
+
+    // Restore playback history for the book
+    // Note: Using sql`null` because the schema type for playbackHistory.deletedAt
+    // doesn't allow null in updates (it's ColumnType<number | null, never, number>)
+    yield* toEffect(
+      db
+        .updateTable('playbackHistory')
+        .set({ deletedAt: sql<number>`null` })
+        .where('bookId', '=', bookId)
+        .execute()
+    );
+
+    yield* Effect.logDebug(`Restored book ${bookId} and all related entities`);
+  });
+
+/**
+ * Cleans up all orphaned database records in a single query using CTEs.
+ * This soft-deletes:
+ * 1. Orphaned books (audio books with no files)
+ * 2. Orphaned chapters (chapters for deleted books)
+ * 3. Orphaned book-contributor associations (for deleted books)
+ * 4. Orphaned book-series associations (for deleted books)
+ * 5. Orphaned contributors (not linked to any active book)
+ * 6. Orphaned series (not linked to any active book)
+ * 7. Orphaned playback history (for deleted books)
+ *
+ * The CTEs ensure proper ordering: books are marked deleted first, then dependent
+ * records are cleaned up based on the updated book.deletedAt values.
+ */
+export const libraryCleanupEffect = (context: { id: number; name: string; path: string }) =>
+  Effect.gen(function* () {
+    yield* Effect.logDebug('Cleaning up orphaned database records');
+
+    const now = sql<number>`(unixepoch())`;
+
+    yield* toEffect(
+      db
+        // 1. Soft-delete orphaned books (audio books with no active files)
+        .with('orphaned_books', (qc) =>
+          qc
+            .updateTable('book')
+            .set({ deletedAt: now })
+            .where('type', '=', 'audio')
+            .where('deletedAt', 'is', null)
+            .where(({ not, exists, selectFrom }) =>
+              not(
+                exists(
+                  selectFrom('audiobookFile')
+                    .whereRef('audiobookFile.bookId', '=', 'book.id')
+                    .where('audiobookFile.deletedAt', 'is', null)
+                    .select('audiobookFile.id')
+                )
+              )
+            )
+            .returning('id')
+        )
+        // 2. Soft-delete orphaned chapters (chapters for deleted books)
+        .with('orphaned_chapters', (qc) =>
+          qc
+            .updateTable('audiobookChapter')
+            .set({ deletedAt: now })
+            .where('deletedAt', 'is', null)
+            .where(({ exists, selectFrom }) =>
+              exists(
+                selectFrom('book')
+                  .whereRef('book.id', '=', 'audiobookChapter.bookId')
+                  .where('book.deletedAt', 'is not', null)
+                  .select('book.id')
+              )
+            )
+            .returning('id')
+        )
+        // 3. Soft-delete orphaned book-contributor associations (for deleted books)
+        .with('orphaned_book_contributors', (qc) =>
+          qc
+            .updateTable('bookContributor')
+            .set({ deletedAt: now })
+            .where('deletedAt', 'is', null)
+            .where(({ exists, selectFrom }) =>
+              exists(
+                selectFrom('book')
+                  .whereRef('book.id', '=', 'bookContributor.bookId')
+                  .where('book.deletedAt', 'is not', null)
+                  .select('book.id')
+              )
+            )
+            .returning('id')
+        )
+        // 4. Soft-delete orphaned book-series associations (for deleted books)
+        .with('orphaned_book_series', (qc) =>
+          qc
+            .updateTable('bookSeries')
+            .set({ deletedAt: now })
+            .where('deletedAt', 'is', null)
+            .where(({ exists, selectFrom }) =>
+              exists(
+                selectFrom('book')
+                  .whereRef('book.id', '=', 'bookSeries.bookId')
+                  .where('book.deletedAt', 'is not', null)
+                  .select('book.id')
+              )
+            )
+            .returning('id')
+        )
+        // 5. Soft-delete orphaned contributors (not linked to any active book)
+        .with('orphaned_contributors', (qc) =>
+          qc
+            .updateTable('contributor')
+            .set({ deletedAt: now })
+            .where('deletedAt', 'is', null)
+            .where(({ not, exists, selectFrom }) =>
+              not(
+                exists(
+                  selectFrom('bookContributor')
+                    .whereRef('bookContributor.contributorId', '=', 'contributor.id')
+                    .where('bookContributor.deletedAt', 'is', null)
+                    .select('bookContributor.id')
+                )
+              )
+            )
+            .returning('id')
+        )
+        // 6. Soft-delete orphaned series (not linked to any active book)
+        .with('orphaned_series', (qc) =>
+          qc
+            .updateTable('series')
+            .set({ deletedAt: now })
+            .where('deletedAt', 'is', null)
+            .where(({ not, exists, selectFrom }) =>
+              not(
+                exists(
+                  selectFrom('bookSeries')
+                    .whereRef('bookSeries.seriesId', '=', 'series.id')
+                    .where('bookSeries.deletedAt', 'is', null)
+                    .select('bookSeries.id')
+                )
+              )
+            )
+            .returning('id')
+        )
+        // 7. Soft-delete orphaned playback history (for deleted books)
+        .with('orphaned_playback_history', (qc) =>
+          qc
+            .updateTable('playbackHistory')
+            .set({ deletedAt: now })
+            .where('deletedAt', 'is', null)
+            .where(({ exists, selectFrom }) =>
+              exists(
+                selectFrom('book')
+                  .whereRef('book.id', '=', 'playbackHistory.bookId')
+                  .where('book.deletedAt', 'is not', null)
+                  .select('book.id')
+              )
+            )
+            .returning('id')
+        )
+        // Final SELECT to execute all CTEs
+        .selectNoFrom((eb) => [eb.fn.countAll<number>().as('total')])
+        .execute()
+    ).pipe(
+      Effect.catchAll((error) =>
+        Effect.logError('Error while cleaning up orphaned records').pipe(
+          Effect.annotateLogs('error', String(error))
+        )
+      )
+    );
+
+    yield* Effect.logInfo('Database cleanup completed');
+  }).pipe(Effect.annotateLogs({ op: 'cleanup', library: context.name }));
