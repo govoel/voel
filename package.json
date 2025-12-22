@@ -11,7 +11,7 @@
     "fts5": true
   },
   "devDependencies": {
-    "bun-types": "1.3.3"
+    "bun-types": "1.3.5"
   },
   "patchedDependencies": {
     "@gorhom/bottom-sheet@5.2.7": "packages/patches/@gorhom%2Fbottom-sheet@5.2.7.patch"
