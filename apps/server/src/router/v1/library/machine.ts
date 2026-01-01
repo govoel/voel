@@ -20,11 +20,13 @@ import { gatherAuxiliaryAudiobookData } from '@/router/v1/library/identifying/ga
 import { identifyAudiobook } from '@/router/v1/library/identifying/identifyAudiobook';
 import { insertAudiobook } from '@/router/v1/library/identifying/insertAudiobook';
 import { cleanupAudiobookFile } from '@/router/v1/library/scanning/cleanupAudiobookFile';
+import { cleanupAllOrphanedRecords } from '@/router/v1/library/scanning/cleanupOrphanedRecords';
 import { deleteAudiobookFile } from '@/router/v1/library/scanning/deleteAudiobookFile';
 import { extractAudiobookFileMetadata } from '@/router/v1/library/scanning/extractAudiobookFileMetadata';
 import { getLibraryDirents } from '@/router/v1/library/scanning/getLibraryDirents';
 import { markAsUnidentified } from '@/router/v1/library/scanning/markAsUnidentified';
 import { prepareAudiobookFile } from '@/router/v1/library/scanning/prepareAudiobookFile';
+import { restoreDeletedBook } from '@/router/v1/library/scanning/restoreDeletedBook';
 
 import { db, toEffect } from '@/libs/db';
 import { AppRuntime } from '@/libs/effect/runtime';
@@ -161,6 +163,9 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
     const { ignoredDirs, files } = yield* getLibraryDirents(dir.value);
 
     yield* cleanupAudiobookFile({ libraryId: context.id, ignoredDirs });
+
+    // Clean up orphaned records (books, contributors, series, chapters) after file cleanup
+    yield* cleanupAllOrphanedRecords();
 
     yield* Stream.fromChunk(files).pipe(
       Stream.mapEffect((file) =>
@@ -323,6 +328,15 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
                   })
                 );
 
+                // Also restore the book and its associated records if they were soft-deleted
+                yield* restoreDeletedBook({ bookId: dbFile.value.bookId }).pipe(
+                  Effect.catchAll(() =>
+                    Effect.logError(
+                      'Error restoring book after restoring file, book may still be soft-deleted'
+                    )
+                  )
+                );
+
                 yield* Effect.logDebug(
                   'Restored up-to-date (via mtime) identified file from deleted state and ignoring file'
                 );
@@ -433,6 +447,16 @@ export const libraryScanEffect = (context: { id: number; name: string; path: str
                     ),
                 })
               );
+
+              // Also restore the book and its associated records if they were soft-deleted
+              yield* restoreDeletedBook({ bookId: dbFile.value.bookId }).pipe(
+                Effect.catchAll(() =>
+                  Effect.logError(
+                    'Error restoring book after restoring file, book may still be soft-deleted'
+                  )
+                )
+              );
+
               yield* Effect.logDebug(
                 'File is already identified and up-to-date (via hash), ignoring file'
               );
