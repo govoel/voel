@@ -8,8 +8,10 @@ const withAppBuildGradle = require('expo/config-plugins').withAppBuildGradle;
  */
 const withReleaseBuild = (config) =>
   withAppBuildGradle(config, async (config) => {
-    config.modResults.contents =
-      config.modResults.contents + "\n\napply from: '../../build.gradle'";
+    if (process.env.NODE_ENV === 'production') {
+      config.modResults.contents =
+        config.modResults.contents + "\n\napply from: '../../build.gradle'";
+    }
     return config;
   });
 
