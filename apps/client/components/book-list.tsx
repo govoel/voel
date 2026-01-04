@@ -228,6 +228,7 @@ export function BookList({
               ) : null}
             </AspectRatio>
             <PlaybackProgress
+              key={item.id}
               bookId={item.id}
               totalDurationMs={item.totalDurationMs}
               playbackPosition={item.playbackPosition}
