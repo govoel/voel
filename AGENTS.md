@@ -1,37 +1,113 @@
-# Repository Guidelines
+# VOEL - Audiobook Server & Client
 
-## Project Structure & Modules
-- `apps/client`: Expo React Native app (Expo Router, Tailwind). UI in `components/`, routes in `app/`.
-- `apps/server`: Bun + TypeScript API (Hono + tRPC, Effect). Code in `src/`; DB via Kysely with migrations in `src/libs/db/migrations/`.
-- `packages/schemas`: Shared Zod schemas and lint config.
-- `packages/source-tap`: Shared data utilities.
+## OVERVIEW
 
-## Build, Test, and Development
-- Bootstrap: `bun install` at repo root.
-- Client dev: `cd apps/client && bun run start` (or `bun run ios` / `bun run android`).
-- Server dev: `cd apps/server && bun run dev` (watches `src/index.ts`).
-- Server tests: `cd apps/server && bun test`.
-- Type checks: `bun run --filter '*' typecheck`.
-- Lint/format: `bun run --filter '*' lint` and `bun run --filter '*' format`.
+Self-hosted audiobook server (Bun/Hono/tRPC/Effect) with offline-first React Native client (Expo). Server scans libraries, identifies audiobooks via Audible, streams content. Client syncs metadata to local SQLite, plays via native audio module.
 
-## Coding Style & Naming
-- Language: TypeScript (ES modules, strict). Prefer explicit types at boundaries.
-- Formatting: Prettier (sorted imports via `@trivago/prettier-plugin-sort-imports`).
-- Linting: ESLint (`typescript-eslint`, `eslint-config-prettier`, `eslint-plugin-import(-zod)`).
-- Indentation/quotes: Prettier defaults (2 spaces, single quotes where configured).
-- Paths: Server uses `@/*` → `apps/server/src/*`; Client uses `~/...` for app-local imports.
-- Names: files kebab-case; types/interfaces PascalCase; functions/vars camelCase.
+## STRUCTURE
 
-## Testing Guidelines
-- Runner: Bun test (server). Place tests next to code as `*.test.ts`.
-- Style: Unit-first with clear inputs/outputs; keep tests deterministic. Snapshots are fine for structured responses.
-- Run: `cd apps/server && bun test` (use `-t` to focus).
+```
+voel/
+├── apps/
+│   ├── client/          # Expo React Native (Expo Router, NativeWind)
+│   └── server/          # Bun API (Hono, tRPC, Effect, Kysely)
+├── packages/
+│   ├── schemas/         # Shared Zod schemas (@voel/schemas)
+│   ├── source-tap/      # Kysely plugin for realtime DB change tracking
+│   ├── scripts/         # CI/CD utilities
+│   └── patches/         # Dependency patches
+├── .github/workflows/   # CI: lint, typecheck, test, build, deploy
+└── Dockerfile           # Server container (Bun compile)
+```
 
-## Commit & Pull Request Guidelines
-- Commits: Conventional style with scope, e.g. `feat(client): add profile avatar`, `fix(server): handle missing token`, `chore: update deps`.
-- PRs: Provide summary, rationale, and testing notes. Link issues. Include screenshots/screen recordings for UI changes (client).
-- Hygiene: Keep PRs small and focused; ensure `typecheck`, `lint`, and relevant tests pass.
+## WHERE TO LOOK
 
-## Security & Configuration
-- Environment: Validate via `@t3-oss/env-core` (server). Store secrets in `.env.local`; never commit `.env*`.
-- Data: Apply Kysely migrations before features that rely on new schema. Example: `cd apps/server && bunx kysely-ctl migrate:up`.
+| Task | Location | Notes |
+|------|----------|-------|
+| Add tRPC endpoint | `apps/server/src/router/v1/` | Follow existing router pattern |
+| Add client screen | `apps/client/app/(root)/(tabs)/` | Expo Router file-based |
+| Add shared type | `packages/schemas/v1/` | Export from index.ts |
+| DB migration (server) | `apps/server/src/libs/db/migrations/` | Timestamped Kysely migrations |
+| DB migration (client) | `apps/client/lib/db/migrations/` | Local SQLite schema |
+| Native audio changes | `apps/client/modules/voel-audio/` | iOS (Swift) + Android (Kotlin) |
+
+## COMMANDS
+
+```bash
+# Bootstrap
+bun install
+
+# Development
+cd apps/client && bun run start          # Expo dev server
+cd apps/server && bun run dev            # Server with watch
+
+# Quality
+bun run --filter '*' typecheck           # All workspaces
+bun run --filter '*' lint                # ESLint + Prettier check
+bun run --filter '*' format              # Auto-fix
+
+# Testing
+cd apps/server && bun test               # Server tests (Bun test)
+
+# Database
+cd apps/server && bunx kysely-ctl migrate:up  # Apply migrations
+```
+
+## CONVENTIONS
+
+### Naming
+- Files: `kebab-case.ts`
+- Types/Interfaces: `PascalCase`
+- Functions/Variables: `camelCase`
+
+### Path Aliases
+- Server: `@/*` → `apps/server/src/*`
+- Client: `~/*` → `apps/client/*`
+
+### Import Order (Prettier)
+- External deps → Internal by alias → Relative
+
+### Commits
+Conventional: `feat(client):`, `fix(server):`, `chore:`
+
+### Version Control (GitButler)
+Use `but` CLI instead of `git` for branch/commit operations:
+```bash
+but status              # Workspace overview (branches, commits, files)
+but commit -m "msg"     # Commit to current branch
+but commit -c "name"    # Create new branch and commit
+but branch new "name"   # Create branch without committing
+but absorb              # Auto-amend changes into appropriate commits
+but undo                # Undo last operation
+but review publish      # Create/update PR on GitHub
+```
+
+## ANTI-PATTERNS
+
+- **Never** suppress types: no `as any`, `@ts-ignore`, `@ts-expect-error`
+- **Never** commit `.env*` files
+- **Never** empty catch blocks
+- **Never** skip pre-commit hooks
+
+## KEY ARCHITECTURAL DECISIONS
+
+### Server
+- **Effect TS**: Used for complex orchestration (library scanning, error handling)
+- **XState**: State machines for long-running processes
+- **SourceTap**: Custom Kysely plugin emits DB change events for sync
+
+### Client
+- **Offline-First**: Full SQLite database synced from server
+- **Instance System**: Supports multiple server connections
+- **Native Audio**: Custom Expo module for background playback
+
+### Shared
+- **tRPC**: End-to-end type safety between client and server
+- **Zod**: Shared schemas in `@voel/schemas`
+
+## CI/CD NOTES
+
+- Self-hosted runners for heavy builds
+- Buildah (not Docker) for server images
+- EOAS for Expo OTA updates (not EAS)
+- `skip-duplicate-actions` for path-based workflow skipping
