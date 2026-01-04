@@ -1,4 +1,4 @@
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list';
 import { Link, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Platform, View } from 'react-native';
@@ -42,7 +42,8 @@ export default function SettingsDownloadsScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Downloads' }} />
-      <FlashList
+      <LegendList
+        recycleItems={true}
         contentContainerClassName={useFloatingPlayerPaddingClass()}
         ListHeaderComponent={
           <>

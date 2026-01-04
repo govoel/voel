@@ -1,6 +1,6 @@
 import { Button } from './ui/button';
 import { Card, CardContent, CardFooter } from './ui/card';
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef } from '@legendapp/list';
 import { Link } from 'expo-router';
 import type { ComponentPropsWithoutRef } from 'react';
 import { Pressable, View } from 'react-native';
@@ -71,7 +71,7 @@ export type BookListBook = {
   };
 };
 
-type EnsureProp<K extends keyof ComponentPropsWithoutRef<typeof FlashList>> = K;
+type EnsureProp<K extends keyof ComponentPropsWithoutRef<typeof LegendList<BookListBook>>> = K;
 type BaseOmitted = EnsureProp<
   | 'data'
   | 'keyExtractor'
@@ -80,6 +80,7 @@ type BaseOmitted = EnsureProp<
   | 'renderItem'
   | 'ListEmptyComponent'
   | 'onEndReached'
+  | 'children'
 >;
 
 function EmptyComponent({
@@ -137,20 +138,23 @@ export function BookList({
   ...props
 }: {
   books?: BookListBook[];
-  ref?: React.RefObject<FlashListRef<BookListBook> | null>;
+  ref?: React.RefObject<LegendListRef | null>;
   emptyListMessage?: string;
 } & (
   | ({
       direction: 'vertical';
       error: Error | null;
       refetch: () => Promise<unknown>;
-    } & Omit<ComponentPropsWithoutRef<typeof FlashList>, BaseOmitted | EnsureProp<'className'>>)
+    } & Omit<
+      ComponentPropsWithoutRef<typeof LegendList<BookListBook>>,
+      BaseOmitted | EnsureProp<'className'>
+    >)
   | ({
       direction: 'horizontal';
       error: Error | null;
       refetch: () => Promise<unknown>;
     } & Omit<
-      ComponentPropsWithoutRef<typeof FlashList>,
+      ComponentPropsWithoutRef<typeof LegendList<BookListBook>>,
       BaseOmitted | EnsureProp<'ListHeaderComponent' | 'ListEmptyComponent' | 'ListFooterComponent'>
     >)
 ) &
@@ -177,10 +181,11 @@ export function BookList({
   }
 
   return (
-    <FlashList
+    <LegendList
       {...props}
+      recycleItems={true}
       ref={ref}
-      data={books}
+      data={books ?? []}
       keyExtractor={(item) => item.id.toString()}
       horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 2 : undefined}

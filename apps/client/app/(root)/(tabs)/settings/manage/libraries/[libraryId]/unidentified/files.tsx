@@ -4,7 +4,7 @@ import {
   type BottomSheetModal as BottomSheetModalType,
   useBottomSheetModal,
 } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   type ColumnDef,
@@ -177,7 +177,8 @@ export default function UnidentifiedFilesPage() {
     <>
       <Stack.Screen options={{ title: 'Unidentified Files' }} />
 
-      <FlashList
+      <LegendList
+        recycleItems={true}
         data={table.getRowModel().rows}
         keyExtractor={(item) => item.id}
         contentContainerClassName={useFloatingPlayerAndButtonDodgingPaddingClass()}
@@ -262,7 +263,7 @@ export default function UnidentifiedFilesPage() {
             ) : null}
           </>
         }
-        renderItem={({ item: row }) => <RenderRow row={row} variant="FlashList" />}
+        renderItem={({ item: row }) => <RenderRow row={row} variant="LegendList" />}
         ListEmptyComponent={
           error ? (
             <Card className="mt-4">
@@ -768,7 +769,7 @@ const RenderRow = ({
   className,
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
-  variant: 'FlashList' | 'FlatList';
+  variant: 'LegendList' | 'FlatList';
   className?: string;
 }) =>
   row.getIsGrouped() ? (
@@ -779,11 +780,11 @@ const RenderRow = ({
 
 const GroupedRow = ({
   row,
-  variant = 'FlashList',
+  variant = 'LegendList',
   className,
 }: {
   row: Row<inferRouterOutputs<AppRouter>['v1']['library']['unidentified']['getFiles'][number]>;
-  variant: 'FlashList' | 'FlatList';
+  variant: 'LegendList' | 'FlatList';
   className?: string;
 }) => {
   const groupedCell = row.getVisibleCells().find((cell) => cell.getIsGrouped());
@@ -814,8 +815,9 @@ const GroupedRow = ({
       </View>
 
       {row.getIsExpanded() ? (
-        variant === 'FlashList' ? (
-          <FlashList
+        variant === 'LegendList' ? (
+          <LegendList
+            recycleItems={true}
             data={row.subRows}
             renderItem={({ item: row }) => <RenderRow row={row} variant={variant} />}
           />

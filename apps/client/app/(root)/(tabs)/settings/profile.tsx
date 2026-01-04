@@ -2,7 +2,7 @@ import {
   type BottomSheetModal as BottomSheetModalType,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { SnapshotFromStore } from '@xstate/store';
 import type { Session as BetterAuthSession } from 'better-auth/types';
@@ -60,8 +60,9 @@ export default function ProfileSettingsScreen() {
     <>
       <Stack.Screen options={{ title: 'Your Profile', headerTitleAlign: 'center' }} />
 
-      <FlashList
-        data={sessions}
+      <LegendList
+        recycleItems={true}
+        data={sessions ?? []}
         contentContainerClassName={useFloatingPlayerPaddingClass()}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={

@@ -1,4 +1,4 @@
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef } from '@legendapp/list';
 import { Link } from 'expo-router';
 import type { ComponentPropsWithoutRef } from 'react';
 import { Pressable, View } from 'react-native';
@@ -20,7 +20,7 @@ export type SeriesListSeries = {
   books: { id: number; cover: string | null; coverThumbhash: string | null }[];
 };
 
-type EnsureProp<K extends keyof ComponentPropsWithoutRef<typeof FlashList>> = K;
+type EnsureProp<K extends keyof ComponentPropsWithoutRef<typeof LegendList<SeriesListSeries>>> = K;
 type BaseOmitted = EnsureProp<
   | 'data'
   | 'keyExtractor'
@@ -29,6 +29,7 @@ type BaseOmitted = EnsureProp<
   | 'renderItem'
   | 'ListEmptyComponent'
   | 'onEndReached'
+  | 'children'
 >;
 
 function EmptyComponent({
@@ -83,10 +84,10 @@ export function SeriesList({
   ...props
 }: {
   series?: SeriesListSeries[];
-  ref?: React.RefObject<FlashListRef<SeriesListSeries> | null>;
+  ref?: React.RefObject<LegendListRef | null>;
 } & (
   | ({ direction: 'vertical'; error: Error | null; refetch: () => Promise<unknown> } & Omit<
-      ComponentPropsWithoutRef<typeof FlashList>,
+      ComponentPropsWithoutRef<typeof LegendList<SeriesListSeries>>,
       BaseOmitted | 'className'
     >)
   | ({
@@ -94,7 +95,7 @@ export function SeriesList({
       error: Error | null;
       refetch: () => Promise<unknown>;
     } & Omit<
-      ComponentPropsWithoutRef<typeof FlashList>,
+      ComponentPropsWithoutRef<typeof LegendList<SeriesListSeries>>,
       BaseOmitted | EnsureProp<'ListHeaderComponent' | 'ListEmptyComponent' | 'ListFooterComponent'>
     >)
 ) &
@@ -120,10 +121,11 @@ export function SeriesList({
   }
 
   return (
-    <FlashList
+    <LegendList
       {...props}
+      recycleItems={true}
       ref={ref}
-      data={series}
+      data={series ?? []}
       keyExtractor={(item) => item.id.toString()}
       horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 2 : undefined}
