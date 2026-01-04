@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Run opencode
-        uses: sst/opencode/github@10375263ef03740d530cbc626ee775914fbffacc
+        uses: sst/opencode/github@6b12a0084c2e0d36f5f8c449a4cf5bd34bdaafa4
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
