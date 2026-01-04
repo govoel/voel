@@ -2,7 +2,7 @@ import {
   type BottomSheetModal as BottomSheetModalType,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { Link, Stack } from 'expo-router';
 import { useRef } from 'react';
@@ -135,8 +135,9 @@ export default function UsersListScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Manage Users', headerTitleAlign: 'center' }} />
-      <FlashList
-        data={data}
+      <LegendList
+        recycleItems={true}
+        data={data ?? []}
         onEndReached={handleLoadMore}
         keyExtractor={(item) => item.id.toString()}
         contentContainerClassName={useFloatingPlayerPaddingClass()}

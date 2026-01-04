@@ -2,7 +2,7 @@ import {
   type BottomSheetModal as BottomSheetModalType,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list';
 import { useMutation } from '@tanstack/react-query';
 import { schemas } from '@voel/schemas';
 import { Link, Stack } from 'expo-router';
@@ -63,8 +63,9 @@ export default function LibraryListScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Manage Libraries', headerTitleAlign: 'center' }} />
-      <FlashList
-        data={data}
+      <LegendList
+        recycleItems={true}
+        data={data ?? []}
         keyExtractor={(item) => item.id.toString()}
         contentContainerClassName={useFloatingPlayerPaddingClass()}
         ListHeaderComponent={

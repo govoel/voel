@@ -1,5 +1,5 @@
+import type { LegendListRef } from '@legendapp/list';
 import * as TabsPrimitive from '@rn-primitives/tabs';
-import type { FlashListRef } from '@shopify/flash-list';
 import { useStore } from '@tanstack/react-form';
 import { useSelector } from '@xstate/store/react';
 import { Stack } from 'expo-router';
@@ -8,11 +8,11 @@ import { Platform, ScrollView, View } from 'react-native';
 import { useBottomTabBarHeight } from 'react-native-bottom-tabs';
 import * as z from 'zod';
 
-import { BookList, type BookListBook } from '~/components/book-list';
+import { BookList } from '~/components/book-list';
 import { floatingPlayerStore } from '~/components/floating-player';
 import { Search } from '~/components/icons/Search';
-import { PersonList, type PersonListPerson } from '~/components/person-list';
-import { SeriesList, type SeriesListSeries } from '~/components/series-list';
+import { PersonList } from '~/components/person-list';
+import { SeriesList } from '~/components/series-list';
 import { TitleWithRefetch } from '~/components/title-with-refetch';
 import { useAppForm } from '~/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
@@ -169,22 +169,22 @@ const SearchTab = () => {
     isFetching: forewordSearchIsFetching,
   } = api.contributors.search.useQuery('foreword', searchQuery);
 
-  const bookListRef = useRef<FlashListRef<BookListBook>>(null);
-  const authorListRef = useRef<FlashListRef<PersonListPerson>>(null);
-  const seriesListRef = useRef<FlashListRef<SeriesListSeries>>(null);
-  const narratorListRef = useRef<FlashListRef<PersonListPerson>>(null);
-  const translatorListRef = useRef<FlashListRef<PersonListPerson>>(null);
-  const editorListRef = useRef<FlashListRef<PersonListPerson>>(null);
-  const forewordListRef = useRef<FlashListRef<PersonListPerson>>(null);
+  const bookListRef = useRef<LegendListRef>(null);
+  const authorListRef = useRef<LegendListRef>(null);
+  const seriesListRef = useRef<LegendListRef>(null);
+  const narratorListRef = useRef<LegendListRef>(null);
+  const translatorListRef = useRef<LegendListRef>(null);
+  const editorListRef = useRef<LegendListRef>(null);
+  const forewordListRef = useRef<LegendListRef>(null);
 
   useEffect(() => {
-    bookListRef.current?.scrollToTop({ animated: false });
-    authorListRef.current?.scrollToTop({ animated: false });
-    seriesListRef.current?.scrollToTop({ animated: false });
-    narratorListRef.current?.scrollToTop({ animated: false });
-    translatorListRef.current?.scrollToTop({ animated: false });
-    editorListRef.current?.scrollToTop({ animated: false });
-    forewordListRef.current?.scrollToTop({ animated: false });
+    bookListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    authorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    seriesListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    narratorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    translatorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    editorListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    forewordListRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [searchQuery]);
 
   const tabBarHeight = useBottomTabBarHeight();

@@ -1,4 +1,4 @@
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef } from '@legendapp/list';
 import { Link } from 'expo-router';
 import type { ComponentPropsWithoutRef } from 'react';
 import { Pressable, View } from 'react-native';
@@ -23,7 +23,7 @@ export type PersonListPerson = {
   bookCount: number;
 };
 
-type EnsureProp<K extends keyof ComponentPropsWithoutRef<typeof FlashList>> = K;
+type EnsureProp<K extends keyof ComponentPropsWithoutRef<typeof LegendList<PersonListPerson>>> = K;
 type BaseOmitted = EnsureProp<
   | 'data'
   | 'keyExtractor'
@@ -32,6 +32,7 @@ type BaseOmitted = EnsureProp<
   | 'renderItem'
   | 'ListEmptyComponent'
   | 'onEndReached'
+  | 'children'
 >;
 
 function EmptyComponent({
@@ -90,11 +91,11 @@ export function PersonList({
 }: {
   people?: PersonListPerson[];
   type: 'author' | 'editor' | 'narrator' | 'translator' | 'foreword';
-  ref?: React.RefObject<FlashListRef<PersonListPerson> | null>;
+  ref?: React.RefObject<LegendListRef | null>;
   isFetchingNextPage?: boolean;
 } & (
   | ({ direction: 'vertical'; error: Error | null; refetch: () => Promise<unknown> } & Omit<
-      ComponentPropsWithoutRef<typeof FlashList>,
+      ComponentPropsWithoutRef<typeof LegendList<PersonListPerson>>,
       BaseOmitted | 'className'
     >)
   | ({
@@ -102,7 +103,7 @@ export function PersonList({
       error: Error | null;
       refetch: () => Promise<unknown>;
     } & Omit<
-      ComponentPropsWithoutRef<typeof FlashList>,
+      ComponentPropsWithoutRef<typeof LegendList<PersonListPerson>>,
       BaseOmitted | EnsureProp<'ListHeaderComponent' | 'ListEmptyComponent' | 'ListFooterComponent'>
     >)
 ) &
@@ -129,10 +130,11 @@ export function PersonList({
   }
 
   return (
-    <FlashList
+    <LegendList
       {...props}
+      recycleItems={true}
       ref={ref}
-      data={people}
+      data={people ?? []}
       keyExtractor={(item) => item.id.toString()}
       horizontal={props.direction === 'horizontal'}
       numColumns={props.direction === 'vertical' ? 3 : undefined}

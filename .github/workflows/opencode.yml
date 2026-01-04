@@ -21,10 +21,10 @@ jobs:
       issues: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Run opencode
-        uses: sst/opencode/github@10375263ef03740d530cbc626ee775914fbffacc
+        uses: anomalyco/opencode/github@a58dbb3b5c41765e1daff6d28ef61a6d0267ab3c # v1.2.10
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}

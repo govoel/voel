@@ -3,7 +3,7 @@ import {
   type BottomSheetModal as BottomSheetModalType,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from 'better-auth';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -97,8 +97,9 @@ export default function ManageUserScreen() {
     <>
       <Stack.Screen options={{ title: 'Manage User', headerTitleAlign: 'center' }} />
 
-      <FlashList
-        data={sessions}
+      <LegendList
+        recycleItems={true}
+        data={sessions ?? []}
         contentContainerClassName={useFloatingPlayerPaddingClass()}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
