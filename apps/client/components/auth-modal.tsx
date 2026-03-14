@@ -118,7 +118,7 @@ function SignInModal({
           switchTo: {
             instanceURL: value.baseURL,
             userId: res.data.user.id,
-            username: res.data.user.username,
+            username: res.data.user.username ?? value.username,
             email: res.data.user.email,
             name: res.data.user.name,
             image: res.data.user.image ?? undefined,

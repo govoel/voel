@@ -94,6 +94,7 @@ export declare class VoelAudioModule extends NativeModule<AudioEvents> {
   getCurrentQueue(): AudioSource[];
   clearQueue(): void;
   canSkipToNext(): boolean;
+  canSkipToPrevious(): boolean;
   skipToNext(): void;
   skipToPrevious(): void;
   seekToInCurrentMediaItem(positionMs: number): void;

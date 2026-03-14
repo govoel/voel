@@ -6,6 +6,9 @@ import { Appearance } from 'react-native';
 
 export type Theme = 'dark' | 'light' | 'system';
 
+export const getSafeColorScheme = (theme: string | null | undefined): 'light' | 'dark' =>
+  theme === 'light' || theme === 'dark' ? theme : 'dark';
+
 export const themeStore = createStore({
   context: {
     theme: (SecureStore.getItem('theme') ?? 'system') as Theme,
@@ -15,7 +18,7 @@ export const themeStore = createStore({
       SecureStore.setItem('theme', event.theme);
       if (event.theme === 'system') {
         colorScheme.set('system');
-        setAndroidNavigationBar(Appearance.getColorScheme() ?? 'dark');
+        setAndroidNavigationBar(getSafeColorScheme(Appearance.getColorScheme()));
         return { theme: 'system' as Theme };
       } else {
         colorScheme.set(event.theme);

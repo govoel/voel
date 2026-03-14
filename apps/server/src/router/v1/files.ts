@@ -12,7 +12,13 @@ export const handler = async (c: Context) => {
     return c.text('Unauthorized', 401);
   }
 
-  const fileId = parseInt(c.req.param('id'), 10);
+  const fileIdParam = c.req.param('id');
+
+  if (!fileIdParam) {
+    return c.text('Invalid file ID', 400);
+  }
+
+  const fileId = parseInt(fileIdParam, 10);
 
   if (isNaN(fileId)) {
     return c.text('Invalid file ID', 400);

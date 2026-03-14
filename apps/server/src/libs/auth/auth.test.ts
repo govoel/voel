@@ -150,6 +150,6 @@ describe('better-auth customizations', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(response.data.code).toBe('EMAIL_AND_PASSWORD_SIGN_UP_IS_NOT_ENABLED');
+    expect(response.data.code).toBe('EMAIL_PASSWORD_SIGN_UP_DISABLED');
   });
 });

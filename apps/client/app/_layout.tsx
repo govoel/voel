@@ -16,7 +16,7 @@ import { Toaster } from 'sonner-native';
 
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
 import { queryClient } from '~/lib/api/query-client';
-import { themeStore } from '~/lib/stores/color-scheme';
+import { getSafeColorScheme, themeStore } from '~/lib/stores/color-scheme';
 import { NAV_THEME, THEME } from '~/lib/theme';
 
 export {
@@ -44,14 +44,14 @@ export default function RootLayout() {
       nativewindColorScheme.set(initialTheme);
       setAndroidNavigationBar(initialTheme);
     } else {
-      setAndroidNavigationBar(nativewindColorScheme.get() ?? 'dark');
+      setAndroidNavigationBar(getSafeColorScheme(nativewindColorScheme.get()));
     }
 
     hasMounted.current = true;
 
     const appearanceChangeListener = Appearance.addChangeListener(({ colorScheme }) => {
       if (themeStore.getSnapshot().context.theme === 'system') {
-        setAndroidNavigationBar(colorScheme ?? 'dark');
+        setAndroidNavigationBar(getSafeColorScheme(colorScheme));
       }
     });
 

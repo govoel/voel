@@ -1,7 +1,7 @@
 import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
-import { APIError } from 'better-auth/api';
-import { admin, createAuthMiddleware, username } from 'better-auth/plugins';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { admin, username } from 'better-auth/plugins';
 
 import { dialect } from '@/libs/db';
 

@@ -1,4 +1,5 @@
-import type { ConfigContext, ExpoConfig } from 'expo/config';
+import type { ExpoConfig } from '@expo/config-types';
+import type { ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -86,7 +87,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    edgeToEdgeEnabled: true,
     package:
       process.env.RELEASE_CHANNEL === 'development'
         ? 'app.voel.android.dev'

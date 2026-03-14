@@ -61,6 +61,7 @@ export const createAuthClient = (
   storage: Parameters<typeof expoClient>['0']['storage'] = SecureStore
 ) =>
   createBetterAuthClient({
+    $InferAuth: {} as typeof auth.options,
     baseURL,
     fetchOptions: { credentials: 'include' },
     plugins: [
