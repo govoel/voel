@@ -116,7 +116,7 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "sonner-native": "0.22.2",
-    "tailwind-merge": "3.4.0",
+    "tailwind-merge": "3.5.0",
     "tailwindcss-animate": "1.0.7",
     "zod": "4.3.4"
   },
