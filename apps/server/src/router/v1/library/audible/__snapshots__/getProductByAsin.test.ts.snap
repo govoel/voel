@@ -449,7 +449,7 @@ exports[`books books part of a bundle parse correctly and narrator has ASIN 1`] 
   "product_images": {
     "500": "https://m.media-amazon.com/images/I/41pjoMsqWUL._SL500_.jpg",
   },
-  "publisher_name": "HighBridge, a division of Recorded Books",
+  "publisher_name": "Highbridge Audio",
   "publisher_summary_md": "When raised to the level of art, seduction, an indirect and subtle form of power, has toppled empires, won elections, and enslaved great minds. _The Art of Seduction_ synthesizes the legacies of civilization's greatest seducers - from Cleopatra to JFK - with the philosophies of important intellectuals on the subject, including everyone from Freud to Kierkegaard and Ovid to Casanova, and the classic literature of seduction. Robert Greene identifies the rules of a timeless, amoral game and explores how to cast a spell, break down resistance, and, ultimately, compel a target to surrender. _The Art of Seduction_ is an indispensable primer on the essence of one of history's greatest weapons and the ultimate form of power.",
   "relationships": [
     {
@@ -700,7 +700,7 @@ Given a second chance at life, Arthur Leywin wishes above all to grow strong eno
       "title": "The Beginning After the End",
     },
   ],
-  "subtitle": undefined,
+  "subtitle": "The Beginning After the End, Book 1, 2",
   "title": "The Beginning After the End: Publisher's Pack",
 }
 `;
