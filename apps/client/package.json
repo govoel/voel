@@ -105,7 +105,7 @@
     "kysely": "0.28.9",
     "lucide-react-native": "0.562.0",
     "lucide-static": "0.562.0",
-    "nativewind": "4.2.1",
+    "nativewind": "4.2.3",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-bottom-tabs": "1.1.0",
