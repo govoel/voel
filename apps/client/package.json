@@ -121,7 +121,7 @@
     "zod": "4.3.4"
   },
   "devDependencies": {
-    "@babel/core": "7.28.5",
+    "@babel/core": "7.29.0",
     "@tanstack/eslint-plugin-query": "5.91.2",
     "@trivago/prettier-plugin-sort-imports": "6.0.1",
     "@types/react": "~19.1.10",
