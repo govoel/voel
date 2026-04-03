@@ -44,7 +44,7 @@
     "@dev-plugins/react-query": "^0.4.0",
     "@gorhom/bottom-sheet": "5.2.7",
     "@op-engineering/op-sqlite": "15.1.17",
-    "@react-native-community/slider": "5.1.1",
+    "@react-native-community/slider": "5.2.0",
     "@react-navigation/native": "^7.1.8",
     "@rn-primitives/accordion": "1.2.0",
     "@rn-primitives/aspect-ratio": "1.2.0",
