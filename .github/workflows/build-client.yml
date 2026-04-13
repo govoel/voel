@@ -163,7 +163,7 @@ jobs:
             return path.join(os.tmpdir(), 'metro-cache');
 
       - name: Restore Metro cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         if: steps.debug-runtimeversion.outputs.exists == 'false' || steps.preview-runtimeversion.outputs.exists == 'false'
         with:
           path: ${{ steps.metro-cache-dir-path.outputs.result }}
@@ -299,7 +299,7 @@ jobs:
             return path.join(os.tmpdir(), 'metro-cache');
 
       - name: Restore Metro cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.metro-cache-dir-path.outputs.result }}
           key: metro-cache-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
