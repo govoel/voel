@@ -127,7 +127,7 @@
     "@types/react": "~19.1.10",
     "ajv": "8.17.1",
     "bun-types": "1.3.5",
-    "eoas": "2.3.10",
+    "eoas": "2.3.17",
     "eslint": "9.39.2",
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "10.1.8",
