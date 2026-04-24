@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/expo": "1.4.10",
+    "@better-auth/expo": "1.6.9",
     "@effect/eslint-plugin": "0.3.2",
     "@effect/platform": "0.94.1",
     "@effect/platform-bun": "0.87.0",
@@ -18,7 +18,7 @@
     "@trpc/server": "11.8.1",
     "@voel/schemas": "workspace:*",
     "@voel/source-tap": "workspace:*",
-    "better-auth": "1.4.10",
+    "better-auth": "1.6.9",
     "effect": "3.19.14",
     "hono": "4.11.3",
     "kysely": "0.28.9",

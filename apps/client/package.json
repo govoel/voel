@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "1.0.2",
-    "@better-auth/expo": "1.4.10",
+    "@better-auth/expo": "1.6.9",
     "@bottom-tabs/react-navigation": "1.1.0",
     "@dev-plugins/react-query": "^0.4.0",
     "@gorhom/bottom-sheet": "5.2.7",
@@ -73,7 +73,7 @@
     "@voel/schemas": "workspace:*",
     "@voel/server": "workspace:*",
     "@xstate/store": "3.14.1",
-    "better-auth": "1.4.10",
+    "better-auth": "1.6.9",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "eventsource-client": "1.2.0",
