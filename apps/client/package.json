@@ -65,7 +65,7 @@
     "@rn-primitives/types": "1.2.0",
     "@legendapp/list": "2.0.19",
     "@tanstack/react-form": "1.27.7",
-    "@tanstack/react-query": "5.90.16",
+    "@tanstack/react-query": "5.100.6",
     "@tanstack/react-table": "8.21.3",
     "@trpc/client": "11.8.1",
     "@trpc/server": "11.8.1",
@@ -122,7 +122,7 @@
   },
   "devDependencies": {
     "@babel/core": "7.28.5",
-    "@tanstack/eslint-plugin-query": "5.91.2",
+    "@tanstack/eslint-plugin-query": "5.100.6",
     "@trivago/prettier-plugin-sort-imports": "6.0.1",
     "@types/react": "~19.1.10",
     "ajv": "8.17.1",
