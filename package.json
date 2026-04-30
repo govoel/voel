@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "lint": "oxlint --type-aware --type-check --deny-warnings",
-    "lint:fix": "oxlint --fix --type-aware --type-check --deny-warnings",
+    "lint": "oxlint --ignore-pattern .repos/** --type-aware --type-check --deny-warnings",
+    "lint:fix": "oxlint --ignore-pattern .repos/** --fix --type-aware --type-check --deny-warnings",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "build": "turbo run build",
