@@ -12,9 +12,9 @@
       ["external"],
       ["internal"],
       ["subpath"],
-      ["sibling", "parent", "index"],
+      ["sibling", "parent", "index"]
     ],
     "internalPattern": ["@repo", "bun"],
-    "newlinesBetween": true,
-  },
+    "newlinesBetween": true
+  }
 }
