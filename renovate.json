@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "config:best-practices"],
+  "rangeStrategy": "auto",
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 0,
+  "timezone": "America/Chicago",
+  "schedule": ["at any time"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "groupName": "effect",
+      "matchPackageNames": ["effect", "@effect/*", "!@effect/language-service"]
+    }
+  ],
+  "recreateWhen": "never"
+}

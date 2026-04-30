@@ -1,0 +1,44 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
+  "remoteCache": { "enabled": true },
+  "tasks": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", ".output/**", ".tsbuildinfo/**"]
+    },
+    "test": {
+      "cache": true,
+      "dependsOn": ["^test"],
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "//#lint": {
+      "cache": true,
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"]
+    },
+    "//#lint:fix": {
+      "cache": false
+    },
+    "//#format": {
+      "cache": false
+    },
+    "//#format:check": {
+      "cache": false,
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxfmtrc.json"]
+    },
+    "check-types": {
+      "cache": true,
+      "dependsOn": ["^check-types"],
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}
