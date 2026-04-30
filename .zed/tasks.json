@@ -1,8 +1,0 @@
-[
-  {
-    "label": "Bun Test",
-    "command": "bun test",
-    "args": ["\"$ZED_RELATIVE_FILE\" -t=\"$ZED_SYMBOL\""],
-    "tags": ["js-test", "ts-test", "bun-test", "tsx-test"],
-  },
-]

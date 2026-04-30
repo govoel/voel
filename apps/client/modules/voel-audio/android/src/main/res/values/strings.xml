@@ -1,4 +1,0 @@
-<resources>
-    <string name="voel_audio_download_service_channel_name">Audio Downloads</string>
-    <string name="voel_audio_download_service_channel_description">Shows progress and completion of audio file downloads</string>
-</resources>

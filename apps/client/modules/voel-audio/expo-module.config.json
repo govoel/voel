@@ -1,9 +1,0 @@
-{
-  "platforms": ["apple", "android"],
-  "apple": {
-    "modules": ["VoelAudioModule"]
-  },
-  "android": {
-    "modules": ["expo.modules.voel.audio.VoelAudioModule"]
-  }
-}
