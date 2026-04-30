@@ -4,4 +4,4 @@ dist
 build
 coverage
 .turbo
-.tsbuildinfo
+*.tsbuildinfo
