@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnosticSeverity": {
+          "anyUnknownInErrorContext": "error",
+          "strictEffectProvide": "error",
+          "deterministicKeys": "error",
+          "asyncFunction": "error",
+          "cryptoRandomUUID": "error",
+          "cryptoRandomUUIDInEffect": "error",
+          "extendsNativeError": "error",
+          "globalConsole": "error",
+          "globalConsoleInEffect": "error",
+          "globalDate": "error",
+          "globalDateInEffect": "error",
+          "globalFetch": "error",
+          "globalFetchInEffect": "error",
+          "globalRandom": "error",
+          "globalRandomInEffect": "error",
+          "globalTimers": "error",
+          "globalTimersInEffect": "error",
+          "instanceOfSchema": "error",
+          "newPromise": "error",
+          "nodeBuiltinImport": "error",
+          "preferSchemaOverJson": "error",
+          "processEnv": "error",
+          "processEnvInEffect": "error",
+          "importFromBarrel": "error",
+          "missedPipeableOpportunity": "error",
+          "missingEffectServiceDependency": "error",
+          "nestedEffectGenYield": "error",
+          "schemaUnionOfLiterals": "error",
+          "serviceNotAsClass": "error",
+          "unnecessaryArrowBlock": "error"
+        },
+        "keyPatterns": [
+          {
+            "target": "service",
+            "pattern": "default",
+            "skipLeadingPath": ["src/"]
+          },
+          {
+            "target": "error",
+            "pattern": "default",
+            "skipLeadingPath": ["src/"]
+          }
+        ]
+      }
+    ]
+  }
+}

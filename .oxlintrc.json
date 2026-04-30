@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["unicorn", "typescript", "import", "oxc", "promise", "node", "eslint"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "error",
+    "style": "error",
+    "restriction": "error",
+    "nursery": "error"
+  },
+  "env": {
+    "builtin": true,
+    "node": true
+  },
+  "rules": {
+    "eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
+    "eslint/new-cap": "off",
+    "eslint/max-classes-per-file": "off",
+    "eslint/func-names": ["error", "as-needed", { "generators": "never" }],
+    "eslint/no-ternary": "off",
+    "eslint/sort-keys": "off",
+    "eslint/sort-imports": ["error", { "ignoreDeclarationSort": true }],
+    "eslint/max-lines-per-function": "off",
+    "eslint/max-statements": "off",
+    "eslint/id-length": "off",
+    "eslint/complexity": "off",
+    "eslint/max-lines": "off",
+    "eslint/capitalized-comments": "off",
+    "eslint/no-inline-comments": "off",
+    "eslint/no-magic-numbers": "off",
+    "eslint/no-void": "off",
+    "eslint/no-undefined": "error",
+
+    "import/no-duplicates": ["error", { "preferInline": false }],
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "import/prefer-default-export": "off",
+    "import/no-default-export": "off",
+    "import/no-namespace": "off",
+    "import/max-dependencies": "off",
+
+    "oxc/no-async-await": "off",
+    "oxc/no-optional-chaining": "off",
+    "oxc/no-rest-spread-properties": "off",
+    "oxc/no-map-spread": "off",
+
+    "typescript/explicit-function-return-type": "off",
+    "typescript/explicit-module-boundary-types": "off",
+    "typescript/require-await": "off",
+
+    "unicorn/no-null": "off",
+    "unicorn/catch-error-name": ["error", { "ignore": ["e", "err", "error"] }],
+    "unicorn/no-array-for-each": "off",
+    "unicorn/no-nested-ternary": "off",
+    "unicorn/no-abusive-eslint-disable": "off",
+
+    "promise/prefer-await-to-then": "off"
+  },
+  "jsPlugins": ["eslint-plugin-turbo"]
+}

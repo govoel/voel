@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "singleQuote": true,
+  "bracketSameLine": true,
+  "trailingComma": "es5",
+  "sortPackageJson": true,
+  "sortImports": {
+    "groups": [
+      ["builtin"],
+      ["external"],
+      ["internal"],
+      ["subpath"],
+      ["sibling", "parent", "index"],
+    ],
+    "internalPattern": ["@repo", "bun"],
+    "newlinesBetween": true,
+  },
+}
