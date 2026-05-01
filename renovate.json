@@ -13,5 +13,6 @@
       "matchPackageNames": ["effect", "@effect/*", "!@effect/language-service"]
     }
   ],
+  "ignorePaths": ["**/node_modules/**", ".repos/**"],
   "recreateWhen": "never"
 }
