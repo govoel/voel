@@ -9,7 +9,6 @@
           "anyUnknownInErrorContext": "error",
           "strictEffectProvide": "error",
           "deterministicKeys": "error",
-          "asyncFunction": "error",
           "cryptoRandomUUID": "error",
           "cryptoRandomUUIDInEffect": "error",
           "extendsNativeError": "error",
