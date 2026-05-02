@@ -5,3 +5,7 @@ build
 coverage
 .turbo
 *.tsbuildinfo
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env

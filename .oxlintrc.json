@@ -32,14 +32,19 @@
     "eslint/no-inline-comments": "off",
     "eslint/no-magic-numbers": "off",
     "eslint/no-void": "off",
+    "eslint/require-await": "off",
+    "eslint/no-negated-condition": "off",
     "eslint/no-undefined": "error",
 
     "import/no-duplicates": ["error", { "preferInline": false }],
     "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
     "import/prefer-default-export": "off",
     "import/no-default-export": "off",
+    "import/no-named-export": "off",
     "import/no-namespace": "off",
     "import/max-dependencies": "off",
+    "import/exports-last": "off",
+    "import/group-exports": "off",
 
     "oxc/no-async-await": "off",
     "oxc/no-optional-chaining": "off",
@@ -49,6 +54,7 @@
     "typescript/explicit-function-return-type": "off",
     "typescript/explicit-module-boundary-types": "off",
     "typescript/require-await": "off",
+    "typescript/prefer-readonly-parameter-types": "off",
 
     "unicorn/no-null": "off",
     "unicorn/catch-error-name": ["error", { "ignore": ["e", "err", "error"] }],

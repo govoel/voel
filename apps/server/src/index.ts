@@ -1,5 +1,32 @@
-import { Effect } from 'effect';
+import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
+import { Effect, Layer, pipe } from 'effect';
+import { HttpRouter } from 'effect/unstable/http';
+import { HttpApiBuilder } from 'effect/unstable/httpapi';
 
-const program = Effect.log('Hello world');
+import { Api } from '@repo/spec-api';
 
-await Effect.runPromise(program);
+import { Auth, AuthMiddlewareLive, AuthRouterLive } from '#src/services/auth.ts';
+import { ApiConfig } from '#src/services/config.ts';
+import { DatabaseLive } from '#src/services/database.ts';
+
+export const AllRoutes = HttpApiBuilder.layer(Api).pipe(
+  Layer.provideMerge(Layer.mergeAll(AuthRouterLive)),
+  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive)),
+  Layer.provideMerge(Layer.mergeAll(Auth.layer)),
+  Layer.provideMerge(Layer.mergeAll(DatabaseLive))
+);
+
+if (import.meta.main) {
+  const HttpServerLive = pipe(
+    Effect.service(ApiConfig),
+    Effect.map((config) => BunHttpServer.layer({ port: config.server.port })),
+    Layer.unwrap
+  );
+
+  const ServerLive = HttpRouter.serve(AllRoutes).pipe(
+    Layer.provide(Layer.mergeAll(HttpServerLive)),
+    Layer.provideMerge(Layer.mergeAll(ApiConfig.layer))
+  );
+
+  BunRuntime.runMain(Layer.launch(ServerLive));
+}

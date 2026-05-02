@@ -29,8 +29,8 @@
     "noPropertyAccessFromIndexSignature": true,
     "exactOptionalPropertyTypes": true,
 
-    "composite": true,
     "incremental": true,
+    "allowImportingTsExtensions": true,
 
     "types": ["bun-types"]
   }
