@@ -1,3 +1,4 @@
+import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { Context, Effect, Layer, Redacted } from 'effect';
 import { HttpEffect, HttpRouter, HttpServerRequest } from 'effect/unstable/http';
 import { HttpApiError } from 'effect/unstable/httpapi';
@@ -8,9 +9,12 @@ import { AuthMiddleware, CurrentSession } from '@repo/spec-api';
 import { ApiConfig } from '#src/services/config.ts';
 
 export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', {
-  make: Effect.service(ApiConfig).pipe(
-    Effect.map((config) => createAuth({ secret: Redacted.value(config.auth.secret) }))
-  ),
+  make: Effect.gen(function* () {
+    const config = yield* ApiConfig;
+    const sql = yield* SqliteClient.SqliteClient;
+
+    return createAuth({ secret: Redacted.value(config.auth.secret), database: sql.database });
+  }),
 }) {
   public static readonly layer = Layer.effect(this, this.make);
 }

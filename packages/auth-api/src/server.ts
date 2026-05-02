@@ -1,21 +1,13 @@
+import type Database from 'bun:sqlite';
+
 import { expo } from '@better-auth/expo';
-import { SqliteClient } from '@effect/sql-sqlite-bun';
-import { createAdapterFactory } from 'better-auth/adapters';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { betterAuth } from 'better-auth/minimal';
 import { admin, username } from 'better-auth/plugins';
-import type { Context } from 'effect';
-import { Duration, Effect } from 'effect';
+import { Duration } from 'effect';
 
-export const createAuth = <
-  R extends SqliteClient.SqliteClient = SqliteClient.SqliteClient,
->(config: {
-  secret: string;
-  effect: { context: Context.Context<R> };
-}) => {
-  const runtime = Effect.runPromiseWith(config.effect.context);
-
-  return betterAuth({
+export const createAuth = (config: { secret: string; database: Database }) =>
+  betterAuth({
     appName: 'Voel',
     basePath: '/api/auth',
     secret: config.secret,
@@ -30,34 +22,7 @@ export const createAuth = <
         maxAge: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
       },
     },
-    database: () =>
-      createAdapterFactory({
-        config: {
-          adapterId: 'effect',
-          adapterName: 'Effect',
-          usePlural: false,
-          debugLogs: false,
-          supportsNumericIds: true,
-          supportsUUIDs: false,
-          supportsJSON: false,
-          supportsDates: false,
-          supportsBooleans: false,
-          supportsArrays: false,
-        },
-        adapter: () => ({
-          create: async <T extends Record<string, any>>({ data, model, select }) => {
-            const result = await runtime(
-              Effect.service(SqliteClient.SqliteClient).pipe(
-                Effect.flatMap((sql) =>
-                  Array.isArray(select) && select.length > 0
-                    ? sql<T>`INSERT INTO ${sql(model)} ${sql.insert(data)} RETURNING ${sql.csv(select)}`
-                    : sql<T>`INSERT INTO ${sql(model)} ${sql.insert(data)}`
-                )
-              )
-            );
-          },
-        }),
-      }),
+    database: config.database,
     plugins: [
       expo(),
       username(),
@@ -114,7 +79,6 @@ export const createAuth = <
       }),
     },
   });
-};
 
 export type BetterAuthInstance = ReturnType<typeof createAuth>;
 
