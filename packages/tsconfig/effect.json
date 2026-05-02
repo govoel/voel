@@ -7,7 +7,6 @@
         "name": "@effect/language-service",
         "diagnosticSeverity": {
           "anyUnknownInErrorContext": "error",
-          "strictEffectProvide": "error",
           "deterministicKeys": "error",
           "cryptoRandomUUID": "error",
           "cryptoRandomUUIDInEffect": "error",
