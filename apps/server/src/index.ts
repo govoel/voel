@@ -1,29 +1,32 @@
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
-import { Effect, Layer } from 'effect';
-import { HttpRouter, HttpServer } from 'effect/unstable/http';
+import { Effect, Layer, pipe } from 'effect';
+import { HttpRouter } from 'effect/unstable/http';
 import { HttpApiBuilder } from 'effect/unstable/httpapi';
 
 import { Api } from '@repo/spec-api';
 
 import { Auth, AuthMiddlewareLive, AuthRouterLive } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
+import { DatabaseLive } from '#src/services/database.ts';
 
-const HttpServerLive = Layer.effect(
-  HttpServer.HttpServer,
-  Effect.service(ApiConfig).pipe(
-    Effect.flatMap((config) => BunHttpServer.make({ port: config.server.port }))
-  )
-);
-
-const ApiLive = HttpApiBuilder.layer(Api).pipe(
+export const AllRoutes = HttpApiBuilder.layer(Api).pipe(
   Layer.provideMerge(Layer.mergeAll(AuthRouterLive)),
   Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive)),
-  Layer.provideMerge(Layer.mergeAll(Auth.layer))
+  Layer.provideMerge(Layer.mergeAll(Auth.layer)),
+  Layer.provideMerge(Layer.mergeAll(DatabaseLive))
 );
 
-const ServerLive = HttpRouter.serve(ApiLive).pipe(
-  Layer.provide(Layer.mergeAll(HttpServerLive, HttpServer.layerServices)),
-  Layer.provideMerge(Layer.mergeAll(ApiConfig.layer))
-);
+if (import.meta.main) {
+  const HttpServerLive = pipe(
+    Effect.service(ApiConfig),
+    Effect.map((config) => BunHttpServer.layer({ port: config.server.port })),
+    Layer.unwrap
+  );
 
-BunRuntime.runMain(Layer.launch(ServerLive));
+  const ServerLive = HttpRouter.serve(AllRoutes).pipe(
+    Layer.provide(Layer.mergeAll(HttpServerLive)),
+    Layer.provideMerge(Layer.mergeAll(ApiConfig.layer))
+  );
+
+  BunRuntime.runMain(Layer.launch(ServerLive));
+}

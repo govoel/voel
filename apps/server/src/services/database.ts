@@ -17,7 +17,7 @@ export const DatabaseLive = Layer.provideMerge(
 
       yield* runMigrations({
         loader: Migrator.fromRecord({
-          '000001-initialAuthTables': initialTables,
+          '000001_initialAuthTables': initialTables,
         }),
       });
     })

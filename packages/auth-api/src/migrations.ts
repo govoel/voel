@@ -19,8 +19,9 @@ export const initialTables = Effect.gen(function* () {
       "banExpires" date,
       "createdAt" date not null,
       "updatedAt" date not null
-    );
+    );`;
 
+  yield* sql`
     create table "session" (
       "id" text not null primary key,
       "expiresAt" date not null,
@@ -31,10 +32,11 @@ export const initialTables = Effect.gen(function* () {
       "impersonatedBy" text,
       "createdAt" date not null,
       "updatedAt" date not null
-    );
+    );`;
 
-    create index "session_userId_idx" on "session" ("userId");
+  yield* sql`create index "session_userId_idx" on "session" ("userId");`;
 
+  yield* sql`
     create table "account" (
       "id" text not null primary key,
       "accountId" text not null,
@@ -49,10 +51,11 @@ export const initialTables = Effect.gen(function* () {
       "password" text,
       "createdAt" date not null,
       "updatedAt" date not null
-    );
+    );`;
 
-    create index "account_userId_idx" on "account" ("userId");
+  yield* sql`create index "account_userId_idx" on "account" ("userId");`;
 
+  yield* sql`
     create table "verification" (
       "id" text not null primary key,
       "identifier" text not null,
@@ -60,8 +63,7 @@ export const initialTables = Effect.gen(function* () {
       "expiresAt" date not null,
       "createdAt" date not null,
       "updatedAt" date not null
-    );
+    );`;
 
-    create index "verification_identifier_idx" on "verification" ("identifier");
-  `;
+  yield* sql`create index "verification_identifier_idx" on "verification" ("identifier");`;
 });

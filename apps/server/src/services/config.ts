@@ -19,4 +19,9 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
   public static readonly layer = Layer.effect(this, this.make).pipe(
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))
   );
+
+  public static readonly layerTest = (config: unknown) =>
+    Layer.effect(this, this.make).pipe(
+      Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(config)))
+    );
 }

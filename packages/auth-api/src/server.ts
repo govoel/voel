@@ -13,7 +13,7 @@ export const createAuth = (config: { secret: string; database: Database }) =>
     secret: config.secret,
     experimental: { joins: true },
     advanced: { cookiePrefix: 'auth' },
-    emailAndPassword: { enabled: false, autoSignIn: true, disableSignUp: true },
+    emailAndPassword: { enabled: true, autoSignIn: true, disableSignUp: true },
     telemetry: { enabled: false },
     trustedOrigins: ['voel://'],
     session: {
