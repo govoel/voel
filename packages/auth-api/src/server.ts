@@ -1,6 +1,5 @@
 import type Database from 'bun:sqlite';
 
-import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { admin, username } from 'better-auth/plugins';
@@ -24,7 +23,6 @@ export const createAuth = (config: { secret: string; database: Database }) =>
     },
     database: config.database,
     plugins: [
-      expo(),
       username(),
       admin({ defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
       {
