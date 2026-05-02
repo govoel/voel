@@ -8,6 +8,7 @@
   },
   "exports": {
     "./client.ts": "./src/client.ts",
+    "./migrations.ts": "./src/migrations.ts",
     "./server.ts": "./src/server.ts"
   },
   "scripts": {

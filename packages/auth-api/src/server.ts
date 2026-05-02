@@ -1,8 +1,8 @@
 import type Database from 'bun:sqlite';
 
 import { expo } from '@better-auth/expo';
+import { betterAuth } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
-import { betterAuth } from 'better-auth/minimal';
 import { admin, username } from 'better-auth/plugins';
 import { Duration } from 'effect';
 
