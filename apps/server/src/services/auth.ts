@@ -1,5 +1,5 @@
 import { SqliteClient } from '@effect/sql-sqlite-bun';
-import { Context, Effect, Layer, Redacted } from 'effect';
+import { Context, Effect, Layer, Match, Redacted } from 'effect';
 import { HttpEffect, HttpRouter, HttpServerRequest } from 'effect/unstable/http';
 import { HttpApiError } from 'effect/unstable/httpapi';
 
@@ -13,7 +13,35 @@ export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', 
     const config = yield* ApiConfig;
     const sql = yield* SqliteClient.SqliteClient;
 
-    return createAuth({ secret: Redacted.value(config.auth.secret), database: sql.database });
+    const runtime = Effect.runSyncWith(yield* Effect.context());
+
+    return createAuth({
+      secret: Redacted.value(config.auth.secret),
+      database: sql.database,
+      logger: {
+        log: (level, message, ...args) => {
+          Match.value(level).pipe(
+            Match.when('debug', () => {
+              runtime(Effect.logDebug(message, args));
+              return void 0;
+            }),
+            Match.when('info', () => {
+              runtime(Effect.logInfo(message, args));
+              return void 0;
+            }),
+            Match.when('warn', () => {
+              runtime(Effect.logWarning(message, args));
+              return void 0;
+            }),
+            Match.when('error', () => {
+              runtime(Effect.logError(message, args));
+              return void 0;
+            }),
+            Match.exhaustive
+          );
+        },
+      },
+    });
   }),
 }) {
   public static readonly layer = Layer.effect(this, this.make);
