@@ -1,0 +1,6 @@
+[
+  {
+    "label": "server: dev",
+    "command": "cd $ZED_WORKTREE_ROOT/apps/server && bun run dev"
+  }
+]

@@ -7,7 +7,7 @@ import { Api } from '@repo/spec-api';
 
 import { Auth, AuthMiddlewareLive, AuthRouterLive } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
-import { DatabaseLive } from '#src/services/database.ts';
+import { DatabaseLive } from '#src/services/database/index.ts';
 
 export const AllRoutes = HttpApiBuilder.layer(Api).pipe(
   Layer.provideMerge(Layer.mergeAll(AuthRouterLive)),
