@@ -5,6 +5,7 @@ import { Migrator, SqlClient } from 'effect/unstable/sql';
 import { initialTables } from '@repo/auth-api/migrations.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
+import { baseTables } from '#src/services/database/migrations/000001-base-tables.ts';
 
 const runMigrations = Migrator.make({});
 
@@ -18,8 +19,16 @@ export const DatabaseLive = Layer.provideMerge(
       yield* runMigrations({
         loader: Migrator.fromRecord({
           '000001_initialAuthTables': initialTables,
+          '000002_baseTables': baseTables,
         }),
-      });
+      }).pipe(
+        Effect.tap((results) =>
+          results.length === 0
+            ? Effect.void
+            : Effect.logInfo('Database migrations ran successfully', { results })
+        ),
+        Effect.tapError((error) => Effect.logError('Database migrations failed', { error }))
+      );
     })
   ),
   Effect.service(ApiConfig).pipe(
