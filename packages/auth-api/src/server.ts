@@ -1,11 +1,16 @@
 import type Database from 'bun:sqlite';
 
 import { betterAuth } from 'better-auth';
+import type { BetterAuthOptions } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { admin, username } from 'better-auth/plugins';
 import { Duration } from 'effect';
 
-export const createAuth = (config: { secret: string; database: Database }) =>
+export const createAuth = (config: {
+  secret: NonNullable<BetterAuthOptions['secret']>;
+  database: Database;
+  logger: BetterAuthOptions['logger'];
+}) =>
   betterAuth({
     appName: 'Voel',
     basePath: '/api/auth',
@@ -15,6 +20,7 @@ export const createAuth = (config: { secret: string; database: Database }) =>
     emailAndPassword: { enabled: true, autoSignIn: true, disableSignUp: true },
     telemetry: { enabled: false },
     trustedOrigins: ['voel://'],
+    logger: config.logger,
     session: {
       cookieCache: {
         enabled: true,
