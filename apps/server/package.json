@@ -13,15 +13,15 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.59",
-    "@effect/sql-sqlite-bun": "4.0.0-beta.59",
+    "@effect/platform-bun": "4.0.0-beta.60",
+    "@effect/sql-sqlite-bun": "4.0.0-beta.60",
     "@repo/auth-api": "workspace:*",
     "@repo/spec-api": "workspace:*",
-    "effect": "4.0.0-beta.59"
+    "effect": "4.0.0-beta.60"
   },
   "devDependencies": {
     "@effect/language-service": "0.85.1",
-    "@effect/vitest": "4.0.0-beta.59",
+    "@effect/vitest": "4.0.0-beta.60",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.3.13",
     "portless": "0.12.0",
