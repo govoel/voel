@@ -1,3 +1,4 @@
+import type { Cause } from 'effect';
 import { Context, Effect, Schema, SchemaIssue } from 'effect';
 import { SqlClient, SqlError, SqlSchema } from 'effect/unstable/sql';
 
@@ -22,6 +23,39 @@ export class DatabaseSqlError extends Schema.TaggedErrorClass<DatabaseSqlError>(
 ) {}
 
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
+
+const toDatabaseDecodeOrSqlError =
+  <A, E, R>(operation: string) =>
+  (
+    effect: Effect.Effect<
+      A,
+      E | Cause.NoSuchElementError | Schema.SchemaError | SqlError.SqlError,
+      R
+    >
+  ) =>
+    effect.pipe(
+      Effect.catchTag('NoSuchElementError', (error) =>
+        new DatabaseDecodeError({
+          operation: `${operation}.nse`,
+          issue: '',
+          cause: error,
+        }).asEffect()
+      ),
+      Effect.catchTag('SchemaError', (error) =>
+        new DatabaseDecodeError({
+          operation: `${operation}.schema`,
+          issue: defaultFormatter(error.issue),
+          cause: error,
+        }).asEffect()
+      ),
+      Effect.catchTag('SqlError', (error) =>
+        new DatabaseSqlError({
+          operation: `${operation}.sql`,
+          issue: 'Failed to execute LibraryRepository.upsert:upsert',
+          cause: error,
+        }).asEffect()
+      )
+    );
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
   '@repo/server/services/database/repos/library/LibraryRepository',
@@ -62,8 +96,12 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         Result: LibraryTable,
         execute: Effect.fn(
           function* (row) {
-            const library = yield* insert({ type: row.type, name: row.name });
-            const paths = yield* insertPaths({ libraryId: library.id, paths: row.paths });
+            const library = yield* insert({ type: row.type, name: row.name }).pipe(
+              toDatabaseDecodeOrSqlError('LibraryRepository.insert')
+            );
+            const paths = yield* insertPaths({ libraryId: library.id, paths: row.paths }).pipe(
+              toDatabaseDecodeOrSqlError('LibraryRepository.insertPaths')
+            );
             return [{ id: library.id, name: library.name, type: library.type, paths }];
           },
           (effect) => effect.pipe(sql.withTransaction)
@@ -72,28 +110,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
 
       return {
         upsert: (request: Parameters<typeof upsert>['0']) =>
-          upsert(request).pipe(
-            Effect.catchTags({
-              NoSuchElementError: (error) =>
-                new DatabaseDecodeError({
-                  operation: 'LibraryRepository.upsert:nse',
-                  issue: '',
-                  cause: error,
-                }).asEffect(),
-              SchemaError: (error) =>
-                new DatabaseDecodeError({
-                  operation: 'LibraryRepository.upsert:schema',
-                  issue: defaultFormatter(error.issue),
-                  cause: error,
-                }).asEffect(),
-              SqlError: (error) =>
-                new DatabaseSqlError({
-                  operation: 'LibraryRepository.upsert:upsert',
-                  issue: 'Failed to execute LibraryRepository.upsert:upsert',
-                  cause: error,
-                }).asEffect(),
-            })
-          ),
+          upsert(request).pipe(toDatabaseDecodeOrSqlError('LibraryRepository.upsert')),
       };
     }),
   }

@@ -62,7 +62,8 @@
     "unicorn/no-nested-ternary": "off",
     "unicorn/no-abusive-eslint-disable": "off",
 
-    "promise/prefer-await-to-then": "off"
+    "promise/prefer-await-to-then": "off",
+    "promise/prefer-await-to-callbacks": "off"
   },
   "jsPlugins": ["eslint-plugin-turbo"]
 }
