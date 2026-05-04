@@ -7,7 +7,8 @@
     "#src/*": "./src/*"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./auth.ts": "./src/auth.ts"
   },
   "scripts": {
     "dev": "portless server bun run --watch src/index.ts",
