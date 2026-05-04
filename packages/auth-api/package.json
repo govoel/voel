@@ -17,9 +17,9 @@
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {
-    "@effect/sql-sqlite-bun": "4.0.0-beta.59",
+    "@effect/sql-sqlite-bun": "4.0.0-beta.60",
     "better-auth": "1.6.9",
-    "effect": "4.0.0-beta.59"
+    "effect": "4.0.0-beta.60"
   },
   "devDependencies": {
     "@effect/language-service": "0.85.1",
