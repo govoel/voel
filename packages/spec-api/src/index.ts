@@ -1,7 +1,6 @@
-import { HttpApi } from 'effect/unstable/httpapi';
+import { RpcGroup } from 'effect/unstable/rpc';
 
-import { AuthMiddleware } from '#src/auth.ts';
+import { Library } from '#src/groups/library.ts';
+import { AuthMiddleware } from '#src/middlewares/auth.ts';
 
-export const Api = HttpApi.make('Api').middleware(AuthMiddleware).prefix('/api');
-
-export { AuthMiddleware, CurrentSession } from '#src/auth.ts';
+export const Api = RpcGroup.make().merge(Library).middleware(AuthMiddleware);
