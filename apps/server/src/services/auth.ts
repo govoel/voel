@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Match, Redacted } from 'effect';
 import { HttpEffect, HttpRouter } from 'effect/unstable/http';
 
 import { createAuth } from '@repo/auth-api/server.ts';
-import { AuthMiddleware, CurrentSession, Unauthorized } from '@repo/spec-api/auth.ts';
+import { AuthMiddleware, CurrentSession, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
 

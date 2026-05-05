@@ -5,10 +5,11 @@ import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
 import { Api } from '@repo/spec-api';
 
-import { LibraryLayer } from '#src/groups/library.ts';
+import { LibraryRpcGroupLayer } from '#src/groups/library.ts';
 import { Auth, AuthMiddlewareLive, AuthRouterLive } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { DatabaseLive } from '#src/services/database/index.ts';
+import { LibraryRepository } from '#src/services/database/repos/library.ts';
 
 export const AllRoutes = RpcServer.layerHttp({
   group: Api,
@@ -16,9 +17,9 @@ export const AllRoutes = RpcServer.layerHttp({
   protocol: 'http',
   concurrency: 'unbounded',
 }).pipe(
-  Layer.provideMerge(Layer.mergeAll(AuthRouterLive, LibraryLayer)),
+  Layer.provideMerge(Layer.mergeAll(AuthRouterLive, LibraryRpcGroupLayer)),
   Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive)),
-  Layer.provideMerge(Layer.mergeAll(Auth.layer)),
+  Layer.provideMerge(Layer.mergeAll(LibraryRepository.layer, Auth.layer)),
   Layer.provideMerge(Layer.mergeAll(DatabaseLive)),
   Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerMsgPack))
 );

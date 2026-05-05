@@ -1,61 +1,8 @@
-import type { Cause } from 'effect';
-import { Context, Effect, Schema, SchemaIssue } from 'effect';
-import { SqlClient, SqlError, SqlSchema } from 'effect/unstable/sql';
+import { Context, Effect, Layer, Schema } from 'effect';
+import { SqlClient, SqlSchema } from 'effect/unstable/sql';
 
-import { LibraryTable, MediaTypes } from '@repo/spec-api/library.ts';
-
-export class DatabaseDecodeError extends Schema.TaggedErrorClass<DatabaseDecodeError>()(
-  '@repo/server/services/database/repos/library/DatabaseDecodeError',
-  {
-    operation: Schema.String,
-    issue: Schema.String,
-    cause: Schema.optional(Schema.Defect),
-  }
-) {}
-
-export class DatabaseSqlError extends Schema.TaggedErrorClass<DatabaseSqlError>()(
-  '@repo/server/services/database/repos/library/DatabaseSqlError',
-  {
-    operation: Schema.String,
-    issue: Schema.String,
-    cause: SqlError.SqlError,
-  }
-) {}
-
-const defaultFormatter = SchemaIssue.makeFormatterDefault();
-
-const toDatabaseDecodeOrSqlError =
-  <A, E, R>(operation: string) =>
-  (
-    effect: Effect.Effect<
-      A,
-      E | Cause.NoSuchElementError | Schema.SchemaError | SqlError.SqlError,
-      R
-    >
-  ) =>
-    effect.pipe(
-      Effect.catchTag('NoSuchElementError', (error) =>
-        new DatabaseDecodeError({
-          operation: `${operation}.nse`,
-          issue: '',
-          cause: error,
-        }).asEffect()
-      ),
-      Effect.catchTag('SchemaError', (error) =>
-        new DatabaseDecodeError({
-          operation: `${operation}.schema`,
-          issue: defaultFormatter(error.issue),
-          cause: error,
-        }).asEffect()
-      ),
-      Effect.catchTag('SqlError', (error) =>
-        new DatabaseSqlError({
-          operation: `${operation}.sql`,
-          issue: 'Failed to execute LibraryRepository.upsert:upsert',
-          cause: error,
-        }).asEffect()
-      )
-    );
+import { toDatabaseDecodeOrSqlError } from '@repo/spec-api/database/index.ts';
+import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
   '@repo/server/services/database/repos/library/LibraryRepository',
@@ -114,4 +61,6 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
       };
     }),
   }
-) {}
+) {
+  public static readonly layer = Layer.effect(this, this.make);
+}
