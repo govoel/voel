@@ -6,7 +6,7 @@ import { LibraryTable, MediaTypes } from '#src/database/library.ts';
 
 export const Library = RpcGroup.make()
   .add(
-    Rpc.make('create', {
+    Rpc.make('Create', {
       payload: {
         type: MediaTypes,
         name: Schema.String,
@@ -16,4 +16,4 @@ export const Library = RpcGroup.make()
       error: DatabaseError,
     })
   )
-  .prefix('library.');
+  .prefix('library');
