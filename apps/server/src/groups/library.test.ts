@@ -12,22 +12,43 @@ import { LibraryRepository } from '#src/services/database/repos/library.ts';
 const TestLayer = LibraryRpcGroupLayer.pipe(
   Layer.provideMerge(LibraryRepository.layer),
   Layer.provideMerge(DatabaseLive),
-  Layer.provideMerge(ApiConfig.layerTest({ AUTH_SECRET: 'test', DB_FILENAME: ':memory:' }))
+  Layer.provideMerge(ApiConfig.layerTest())
 );
 
-it.effect('should create a library', () =>
-  Effect.gen(function* () {
-    const client = yield* RpcTest.makeClient(Library);
+it.layer(TestLayer)('library', (iit) => {
+  iit.effect(
+    'should create a library',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
 
-    const result = yield* client.libraryCreate({
-      type: 'movie',
-      name: 'My Movies',
-      paths: ['/movies/action'],
-    });
+      const result = yield* client.libraryCreate({
+        type: 'movie',
+        name: 'My Movies',
+        paths: ['/movies/action'],
+      });
 
-    expect(result.name).toBe('My Movies');
-    expect(result.type).toBe('movie');
-    expect(result.paths).toEqual(['/movies/action']);
-    expect(typeof result.id).toBe('number');
-  }).pipe(Effect.provide(TestLayer))
-);
+      expect(result.name).toBe('My Movies');
+      expect(result.type).toBe('movie');
+      expect(result.paths).toEqual(['/movies/action']);
+      expect(result.id).toBeTypeOf('number');
+    })
+  );
+
+  iit.effect(
+    'should create a library with multiple paths',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result = yield* client.libraryCreate({
+        type: 'show',
+        name: 'My TV Shows',
+        paths: ['/tv/comedy', '/tv/drama'],
+      });
+
+      expect(result.name).toBe('My TV Shows');
+      expect(result.type).toBe('show');
+      expect(result.paths).toEqual(['/tv/comedy', '/tv/drama']);
+      expect(result.id).toBeTypeOf('number');
+    })
+  );
+});
