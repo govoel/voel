@@ -237,12 +237,14 @@ export const baseTables = Effect.gen(function* () {
     create table libraryPath (
       "id" integer not null primary key autoincrement,
       "libraryId" integer not null references library (id) on delete cascade on update cascade,
-      "path" text not null unique,
+      "absolutePath" text not null,
       "createdAt" integer not null default (unixepoch()),
       "updatedAt" integer not null default (unixepoch()),
       "deletedAt" integer
     ) strict;
   `;
+
+  yield* createUniqueIndex({ table: 'libraryPath', columns: ['libraryId', 'absolutePath'] });
 
   yield* createIndex({ table: 'libraryPath', columns: ['libraryId'] });
   yield* createIndex({ table: 'libraryPath', columns: ['updatedAt'] });
@@ -250,19 +252,29 @@ export const baseTables = Effect.gen(function* () {
 
   yield* createUpdatedAtTrigger({
     table: 'libraryPath',
-    columns: ['id', 'libraryId', 'path', 'deletedAt'],
+    columns: ['id', 'libraryId', 'absolutePath', 'deletedAt'],
   });
+
+  yield* sql`
+    create table mediaFile (
+      "id" integer not null primary key autoincrement,
+      "absolutePath" text not null unique,
+      "durationMs" integer not null,
+      "createdAt" integer not null default (unixepoch()),
+      "updatedAt" integer not null default (unixepoch()),
+      "deletedAt" integer
+    ) strict;
+  `;
 
   yield* sql`
     create table libraryFileMap (
       "id" integer not null primary key autoincrement,
       "libraryId" integer not null references library (id) on delete cascade on update cascade,
-      "path" text not null unique,
+      "mediaFileId" integer not null references mediaFile (id) on delete cascade on update cascade,
       "mediaItemId" integer references mediaItem (id) on delete cascade on update cascade,
       "matchFailureReason" text,
       "variant" text not null default ('default'),
       "customOrder" integer not null,
-      "durationMs" integer not null,
       "createdAt" integer not null default (unixepoch()),
       "updatedAt" integer not null default (unixepoch()),
       "deletedAt" integer,
@@ -270,8 +282,13 @@ export const baseTables = Effect.gen(function* () {
     ) strict;
   `;
 
+  yield* createUniqueIndex({
+    table: 'libraryFileMap',
+    columns: ['libraryId', 'mediaFileId'],
+  });
+
   yield* createIndex({ table: 'libraryFileMap', columns: ['libraryId'] });
-  yield* createIndex({ table: 'libraryFileMap', columns: ['path'] });
+  yield* createIndex({ table: 'libraryFileMap', columns: ['mediaFileId'] });
   yield* createIndex({ table: 'libraryFileMap', columns: ['mediaItemId'] });
   yield* createIndex({ table: 'libraryFileMap', columns: ['matchFailureReason'] });
   yield* createIndex({ table: 'libraryFileMap', columns: ['variant'] });
@@ -283,7 +300,7 @@ export const baseTables = Effect.gen(function* () {
     columns: [
       'id',
       'libraryId',
-      'path',
+      'mediaFileId',
       'mediaItemId',
       'matchFailureReason',
       'variant',
