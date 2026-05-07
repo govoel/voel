@@ -2,6 +2,7 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/unstable/rpc';
 
+import { MediaTypes } from '@repo/spec-api/database/library.js';
 import { Library } from '@repo/spec-api/groups/library.ts';
 
 import { LibraryRpcGroupLayer } from '#src/groups/library.ts';
@@ -16,38 +17,38 @@ const TestLayer = LibraryRpcGroupLayer.pipe(
 );
 
 it.layer(TestLayer)('library', (iit) => {
-  iit.effect(
-    'should create a library',
-    Effect.fnUntraced(function* () {
+  iit.effect.each(MediaTypes.literals)(
+    'should create a %s library',
+    Effect.fn(function* (type) {
       const client = yield* RpcTest.makeClient(Library);
 
       const result = yield* client.libraryCreate({
-        type: 'movie',
-        name: 'My Movies',
-        paths: ['/movies/action'],
+        type,
+        name: `My ${type}`,
+        paths: [`/${type}/path`],
       });
 
-      expect(result.name).toBe('My Movies');
-      expect(result.type).toBe('movie');
-      expect(result.paths).toEqual(['/movies/action']);
+      expect(result.name).toBe(`My ${type}`);
+      expect(result.type).toBe(type);
+      expect(result.paths).toEqual([`/${type}/path`]);
       expect(result.id).toBeTypeOf('number');
     })
   );
 
-  iit.effect(
-    'should create a library with multiple paths',
-    Effect.fnUntraced(function* () {
+  iit.effect.each(MediaTypes.literals)(
+    'should create a %s library with multiple paths',
+    Effect.fn(function* (type) {
       const client = yield* RpcTest.makeClient(Library);
 
       const result = yield* client.libraryCreate({
-        type: 'show',
-        name: 'My TV Shows',
-        paths: ['/tv/comedy', '/tv/drama'],
+        type,
+        name: `My ${type} Multi`,
+        paths: [`/${type}/path1`, `/${type}/path2`],
       });
 
-      expect(result.name).toBe('My TV Shows');
-      expect(result.type).toBe('show');
-      expect(result.paths).toEqual(['/tv/comedy', '/tv/drama']);
+      expect(result.name).toBe(`My ${type} Multi`);
+      expect(result.type).toBe(type);
+      expect(result.paths).toEqual([`/${type}/path1`, `/${type}/path2`]);
       expect(result.id).toBeTypeOf('number');
     })
   );
