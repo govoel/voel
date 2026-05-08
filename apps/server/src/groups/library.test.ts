@@ -52,4 +52,30 @@ it.layer(TestLayer)('library', (iit) => {
       expect(result.id).toBeTypeOf('number');
     })
   );
+
+  iit.effect.each(MediaTypes.literals)(
+    'should soft delete a %s library and recreate it',
+    Effect.fn(function* (type) {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result1 = yield* client.libraryCreate({
+        type,
+        name: `My ${type} Delete`,
+        paths: [`/${type}/path-delete`],
+      });
+
+      yield* client.libraryDelete({ id: result1.id });
+
+      const result2 = yield* client.libraryCreate({
+        type,
+        name: `My ${type} Delete`,
+        paths: [`/${type}/path-delete`],
+      });
+
+      expect(result2.id).toBe(result1.id);
+      expect(result2.name).toBe(`My ${type} Delete`);
+      expect(result2.type).toBe(type);
+      expect(result2.paths).toEqual([`/${type}/path-delete`]);
+    })
+  );
 });

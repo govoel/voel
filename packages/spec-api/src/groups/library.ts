@@ -16,4 +16,11 @@ export const Library = RpcGroup.make()
       error: DatabaseError,
     })
   )
+  .add(
+    Rpc.make('Delete', {
+      payload: Schema.Struct({ id: LibraryTable.fields.id }),
+      success: Schema.Void,
+      error: DatabaseError,
+    })
+  )
   .prefix('library');

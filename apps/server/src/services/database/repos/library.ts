@@ -21,7 +21,9 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           type: LibraryTable.fields.type,
         }),
         execute: (row) =>
-          sql`insert into library ${sql.insert(row)} on conflict do nothing returning id, name, type`,
+          sql`insert into library ${sql.insert(row)}
+                on conflict (name) do update set type = excluded.type, deletedAt = null
+                returning id, name, type`,
       });
 
       const insertPaths = SqlSchema.findAll({
@@ -29,9 +31,26 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           libraryId: LibraryTable.fields.id,
           paths: Schema.NonEmptyArray(Schema.String),
         }),
-        Result: Schema.Struct({ path: Schema.String }),
+        Result: Schema.Struct({ absolutePath: Schema.String }),
         execute: ({ libraryId, paths }) =>
-          sql`insert into libraryPath ${sql.insert(paths.map((path) => ({ libraryId, path })))} returning path`,
+          sql`insert into libraryPath ${sql.insert(paths.map((path) => ({ libraryId, absolutePath: path })))}
+                on conflict (libraryId, absolutePath) do update set deletedAt = null
+                returning absolutePath`,
+      });
+
+      const remove = SqlSchema.void({
+        Request: Schema.Struct({ id: LibraryTable.fields.id }),
+        execute: Effect.fn(
+          function* ({ id }) {
+            yield* sql`update libraryPath set deletedAt = unixepoch() where libraryId = ${id}`.pipe(
+              toDatabaseDecodeOrSqlError('LibraryRepository.removePaths')
+            );
+            yield* sql`update library set deletedAt = unixepoch() where id = ${id}`.pipe(
+              toDatabaseDecodeOrSqlError('LibraryRepository.removeLibrary')
+            );
+          },
+          (effect) => effect.pipe(sql.withTransaction)
+        ),
       });
 
       const upsert = SqlSchema.findOne({
@@ -54,7 +73,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
                 id: library.id,
                 name: library.name,
                 type: library.type,
-                paths: paths.map((p) => p.path),
+                paths: paths.map((p) => p.absolutePath),
               },
             ];
           },
@@ -65,6 +84,8 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
       return {
         upsert: (request: Parameters<typeof upsert>['0']) =>
           upsert(request).pipe(toDatabaseDecodeOrSqlError('LibraryRepository.upsert')),
+        remove: (request: Parameters<typeof remove>['0']) =>
+          remove(request).pipe(toDatabaseDecodeOrSqlError('LibraryRepository.remove')),
       };
     }),
   }

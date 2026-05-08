@@ -10,6 +10,7 @@ export const LibraryRpcGroupLayer = Library.toLayer(
 
     return Library.of({
       libraryCreate: (payload) => libraryRepo.upsert(payload),
+      libraryDelete: (payload) => libraryRepo.remove(payload),
     });
   })
 );
