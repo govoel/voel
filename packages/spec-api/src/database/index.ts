@@ -25,7 +25,7 @@ export const DatabaseError = Schema.Union([DatabaseDecodeError, DatabaseSqlError
 
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
 
-export const toDatabaseDecodeOrSqlError =
+export const toDatabaseError =
   <A, E, R>(operation: string) =>
   (
     effect: Effect.Effect<
@@ -35,28 +35,25 @@ export const toDatabaseDecodeOrSqlError =
     >
   ) =>
     effect.pipe(
-      Effect.mapError((error) => {
-        if (Schema.isSchemaError(error)) {
-          return new DatabaseDecodeError({
-            operation: `${operation}.schema`,
-            issue: defaultFormatter(error.issue),
-            cause: error,
-          });
-        }
-        if (SqlError.isSqlError(error)) {
-          return new DatabaseSqlError({
-            operation: `${operation}.sql`,
-            issue: `Failed to execute ${operation}.sql (${error.message})`,
-            cause: error,
-          });
-        }
-        if (Cause.isNoSuchElementError(error)) {
-          return new DatabaseDecodeError({
-            operation: `${operation}.nse`,
-            issue: 'Database returned no rows when at least one was expected',
-            cause: error,
-          });
-        }
-        return error;
-      })
+      Effect.catchIf(Schema.isSchemaError, (error) =>
+        new DatabaseDecodeError({
+          operation: `${operation}.schema`,
+          issue: defaultFormatter(error.issue),
+          cause: error,
+        }).asEffect()
+      ),
+      Effect.catchIf(SqlError.isSqlError, (error) =>
+        new DatabaseSqlError({
+          operation: `${operation}.sql`,
+          issue: `Failed to execute ${operation}.sql (${error.message})`,
+          cause: error,
+        }).asEffect()
+      ),
+      Effect.catchIf(Cause.isNoSuchElementError, (error) =>
+        new DatabaseDecodeError({
+          operation: `${operation}.nse`,
+          issue: 'Database returned no rows when at least one was expected',
+          cause: error,
+        }).asEffect()
+      )
     );

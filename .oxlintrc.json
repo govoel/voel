@@ -35,6 +35,7 @@
     "eslint/require-await": "off",
     "eslint/no-negated-condition": "off",
     "eslint/no-undefined": "error",
+    "eslint/no-warning-comments": "off",
 
     "import/no-duplicates": ["error", { "preferInline": false }],
     "import/consistent-type-specifier-style": ["error", "prefer-top-level"],

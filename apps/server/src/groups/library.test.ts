@@ -25,12 +25,12 @@ it.layer(TestLayer)('library', (iit) => {
       const result = yield* client.libraryCreate({
         type,
         name: `My ${type}`,
-        paths: [`/${type}/path`],
+        absolutePaths: [`/${type}/path`],
       });
 
       expect(result.name).toBe(`My ${type}`);
       expect(result.type).toBe(type);
-      expect(result.paths).toEqual([`/${type}/path`]);
+      expect(result.absolutePaths).toEqual([`/${type}/path`]);
       expect(result.id).toBeTypeOf('number');
     })
   );
@@ -43,12 +43,12 @@ it.layer(TestLayer)('library', (iit) => {
       const result = yield* client.libraryCreate({
         type,
         name: `My ${type} Multi`,
-        paths: [`/${type}/path1`, `/${type}/path2`],
+        absolutePaths: [`/${type}/path1`, `/${type}/path2`],
       });
 
       expect(result.name).toBe(`My ${type} Multi`);
       expect(result.type).toBe(type);
-      expect(result.paths).toEqual([`/${type}/path1`, `/${type}/path2`]);
+      expect(result.absolutePaths).toEqual([`/${type}/path1`, `/${type}/path2`]);
       expect(result.id).toBeTypeOf('number');
     })
   );
@@ -61,7 +61,7 @@ it.layer(TestLayer)('library', (iit) => {
       const result1 = yield* client.libraryCreate({
         type,
         name: `My ${type} Delete`,
-        paths: [`/${type}/path-delete`],
+        absolutePaths: [`/${type}/path-delete`],
       });
 
       yield* client.libraryDelete({ id: result1.id });
@@ -69,13 +69,13 @@ it.layer(TestLayer)('library', (iit) => {
       const result2 = yield* client.libraryCreate({
         type,
         name: `My ${type} Delete`,
-        paths: [`/${type}/path-delete`],
+        absolutePaths: [`/${type}/path-delete`],
       });
 
       expect(result2.id).toBe(result1.id);
       expect(result2.name).toBe(`My ${type} Delete`);
       expect(result2.type).toBe(type);
-      expect(result2.paths).toEqual([`/${type}/path-delete`]);
+      expect(result2.absolutePaths).toEqual([`/${type}/path-delete`]);
     })
   );
 });

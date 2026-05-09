@@ -10,9 +10,9 @@ export const Library = RpcGroup.make()
       payload: {
         type: MediaTypes,
         name: Schema.String,
-        paths: Schema.NonEmptyArray(Schema.String),
+        absolutePaths: Schema.NonEmptyArray(Schema.String),
       },
-      success: LibraryTable,
+      success: Schema.Struct({ id: LibraryTable.fields.id }),
       error: DatabaseError,
     })
   )

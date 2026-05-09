@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/unstable/sql';
 
-import { toDatabaseDecodeOrSqlError } from '@repo/spec-api/database/index.ts';
+import { toDatabaseError } from '@repo/spec-api/database/index.ts';
 import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
@@ -22,18 +22,18 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
         execute: (row) =>
           sql`insert into library ${sql.insert(row)}
-                on conflict (name) do update set type = excluded.type, deletedAt = null
+                on conflict (name) do update set deletedAt = null
                 returning id, name, type`,
       });
 
       const insertPaths = SqlSchema.findAll({
         Request: Schema.Struct({
           libraryId: LibraryTable.fields.id,
-          paths: Schema.NonEmptyArray(Schema.String),
+          absolutePaths: Schema.NonEmptyArray(Schema.String),
         }),
-        Result: Schema.Struct({ absolutePath: Schema.String }),
-        execute: ({ libraryId, paths }) =>
-          sql`insert into libraryPath ${sql.insert(paths.map((path) => ({ libraryId, absolutePath: path })))}
+        Result: Schema.Struct({ absolutePath: LibraryTable.fields.absolutePaths.schema }),
+        execute: ({ libraryId, absolutePaths }) =>
+          sql`insert into libraryPath ${sql.insert(absolutePaths.map((absolutePath) => ({ libraryId, absolutePath })))}
                 on conflict (libraryId, absolutePath) do update set deletedAt = null
                 returning absolutePath`,
       });
@@ -43,11 +43,12 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         execute: Effect.fn(
           function* ({ id }) {
             yield* sql`update libraryPath set deletedAt = unixepoch() where libraryId = ${id}`.pipe(
-              toDatabaseDecodeOrSqlError('LibraryRepository.removePaths')
+              toDatabaseError('LibraryRepository.removePaths')
             );
             yield* sql`update library set deletedAt = unixepoch() where id = ${id}`.pipe(
-              toDatabaseDecodeOrSqlError('LibraryRepository.removeLibrary')
+              toDatabaseError('LibraryRepository.removeLibrary')
             );
+            // TODO: Soft-delete all related records
           },
           (effect) => effect.pipe(sql.withTransaction)
         ),
@@ -57,25 +58,19 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         Request: Schema.Struct({
           type: MediaTypes,
           name: Schema.String,
-          paths: Schema.NonEmptyArray(Schema.String),
+          absolutePaths: Schema.NonEmptyArray(Schema.String),
         }),
-        Result: LibraryTable,
+        Result: Schema.Struct({ id: LibraryTable.fields.id }),
         execute: Effect.fn(
           function* (row) {
             const library = yield* insert({ type: row.type, name: row.name }).pipe(
-              toDatabaseDecodeOrSqlError('LibraryRepository.insert')
+              toDatabaseError('LibraryRepository.insert')
             );
-            const paths = yield* insertPaths({ libraryId: library.id, paths: row.paths }).pipe(
-              toDatabaseDecodeOrSqlError('LibraryRepository.insertPaths')
+            yield* insertPaths({ libraryId: library.id, absolutePaths: row.absolutePaths }).pipe(
+              toDatabaseError('LibraryRepository.insertPaths')
             );
-            return [
-              {
-                id: library.id,
-                name: library.name,
-                type: library.type,
-                paths: paths.map((p) => p.absolutePath),
-              },
-            ];
+            // TODO: Trigger a scan
+            return [{ id: library.id }];
           },
           (effect) => effect.pipe(sql.withTransaction)
         ),
@@ -83,9 +78,9 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
 
       return {
         upsert: (request: Parameters<typeof upsert>['0']) =>
-          upsert(request).pipe(toDatabaseDecodeOrSqlError('LibraryRepository.upsert')),
+          upsert(request).pipe(toDatabaseError('LibraryRepository.upsert')),
         remove: (request: Parameters<typeof remove>['0']) =>
-          remove(request).pipe(toDatabaseDecodeOrSqlError('LibraryRepository.remove')),
+          remove(request).pipe(toDatabaseError('LibraryRepository.remove')),
       };
     }),
   }
