@@ -9,7 +9,8 @@ export const LibraryRpcGroupLayer = Library.toLayer(
     const libraryRepo = yield* LibraryRepository;
 
     return Library.of({
-      libraryCreate: (payload) => libraryRepo.upsert(payload),
+      libraryGet: (payload) => libraryRepo.get(payload),
+      libraryUpsert: (payload) => libraryRepo.upsert(payload),
       libraryDelete: (payload) => libraryRepo.remove(payload),
     });
   })

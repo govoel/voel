@@ -22,11 +22,13 @@ it.layer(TestLayer)('library', (iit) => {
     Effect.fn(function* (type) {
       const client = yield* RpcTest.makeClient(Library);
 
-      const result = yield* client.libraryCreate({
-        type,
-        name: `My ${type}`,
-        absolutePaths: [`/${type}/path`],
-      });
+      const result = yield* client
+        .libraryUpsert({
+          type,
+          name: `My ${type}`,
+          absolutePaths: [`/${type}/path`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
       expect(result.name).toBe(`My ${type}`);
       expect(result.type).toBe(type);
@@ -40,11 +42,13 @@ it.layer(TestLayer)('library', (iit) => {
     Effect.fn(function* (type) {
       const client = yield* RpcTest.makeClient(Library);
 
-      const result = yield* client.libraryCreate({
-        type,
-        name: `My ${type} Multi`,
-        absolutePaths: [`/${type}/path1`, `/${type}/path2`],
-      });
+      const result = yield* client
+        .libraryUpsert({
+          type,
+          name: `My ${type} Multi`,
+          absolutePaths: [`/${type}/path1`, `/${type}/path2`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
       expect(result.name).toBe(`My ${type} Multi`);
       expect(result.type).toBe(type);
@@ -58,7 +62,7 @@ it.layer(TestLayer)('library', (iit) => {
     Effect.fn(function* (type) {
       const client = yield* RpcTest.makeClient(Library);
 
-      const result1 = yield* client.libraryCreate({
+      const result1 = yield* client.libraryUpsert({
         type,
         name: `My ${type} Delete`,
         absolutePaths: [`/${type}/path-delete`],
@@ -66,11 +70,13 @@ it.layer(TestLayer)('library', (iit) => {
 
       yield* client.libraryDelete({ id: result1.id });
 
-      const result2 = yield* client.libraryCreate({
-        type,
-        name: `My ${type} Delete`,
-        absolutePaths: [`/${type}/path-delete`],
-      });
+      const result2 = yield* client
+        .libraryUpsert({
+          type,
+          name: `My ${type} Delete`,
+          absolutePaths: [`/${type}/path-delete`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
       expect(result2.id).toBe(result1.id);
       expect(result2.name).toBe(`My ${type} Delete`);
@@ -78,4 +84,8 @@ it.layer(TestLayer)('library', (iit) => {
       expect(result2.absolutePaths).toEqual([`/${type}/path-delete`]);
     })
   );
+
+  // iit.effect.each(MediaTypes.literals)('paths should not get deleted on upsert')
+
+  // iit.effect.each(MediaTypes.literals)('type should not change on update')
 });

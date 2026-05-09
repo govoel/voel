@@ -6,12 +6,19 @@ import { LibraryTable, MediaTypes } from '#src/database/library.ts';
 
 export const Library = RpcGroup.make()
   .add(
-    Rpc.make('Create', {
-      payload: {
+    Rpc.make('Get', {
+      payload: Schema.Struct({ id: LibraryTable.fields.id }),
+      success: LibraryTable,
+      error: DatabaseError,
+    })
+  )
+  .add(
+    Rpc.make('Upsert', {
+      payload: Schema.Struct({
         type: MediaTypes,
         name: Schema.String,
         absolutePaths: Schema.NonEmptyArray(Schema.String),
-      },
+      }),
       success: Schema.Struct({ id: LibraryTable.fields.id }),
       error: DatabaseError,
     })

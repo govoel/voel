@@ -10,6 +10,21 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
     make: Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
 
+      const get = SqlSchema.findOne({
+        Request: Schema.Struct({ id: LibraryTable.fields.id }),
+        Result: Schema.Struct({
+          ...LibraryTable.fields,
+          absolutePaths: Schema.fromJsonString(LibraryTable.fields.absolutePaths),
+        }),
+        execute: ({ id }) => sql`
+          select l.id, l.type, l.name, json_group_array(lp.absolutePath) as absolutePaths
+          from library l
+          join libraryPath lp on lp.libraryId = l.id
+          where l.id = ${id} and l.deletedAt is null and lp.deletedAt is null
+          group by l.id
+        `,
+      });
+
       const insert = SqlSchema.findOne({
         Request: Schema.Struct({
           type: MediaTypes,
@@ -20,10 +35,10 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           name: LibraryTable.fields.name,
           type: LibraryTable.fields.type,
         }),
-        execute: (row) =>
-          sql`insert into library ${sql.insert(row)}
-                on conflict (name) do update set deletedAt = null
-                returning id, name, type`,
+        execute: (row) => sql`
+          insert into library ${sql.insert(row)}
+          on conflict (name) do update set deletedAt = null
+          returning id, name, type`,
       });
 
       const insertPaths = SqlSchema.findAll({
@@ -32,10 +47,10 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           absolutePaths: Schema.NonEmptyArray(Schema.String),
         }),
         Result: Schema.Struct({ absolutePath: LibraryTable.fields.absolutePaths.schema }),
-        execute: ({ libraryId, absolutePaths }) =>
-          sql`insert into libraryPath ${sql.insert(absolutePaths.map((absolutePath) => ({ libraryId, absolutePath })))}
-                on conflict (libraryId, absolutePath) do update set deletedAt = null
-                returning absolutePath`,
+        execute: ({ libraryId, absolutePaths }) => sql`
+          insert into libraryPath ${sql.insert(absolutePaths.map((absolutePath) => ({ libraryId, absolutePath })))}
+          on conflict (libraryId, absolutePath) do update set deletedAt = null
+          returning absolutePath`,
       });
 
       const remove = SqlSchema.void({
@@ -62,11 +77,11 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
         Result: Schema.Struct({ id: LibraryTable.fields.id }),
         execute: Effect.fn(
-          function* (row) {
-            const library = yield* insert({ type: row.type, name: row.name }).pipe(
+          function* ({ type, name, absolutePaths }) {
+            const library = yield* insert({ type, name }).pipe(
               toDatabaseError('LibraryRepository.insert')
             );
-            yield* insertPaths({ libraryId: library.id, absolutePaths: row.absolutePaths }).pipe(
+            yield* insertPaths({ libraryId: library.id, absolutePaths }).pipe(
               toDatabaseError('LibraryRepository.insertPaths')
             );
             // TODO: Trigger a scan
@@ -77,6 +92,8 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
       });
 
       return {
+        get: (request: Parameters<typeof get>['0']) =>
+          get(request).pipe(toDatabaseError('LibraryRepository.get')),
         upsert: (request: Parameters<typeof upsert>['0']) =>
           upsert(request).pipe(toDatabaseError('LibraryRepository.upsert')),
         remove: (request: Parameters<typeof remove>['0']) =>
