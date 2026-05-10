@@ -24,6 +24,35 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           where l.id = ${id} and l.deletedAt is null`,
       });
 
+      const list = SqlSchema.findAll({
+        Request: Schema.Struct({
+          cursor: Schema.Option(LibraryTable.fields.id),
+          limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
+        }),
+        Result: Schema.Struct({
+          ...LibraryTable.fields,
+          absolutePaths: Schema.fromJsonString(LibraryTable.fields.absolutePaths),
+        }),
+        execute: ({ cursor, limit }) =>
+          Option.isSome(cursor)
+            ? sql`
+                select
+                  l.id, l.type, l.name,
+                  coalesce((select json_group_array(absolutePath) from libraryPath where libraryId = l.id and deletedAt is null), '[]') as absolutePaths
+                from library l
+                where l.deletedAt is null and l.id > ${cursor.value}
+                order by l.id
+                limit ${limit + 1}`
+            : sql`
+                select
+                  l.id, l.type, l.name,
+                  coalesce((select json_group_array(absolutePath) from libraryPath where libraryId = l.id and deletedAt is null), '[]') as absolutePaths
+                from library l
+                where l.deletedAt is null
+                order by l.id
+                limit ${limit + 1}`,
+      });
+
       const upsertLibrary = SqlSchema.findOne({
         Request: Schema.Struct({
           id: Schema.Option(LibraryTable.fields.id),
@@ -83,6 +112,22 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
       });
 
       return {
+        list: (request: Parameters<typeof list>['0']) =>
+          list(request).pipe(
+            Effect.map((rows) => {
+              const items = rows.slice(0, request.limit);
+
+              return {
+                items,
+                nextCursor:
+                  rows.length > request.limit && Array.isReadonlyArrayNonEmpty(items)
+                    ? Option.some(Array.lastNonEmpty(items).id)
+                    : Option.none(),
+              };
+            }),
+            toDatabaseError('LibraryRepository.list')
+          ),
+
         get: (request: Parameters<typeof get>['0']) =>
           get(request).pipe(toDatabaseError('LibraryRepository.get')),
 

@@ -27,6 +27,212 @@ const forceBrandLibraryId = Schema.decodeEffect(
 );
 
 it.layer(TestLayer)('library', (iit) => {
+  iit.effect(
+    'should list active libraries',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'List Movie Library',
+        absolutePaths: ['/movie/list-path'],
+      });
+      const result2 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'show',
+        name: 'List Show Library',
+        absolutePaths: ['/show/list-path-1', '/show/list-path-2'],
+      });
+      const result3 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'audiobook',
+        name: 'List Audiobook Library',
+        absolutePaths: [],
+      });
+
+      yield* client.libraryDelete({ id: result2.id });
+
+      const result = yield* client.libraryList({ cursor: Option.none(), limit: 50 });
+
+      expect(result).toEqual({
+        items: [
+          {
+            id: result1.id,
+            type: 'movie',
+            name: 'List Movie Library',
+            absolutePaths: ['/movie/list-path'],
+          },
+          {
+            id: result3.id,
+            type: 'audiobook',
+            name: 'List Audiobook Library',
+            absolutePaths: [],
+          },
+        ],
+        nextCursor: Option.none(),
+      });
+    })
+  );
+
+  iit.effect(
+    'should paginate active libraries by cursor',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const marker = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'Page Cursor Marker Library',
+        absolutePaths: [],
+      });
+      const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'Page Movie Library',
+        absolutePaths: ['/movie/page-path'],
+      });
+      const result2 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'show',
+        name: 'Page Show Library',
+        absolutePaths: ['/show/page-path'],
+      });
+      const result3 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'audiobook',
+        name: 'Page Audiobook Library',
+        absolutePaths: ['/audiobook/page-path'],
+      });
+      const result4 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'Page Extra Movie Library',
+        absolutePaths: [],
+      });
+
+      yield* client.libraryDelete({ id: result2.id });
+
+      const page1 = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 2 });
+
+      expect(page1).toEqual({
+        items: [
+          {
+            id: result1.id,
+            type: 'movie',
+            name: 'Page Movie Library',
+            absolutePaths: ['/movie/page-path'],
+          },
+          {
+            id: result3.id,
+            type: 'audiobook',
+            name: 'Page Audiobook Library',
+            absolutePaths: ['/audiobook/page-path'],
+          },
+        ],
+        nextCursor: Option.some(result3.id),
+      });
+
+      const page2 = yield* client.libraryList({ cursor: page1.nextCursor, limit: 2 });
+
+      expect(page2).toEqual({
+        items: [
+          {
+            id: result4.id,
+            type: 'movie',
+            name: 'Page Extra Movie Library',
+            absolutePaths: [],
+          },
+        ],
+        nextCursor: Option.none(),
+      });
+
+      const pageAfterFirst = yield* client.libraryList({
+        cursor: Option.some(result1.id),
+        limit: 1,
+      });
+
+      expect(pageAfterFirst).toEqual({
+        items: [
+          {
+            id: result3.id,
+            type: 'audiobook',
+            name: 'Page Audiobook Library',
+            absolutePaths: ['/audiobook/page-path'],
+          },
+        ],
+        nextCursor: Option.some(result3.id),
+      });
+    })
+  );
+
+  iit.effect(
+    'should return an empty page after the last library',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'Empty Page Movie Library',
+        absolutePaths: [],
+      });
+
+      const result = yield* client.libraryList({ cursor: Option.some(result1.id), limit: 10 });
+
+      expect(result).toEqual({
+        items: [],
+        nextCursor: Option.none(),
+      });
+    })
+  );
+
+  iit.effect(
+    'should list a page larger than the active library count',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const marker = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'Large Page Cursor Marker Library',
+        absolutePaths: [],
+      });
+      const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'Large Page Movie Library',
+        absolutePaths: ['/movie/large-page-path'],
+      });
+      const result2 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'audiobook',
+        name: 'Large Page Audiobook Library',
+        absolutePaths: [],
+      });
+
+      const result = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 100 });
+
+      expect(result).toEqual({
+        items: [
+          {
+            id: result1.id,
+            type: 'movie',
+            name: 'Large Page Movie Library',
+            absolutePaths: ['/movie/large-page-path'],
+          },
+          {
+            id: result2.id,
+            type: 'audiobook',
+            name: 'Large Page Audiobook Library',
+            absolutePaths: [],
+          },
+        ],
+        nextCursor: Option.none(),
+      });
+    })
+  );
+
   iit.effect.each(MediaTypes.literals)(
     'should create a %s library',
     Effect.fnUntraced(function* (type) {
