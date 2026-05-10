@@ -3,18 +3,16 @@ import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
 import { DatabaseError, DatabaseErrorWithNSE } from '#src/database/index.ts';
 import { LibraryTable, MediaTypes } from '#src/database/library.ts';
+import { makeCursorPaginated } from '#src/groups/utils.ts';
 
 export const Library = RpcGroup.make()
   .add(
-    Rpc.make('List', {
+    makeCursorPaginated(LibraryTable.fields.id)('List', {
       payload: Schema.Struct({
         cursor: Schema.Option(LibraryTable.fields.id),
         limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
       }),
-      success: Schema.Struct({
-        items: Schema.Array(LibraryTable),
-        nextCursor: Schema.Option(LibraryTable.fields.id),
-      }),
+      success: LibraryTable,
       error: DatabaseError,
     })
   )

@@ -47,6 +47,7 @@
     "import/max-dependencies": "off",
     "import/exports-last": "off",
     "import/group-exports": "off",
+    "import/namespace": "off",
 
     "oxc/no-async-await": "off",
     "oxc/no-optional-chaining": "off",
