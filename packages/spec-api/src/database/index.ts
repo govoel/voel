@@ -49,35 +49,42 @@ type ToDatabaseError<E> = E extends Schema.SchemaError
 
 type ToDatabaseErrorUnion<E> = [E] extends [never] ? never : ToDatabaseError<E>;
 
-export const toDatabaseError =
-  (operation: string) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, ToDatabaseErrorUnion<E>, R> =>
-    effect.pipe(
-      Effect.mapError((error): ToDatabaseErrorUnion<E> => {
-        /* oxlint-disable typescript-eslint/no-unsafe-type-assertion */
-        if (Schema.isSchemaError(error)) {
-          return new DatabaseDecodeError({
-            operation: `${operation}.schema`,
-            issue: defaultFormatter(error.issue),
-            cause: error,
-          }) as ToDatabaseErrorUnion<E>;
-        }
+type ToDatabaseErrorWide<E> =
+  | E
+  | DatabaseDecodeError
+  | DatabaseSqlError
+  | DatabaseNoSuchElementError;
 
-        if (SqlError.isSqlError(error)) {
-          return new DatabaseSqlError({
-            operation: `${operation}.sql`,
-            issue: `Failed to execute ${operation}.sql (${error.message})`,
-            cause: error,
-          }) as ToDatabaseErrorUnion<E>;
-        }
+const mapDatabaseError = <E>(operation: string, error: E): ToDatabaseErrorWide<E> => {
+  if (Schema.isSchemaError(error)) {
+    return new DatabaseDecodeError({
+      operation: `${operation}.schema`,
+      issue: defaultFormatter(error.issue),
+      cause: error,
+    });
+  }
 
-        if (Cause.isNoSuchElementError(error)) {
-          return new DatabaseNoSuchElementError({
-            operation: `${operation}.nse`,
-          }) as ToDatabaseErrorUnion<E>;
-        }
+  if (SqlError.isSqlError(error)) {
+    return new DatabaseSqlError({
+      operation: `${operation}.sql`,
+      issue: `Failed to execute ${operation}.sql (${error.message})`,
+      cause: error,
+    });
+  }
 
-        return error as ToDatabaseErrorUnion<E>;
-        /* oxlint-enable typescript-eslint/no-unsafe-type-assertion */
-      })
-    );
+  if (Cause.isNoSuchElementError(error)) {
+    return new DatabaseNoSuchElementError({
+      operation: `${operation}.nse`,
+    });
+  }
+
+  return error;
+};
+
+export function toDatabaseError(
+  operation: string
+): <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, ToDatabaseErrorUnion<E>, R>;
+export function toDatabaseError(operation: string) {
+  return <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, ToDatabaseErrorWide<E>, R> =>
+    effect.pipe(Effect.mapError((error) => mapDatabaseError(operation, error)));
+}
