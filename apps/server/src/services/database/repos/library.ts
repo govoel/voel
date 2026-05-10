@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from 'effect';
+import { Array, Context, Effect, Layer, Option, Schema } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/unstable/sql';
 
 import { toDatabaseError } from '@repo/spec-api/database/index.ts';
@@ -19,14 +19,15 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         execute: ({ id }) => sql`
           select l.id, l.type, l.name, json_group_array(lp.absolutePath) as absolutePaths
           from library l
-          join libraryPath lp on lp.libraryId = l.id
+          left join libraryPath lp on lp.libraryId = l.id
           where l.id = ${id} and l.deletedAt is null and lp.deletedAt is null
           group by l.id
         `,
       });
 
-      const insert = SqlSchema.findOne({
+      const upsertLibrary = SqlSchema.findOne({
         Request: Schema.Struct({
+          id: Schema.Option(LibraryTable.fields.id),
           type: MediaTypes,
           name: Schema.String,
         }),
@@ -35,13 +36,19 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           name: LibraryTable.fields.name,
           type: LibraryTable.fields.type,
         }),
-        execute: (row) => sql`
-          insert into library ${sql.insert(row)}
-          on conflict (name) do update set deletedAt = null
-          returning id, name, type`,
+        execute: (row) =>
+          Option.isNone(row.id)
+            ? sql`
+                insert into library ${sql.insert(row)}
+                on conflict (name) do update set type = excluded.type, deletedAt = null
+                returning id, name, type`
+            : sql`
+                update library set ${sql.update({ type: row.type, name: row.name, deletedAt: null })}
+                where id = ${row.id}
+                returning id, name, type`,
       });
 
-      const insertPaths = SqlSchema.findAll({
+      const upsertPaths = SqlSchema.findAll({
         Request: Schema.Struct({
           libraryId: LibraryTable.fields.id,
           absolutePaths: Schema.NonEmptyArray(Schema.String),
@@ -51,6 +58,31 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           insert into libraryPath ${sql.insert(absolutePaths.map((absolutePath) => ({ libraryId, absolutePath })))}
           on conflict (libraryId, absolutePath) do update set deletedAt = null
           returning absolutePath`,
+      });
+
+      const upsert = SqlSchema.findOne({
+        Request: Schema.Struct({
+          id: Schema.Option(LibraryTable.fields.id),
+          type: MediaTypes,
+          name: Schema.String,
+          absolutePaths: Schema.Array(Schema.String),
+        }),
+        Result: Schema.Struct({ id: LibraryTable.fields.id }),
+        execute: Effect.fn(
+          function* ({ id, type, name, absolutePaths }) {
+            const library = yield* upsertLibrary({ id, type, name }).pipe(
+              toDatabaseError('LibraryRepository.upsertLibrary')
+            );
+            if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
+              yield* upsertPaths({ libraryId: library.id, absolutePaths }).pipe(
+                toDatabaseError('LibraryRepository.upsertPaths')
+              );
+              // TODO: Trigger a scan
+            }
+            return [{ id: library.id }];
+          },
+          (effect) => effect.pipe(sql.withTransaction)
+        ),
       });
 
       const remove = SqlSchema.void({
@@ -64,28 +96,6 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               toDatabaseError('LibraryRepository.removeLibrary')
             );
             // TODO: Soft-delete all related records
-          },
-          (effect) => effect.pipe(sql.withTransaction)
-        ),
-      });
-
-      const upsert = SqlSchema.findOne({
-        Request: Schema.Struct({
-          type: MediaTypes,
-          name: Schema.String,
-          absolutePaths: Schema.NonEmptyArray(Schema.String),
-        }),
-        Result: Schema.Struct({ id: LibraryTable.fields.id }),
-        execute: Effect.fn(
-          function* ({ type, name, absolutePaths }) {
-            const library = yield* insert({ type, name }).pipe(
-              toDatabaseError('LibraryRepository.insert')
-            );
-            yield* insertPaths({ libraryId: library.id, absolutePaths }).pipe(
-              toDatabaseError('LibraryRepository.insertPaths')
-            );
-            // TODO: Trigger a scan
-            return [{ id: library.id }];
           },
           (effect) => effect.pipe(sql.withTransaction)
         ),

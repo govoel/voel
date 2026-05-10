@@ -5,5 +5,5 @@ export const LibraryTable = Schema.Struct({
   id: Schema.Int.pipe(Schema.brand('LibraryId')),
   name: Schema.String.pipe(Schema.brand('LibraryName')),
   type: MediaTypes,
-  absolutePaths: Schema.NonEmptyArray(Schema.String.pipe(Schema.brand('LibraryAbsolutePath'))),
+  absolutePaths: Schema.Array(Schema.String.pipe(Schema.brand('LibraryAbsolutePath'))),
 });
