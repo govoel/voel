@@ -17,11 +17,11 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           absolutePaths: Schema.fromJsonString(LibraryTable.fields.absolutePaths),
         }),
         execute: ({ id }) => sql`
-          select l.id, l.type, l.name, json_group_array(lp.absolutePath) as absolutePaths
+          select
+            l.id, l.type, l.name,
+            coalesce((select json_group_array(absolutePath) from libraryPath where libraryId = l.id and deletedAt is null), '[]') as absolutePaths
           from library l
-          left join libraryPath lp on lp.libraryId = l.id
-          where l.id = ${id} and l.deletedAt is null and lp.deletedAt is null
-          group by l.id
+          where l.id = ${id} and l.deletedAt is null
         `,
       });
 
@@ -39,12 +39,12 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         execute: (row) =>
           Option.isNone(row.id)
             ? sql`
-                insert into library ${sql.insert(row)}
+                insert into library ${sql.insert({ name: row.name, type: row.type })}
                 on conflict (name) do update set type = excluded.type, deletedAt = null
                 returning id, name, type`
             : sql`
-                update library set ${sql.update({ type: row.type, name: row.name, deletedAt: null })}
-                where id = ${row.id}
+                update library set ${sql.update({ name: row.name, type: row.type, deletedAt: null })}
+                where id = ${row.id.value}
                 returning id, name, type`,
       });
 
@@ -60,54 +60,73 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           returning absolutePath`,
       });
 
-      const upsert = SqlSchema.findOne({
+      const removeOtherPaths = SqlSchema.void({
         Request: Schema.Struct({
-          id: Schema.Option(LibraryTable.fields.id),
-          type: MediaTypes,
-          name: Schema.String,
+          libraryId: LibraryTable.fields.id,
           absolutePaths: Schema.Array(Schema.String),
         }),
-        Result: Schema.Struct({ id: LibraryTable.fields.id }),
-        execute: Effect.fn(
-          function* ({ id, type, name, absolutePaths }) {
-            const library = yield* upsertLibrary({ id, type, name }).pipe(
-              toDatabaseError('LibraryRepository.upsertLibrary')
-            );
-            if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
-              yield* upsertPaths({ libraryId: library.id, absolutePaths }).pipe(
-                toDatabaseError('LibraryRepository.upsertPaths')
-              );
-              // TODO: Trigger a scan
-            }
-            return [{ id: library.id }];
-          },
-          (effect) => effect.pipe(sql.withTransaction)
-        ),
+        execute: ({ libraryId, absolutePaths }) =>
+          absolutePaths.length > 0
+            ? sql`update libraryPath set deletedAt = unixepoch() where libraryId = ${libraryId} and absolutePath not in ${sql.in(absolutePaths)}`
+            : sql`update libraryPath set deletedAt = unixepoch() where libraryId = ${libraryId}`,
       });
 
-      const remove = SqlSchema.void({
+      const removePaths = SqlSchema.void({
+        Request: Schema.Struct({ libraryId: LibraryTable.fields.id }),
+        execute: ({ libraryId }) => sql`
+          update libraryPath set deletedAt = unixepoch() where libraryId = ${libraryId}
+        `,
+      });
+
+      const removeLibrary = SqlSchema.void({
         Request: Schema.Struct({ id: LibraryTable.fields.id }),
-        execute: Effect.fn(
-          function* ({ id }) {
-            yield* sql`update libraryPath set deletedAt = unixepoch() where libraryId = ${id}`.pipe(
-              toDatabaseError('LibraryRepository.removePaths')
-            );
-            yield* sql`update library set deletedAt = unixepoch() where id = ${id}`.pipe(
-              toDatabaseError('LibraryRepository.removeLibrary')
-            );
-            // TODO: Soft-delete all related records
-          },
-          (effect) => effect.pipe(sql.withTransaction)
-        ),
+        execute: ({ id }) => sql`
+          update library set deletedAt = unixepoch() where id = ${id}
+        `,
       });
 
       return {
         get: (request: Parameters<typeof get>['0']) =>
           get(request).pipe(toDatabaseError('LibraryRepository.get')),
-        upsert: (request: Parameters<typeof upsert>['0']) =>
-          upsert(request).pipe(toDatabaseError('LibraryRepository.upsert')),
-        remove: (request: Parameters<typeof remove>['0']) =>
-          remove(request).pipe(toDatabaseError('LibraryRepository.remove')),
+
+        upsert: Effect.fn(
+          function* ({
+            id,
+            type,
+            name,
+            absolutePaths,
+          }: {
+            id: Option.Option<(typeof LibraryTable)['Type']['id']>;
+            type: (typeof MediaTypes)['Type'];
+            name: string;
+            absolutePaths: readonly string[];
+          }) {
+            const library = yield* upsertLibrary({ id, type, name }).pipe(
+              toDatabaseError('LibraryRepository.upsertLibrary')
+            );
+            yield* removeOtherPaths({ libraryId: library.id, absolutePaths }).pipe(
+              toDatabaseError('LibraryRepository.removeOtherPaths')
+            );
+            if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
+              yield* upsertPaths({ libraryId: library.id, absolutePaths }).pipe(
+                toDatabaseError('LibraryRepository.upsertPaths')
+              );
+              // TODO: Trigger a scan, and also clean up related tables based on the library type
+            }
+            return { id: library.id };
+          },
+          (effect) => effect.pipe(sql.withTransaction, toDatabaseError('LibraryRepository.upsert'))
+        ),
+
+        remove: Effect.fn(
+          function* ({ id }: { id: (typeof LibraryTable)['Type']['id'] }) {
+            yield* removePaths({ libraryId: id }).pipe(
+              toDatabaseError('LibraryRepository.removePaths')
+            );
+            yield* removeLibrary({ id }).pipe(toDatabaseError('LibraryRepository.removeLibrary'));
+          },
+          (effect) => effect.pipe(sql.withTransaction, toDatabaseError('LibraryRepository.remove'))
+        ),
       };
     }),
   }

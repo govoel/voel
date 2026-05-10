@@ -62,6 +62,7 @@
     "unicorn/no-array-for-each": "off",
     "unicorn/no-nested-ternary": "off",
     "unicorn/no-abusive-eslint-disable": "off",
+    "unicorn/no-array-callback-reference": "off",
 
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"

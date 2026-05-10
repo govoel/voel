@@ -1,8 +1,8 @@
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/unstable/rpc';
 
-import { MediaTypes } from '@repo/spec-api/database/library.js';
+import { MediaTypes } from '@repo/spec-api/database/library.ts';
 import { Library } from '@repo/spec-api/groups/library.ts';
 
 import { LibraryRpcGroupLayer } from '#src/groups/library.ts';
@@ -24,6 +24,7 @@ it.layer(TestLayer)('library', (iit) => {
 
       const result = yield* client
         .libraryUpsert({
+          id: Option.none(),
           type,
           name: `My ${type}`,
           absolutePaths: [`/${type}/path`],
@@ -44,6 +45,7 @@ it.layer(TestLayer)('library', (iit) => {
 
       const result = yield* client
         .libraryUpsert({
+          id: Option.none(),
           type,
           name: `My ${type} None`,
           absolutePaths: [],
@@ -64,6 +66,7 @@ it.layer(TestLayer)('library', (iit) => {
 
       const result = yield* client
         .libraryUpsert({
+          id: Option.none(),
           type,
           name: `My ${type} Multi`,
           absolutePaths: [`/${type}/path1`, `/${type}/path2`],
@@ -83,6 +86,7 @@ it.layer(TestLayer)('library', (iit) => {
       const client = yield* RpcTest.makeClient(Library);
 
       const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
         type,
         name: `My ${type} Delete`,
         absolutePaths: [`/${type}/path-delete`],
@@ -92,6 +96,7 @@ it.layer(TestLayer)('library', (iit) => {
 
       const result2 = yield* client
         .libraryUpsert({
+          id: Option.none(),
           type,
           name: `My ${type} Delete`,
           absolutePaths: [`/${type}/path-delete`],
@@ -110,31 +115,82 @@ it.layer(TestLayer)('library', (iit) => {
     Effect.fnUntraced(function* (type) {
       const client = yield* RpcTest.makeClient(Library);
 
-      const result1 = yield* client.libraryUpsert({
-        type,
-        name: `My ${type} Paths`,
-        absolutePaths: [`/${type}/path-keep`],
-      });
+      const result1 = yield* client
+        .libraryUpsert({
+          id: Option.none(),
+          type,
+          name: `My ${type} Paths`,
+          absolutePaths: [`/${type}/path-old`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+      expect(result1.absolutePaths).toEqual([`/${type}/path-old`]);
 
       const result2 = yield* client
         .libraryUpsert({
+          id: Option.none(),
           type,
           name: `My ${type} Paths`,
           absolutePaths: [`/${type}/path-new`],
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
-      expect(result2.id).toBe(result1.id);
-      expect(result2.absolutePaths).toEqual([`/${type}/path-keep`, `/${type}/path-new`]);
+      expect(result2.absolutePaths).toEqual([`/${type}/path-new`]);
+
+      const result3 = yield* client
+        .libraryUpsert({
+          id: Option.some(result1.id),
+          type,
+          name: `My ${type} Path Delete`,
+          absolutePaths: [],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+
+      expect(result3.id).toBe(result1.id);
+      expect(result3.name).toBe(`My ${type} Path Delete`);
+      expect(result3.type).toBe(type);
+      expect(result3.absolutePaths).toEqual([]);
     })
   );
 
   iit.effect.each(MediaTypes.literals)(
-    '%s library type should not change on upsert',
+    'name changes for %s library is supported',
+    Effect.fnUntraced(function* (type) {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result1 = yield* client
+        .libraryUpsert({
+          id: Option.none(),
+          type,
+          name: `My ${type} Old Name`,
+          absolutePaths: [`/${type}/path-name`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+
+      expect(result1.name).toBe(`My ${type} Old Name`);
+
+      const result2 = yield* client
+        .libraryUpsert({
+          id: Option.some(result1.id),
+          type,
+          name: `My ${type} New Name`,
+          absolutePaths: [`/${type}/path-name`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+
+      expect(result2.id).toBe(result1.id);
+      expect(result2.name).toBe(`My ${type} New Name`);
+      expect(result2.type).toBe(type);
+      expect(result2.absolutePaths).toEqual([`/${type}/path-name`]);
+    })
+  );
+
+  iit.effect.each(MediaTypes.literals)(
+    '%s library type should change on upsert, with associated tables cleaned up',
     Effect.fnUntraced(function* (type) {
       const client = yield* RpcTest.makeClient(Library);
 
       const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
         type,
         name: `My ${type} Type`,
         absolutePaths: [`/${type}/path-type`],
@@ -145,6 +201,7 @@ it.layer(TestLayer)('library', (iit) => {
 
       const result2 = yield* client
         .libraryUpsert({
+          id: Option.none(),
           type: differentType,
           name: `My ${type} Type`,
           absolutePaths: [`/${type}/path-type`],
@@ -152,7 +209,9 @@ it.layer(TestLayer)('library', (iit) => {
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
       expect(result2.id).toBe(result1.id);
-      expect(result2.type).toBe(type);
+      expect(result2.type).toBe(differentType);
+
+      // TODO: Verify associated tables are cleaned up based on the library type
     })
   );
 });

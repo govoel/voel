@@ -15,7 +15,7 @@ export const Library = RpcGroup.make()
   .add(
     Rpc.make('Upsert', {
       payload: Schema.Struct({
-        id: Schema.optionalKey(LibraryTable.fields.id),
+        id: Schema.Option(LibraryTable.fields.id),
         type: MediaTypes,
         name: Schema.String,
         absolutePaths: Schema.Array(Schema.String),
