@@ -21,8 +21,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             l.id, l.type, l.name,
             coalesce((select json_group_array(absolutePath) from libraryPath where libraryId = l.id and deletedAt is null), '[]') as absolutePaths
           from library l
-          where l.id = ${id} and l.deletedAt is null
-        `,
+          where l.id = ${id} and l.deletedAt is null`,
       });
 
       const upsertLibrary = SqlSchema.findOne({
@@ -74,15 +73,13 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
       const removePaths = SqlSchema.void({
         Request: Schema.Struct({ libraryId: LibraryTable.fields.id }),
         execute: ({ libraryId }) => sql`
-          update libraryPath set deletedAt = unixepoch() where libraryId = ${libraryId}
-        `,
+          update libraryPath set deletedAt = unixepoch() where libraryId = ${libraryId}`,
       });
 
       const removeLibrary = SqlSchema.void({
         Request: Schema.Struct({ id: LibraryTable.fields.id }),
         execute: ({ id }) => sql`
-          update library set deletedAt = unixepoch() where id = ${id}
-        `,
+          update library set deletedAt = unixepoch() where id = ${id}`,
       });
 
       return {

@@ -1,8 +1,9 @@
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer, Option } from 'effect';
+import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { RpcTest } from 'effect/unstable/rpc';
 
-import { MediaTypes } from '@repo/spec-api/database/library.ts';
+import { DatabaseDecodeError } from '@repo/spec-api/database/index.js';
+import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 import { Library } from '@repo/spec-api/groups/library.ts';
 
 import { LibraryRpcGroupLayer } from '#src/groups/library.ts';
@@ -14,6 +15,15 @@ const TestLayer = LibraryRpcGroupLayer.pipe(
   Layer.provideMerge(LibraryRepository.layer),
   Layer.provideMerge(DatabaseLive),
   Layer.provideMerge(ApiConfig.layerTest())
+);
+
+const forceBrandLibraryId = Schema.decodeEffect(
+  Schema.Number.pipe(
+    Schema.decodeTo(LibraryTable.fields.id, {
+      decode: SchemaGetter.transform((i) => i),
+      encode: SchemaGetter.transform((i) => i),
+    })
+  )
 );
 
 it.layer(TestLayer)('library', (iit) => {
@@ -212,6 +222,66 @@ it.layer(TestLayer)('library', (iit) => {
       expect(result2.type).toBe(differentType);
 
       // TODO: Verify associated tables are cleaned up based on the library type
+    })
+  );
+
+  iit.effect(
+    'should fail to get a non-existent library',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result = yield* client
+        .libraryGet({ id: yield* forceBrandLibraryId(999_999) })
+        .pipe(Effect.flip);
+
+      expect(result).toBeInstanceOf(DatabaseDecodeError);
+    })
+  );
+
+  iit.effect(
+    'should fail to get a deleted library',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: `Deleted Library`,
+        absolutePaths: [],
+      });
+
+      yield* client.libraryDelete({ id: result1.id });
+
+      const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
+
+      expect(result2).toBeInstanceOf(DatabaseDecodeError);
+    })
+  );
+
+  iit.effect(
+    'should succeed in deleting a non-existent library',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      yield* client.libraryDelete({ id: yield* forceBrandLibraryId(999_999) });
+    })
+  );
+
+  iit.effect(
+    'should fail to upsert with a non-existent id',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const result = yield* client
+        .libraryUpsert({
+          id: Option.some(yield* forceBrandLibraryId(999_999)),
+          type: 'movie',
+          name: 'Ghost Library',
+          absolutePaths: [],
+        })
+        .pipe(Effect.flip);
+
+      expect(result).toBeInstanceOf(DatabaseDecodeError);
     })
   );
 });

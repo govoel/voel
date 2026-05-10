@@ -10,6 +10,13 @@ export class DatabaseDecodeError extends Schema.TaggedErrorClass<DatabaseDecodeE
   }
 ) {}
 
+export class DatabaseNoSuchElementError extends Schema.TaggedErrorClass<DatabaseNoSuchElementError>()(
+  '@repo/spec-api/database/DatabaseNoSuchElementError',
+  {
+    operation: Schema.String,
+  }
+) {}
+
 export class DatabaseSqlError extends Schema.TaggedErrorClass<DatabaseSqlError>()(
   '@repo/spec-api/database/DatabaseSqlError',
   {
@@ -22,6 +29,13 @@ export class DatabaseSqlError extends Schema.TaggedErrorClass<DatabaseSqlError>(
 export const DatabaseError = Schema.Union([DatabaseDecodeError, DatabaseSqlError], {
   mode: 'oneOf',
 });
+
+export const DatabaseErrorWithNSE = Schema.Union(
+  [DatabaseDecodeError, DatabaseSqlError, DatabaseNoSuchElementError],
+  {
+    mode: 'oneOf',
+  }
+);
 
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
 
@@ -49,11 +63,9 @@ export const toDatabaseError =
           cause: error,
         }).asEffect()
       ),
-      Effect.catchIf(Cause.isNoSuchElementError, (error) =>
-        new DatabaseDecodeError({
+      Effect.catchIf(Cause.isNoSuchElementError, () =>
+        new DatabaseNoSuchElementError({
           operation: `${operation}.nse`,
-          issue: 'Database returned no rows when at least one was expected',
-          cause: error,
         }).asEffect()
       )
     );
