@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
-import { DatabaseError } from '#src/database/index.ts';
+import { DatabaseError, DatabaseErrorWithNSE } from '#src/database/index.ts';
 import { LibraryTable, MediaTypes } from '#src/database/library.ts';
 
 export const Library = RpcGroup.make()
@@ -9,7 +9,7 @@ export const Library = RpcGroup.make()
     Rpc.make('Get', {
       payload: Schema.Struct({ id: LibraryTable.fields.id }),
       success: LibraryTable,
-      error: DatabaseError,
+      error: DatabaseErrorWithNSE,
     })
   )
   .add(
@@ -21,7 +21,7 @@ export const Library = RpcGroup.make()
         absolutePaths: Schema.Array(Schema.String),
       }),
       success: Schema.Struct({ id: LibraryTable.fields.id }),
-      error: DatabaseError,
+      error: DatabaseErrorWithNSE,
     })
   )
   .add(

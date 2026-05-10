@@ -2,7 +2,7 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { RpcTest } from 'effect/unstable/rpc';
 
-import { DatabaseDecodeError } from '@repo/spec-api/database/index.js';
+import { DatabaseNoSuchElementError } from '@repo/spec-api/database/index.js';
 import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 import { Library } from '@repo/spec-api/groups/library.ts';
 
@@ -234,7 +234,7 @@ it.layer(TestLayer)('library', (iit) => {
         .libraryGet({ id: yield* forceBrandLibraryId(999_999) })
         .pipe(Effect.flip);
 
-      expect(result).toBeInstanceOf(DatabaseDecodeError);
+      expect(result).toBeInstanceOf(DatabaseNoSuchElementError);
     })
   );
 
@@ -254,7 +254,7 @@ it.layer(TestLayer)('library', (iit) => {
 
       const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
 
-      expect(result2).toBeInstanceOf(DatabaseDecodeError);
+      expect(result2).toBeInstanceOf(DatabaseNoSuchElementError);
     })
   );
 
@@ -281,7 +281,7 @@ it.layer(TestLayer)('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(result).toBeInstanceOf(DatabaseDecodeError);
+      expect(result).toBeInstanceOf(DatabaseNoSuchElementError);
     })
   );
 });
