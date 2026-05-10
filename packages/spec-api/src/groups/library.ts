@@ -8,10 +8,6 @@ import { makeCursorPaginated } from '#src/groups/utils.ts';
 export const Library = RpcGroup.make()
   .add(
     makeCursorPaginated(LibraryTable.fields.id)('List', {
-      payload: Schema.Struct({
-        cursor: Schema.Option(LibraryTable.fields.id),
-        limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
-      }),
       success: LibraryTable,
       error: DatabaseError,
     })
