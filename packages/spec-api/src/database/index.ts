@@ -39,33 +39,45 @@ export const DatabaseErrorWithNSE = Schema.Union(
 
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
 
+type ToDatabaseError<E> = E extends Schema.SchemaError
+  ? DatabaseDecodeError
+  : E extends SqlError.SqlError
+    ? DatabaseSqlError
+    : E extends Cause.NoSuchElementError
+      ? DatabaseNoSuchElementError
+      : E;
+
+type ToDatabaseErrorUnion<E> = [E] extends [never] ? never : ToDatabaseError<E>;
+
 export const toDatabaseError =
-  <A, E, R>(operation: string) =>
-  (
-    effect: Effect.Effect<
-      A,
-      E | Cause.NoSuchElementError | Schema.SchemaError | SqlError.SqlError,
-      R
-    >
-  ) =>
+  (operation: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, ToDatabaseErrorUnion<E>, R> =>
     effect.pipe(
-      Effect.catchIf(Schema.isSchemaError, (error) =>
-        new DatabaseDecodeError({
-          operation: `${operation}.schema`,
-          issue: defaultFormatter(error.issue),
-          cause: error,
-        }).asEffect()
-      ),
-      Effect.catchIf(SqlError.isSqlError, (error) =>
-        new DatabaseSqlError({
-          operation: `${operation}.sql`,
-          issue: `Failed to execute ${operation}.sql (${error.message})`,
-          cause: error,
-        }).asEffect()
-      ),
-      Effect.catchIf(Cause.isNoSuchElementError, () =>
-        new DatabaseNoSuchElementError({
-          operation: `${operation}.nse`,
-        }).asEffect()
-      )
+      Effect.mapError((error): ToDatabaseErrorUnion<E> => {
+        /* oxlint-disable typescript-eslint/no-unsafe-type-assertion */
+        if (Schema.isSchemaError(error)) {
+          return new DatabaseDecodeError({
+            operation: `${operation}.schema`,
+            issue: defaultFormatter(error.issue),
+            cause: error,
+          }) as ToDatabaseErrorUnion<E>;
+        }
+
+        if (SqlError.isSqlError(error)) {
+          return new DatabaseSqlError({
+            operation: `${operation}.sql`,
+            issue: `Failed to execute ${operation}.sql (${error.message})`,
+            cause: error,
+          }) as ToDatabaseErrorUnion<E>;
+        }
+
+        if (Cause.isNoSuchElementError(error)) {
+          return new DatabaseNoSuchElementError({
+            operation: `${operation}.nse`,
+          }) as ToDatabaseErrorUnion<E>;
+        }
+
+        return error as ToDatabaseErrorUnion<E>;
+        /* oxlint-enable typescript-eslint/no-unsafe-type-assertion */
+      })
     );
