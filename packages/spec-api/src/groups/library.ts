@@ -7,7 +7,8 @@ import { makeCursorPaginated } from '#src/groups/utils.ts';
 
 export const Library = RpcGroup.make()
   .add(
-    makeCursorPaginated(LibraryTable.fields.id)('List', {
+    makeCursorPaginated('List', {
+      cursor: LibraryTable.fields.id,
       success: LibraryTable,
       error: DatabaseError,
     })
