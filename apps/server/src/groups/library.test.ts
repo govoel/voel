@@ -5,13 +5,40 @@ import { RpcTest } from 'effect/unstable/rpc';
 import { DatabaseNoSuchElementError } from '@repo/spec-api/database/index.js';
 import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 import { Library } from '@repo/spec-api/groups/library.ts';
+import { AdminMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryRpcGroupLayer } from '#src/groups/library.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { DatabaseLive } from '#src/services/database/index.ts';
 import { LibraryRepository } from '#src/services/database/repos/library.ts';
 
+const AdminMiddlewareTest = Layer.succeed(
+  AdminMiddleware,
+  AdminMiddleware.of(
+    Effect.fnUntraced(function* (effect) {
+      return yield* effect;
+    })
+  )
+);
+
+const NonAdminMiddlewareTest = Layer.succeed(
+  AdminMiddleware,
+  AdminMiddleware.of(
+    Effect.fnUntraced(function* () {
+      return yield* new Unauthorized({});
+    })
+  )
+);
+
 const TestLayer = LibraryRpcGroupLayer.pipe(
+  Layer.provideMerge(AdminMiddlewareTest),
+  Layer.provideMerge(LibraryRepository.layer),
+  Layer.provideMerge(DatabaseLive),
+  Layer.provideMerge(ApiConfig.layerTest())
+);
+
+const NonAdminTestLayer = LibraryRpcGroupLayer.pipe(
+  Layer.provideMerge(NonAdminMiddlewareTest),
   Layer.provideMerge(LibraryRepository.layer),
   Layer.provideMerge(DatabaseLive),
   Layer.provideMerge(ApiConfig.layerTest())
@@ -25,6 +52,31 @@ const forceBrandLibraryId = Schema.decodeEffect(
     })
   )
 );
+
+it.layer(NonAdminTestLayer)('library admin authorization', (iit) => {
+  iit.effect(
+    'should reject library mutations for non-admin users',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Library);
+
+      const upsertResult = yield* client
+        .libraryUpsert({
+          id: Option.none(),
+          type: 'movie',
+          name: 'Unauthorized Library',
+          absolutePaths: [],
+        })
+        .pipe(Effect.flip);
+
+      const deleteResult = yield* client
+        .libraryDelete({ id: yield* forceBrandLibraryId(999_999) })
+        .pipe(Effect.flip);
+
+      expect(upsertResult).toBeInstanceOf(Unauthorized);
+      expect(deleteResult).toBeInstanceOf(Unauthorized);
+    })
+  );
+});
 
 it.layer(TestLayer)('library', (iit) => {
   iit.effect(

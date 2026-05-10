@@ -3,7 +3,12 @@ import { Context, Effect, Layer, Match, Redacted } from 'effect';
 import { HttpEffect, HttpRouter } from 'effect/unstable/http';
 
 import { createAuth } from '@repo/auth-api/server.ts';
-import { AuthMiddleware, CurrentSession, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
+import {
+  AdminMiddleware,
+  AuthMiddleware,
+  CurrentSession,
+  Unauthorized,
+} from '@repo/spec-api/middlewares/auth.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
 
@@ -76,4 +81,19 @@ export const AuthMiddlewareLive = Layer.effect(
       })
     );
   })
+);
+
+export const AdminMiddlewareLive = Layer.succeed(
+  AdminMiddleware,
+  AdminMiddleware.of(
+    Effect.fnUntraced(function* (effect) {
+      const session = yield* CurrentSession;
+
+      if (session.user.role !== 'admin') {
+        return yield* new Unauthorized({});
+      }
+
+      return yield* effect;
+    })
+  )
 );
