@@ -1,48 +1,76 @@
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
-import { RpcTest } from 'effect/unstable/rpc';
+import { DateTime, Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
+import { Headers } from 'effect/unstable/http';
+import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
+import { Api } from '@repo/spec-api';
 import { DatabaseNoSuchElementError } from '@repo/spec-api/database/index.js';
 import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
-import { Library } from '@repo/spec-api/groups/library.ts';
-import { AdminMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
+import { AuthMiddleware, CurrentSession, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
-import { LibraryRpcGroupLayer } from '#src/groups/library.ts';
+import { LibraryHandlers } from '#src/groups/library.ts';
+import { AdminMiddlewareLive, Auth } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { DatabaseLive } from '#src/services/database/index.ts';
 import { LibraryRepository } from '#src/services/database/repos/library.ts';
 
-const AdminMiddlewareTest = Layer.succeed(
-  AdminMiddleware,
-  AdminMiddleware.of(
-    Effect.fnUntraced(function* (effect) {
-      return yield* effect;
+const AuthMiddlewareTest = Layer.succeed(
+  AuthMiddleware,
+  AuthMiddleware.of(
+    Effect.fnUntraced(function* (effect, { headers }) {
+      if (!Option.contains(Headers.get(headers, 'x-test-role'), 'admin')) {
+        return yield* new Unauthorized({});
+      }
+
+      return yield* Effect.provideService(effect, CurrentSession, {
+        user: {
+          id: 'test-admin',
+          name: 'Library Admin',
+          email: 'library-admin@test.localhost',
+          emailVerified: true,
+          createdAt: (yield* DateTime.now).pipe(DateTime.add({ hours: -1 }), DateTime.toDate),
+          updatedAt: (yield* DateTime.now).pipe(DateTime.toDate),
+          role: 'admin',
+        },
+        session: {
+          id: 'test-session',
+          userId: 'test-admin',
+          token: 'test-token',
+          expiresAt: (yield* DateTime.now).pipe(DateTime.add({ hours: 1 }), DateTime.toDate),
+          createdAt: (yield* DateTime.now).pipe(DateTime.add({ hours: -1 }), DateTime.toDate),
+          updatedAt: (yield* DateTime.now).pipe(DateTime.toDate),
+        },
+      });
     })
   )
 );
 
-const NonAdminMiddlewareTest = Layer.succeed(
-  AdminMiddleware,
-  AdminMiddleware.of(
-    Effect.fnUntraced(function* () {
-      return yield* new Unauthorized({});
-    })
-  )
+const AuthClientPassthrough = RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
+  next(request)
 );
 
-const TestLayer = LibraryRpcGroupLayer.pipe(
-  Layer.provideMerge(AdminMiddlewareTest),
-  Layer.provideMerge(LibraryRepository.layer),
-  Layer.provideMerge(DatabaseLive),
-  Layer.provideMerge(ApiConfig.layerTest())
+const AuthClientAdmin = RpcMiddleware.layerClient(
+  AuthMiddleware,
+  Effect.fnUntraced(function* ({ next, request }) {
+    const auth = yield* Auth;
+
+    return yield* next({
+      ...request,
+      headers: Headers.set(request.headers, 'x-test-role', 'admin'),
+    });
+  })
 );
 
-const NonAdminTestLayer = LibraryRpcGroupLayer.pipe(
-  Layer.provideMerge(NonAdminMiddlewareTest),
-  Layer.provideMerge(LibraryRepository.layer),
-  Layer.provideMerge(DatabaseLive),
-  Layer.provideMerge(ApiConfig.layerTest())
-);
+const makeTestLayer = (
+  authClientLayer: Layer.Layer<RpcMiddleware.ForClient<AuthMiddleware>, never, Auth>
+) =>
+  LibraryHandlers.pipe(
+    Layer.provideMerge(Layer.mergeAll(AuthMiddlewareTest, AdminMiddlewareLive)),
+    Layer.provideMerge(authClientLayer),
+    Layer.provideMerge(Layer.mergeAll(LibraryRepository.layer, Auth.layer)),
+    Layer.provideMerge(DatabaseLive),
+    Layer.provideMerge(ApiConfig.layerTest())
+  );
 
 const forceBrandLibraryId = Schema.decodeEffect(
   Schema.Number.pipe(
@@ -53,11 +81,13 @@ const forceBrandLibraryId = Schema.decodeEffect(
   )
 );
 
-it.layer(NonAdminTestLayer)('library admin authorization', (iit) => {
+const makeLibraryClient = () => RpcTest.makeClient(Api);
+
+it.layer(makeTestLayer(AuthClientPassthrough))('library authorization', (iit) => {
   iit.effect(
-    'should reject library mutations for non-admin users',
+    'should reject unauthenticated library mutations',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* RpcTest.makeClient(Api);
 
       const upsertResult = yield* client
         .libraryUpsert({
@@ -78,11 +108,11 @@ it.layer(NonAdminTestLayer)('library admin authorization', (iit) => {
   );
 });
 
-it.layer(TestLayer)('library', (iit) => {
+it.layer(makeTestLayer(AuthClientAdmin))('library', (iit) => {
   iit.effect(
     'should list active libraries',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -130,7 +160,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect(
     'should paginate active libraries by cursor',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
@@ -221,7 +251,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect(
     'should return an empty page after the last library',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -242,7 +272,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect(
     'should list a page larger than the active library count',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
@@ -288,7 +318,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect.each(MediaTypes.literals)(
     'should create a %s library',
     Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result = yield* client
         .libraryUpsert({
@@ -309,7 +339,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect.each(MediaTypes.literals)(
     'should create a %s library with no paths',
     Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result = yield* client
         .libraryUpsert({
@@ -330,7 +360,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect.each(MediaTypes.literals)(
     'should create a %s library with multiple paths',
     Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result = yield* client
         .libraryUpsert({
@@ -351,7 +381,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect.each(MediaTypes.literals)(
     'should soft delete a %s library and recreate it',
     Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -381,7 +411,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect.each(MediaTypes.literals)(
     '%s library paths should not get deleted on upsert',
     Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result1 = yield* client
         .libraryUpsert({
@@ -423,7 +453,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect.each(MediaTypes.literals)(
     'name changes for %s library is supported',
     Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result1 = yield* client
         .libraryUpsert({
@@ -455,7 +485,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect.each(MediaTypes.literals)(
     '%s library type should change on upsert, with associated tables cleaned up',
     Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -464,8 +494,7 @@ it.layer(TestLayer)('library', (iit) => {
         absolutePaths: [`/${type}/path-type`],
       });
 
-      // eslint-disable-next-line eslnt/no-non-null-assertion
-      const differentType = MediaTypes.literals.find((l) => l !== type)!;
+      const differentType = type === 'movie' ? 'show' : 'movie';
 
       const result2 = yield* client
         .libraryUpsert({
@@ -486,7 +515,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect(
     'should fail to get a non-existent library',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result = yield* client
         .libraryGet({ id: yield* forceBrandLibraryId(999_999) })
@@ -499,7 +528,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect(
     'should fail to get a deleted library',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -519,7 +548,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect(
     'should succeed in deleting a non-existent library',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       yield* client.libraryDelete({ id: yield* forceBrandLibraryId(999_999) });
     })
@@ -528,7 +557,7 @@ it.layer(TestLayer)('library', (iit) => {
   iit.effect(
     'should fail to upsert with a non-existent id',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Library);
+      const client = yield* makeLibraryClient();
 
       const result = yield* client
         .libraryUpsert({

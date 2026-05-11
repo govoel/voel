@@ -3,8 +3,12 @@ import type Database from 'bun:sqlite';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
-import { admin, username } from 'better-auth/plugins';
+import { testUtils } from 'better-auth/plugins';
+import { admin } from 'better-auth/plugins/admin';
+import { username } from 'better-auth/plugins/username';
 import { Duration } from 'effect';
+
+export type { TestHelpers } from 'better-auth/plugins';
 
 export const createAuth = (config: {
   secret: NonNullable<BetterAuthOptions['secret']>;
@@ -51,6 +55,8 @@ export const createAuth = (config: {
           },
         }),
       },
+      // @ts-expect-error - better-auth plugins don't really support exactOptionalPropertyTypes
+      testUtils(),
     ],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {

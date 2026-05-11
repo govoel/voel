@@ -69,7 +69,7 @@ export const AuthMiddlewareLive = Layer.effect(
     return AuthMiddleware.of(
       Effect.fnUntraced(function* (httpEffect, { headers }) {
         const session = yield* Effect.tryPromise({
-          try: async () => auth.api.getSession({ headers }),
+          try: async () => auth.api.getSession({ headers: new Headers(headers) }),
           catch: () => new Unauthorized({}),
         });
 
@@ -89,7 +89,7 @@ export const AdminMiddlewareLive = Layer.succeed(
     Effect.fnUntraced(function* (effect) {
       const session = yield* CurrentSession;
 
-      if (session.user.role !== 'admin') {
+      if (!('role' in session.user) || session.user.role !== 'admin') {
         return yield* new Unauthorized({});
       }
 

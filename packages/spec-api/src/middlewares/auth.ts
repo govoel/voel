@@ -15,7 +15,10 @@ export class Unauthorized extends Schema.TaggedErrorClass<Unauthorized>()(
 export class AuthMiddleware extends RpcMiddleware.Service<
   AuthMiddleware,
   { provides: CurrentSession }
->()('@repo/spec-api/middlewares/auth/AuthMiddleware', { error: Unauthorized }) {}
+>()('@repo/spec-api/middlewares/auth/AuthMiddleware', {
+  error: Unauthorized,
+  requiredForClient: true,
+}) {}
 
 export class AdminMiddleware extends RpcMiddleware.Service<
   AdminMiddleware,

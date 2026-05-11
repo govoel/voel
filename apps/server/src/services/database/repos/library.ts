@@ -99,13 +99,13 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             : sql`update libraryPath set deletedAt = unixepoch() where libraryId = ${libraryId}`,
       });
 
-      const removePaths = SqlSchema.void({
+      const deletePaths = SqlSchema.void({
         Request: Schema.Struct({ libraryId: LibraryTable.fields.id }),
         execute: ({ libraryId }) => sql`
           update libraryPath set deletedAt = unixepoch() where libraryId = ${libraryId}`,
       });
 
-      const removeLibrary = SqlSchema.void({
+      const deleteLibrary = SqlSchema.void({
         Request: Schema.Struct({ id: LibraryTable.fields.id }),
         execute: ({ id }) => sql`
           update library set deletedAt = unixepoch() where id = ${id}`,
@@ -160,14 +160,14 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           (effect) => effect.pipe(sql.withTransaction, toDatabaseError('LibraryRepository.upsert'))
         ),
 
-        remove: Effect.fn(
+        delete: Effect.fn(
           function* ({ id }: { id: (typeof LibraryTable)['Type']['id'] }) {
-            yield* removePaths({ libraryId: id }).pipe(
-              toDatabaseError('LibraryRepository.removePaths')
+            yield* deletePaths({ libraryId: id }).pipe(
+              toDatabaseError('LibraryRepository.deletePaths')
             );
-            yield* removeLibrary({ id }).pipe(toDatabaseError('LibraryRepository.removeLibrary'));
+            yield* deleteLibrary({ id }).pipe(toDatabaseError('LibraryRepository.deleteLibrary'));
           },
-          (effect) => effect.pipe(sql.withTransaction, toDatabaseError('LibraryRepository.remove'))
+          (effect) => effect.pipe(sql.withTransaction, toDatabaseError('LibraryRepository.delete'))
         ),
       };
     }),

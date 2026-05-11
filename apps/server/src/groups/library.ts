@@ -1,18 +1,12 @@
-import { Effect } from 'effect';
+import { Layer } from 'effect';
 
-import { Library } from '@repo/spec-api/groups/library.ts';
+import { Api } from '@repo/spec-api';
 
 import { LibraryRepository } from '#src/services/database/repos/library.ts';
 
-export const LibraryRpcGroupLayer = Library.toLayer(
-  Effect.gen(function* () {
-    const libraryRepo = yield* LibraryRepository;
-
-    return Library.of({
-      libraryGet: (payload) => libraryRepo.get(payload),
-      libraryList: (payload) => libraryRepo.list(payload),
-      libraryUpsert: (payload) => libraryRepo.upsert(payload),
-      libraryDelete: (payload) => libraryRepo.remove(payload),
-    });
-  })
+export const LibraryHandlers = Layer.mergeAll(
+  Api.toLayerHandler('libraryGet', (payload) => LibraryRepository.use((r) => r.get(payload))),
+  Api.toLayerHandler('libraryList', (payload) => LibraryRepository.use((r) => r.list(payload))),
+  Api.toLayerHandler('libraryUpsert', (payload) => LibraryRepository.use((r) => r.upsert(payload))),
+  Api.toLayerHandler('libraryDelete', (payload) => LibraryRepository.use((r) => r.delete(payload)))
 );
