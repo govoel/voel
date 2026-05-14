@@ -2,7 +2,6 @@ import { expect, it } from '@effect/vitest';
 import { Context, Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { Headers } from 'effect/unstable/http';
 import { RpcClient, RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
-import { SqlClient } from 'effect/unstable/sql';
 
 import type { TestHelpers } from '@repo/auth-api/server.ts';
 import { Api } from '@repo/spec-api';
@@ -26,13 +25,20 @@ interface TestUserSpec {
   readonly role: AuthRole;
   readonly email?: string;
   readonly name?: string;
+  readonly username?: string;
 }
 
-interface TestSessionHeadersFor<Users extends Readonly<Record<string, TestUserSpec>>> {
-  readonly get: (
-    name: keyof Users & string
-  ) => Effect.Effect<Headers.Headers, MissingTestSessionHeaders>;
+interface TestUsersWithoutDefaultAdmin {
+  readonly defaultadmin?: never;
 }
+
+type TestUsersWithDefaultAdmin<Users extends Readonly<Record<string, TestUserSpec>>> = Users & {
+  readonly defaultadmin: TestUserSpec;
+};
+
+type TestSessionHeadersFor<Users extends Readonly<Record<string, TestUserSpec>>> = {
+  readonly [Name in keyof TestUsersWithDefaultAdmin<Users>]: Headers.Headers;
+};
 
 const isTestHelpers = (value: unknown): value is TestHelpers =>
   typeof value === 'object' &&
@@ -47,13 +53,6 @@ class TestHelpersUnavailable extends Schema.TaggedErrorClass<TestHelpersUnavaila
   {}
 ) {}
 
-class MissingTestSessionHeaders extends Schema.TaggedErrorClass<MissingTestSessionHeaders>()(
-  '@repo/server/groups/library.test/MissingTestSessionHeaders',
-  {
-    name: Schema.String,
-  }
-) {}
-
 const getTestHelpers = Effect.fnUntraced(function* (auth: Auth['Service']) {
   const context = yield* Effect.tryPromise(async () => auth.$context).pipe(Effect.orDie);
 
@@ -65,7 +64,7 @@ const getTestHelpers = Effect.fnUntraced(function* (auth: Auth['Service']) {
 });
 
 const makeTestSessions = <const Users extends Readonly<Record<string, TestUserSpec>>>(
-  users: Users
+  users: Users & TestUsersWithoutDefaultAdmin
 ) => {
   class TestSessionHeaders extends Context.Service<
     TestSessionHeaders,
@@ -76,15 +75,16 @@ const makeTestSessions = <const Users extends Readonly<Record<string, TestUserSp
     TestSessionHeaders,
     Effect.gen(function* () {
       const auth = yield* Auth;
-      const sql = yield* SqlClient.SqlClient;
       const test = yield* getTestHelpers(auth);
       const userIds: string[] = [];
-      const sessionHeaders = new Map<string, Headers.Headers>();
-
-      for (const [name, spec] of Object.entries(users)) {
+      const sessionHeaderEntries: [string, Headers.Headers][] = [];
+      const createSessionHeaders = Effect.fnUntraced(function* (name: string, spec: TestUserSpec) {
+        const username = spec.username ?? name;
         const user = test.createUser({
           email: spec.email ?? `${name}@library.test.localhost`,
           name: spec.name ?? `Library ${name}`,
+          username,
+          displayUsername: username,
           role: spec.role,
         });
         const savedUser = yield* Effect.tryPromise(async () => test.saveUser(user)).pipe(
@@ -92,37 +92,38 @@ const makeTestSessions = <const Users extends Readonly<Record<string, TestUserSp
         );
         userIds.push(savedUser.id);
 
-        yield* sql`update "user" set "role" = ${spec.role} where "id" = ${savedUser.id}`;
-
         const headers = yield* Effect.tryPromise(async () =>
           test.getAuthHeaders({ userId: savedUser.id })
         ).pipe(Effect.orDie);
-        sessionHeaders.set(name, Headers.fromInput(headers));
+        return Headers.fromInput(headers);
+      });
+
+      sessionHeaderEntries.push([
+        'defaultadmin',
+        yield* createSessionHeaders('defaultadmin', {
+          role: 'admin',
+          email: 'defaultadmin@library.test.localhost',
+          name: 'Default Admin',
+          username: 'defaultadmin',
+        }),
+      ]);
+
+      for (const [name, spec] of Object.entries(users)) {
+        sessionHeaderEntries.push([name, yield* createSessionHeaders(name, spec)]);
       }
 
       yield* Effect.addFinalizer(() =>
         Effect.forEach(
           userIds,
-          (userId) =>
-            Effect.tryPromise(async () => test.deleteUser(userId)).pipe(
-              Effect.orDie,
-              Effect.ignore
-            ),
+          (userId) => Effect.tryPromise(async () => test.deleteUser(userId)).pipe(Effect.orDie),
           { discard: true }
         )
       );
 
-      return TestSessionHeaders.of({
-        get: Effect.fnUntraced(function* (name) {
-          const headers = sessionHeaders.get(name);
-
-          if (!headers) {
-            return yield* new MissingTestSessionHeaders({ name });
-          }
-
-          return headers;
-        }),
-      });
+      return TestSessionHeaders.of(
+        // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+        Object.fromEntries(sessionHeaderEntries) as TestSessionHeadersFor<Users>
+      );
     })
   );
 
@@ -130,7 +131,7 @@ const makeTestSessions = <const Users extends Readonly<Record<string, TestUserSp
 };
 
 const makeTestLayer = <const Users extends Readonly<Record<string, TestUserSpec>>>(
-  users: Users
+  users: Users & TestUsersWithoutDefaultAdmin
 ) => {
   const testSessions = makeTestSessions(users);
   const authLayers = Layer.mergeAll(AuthMiddlewareLive, testSessions.layer).pipe(
@@ -197,14 +198,14 @@ it.layer(LibraryAuthorizationTest.layer)('library authorization', (iit) => {
   );
 });
 
-const LibraryTest = makeTestLayer({ admin: { role: 'admin' } });
+const LibraryTest = makeTestLayer({});
 
 it.layer(LibraryTest.layer)('library', (iit) => {
   iit.effect(
     'should list active libraries',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -253,7 +254,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should paginate active libraries by cursor',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
@@ -345,7 +346,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should return an empty page after the last library',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -367,7 +368,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should list a page larger than the active library count',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
@@ -414,7 +415,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should create a %s library',
     Effect.fnUntraced(function* (type) {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result = yield* client
         .libraryUpsert({
@@ -436,7 +437,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should create a %s library with no paths',
     Effect.fnUntraced(function* (type) {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result = yield* client
         .libraryUpsert({
@@ -458,7 +459,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should create a %s library with multiple paths',
     Effect.fnUntraced(function* (type) {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result = yield* client
         .libraryUpsert({
@@ -480,7 +481,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should soft delete a %s library and recreate it',
     Effect.fnUntraced(function* (type) {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -511,7 +512,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     '%s library paths should not get deleted on upsert',
     Effect.fnUntraced(function* (type) {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result1 = yield* client
         .libraryUpsert({
@@ -554,7 +555,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'name changes for %s library is supported',
     Effect.fnUntraced(function* (type) {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result1 = yield* client
         .libraryUpsert({
@@ -587,7 +588,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     '%s library type should change on upsert, with associated tables cleaned up',
     Effect.fnUntraced(function* (type) {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -618,7 +619,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should fail to get a non-existent library',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result = yield* client
         .libraryGet({ id: yield* forceBrandLibraryId(999_999) })
@@ -632,7 +633,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should fail to get a deleted library',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -653,7 +654,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should succeed in deleting a non-existent library',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       yield* client.libraryDelete({ id: yield* forceBrandLibraryId(999_999) });
     })
@@ -663,7 +664,7 @@ it.layer(LibraryTest.layer)('library', (iit) => {
     'should fail to upsert with a non-existent id',
     Effect.fnUntraced(function* () {
       const sessions = yield* LibraryTest.TestSessionHeaders;
-      const client = yield* makeLibraryClient(yield* sessions.get('admin'));
+      const client = yield* makeLibraryClient(sessions.defaultadmin);
 
       const result = yield* client
         .libraryUpsert({
