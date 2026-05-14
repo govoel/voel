@@ -1,53 +1,62 @@
 ---
 name: quality-code
-description: Use when writing or reviewing TypeScript/full-stack code. Encodes principles for type safety (branded types, discriminated unions, end-to-end types), real tests over mocks, OpenTelemetry observability, and picking the right abstractions instead of premature ones.
+description: Use when writing or reviewing TypeScript/full-stack code. Encodes principles for type safety, Effect services, real tests over mocks, built-in Effect observability, and choosing abstractions only when they pay for themselves.
 ---
 
-# Writing quality full-stack TypeScript
+# Writing quality TypeScript
 
-Apply these principles when writing or reviewing TypeScript code.
+Apply these principles when writing or reviewing TypeScript code in this project. Prefer Effect, Effect Schema, Effect services, and Layers over ad hoc alternatives.
 
 ## Make impossible states unrepresentable
 
-Use the type system to make invalid states fail at compile time. Fewer reachable states = easier code to read and change.
+Use the type system and Effect Schema to make invalid states fail at the boundary. Fewer reachable states means easier code to read and change.
 
-### Branded types
+### Branded schemas
 
-Brand primitives so they can't be mixed up. Validate once at the boundary; downstream code trusts the type.
+Brand primitives with `Schema.brand` so they cannot be mixed up. Decode once at the boundary; downstream code trusts the branded type.
 
 ```ts
-type PhoneNumber = string & { __brand: "PhoneNumber" };
+import { Schema } from "effect"
 
-function parsePhone(input: string): PhoneNumber {
-  if (!/^\+?\d{10,15}$/.test(input)) throw new Error(`Invalid: ${input}`);
-  return input as PhoneNumber;
-}
+export const PhoneNumber = Schema.String.check(
+  Schema.isPattern(/^\+?\d{10,15}$/)
+).pipe(Schema.brand("PhoneNumber"))
+export type PhoneNumber = typeof PhoneNumber.Type
 
-function sendSMS(to: PhoneNumber, body: string) {
+export const decodePhoneNumber = Schema.decodeUnknownSync(PhoneNumber)
+
+function sendSms(options: { readonly to: PhoneNumber; readonly body: string }) {
   /* input is trusted */
 }
 ```
 
-If the project already uses a library with native branded-type support (e.g. Effect), use their primitives instead of rolling your own.
+Do not roll your own `string & { __brand: ... }` types when an Effect Schema can validate and brand the value.
 
 ### Discriminated unions over flag bags
 
 ```ts
-// Don't — invalid combos representable
-type State = { loading: boolean; user?: User; error?: string };
+import { Schema } from "effect"
 
-// Do — only valid states exist
-type State =
-  | { status: "loading" }
-  | { status: "success"; user: User }
-  | { status: "error"; error: string };
+const User = Schema.Struct({ id: Schema.String, name: Schema.String })
+type User = typeof User.Type
+
+// Don't: invalid combinations are representable.
+type State = { loading: boolean; user?: User; error?: string }
+
+// Do: only valid states exist.
+const State = Schema.Union(
+  Schema.Struct({ status: Schema.Literal("loading") }),
+  Schema.Struct({ status: Schema.Literal("success"), user: User }),
+  Schema.Struct({ status: Schema.Literal("error"), error: Schema.String })
+)
+type State = typeof State.Type
 ```
 
-## Let the types flow end-to-end
+## Let types flow end-to-end
 
-DB schema → server → client should share types without manual duplication. Use whatever end-to-end type tool the project already has (tRPC, oRPC, Elysia, TanStack Start). A `users.email` branded as `Email` should arrive on the client still branded.
+DB schema → server → client should share types without manual duplication. A `users.email` branded as `Email` should arrive on the client still branded.
 
-Don't restate types you can derive. Reach for `Pick`, `Omit`, `Parameters`, `ReturnType`, `Awaited`, `typeof` etc. before writing a new interface. For function arguments, infer from the source instead of typing them by hand:
+Do not restate types you can derive. Reach for `typeof MySchema.Type`, `Pick`, `Omit`, `Parameters`, `ReturnType`, `Awaited`, and `Effect.Success` before writing a new interface.
 
 ```ts
 // Don't — duplicate shape, drifts when the row changes
@@ -74,16 +83,6 @@ sendEmail({ to: "alice@x.com", body: "Hi there" });
 
 Skip on hot perf-critical paths; use elsewhere by default.
 
-## Standard Schema for shared validation
-
-For libraries or code that doesn't want to pick a validator, accept `StandardSchemaV1<unknown, T>`.
-
 ## Tests as real as possible
 
-Don't mock things you can run. Spin up real services:
-
-- LocalStack for AWS
-- Miniflare for Cloudflare Workers
-- Real Postgres/SQLite (e.g. `bun:sqlite`), not a mock DB
-
-Mock only third-party services that have no test environment.
+Use `@effect/vitest` with `it.effect` for Effect programs. Provide real or in-memory Layers when practical, and mock only third-party services that have no test environment.
