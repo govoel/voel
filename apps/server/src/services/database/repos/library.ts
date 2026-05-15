@@ -131,44 +131,20 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         get: (request: Parameters<typeof get>['0']) =>
           get(request).pipe(toDatabaseError('LibraryRepository.get')),
 
-        upsert: Effect.fn(
-          function* ({
-            id,
-            type,
-            name,
-            absolutePaths,
-          }: {
-            id: Option.Option<(typeof LibraryTable)['Type']['id']>;
-            type: (typeof MediaTypes)['Type'];
-            name: string;
-            absolutePaths: readonly string[];
-          }) {
-            const library = yield* upsertLibrary({ id, type, name }).pipe(
-              toDatabaseError('LibraryRepository.upsertLibrary')
-            );
-            yield* removeOtherPaths({ libraryId: library.id, absolutePaths }).pipe(
-              toDatabaseError('LibraryRepository.removeOtherPaths')
-            );
-            if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
-              yield* upsertPaths({ libraryId: library.id, absolutePaths }).pipe(
-                toDatabaseError('LibraryRepository.upsertPaths')
-              );
-              // TODO: Trigger a scan, and also clean up related tables based on the library type
-            }
-            return { id: library.id };
-          },
-          (effect) => effect.pipe(sql.withTransaction, toDatabaseError('LibraryRepository.upsert'))
-        ),
+        upsertLibrary: (request: Parameters<typeof upsertLibrary>['0']) =>
+          upsertLibrary(request).pipe(toDatabaseError('LibraryRepository.upsertLibrary')),
 
-        delete: Effect.fn(
-          function* ({ id }: { id: (typeof LibraryTable)['Type']['id'] }) {
-            yield* deletePaths({ libraryId: id }).pipe(
-              toDatabaseError('LibraryRepository.deletePaths')
-            );
-            yield* deleteLibrary({ id }).pipe(toDatabaseError('LibraryRepository.deleteLibrary'));
-          },
-          (effect) => effect.pipe(sql.withTransaction, toDatabaseError('LibraryRepository.delete'))
-        ),
+        upsertPaths: (request: Parameters<typeof upsertPaths>['0']) =>
+          upsertPaths(request).pipe(toDatabaseError('LibraryRepository.upsertPaths')),
+
+        removeOtherPaths: (request: Parameters<typeof removeOtherPaths>['0']) =>
+          removeOtherPaths(request).pipe(toDatabaseError('LibraryRepository.removeOtherPaths')),
+
+        deletePaths: (request: Parameters<typeof deletePaths>['0']) =>
+          deletePaths(request).pipe(toDatabaseError('LibraryRepository.deletePaths')),
+
+        deleteLibrary: (request: Parameters<typeof deleteLibrary>['0']) =>
+          deleteLibrary(request).pipe(toDatabaseError('LibraryRepository.deleteLibrary')),
       };
     }),
   }

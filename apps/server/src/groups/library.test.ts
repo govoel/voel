@@ -689,6 +689,10 @@ it.layer(makeTestLayer())('library', (iit) => {
         .pipe(Effect.flip);
 
       expect(result).toBeInstanceOf(DatabaseNoSuchElementError);
+      if (!Schema.is(DatabaseNoSuchElementError)(result)) {
+        throw new Error('Expected a DatabaseNoSuchElementError');
+      }
+      expect(result.operation).toBe('LibraryRepository.upsertLibrary.nse');
     })
   );
 
