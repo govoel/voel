@@ -33,7 +33,8 @@
           "nestedEffectGenYield": "error",
           "schemaUnionOfLiterals": "error",
           "serviceNotAsClass": "error",
-          "unnecessaryArrowBlock": "error"
+          "unnecessaryArrowBlock": "error",
+          "unsafeEffectTypeAssertion": "error"
         },
         "keyPatterns": [
           {
