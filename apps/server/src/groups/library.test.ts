@@ -1,5 +1,6 @@
+import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
+import { Effect, Layer, Option, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import { Api } from '@repo/spec-api';
@@ -19,6 +20,7 @@ const makeTestLayer = () =>
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
     Layer.provideMerge(Layer.mergeAll(Auth.layer, LibraryRepository.layer)),
     Layer.provideMerge(DatabaseLive),
+    Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
   );
 
@@ -30,6 +32,8 @@ const forceBrandLibraryId = Schema.decodeEffect(
     })
   )
 );
+
+const formatSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 
 it.layer(
   RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request)).pipe(
@@ -404,6 +408,44 @@ it.layer(makeTestLayer())('library', (iit) => {
       expect(result.type).toBe(type);
       expect(result.absolutePaths).toEqual([`/${type}/path1`, `/${type}/path2`]);
       expect(result.id).toBeTypeOf('number');
+    })
+  );
+
+  iit.effect(
+    'should reject relative library paths',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+
+      const result = yield* client
+        .libraryUpsert({
+          id: Option.none(),
+          type: 'movie',
+          name: 'Relative Path Library',
+          absolutePaths: [
+            '/valid/path',
+            'relative/path',
+            '/another/valid/path',
+            'another/relative/path',
+          ],
+        })
+        .pipe(Effect.flip);
+
+      expect(result).toBeInstanceOf(Schema.SchemaError);
+      if (!Schema.isSchemaError(result)) {
+        throw new Error('Expected SchemaError');
+      }
+
+      const { issues } = formatSchemaIssue(result.issue);
+      expect(issues).toEqual([
+        expect.objectContaining({
+          message: 'Expected an absolute path',
+          path: [1],
+        }),
+        expect.objectContaining({
+          message: 'Expected an absolute path',
+          path: [3],
+        }),
+      ]);
     })
   );
 

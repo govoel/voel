@@ -1,4 +1,4 @@
-import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
+import { BunHttpServer, BunPath, BunRuntime } from '@effect/platform-bun';
 import { Effect, Layer, pipe } from 'effect';
 import { HttpRouter } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
@@ -26,7 +26,7 @@ export const AllRoutes = RpcServer.layerHttp({
   Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
   Layer.provideMerge(Layer.mergeAll(LibraryRepository.layer, Auth.layer)),
   Layer.provideMerge(Layer.mergeAll(DatabaseLive)),
-  Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerMsgPack))
+  Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerMsgPack, BunPath.layer))
 );
 
 if (import.meta.main) {

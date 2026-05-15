@@ -1,3 +1,4 @@
+import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
@@ -17,6 +18,7 @@ const makeTestLayer = () =>
     Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLive)),
     Layer.provideMerge(Layer.mergeAll(Auth.layer, LibraryRepository.layer)),
     Layer.provideMerge(DatabaseLive),
+    Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
   );
 

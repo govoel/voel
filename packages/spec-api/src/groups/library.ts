@@ -27,7 +27,9 @@ export const library = [
       absolutePaths: Schema.Array(Schema.String),
     }),
     success: Schema.Struct({ id: LibraryTable.fields.id }),
-    error: DatabaseErrorWithNSE,
+    error: Schema.Union([DatabaseErrorWithNSE, Schema.instanceOf(Schema.SchemaError)], {
+      mode: 'oneOf',
+    }),
   }).middleware(AdminMiddleware),
 
   Rpc.make('libraryDelete', {
