@@ -3,7 +3,7 @@ import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import { Api } from '@repo/spec-api';
-import { DatabaseNoSuchElementError } from '@repo/spec-api/database/index.ts';
+import { DatabaseNoSuchElementError, DatabaseSqlError } from '@repo/spec-api/database/index.ts';
 import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 import { AuthMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
@@ -79,6 +79,60 @@ it.layer(
 
       expect(upsertResult).toBeInstanceOf(Unauthorized);
       expect(deleteResult).toBeInstanceOf(Unauthorized);
+    })
+  );
+
+  iit.effect(
+    'should reject unauthenticated library reads',
+    Effect.fnUntraced(function* () {
+      const client = yield* RpcTest.makeClient(Api);
+
+      const getResult = yield* client
+        .libraryGet({ id: yield* forceBrandLibraryId(999_999) })
+        .pipe(Effect.flip);
+      const listResult = yield* client
+        .libraryList({ cursor: Option.none(), limit: 1 })
+        .pipe(Effect.flip);
+
+      expect(getResult).toBeInstanceOf(Unauthorized);
+      expect(listResult).toBeInstanceOf(Unauthorized);
+    })
+  );
+
+  iit.effect.each(['user', 'under18'] as const)(
+    'should allow %s library reads',
+    Effect.fnUntraced(function* (role) {
+      const adminClient = yield* makeAuthedClient({
+        username: `library-read-admin-${role}`,
+        role: 'admin',
+      });
+      const marker = yield* adminClient.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: `${role} Read Marker Library`,
+        absolutePaths: [],
+      });
+      const library = yield* adminClient.libraryUpsert({
+        id: Option.none(),
+        type: 'show',
+        name: `${role} Read Library`,
+        absolutePaths: [`/show/${role}-read`],
+      });
+      const client = yield* makeAuthedClient({ username: `library-read-${role}`, role });
+
+      const getResult = yield* client.libraryGet({ id: library.id });
+      const listResult = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 1 });
+
+      expect(getResult).toEqual({
+        id: library.id,
+        type: 'show',
+        name: `${role} Read Library`,
+        absolutePaths: [`/show/${role}-read`],
+      });
+      expect(listResult).toEqual({
+        items: [getResult],
+        nextCursor: Option.none(),
+      });
     })
   );
 });
@@ -459,6 +513,64 @@ it.layer(makeTestLayer())('library', (iit) => {
   );
 
   iit.effect.each(MediaTypes.literals)(
+    'should de-duplicate paths for a %s library',
+    Effect.fnUntraced(function* (type) {
+      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+
+      const result = yield* client
+        .libraryUpsert({
+          id: Option.none(),
+          type,
+          name: `My ${type} Duplicate Paths`,
+          absolutePaths: [`/${type}/duplicate-path`, `/${type}/duplicate-path`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+
+      expect(result.name).toBe(`My ${type} Duplicate Paths`);
+      expect(result.type).toBe(type);
+      expect(result.absolutePaths).toEqual([`/${type}/duplicate-path`]);
+    })
+  );
+
+  iit.effect.each(MediaTypes.literals)(
+    'should restore a removed path for a %s library',
+    Effect.fnUntraced(function* (type) {
+      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+
+      const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type,
+        name: `My ${type} Restore Path`,
+        absolutePaths: [`/${type}/restore-path`],
+      });
+
+      const result2 = yield* client
+        .libraryUpsert({
+          id: Option.some(result1.id),
+          type,
+          name: `My ${type} Restore Path`,
+          absolutePaths: [],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+
+      expect(result2.id).toBe(result1.id);
+      expect(result2.absolutePaths).toEqual([]);
+
+      const result3 = yield* client
+        .libraryUpsert({
+          id: Option.some(result1.id),
+          type,
+          name: `My ${type} Restore Path`,
+          absolutePaths: [`/${type}/restore-path`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+
+      expect(result3.id).toBe(result1.id);
+      expect(result3.absolutePaths).toEqual([`/${type}/restore-path`]);
+    })
+  );
+
+  iit.effect.each(MediaTypes.literals)(
     'name changes for %s library is supported',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -577,6 +689,41 @@ it.layer(makeTestLayer())('library', (iit) => {
         .pipe(Effect.flip);
 
       expect(result).toBeInstanceOf(DatabaseNoSuchElementError);
+    })
+  );
+
+  iit.effect(
+    'should fail to rename a library to an existing library name',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+
+      yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'movie',
+        name: 'Existing Name Library',
+        absolutePaths: [],
+      });
+      const library = yield* client.libraryUpsert({
+        id: Option.none(),
+        type: 'show',
+        name: 'Rename Collision Library',
+        absolutePaths: [],
+      });
+
+      const result = yield* client
+        .libraryUpsert({
+          id: Option.some(library.id),
+          type: 'show',
+          name: 'Existing Name Library',
+          absolutePaths: [],
+        })
+        .pipe(Effect.flip);
+
+      expect(result).toBeInstanceOf(DatabaseSqlError);
+      if (!Schema.is(DatabaseSqlError)(result)) {
+        throw new Error('Expected a DatabaseSqlError');
+      }
+      expect(result.operation).toBe('LibraryRepository.upsertLibrary.sql');
     })
   );
 });

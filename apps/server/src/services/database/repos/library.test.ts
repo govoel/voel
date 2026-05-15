@@ -2,7 +2,7 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 
 import { DatabaseDecodeError, DatabaseNoSuchElementError } from '@repo/spec-api/database/index.ts';
-import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
+import { LibraryTable } from '@repo/spec-api/database/library.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
 import { DatabaseLive } from '#src/services/database/index.ts';
