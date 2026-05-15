@@ -17,15 +17,15 @@
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {
-    "@effect/sql-sqlite-bun": "4.0.0-beta.60",
-    "better-auth": "1.6.9",
-    "effect": "4.0.0-beta.60"
+    "@effect/sql-sqlite-bun": "4.0.0-beta.66",
+    "better-auth": "1.6.11",
+    "effect": "4.0.0-beta.66"
   },
   "devDependencies": {
-    "@effect/language-service": "0.85.1",
+    "@effect/language-service": "0.86.1",
     "@repo/tsconfig": "workspace:*",
-    "bun-types": "1.3.13",
-    "portless": "0.12.0",
+    "bun-types": "1.3.14",
+    "portless": "0.13.0",
     "typescript": "6.0.3"
   }
 }

@@ -1,6 +1,6 @@
 import type { BetterAuthClientOptions } from 'better-auth/client';
+import { createAuthClient as createBetterAuthClient } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
-import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 
 import type { BetterAuthInstance } from '#src/server.ts';
 
