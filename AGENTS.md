@@ -9,11 +9,14 @@ Run `bun turbo run lint`, `bun turbo run format`, `bun --bun turbo run test` aft
 
 # This project uses "effect"
 
-Before writing any code, YOU MUST read `.repos/effect/LLMS.md` fully.
+Before writing any TypeScript code, YOU MUST read `.repos/effect/LLMS.md` and `.agents/skills/quality-code/SKILL.md` fully.
 
-# Changesets
+## Agent skills
 
-Every pull request should include a changeset describing the changes made.
-Changesets are added to the `.changeset/` directory.
+### Issue tracker
 
-There should one be ONE changeset per pull request.
+Issues and PRDs are tracked as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+This repo uses a multi-context domain docs layout rooted at `CONTEXT-MAP.md`. See `docs/agents/domain.md`.
