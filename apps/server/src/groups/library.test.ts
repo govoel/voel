@@ -2,6 +2,7 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
+import { SqlClient } from 'effect/unstable/sql';
 
 import type { TestHelpers } from '@repo/auth-api/server.ts';
 import { Api } from '@repo/spec-api';
@@ -47,6 +48,7 @@ const makeLibraryClient = Effect.fnUntraced(function* (user: {
   readonly name?: string;
 }) {
   const auth = yield* Auth;
+  const sql = yield* SqlClient.SqlClient;
   const context = yield* Effect.tryPromise(async () => auth.$context).pipe(Effect.orDie);
 
   if (!('test' in context) || !isTestHelpers(context.test)) {
@@ -64,6 +66,8 @@ const makeLibraryClient = Effect.fnUntraced(function* (user: {
       })
     )
   ).pipe(Effect.orDie);
+
+  yield* sql`update "user" set "role" = ${user.role} where "id" = ${savedUser.id}`;
 
   yield* Effect.addFinalizer(() =>
     Effect.tryPromise(async () => test.deleteUser(savedUser.id)).pipe(Effect.orDie)
@@ -97,6 +101,29 @@ it.layer(
           id: Option.none(),
           type: 'movie',
           name: 'Unauthorized Library',
+          absolutePaths: [],
+        })
+        .pipe(Effect.flip);
+
+      const deleteResult = yield* client
+        .libraryDelete({ id: yield* forceBrandLibraryId(999_999) })
+        .pipe(Effect.flip);
+
+      expect(upsertResult).toBeInstanceOf(Unauthorized);
+      expect(deleteResult).toBeInstanceOf(Unauthorized);
+    })
+  );
+
+  iit.effect.each(['user', 'under18'] as const)(
+    'should reject %s library mutations',
+    Effect.fnUntraced(function* (role) {
+      const client = yield* makeLibraryClient({ username: `library-auth-${role}`, role });
+
+      const upsertResult = yield* client
+        .libraryUpsert({
+          id: Option.none(),
+          type: 'movie',
+          name: `${role} Unauthorized Library`,
           absolutePaths: [],
         })
         .pipe(Effect.flip);
