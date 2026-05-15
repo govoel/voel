@@ -3,7 +3,7 @@ import { Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import { Api } from '@repo/spec-api';
-import { DatabaseNoSuchElementError } from '@repo/spec-api/database/index.js';
+import { DatabaseNoSuchElementError } from '@repo/spec-api/database/index.ts';
 import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 import { AuthMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
@@ -380,6 +380,39 @@ it.layer(makeTestLayer())('library', (iit) => {
       expect(result2.name).toBe(`My ${type} Delete`);
       expect(result2.type).toBe(type);
       expect(result2.absolutePaths).toEqual([`/${type}/path-delete`]);
+    })
+  );
+
+  iit.effect.each(MediaTypes.literals)(
+    'should soft delete a %s library and restore it by id',
+    Effect.fnUntraced(function* (type) {
+      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+
+      const result1 = yield* client.libraryUpsert({
+        id: Option.none(),
+        type,
+        name: `My ${type} Restore By Id`,
+        absolutePaths: [`/${type}/path-restore-by-id`],
+      });
+
+      yield* client.libraryDelete({ id: result1.id });
+
+      const deletedResult = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
+      expect(deletedResult).toBeInstanceOf(DatabaseNoSuchElementError);
+
+      const result2 = yield* client
+        .libraryUpsert({
+          id: Option.some(result1.id),
+          type,
+          name: `My ${type} Restored By Id`,
+          absolutePaths: [`/${type}/path-restore-by-id`],
+        })
+        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
+
+      expect(result2.id).toBe(result1.id);
+      expect(result2.name).toBe(`My ${type} Restored By Id`);
+      expect(result2.type).toBe(type);
+      expect(result2.absolutePaths).toEqual([`/${type}/path-restore-by-id`]);
     })
   );
 
