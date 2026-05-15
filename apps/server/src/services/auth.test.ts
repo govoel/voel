@@ -10,14 +10,7 @@ import { ApiConfig } from '#src/services/config.ts';
 const TestServerLive = Layer.effectDiscard(
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
-      AllRoutes.pipe(
-        Layer.provide(
-          Layer.mergeAll(
-            HttpServer.layerServices,
-            ApiConfig.layerTest({ AUTH_SECRET: 'test', DB_FILENAME: ':memory:' })
-          )
-        )
-      )
+      AllRoutes.pipe(Layer.provide(Layer.mergeAll(HttpServer.layerServices, ApiConfig.layerTest())))
     );
     yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));
 
@@ -25,6 +18,7 @@ const TestServerLive = Layer.effectDiscard(
       const request = input instanceof Request ? input : new Request(String(input), init);
       return handler(request);
     });
+    yield* Effect.addFinalizer(() => Effect.sync(() => vi.unstubAllGlobals()));
   })
 );
 

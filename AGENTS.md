@@ -5,7 +5,9 @@
 
 # Validations
 
-Run `bun turbo run lint`, `bun turbo run format`, `bun --bun turbo run test` after changing any code.
+- `bun turbo run lint`
+- `bun turbo run format`
+- `bun --bun turbo run test`
 
 # This project uses "effect"
 

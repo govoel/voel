@@ -1,19 +1,32 @@
-import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
+import { BunHttpServer, BunPath, BunRuntime } from '@effect/platform-bun';
 import { Effect, Layer, pipe } from 'effect';
 import { HttpRouter } from 'effect/unstable/http';
-import { HttpApiBuilder } from 'effect/unstable/httpapi';
+import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
 import { Api } from '@repo/spec-api';
 
-import { Auth, AuthMiddlewareLive, AuthRouterLive } from '#src/services/auth.ts';
+import { LibraryHandlers } from '#src/groups/library.ts';
+import {
+  AdminMiddlewareLive,
+  Auth,
+  AuthMiddlewareLive,
+  AuthRouterLive,
+} from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { DatabaseLive } from '#src/services/database/index.ts';
+import { LibraryRepository } from '#src/services/database/repos/library.ts';
 
-export const AllRoutes = HttpApiBuilder.layer(Api).pipe(
-  Layer.provideMerge(Layer.mergeAll(AuthRouterLive)),
-  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive)),
-  Layer.provideMerge(Layer.mergeAll(Auth.layer)),
-  Layer.provideMerge(Layer.mergeAll(DatabaseLive))
+export const AllRoutes = RpcServer.layerHttp({
+  group: Api,
+  path: '/api/rpc',
+  protocol: 'http',
+  concurrency: 'unbounded',
+}).pipe(
+  Layer.provideMerge(Layer.mergeAll(AuthRouterLive, LibraryHandlers)),
+  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
+  Layer.provideMerge(Layer.mergeAll(LibraryRepository.layer, Auth.layer)),
+  Layer.provideMerge(Layer.mergeAll(DatabaseLive)),
+  Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerMsgPack, BunPath.layer))
 );
 
 if (import.meta.main) {

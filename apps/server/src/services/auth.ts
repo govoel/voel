@@ -1,10 +1,14 @@
 import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { Context, Effect, Layer, Match, Redacted } from 'effect';
-import { HttpEffect, HttpRouter, HttpServerRequest } from 'effect/unstable/http';
-import { HttpApiError } from 'effect/unstable/httpapi';
+import { HttpEffect, HttpRouter } from 'effect/unstable/http';
 
 import { createAuth } from '@repo/auth-api/server.ts';
-import { AuthMiddleware, CurrentSession } from '@repo/spec-api';
+import {
+  AdminMiddleware,
+  AuthMiddleware,
+  CurrentSession,
+  Unauthorized,
+} from '@repo/spec-api/middlewares/auth.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
 
@@ -62,21 +66,34 @@ export const AuthMiddlewareLive = Layer.effect(
   Effect.gen(function* () {
     const auth = yield* Auth;
 
-    return AuthMiddleware.of({
-      cookie: Effect.fnUntraced(function* (httpEffect) {
-        const request = yield* HttpServerRequest.HttpServerRequest;
-
+    return AuthMiddleware.of(
+      Effect.fnUntraced(function* (httpEffect, { headers }) {
         const session = yield* Effect.tryPromise({
-          try: async () => auth.api.getSession({ headers: request.headers }),
-          catch: () => new HttpApiError.Unauthorized({}),
+          try: async () => auth.api.getSession({ headers }),
+          catch: () => new Unauthorized({}),
         });
 
         if (session === null) {
-          return yield* new HttpApiError.Unauthorized({});
+          return yield* new Unauthorized({});
         }
 
         return yield* Effect.provideService(httpEffect, CurrentSession, session);
-      }),
-    });
+      })
+    );
   })
+);
+
+export const AdminMiddlewareLive = Layer.succeed(
+  AdminMiddleware,
+  AdminMiddleware.of(
+    Effect.fnUntraced(function* (effect) {
+      const session = yield* CurrentSession;
+
+      if (!('role' in session.user) || session.user.role !== 'admin') {
+        return yield* new Unauthorized({});
+      }
+
+      return yield* effect;
+    })
+  )
 );

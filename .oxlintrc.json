@@ -35,6 +35,8 @@
     "eslint/require-await": "off",
     "eslint/no-negated-condition": "off",
     "eslint/no-undefined": "error",
+    "eslint/no-warning-comments": "off",
+    "eslint/no-underscore-dangle": "off",
 
     "import/no-duplicates": ["error", { "preferInline": false }],
     "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
@@ -45,6 +47,7 @@
     "import/max-dependencies": "off",
     "import/exports-last": "off",
     "import/group-exports": "off",
+    "import/namespace": "off",
 
     "oxc/no-async-await": "off",
     "oxc/no-optional-chaining": "off",
@@ -61,8 +64,10 @@
     "unicorn/no-array-for-each": "off",
     "unicorn/no-nested-ternary": "off",
     "unicorn/no-abusive-eslint-disable": "off",
+    "unicorn/no-array-callback-reference": "off",
 
-    "promise/prefer-await-to-then": "off"
+    "promise/prefer-await-to-then": "off",
+    "promise/prefer-await-to-callbacks": "off"
   },
   "jsPlugins": ["eslint-plugin-turbo"]
 }
