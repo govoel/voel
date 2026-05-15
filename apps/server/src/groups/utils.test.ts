@@ -12,9 +12,9 @@ import { ApiConfig } from '#src/services/config.ts';
 import { DatabaseLive } from '#src/services/database/index.ts';
 import { LibraryRepository } from '#src/services/database/repos/library.ts';
 
-const makeTestLayer = (authMiddleware = AuthMiddlewareLive) =>
+const makeTestLayer = () =>
   LibraryHandlers.pipe(
-    Layer.provideMerge(Layer.mergeAll(authMiddleware, AdminMiddlewareLive)),
+    Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLive)),
     Layer.provideMerge(Layer.mergeAll(Auth.layer, LibraryRepository.layer)),
     Layer.provideMerge(DatabaseLive),
     Layer.provideMerge(ApiConfig.layerTest())
@@ -31,7 +31,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         role: 'admin',
         email: 'utils-library-admin@example.test',
         name: 'Utils Library Admin',
-      });
+      }).pipe(Effect.provide(AuthMiddlewareLive));
 
       const users = yield* sql<{
         readonly id: string;
@@ -70,7 +70,9 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
 
       yield* Effect.scoped(
         Effect.gen(function* () {
-          yield* makeAuthedClient({ username: 'utils-library-cleanup', role: 'admin' });
+          yield* makeAuthedClient({ username: 'utils-library-cleanup', role: 'admin' }).pipe(
+            Effect.provide(AuthMiddlewareLive)
+          );
 
           const users = yield* sql<{
             readonly id: string;
@@ -102,7 +104,9 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       const existingUsers = yield* sql<{ readonly id: string }>`select id from "user"`;
       expect(existingUsers).toEqual([]);
 
-      yield* makeAuthedClient({ username: 'utils-library-first-user', role: 'user' });
+      yield* makeAuthedClient({ username: 'utils-library-first-user', role: 'user' }).pipe(
+        Effect.provide(AuthMiddlewareLive)
+      );
 
       const users = yield* sql<{
         readonly username: string;
@@ -114,54 +118,47 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
   );
 });
 
-let capturedHeaders = Option.none<EffectHeaders.Headers>();
-
-const CapturingAuthMiddlewareLive = Layer.effect(
-  AuthMiddleware,
-  Effect.gen(function* () {
-    const auth = yield* Auth;
-
-    return AuthMiddleware.of(
-      Effect.fnUntraced(function* (httpEffect, { headers }) {
-        capturedHeaders = Option.some(headers);
-
-        const session = yield* Effect.tryPromise({
-          try: async () => auth.api.getSession({ headers: new Headers(headers) }),
-          catch: () => new Unauthorized({}),
-        });
-
-        if (session === null) {
-          return yield* new Unauthorized({});
-        }
-
-        return yield* Effect.provideService(httpEffect, CurrentSession, session);
-      })
-    );
-  })
-);
-
-it.layer(makeTestLayer(CapturingAuthMiddlewareLive))('groups utils headers', (iit) => {
+it.layer(makeTestLayer())('groups utils headers', (iit) => {
   iit.effect(
     'makeLibraryClient sends the generated auth headers to the server',
     Effect.fnUntraced(function* () {
-      capturedHeaders = Option.none();
+      let capturedHeaders = Option.none<EffectHeaders.Headers>();
 
       const client = yield* makeAuthedClient({
         username: 'utils-library-headers',
         role: 'admin',
-      });
+      }).pipe(
+        Effect.provide(
+          Layer.effect(
+            AuthMiddleware,
+            Effect.gen(function* () {
+              const auth = yield* Auth;
+
+              return AuthMiddleware.of(
+                Effect.fnUntraced(function* (httpEffect, { headers }) {
+                  capturedHeaders = Option.some(headers);
+
+                  const session = yield* Effect.tryPromise({
+                    try: async () => auth.api.getSession({ headers }),
+                    catch: () => new Unauthorized({}),
+                  });
+
+                  if (session === null) {
+                    return yield* new Unauthorized({});
+                  }
+
+                  return yield* Effect.provideService(httpEffect, CurrentSession, session);
+                })
+              );
+            })
+          )
+        )
+      );
 
       yield* client.libraryList({ cursor: Option.none(), limit: 1 });
 
-      if (Option.isNone(capturedHeaders)) {
-        throw new Error('Expected the server to receive headers');
-      }
-
-      const cookie = EffectHeaders.get(capturedHeaders.value, 'cookie');
-      if (Option.isNone(cookie)) {
-        throw new Error('Expected the server to receive a cookie header');
-      }
-      expect(cookie.value).toContain('auth.session_token=');
+      const cookie = EffectHeaders.get(Option.getOrThrow(capturedHeaders), 'cookie');
+      expect(Option.getOrUndefined(cookie)).toContain('auth.session_token=');
     })
   );
 });

@@ -69,7 +69,7 @@ export const AuthMiddlewareLive = Layer.effect(
     return AuthMiddleware.of(
       Effect.fnUntraced(function* (httpEffect, { headers }) {
         const session = yield* Effect.tryPromise({
-          try: async () => auth.api.getSession({ headers: new Headers(headers) }),
+          try: async () => auth.api.getSession({ headers }),
           catch: () => new Unauthorized({}),
         });
 
