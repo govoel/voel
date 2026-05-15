@@ -22,7 +22,7 @@
     "@changesets/cli": "2.31.0",
     "eslint-plugin-turbo": "2.9.8",
     "oxfmt": "0.47.0",
-    "oxlint": "1.62.0",
+    "oxlint": "1.64.0",
     "oxlint-tsgolint": "0.22.1",
     "turbo": "2.9.8",
     "typescript": "6.0.3"
