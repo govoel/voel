@@ -1,6 +1,7 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Match } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
 import expoRouter from 'expo-router/plugin/build';
+import expoSecureStore from 'expo-secure-store/plugin/build';
 import expoSplashScreen from 'expo-splash-screen/plugin';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
@@ -85,6 +86,7 @@ export default function app({ config }: ConfigContext): ExpoConfig {
         },
         imageWidth: 200,
       }),
+      expoSecureStore(),
       expoBuildProperties({
         android: { usesCleartextTraffic: true },
         // ios: { useFrameworks: 'static' },
