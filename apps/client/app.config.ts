@@ -7,12 +7,10 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 import pkg from './package.json';
 
 class Env extends Context.Service<Env>()('voel/app.config/Env', {
-  make: Effect.gen(function* () {
-    return yield* Config.all({
-      releaseChannel: Config.literals(['prod', 'preview', 'dev'], 'RELEASE_CHANNEL').pipe(
-        Config.withDefault('dev')
-      ),
-    });
+  make: Config.all({
+    releaseChannel: Config.literals(['prod', 'preview', 'dev'], 'RELEASE_CHANNEL').pipe(
+      Config.withDefault('dev')
+    ),
   }),
 }) {
   public static readonly layer = Layer.effect(this, this.make).pipe(
@@ -21,7 +19,7 @@ class Env extends Context.Service<Env>()('voel/app.config/Env', {
 }
 
 export default function app({ config }: ConfigContext): ExpoConfig {
-  const env = Effect.runSync(Env.use((e) => Effect.succeed(e)).pipe(Effect.provide(Env.layer)));
+  const env = Effect.runSync(Effect.service(Env).pipe(Effect.provide(Env.layer)));
 
   return {
     ...config,
