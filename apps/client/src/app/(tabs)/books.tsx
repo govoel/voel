@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { Text } from 'react-native';
 
 import { ScreenShell } from '#src/components/screen-shell.tsx';
@@ -7,8 +8,12 @@ export default function BooksScreen() {
   const theme = useTheme();
 
   return (
-    <ScreenShell eyebrow="Library" title="Books">
-      <Text style={{ color: theme.textSecondary }}>Keep your reading queue in one place.</Text>
-    </ScreenShell>
+    <>
+      <Stack.Title large>Books</Stack.Title>
+
+      <ScreenShell eyebrow="Library" title="Books">
+        <Text style={{ color: theme.textSecondary }}>Keep your reading queue in one place.</Text>
+      </ScreenShell>
+    </>
   );
 }

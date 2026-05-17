@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { Text } from 'react-native';
 
 import { ScreenShell } from '#src/components/screen-shell.tsx';
@@ -7,8 +8,12 @@ export default function ShowsScreen() {
   const theme = useTheme();
 
   return (
-    <ScreenShell eyebrow="Library" title="Shows">
-      <Text style={{ color: theme.textSecondary }}>Track seasons, episodes, and watchlists.</Text>
-    </ScreenShell>
+    <>
+      <Stack.Title large>Shows</Stack.Title>
+
+      <ScreenShell eyebrow="Library" title="Shows">
+        <Text style={{ color: theme.textSecondary }}>Track seasons, episodes, and watchlists.</Text>
+      </ScreenShell>
+    </>
   );
 }

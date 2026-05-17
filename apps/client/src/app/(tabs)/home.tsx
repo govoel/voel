@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { Text } from 'react-native';
 
 import { ScreenShell } from '#src/components/screen-shell.tsx';
@@ -7,8 +8,12 @@ export default function HomeScreen() {
   const theme = useTheme();
 
   return (
-    <ScreenShell eyebrow="For you" title="Home">
-      <Text style={{ color: theme.textSecondary }}>Pick up where you left off.</Text>
-    </ScreenShell>
+    <>
+      <Stack.Title large>Home</Stack.Title>
+
+      <ScreenShell eyebrow="For you" title="Home">
+        <Text style={{ color: theme.textSecondary }}>Pick up where you left off.</Text>
+      </ScreenShell>
+    </>
   );
 }
