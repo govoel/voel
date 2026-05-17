@@ -1,5 +1,6 @@
 import type Database from 'bun:sqlite';
 
+import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
@@ -23,7 +24,7 @@ export const createAuth = (config: {
     advanced: { cookiePrefix: 'auth' },
     emailAndPassword: { enabled: true, autoSignIn: true, disableSignUp: true },
     telemetry: { enabled: false },
-    trustedOrigins: ['voel://'],
+    trustedOrigins: ['voel://', 'voel-preview://', 'voel-dev://'],
     logger: config.logger,
     session: {
       cookieCache: {
@@ -33,6 +34,7 @@ export const createAuth = (config: {
     },
     database: config.database,
     plugins: [
+      expo(),
       username(),
       admin({ defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
       {
