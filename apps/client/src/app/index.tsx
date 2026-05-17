@@ -1,9 +1,5 @@
-import { Host, Text } from '@expo/ui';
+import { Redirect } from 'expo-router';
 
 export default function HomeScreen() {
-  return (
-    <Host matchContents>
-      <Text>Welcome to Expo</Text>
-    </Host>
-  );
+  return <Redirect href="./home" />;
 }

@@ -14,7 +14,7 @@ export default function TabLayout() {
   return (
     <RegistryProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack />
+        <Stack screenOptions={{ headerShown: false }} />
       </ThemeProvider>
     </RegistryProvider>
   );
