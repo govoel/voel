@@ -72,7 +72,7 @@ export default function app({ config }: ConfigContext): ExpoConfig {
         monochromeImage: './assets/icons/adaptive-icon.png',
         backgroundColor: '#000000',
       },
-      predictiveBackGestureEnabled: false,
+      predictiveBackGestureEnabled: true,
     },
 
     plugins: [

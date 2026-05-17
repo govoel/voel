@@ -13,6 +13,12 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "ef32aea0a8fab9b365ff9e08a95f8d353e20ca21ea46ec2e73587c86dd341351"
     },
+    "opensrc": {
+      "source": "vercel-labs/opensrc",
+      "sourceType": "github",
+      "skillPath": "skills/opensrc/SKILL.md",
+      "computedHash": "20d4395d64cae1e0de62053e1084c0ef58fbf573326a38fbd04f4bb677f0d729"
+    },
     "setup-matt-pocock-skills": {
       "source": "mattpocock/skills",
       "sourceType": "github",
