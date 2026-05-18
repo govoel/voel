@@ -1,19 +1,24 @@
-import { Text } from '@expo/ui';
-import { Stack } from 'expo-router';
+import { Column, Host, Text } from '@expo/ui';
+import { ScrollView } from 'react-native';
 
-import { ScreenShell } from '#src/components/screen-shell.tsx';
-import { useTheme } from '#src/hooks/use-theme.ts';
+import { iosTextStyle } from '#modules/design-system/index.ts';
+import { StatusBarBackground } from '#src/components/status-bar-background.tsx';
 
 export default function HomeScreen() {
-  const theme = useTheme();
-
   return (
     <>
-      <Stack.Screen.Title>Home</Stack.Screen.Title>
-
-      <ScreenShell eyebrow="For you" title="Home">
-        <Text textStyle={{ color: theme.textSecondary }}>Pick up where you left off.</Text>
-      </ScreenShell>
+      <StatusBarBackground />
+      <ScrollView contentInsetAdjustmentBehavior="automatic">
+        <Host matchContents>
+          <Column>
+            <Text modifiers={[iosTextStyle('largeTitle')]}>Large title</Text>
+            <Text modifiers={[iosTextStyle('title')]}>Title</Text>
+            <Text modifiers={[iosTextStyle('headline')]}>Headline</Text>
+            <Text modifiers={[iosTextStyle('body')]}>Body</Text>
+            <Text modifiers={[iosTextStyle('caption')]}>Caption</Text>
+          </Column>
+        </Host>
+      </ScrollView>
     </>
   );
 }

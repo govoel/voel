@@ -5,7 +5,8 @@
   "main": "expo-router/entry",
   "imports": {
     "#src/*": "./src/*",
-    "#assets/*": "./assets/*"
+    "#assets/*": "./assets/*",
+    "#modules/*": "./modules/*"
   },
   "scripts": {
     "dev": "portless server bun run --watch src/index.ts",
@@ -32,6 +33,7 @@
     "expo-font": "~56.0.4",
     "expo-glass-effect": "~56.0.4",
     "expo-image": "~56.0.4",
+    "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.8",
     "expo-network": "~56.0.3",
     "expo-router": "~56.2.1",
