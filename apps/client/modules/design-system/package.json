@@ -1,0 +1,9 @@
+{
+  "name": "voel-design-system",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Native design system helpers for the Voel client app",
+  "homepage": "https://voel.app",
+  "license": "UNLICENSED",
+  "author": ""
+}

@@ -1,2 +1,2 @@
 export { iosTextStyle } from './src/modifiers';
-export * from './src/VoelDesignSystem.types';
+export type * from './src/VoelDesignSystem.types';
