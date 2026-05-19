@@ -2,7 +2,7 @@ import { Text as SwiftUIText } from '@expo/ui/swift-ui';
 import { Match } from 'effect';
 
 import { iosTextStyle } from '#modules/design-system';
-import type { TextComponent } from '#src/components/text.tsx';
+import type { TextComponent } from '#src/components/text';
 
 export const Text = (({ variant = 'body', children }) => (
   <SwiftUIText
@@ -20,5 +20,3 @@ export const Text = (({ variant = 'body', children }) => (
     {children}
   </SwiftUIText>
 )) satisfies TextComponent;
-
-export default Text;

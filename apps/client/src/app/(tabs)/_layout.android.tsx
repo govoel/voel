@@ -20,12 +20,12 @@ export default function TabsLayoutAndroid() {
         tintColor={colors.onSecondaryContainer}
         iconColor={{ default: colors.onSurfaceVariant, selected: colors.onSecondaryContainer }}
         labelStyle={{
-          default: { color: colors.onSurfaceVariant },
-          selected: { color: colors.onSurface },
+          default: { color: colors.onSurfaceVariant, fontFamily: 'Google Sans' },
+          selected: { color: colors.onSurface, fontFamily: 'Google Sans' },
         }}
         indicatorColor={colors.secondaryContainer}
         rippleColor={colors.primary}>
-        <NativeTabs.Trigger name="(home)">
+        <NativeTabs.Trigger name="(home)" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon md="home" />
           <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

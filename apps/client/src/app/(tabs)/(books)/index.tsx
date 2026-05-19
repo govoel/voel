@@ -1,14 +1,11 @@
-import { Host, Text } from '@expo/ui';
-import { ScrollView } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+
+import { SafeScrollView } from '#src/components/safe-scroll-view';
 
 export default function BooksScreen() {
   return (
-    <ScrollView>
-      <Host matchContents>
-        <Text style={{ backgroundColor: 'red' }}>
-          BooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooksBooks
-        </Text>
-      </Host>
-    </ScrollView>
+    <SafeScrollView>
+      <ActivityIndicator />
+    </SafeScrollView>
   );
 }

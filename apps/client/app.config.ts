@@ -1,5 +1,6 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Match } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
+import expoFont from 'expo-font/plugin';
 import expoRouter from 'expo-router/plugin/build';
 import expoSecureStore from 'expo-secure-store/plugin/build';
 import expoSplashScreen from 'expo-splash-screen/plugin';
@@ -90,6 +91,72 @@ export default function app({ config }: ConfigContext): ExpoConfig {
       expoBuildProperties({
         android: { usesCleartextTraffic: true },
         // ios: { useFrameworks: 'static' },
+      }),
+      expoFont({
+        android: {
+          fonts: [
+            {
+              fontFamily: 'Google Sans',
+              fontDefinitions: [
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/400Regular/GoogleSans_400Regular.ttf',
+                  weight: 400,
+                  style: 'normal',
+                },
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/400Regular_Italic/GoogleSans_400Regular_Italic.ttf',
+                  weight: 400,
+                  style: 'italic',
+                },
+              ],
+            },
+            {
+              fontFamily: 'Google Sans Medium',
+              fontDefinitions: [
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/500Medium/GoogleSans_500Medium.ttf',
+                  weight: 500,
+                  style: 'normal',
+                },
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/500Medium_Italic/GoogleSans_500Medium_Italic.ttf',
+                  weight: 500,
+                  style: 'italic',
+                },
+              ],
+            },
+            {
+              fontFamily: 'Google Sans SemiBold',
+              fontDefinitions: [
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/600SemiBold/GoogleSans_600SemiBold.ttf',
+                  weight: 600,
+                  style: 'normal',
+                },
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/600SemiBold_Italic/GoogleSans_600SemiBold_Italic.ttf',
+                  weight: 600,
+                  style: 'italic',
+                },
+              ],
+            },
+            {
+              fontFamily: 'Google Sans Bold',
+              fontDefinitions: [
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/700Bold/GoogleSans_700Bold.ttf',
+                  weight: 700,
+                  style: 'normal',
+                },
+                {
+                  path: 'node_modules/@expo-google-fonts/google-sans/700Bold_Italic/GoogleSans_700Bold_Italic.ttf',
+                  weight: 700,
+                  style: 'italic',
+                },
+              ],
+            },
+          ],
+        },
       }),
     ],
 
