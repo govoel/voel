@@ -3,6 +3,7 @@ import { ScrollView, useColorScheme } from 'react-native';
 import type { ScrollViewProps } from 'react-native';
 
 import { StatusBarGradient } from '#src/components/safe-scroll-view/base.tsx';
+import { Spacing } from '#src/constants/theme.ts';
 
 export const SafeScrollView = ({ children, ...props }: ScrollViewProps) => {
   const colorScheme = useColorScheme();
@@ -15,8 +16,9 @@ export const SafeScrollView = ({ children, ...props }: ScrollViewProps) => {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={{ flex: 1, ...props.style }}
+        contentContainerStyle={{ padding: Spacing.three, ...props.contentContainerStyle }}
         {...props}>
-        <Host matchContents>{children}</Host>
+        <Host matchContents={{ vertical: true }}>{children}</Host>
       </ScrollView>
     </>
   );

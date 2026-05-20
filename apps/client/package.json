@@ -22,6 +22,7 @@
     "@better-auth/expo": "1.6.11",
     "@effect/atom-react": "4.0.0-beta.66",
     "@expo-google-fonts/google-sans": "0.4.0",
+    "@expo/material-symbols": "^0.1.1",
     "@expo/ui": "~56.0.9",
     "@repo/auth-api": "workspace:*",
     "@repo/spec-api": "workspace:*",

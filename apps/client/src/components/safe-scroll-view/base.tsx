@@ -1,11 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const StatusBarGradient = ({ backgroundColor }: { backgroundColor: `#${string}` }) => {
   const { top } = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const colorWithoutAlpha = backgroundColor.slice(0, 7);
 
-  if (top === 0) {
+  if (headerHeight !== 0) {
     return null;
   }
 

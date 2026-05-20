@@ -1,11 +1,10 @@
-import { ActivityIndicator, View } from 'react-native';
-
 import { SafeScrollView } from '#src/components/safe-scroll-view';
+import { Text } from '#src/components/text';
 
 export default function BooksScreen() {
   return (
     <SafeScrollView>
-      <ActivityIndicator />
+      <Text variant="h1">Books</Text>
     </SafeScrollView>
   );
 }

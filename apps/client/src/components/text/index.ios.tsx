@@ -1,11 +1,11 @@
-import { Text as SwiftUIText } from '@expo/ui/swift-ui';
+import { Text as SwiftText } from '@expo/ui/swift-ui';
 import { Match } from 'effect';
 
 import { iosTextStyle } from '#modules/design-system';
 import type { TextComponent } from '#src/components/text';
 
 export const Text = (({ variant = 'body', children }) => (
-  <SwiftUIText
+  <SwiftText
     modifiers={Match.value(variant).pipe(
       Match.when('h1', () => [iosTextStyle('largeTitle')]),
       Match.when('h2', () => [iosTextStyle('title')]),
@@ -18,5 +18,5 @@ export const Text = (({ variant = 'body', children }) => (
       Match.exhaustive
     )}>
     {children}
-  </SwiftUIText>
+  </SwiftText>
 )) satisfies TextComponent;

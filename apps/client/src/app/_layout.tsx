@@ -1,10 +1,11 @@
 import { RegistryProvider } from '@effect/atom-react';
+import { ProgressView } from '@expo/ui/swift-ui';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { ActivityIndicator, View, useColorScheme } from 'react-native';
+import { View, useColorScheme } from 'react-native';
 
 export const SuspenseFallback = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <ActivityIndicator size="large" />
+    <ProgressView />
   </View>
 );
 

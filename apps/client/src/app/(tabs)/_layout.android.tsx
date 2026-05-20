@@ -41,7 +41,7 @@ export default function TabsLayoutAndroid() {
           <NativeTabs.Trigger.Icon md="movie" />
           <NativeTabs.Trigger.Label>Movies</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="(search)" role="search">
+        <NativeTabs.Trigger name="(search)">
           <NativeTabs.Trigger.Icon md="explore" />
           <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

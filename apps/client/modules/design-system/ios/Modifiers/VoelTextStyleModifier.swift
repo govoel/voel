@@ -22,27 +22,27 @@ internal struct VoelTextStyleModifier: ViewModifier, Record {
   func body(content: Content) -> some View {
     switch style {
     case .largeTitle:
-      content.font(.largeTitle)
+      content.font(.largeTitle).fontWeight(.bold)
     case .title:
-      content.font(.title)
+      content.font(.title).fontWeight(.bold)
     case .title2:
-      content.font(.title2)
+      content.font(.title2).fontWeight(.semibold)
     case .title3:
-      content.font(.title3)
+      content.font(.title3).fontWeight(.semibold)
     case .headline:
-      content.font(.headline)
+      content.font(.headline).fontWeight(.medium)
     case .subheadline:
-      content.font(.subheadline)
+      content.font(.subheadline).fontWeight(.medium)
     case .body:
-      content.font(.body)
+      content.font(.body).fontWeight(.regular)
     case .callout:
-      content.font(.callout)
+      content.font(.callout).fontWeight(.regular)
     case .footnote:
-      content.font(.footnote)
+      content.font(.footnote).fontWeight(.regular)
     case .caption:
-      content.font(.caption)
+      content.font(.caption).fontWeight(.regular)
     case .caption2:
-      content.font(.caption2)
+      content.font(.caption2).fontWeight(.regular)
     }
   }
 }
