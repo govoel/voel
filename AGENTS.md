@@ -1,19 +1,25 @@
 # Information
 
-- The base branch for this repository is `main`.
-- The package manager used is `bun`.
+- The package manager and runtime used is `bun`.
 
 # Validations
 
+Run these commands in parallel after you are done with your changes:
+
 - `bun turbo run lint`
+- `bun turbo run check-types`
 - `bun turbo run format`
 - `bun --bun turbo run test`
 
 # This project uses "effect"
 
-Before writing any TypeScript code, YOU MUST read `.repos/effect/LLMS.md` and `.agents/skills/quality-code/SKILL.md` fully.
+Before writing any Effect code, YOU MUST read `.repos/effect/LLMS.md` fully.
 
 ## Agent skills
+
+### Browse library code
+
+Use `.agents/skills/opensrc/SKILL.md` to browse the code of libraries this repo depends on. Do not read from `node_modules` directly.
 
 ### Issue tracker
 
