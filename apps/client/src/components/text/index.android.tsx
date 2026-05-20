@@ -14,6 +14,7 @@ export const Text = (({ variant = 'body', children }) => {
           fontFamily: 'Google Sans Bold',
           fontWeight: '700' as const,
           typography: 'headlineLarge' as const,
+          background: 'red',
         })),
         Match.when('h2', () => ({
           fontFamily: 'Google Sans Bold',

@@ -5,6 +5,63 @@ export default function ShowsScreen() {
   return (
     <SafeScrollView>
       <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text variant="h1">Shows</Text>
+      <Text>End-of-list</Text>
     </SafeScrollView>
   );
 }

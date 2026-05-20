@@ -1,6 +1,5 @@
-import type { ComponentType } from 'react';
-import type { ScrollViewProps } from 'react-native';
+import type { ComponentType, ReactNode } from 'react';
 
-export type SafeScrollViewComponent = ComponentType<ScrollViewProps>;
+export type SafeScrollViewComponent = ComponentType<{ children: ReactNode }>;
 
 export declare const SafeScrollView: SafeScrollViewComponent;

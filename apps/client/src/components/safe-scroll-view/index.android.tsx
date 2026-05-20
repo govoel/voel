@@ -1,14 +1,13 @@
-import { Host, getMaterialColors } from '@expo/ui/jetpack-compose';
+import { Host, LazyColumn, getMaterialColors } from '@expo/ui/jetpack-compose';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { ScrollView, useColorScheme } from 'react-native';
-import type { ScrollViewProps } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SafeAreaView } from 'react-native-screens/experimental';
 
-import { StatusBarGradient } from '#src/components/safe-scroll-view/base.tsx';
+import type { SafeScrollViewComponent } from '#src/components/safe-scroll-view';
+import { StatusBarGradient } from '#src/components/safe-scroll-view/status-bar-gradient.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const SafeScrollView = ({ children, ...props }: ScrollViewProps) => {
+export const SafeScrollView = (({ children }) => {
   const { top } = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const paddingTop = headerHeight > 0 ? 0 : top;
@@ -23,19 +22,13 @@ export const SafeScrollView = ({ children, ...props }: ScrollViewProps) => {
     <>
       <StatusBarGradient backgroundColor={background} />
 
-      <SafeAreaView edges={{ bottom: true }} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={{
-            paddingTop: paddingTop + Spacing.three,
-            paddingBottom: Spacing.three,
-            paddingLeft: Spacing.three,
-            paddingRight: Spacing.three,
-            ...props.contentContainerStyle,
-          }}
-          {...props}>
-          <Host matchContents={{ vertical: true }}>{children}</Host>
-        </ScrollView>
-      </SafeAreaView>
+      <Host style={{ flex: 1 }}>
+        <LazyColumn
+          horizontalAlignment="start"
+          contentPadding={{ top: paddingTop + Spacing.three, bottom: Spacing.three }}>
+          {children}
+        </LazyColumn>
+      </Host>
     </>
   );
-};
+}) satisfies SafeScrollViewComponent;
