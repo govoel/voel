@@ -1,9 +1,11 @@
-import { RegistryProvider } from '@effect/atom-react';
+import { RegistryContext } from '@effect/atom-react';
 import { LoadingIndicator, getMaterialColors } from '@expo/ui/jetpack-compose';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router/react-navigation';
 import { StatusBar } from 'expo-status-bar';
 import { View, useColorScheme } from 'react-native';
+
+import { AppRegistry } from '#src/services/registry.ts';
 
 export const SuspenseFallback = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -41,11 +43,11 @@ export default function TabLayout() {
   } satisfies Theme;
 
   return (
-    <RegistryProvider>
+    <RegistryContext.Provider value={AppRegistry}>
       <ThemeProvider value={theme}>
         <StatusBar style={colorScheme === 'light' ? 'dark' : 'light'} />
         <Stack screenOptions={{ headerShown: false }} />
       </ThemeProvider>
-    </RegistryProvider>
+    </RegistryContext.Provider>
   );
 }

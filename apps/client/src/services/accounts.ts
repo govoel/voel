@@ -1,4 +1,3 @@
-import { useAtomRef, useAtomSubscribe } from '@effect/atom-react';
 import { Context, Effect, Exit, Layer, Option, Schema, Scope, SubscriptionRef } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/unstable/sql';
 
@@ -272,5 +271,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layer = Layer.effect(this, this.make).pipe(
+    Layer.provide(AccountRepository.layer)
+  );
 }

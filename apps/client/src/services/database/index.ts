@@ -2,7 +2,7 @@ import { SqliteClient } from '@effect/sql-sqlite-react-native';
 import { Cause, Effect, Layer, Schema, SchemaIssue } from 'effect';
 import { Migrator, SqlClient, SqlError } from 'effect/unstable/sql';
 
-import { ApiConfig } from '#src/services/config.ts';
+import { AppConfig } from '#src/services/config.ts';
 import { baseTables } from '#src/services/database/migrations/000001-base-tables.ts';
 
 const runMigrations = Migrator.make({});
@@ -29,7 +29,7 @@ export const DatabaseLive = Layer.provideMerge(
       );
     })
   ),
-  Effect.service(ApiConfig).pipe(
+  Effect.service(AppConfig).pipe(
     Effect.map((config) => SqliteClient.layer({ filename: config.db.filename })),
     Layer.unwrap
   )
