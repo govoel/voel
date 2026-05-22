@@ -12,14 +12,14 @@ export const createVoelAuthClient = ({
   username,
 }: {
   readonly serverUrl: ServerUrl.ServerUrl;
-  readonly username: /* Branded String */;
-}) =>
-  createAuthClient({
+  readonly username: AccountUsername;
+}) => {
+  const client = createAuthClient({
     baseURL: ServerUrl.encodeSync(serverUrl),
     plugins: [
       expoClient({
         storage: SecureStore,
-        storagePrefix: /* TODO */,
+        storagePrefix: `voel:${encodeURIComponent(ServerUrl.encodeSync(serverUrl))}:${encodeURIComponent(username)}`,
         cookiePrefix: 'auth',
       }),
     ],
@@ -27,5 +27,14 @@ export const createVoelAuthClient = ({
       refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
     },
   });
+
+  const maybeGetCookie: unknown = Reflect.get(client, 'getCookie');
+  const getCookie =
+    typeof maybeGetCookie === 'function'
+      ? () => String(Reflect.apply(maybeGetCookie, client, []))
+      : () => '';
+
+  return Object.assign(client, { getCookie });
+};
 
 export type VoelAuthClient = ReturnType<typeof createVoelAuthClient>;

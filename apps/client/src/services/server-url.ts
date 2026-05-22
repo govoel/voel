@@ -17,3 +17,4 @@ export const ServerUrl = Schema.URLFromString.check(
 export type ServerUrl = typeof ServerUrl.Type;
 
 export const encodeSync = Schema.encodeSync(ServerUrl);
+export const encode = encodeSync;

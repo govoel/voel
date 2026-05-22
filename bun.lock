@@ -21,6 +21,7 @@
       "dependencies": {
         "@better-auth/expo": "1.6.11",
         "@effect/atom-react": "4.0.0-beta.66",
+        "@effect/sql-sqlite-react-native": "4.0.0-beta.66",
         "@expo-google-fonts/google-sans": "0.4.0",
         "@expo/material-symbols": "^0.1.1",
         "@expo/ui": "~56.0.12",
@@ -339,6 +340,8 @@
     "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.66", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.20.0" }, "peerDependencies": { "effect": "^4.0.0-beta.66" } }, "sha512-+ymrhBnESv/hmn5SKTe2//IY9Ox/hGPeoogEWhW47ZGyhFI5eMYFxdEUBa+3IAV05rrBzrxON9lynu68n0DM7w=="],
 
     "@effect/sql-sqlite-bun": ["@effect/sql-sqlite-bun@4.0.0-beta.66", "", { "peerDependencies": { "effect": "^4.0.0-beta.66" } }, "sha512-UYsrAb/5T0ZRypeN9Kmv3/ZInibGCjM6dtoiAWtfG+xKyuq8N05wmuVCXB0+XgVmUBxDWjw/S1fu4ivS0vZVuw=="],
+
+    "@effect/sql-sqlite-react-native": ["@effect/sql-sqlite-react-native@4.0.0-beta.66", "", { "peerDependencies": { "@op-engineering/op-sqlite": "15.0.4", "effect": "^4.0.0-beta.66" } }, "sha512-UWzm6mzirBHX1khIU3iit7E9jDM8EDw/EVpusm20OYt6Go+6q2NW4+n8/vU0WY8deJlQxfbZzrBCm/MRE4nDrA=="],
 
     "@effect/vitest": ["@effect/vitest@4.0.0-beta.66", "", { "peerDependencies": { "effect": "^4.0.0-beta.66", "vitest": "^3.0.0 || ^4.0.0" } }, "sha512-UHPNtU0xXkKtNgyRQEh2c8jh4nIIm8Mzp3xc4j2ZdFU4nq5ZSySnpovjPMdoWbVClg1ki8UbpNGEZUfxEJo+6Q=="],
 
