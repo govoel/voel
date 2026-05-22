@@ -1,10 +1,16 @@
 import { createModifier } from '@expo/ui/swift-ui/modifiers';
-import type { ModifierConfig } from '@expo/ui/swift-ui/modifiers';
-import { requireNativeModule } from 'expo';
 
-import type { IOSTextStyle } from './VoelDesignSystem.types';
-
-requireNativeModule('VoelDesignSystem');
-
-export const iosTextStyle = (style: IOSTextStyle): ModifierConfig =>
-  createModifier('voelTextStyle', { style });
+export const iosTextStyle = (
+  style:
+    | 'largeTitle'
+    | 'title'
+    | 'title2'
+    | 'title3'
+    | 'headline'
+    | 'subheadline'
+    | 'body'
+    | 'callout'
+    | 'footnote'
+    | 'caption'
+    | 'caption2'
+) => createModifier('voelTextStyle', { style });
