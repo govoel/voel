@@ -1,249 +1,276 @@
-import {
-  Context,
-  Effect,
-  Equal,
-  Exit,
-  Layer,
-  Option,
-  Schema,
-  Scope,
-  SubscriptionRef,
-} from 'effect';
-import type { Stream } from 'effect';
+import { useAtomRef, useAtomSubscribe } from '@effect/atom-react';
+import { Context, Effect, Exit, Layer, Option, Schema, Scope, SubscriptionRef } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/unstable/sql';
 
 import { createVoelAuthClient } from '#src/services/auth-client.ts';
-import type {
-  ClientDatabaseDecodeError,
-  ClientDatabaseSqlError,
-} from '#src/services/database/index.ts';
-import { DatabaseLive, toDatabaseError } from '#src/services/database/index.ts';
-import * as ServerUrl from '#src/services/server-url.ts';
+import { toDatabaseError } from '#src/services/database/index.ts';
 
-export const AccountUsername = Schema.NonEmptyString.pipe(Schema.brand('AccountUsername'));
-export type AccountUsername = typeof AccountUsername.Type;
-
-export const AccountId = Schema.String.pipe(Schema.brand('AccountId'));
-export type AccountId = typeof AccountId.Type;
-
-export const AccountInput = Schema.Struct({
-  serverUrl: ServerUrl.ServerUrl,
-  username: AccountUsername,
+const AccountTable = Schema.Struct({
+  serverUrl: Schema.String.pipe(Schema.brand('AccountServerUrl')),
+  username: Schema.String.pipe(Schema.brand('AccountUsername')),
+  active: Schema.BooleanFromBit.pipe(Schema.brand('AccountActive')),
 });
-export type AccountInput = typeof AccountInput.Type;
+export type AccountTable = typeof AccountTable.Type;
 
-export const Account = Schema.Struct({
-  ...AccountInput.fields,
-  id: AccountId,
-});
-export type Account = typeof Account.Type;
-
-type AccountDatabaseError = ClientDatabaseDecodeError | ClientDatabaseSqlError;
-
-export class AccountNotFoundError extends Schema.TaggedErrorClass<AccountNotFoundError>()(
+class AccountNotFoundError extends Schema.TaggedErrorClass<AccountNotFoundError>()(
   'voel/services/accounts/AccountNotFoundError',
-  { accountId: AccountId }
+  { serverUrl: AccountTable.fields.serverUrl, username: AccountTable.fields.username }
 ) {}
 
-export interface AccountRuntimeState {
-  readonly authClient: ReturnType<typeof createVoelAuthClient>;
-  readonly scope: Scope.Scope;
-}
-
-export interface AccountSnapshot {
-  readonly activeAccount: Option.Option<{
-    readonly data: Account;
-    readonly state: AccountRuntimeState;
-  }>;
-  readonly accounts: readonly Account[];
-}
-
-const makeAccountId = (account: AccountInput): AccountId =>
-  Schema.decodeSync(AccountId)(
-    `${encodeURIComponent(ServerUrl.encodeSync(account.serverUrl))}:${encodeURIComponent(account.username)}`
-  );
-
-const toAccount = (row: AccountRow): Account => ({
-  id: row.id,
-  serverUrl: Schema.decodeSync(ServerUrl.ServerUrl)(row.serverUrl),
-  username: row.username,
-});
-
-const makeRuntimeState = Effect.fnUntraced(function* (account: Account) {
-  const scope = yield* Scope.make();
-
-  return {
-    authClient: createVoelAuthClient({ serverUrl: account.serverUrl, username: account.username }),
-    scope,
-  } satisfies AccountRuntimeState;
-});
-
-const rowSchema = Schema.Struct({
-  id: AccountId,
-  serverUrl: Schema.String,
-  username: AccountUsername,
-  active: Schema.Int,
-});
-type AccountRow = typeof rowSchema.Type;
-
-export class AccountManager extends Context.Service<
-  AccountManager,
+class AccountRepository extends Context.Service<AccountRepository>()(
+  'voel/services/accounts/AccountRepository',
   {
-    readonly changes: Stream.Stream<AccountSnapshot>;
-    readonly removeAccount: (
-      accountId: AccountId
-    ) => Effect.Effect<void, AccountDatabaseError | AccountNotFoundError>;
-    readonly setActiveAccount: (
-      accountId: AccountId
-    ) => Effect.Effect<void, AccountDatabaseError | AccountNotFoundError>;
-    readonly upsertAccount: (account: AccountInput) => Effect.Effect<Account, AccountDatabaseError>;
-  }
->()('voel/services/accounts/AccountManager') {
-  public static readonly make = Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient;
+    make: Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
 
-    const listRows = SqlSchema.findAll({
-      Request: Schema.Void,
-      Result: rowSchema,
-      execute: () =>
-        sql`select id, serverUrl, username, active from clientAccount order by serverUrl, username`,
-    });
-
-    const findRow = SqlSchema.findOne({
-      Request: Schema.Struct({ id: AccountId }),
-      Result: rowSchema,
-      execute: ({ id }) =>
-        sql`select id, serverUrl, username, active from clientAccount where id = ${id}`,
-    });
-
-    const upsertRow = SqlSchema.findOne({
-      Request: Schema.Struct({
-        id: AccountId,
-        serverUrl: Schema.String,
-        username: AccountUsername,
-      }),
-      Result: rowSchema,
-      execute: (row) => sql`
-        insert into clientAccount ${sql.insert({ ...row, active: 0 })}
-        on conflict (id) do update set serverUrl = excluded.serverUrl, username = excluded.username
-        returning id, serverUrl, username, active`,
-    });
-
-    const clearActive = SqlSchema.void({
-      Request: Schema.Void,
-      execute: () => sql`update clientAccount set active = 0 where active = 1`,
-    });
-
-    const activateRow = SqlSchema.void({
-      Request: Schema.Struct({ id: AccountId }),
-      execute: ({ id }) => sql`update clientAccount set active = 1 where id = ${id}`,
-    });
-
-    const deleteRow = SqlSchema.void({
-      Request: Schema.Struct({ id: AccountId }),
-      execute: ({ id }) => sql`delete from clientAccount where id = ${id}`,
-    });
-
-    const loadSnapshot = Effect.fnUntraced(function* (previous: Option.Option<AccountSnapshot>) {
-      const rows = yield* listRows().pipe(toDatabaseError('AccountManager.loadSnapshot'));
-      const accounts = rows.map(toAccount);
-      const activeRow = rows.find((row) => row.active === 1);
-      const activeAccount =
-        activeRow === void 0 ? Option.none<Account>() : Option.some(toAccount(activeRow));
-
-      const previousActive = Option.match(previous, {
-        onNone: () =>
-          Option.none<{ readonly data: Account; readonly state: AccountRuntimeState }>(),
-        onSome: (snapshot) => snapshot.activeAccount,
+      const get = SqlSchema.findOne({
+        Request: Schema.Struct({
+          serverUrl: AccountTable.fields.serverUrl,
+          username: AccountTable.fields.username,
+        }),
+        Result: AccountTable,
+        execute: ({ serverUrl, username }) => sql`
+          select serverUrl, username, active
+          from account
+          where serverUrl = ${serverUrl} and username = ${username}`,
       });
-      if (
-        Option.isSome(previousActive) &&
-        (Option.isNone(activeAccount) ||
-          !Equal.equals(previousActive.value.data.id, activeAccount.value.id))
-      ) {
-        yield* Scope.close(previousActive.value.state.scope, Exit.succeed(void 0));
-      }
+
+      const list = SqlSchema.findAll({
+        Request: Schema.Void,
+        Result: AccountTable,
+        execute: () =>
+          sql`select serverUrl, username, active from account order by serverUrl, username`,
+      });
+
+      const upsert = SqlSchema.findOne({
+        Request: Schema.Struct({
+          serverUrl: AccountTable.fields.serverUrl,
+          username: AccountTable.fields.username,
+          active: Schema.Option(AccountTable.fields.active.schema),
+        }),
+        Result: AccountTable,
+        execute: (row) => sql`
+          insert into account ${sql.insert({ ...row, active: Option.getOrElse(row.active, () => 0) })}
+          on conflict (serverUrl, username) do update set active = excluded.active
+          returning serverUrl, username, active`,
+      });
+
+      const clearActive = SqlSchema.void({
+        Request: Schema.Void,
+        execute: () => sql`update account set active = 0 where active = 1`,
+      });
+
+      const remove = SqlSchema.void({
+        Request: Schema.Struct({
+          serverUrl: AccountTable.fields.serverUrl,
+          username: AccountTable.fields.username,
+        }),
+        execute: ({ serverUrl, username }) =>
+          sql`delete from account where serverUrl = ${serverUrl} and username = ${username}`,
+      });
 
       return {
+        get: (request: Parameters<typeof get>['0']) =>
+          get(request).pipe(toDatabaseError('AccountRepository.get')),
+
+        list: (request: Parameters<typeof list>['0']) =>
+          list(request).pipe(toDatabaseError('AccountRepository.list')),
+
+        upsert: (request: Parameters<typeof upsert>['0']) =>
+          upsert(request).pipe(toDatabaseError('AccountRepository.upsert')),
+
+        clearActive: (request: Parameters<typeof clearActive>['0']) =>
+          clearActive(request).pipe(toDatabaseError('AccountRepository.clearActive')),
+
+        remove: (request: Parameters<typeof remove>['0']) =>
+          remove(request).pipe(toDatabaseError('AccountRepository.remove')),
+      };
+    }),
+  }
+) {
+  public static readonly layer = Layer.effect(this, this.make);
+}
+
+export class AccountManager extends Context.Service<AccountManager>()(
+  'voel/services/accounts/AccountManager',
+  {
+    make: Effect.gen(function* () {
+      const accountsRepo = yield* AccountRepository;
+      const sql = yield* SqlClient.SqlClient;
+
+      const initializeActiveAccountState = Effect.fnUntraced(function* ({
+        activeAccount,
         accounts,
-        activeAccount: Option.isSome(activeAccount)
-          ? Option.some(
-              Option.isSome(previousActive) &&
-                Equal.equals(previousActive.value.data.id, activeAccount.value.id)
-                ? { data: activeAccount.value, state: previousActive.value.state }
-                : {
-                    data: activeAccount.value,
-                    state: yield* makeRuntimeState(activeAccount.value),
-                  }
-            )
-          : Option.none<{ readonly data: Account; readonly state: AccountRuntimeState }>(),
-      } satisfies AccountSnapshot;
-    });
+      }: {
+        activeAccount: Option.Option<AccountTable>;
+        accounts: AccountTable[];
+      }) {
+        if (Option.isNone(activeAccount)) {
+          return { activeAccount: Option.none(), accounts };
+        }
 
-    const initialSnapshot = yield* loadSnapshot(Option.none());
-    const ref = yield* SubscriptionRef.make<AccountSnapshot>(initialSnapshot);
+        const scope = yield* Scope.make();
+        const authClient = createVoelAuthClient({
+          serverUrl: activeAccount.value.serverUrl,
+          username: activeAccount.value.username,
+        });
+        const unsubscribe = authClient.useSession.subscribe(() => void 0);
 
-    yield* Effect.addFinalizer(() =>
-      SubscriptionRef.get(ref).pipe(
-        Effect.flatMap((snapshot) =>
-          Option.match(snapshot.activeAccount, {
-            onNone: () => Effect.void,
-            onSome: ({ state }) => Scope.close(state.scope, Exit.succeed(void 0)),
-          })
-        )
-      )
-    );
+        yield* Scope.addFinalizer(scope, Effect.sync(unsubscribe));
 
-    const refresh = Effect.fnUntraced(function* () {
-      const previous = yield* SubscriptionRef.get(ref);
-      const next = yield* loadSnapshot(Option.some(previous));
-      yield* SubscriptionRef.set(ref, next);
-    });
+        return {
+          activeAccount: Option.some({
+            account: activeAccount.value,
+            state: { authClient, scope },
+          }),
+          accounts,
+        };
+      });
 
-    const ensureExists = (accountId: AccountId) =>
-      findRow({ id: accountId }).pipe(
-        Effect.catchTag('NoSuchElementError', () =>
-          Effect.fail(new AccountNotFoundError({ accountId }))
-        ),
-        toDatabaseError('AccountManager.ensureExists')
+      const stateRef = yield* accountsRepo.list().pipe(
+        Effect.map((accounts) => ({
+          activeAccount: Option.fromNullishOr(accounts.find((account) => account.active)),
+          accounts,
+        })),
+        Effect.flatMap(initializeActiveAccountState),
+        Effect.flatMap(SubscriptionRef.make)
       );
 
-    return AccountManager.of({
-      changes: SubscriptionRef.changes(ref),
+      const setActiveAccount = ({
+        serverUrl,
+        username,
+      }: {
+        serverUrl: AccountTable['serverUrl'];
+        username: AccountTable['username'];
+      }) =>
+        SubscriptionRef.modifySomeEffect(
+          stateRef,
+          Effect.fnUntraced(
+            function* (state) {
+              if (
+                Option.isSome(state.activeAccount) &&
+                state.activeAccount.value.account.serverUrl === serverUrl &&
+                state.activeAccount.value.account.username === username
+              ) {
+                return [void 0, Option.none()] as const;
+              }
 
-      removeAccount: Effect.fn('AccountManager.removeAccount')(function* (accountId) {
-        yield* ensureExists(accountId);
-        yield* deleteRow({ id: accountId }).pipe(toDatabaseError('AccountManager.removeAccount'));
-        yield* refresh();
-      }),
+              const account = yield* accountsRepo
+                .get({ serverUrl, username })
+                .pipe(
+                  Effect.catchTag(
+                    'voel/services/database/ClientDatabaseNoSuchElementError',
+                    () => new AccountNotFoundError({ serverUrl, username })
+                  )
+                );
 
-      setActiveAccount: Effect.fn('AccountManager.setActiveAccount')(function* (accountId) {
-        yield* ensureExists(accountId);
-        yield* sql
-          .withTransaction(
-            Effect.gen(function* () {
-              yield* clearActive();
-              yield* activateRow({ id: accountId });
-            })
+              yield* accountsRepo.upsert({ serverUrl, username, active: Option.some(true) });
+
+              if (Option.isSome(state.activeAccount)) {
+                yield* Scope.close(state.activeAccount.value.state.scope, Exit.void);
+              }
+
+              return [
+                void 0,
+                yield* initializeActiveAccountState({
+                  activeAccount: Option.some(account),
+                  accounts: yield* accountsRepo.list(),
+                }).pipe(Effect.map(Option.some)),
+              ] as const;
+            },
+            (effect) =>
+              effect.pipe(sql.withTransaction, toDatabaseError('AccountManager.setActiveAccount'))
           )
-          .pipe(toDatabaseError('AccountManager.setActiveAccount'));
-        yield* refresh();
-      }),
-
-      upsertAccount: Effect.fn('AccountManager.upsertAccount')(function* (accountInput) {
-        const row = yield* upsertRow({
-          id: makeAccountId(accountInput),
-          serverUrl: ServerUrl.encodeSync(accountInput.serverUrl),
-          username: accountInput.username,
-        }).pipe(
-          Effect.catchTag('NoSuchElementError', (cause) => Effect.die(cause)),
-          toDatabaseError('AccountManager.upsertAccount')
         );
-        yield* refresh();
-        return toAccount(row);
-      }),
-    });
-  });
 
-  public static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(DatabaseLive));
+      const removeAccount = ({
+        serverUrl,
+        username,
+      }: {
+        serverUrl: AccountTable['serverUrl'];
+        username: AccountTable['username'];
+      }) =>
+        SubscriptionRef.modifyEffect(
+          stateRef,
+          Effect.fnUntraced(
+            function* (state) {
+              yield* accountsRepo.remove({ serverUrl, username });
+
+              if (
+                Option.isSome(state.activeAccount) &&
+                state.activeAccount.value.account.serverUrl === serverUrl &&
+                state.activeAccount.value.account.username === username
+              ) {
+                yield* Scope.close(state.activeAccount.value.state.scope, Exit.void);
+                return [
+                  void 0,
+                  { activeAccount: Option.none(), accounts: yield* accountsRepo.list() },
+                ] as const;
+              }
+
+              return [
+                void 0,
+                {
+                  activeAccount: state.activeAccount,
+                  accounts: yield* accountsRepo.list(),
+                },
+              ] as const;
+            },
+            (effect) =>
+              effect.pipe(sql.withTransaction, toDatabaseError('AccountManager.removeAccount'))
+          )
+        );
+
+      const upsertAccount = ({
+        serverUrl,
+        username,
+      }: {
+        serverUrl: AccountTable['serverUrl'];
+        username: AccountTable['username'];
+      }) =>
+        SubscriptionRef.modifySomeEffect(
+          stateRef,
+          Effect.fnUntraced(
+            function* (state) {
+              if (
+                Option.isSome(state.activeAccount) &&
+                state.activeAccount.value.account.serverUrl === serverUrl &&
+                state.activeAccount.value.account.username === username
+              ) {
+                return [void 0, Option.none()] as const;
+              }
+
+              const account = yield* accountsRepo.upsert({
+                serverUrl,
+                username,
+                active: Option.some(true),
+              });
+
+              if (Option.isSome(state.activeAccount)) {
+                yield* Scope.close(state.activeAccount.value.state.scope, Exit.void);
+              }
+
+              return [
+                void 0,
+                yield* initializeActiveAccountState({
+                  activeAccount: Option.some(account),
+                  accounts: yield* accountsRepo.list(),
+                }).pipe(Effect.map(Option.some)),
+              ] as const;
+            },
+            (effect) =>
+              effect.pipe(sql.withTransaction, toDatabaseError('AccountManager.upsertAccount'))
+          )
+        );
+
+      return {
+        changes: SubscriptionRef.changes(stateRef),
+        setActiveAccount,
+        removeAccount,
+        upsertAccount,
+      };
+    }),
+  }
+) {
+  public static readonly layer = Layer.effect(this, this.make);
 }
