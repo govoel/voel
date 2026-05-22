@@ -163,6 +163,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   )
                 );
 
+              yield* accountsRepo.clearActive();
               yield* accountsRepo.upsert({ serverUrl, username, active: Option.some(true) });
 
               if (Option.isSome(state.activeAccount)) {
@@ -239,6 +240,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                 return [void 0, Option.none()] as const;
               }
 
+              yield* accountsRepo.clearActive();
               const account = yield* accountsRepo.upsert({
                 serverUrl,
                 username,
