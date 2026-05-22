@@ -162,6 +162,7 @@ export default function app({ config }: ConfigContext): ExpoConfig {
       }),
       expoImage(),
       expoWebBrowser(),
+      ['expo-plugin-ios-static-libraries', { libraries: ['op-sqlite'] }],
     ],
 
     experiments: {
