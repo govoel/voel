@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import type { AccountTable } from '#src/services/accounts.ts';
+import type { AccountTable } from '#src/services/accounts/index.ts';
 
 export const createVoelAuthClient = ({
   serverUrl,

@@ -12,12 +12,12 @@ const AccountTable = Schema.Struct({
 export type AccountTable = typeof AccountTable.Type;
 
 class AccountNotFoundError extends Schema.TaggedErrorClass<AccountNotFoundError>()(
-  'voel/services/accounts/AccountNotFoundError',
+  'voel/services/accounts/index/AccountNotFoundError',
   { serverUrl: AccountTable.fields.serverUrl, username: AccountTable.fields.username }
 ) {}
 
 class AccountRepository extends Context.Service<AccountRepository>()(
-  'voel/services/accounts/AccountRepository',
+  'voel/services/accounts/index/AccountRepository',
   {
     make: Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
@@ -91,7 +91,7 @@ class AccountRepository extends Context.Service<AccountRepository>()(
 }
 
 export class AccountManager extends Context.Service<AccountManager>()(
-  'voel/services/accounts/AccountManager',
+  'voel/services/accounts/index/AccountManager',
   {
     make: Effect.gen(function* () {
       const accountsRepo = yield* AccountRepository;
@@ -263,7 +263,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
         );
 
       return {
-        stateRef,
         changes: SubscriptionRef.changes(stateRef),
         setActiveAccount,
         removeAccount,

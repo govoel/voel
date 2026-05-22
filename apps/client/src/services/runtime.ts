@@ -1,7 +1,7 @@
 import { Layer, ManagedRuntime } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { AccountManager } from '#src/services/accounts.ts';
+import { AccountManager } from '#src/services/accounts/index.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { DatabaseLive } from '#src/services/database/index.ts';
 
