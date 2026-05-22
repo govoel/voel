@@ -263,6 +263,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         );
 
       return {
+        stateRef,
         changes: SubscriptionRef.changes(stateRef),
         setActiveAccount,
         removeAccount,
