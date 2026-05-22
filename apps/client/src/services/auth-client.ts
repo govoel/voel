@@ -1,12 +1,10 @@
 import { expoClient } from '@better-auth/expo/client';
-import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
-import { createAuthClient } from 'better-auth/react';
+import { Duration } from 'effect';
 import * as SecureStore from 'expo-secure-store';
 
-import type { BetterAuthInstance } from '@repo/auth-api/server.ts';
+import { createAuthClient } from '@repo/auth-api/client.ts';
 
 import type { AccountUsername } from '#src/services/accounts.ts';
-import { makeAuthStoragePrefix } from '#src/services/accounts.ts';
 import * as ServerUrl from '#src/services/server-url.ts';
 
 export const createVoelAuthClient = ({
@@ -14,21 +12,20 @@ export const createVoelAuthClient = ({
   username,
 }: {
   readonly serverUrl: ServerUrl.ServerUrl;
-  readonly username: AccountUsername;
+  readonly username: /* Branded String */;
 }) =>
   createAuthClient({
-    baseURL: ServerUrl.encode(serverUrl),
-    basePath: '/api/auth',
+    baseURL: ServerUrl.encodeSync(serverUrl),
     plugins: [
       expoClient({
         storage: SecureStore,
-        storagePrefix: makeAuthStoragePrefix({ serverUrl, username }),
+        storagePrefix: /* TODO */,
         cookiePrefix: 'auth',
       }),
-      usernameClient(),
-      adminClient(),
-      inferAdditionalFields<BetterAuthInstance>(),
     ],
+    sessionOptions: {
+      refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
+    },
   });
 
 export type VoelAuthClient = ReturnType<typeof createVoelAuthClient>;

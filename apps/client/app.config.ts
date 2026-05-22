@@ -1,9 +1,11 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Match } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
 import expoFont from 'expo-font/plugin';
+import expoImage from 'expo-image/plugin';
 import expoRouter from 'expo-router/plugin/build';
 import expoSecureStore from 'expo-secure-store/plugin/build';
 import expoSplashScreen from 'expo-splash-screen/plugin';
+import expoWebBrowser from 'expo-web-browser/plugin';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import pkg from './package.json';
@@ -158,6 +160,8 @@ export default function app({ config }: ConfigContext): ExpoConfig {
           ],
         },
       }),
+      expoImage(),
+      expoWebBrowser(),
     ],
 
     experiments: {

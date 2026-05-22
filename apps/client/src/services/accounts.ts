@@ -1,6 +1,17 @@
 import { expoClient } from '@better-auth/expo/client';
 import type { Stream } from 'effect';
-import { Context, Effect, Exit, Layer, Option, Schema, Scope, SubscriptionRef } from 'effect';
+import {
+  Context,
+  Effect,
+  Equal,
+  Exit,
+  Hash,
+  Layer,
+  Option,
+  Schema,
+  Scope,
+  SubscriptionRef,
+} from 'effect';
 import * as SecureStore from 'expo-secure-store';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
@@ -21,14 +32,29 @@ export type AccountUsername = typeof AccountUsername.Type;
 const AccountDisplayName = Schema.String.pipe(Schema.brand('AccountDisplayName'));
 type AccountDisplayName = typeof AccountDisplayName.Type;
 
-const Account = Schema.Struct({
-  id: AccountId,
-  serverUrl: ServerUrl.ServerUrl,
-  userId: AccountUserId,
-  username: AccountUsername,
-  displayName: AccountDisplayName,
-});
-type Account = typeof Account.Type;
+class Account
+  extends Schema.Class<Account>('voel/services/accounts/Account')({
+    id: AccountId,
+    serverUrl: ServerUrl.ServerUrl,
+    userId: AccountUserId,
+    username: AccountUsername,
+    displayName: AccountDisplayName,
+  })
+  implements Equal.Equal
+{
+  public [Equal.symbol](that: Equal.Equal): boolean {
+    return (
+      that instanceof Account &&
+      this.id === that.id &&
+      ServerUrl.encode(this.serverUrl) === ServerUrl.encode(that.serverUrl) &&
+      this.username === that.username
+    );
+  }
+
+  public [Hash.symbol](): number {
+    return Hash.hash([this.id, ServerUrl.encode(this.serverUrl), this.username]);
+  }
+}
 
 const AccountState = Schema.Struct({
   activeAccount: Schema.OptionFromNullOr(Account),
@@ -105,7 +131,12 @@ export const makeAuthStoragePrefix = ({
   readonly username: AccountUsername;
 }) => `voel_${ServerUrl.key(serverUrl)}_${username.trim().toLowerCase()}`;
 
-type AccountInput = Omit<Account, 'id'>;
+interface AccountInput {
+  readonly serverUrl: ServerUrl.ServerUrl;
+  readonly userId: AccountUserId;
+  readonly username: AccountUsername;
+  readonly displayName: AccountDisplayName;
+}
 
 const makeAccountAuthClient = (account: Account) =>
   createAuthClient({
@@ -128,34 +159,24 @@ const makeAccountAuthClient = (account: Account) =>
 
 type AccountAuthClient = ReturnType<typeof makeAccountAuthClient>;
 
-type ActiveAccount = Account & {
+interface ActiveAccountState {
   readonly authClient: AccountAuthClient;
-};
-
-type MountedActiveAccount = ActiveAccount & {
-  readonly key: string;
   readonly scope: Scope.Closeable;
-};
+}
+
+interface MountedActiveAccount {
+  readonly data: Account;
+  readonly state: ActiveAccountState;
+}
 
 interface MountedAccountState {
   readonly activeAccount: Option.Option<MountedActiveAccount>;
   readonly accounts: readonly Account[];
 }
 
-const makeActiveAccountKey = (account: Account) =>
-  `${account.id}:${makeAuthStoragePrefix({ serverUrl: account.serverUrl, username: account.username })}`;
-
-const toStoredAccount = (account: MountedActiveAccount): Account => ({
-  id: account.id,
-  serverUrl: account.serverUrl,
-  userId: account.userId,
-  username: account.username,
-  displayName: account.displayName,
-});
-
 const toStoredAccountState = (state: MountedAccountState): AccountState => ({
   activeAccount: Option.isSome(state.activeAccount)
-    ? Option.some(toStoredAccount(state.activeAccount.value))
+    ? Option.some(state.activeAccount.value.data)
     : Option.none(),
   accounts: [...state.accounts],
 });
@@ -164,8 +185,8 @@ const findAccount = (accounts: readonly Account[], accountId: AccountId) =>
   Option.fromNullishOr(accounts.find((account) => account.id === accountId));
 
 interface AccountsService {
-  readonly changes: Stream.Stream<AccountState>;
-  readonly getState: Effect.Effect<AccountState>;
+  readonly changes: Stream.Stream<MountedAccountState>;
+  readonly getState: Effect.Effect<MountedAccountState>;
   readonly removeAccount: (accountId: AccountId) => Effect.Effect<void, AccountStorageError>;
   readonly setActiveAccount: (accountId: AccountId) => Effect.Effect<void, AccountStorageError>;
   readonly upsertAccount: (account: AccountInput) => Effect.Effect<Account, AccountStorageError>;
@@ -185,19 +206,14 @@ export class Accounts extends Context.Service<Accounts, AccountsService>()(
       yield* Scope.addFinalizer(scope, Effect.sync(unsubscribe));
       yield* Effect.promise(async () => authClient.useSession.get().refetch()).pipe(Effect.ignore);
 
-      return {
-        ...account,
-        authClient,
-        key: makeActiveAccountKey(account),
-        scope,
-      } satisfies MountedActiveAccount;
+      return { data: account, state: { authClient, scope } } satisfies MountedActiveAccount;
     });
 
     const closeActiveAccount = Effect.fn('Accounts.closeActiveAccount')(function* (
       activeAccount: Option.Option<MountedActiveAccount>
     ) {
       if (Option.isSome(activeAccount)) {
-        yield* Scope.close(activeAccount.value.scope, Exit.void);
+        yield* Scope.close(activeAccount.value.state.scope, Exit.void);
       }
     });
 
@@ -218,15 +234,14 @@ export class Accounts extends Context.Service<Accounts, AccountsService>()(
         } satisfies MountedAccountState;
       }
 
-      const nextKey = makeActiveAccountKey(nextActiveAccount.value);
-
-      if (Option.isSome(current.activeAccount) && current.activeAccount.value.key === nextKey) {
+      if (
+        Option.isSome(current.activeAccount) &&
+        Equal.equals(current.activeAccount.value.data, nextActiveAccount.value)
+      ) {
         return {
           activeAccount: Option.some({
-            ...nextActiveAccount.value,
-            authClient: current.activeAccount.value.authClient,
-            key: current.activeAccount.value.key,
-            scope: current.activeAccount.value.scope,
+            data: nextActiveAccount.value,
+            state: current.activeAccount.value.state,
           }),
           accounts: nextAccounts,
         } satisfies MountedAccountState;
@@ -281,17 +296,12 @@ export class Accounts extends Context.Service<Accounts, AccountsService>()(
     const removeAccount = Effect.fn('Accounts.removeAccount')(function* (accountId: AccountId) {
       yield* persistAndModify((current) => {
         const accounts = current.accounts.filter((account) => account.id !== accountId);
+        const activeAccount =
+          Option.isSome(current.activeAccount) && current.activeAccount.value.data.id !== accountId
+            ? Option.some(current.activeAccount.value.data)
+            : Option.none();
 
-        return [
-          void 0,
-          {
-            accounts,
-            activeAccount:
-              Option.isSome(current.activeAccount) && current.activeAccount.value.id === accountId
-                ? Option.none()
-                : current.activeAccount,
-          },
-        ] as const;
+        return [void 0, { accounts, activeAccount }] as const;
       });
     });
 
@@ -302,7 +312,7 @@ export class Accounts extends Context.Service<Accounts, AccountsService>()(
         const activeAccount = findAccount(current.accounts, accountId);
 
         if (Option.isNone(activeAccount)) {
-          return [void 0, current] as const;
+          return [void 0, toStoredAccountState(current)] as const;
         }
 
         return [void 0, { ...current, activeAccount }] as const;
@@ -311,7 +321,7 @@ export class Accounts extends Context.Service<Accounts, AccountsService>()(
 
     const upsertAccount = Effect.fn('Accounts.upsertAccount')(function* (account: AccountInput) {
       const id = makeAccountId({ serverUrl: account.serverUrl, userId: account.userId });
-      const nextAccount = { ...account, id };
+      const nextAccount = new Account({ ...account, id });
 
       return yield* persistAndModify((current) => {
         const accounts = current.accounts.filter((stored) => stored.id !== id);

@@ -16,7 +16,4 @@ export const ServerUrl = Schema.URLFromString.check(
 ).pipe(Schema.brand('ServerUrl'));
 export type ServerUrl = typeof ServerUrl.Type;
 
-export const encode = Schema.encodeSync(ServerUrl);
-
-export const key = (serverUrl: ServerUrl): string =>
-  encodeURIComponent(encode(serverUrl)).replaceAll('%', '_').toLowerCase();
+export const encodeSync = Schema.encodeSync(ServerUrl);
