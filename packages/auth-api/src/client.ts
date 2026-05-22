@@ -7,10 +7,18 @@ import type { BetterAuthInstance } from '#src/server.ts';
 export const createAuthClient = ({
   baseURL,
   fetchOptions,
-}: Pick<BetterAuthClientOptions, 'baseURL' | 'fetchOptions'>) =>
+  plugins = [],
+  sessionOptions,
+}: Pick<BetterAuthClientOptions, 'baseURL' | 'fetchOptions' | 'plugins' | 'sessionOptions'>) =>
   createBetterAuthClient({
     baseURL,
     basePath: '/api/auth',
     fetchOptions,
-    plugins: [usernameClient(), adminClient(), inferAdditionalFields<BetterAuthInstance>()],
+    sessionOptions,
+    plugins: [
+      ...plugins,
+      usernameClient(),
+      adminClient(),
+      inferAdditionalFields<BetterAuthInstance>(),
+    ],
   });

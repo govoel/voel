@@ -6,34 +6,34 @@ import * as ServerUrl from '#src/services/server-url.ts';
 
 const STORAGE_KEY = 'voel_accounts';
 
-export const AccountId = Schema.String.pipe(Schema.brand('AccountId'));
-export type AccountId = typeof AccountId.Type;
+const AccountId = Schema.String.pipe(Schema.brand('AccountId'));
+type AccountId = typeof AccountId.Type;
 
-export const AccountUserId = Schema.String.pipe(Schema.brand('AccountUserId'));
-export type AccountUserId = typeof AccountUserId.Type;
+const AccountUserId = Schema.String.pipe(Schema.brand('AccountUserId'));
+type AccountUserId = typeof AccountUserId.Type;
 
 export const AccountUsername = Schema.String.pipe(Schema.brand('AccountUsername'));
 export type AccountUsername = typeof AccountUsername.Type;
 
-export const AccountDisplayName = Schema.String.pipe(Schema.brand('AccountDisplayName'));
-export type AccountDisplayName = typeof AccountDisplayName.Type;
+const AccountDisplayName = Schema.String.pipe(Schema.brand('AccountDisplayName'));
+type AccountDisplayName = typeof AccountDisplayName.Type;
 
-export const Account = Schema.Struct({
+const Account = Schema.Struct({
   id: AccountId,
   serverUrl: ServerUrl.ServerUrl,
   userId: AccountUserId,
   username: AccountUsername,
   displayName: AccountDisplayName,
 });
-export type Account = typeof Account.Type;
+type Account = typeof Account.Type;
 
 const AccountState = Schema.Struct({
   activeAccountId: Schema.OptionFromNullOr(AccountId),
   accounts: Schema.Array(Account),
 });
-export type AccountState = typeof AccountState.Type;
+type AccountState = typeof AccountState.Type;
 
-export class AccountStorageError extends Schema.TaggedErrorClass<AccountStorageError>()(
+class AccountStorageError extends Schema.TaggedErrorClass<AccountStorageError>()(
   'voel/services/accounts/AccountStorageError',
   {
     operation: Schema.Union([Schema.Literal('load'), Schema.Literal('save')]),
@@ -41,7 +41,7 @@ export class AccountStorageError extends Schema.TaggedErrorClass<AccountStorageE
   }
 ) {}
 
-export class AccountStateDecodeError extends Schema.TaggedErrorClass<AccountStateDecodeError>()(
+class AccountStateDecodeError extends Schema.TaggedErrorClass<AccountStateDecodeError>()(
   'voel/services/accounts/AccountStateDecodeError',
   {
     cause: Schema.Defect,
@@ -53,39 +53,37 @@ const decodeAccountId = Schema.decodeUnknownSync(AccountId);
 const decodeAccountStateString = Schema.decodeUnknownEffect(AccountStateString);
 const encodeAccountStateString = Schema.encodeSync(AccountStateString);
 
-export const makeAccountId = ({
+const makeAccountId = ({
   serverUrl,
   userId,
 }: {
   readonly serverUrl: ServerUrl.ServerUrl;
   readonly userId: AccountUserId;
-}): AccountId => decodeAccountId(`${ServerUrl.key(serverUrl)}_${userId}`);
+}) => decodeAccountId(`${ServerUrl.key(serverUrl)}_${userId}`);
 
-export const emptyAccountState = (): AccountState => ({
+const emptyAccountState = () => ({
   activeAccountId: Option.none(),
   accounts: [],
 });
 
-const readStoredAccountState = Effect.fn('Accounts.readStoredAccountState')(
-  function* (): Effect.fn.Return<AccountState, AccountStorageError | AccountStateDecodeError> {
-    const raw = yield* Effect.try({
-      try: () => SecureStore.getItem(STORAGE_KEY),
-      catch: (cause) => new AccountStorageError({ operation: 'load', cause }),
-    });
+const readStoredAccountState = Effect.fn('Accounts.readStoredAccountState')(function* () {
+  const raw = yield* Effect.try({
+    try: () => SecureStore.getItem(STORAGE_KEY),
+    catch: (cause) => new AccountStorageError({ operation: 'load', cause }),
+  });
 
-    if (raw === null || raw === '') {
-      return emptyAccountState();
-    }
-
-    return yield* decodeAccountStateString(raw).pipe(
-      Effect.mapError((cause) => new AccountStateDecodeError({ cause }))
-    );
+  if (raw === null || raw === '') {
+    return emptyAccountState();
   }
-);
+
+  return yield* decodeAccountStateString(raw).pipe(
+    Effect.mapError((cause) => new AccountStateDecodeError({ cause }))
+  );
+});
 
 const writeStoredAccountState = Effect.fn('Accounts.writeStoredAccountState')(function* (
   state: AccountState
-): Effect.fn.Return<void, AccountStorageError> {
+) {
   const encoded = encodeAccountStateString(state);
 
   yield* Effect.try({
