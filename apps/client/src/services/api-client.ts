@@ -32,6 +32,7 @@ const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
   })
 );
 
+// TODO: Call authClient to refresh session when an Unauthorized RPC response happens.
 export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-client/ApiClient', {
   group: Api,
   protocol: (get) =>
