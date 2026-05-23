@@ -1,12 +1,7 @@
-import { useAtomValue } from '@effect/atom-react';
 import { Stack } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
-
 export default function TabsLayoutIOS() {
-  const accounts = useAtomValue(activeAccountAtom);
-
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
