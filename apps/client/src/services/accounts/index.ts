@@ -1,7 +1,8 @@
 import { Context, Effect, Exit, Layer, Option, Schema, Scope, SubscriptionRef } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/unstable/sql';
 
-import { createVoelAuthClient } from '#src/services/auth-client.ts';
+import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { toDatabaseError } from '#src/services/database/index.ts';
 
 const AccountTable = Schema.Struct({
@@ -97,6 +98,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const accountsRepo = yield* AccountRepository;
       const sql = yield* SqlClient.SqlClient;
 
+      const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
+        Effect.map(Effect.runSyncWith)
+      );
+
       const initializeActiveAccountState = Effect.fnUntraced(function* ({
         activeAccount,
         accounts,
@@ -112,6 +117,20 @@ export class AccountManager extends Context.Service<AccountManager>()(
         const authClient = createVoelAuthClient({
           serverUrl: activeAccount.value.serverUrl,
           username: activeAccount.value.username,
+          storage: {
+            getItem: (key) =>
+              runWithAuthClientStorage(
+                AuthClientStorage.pipe(
+                  Effect.flatMap((storage) => storage.getItem(key)),
+                  Effect.map(Option.getOrNull)
+                )
+              ),
+            setItem: (key, value) => {
+              runWithAuthClientStorage(
+                AuthClientStorage.pipe(Effect.flatMap((storage) => storage.setItem(key, value)))
+              );
+            },
+          },
         });
         const unsubscribe = authClient.useSession.subscribe(() => void 0);
 
