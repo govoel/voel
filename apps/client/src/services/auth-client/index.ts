@@ -3,15 +3,13 @@ import { Duration } from 'effect';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import type { AccountTable } from '#src/services/accounts/index.ts';
-
 export const createVoelAuthClient = ({
   serverUrl,
   username,
   storage,
 }: {
-  readonly serverUrl: AccountTable['serverUrl'];
-  readonly username: AccountTable['username'];
+  readonly serverUrl: NonNullable<Parameters<typeof createAuthClient>[0]['baseURL']>;
+  readonly username: string;
   readonly storage: Parameters<typeof expoClient>[0]['storage'];
 }) =>
   createAuthClient({
@@ -19,7 +17,7 @@ export const createVoelAuthClient = ({
     plugins: [
       expoClient({
         storage,
-        storagePrefix: `voel:${encodeURIComponent(serverUrl)}:${encodeURIComponent(username)}`,
+        storagePrefix: `voel:authClient:${encodeURIComponent(serverUrl)}:${encodeURIComponent(username)}`,
         cookiePrefix: 'auth',
       }),
     ],

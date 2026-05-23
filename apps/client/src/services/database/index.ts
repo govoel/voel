@@ -1,38 +1,30 @@
-import { SqliteClient } from '@effect/sql-sqlite-react-native';
 import { Cause, Effect, Layer, Schema, SchemaIssue } from 'effect';
 import { Migrator, SqlClient, SqlError } from 'effect/unstable/sql';
 
-import { AppConfig } from '#src/services/config.ts';
-import { baseTables } from '#src/services/database/migrations/000001-base-tables.ts';
+import { baseTables } from './migrations/000001-base-tables.ts';
 
 const runMigrations = Migrator.make({});
 
-export const DatabaseLive = Layer.provideMerge(
-  Layer.effectDiscard(
-    Effect.gen(function* () {
-      const sql = yield* SqlClient.SqlClient;
-      yield* sql`PRAGMA journal_mode = WAL`;
-      yield* sql`PRAGMA foreign_keys = ON`;
-      yield* sql`PRAGMA synchronous = NORMAL`;
+export const DatabaseMigrationsLive = Layer.effectDiscard(
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    yield* sql`PRAGMA journal_mode = WAL`;
+    yield* sql`PRAGMA foreign_keys = ON`;
+    yield* sql`PRAGMA synchronous = NORMAL`;
 
-      yield* runMigrations({
-        loader: Migrator.fromRecord({
-          '000001_baseTables': baseTables,
-        }),
-      }).pipe(
-        Effect.tap((results) =>
-          results.length === 0
-            ? Effect.void
-            : Effect.logInfo('Client database migrations ran successfully', { results })
-        ),
-        Effect.tapError((error) => Effect.logError('Client database migrations failed', { error }))
-      );
-    })
-  ),
-  Effect.service(AppConfig).pipe(
-    Effect.map((config) => SqliteClient.layer({ filename: config.db.filename })),
-    Layer.unwrap
-  )
+    yield* runMigrations({
+      loader: Migrator.fromRecord({
+        '000001_baseTables': baseTables,
+      }),
+    }).pipe(
+      Effect.tap((results) =>
+        results.length === 0
+          ? Effect.void
+          : Effect.logInfo('Client database migrations ran successfully', { results })
+      ),
+      Effect.tapError((error) => Effect.logError('Client database migrations failed', { error }))
+    );
+  })
 );
 
 export class ClientDatabaseDecodeError extends Schema.TaggedErrorClass<ClientDatabaseDecodeError>()(

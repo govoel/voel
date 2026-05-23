@@ -12,3 +12,13 @@ export const activeAccountServerUrlAtom = AppRuntime.atom(
     )
   )
 );
+
+export const activeAccountSessionAtom = AppRuntime.atom(
+  AccountManager.pipe(
+    Effect.map((manager) => manager.changes),
+    Stream.unwrap,
+    Stream.map((accounts) =>
+      accounts.activeAccount.pipe(Option.map(({ state }) => state.authClient))
+    )
+  )
+);
