@@ -4,19 +4,12 @@ import { Atom } from 'effect/unstable/reactivity';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { AppRuntime } from '#src/services/registry.ts';
 
-const accountsAtom = AppRuntime.atom(
+export const accountsAtom = AppRuntime.atom(
   AccountManager.pipe(
     Effect.map((manager) => manager.changes),
     Stream.unwrap
   )
 );
-
-export type AccountsSheetMode = 'ONBOARDING' | 'MUST_PICK_ACCOUNT' | 'INVALID_SESSION' | 'IDLE';
-
-export interface AccountsSheet {
-  readonly mode: AccountsSheetMode;
-  readonly dismissable: boolean;
-}
 
 export const activeAccountServerUrlAtom = accountsAtom.pipe(
   Atom.mapResult((accounts) =>
@@ -71,13 +64,13 @@ const getAccountsSheet = ({
 }: {
   readonly accounts: Atom.Success<typeof accountsAtom>;
   readonly activeAccountSession: ActiveAccountSession;
-}): AccountsSheet => {
+}) => {
   if (accounts.accounts.length === 0) {
-    return { mode: 'ONBOARDING', dismissable: false };
+    return { mode: 'ONBOARDING', dismissable: false } as const;
   }
 
   if (Option.isNone(accounts.activeAccount)) {
-    return { mode: 'MUST_PICK_ACCOUNT', dismissable: false };
+    return { mode: 'MUST_PICK_ACCOUNT', dismissable: false } as const;
   }
 
   if (
@@ -85,14 +78,14 @@ const getAccountsSheet = ({
     activeAccountSession.value.error !== null ||
     activeAccountSession.value.data === null
   ) {
-    return { mode: 'INVALID_SESSION', dismissable: true };
+    return { mode: 'INVALID_SESSION', dismissable: true } as const;
   }
 
-  return { mode: 'IDLE', dismissable: true };
+  return { mode: 'IDLE', dismissable: true } as const;
 };
 
-export const accountsSheetAtom = AppRuntime.atom((get) =>
-  Effect.gen(function* () {
+export const accountsSheetAtom = AppRuntime.atom(
+  Effect.fnUntraced(function* (get) {
     const accounts = yield* get.result(accountsAtom);
     const activeAccountSession = yield* get.result(activeAccountSessionAtom);
 
