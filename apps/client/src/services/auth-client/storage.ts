@@ -6,7 +6,7 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
   {
     make: Effect.gen(function* () {
       const cache = yield* Cache.make<string, Option.Option<string>>({
-        capacity: 2,
+        capacity: 8,
         lookup: (key) => Effect.sync(() => Option.fromNullishOr(SecureStore.getItem(key))),
       });
 
