@@ -3,6 +3,15 @@ import { Effect, Option, Queue, Stream } from 'effect';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { AppRuntime } from '#src/services/registry.ts';
 
+/**
+ * state: ONBOARDING, dismissable: false - accounts.length === 0
+ * state: MUST_PICK_ACCOUNT, dismissable: false - accounts.length > 0 && Option.isNone(activeAccount)
+ * state: INVALID_SESSION, dismissable: true - Option.isSome(activeAccount) && session is invalid
+ * state: IDLE, dismissable: true - Option.isSome(activeAccount) && session is valid
+ *
+ * The sheet should be automatically presented -- only once though, not repeatedly -- when state is ONBOARDING, MUST_PICK_ACCOUNT, or INVALID_SESSION, and can be manually presented in the IDLE state.
+ */
+
 export const activeAccountServerUrlAtom = AppRuntime.atom(
   AccountManager.pipe(
     Effect.map((manager) => manager.changes),
