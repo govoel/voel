@@ -3,12 +3,13 @@ import { Match } from 'effect';
 
 import type { TextComponent } from '#src/components/text';
 
-export const Text = (({ variant = 'body', children }) => {
+export const Text = (({ variant = 'body', modifiers, children }) => {
   const colors = useMaterialColors();
 
   return (
     <ComposeText
       color={colors.onBackground}
+      {...(modifiers ? { modifiers } : {})}
       style={Match.value(variant).pipe(
         Match.when('h1', () => ({
           fontFamily: 'Google Sans Bold',
