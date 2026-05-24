@@ -14,14 +14,18 @@ import {
 } from '@expo/ui/swift-ui';
 import {
   buttonStyle,
+  contentShape,
+  font,
   foregroundStyle,
   headerProminence,
   interactiveDismissDisabled,
   padding,
+  shapes,
 } from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useState } from 'react';
 
+import { DisclosureButton } from '#modules/design-system';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom } from '#src/services/accounts/atoms.ts';
@@ -40,23 +44,37 @@ export default function Accounts() {
                 onInitial: () => <ProgressView />,
                 onSuccess: (result) =>
                   result.value.accounts.map((account) => (
-                    <Button key={`${account.serverUrl}-${account.username}`} />
+                    <DisclosureButton key={`${account.serverUrl}-${account.username}`}>
+                      <HStack alignment="center" spacing={12}>
+                        <Image
+                          systemName="person.crop.circle.fill"
+                          size={44}
+                          color="secondaryLabel"
+                        />
+
+                        <VStack alignment="leading" spacing={2}>
+                          <Text>{account.username}</Text>
+                          <Text variant="caption">{account.serverUrl}</Text>
+                        </VStack>
+                      </HStack>
+                    </DisclosureButton>
                   )),
-                onError: (error) => <Text>Error</Text>,
-                onDefect: (defect) => <Text>Defect</Text>,
+                onError: () => <Text>Error</Text>,
+                onDefect: () => <Text>Defect</Text>,
               })}
               <ProgressView />
-              <Button modifiers={[buttonStyle('plain')]}>
-                <HStack>
+
+              <DisclosureButton>
+                <HStack alignment="center" spacing={12}>
+                  <Image systemName="person.crop.circle.fill" size={32} color="secondaryLabel" />
+
                   <VStack alignment="leading" spacing={2}>
                     <Text>@goknsh</Text>
-                    <Text variant="caption">https://localhost:8080</Text>
+                    <Text variant="caption">https://voel.ark.black</Text>
                   </VStack>
-
-                  <Spacer />
-                  <Image systemName="chevron.right" size={29} color="secondaryLabel" />
                 </HStack>
-              </Button>
+              </DisclosureButton>
+
               <Text>This section has increased prominence</Text>
               <Text>This section has increased prominence</Text>
               <Text>This section has increased prominence</Text>

@@ -12,17 +12,25 @@ export default function AccountsAutoPresenter() {
   const lastPresentedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!AsyncResult.isSuccess(sheet)) return;
+    if (!AsyncResult.isSuccess(sheet)) {
+      return;
+    }
 
-    const mode = sheet.value.mode;
+    const {
+      value: { mode },
+    } = sheet;
 
     if (!(mode === 'ONBOARDING' || mode === 'MUST_PICK_ACCOUNT' || mode === 'INVALID_SESSION')) {
       lastPresentedRef.current = null;
       return;
     }
 
-    if (lastPresentedRef.current === mode) return;
-    if (pathname === '/accounts') return;
+    if (lastPresentedRef.current === mode) {
+      return;
+    }
+    if (pathname === '/accounts') {
+      return;
+    }
 
     lastPresentedRef.current = mode;
     router.navigate('/accounts');
