@@ -19,6 +19,7 @@ import {
   headerProminence,
   interactiveDismissDisabled,
   padding,
+  tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useState } from 'react';
@@ -43,7 +44,7 @@ export default function Accounts() {
                 onSuccess: (result) =>
                   result.value.accounts.map((account) => (
                     <Button
-                      modifiers={[buttonStyle('plain')]}
+                      modifiers={[buttonStyle('automatic'), tint('primary')]}
                       key={`${account.serverUrl}-${account.username}`}>
                       <HStack alignment="center" spacing={12}>
                         <Icon
@@ -79,7 +80,7 @@ export default function Accounts() {
                 modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
               />
 
-              <Button modifiers={[buttonStyle('plain')]}>
+              <Button modifiers={[tint('primary')]}>
                 <HStack alignment="center" spacing={12}>
                   <Icon
                     systemName="person.crop.circle.fill"
