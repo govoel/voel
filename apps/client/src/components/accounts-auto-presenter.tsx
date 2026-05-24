@@ -28,7 +28,7 @@ export default function AccountsAutoPresenter() {
     if (lastPresentedRef.current === mode) {
       return;
     }
-    if (pathname === '/accounts') {
+    if (pathname.startsWith('/accounts')) {
       return;
     }
 
