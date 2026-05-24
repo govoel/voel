@@ -4,6 +4,7 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { View, useColorScheme } from 'react-native';
 
+import AccountsAutoPresenter from '#src/components/accounts-auto-presenter.tsx';
 import { accountsSheetAtom } from '#src/services/accounts/atoms.ts';
 import { AppRegistry } from '#src/services/registry.ts';
 
@@ -28,6 +29,8 @@ export default function TabLayout() {
 
           <Stack.Screen name="accounts" />
         </Stack>
+
+        <AccountsAutoPresenter />
       </ThemeProvider>
     </RegistryContext.Provider>
   );
