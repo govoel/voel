@@ -1,8 +1,11 @@
 {
   "name": "voel-design-system",
-  "platforms": ["apple"],
-  "coreFeatures": ["swiftui"],
+  "platforms": ["apple", "android"],
+  "coreFeatures": ["swiftui", "compose"],
   "apple": {
     "modules": ["VoelDesignSystemModule"]
+  },
+  "android": {
+    "modules": ["app.voel.designsystem.VoelDesignSystemModule"]
   }
 }

@@ -1,14 +1,15 @@
-import { Text as ComposeText, useMaterialColors } from '@expo/ui/jetpack-compose';
+import { Text as ComposeText } from '@expo/ui/jetpack-compose';
 import { Match } from 'effect';
+import { useMaterialColors } from '@expo/ui/jetpack-compose';
 
 import type { TextComponent } from '#src/components/text';
 
-export const Text = (({ variant = 'body', modifiers, children }) => {
+export const Text = (({ variant = 'body', modifiers, children, color }) => {
   const colors = useMaterialColors();
 
   return (
     <ComposeText
-      color={colors.onBackground}
+      color={color ?? colors.onBackground}
       {...(modifiers ? { modifiers } : {})}
       style={Match.value(variant).pipe(
         Match.when('h1', () => ({

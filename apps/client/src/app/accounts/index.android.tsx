@@ -8,13 +8,10 @@ import {
   Column,
   Host,
   Icon,
-  ListItem,
   ModalBottomSheet,
   OutlinedButton,
   OutlinedTextField,
   Row,
-  SegmentedButton,
-  SingleChoiceSegmentedButtonRow,
   Spacer,
   TextButton,
   useMaterialColors,
@@ -24,13 +21,14 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 
+import { SegmentedList, SegmentedListItem } from '#modules/design-system';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom } from '#src/services/accounts/atoms.ts';
 
 export default function AccountsIndex() {
   const accounts = useAtomValue(accountsAtom);
-  const colors = useMaterialColors();
+  const colors = useMaterialColors({ seedColor: '#00AAFF' });
   const [isPresented, setIsPresented] = useState(true);
   const [isAddPresented, setIsAddPresented] = useState(false);
 
@@ -38,7 +36,7 @@ export default function AccountsIndex() {
     <>
       <Stack.Screen.Title>Switch Account</Stack.Screen.Title>
 
-      <Host style={{ flex: 1 }} seedColor="red">
+      <Host style={{ flex: 1 }} seedColor="#00AAFF">
         {isPresented ? (
           <ModalBottomSheet
             onDismissRequest={() => {
@@ -48,38 +46,19 @@ export default function AccountsIndex() {
             sheetGesturesEnabled={false}
             properties={{ shouldDismissOnBackPress: false, shouldDismissOnClickOutside: false }}>
             <Column modifiers={[padding(0, Spacing.three, 0, 0)]}>
-              <Text variant="h3" modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
+              <Text
+                variant="h3"
+                modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.two)]}>
                 Switch Account
               </Text>
 
-              <ListItem modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
-                <ListItem.LeadingContent>
-                  <Icon source={AccountCircle} size={40} tint={colors.onSurfaceVariant} />
-                </ListItem.LeadingContent>
-                <ListItem.HeadlineContent>
-                  <Text>@goknsh</Text>
-                </ListItem.HeadlineContent>
-                <ListItem.SupportingContent>
-                  <Text variant="caption">https://voel.ark.black</Text>
-                </ListItem.SupportingContent>
-                <ListItem.TrailingContent>
-                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
-                </ListItem.TrailingContent>
-              </ListItem>
-              <ListItem modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
-                <ListItem.LeadingContent>
-                  <Icon source={AccountCircle} size={40} tint={colors.onSurfaceVariant} />
-                </ListItem.LeadingContent>
-                <ListItem.HeadlineContent>
-                  <Text>@goknsh</Text>
-                </ListItem.HeadlineContent>
-                <ListItem.SupportingContent>
-                  <Text variant="caption">https://voel.ark.black</Text>
-                </ListItem.SupportingContent>
-                <ListItem.TrailingContent>
-                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
-                </ListItem.TrailingContent>
-              </ListItem>
+              <SegmentedList modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
+                <SegmentedListItem index={0} count={1}>
+                  <SegmentedListItem.HeadlineContent>
+                    <Text color={colors.secondary}>No accounts</Text>
+                  </SegmentedListItem.HeadlineContent>
+                </SegmentedListItem>
+              </SegmentedList>
 
               {AsyncResult.matchWithError(accounts, {
                 onInitial: () => (
@@ -96,28 +75,30 @@ export default function AccountsIndex() {
                       No accounts
                     </Text>
                   ) : (
-                    result.value.accounts.map((account) => (
-                      <ListItem
-                        key={`${account.serverUrl}-${account.username}`}
-                        modifiers={[fillMaxWidth()]}
-                        colors={{
-                          containerColor: colors.surfaceContainerLow,
-                          supportingContentColor: colors.onSurfaceVariant,
-                        }}>
-                        <ListItem.LeadingContent>
-                          <Icon source={AccountCircle} size={40} tint={colors.onSurfaceVariant} />
-                        </ListItem.LeadingContent>
-                        <ListItem.HeadlineContent>
-                          <Text>@{account.username}</Text>
-                        </ListItem.HeadlineContent>
-                        <ListItem.SupportingContent>
-                          <Text variant="caption">{account.serverUrl}</Text>
-                        </ListItem.SupportingContent>
-                        <ListItem.TrailingContent>
-                          <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
-                        </ListItem.TrailingContent>
-                      </ListItem>
-                    ))
+                    <SegmentedList modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
+                      {result.value.accounts.map((account, index) => (
+                        <SegmentedListItem
+                          key={`${account.serverUrl}-${account.username}`}
+                          index={index}
+                          count={result.value.accounts.length}
+                          modifiers={[fillMaxWidth()]}>
+                          <SegmentedListItem.LeadingContent>
+                            <Icon source={AccountCircle} size={40} tint={colors.secondary} />
+                          </SegmentedListItem.LeadingContent>
+                          <SegmentedListItem.HeadlineContent>
+                            <Text>@{account.username}</Text>
+                          </SegmentedListItem.HeadlineContent>
+                          <SegmentedListItem.SupportingContent>
+                            <Text variant="caption" color={colors.secondary}>
+                              {account.serverUrl}
+                            </Text>
+                          </SegmentedListItem.SupportingContent>
+                          <SegmentedListItem.TrailingContent>
+                            <Icon source={ChevronRight} size={24} tint={colors.secondary} />
+                          </SegmentedListItem.TrailingContent>
+                        </SegmentedListItem>
+                      ))}
+                    </SegmentedList>
                   ),
                 onError: () => <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>,
                 onDefect: () => <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>,
