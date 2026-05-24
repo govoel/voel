@@ -7,13 +7,13 @@ export type ViewEvent<Name extends string, Data> = Record<
 
 interface ModifierConfig {
   $type: string;
-  [key: string]: any;
-  eventListener?: (args: any) => void;
+  [key: string]: unknown;
+  eventListener?: (args: unknown) => void;
 }
 
-type GlobalEvent = {
+interface GlobalEvent {
   onGlobalEvent: (event: { nativeEvent: GlobalEventPayload }) => void;
-};
+}
 
 type GlobalEventPayload = Record<string, Record<string, unknown>>;
 

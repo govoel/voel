@@ -5,7 +5,6 @@ import {
   Button,
   Group,
   HStack,
-  Image,
   List,
   ProgressView,
   Section,
@@ -14,18 +13,17 @@ import {
 } from '@expo/ui/swift-ui';
 import {
   buttonStyle,
-  contentShape,
+  containerRelativeFrame,
   font,
   foregroundStyle,
   headerProminence,
   interactiveDismissDisabled,
   padding,
-  shapes,
 } from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useState } from 'react';
 
-import { DisclosureButton } from '#modules/design-system';
+import { Icon } from '#modules/design-system';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom } from '#src/services/accounts/atoms.ts';
@@ -44,41 +42,69 @@ export default function Accounts() {
                 onInitial: () => <ProgressView />,
                 onSuccess: (result) =>
                   result.value.accounts.map((account) => (
-                    <DisclosureButton key={`${account.serverUrl}-${account.username}`}>
+                    <Button
+                      modifiers={[buttonStyle('plain')]}
+                      key={`${account.serverUrl}-${account.username}`}>
                       <HStack alignment="center" spacing={12}>
-                        <Image
+                        <Icon
                           systemName="person.crop.circle.fill"
-                          size={44}
-                          color="secondaryLabel"
+                          modifiers={[
+                            font({ size: 32 }),
+                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                          ]}
                         />
 
                         <VStack alignment="leading" spacing={2}>
                           <Text>{account.username}</Text>
                           <Text variant="caption">{account.serverUrl}</Text>
                         </VStack>
+
+                        <Spacer />
+
+                        <Icon
+                          systemName="chevron.right"
+                          modifiers={[
+                            font({ textStyle: 'footnote', weight: 'semibold' }),
+                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                          ]}
+                        />
                       </HStack>
-                    </DisclosureButton>
+                    </Button>
                   )),
                 onError: () => <Text>Error</Text>,
                 onDefect: () => <Text>Defect</Text>,
               })}
-              <ProgressView />
 
-              <DisclosureButton>
+              <ProgressView
+                modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+              />
+
+              <Button modifiers={[buttonStyle('plain')]}>
                 <HStack alignment="center" spacing={12}>
-                  <Image systemName="person.crop.circle.fill" size={32} color="secondaryLabel" />
+                  <Icon
+                    systemName="person.crop.circle.fill"
+                    modifiers={[
+                      font({ size: 32 }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
+                  />
 
                   <VStack alignment="leading" spacing={2}>
                     <Text>@goknsh</Text>
                     <Text variant="caption">https://voel.ark.black</Text>
                   </VStack>
-                </HStack>
-              </DisclosureButton>
 
-              <Text>This section has increased prominence</Text>
-              <Text>This section has increased prominence</Text>
-              <Text>This section has increased prominence</Text>
-              <Text>This section has increased prominence</Text>
+                  <Spacer />
+
+                  <Icon
+                    systemName="chevron.right"
+                    modifiers={[
+                      font({ textStyle: 'footnote', weight: 'semibold' }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
+                  />
+                </HStack>
+              </Button>
             </Section>
 
             <Section>

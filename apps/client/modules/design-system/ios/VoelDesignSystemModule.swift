@@ -15,6 +15,6 @@ public final class VoelDesignSystemModule: Module {
       ViewModifierRegistry.unregister("voelTextStyle")
     }
 
-    ExpoUIView(VoelDisclosureButton.self)
+    ExpoUIView(VoelIcon.self)
   }
 }

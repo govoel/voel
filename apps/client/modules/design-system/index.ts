@@ -1,2 +1,2 @@
-export { DisclosureButton, type DisclosureButtonProps } from './src/disclosure-button';
+export { Icon, type IconProps } from './src/icon';
 export { iosTextStyle } from './src/modifiers';
