@@ -4,19 +4,18 @@ import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import PersonAdd from '@expo/material-symbols/person_add.xml';
 import {
   Button,
-  CircularProgressIndicator,
   Column,
+  FilledTonalButton,
   Host,
   Icon,
+  LoadingIndicator,
   ModalBottomSheet,
-  OutlinedButton,
-  OutlinedTextField,
   Row,
   Spacer,
-  TextButton,
+  TextField,
   useMaterialColors,
 } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding, paddingAll, size } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, padding, paddingAll, width } from '@expo/ui/jetpack-compose/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
@@ -45,78 +44,63 @@ export default function AccountsIndex() {
             showDragHandle={false}
             sheetGesturesEnabled={false}
             properties={{ shouldDismissOnBackPress: false, shouldDismissOnClickOutside: false }}>
-            <Column modifiers={[padding(0, Spacing.three, 0, 0)]}>
-              <Text
-                variant="h3"
-                modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.two)]}>
-                Switch Account
-              </Text>
-
-              <SegmentedList modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
-                <SegmentedListItem index={0} count={1}>
-                  <SegmentedListItem.HeadlineContent>
-                    <Text color={colors.secondary}>No accounts</Text>
-                  </SegmentedListItem.HeadlineContent>
-                </SegmentedListItem>
-              </SegmentedList>
+            <Column
+              modifiers={[paddingAll(Spacing.three)]}
+              verticalArrangement={{ spacedBy: Spacing.two }}>
+              <Text variant="h3">Switch Account</Text>
 
               {AsyncResult.matchWithError(accounts, {
                 onInitial: () => (
-                  <Row
-                    horizontalAlignment="center"
-                    modifiers={[fillMaxWidth(), paddingAll(Spacing.four)]}>
-                    <CircularProgressIndicator />
+                  <Row horizontalAlignment="center">
+                    <LoadingIndicator modifiers={[fillMaxWidth()]} />
                   </Row>
                 ),
-                onSuccess: (result) =>
-                  result.value.accounts.length === 0 ? (
-                    <Text
-                      modifiers={[padding(Spacing.four, Spacing.two, Spacing.four, Spacing.two)]}>
-                      No accounts
-                    </Text>
-                  ) : (
-                    <SegmentedList modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
-                      {result.value.accounts.map((account, index) => (
+                onSuccess: (result) => (
+                  <SegmentedList>
+                    {result.value.accounts.length === 0 ? (
+                      <SegmentedListItem index={0} count={1} enabled={false}>
+                        <SegmentedListItem.HeadlineContent>
+                          <Text color={colors.onSurfaceVariant}>No accounts</Text>
+                        </SegmentedListItem.HeadlineContent>
+                      </SegmentedListItem>
+                    ) : (
+                      result.value.accounts.map((account, index) => (
                         <SegmentedListItem
                           key={`${account.serverUrl}-${account.username}`}
                           index={index}
-                          count={result.value.accounts.length}
-                          modifiers={[fillMaxWidth()]}>
+                          count={result.value.accounts.length}>
                           <SegmentedListItem.LeadingContent>
-                            <Icon source={AccountCircle} size={40} tint={colors.secondary} />
+                            <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
                           </SegmentedListItem.LeadingContent>
                           <SegmentedListItem.HeadlineContent>
                             <Text>@{account.username}</Text>
                           </SegmentedListItem.HeadlineContent>
                           <SegmentedListItem.SupportingContent>
-                            <Text variant="caption" color={colors.secondary}>
+                            <Text variant="caption" color={colors.onSurfaceVariant}>
                               {account.serverUrl}
                             </Text>
                           </SegmentedListItem.SupportingContent>
                           <SegmentedListItem.TrailingContent>
-                            <Icon source={ChevronRight} size={24} tint={colors.secondary} />
+                            <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
                           </SegmentedListItem.TrailingContent>
                         </SegmentedListItem>
-                      ))}
-                    </SegmentedList>
-                  ),
+                      ))
+                    )}
+                  </SegmentedList>
+                ),
                 onError: () => <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>,
                 onDefect: () => <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>,
               })}
 
-              <TextButton
+              <FilledTonalButton
                 onClick={() => {
                   setIsAddPresented(true);
                 }}
-                modifiers={[
-                  fillMaxWidth(),
-                  padding(Spacing.three, Spacing.three, Spacing.three, 0),
-                ]}>
-                <Row horizontalAlignment="center" verticalAlignment="center">
-                  <Icon source={PersonAdd} size={20} />
-                  <Text>Add account</Text>
-                </Row>
-              </TextButton>
+                modifiers={[fillMaxWidth()]}>
+                <Icon source={PersonAdd} size={18} tint={colors.onSurfaceVariant} />
+                <Spacer modifiers={[width(Spacing.two)]} />
+                <Text>Add account</Text>
+              </FilledTonalButton>
             </Column>
           </ModalBottomSheet>
         ) : null}
@@ -127,43 +111,46 @@ export default function AccountsIndex() {
               setIsAddPresented(false);
             }}>
             <Column
-              modifiers={[padding(Spacing.three, Spacing.three, Spacing.three, Spacing.three)]}>
-              <Text variant="h5" modifiers={[padding(Spacing.one, 0, Spacing.one, Spacing.two)]}>
-                Add an account
-              </Text>
+              modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
+              verticalArrangement={{ spacedBy: Spacing.two }}>
+              <Text variant="h3">Add an account</Text>
 
-              <OutlinedTextField singleLine isError modifiers={[fillMaxWidth()]}>
-                <OutlinedTextField.Label>
+              <TextField
+                singleLine
+                isError
+                modifiers={[fillMaxWidth()]}
+                textStyle={{
+                  fontFamily: 'Google Sans',
+                  fontSize: 16,
+                  lineHeight: 24,
+                  letterSpacing: 0.5,
+                }}>
+                <TextField.Label>
                   <Text>Username</Text>
-                </OutlinedTextField.Label>
-                <OutlinedTextField.SupportingText>
+                </TextField.Label>
+                <TextField.SupportingText>
                   <Text variant="caption">Testing validation error</Text>
-                </OutlinedTextField.SupportingText>
-              </OutlinedTextField>
+                </TextField.SupportingText>
+              </TextField>
 
-              <OutlinedTextField
+              <TextField
                 singleLine
                 visualTransformation="password"
-                modifiers={[fillMaxWidth(), padding(0, Spacing.two, 0, 0)]}>
-                <OutlinedTextField.Label>
+                modifiers={[fillMaxWidth()]}
+                textStyle={{
+                  fontFamily: 'Google Sans',
+                  fontSize: 16,
+                  lineHeight: 24,
+                  letterSpacing: 0.5,
+                }}>
+                <TextField.Label>
                   <Text>Password</Text>
-                </OutlinedTextField.Label>
-              </OutlinedTextField>
-
-              <Spacer modifiers={[size(0, Spacing.four)]} />
+                </TextField.Label>
+              </TextField>
 
               <Button modifiers={[fillMaxWidth()]}>
                 <Text>Login</Text>
               </Button>
-
-              <OutlinedButton
-                onClick={() => {
-                  setIsAddPresented(false);
-                }}
-                colors={{ contentColor: colors.error }}
-                modifiers={[fillMaxWidth(), padding(0, Spacing.two, 0, 0)]}>
-                <Text>Cancel</Text>
-              </OutlinedButton>
             </Column>
           </ModalBottomSheet>
         ) : null}

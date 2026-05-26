@@ -19,7 +19,7 @@ export const Text = (({ variant = 'body', color, modifiers = [], children }) => 
         Match.when('caption', () => [iosTextStyle('caption')]),
         Match.exhaustive
       ),
-      ...(color == null ? [] : [foregroundStyle(color)]),
+      ...(typeof color === 'string' ? [foregroundStyle(color)] : []),
       ...modifiers,
     ]}>
     {children}
