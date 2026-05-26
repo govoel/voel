@@ -34,8 +34,6 @@ const AddAccountSchema = Schema.Struct({
   password: Schema.NonEmptyString,
 });
 
-const AddAccountStandardSchema = Schema.toStandardSchemaV1(AddAccountSchema);
-
 const getSubmitErrorMessage = (error: unknown) =>
   error instanceof Error && error.message.length > 0 ? error.message : 'Unable to add account';
 
@@ -46,13 +44,11 @@ export default function AccountsIndex() {
   const [isAddPresented, setIsAddPresented] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useAppForm({
+    schema: AddAccountSchema,
     defaultValues: {
       serverUrl: '',
       username: '',
       password: '',
-    },
-    validators: {
-      onSubmit: AddAccountStandardSchema,
     },
     onSubmit: async ({ value }) => {
       setSubmitError(null);

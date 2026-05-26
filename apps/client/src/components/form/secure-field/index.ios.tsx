@@ -4,13 +4,13 @@ import { useStore } from '@tanstack/react-form';
 import { PlatformColor } from 'react-native';
 
 import { iosTextStyle } from '#modules/design-system/index.ts';
-import { useFieldContext, useFormContext } from '#src/components/form/hooks.ts';
+import { useFormContext, useStandardSchemaFieldContext } from '#src/components/form/hooks.ts';
 import type { SecureFieldComponent } from '#src/components/form/secure-field';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const SecureField = (({ label, platformProps = {} }) => {
-  const field = useFieldContext<string>();
+  const field = useStandardSchemaFieldContext<string>();
   const form = useFormContext();
   const isError = field.state.meta.isTouched && field.state.meta.errors.length > 0;
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
