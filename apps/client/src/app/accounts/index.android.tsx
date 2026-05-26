@@ -12,24 +12,75 @@ import {
   ModalBottomSheet,
   Row,
   Spacer,
-  TextField,
   useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, paddingAll, width } from '@expo/ui/jetpack-compose/modifiers';
+import { Effect, Redacted, Schema } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 
 import { SegmentedList, SegmentedListItem } from '#modules/design-system';
+import { useAppForm } from '#src/components/form';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager } from '#src/services/accounts/index.ts';
+import { Runtime } from '#src/services/runtime.ts';
+
+const AddAccountSchema = Schema.Struct({
+  serverUrl: Schema.NonEmptyString,
+  username: Schema.NonEmptyString,
+  password: Schema.NonEmptyString,
+});
+
+const AddAccountStandardSchema = Schema.toStandardSchemaV1(AddAccountSchema);
+
+const getSubmitErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message.length > 0 ? error.message : 'Unable to add account';
 
 export default function AccountsIndex() {
   const accounts = useAtomValue(accountsAtom);
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
   const [isPresented, setIsPresented] = useState(true);
   const [isAddPresented, setIsAddPresented] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const form = useAppForm({
+    defaultValues: {
+      serverUrl: '',
+      username: '',
+      password: '',
+    },
+    validators: {
+      onSubmit: AddAccountStandardSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setSubmitError(null);
+
+      try {
+        await Runtime.runPromise(
+          AccountManager.pipe(
+            Effect.flatMap((manager) =>
+              manager.upsertAccount({
+                serverUrl: value.serverUrl,
+                username: value.username,
+                password: Redacted.make(value.password),
+              })
+            )
+          )
+        );
+      } catch (error) {
+        setSubmitError(getSubmitErrorMessage(error));
+        return;
+      }
+
+      form.reset();
+      setIsAddPresented(false);
+    },
+    onSubmitInvalid: () => {
+      setSubmitError(null);
+    },
+  });
 
   return (
     <>
@@ -110,48 +161,62 @@ export default function AccountsIndex() {
             onDismissRequest={() => {
               setIsAddPresented(false);
             }}>
-            <Column
-              modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
-              verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h3">Add an account</Text>
+            <form.AppForm>
+              <Column
+                modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
+                verticalArrangement={{ spacedBy: Spacing.two }}>
+                <Text variant="h3">Add an account</Text>
 
-              <TextField
-                singleLine
-                isError
-                modifiers={[fillMaxWidth()]}
-                textStyle={{
-                  fontFamily: 'Google Sans',
-                  fontSize: 16,
-                  lineHeight: 24,
-                  letterSpacing: 0.5,
-                }}>
-                <TextField.Label>
-                  <Text>Username</Text>
-                </TextField.Label>
-                <TextField.SupportingText>
-                  <Text variant="caption">Testing validation error</Text>
-                </TextField.SupportingText>
-              </TextField>
+                <form.AppField name="serverUrl">
+                  {(field) => (
+                    <field.TextField
+                      label="Server URL"
+                      platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                    />
+                  )}
+                </form.AppField>
 
-              <TextField
-                singleLine
-                visualTransformation="password"
-                modifiers={[fillMaxWidth()]}
-                textStyle={{
-                  fontFamily: 'Google Sans',
-                  fontSize: 16,
-                  lineHeight: 24,
-                  letterSpacing: 0.5,
-                }}>
-                <TextField.Label>
-                  <Text>Password</Text>
-                </TextField.Label>
-              </TextField>
+                <form.AppField name="username">
+                  {(field) => (
+                    <field.TextField
+                      label="Username"
+                      platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                    />
+                  )}
+                </form.AppField>
 
-              <Button modifiers={[fillMaxWidth()]}>
-                <Text>Login</Text>
-              </Button>
-            </Column>
+                <form.AppField name="password">
+                  {(field) => (
+                    <field.SecureField
+                      label="Password"
+                      platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                    />
+                  )}
+                </form.AppField>
+
+                {submitError !== null ? (
+                  <Text variant="caption" color="#B3261E">
+                    {submitError}
+                  </Text>
+                ) : null}
+
+                <form.AppForm>
+                  <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+                    <Text>Login</Text>
+                  </form.SubmitButton>
+                </form.AppForm>
+
+                <Button
+                  modifiers={[fillMaxWidth()]}
+                  onClick={() => {
+                    form.reset();
+                    setSubmitError(null);
+                    setIsAddPresented(false);
+                  }}>
+                  <Text>Cancel</Text>
+                </Button>
+              </Column>
+            </form.AppForm>
           </ModalBottomSheet>
         ) : null}
       </Host>

@@ -10,9 +10,7 @@ import {
   List,
   ProgressView,
   Section,
-  SecureField,
   Spacer,
-  TextField,
   VStack,
 } from '@expo/ui/swift-ui';
 import {
@@ -26,21 +24,72 @@ import {
   padding,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
+import { Effect, Redacted, Schema } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { PlatformColor } from 'react-native';
 
 import { Icon, iosTextStyle } from '#modules/design-system';
+import { useAppForm } from '#src/components/form';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager } from '#src/services/accounts/index.ts';
+import { Runtime } from '#src/services/runtime.ts';
+
+const AddAccountSchema = Schema.Struct({
+  serverUrl: Schema.NonEmptyString,
+  username: Schema.NonEmptyString,
+  password: Schema.NonEmptyString,
+});
+
+const AddAccountStandardSchema = Schema.toStandardSchemaV1(AddAccountSchema);
+
+const getSubmitErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message.length > 0 ? error.message : 'Unable to add account';
 
 export default function AccountsIndex() {
   const accounts = useAtomValue(accountsAtom);
   const [isPresented, setIsPresented] = useState(true);
 
   const [isAddPresented, setIsAddPresented] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const form = useAppForm({
+    defaultValues: {
+      serverUrl: '',
+      username: '',
+      password: '',
+    },
+    validators: {
+      onSubmit: AddAccountStandardSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setSubmitError(null);
+
+      try {
+        await Runtime.runPromise(
+          AccountManager.pipe(
+            Effect.flatMap((manager) =>
+              manager.upsertAccount({
+                serverUrl: value.serverUrl,
+                username: value.username,
+                password: Redacted.make(value.password),
+              })
+            )
+          )
+        );
+      } catch (error) {
+        setSubmitError(getSubmitErrorMessage(error));
+        return;
+      }
+
+      form.reset();
+      setIsAddPresented(false);
+    },
+    onSubmitInvalid: () => {
+      setSubmitError(null);
+    },
+  });
 
   return (
     <>
@@ -120,40 +169,60 @@ export default function AccountsIndex() {
             </List>
 
             <BottomSheet isPresented={isAddPresented} onIsPresentedChange={setIsAddPresented}>
-              <VStack modifiers={[padding({ vertical: Spacing.three })]}>
-                <Form modifiers={[headerProminence('increased')]}>
-                  <Section title="Add an account">
-                    <VStack alignment="leading" spacing={Spacing.one}>
-                      <TextField placeholder="Username" />
-                      <Label
-                        title="Testing validation error"
-                        modifiers={[
-                          iosTextStyle('caption'),
-                          foregroundStyle(PlatformColor('systemRed')),
-                        ]}
-                      />
-                    </VStack>
-                    <SecureField placeholder="Password" />
-                  </Section>
-                </Form>
+              <form.AppForm>
+                <VStack modifiers={[padding({ vertical: Spacing.three })]}>
+                  <Form modifiers={[headerProminence('increased')]}>
+                    <Section title="Add an account">
+                      <form.AppField name="serverUrl">
+                        {(field) => (
+                          <field.TextField
+                            label="Server URL"
+                            platformProps={{ ios: { placeholder: 'https://demo.voel.app' } }}
+                          />
+                        )}
+                      </form.AppField>
+                      <form.AppField name="username">
+                        {(field) => <field.TextField label="Username" />}
+                      </form.AppField>
+                      <form.AppField name="password">
+                        {(field) => <field.SecureField label="Password" />}
+                      </form.AppField>
+                      {submitError !== null ? (
+                        <Label
+                          title={submitError}
+                          modifiers={[
+                            iosTextStyle('caption'),
+                            foregroundStyle('red'),
+                            padding({ top: Spacing.one }),
+                          ]}
+                        />
+                      ) : null}
+                    </Section>
+                  </Form>
 
-                <Spacer />
+                  <Spacer />
 
-                <VStack spacing={Spacing.two} modifiers={[padding({ horizontal: Spacing.three })]}>
-                  <Button modifiers={[buttonStyle('borderedProminent')]}>
-                    <Text modifiers={[frame({ maxWidth: Infinity })]}>Login</Text>
-                  </Button>
+                  <VStack
+                    spacing={Spacing.two}
+                    modifiers={[padding({ horizontal: Spacing.three })]}>
+                    <form.SubmitButton
+                      platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}>
+                      <Text modifiers={[frame({ maxWidth: Infinity })]}>Login</Text>
+                    </form.SubmitButton>
 
-                  <Button
-                    role="destructive"
-                    modifiers={[buttonStyle('bordered')]}
-                    onPress={() => {
-                      setIsAddPresented(false);
-                    }}>
-                    <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
-                  </Button>
+                    <Button
+                      role="destructive"
+                      modifiers={[buttonStyle('bordered')]}
+                      onPress={() => {
+                        form.reset();
+                        setSubmitError(null);
+                        setIsAddPresented(false);
+                      }}>
+                      <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
+                    </Button>
+                  </VStack>
                 </VStack>
-              </VStack>
+              </form.AppForm>
             </BottomSheet>
           </Group>
         </BottomSheet>
