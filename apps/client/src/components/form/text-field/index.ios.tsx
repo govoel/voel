@@ -4,13 +4,13 @@ import { useStore } from '@tanstack/react-form';
 import { PlatformColor } from 'react-native';
 
 import { iosTextStyle } from '#modules/design-system/index.ts';
-import { useFormContext, useStandardSchemaFieldContext } from '#src/components/form/hooks.ts';
+import { useFieldContext, useFormContext } from '#src/components/form/hooks.ts';
 import type { TextFieldComponent } from '#src/components/form/text-field';
 import { Text } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const TextField = (({ label, platformProps = {} }) => {
-  const field = useStandardSchemaFieldContext<string>();
+  const field = useFieldContext<string>();
   const form = useFormContext();
   const isError = field.state.meta.isTouched && field.state.meta.errors.length > 0;
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);

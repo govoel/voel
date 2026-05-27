@@ -2,7 +2,7 @@ import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-
 import { useStore } from '@tanstack/react-form';
 import type { ComponentProps } from 'react';
 
-import { useFormContext, useStandardSchemaFieldContext } from '#src/components/form/hooks.ts';
+import { useFieldContext, useFormContext } from '#src/components/form/hooks.ts';
 import type { TextFieldComponent } from '#src/components/form/text-field';
 import { Text } from '#src/components/text';
 
@@ -14,7 +14,7 @@ const defaultTextStyle = {
 } as const satisfies NonNullable<ComponentProps<typeof ComposeTextField>['textStyle']>;
 
 export const TextField = (({ label, platformProps = {} }) => {
-  const field = useStandardSchemaFieldContext<string>();
+  const field = useFieldContext<string>();
   const form = useFormContext();
   const isError = field.state.meta.isTouched && field.state.meta.errors.length > 0;
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);

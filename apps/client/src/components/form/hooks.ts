@@ -9,24 +9,31 @@ import type {
 import { Schema } from 'effect';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
+const tanStackFormHookContexts = createFormHookContexts();
+
 type StandardSchemaFieldContext<TData> = Omit<
-  ReturnType<typeof useFieldContext<TData>>,
+  ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
   'state'
 > & {
-  readonly state: Omit<ReturnType<typeof useFieldContext<TData>>['state'], 'meta'> & {
-    readonly meta: Omit<ReturnType<typeof useFieldContext<TData>>['state']['meta'], 'errors'> & {
+  readonly state: Omit<
+    ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state'],
+    'meta'
+  > & {
+    readonly meta: Omit<
+      ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state']['meta'],
+      'errors'
+    > & {
       readonly errors: StandardSchemaV1Issue[];
     };
   };
 };
 
-export const { fieldContext, formContext, useFormContext, useFieldContext } =
-  createFormHookContexts();
+type StandardSchemaFormHookContexts = Omit<typeof tanStackFormHookContexts, 'useFieldContext'> & {
+  readonly useFieldContext: <TData>() => StandardSchemaFieldContext<TData>;
+};
 
-// TanStack erases validator generics when a reusable field component reads context.
-// Our form hook only installs Effect Schema validators, so field errors are Standard Schema issues.
-export const useStandardSchemaFieldContext = <TData>() =>
-  useFieldContext<TData>() as StandardSchemaFieldContext<TData>;
+export const { fieldContext, formContext, useFormContext, useFieldContext } =
+  tanStackFormHookContexts as StandardSchemaFormHookContexts;
 
 type EffectSchemaFormOptions<TFormData, TSubmitMeta = never> = Omit<
   FormOptions<
