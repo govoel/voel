@@ -1,5 +1,13 @@
-import { createFormHookContexts } from '@tanstack/react-form';
-import type { StandardSchemaV1Issue } from '@tanstack/react-form';
+import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
+import type {
+  AnyFieldApi,
+  AnyFormApi,
+  FormOptions,
+  StandardSchemaV1,
+  StandardSchemaV1Issue,
+} from '@tanstack/react-form';
+import { Schema } from 'effect';
+import type { ComponentProps, ComponentType, Context } from 'react';
 
 type StandardSchemaFieldContext<TData> = Omit<
   ReturnType<typeof useFieldContext<TData>>,
@@ -19,3 +27,91 @@ export const { fieldContext, formContext, useFormContext, useFieldContext } =
 // Our form hook only installs Effect Schema validators, so field errors are Standard Schema issues.
 export const useStandardSchemaFieldContext = <TData>() =>
   useFieldContext<TData>() as StandardSchemaFieldContext<TData>;
+
+type EffectSchemaFormOptions<TFormData, TSubmitMeta = never> = Omit<
+  FormOptions<
+    TFormData,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    StandardSchemaV1<TFormData, TFormData>,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    TSubmitMeta
+  >,
+  'validators'
+> & {
+  readonly schema: Schema.Codec<TFormData, TFormData, never, unknown>;
+};
+
+// TanStack exposes AppField as a component whose props are inferred through any-based
+// React component helpers. Preserve that inference while only removing validator props.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AppFieldWithoutValidators<TAppField extends ComponentType<any>> = ComponentType<
+  Omit<ComponentProps<TAppField>, 'validators'>
+>;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FormWithoutFieldValidators<TForm extends { readonly AppField: ComponentType<any> }> = Omit<
+  TForm,
+  'AppField'
+> & {
+  readonly AppField: AppFieldWithoutValidators<TForm['AppField']>;
+};
+
+const withoutFieldValidators = <
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  TForm extends { readonly AppField: ComponentType<any> },
+>(
+  form: TForm
+): FormWithoutFieldValidators<TForm> => form;
+
+export const createEffectSchemaFormHook = <
+  // TanStack's createFormHook preserves each component's actual props through an any-based
+  // component map constraint. Keeping that shape here avoids collapsing AppField components
+  // to ComponentType<unknown>, which would make <field.TextField /> unusable.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const TFieldComponents extends Record<string, ComponentType<any>>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const TFormComponents extends Record<string, ComponentType<any>>,
+>({
+  fieldComponents,
+  fieldContext: hookFieldContext,
+  formComponents,
+  formContext: hookFormContext,
+}: {
+  readonly fieldComponents: TFieldComponents;
+  readonly fieldContext: Context<AnyFieldApi>;
+  readonly formComponents: TFormComponents;
+  readonly formContext: Context<AnyFormApi>;
+}) => {
+  const { useAppForm: useTanStackAppForm, ...formHook } = createFormHook({
+    fieldComponents,
+    fieldContext: hookFieldContext,
+    formComponents,
+    formContext: hookFormContext,
+  });
+
+  // App forms render Standard Schema issues directly in field components. Accepting the
+  // Effect schema here, rather than arbitrary TanStack validators at each call site,
+  // keeps that error shape enforced and makes custom string/object validators a type error.
+  const useAppForm = <TFormData, TSubmitMeta = never>({
+    schema,
+    ...props
+  }: EffectSchemaFormOptions<TFormData, TSubmitMeta>) => {
+    const form = useTanStackAppForm({
+      ...props,
+      validators: {
+        onSubmit: Schema.toStandardSchemaV1(schema),
+      },
+    });
+
+    return withoutFieldValidators(form);
+  };
+
+  return { ...formHook, useAppForm };
+};
