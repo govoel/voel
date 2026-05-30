@@ -6,10 +6,46 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Schema } from 'effect';
+import type { ManagedRuntime} from 'effect';
+import { Effect, Schema, SchemaIssue } from 'effect';
+import { useRef } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
+import { Runtime } from '#src/services/runtime.ts';
+
 const tanStackFormHookContexts = createFormHookContexts();
+
+export type EffectSchemaForRuntime<TRuntime extends ManagedRuntime.ManagedRuntime<never, unknown>> =
+  TRuntime extends ManagedRuntime.ManagedRuntime<infer R, unknown>
+    ? Schema.Codec<unknown, unknown, R, unknown>
+    : never;
+
+const formatStandardSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
+
+const createRuntimeStandardSchema = <
+  R,
+  E,
+  TSchema extends Schema.Codec<unknown, unknown, R, unknown>,
+>(
+  runtime: ManagedRuntime.ManagedRuntime<R, E>,
+  schema: TSchema
+): StandardSchemaV1<TSchema['Encoded'], TSchema['Type']> => ({
+  '~standard': {
+    validate: async (value) =>
+      runtime.runPromise(
+        Schema.decodeEffect(schema)(value, { errors: 'all' }).pipe(
+          Effect.match({
+            onFailure: (error) => formatStandardSchemaIssue(error.issue),
+            onSuccess: (decodedValue) => ({ value: decodedValue }),
+          })
+        )
+      ),
+    vendor: 'effect',
+    version: 1,
+  },
+});
+
+type EffectFormSchema = EffectSchemaForRuntime<typeof Runtime>;
 
 type StandardSchemaFieldContext<TData> = Omit<
   ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
@@ -35,25 +71,50 @@ type StandardSchemaFormHookContexts = Omit<typeof tanStackFormHookContexts, 'use
 export const { fieldContext, formContext, useFormContext, useFieldContext } =
   tanStackFormHookContexts as StandardSchemaFormHookContexts;
 
-type EffectSchemaFormOptions<TFormData, TSubmitMeta = never> = Omit<
-  FormOptions<
-    TFormData,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    StandardSchemaV1<TFormData, TFormData>,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    TSubmitMeta
-  >,
-  'validators'
+type EffectSchemaSubmitValidator<TSchema extends EffectFormSchema> = (props: {
+  readonly value: TSchema['Encoded'];
+  readonly formApi: AnyFormApi;
+  readonly signal: AbortSignal;
+}) => string | null | Promise<string | null>;
+
+type EffectSchemaBaseFormOptions<
+  TSchema extends EffectFormSchema,
+  TSubmitMeta = never,
+> = FormOptions<
+  TSchema['Encoded'],
+  undefined,
+  undefined,
+  StandardSchemaV1<TSchema['Encoded'], TSchema['Type']>,
+  undefined,
+  undefined,
+  undefined,
+  EffectSchemaSubmitValidator<TSchema>,
+  undefined,
+  undefined,
+  undefined,
+  TSubmitMeta
+>;
+
+type EffectSchemaSubmitProps<TSchema extends EffectFormSchema, TSubmitMeta> = Omit<
+  Parameters<NonNullable<EffectSchemaBaseFormOptions<TSchema, TSubmitMeta>['onSubmit']>>[0],
+  'value'
 > & {
-  readonly schema: Schema.Codec<TFormData, TFormData, never, unknown>;
+  readonly value: TSchema['Type'];
 };
+
+type EffectSchemaFormOptions<TSchema extends EffectFormSchema, TSubmitMeta = never> = Omit<
+  EffectSchemaBaseFormOptions<TSchema, TSubmitMeta>,
+  'onSubmit' | 'validators'
+> & {
+  readonly schema: TSchema;
+  readonly onSubmit?: (props: EffectSchemaSubmitProps<TSchema, TSubmitMeta>) => unknown;
+};
+
+type ParsedRef<T> =
+  | {
+      readonly value: T;
+    }
+  | undefined;
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
 // React component helpers. Preserve that inference while only removing validator props.
@@ -106,14 +167,47 @@ export const createEffectSchemaFormHook = <
   // App forms render Standard Schema issues directly in field components. Accepting the
   // Effect schema here, rather than arbitrary TanStack validators at each call site,
   // keeps that error shape enforced and makes custom string/object validators a type error.
-  const useAppForm = <TFormData, TSubmitMeta = never>({
+  const useAppForm = <TSchema extends EffectFormSchema, TSubmitMeta = never>({
+    onSubmit,
     schema,
     ...props
-  }: EffectSchemaFormOptions<TFormData, TSubmitMeta>) => {
+  }: EffectSchemaFormOptions<TSchema, TSubmitMeta>) => {
+    const parsedRef = useRef<ParsedRef<TSchema['Type']>>(void 0);
+    const submitHandler =
+      onSubmit === void 0
+        ? {}
+        : ({
+            onSubmit: (submitProps) => {
+              const parsed = parsedRef.current;
+
+              if (parsed === void 0) {
+                throw new Error('Unexpected submit without parsed data');
+              }
+
+              return onSubmit({ ...submitProps, value: parsed.value });
+            },
+          } satisfies Pick<EffectSchemaBaseFormOptions<TSchema, TSubmitMeta>, 'onSubmit'>);
+
     const form = useTanStackAppForm({
       ...props,
+      ...submitHandler,
       validators: {
-        onSubmit: Schema.toStandardSchemaV1(schema),
+        onChangeAsync: createRuntimeStandardSchema(Runtime, schema),
+        onSubmitAsync: async ({ value }) => {
+          parsedRef.current = void 0;
+
+          return Runtime.runPromise(
+            Schema.decodeEffect(schema)(value, { errors: 'all' }).pipe(
+              Effect.match({
+                onFailure: (error) => error.message,
+                onSuccess: (decodedValue) => {
+                  parsedRef.current = { value: decodedValue };
+                  return null;
+                },
+              })
+            )
+          );
+        },
       },
     });
 
