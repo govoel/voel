@@ -11,14 +11,10 @@ import { Effect, Schema, SchemaIssue } from 'effect';
 import { useRef } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
-import { Runtime } from '#src/services/runtime.ts';
-
 const tanStackFormHookContexts = createFormHookContexts();
 
 type ManagedRuntimeServices<TRuntime extends ManagedRuntime.ManagedRuntime<never, unknown>> =
-  TRuntime extends ManagedRuntime.ManagedRuntime<infer R, unknown> ? R : never;
-
-type RuntimeServices = ManagedRuntimeServices<typeof Runtime>;
+  ManagedRuntime.ManagedRuntime.Services<TRuntime>;
 
 export type EffectSchemaForRuntime<
   TRuntime extends ManagedRuntime.ManagedRuntime<never, unknown>,
@@ -109,27 +105,16 @@ type EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> = Omit<
 };
 
 type EffectSchemaFormOptions<
+  R,
   TType,
   TEncoded,
-  TDecodingServices extends RuntimeServices,
+  TDecodingServices extends R,
   TEncodingServices,
   TSubmitMeta = never,
 > = Omit<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
-  readonly schema: EffectSchemaForRuntime<
-    typeof Runtime,
-    TType,
-    TEncoded,
-    TDecodingServices,
-    TEncodingServices
-  >;
+  readonly schema: Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>;
   readonly onSubmit?: (props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>) => unknown;
 };
-
-type ParsedRef<T> =
-  | {
-      readonly value: T;
-    }
-  | undefined;
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
 // React component helpers. Preserve that inference while only removing validator props.
@@ -183,23 +168,29 @@ export const createEffectSchemaFormHook = <
   // Effect schema here, rather than arbitrary TanStack validators at each call site,
   // keeps that error shape enforced and makes custom string/object validators a type error.
   const useAppForm = <
+    R,
+    E,
     TType,
     TEncoded,
-    TDecodingServices extends RuntimeServices,
-    TEncodingServices,
+    TDecodingServices extends R = R,
+    TEncodingServices = never,
     TSubmitMeta = never,
   >({
     onSubmit,
+    runtime,
     schema,
     ...props
   }: EffectSchemaFormOptions<
+    R,
     TType,
     TEncoded,
     TDecodingServices,
     TEncodingServices,
     TSubmitMeta
-  >) => {
-    const parsedRef = useRef<ParsedRef<TType>>(void 0);
+  > & {
+    readonly runtime: ManagedRuntime.ManagedRuntime<R, E>;
+  }) => {
+    const parsedRef = useRef<undefined | TType>(void 0);
     const submitHandler =
       onSubmit === void 0
         ? {}
@@ -211,24 +202,25 @@ export const createEffectSchemaFormHook = <
                 throw new Error('Unexpected submit without parsed data');
               }
 
-              return onSubmit({ ...submitProps, value: parsed.value });
+              return onSubmit({ ...submitProps, value: parsed });
             },
           } satisfies Pick<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit'>);
 
+    const schemaDecodeEffect = Schema.decodeEffect(schema);
     const form = useTanStackAppForm({
       ...props,
       ...submitHandler,
       validators: {
-        onChangeAsync: createRuntimeStandardSchema(Runtime, schema),
+        onChangeAsync: createRuntimeStandardSchema(runtime, schema),
         onSubmitAsync: async ({ value, signal }) => {
           parsedRef.current = void 0;
 
-          return Runtime.runPromise(
-            Schema.decodeEffect(schema)(value, { errors: 'all' }).pipe(
+          return runtime.runPromise(
+            schemaDecodeEffect(value, { errors: 'all' }).pipe(
               Effect.match({
                 onFailure: (error) => error.message,
                 onSuccess: (decodedValue) => {
-                  parsedRef.current = { value: decodedValue };
+                  parsedRef.current = decodedValue;
                   return null;
                 },
               })

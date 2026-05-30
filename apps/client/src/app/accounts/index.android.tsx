@@ -44,6 +44,7 @@ export default function AccountsIndex() {
   const [isAddPresented, setIsAddPresented] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useAppForm({
+    runtime: Runtime,
     schema: AddAccountSchema,
     defaultValues: {
       serverUrl: '',
