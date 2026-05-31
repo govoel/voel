@@ -236,6 +236,7 @@ export const createEffectSchemaFormHook = <
 
               if (Option.isSome(submitError)) {
                 setSubmitError(submitError.value);
+                return;
               }
 
               throw Cause.squash(submitExit.cause);

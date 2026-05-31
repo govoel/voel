@@ -99,10 +99,12 @@ class AccountRepository extends Context.Service<AccountRepository>()(
 export class AccountSignInError extends Schema.TaggedErrorClass<AccountSignInError>()(
   'voel/services/accounts/index/AccountSignInError',
   {
-    code: Schema.optional(Schema.String),
-    message: Schema.optional(Schema.String),
-    status: Schema.Number,
-    statusText: Schema.String,
+    original: Schema.Struct({
+      code: Schema.optional(Schema.String),
+      message: Schema.optional(Schema.String),
+      status: Schema.Number,
+      statusText: Schema.String,
+    }),
   }
 ) {}
 
@@ -276,12 +278,33 @@ export class AccountManager extends Context.Service<AccountManager>()(
           storage: authClientStorage,
         });
 
-        const signInResult = yield* Effect.promise(async () =>
-          authClient.signIn.username({ username, password: Redacted.value(password) })
-        );
+        const signInResult = yield* Effect.tryPromise({
+          try: async () =>
+            authClient.signIn.username({ username, password: Redacted.value(password) }),
+          catch: (error) =>
+            new AccountSignInError(
+              error instanceof Error
+                ? {
+                    original: {
+                      message: error.message,
+                      status: 0,
+                      statusText: 'UNKNOWN',
+                      code: 'UNKNOWN',
+                    },
+                  }
+                : {
+                    original: {
+                      message: 'An unknown error occurred.',
+                      status: 0,
+                      statusText: 'UNKNOWN',
+                      code: 'UNKNOWN',
+                    },
+                  }
+            ),
+        });
 
         if (signInResult.error !== null) {
-          return yield* new AccountSignInError(signInResult.error);
+          return yield* new AccountSignInError({ original: signInResult.error });
         }
 
         return yield* SubscriptionRef.modifySomeEffect(

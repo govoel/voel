@@ -70,9 +70,15 @@ export default function AccountsIndex() {
       yield* accountManage.upsertAccount(value).pipe(
         Effect.catchTags({
           'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
-            new FormSubmitError({ message: 'Unexpected error during authentication. Try again.' }),
+            new FormSubmitError({
+              message: 'Unexpected error during authentication. Try again.',
+            }),
           'voel/services/accounts/index/AccountSignInError': (signInError) =>
-            new FormSubmitError({ message: `Sign in failed: ${signInError.message}` }),
+            new FormSubmitError({
+              message:
+                signInError.original.message ??
+                'Failed to sign in. Check your credentials and try again.',
+            }),
           'voel/services/database/ClientDatabaseError': () =>
             new FormSubmitError({ message: 'A database error occurred. Try again.' }),
         })
