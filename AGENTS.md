@@ -23,7 +23,7 @@ Use `.agents/skills/opensrc/SKILL.md` to browse the code of libraries this repo 
 
 ### Issue tracker
 
-Issues and PRDs are tracked as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+Issues and PRDs are tracked as local markdown files under `.issues/`. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 
