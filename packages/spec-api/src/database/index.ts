@@ -26,55 +26,74 @@ export class DatabaseSqlError extends Schema.TaggedErrorClass<DatabaseSqlError>(
   }
 ) {}
 
-export const DatabaseError = Schema.Union([DatabaseDecodeError, DatabaseSqlError], {
+export const DatabaseErrorReason = Schema.Union([DatabaseDecodeError, DatabaseSqlError], {
   mode: 'oneOf',
 });
 
-export const DatabaseErrorWithNSE = Schema.Union(
+export const DatabaseErrorReasonWithNSE = Schema.Union(
   [DatabaseDecodeError, DatabaseSqlError, DatabaseNoSuchElementError],
-  {
-    mode: 'oneOf',
-  }
+  { mode: 'oneOf' }
 );
+
+export class DatabaseError extends Schema.TaggedErrorClass<DatabaseError>()(
+  '@repo/spec-api/database/DatabaseError',
+  { reason: DatabaseErrorReason }
+) {}
+
+export class DatabaseErrorWithNSE extends Schema.TaggedErrorClass<DatabaseErrorWithNSE>()(
+  '@repo/spec-api/database/DatabaseError',
+  { reason: DatabaseErrorReasonWithNSE }
+) {}
 
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
 
-type ToDatabaseError<E> = E extends Schema.SchemaError
+type DatabaseErrorWithReason<R> = Omit<DatabaseError, 'reason'> & { readonly reason: R };
+
+type ToDatabaseErrorReason<E> = E extends Schema.SchemaError
   ? DatabaseDecodeError
   : E extends SqlError.SqlError
     ? DatabaseSqlError
     : E extends Cause.NoSuchElementError
       ? DatabaseNoSuchElementError
-      : E;
+      : never;
+
+type ToDatabaseError<E> = E extends
+  | Schema.SchemaError
+  | SqlError.SqlError
+  | Cause.NoSuchElementError
+  ? DatabaseErrorWithReason<ToDatabaseErrorReason<E>>
+  : E;
 
 type ToDatabaseErrorUnion<E> = [E] extends [never] ? never : ToDatabaseError<E>;
 
-type ToDatabaseErrorWide<E> =
-  | E
-  | DatabaseDecodeError
-  | DatabaseSqlError
-  | DatabaseNoSuchElementError;
+type ToDatabaseErrorWide<E> = E | DatabaseError | DatabaseErrorWithNSE;
 
 const mapDatabaseError = <E>(operation: string, error: E): ToDatabaseErrorWide<E> => {
   if (Schema.isSchemaError(error)) {
-    return new DatabaseDecodeError({
-      operation: `${operation}.schema`,
-      issue: defaultFormatter(error.issue),
-      cause: error,
+    return new DatabaseError({
+      reason: new DatabaseDecodeError({
+        operation: `${operation}.schema`,
+        issue: defaultFormatter(error.issue),
+        cause: error,
+      }),
     });
   }
 
   if (SqlError.isSqlError(error)) {
-    return new DatabaseSqlError({
-      operation: `${operation}.sql`,
-      issue: `Failed to execute ${operation}.sql (${error.message})`,
-      cause: error,
+    return new DatabaseError({
+      reason: new DatabaseSqlError({
+        operation: `${operation}.sql`,
+        issue: `Failed to execute ${operation}.sql (${error.message})`,
+        cause: error,
+      }),
     });
   }
 
   if (Cause.isNoSuchElementError(error)) {
-    return new DatabaseNoSuchElementError({
-      operation: `${operation}.nse`,
+    return new DatabaseErrorWithNSE({
+      reason: new DatabaseNoSuchElementError({
+        operation: `${operation}.nse`,
+      }),
     });
   }
 

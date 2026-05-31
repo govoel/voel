@@ -15,7 +15,7 @@ import {
   useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, paddingAll, width } from '@expo/ui/jetpack-compose/modifiers';
-import { Effect, Redacted, Schema } from 'effect';
+import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
@@ -29,9 +29,14 @@ import { AccountManager } from '#src/services/accounts/index.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
 const AddAccountSchema = Schema.Struct({
-  serverUrl: Schema.NonEmptyString,
+  serverUrl: Schema.URLFromString,
   username: Schema.NonEmptyString,
-  password: Schema.NonEmptyString,
+  password: Schema.NonEmptyString.pipe(
+    Schema.decodeTo(Schema.Redacted(Schema.String), {
+      decode: SchemaGetter.transform((password) => Redacted.make(password)),
+      encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+    })
+  ),
 });
 
 const getSubmitErrorMessage = (error: unknown) =>
@@ -61,7 +66,7 @@ export default function AccountsIndex() {
               manager.upsertAccount({
                 serverUrl: value.serverUrl,
                 username: value.username,
-                password: Redacted.make(value.password),
+                password: value.password,
               })
             )
           )
@@ -114,7 +119,7 @@ export default function AccountsIndex() {
                     ) : (
                       result.value.accounts.map((account, index) => (
                         <SegmentedListItem
-                          key={`${account.serverUrl}-${account.username}`}
+                          key={`${account.serverUrl.toString()}-${account.username}`}
                           index={index}
                           count={result.value.accounts.length}>
                           <SegmentedListItem.LeadingContent>
@@ -125,7 +130,7 @@ export default function AccountsIndex() {
                           </SegmentedListItem.HeadlineContent>
                           <SegmentedListItem.SupportingContent>
                             <Text variant="caption" color={colors.onSurfaceVariant}>
-                              {account.serverUrl}
+                              {account.serverUrl.toString()}
                             </Text>
                           </SegmentedListItem.SupportingContent>
                           <SegmentedListItem.TrailingContent>

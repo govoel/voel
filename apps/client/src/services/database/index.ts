@@ -1,4 +1,3 @@
-import { SqliteMigrator } from '@effect/sql-sqlite-react-native';
 import { Cause, Effect, Layer, Schema, SchemaIssue } from 'effect';
 import { Migrator, SqlClient, SqlError } from 'effect/unstable/sql';
 
@@ -63,49 +62,81 @@ export class ClientDatabaseSqlError extends Schema.TaggedErrorClass<ClientDataba
   }
 ) {}
 
-export const ClientDatabaseError = Schema.Union(
+export const ClientDatabaseErrorReason = Schema.Union(
   [ClientDatabaseDecodeError, ClientDatabaseSqlError],
   { mode: 'oneOf' }
 );
 
+export const ClientDatabaseErrorReasonWithNoSuchElement = Schema.Union(
+  [ClientDatabaseDecodeError, ClientDatabaseSqlError, ClientDatabaseNoSuchElementError],
+  { mode: 'oneOf' }
+);
+
+export class ClientDatabaseError extends Schema.TaggedErrorClass<ClientDatabaseError>()(
+  'voel/services/database/ClientDatabaseError',
+  {
+    reason: ClientDatabaseErrorReason,
+  }
+) {}
+
+export class ClientDatabaseErrorWithNoSuchElement extends Schema.TaggedErrorClass<ClientDatabaseErrorWithNoSuchElement>()(
+  'voel/services/database/ClientDatabaseError',
+  {
+    reason: ClientDatabaseErrorReasonWithNoSuchElement,
+  }
+) {}
+
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
 
-type ToDatabaseError<E> = E extends Schema.SchemaError
+type ClientDatabaseErrorWithReason<R> = Omit<ClientDatabaseError, 'reason'> & {
+  readonly reason: R;
+};
+
+type ToDatabaseErrorReason<E> = E extends Schema.SchemaError
   ? ClientDatabaseDecodeError
   : E extends SqlError.SqlError
     ? ClientDatabaseSqlError
     : E extends Cause.NoSuchElementError
       ? ClientDatabaseNoSuchElementError
-      : E;
+      : never;
+
+type ToDatabaseError<E> = E extends
+  | Schema.SchemaError
+  | SqlError.SqlError
+  | Cause.NoSuchElementError
+  ? ClientDatabaseErrorWithReason<ToDatabaseErrorReason<E>>
+  : E;
 
 type ToDatabaseErrorUnion<E> = [E] extends [never] ? never : ToDatabaseError<E>;
 
-type ToDatabaseErrorWide<E> =
-  | E
-  | ClientDatabaseDecodeError
-  | ClientDatabaseSqlError
-  | ClientDatabaseNoSuchElementError;
+type ToDatabaseErrorWide<E> = E | ClientDatabaseError | ClientDatabaseErrorWithNoSuchElement;
 
 const mapDatabaseError = <E>(operation: string, error: E): ToDatabaseErrorWide<E> => {
   if (Schema.isSchemaError(error)) {
-    return new ClientDatabaseDecodeError({
-      operation: `${operation}.schema`,
-      issue: defaultFormatter(error.issue),
-      cause: error,
+    return new ClientDatabaseError({
+      reason: new ClientDatabaseDecodeError({
+        operation: `${operation}.schema`,
+        issue: defaultFormatter(error.issue),
+        cause: error,
+      }),
     });
   }
 
   if (SqlError.isSqlError(error)) {
-    return new ClientDatabaseSqlError({
-      operation: `${operation}.sql`,
-      issue: `Failed to execute ${operation}.sql (${error.message})`,
-      cause: error,
+    return new ClientDatabaseError({
+      reason: new ClientDatabaseSqlError({
+        operation: `${operation}.sql`,
+        issue: `Failed to execute ${operation}.sql (${error.message})`,
+        cause: error,
+      }),
     });
   }
 
   if (Cause.isNoSuchElementError(error)) {
-    return new ClientDatabaseNoSuchElementError({
-      operation: `${operation}.nse`,
+    return new ClientDatabaseErrorWithNoSuchElement({
+      reason: new ClientDatabaseNoSuchElementError({
+        operation: `${operation}.nse`,
+      }),
     });
   }
 

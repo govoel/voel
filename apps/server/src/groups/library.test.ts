@@ -4,7 +4,11 @@ import { Effect, Layer, Option, Schema, SchemaGetter, SchemaIssue } from 'effect
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import { Api } from '@repo/spec-api';
-import { DatabaseNoSuchElementError, DatabaseSqlError } from '@repo/spec-api/database/index.ts';
+import {
+  DatabaseErrorWithNSE,
+  DatabaseNoSuchElementError,
+  DatabaseSqlError,
+} from '@repo/spec-api/database/index.ts';
 import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
 import { AuthMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
@@ -494,7 +498,10 @@ it.layer(makeTestLayer())('library', (iit) => {
       yield* client.libraryDelete({ id: result1.id });
 
       const deletedResult = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
-      expect(deletedResult).toBeInstanceOf(DatabaseNoSuchElementError);
+      if (!Schema.is(DatabaseErrorWithNSE)(deletedResult)) {
+        throw new Error('Expected a DatabaseError');
+      }
+      expect(deletedResult.reason).toBeInstanceOf(DatabaseNoSuchElementError);
 
       const result2 = yield* client
         .libraryUpsert({
@@ -683,7 +690,10 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryGet({ id: yield* forceBrandLibraryId(999_999) })
         .pipe(Effect.flip);
 
-      expect(result).toBeInstanceOf(DatabaseNoSuchElementError);
+      if (!Schema.is(DatabaseErrorWithNSE)(result)) {
+        throw new Error('Expected a DatabaseError');
+      }
+      expect(result.reason).toBeInstanceOf(DatabaseNoSuchElementError);
     })
   );
 
@@ -703,7 +713,10 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
 
-      expect(result2).toBeInstanceOf(DatabaseNoSuchElementError);
+      if (!Schema.is(DatabaseErrorWithNSE)(result2)) {
+        throw new Error('Expected a DatabaseError');
+      }
+      expect(result2.reason).toBeInstanceOf(DatabaseNoSuchElementError);
     })
   );
 
@@ -730,11 +743,14 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(result).toBeInstanceOf(DatabaseNoSuchElementError);
-      if (!Schema.is(DatabaseNoSuchElementError)(result)) {
+      if (!Schema.is(DatabaseErrorWithNSE)(result)) {
+        throw new Error('Expected a DatabaseError');
+      }
+      expect(result.reason).toBeInstanceOf(DatabaseNoSuchElementError);
+      if (!Schema.is(DatabaseNoSuchElementError)(result.reason)) {
         throw new Error('Expected a DatabaseNoSuchElementError');
       }
-      expect(result.operation).toBe('LibraryRepository.upsertLibrary.nse');
+      expect(result.reason.operation).toBe('LibraryRepository.upsertLibrary.nse');
     })
   );
 
@@ -765,11 +781,14 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(result).toBeInstanceOf(DatabaseSqlError);
-      if (!Schema.is(DatabaseSqlError)(result)) {
+      if (!Schema.is(DatabaseErrorWithNSE)(result)) {
+        throw new Error('Expected a DatabaseError');
+      }
+      expect(result.reason).toBeInstanceOf(DatabaseSqlError);
+      if (!Schema.is(DatabaseSqlError)(result.reason)) {
         throw new Error('Expected a DatabaseSqlError');
       }
-      expect(result.operation).toBe('LibraryRepository.upsertLibrary.sql');
+      expect(result.reason.operation).toBe('LibraryRepository.upsertLibrary.sql');
     })
   );
 });

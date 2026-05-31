@@ -28,7 +28,7 @@ import {
   textInputAutocapitalization,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { Cause, Exit, Match, Option, Redacted, Schema, SchemaGetter } from 'effect';
+import { Exit, Match, Option, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
@@ -81,12 +81,8 @@ export default function AccountsIndex() {
                 'Unexpected error during authentication. Try again.',
               'voel/services/accounts/index/AccountSignInError': (signInError) =>
                 `Sign in failed: ${signInError.message}`,
-              'voel/services/database/ClientDatabaseSqlError': (databaseError) =>
-                `Database error: ${databaseError.message}`,
-              'voel/services/database/ClientDatabaseNoSuchElementError': () =>
-                'Database error: No such element',
-              'voel/services/database/ClientDatabaseDecodeError': () =>
-                'Database error: Decode error',
+              'voel/services/database/ClientDatabaseError': () =>
+                'A database error occurred. Try again.',
             })
           ),
           Option.getOrElse(() => 'Unknown error')
