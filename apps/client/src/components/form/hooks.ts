@@ -9,7 +9,7 @@ import type {
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
 import type { ManagedRuntime } from 'effect';
-import { Effect, Schema, SchemaIssue } from 'effect';
+import { Cause, Effect, Exit, Option, Schema, SchemaIssue } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 import { createElement, useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
@@ -31,6 +31,8 @@ export class FormSubmitError extends Schema.TaggedErrorClass<FormSubmitError>()(
   'voel/components/form/hooks/FormSubmitError',
   { message: Schema.String }
 ) {}
+
+const isFormSubmitError = Schema.is(FormSubmitError);
 
 const formSubmitErrorScopedAtom = ScopedAtom.make(
   (atom: Atom.Writable<FormSubmitError | null>) => atom
@@ -197,7 +199,7 @@ export const createEffectSchemaFormHook = <
   > & {
     readonly runtime: ManagedRuntime.ManagedRuntime<R, E>;
   }) => {
-    const parsedRef = useRef<undefined | TType>(void 0);
+    const parsedRef = useRef<Option.Option<TType>>(Option.none());
     const submitErrorAtomRef = useRef<Atom.Writable<FormSubmitError | null> | undefined>(void 0);
 
     if (submitErrorAtomRef.current === void 0) {
@@ -213,11 +215,30 @@ export const createEffectSchemaFormHook = <
             onSubmit: async (submitProps) => {
               const parsed = parsedRef.current;
 
-              if (parsed === void 0) {
+              setSubmitError(null);
+
+              if (Option.isNone(parsed)) {
                 throw new Error('Unexpected submit without parsed data');
               }
 
-              return runtime.runPromise(onSubmit({ ...submitProps, value: parsed }));
+              const submitExit = await runtime.runPromiseExit(
+                onSubmit({ ...submitProps, value: parsed.value })
+              );
+
+              if (Exit.isSuccess(submitExit)) {
+                return;
+              }
+
+              const submitError = Option.filter(
+                Exit.findErrorOption(submitExit),
+                isFormSubmitError
+              );
+
+              if (Option.isSome(submitError)) {
+                setSubmitError(submitError.value);
+              }
+
+              throw Cause.squash(submitExit.cause);
             },
           } satisfies Pick<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit'>);
 
@@ -246,14 +267,15 @@ export const createEffectSchemaFormHook = <
             vendor: 'effect-voel',
             version: 1,
             validate: async (value) => {
-              parsedRef.current = void 0;
+              setSubmitError(null);
+              parsedRef.current = Option.none();
 
               return runtime.runPromise(
                 schemaDecodeUnknownEffect(value, { errors: 'all' }).pipe(
                   Effect.match({
                     onFailure: (error) => formatStandardSchemaIssue(error.issue),
                     onSuccess: (decodedValue) => {
-                      parsedRef.current = decodedValue;
+                      parsedRef.current = Option.some(decodedValue);
                       return { value: decodedValue };
                     },
                   })
