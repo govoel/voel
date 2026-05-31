@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import { Host } from '@expo/ui';
 import {
   BottomSheet,
@@ -22,23 +22,22 @@ import {
   headerProminence,
   interactiveDismissDisabled,
   keyboardType,
-  multilineTextAlignment,
   padding,
   textContentType,
   textInputAutocapitalization,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { Exit, Match, Option, Redacted, Schema, SchemaGetter } from 'effect';
+import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { PlatformColor } from 'react-native';
 
 import { Icon, iosTextStyle } from '#modules/design-system';
-import { useAppForm } from '#src/components/form';
+import { FormSubmitError, useAppForm } from '#src/components/form';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { accountsAtom, upsertAccountAtom } from '#src/services/accounts/atoms.ts';
+import { accountsAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager } from '#src/services/accounts/index.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
 const AddAccountSchema = Schema.Struct({
@@ -57,9 +56,6 @@ export default function AccountsIndex() {
   const [isPresented, setIsPresented] = useState(true);
 
   const [isAddPresented, setIsAddPresented] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const upsertAccountMutation = useAtomSet(upsertAccountAtom, { mode: 'promiseExit' });
 
   const form = useAppForm({
     runtime: Runtime,
@@ -69,35 +65,28 @@ export default function AccountsIndex() {
       username: '',
       password: '',
     },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-      const exit = await upsertAccountMutation(value);
-
-      if (Exit.isFailure(exit)) {
-        const errorOption = Exit.findErrorOption(exit).pipe(
-          Option.map((accountError) =>
-            Match.valueTags(accountError, {
-              'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
-                'Unexpected error during authentication. Try again.',
-              'voel/services/accounts/index/AccountSignInError': (signInError) =>
-                `Sign in failed: ${signInError.message}`,
-              'voel/services/database/ClientDatabaseError': () =>
-                'A database error occurred. Try again.',
-            })
-          ),
-          Option.getOrElse(() => 'Unknown error')
-        );
-
-        setSubmitError(errorOption);
-        return;
-      }
-
-      form.reset();
-      setIsAddPresented(false);
-    },
-    onSubmitInvalid: () => {
-      setSubmitError(null);
-    },
+    onSubmit: ({ value }) =>
+      AccountManager.pipe(
+        Effect.flatMap((manager) => manager.upsertAccount(value)),
+        Effect.tap(() =>
+          Effect.sync(() => {
+            form.reset();
+            setIsAddPresented(false);
+          })
+        ),
+        Effect.mapError((accountError) =>
+          Match.valueTags(accountError, {
+            'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
+              new FormSubmitError({
+                message: 'Unexpected error during authentication. Try again.',
+              }),
+            'voel/services/accounts/index/AccountSignInError': (signInError) =>
+              new FormSubmitError({ message: `Sign in failed: ${signInError.message}` }),
+            'voel/services/database/ClientDatabaseError': () =>
+              new FormSubmitError({ message: 'A database error occurred. Try again.' }),
+          })
+        )
+      ),
   });
 
   return (
@@ -171,7 +160,6 @@ export default function AccountsIndex() {
                   label="Add account"
                   systemImage="person.crop.circle.badge.plus"
                   onPress={() => {
-                    setSubmitError(null);
                     setIsAddPresented(true);
                   }}
                 />
@@ -229,16 +217,6 @@ export default function AccountsIndex() {
                   <VStack
                     spacing={Spacing.two}
                     modifiers={[padding({ horizontal: Spacing.three })]}>
-                    {submitError === null ? null : (
-                      <Text
-                        modifiers={[
-                          foregroundStyle(PlatformColor('systemRed')),
-                          multilineTextAlignment('center'),
-                        ]}>
-                        {submitError}
-                      </Text>
-                    )}
-
                     <form.SubmitButton
                       platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}>
                       <Text modifiers={[frame({ maxWidth: Infinity })]}>Login</Text>
@@ -249,7 +227,6 @@ export default function AccountsIndex() {
                       modifiers={[buttonStyle('bordered')]}
                       onPress={() => {
                         form.reset();
-                        setSubmitError(null);
                         setIsAddPresented(false);
                       }}>
                       <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>

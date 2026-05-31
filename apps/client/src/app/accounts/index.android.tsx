@@ -15,13 +15,13 @@ import {
   useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, paddingAll, width } from '@expo/ui/jetpack-compose/modifiers';
-import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
+import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 
 import { SegmentedList, SegmentedListItem } from '#modules/design-system';
-import { useAppForm } from '#src/components/form';
+import { FormSubmitError, useAppForm } from '#src/components/form';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom } from '#src/services/accounts/atoms.ts';
@@ -39,15 +39,11 @@ const AddAccountSchema = Schema.Struct({
   ),
 });
 
-const getSubmitErrorMessage = (error: unknown) =>
-  error instanceof Error && error.message.length > 0 ? error.message : 'Unable to add account';
-
 export default function AccountsIndex() {
   const accounts = useAtomValue(accountsAtom);
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
   const [isPresented, setIsPresented] = useState(true);
   const [isAddPresented, setIsAddPresented] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useAppForm({
     runtime: Runtime,
     schema: AddAccountSchema,
@@ -56,32 +52,34 @@ export default function AccountsIndex() {
       username: '',
       password: '',
     },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-
-      try {
-        await Runtime.runPromise(
-          AccountManager.pipe(
-            Effect.flatMap((manager) =>
-              manager.upsertAccount({
-                serverUrl: value.serverUrl,
-                username: value.username,
-                password: value.password,
-              })
-            )
-          )
-        );
-      } catch (error) {
-        setSubmitError(getSubmitErrorMessage(error));
-        return;
-      }
-
-      form.reset();
-      setIsAddPresented(false);
-    },
-    onSubmitInvalid: () => {
-      setSubmitError(null);
-    },
+    onSubmit: ({ value }) =>
+      AccountManager.pipe(
+        Effect.flatMap((manager) =>
+          manager.upsertAccount({
+            serverUrl: value.serverUrl,
+            username: value.username,
+            password: value.password,
+          })
+        ),
+        Effect.tap(() =>
+          Effect.sync(() => {
+            form.reset();
+            setIsAddPresented(false);
+          })
+        ),
+        Effect.mapError((accountError) =>
+          Match.valueTags(accountError, {
+            'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
+              new FormSubmitError({
+                message: 'Unexpected error during authentication. Try again.',
+              }),
+            'voel/services/accounts/index/AccountSignInError': (signInError) =>
+              new FormSubmitError({ message: `Sign in failed: ${signInError.message}` }),
+            'voel/services/database/ClientDatabaseError': () =>
+              new FormSubmitError({ message: 'A database error occurred. Try again.' }),
+          })
+        )
+      ),
   });
 
   return (
@@ -196,12 +194,6 @@ export default function AccountsIndex() {
                   )}
                 </form.AppField>
 
-                {submitError !== null ? (
-                  <Text variant="caption" color="#B3261E">
-                    {submitError}
-                  </Text>
-                ) : null}
-
                 <form.AppForm>
                   <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
                     <Text>Login</Text>
@@ -212,7 +204,6 @@ export default function AccountsIndex() {
                   modifiers={[fillMaxWidth()]}
                   onClick={() => {
                     form.reset();
-                    setSubmitError(null);
                     setIsAddPresented(false);
                   }}>
                   <Text>Cancel</Text>

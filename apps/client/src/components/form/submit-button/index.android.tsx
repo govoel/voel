@@ -1,14 +1,15 @@
 import { Button, Column, useMaterialColors } from '@expo/ui/jetpack-compose';
 import { useStore } from '@tanstack/react-form';
 
-import { useFormContext } from '#src/components/form/hooks.ts';
+import { useFormContext, useFormSubmitError } from '#src/components/form/hooks.ts';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const SubmitButton = (({ children, disabled = false, platformProps = {} }) => {
   const form = useFormContext();
-  const [canSubmit, isSubmitting, errorMessages] = useStore(
+  const submitError = useFormSubmitError();
+  const [canSubmit, isSubmitting, formErrorMessages] = useStore(
     form.store,
     (state): readonly [boolean, boolean, string[]] => [
       state.canSubmit,
@@ -16,6 +17,12 @@ export const SubmitButton = (({ children, disabled = false, platformProps = {} }
       state.errors.filter((error) => typeof error === 'string' && error.length > 0),
     ]
   );
+
+  const errorMessages = [
+    ...new Set(
+      submitError === null ? formErrorMessages : [...formErrorMessages, submitError.message]
+    ),
+  ];
 
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 

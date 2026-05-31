@@ -1,15 +1,18 @@
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import * as ScopedAtom from '@effect/atom-react/ScopedAtom';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
-  DeepKeys,
   FormOptions,
+  StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
 import type { ManagedRuntime } from 'effect';
 import { Effect, Schema, SchemaIssue } from 'effect';
-import { useRef } from 'react';
-import type { ComponentProps, ComponentType, Context } from 'react';
+import { Atom } from 'effect/unstable/reactivity';
+import { createElement, useRef } from 'react';
+import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
@@ -24,51 +27,21 @@ export type EffectSchemaForRuntime<
   TEncodingServices,
 > = Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>;
 
+export class FormSubmitError extends Schema.TaggedErrorClass<FormSubmitError>()(
+  'voel/components/form/hooks/FormSubmitError',
+  { message: Schema.String }
+) {}
+
+const formSubmitErrorScopedAtom = ScopedAtom.make(
+  (atom: Atom.Writable<FormSubmitError | null>) => atom
+);
+
+export const useFormSubmitError = () => {
+  const submitErrorAtom = formSubmitErrorScopedAtom.use();
+  return useAtomValue(submitErrorAtom);
+};
+
 const formatStandardSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
-
-interface EffectSchemaFieldErrors<TEncoded> {
-  readonly fields: Partial<Record<DeepKeys<TEncoded>, StandardSchemaV1Issue[]>>;
-  readonly form?: undefined;
-}
-
-const getStandardSchemaIssuePath = <TEncoded>(
-  issue: StandardSchemaV1Issue,
-  formValue: unknown
-): DeepKeys<TEncoded> => {
-  let currentFormValue = formValue;
-  let path = '';
-
-  for (const [index, pathSegment] of (issue.path ?? []).entries()) {
-    const segment = typeof pathSegment === 'object' ? pathSegment.key : pathSegment;
-    const segmentAsNumber = Number(segment);
-
-    path +=
-      Array.isArray(currentFormValue) && !Number.isNaN(segmentAsNumber)
-        ? `[${segmentAsNumber}]`
-        : `${index > 0 ? '.' : ''}${String(segment)}`;
-
-    currentFormValue =
-      typeof currentFormValue === 'object' && currentFormValue !== null
-        ? Reflect.get(currentFormValue, segment)
-        : void 0;
-  }
-
-  return path as DeepKeys<TEncoded>;
-};
-
-const groupStandardSchemaIssues = <TEncoded>(
-  issues: readonly StandardSchemaV1Issue[],
-  formValue: unknown
-): EffectSchemaFieldErrors<TEncoded> => {
-  const fields: Partial<Record<DeepKeys<TEncoded>, StandardSchemaV1Issue[]>> = {};
-
-  for (const issue of issues) {
-    const path = getStandardSchemaIssuePath<TEncoded>(issue, formValue);
-    fields[path] = [...(fields[path] ?? []), issue];
-  }
-
-  return { fields };
-};
 
 type StandardSchemaFieldContext<TData> = Omit<
   ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
@@ -114,35 +87,15 @@ export const {
   useFormContext,
 }: StandardSchemaFormHookContexts = tanStackFormHookContexts;
 
-type EffectSchemaChangeValidator<TEncoded> = (props: {
-  readonly value: TEncoded;
-  readonly formApi: AnyFormApi;
-  readonly signal: AbortSignal;
-}) =>
-  | EffectSchemaFieldErrors<TEncoded>
-  | undefined
-  | Promise<EffectSchemaFieldErrors<TEncoded> | undefined>;
-
-type EffectSchemaSubmitValidator<TEncoded> = (props: {
-  readonly value: TEncoded;
-  readonly formApi: AnyFormApi;
-  readonly signal: AbortSignal;
-}) =>
-  | string
-  | null
-  | undefined
-  | EffectSchemaFieldErrors<TEncoded>
-  | Promise<string | null | undefined | EffectSchemaFieldErrors<TEncoded>>;
-
-type EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta = never> = FormOptions<
+type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOptions<
   TEncoded,
   undefined,
   undefined,
-  EffectSchemaChangeValidator<TEncoded>,
+  StandardSchemaV1<TEncoded, TType>,
   undefined,
   undefined,
   undefined,
-  EffectSchemaSubmitValidator<TEncoded>,
+  StandardSchemaV1<TEncoded, TType>,
   undefined,
   undefined,
   undefined,
@@ -150,7 +103,7 @@ type EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta = never> = FormOptions<
 >;
 
 type EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> = Omit<
-  Parameters<NonNullable<EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>['onSubmit']>>[0],
+  Parameters<NonNullable<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>['onSubmit']>>[0],
   'value'
 > & {
   readonly value: TType;
@@ -163,9 +116,11 @@ type EffectSchemaFormOptions<
   TDecodingServices extends R,
   TEncodingServices,
   TSubmitMeta = never,
-> = Omit<EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
+> = Omit<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
   readonly schema: Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>;
-  readonly onSubmit?: (props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>) => unknown;
+  readonly onSubmit?: (
+    props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>
+  ) => Effect.Effect<unknown, FormSubmitError, R>;
 };
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
@@ -243,62 +198,104 @@ export const createEffectSchemaFormHook = <
     readonly runtime: ManagedRuntime.ManagedRuntime<R, E>;
   }) => {
     const parsedRef = useRef<undefined | TType>(void 0);
+    const submitErrorAtomRef = useRef<Atom.Writable<FormSubmitError | null> | undefined>(void 0);
+
+    if (submitErrorAtomRef.current === void 0) {
+      submitErrorAtomRef.current = Atom.make<FormSubmitError | null>(null);
+    }
+
+    const submitErrorAtom = submitErrorAtomRef.current;
+    const setSubmitError = useAtomSet(submitErrorAtom);
     const submitHandler =
       onSubmit === void 0
         ? {}
         : ({
-            onSubmit: (submitProps) => {
+            onSubmit: async (submitProps) => {
               const parsed = parsedRef.current;
 
               if (parsed === void 0) {
                 throw new Error('Unexpected submit without parsed data');
               }
 
-              return onSubmit({ ...submitProps, value: parsed });
+              return runtime.runPromise(onSubmit({ ...submitProps, value: parsed }));
             },
-          } satisfies Pick<EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>, 'onSubmit'>);
+          } satisfies Pick<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit'>);
 
-    const schemaDecodeEffect = Schema.decodeEffect(schema);
+    const schemaDecodeUnknownEffect = Schema.decodeUnknownEffect(schema);
     const form = useTanStackAppForm({
       ...props,
       ...submitHandler,
       validators: {
-        onChangeAsync: async ({ value, signal }) =>
-          runtime.runPromise(
-            Schema.decodeUnknownEffect(schema)(value, { errors: 'all' }).pipe(
-              Effect.match({
-                onFailure: (error) =>
-                  groupStandardSchemaIssues<TEncoded>(
-                    formatStandardSchemaIssue(error.issue).issues,
-                    value
-                  ),
-                onSuccess: () => void 0,
-              })
-            ),
-            { signal }
-          ),
-        onSubmitAsync: async ({ value, signal }) => {
-          parsedRef.current = void 0;
+        onChangeAsync: {
+          '~standard': {
+            vendor: 'effect-voel',
+            version: 1,
+            validate: async (value) =>
+              runtime.runPromise(
+                schemaDecodeUnknownEffect(value, { errors: 'all' }).pipe(
+                  Effect.match({
+                    onFailure: (error) => formatStandardSchemaIssue(error.issue),
+                    onSuccess: (decodedValue) => ({ value: decodedValue }),
+                  })
+                )
+              ),
+          },
+        },
+        onSubmitAsync: {
+          '~standard': {
+            vendor: 'effect-voel',
+            version: 1,
+            validate: async (value) => {
+              parsedRef.current = void 0;
 
-          return runtime.runPromise(
-            schemaDecodeEffect(value, { errors: 'all' }).pipe(
-              Effect.match({
-                onFailure: (error) =>
-                  groupStandardSchemaIssues<TEncoded>(
-                    formatStandardSchemaIssue(error.issue).issues,
-                    value
-                  ),
-                onSuccess: (decodedValue) => {
-                  parsedRef.current = decodedValue;
-                  return null;
-                },
-              })
-            ),
-            { signal }
-          );
+              return runtime.runPromise(
+                schemaDecodeUnknownEffect(value, { errors: 'all' }).pipe(
+                  Effect.match({
+                    onFailure: (error) => formatStandardSchemaIssue(error.issue),
+                    onSuccess: (decodedValue) => {
+                      parsedRef.current = decodedValue;
+                      return { value: decodedValue };
+                    },
+                  })
+                )
+              );
+            },
+          },
         },
       },
     });
+
+    const formInternalsRef = useRef<
+      | {
+          readonly form: typeof form;
+          readonly AppForm: typeof form.AppForm;
+          readonly reset: typeof form.reset;
+        }
+      | undefined
+    >(void 0);
+
+    if (formInternalsRef.current?.form !== form) {
+      formInternalsRef.current = {
+        form,
+        AppForm: form.AppForm,
+        reset: form.reset.bind(form),
+      };
+    }
+
+    const { AppForm: TanStackAppForm, reset } = formInternalsRef.current;
+
+    const FormSubmitErrorAppForm = ({ children }: PropsWithChildren) =>
+      createElement(
+        formSubmitErrorScopedAtom.Provider,
+        { value: submitErrorAtom },
+        createElement(TanStackAppForm, null, children)
+      );
+
+    form.AppForm = FormSubmitErrorAppForm;
+    form.reset = ((...resetArgs: Parameters<typeof reset>) => {
+      setSubmitError(null);
+      reset(...resetArgs);
+    }) satisfies typeof form.reset;
 
     return withoutFieldValidators(form);
   };
