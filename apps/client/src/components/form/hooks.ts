@@ -11,7 +11,7 @@ import type {
 import type { ManagedRuntime } from 'effect';
 import { Effect, Schema, SchemaIssue } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
-import { createElement, useRef } from 'react';
+import { createElement, useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -265,39 +265,43 @@ export const createEffectSchemaFormHook = <
       },
     });
 
-    const formInternalsRef = useRef<
-      | {
-          readonly form: typeof form;
-          readonly AppForm: typeof form.AppForm;
-          readonly reset: typeof form.reset;
-        }
-      | undefined
-    >(void 0);
+    const extendedFormRef = useRef(form);
 
-    if (formInternalsRef.current?.form !== form) {
-      formInternalsRef.current = {
-        form,
-        AppForm: form.AppForm,
-        reset: form.reset.bind(form),
-      };
-    }
+    const wrappedForm = useMemo(() => {
+      const reset = form.reset.bind(form);
 
-    const { AppForm: TanStackAppForm, reset } = formInternalsRef.current;
+      const FormSubmitErrorAppForm = ({ children }: PropsWithChildren) =>
+        createElement(
+          formSubmitErrorScopedAtom.Provider,
+          { value: submitErrorAtom },
+          createElement(hookFormContext.Provider, { value: extendedFormRef.current }, children)
+        );
 
-    const FormSubmitErrorAppForm = ({ children }: PropsWithChildren) =>
-      createElement(
-        formSubmitErrorScopedAtom.Provider,
-        { value: submitErrorAtom },
-        createElement(TanStackAppForm, null, children)
-      );
+      const resetWithSubmitError = ((...resetArgs: Parameters<typeof reset>) => {
+        setSubmitError(null);
+        reset(...resetArgs);
+      }) satisfies typeof form.reset;
 
-    form.AppForm = FormSubmitErrorAppForm;
-    form.reset = ((...resetArgs: Parameters<typeof reset>) => {
-      setSubmitError(null);
-      reset(...resetArgs);
-    }) satisfies typeof form.reset;
+      const extendedForm = new Proxy(form, {
+        get: (target, property, receiver) => {
+          if (property === 'AppForm') {
+            return FormSubmitErrorAppForm;
+          }
 
-    return withoutFieldValidators(form);
+          if (property === 'reset') {
+            return resetWithSubmitError;
+          }
+
+          return Reflect.get(target, property, receiver);
+        },
+      });
+
+      extendedFormRef.current = extendedForm;
+
+      return extendedForm;
+    }, [form, setSubmitError, submitErrorAtom]);
+
+    return withoutFieldValidators(wrappedForm);
   };
 
   return { ...formHook, useAppForm };

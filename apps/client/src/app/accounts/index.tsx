@@ -27,7 +27,7 @@ import {
   textInputAutocapitalization,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
+import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
@@ -65,28 +65,22 @@ export default function AccountsIndex() {
       username: '',
       password: '',
     },
-    onSubmit: ({ value }) =>
-      AccountManager.pipe(
-        Effect.flatMap((manager) => manager.upsertAccount(value)),
-        Effect.tap(() =>
-          Effect.sync(() => {
-            form.reset();
-            setIsAddPresented(false);
-          })
-        ),
-        Effect.mapError((accountError) =>
-          Match.valueTags(accountError, {
-            'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
-              new FormSubmitError({
-                message: 'Unexpected error during authentication. Try again.',
-              }),
-            'voel/services/accounts/index/AccountSignInError': (signInError) =>
-              new FormSubmitError({ message: `Sign in failed: ${signInError.message}` }),
-            'voel/services/database/ClientDatabaseError': () =>
-              new FormSubmitError({ message: 'A database error occurred. Try again.' }),
-          })
-        )
-      ),
+    onSubmit: Effect.fnUntraced(function* ({ value }) {
+      const accountManage = yield* AccountManager;
+      yield* accountManage.upsertAccount(value).pipe(
+        Effect.catchTags({
+          'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
+            new FormSubmitError({ message: 'Unexpected error during authentication. Try again.' }),
+          'voel/services/accounts/index/AccountSignInError': (signInError) =>
+            new FormSubmitError({ message: `Sign in failed: ${signInError.message}` }),
+          'voel/services/database/ClientDatabaseError': () =>
+            new FormSubmitError({ message: 'A database error occurred. Try again.' }),
+        })
+      );
+
+      form.reset();
+      setIsAddPresented(false);
+    }),
   });
 
   return (
