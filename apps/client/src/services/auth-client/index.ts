@@ -24,7 +24,7 @@ export const createVoelAuthClient = ({
         plugins: [
           expoClient({
             storage,
-            storagePrefix: `voel-authClient-${encodeURIComponent(serverUrl)}-${encodeURIComponent(username)}`,
+            storagePrefix: `voel_authClient_${encodeURIComponent(serverUrl).replaceAll('%', '-')}_${encodeURIComponent(username).replaceAll('%', '-')}`,
             cookiePrefix: 'auth',
           }),
         ],

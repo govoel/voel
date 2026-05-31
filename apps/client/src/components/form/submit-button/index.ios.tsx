@@ -1,5 +1,9 @@
 import { Button, VStack } from '@expo/ui/swift-ui';
-import { disabled as disabledModifier, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
+import {
+  disabled as disabledModifier,
+  foregroundStyle,
+  multilineTextAlignment,
+} from '@expo/ui/swift-ui/modifiers';
 import { useStore } from '@tanstack/react-form';
 import { PlatformColor } from 'react-native';
 
@@ -30,7 +34,12 @@ export const SubmitButton = (({ children, disabled = false, platformProps = {} }
     <>
       <VStack alignment="leading" spacing={Spacing.one}>
         {errorMessages.map((message) => (
-          <Text key={message} modifiers={[foregroundStyle(PlatformColor('systemRed'))]}>
+          <Text
+            key={message}
+            modifiers={[
+              foregroundStyle(PlatformColor('systemRed')),
+              multilineTextAlignment('center'),
+            ]}>
             {message}
           </Text>
         ))}
