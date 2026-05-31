@@ -17,46 +17,48 @@ export const activeAccountServerUrlAtom = accountsAtom.pipe(
   )
 );
 
-export const activeAccountSessionAtom = AppRuntime.atom(
-  AccountManager.pipe(
-    Effect.map((manager) => manager.changes),
-    Stream.unwrap,
-    Stream.map((accounts) =>
-      accounts.activeAccount.pipe(Option.map(({ state }) => state.authClient))
-    ),
-    Stream.changesWith((previous, next) =>
-      Option.match(previous, {
-        onNone: () => Option.isNone(next),
-        onSome: (previousAuthClient) =>
-          Option.match(next, {
-            onNone: () => false,
-            onSome: (nextAuthClient) => previousAuthClient === nextAuthClient,
-          }),
-      })
-    ),
-    Stream.switchMap((authClientOption) =>
-      authClientOption.pipe(
-        Option.match({
-          onNone: () => Stream.make(Option.none()),
-          onSome: (authClient) =>
-            Stream.callback<
-              Option.Option<Parameters<Parameters<typeof authClient.useSession.subscribe>[0]>[0]>
-            >((queue) =>
-              Effect.sync(() =>
-                authClient.useSession.subscribe((session) => {
-                  Queue.offerUnsafe(queue, Option.some(session));
-                })
-              ).pipe(
-                Effect.tap((unsubscribe) => Effect.addFinalizer(() => Effect.sync(unsubscribe)))
-              )
-            ),
-        })
-      )
-    )
-  )
-);
+export const activeAccountSessionAtom = AppRuntime.atom((get) => {
+  const accounts = get.streamResult(accountsAtom);
+
+  const changes = Stream.changesWith(accounts, (previous, next) =>
+    Option.match(previous.activeAccount, {
+      onNone: () => Option.isNone(next.activeAccount),
+      onSome: (previousActiveAccount) =>
+        Option.match(next.activeAccount, {
+          onNone: () => false,
+          onSome: (nextActiveAccount) =>
+            previousActiveAccount.state.authClient === nextActiveAccount.state.authClient,
+        }),
+    })
+  );
+
+  return Stream.switchMap(changes, ({ activeAccount }) =>
+    Option.match(activeAccount, {
+      onNone: () => Stream.make(Option.none()),
+      onSome: ({ state }) =>
+        Stream.callback<
+          Option.Option<Parameters<Parameters<typeof state.authClient.useSession.subscribe>[0]>[0]>
+        >(
+          Effect.fnUntraced(function* (queue) {
+            const unsubscribe = yield* Effect.sync(() =>
+              state.authClient.useSession.subscribe((session) => {
+                Queue.offerUnsafe(queue, Option.some(session));
+              })
+            );
+
+            yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
+          })
+        ),
+    })
+  );
+});
 
 type ActiveAccountSession = Atom.Success<typeof activeAccountSessionAtom>;
+
+export const upsertAccountAtom = AppRuntime.fn(
+  (input: Parameters<typeof AccountManager.Service.upsertAccount>[0]) =>
+    AccountManager.pipe(Effect.flatMap((manager) => manager.upsertAccount(input)))
+);
 
 const getAccountsSheet = ({
   accounts,

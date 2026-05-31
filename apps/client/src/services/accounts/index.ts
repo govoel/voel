@@ -16,8 +16,8 @@ import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { toDatabaseError } from '#src/services/database/index.ts';
 
 const AccountTable = Schema.Struct({
-  serverUrl: Schema.String.pipe(Schema.brand('AccountServerUrl')),
-  username: Schema.String.pipe(Schema.brand('AccountUsername')),
+  serverUrl: Schema.NonEmptyString.pipe(Schema.brand('AccountServerUrl')),
+  username: Schema.NonEmptyString.pipe(Schema.brand('AccountUsername')),
   active: Schema.BooleanFromBit.pipe(Schema.brand('AccountActive')),
 });
 export type AccountTable = typeof AccountTable.Type;

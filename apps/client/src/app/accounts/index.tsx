@@ -1,4 +1,4 @@
-import { useAtomValue } from '@effect/atom-react';
+import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Host } from '@expo/ui';
 import {
   BottomSheet,
@@ -33,25 +33,23 @@ import { Icon, iosTextStyle } from '#modules/design-system';
 import { useAppForm } from '#src/components/form';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { accountsAtom } from '#src/services/accounts/atoms.ts';
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { accountsAtom, upsertAccountAtom } from '#src/services/accounts/atoms.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
 const AddAccountSchema = Schema.Struct({
   serverUrl: Schema.NonEmptyString,
   username: Schema.NonEmptyString,
-  password: Schema.NonEmptyString,
+  password: Schema.RedactedFromValue(Schema.NonEmptyString),
 });
-
-const getSubmitErrorMessage = (error: unknown) =>
-  error instanceof Error && error.message.length > 0 ? error.message : 'Unable to add account';
 
 export default function AccountsIndex() {
   const accounts = useAtomValue(accountsAtom);
   const [isPresented, setIsPresented] = useState(true);
 
   const [isAddPresented, setIsAddPresented] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const upsertAccountMutation = useAtomSet(upsertAccountAtom, { mode: 'promiseExit' });
+
   const form = useAppForm({
     runtime: Runtime,
     schema: AddAccountSchema,
@@ -60,31 +58,11 @@ export default function AccountsIndex() {
       username: '',
       password: '',
     },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-
-      try {
-        await Runtime.runPromise(
-          AccountManager.pipe(
-            Effect.flatMap((manager) =>
-              manager.upsertAccount({
-                serverUrl: value.serverUrl,
-                username: value.username,
-                password: Redacted.make(value.password),
-              })
-            )
-          )
-        );
-      } catch (error) {
-        setSubmitError(getSubmitErrorMessage(error));
-        return;
-      }
-
+    onSubmit: async ({ value, formApi }) => {
+      const result = await upsertAccountMutation(value);
+      // formApi.setErrorMap();
       form.reset();
       setIsAddPresented(false);
-    },
-    onSubmitInvalid: () => {
-      setSubmitError(null);
     },
   });
 
@@ -184,16 +162,6 @@ export default function AccountsIndex() {
                       <form.AppField name="password">
                         {(field) => <field.SecureField label="Password" />}
                       </form.AppField>
-                      {submitError !== null ? (
-                        <Label
-                          title={submitError}
-                          modifiers={[
-                            iosTextStyle('caption'),
-                            foregroundStyle('red'),
-                            padding({ top: Spacing.one }),
-                          ]}
-                        />
-                      ) : null}
                     </Section>
                   </Form>
 
@@ -212,7 +180,6 @@ export default function AccountsIndex() {
                       modifiers={[buttonStyle('bordered')]}
                       onPress={() => {
                         form.reset();
-                        setSubmitError(null);
                         setIsAddPresented(false);
                       }}>
                       <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
