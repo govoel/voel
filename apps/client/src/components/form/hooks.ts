@@ -200,6 +200,9 @@ export const createEffectSchemaFormHook = <
     readonly runtime: ManagedRuntime.ManagedRuntime<R, E>;
   }) => {
     const parsedRef = useRef<Option.Option<TType>>(Option.none());
+    // TanStack passes AbortSignals to async validators, but not to onSubmit. Keep a local
+    // generation counter so a reset or newer submit can make older submit results stale.
+    const submitAttemptRef = useRef(0);
     const submitErrorAtomRef = useRef<Atom.Writable<FormSubmitError | null> | undefined>(void 0);
 
     if (submitErrorAtomRef.current === void 0) {
@@ -214,6 +217,8 @@ export const createEffectSchemaFormHook = <
         : ({
             onSubmit: async (submitProps) => {
               const parsed = parsedRef.current;
+              const submitAttempt = submitAttemptRef.current + 1;
+              submitAttemptRef.current = submitAttempt;
 
               setSubmitError(null);
 
@@ -224,6 +229,12 @@ export const createEffectSchemaFormHook = <
               const submitExit = await runtime.runPromiseExit(
                 onSubmit({ ...submitProps, value: parsed.value })
               );
+
+              // A reset or a later submit may have happened while the Effect was running. In
+              // that case this submit no longer owns the form-level error slot.
+              if (submitAttempt !== submitAttemptRef.current) {
+                return;
+              }
 
               if (Exit.isSuccess(submitExit)) {
                 return;
@@ -301,6 +312,10 @@ export const createEffectSchemaFormHook = <
         );
 
       const resetWithSubmitError = ((...resetArgs: Parameters<typeof reset>) => {
+        // Reset clears visible submit state and invalidates any in-flight submit that might
+        // otherwise finish later and restore a stale FormSubmitError.
+        submitAttemptRef.current += 1;
+        parsedRef.current = Option.none();
         setSubmitError(null);
         reset(...resetArgs);
       }) satisfies typeof form.reset;

@@ -30,7 +30,7 @@ import {
 import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Icon, iosTextStyle } from '#modules/design-system';
 import { FormSubmitError, useAppForm } from '#src/components/form';
@@ -88,6 +88,12 @@ export default function AccountsIndex() {
       setIsAddPresented(false);
     }),
   });
+
+  useEffect(() => {
+    if (!isAddPresented) {
+      form.reset();
+    }
+  }, [isAddPresented, form]);
 
   return (
     <>
