@@ -9,7 +9,7 @@ Run these commands in parallel after you are done with your changes:
 - `bun turbo run lint`
 - `bun turbo run check-types`
 - `bun turbo run format`
-- `bun --bun turbo run test`
+- `bun turbo run test`
 
 # This project uses "effect"
 
