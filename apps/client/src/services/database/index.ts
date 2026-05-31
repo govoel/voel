@@ -1,9 +1,15 @@
+import { SqliteMigrator } from '@effect/sql-sqlite-react-native';
 import { Cause, Effect, Layer, Schema, SchemaIssue } from 'effect';
 import { Migrator, SqlClient, SqlError } from 'effect/unstable/sql';
 
 import { baseTables } from './migrations/000001-base-tables.ts';
 
 const runMigrations = Migrator.make({});
+
+export class ClientDatabaseMigrationError extends Schema.TaggedErrorClass<ClientDatabaseMigrationError>()(
+  'voel/services/database/index/ClientDatabaseMigrationError',
+  {}
+) {}
 
 export const DatabaseMigrationsLive = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -24,7 +30,12 @@ export const DatabaseMigrationsLive = Layer.effectDiscard(
       ),
       Effect.tapError((error) => Effect.logError('Client database migrations failed', { error }))
     );
-  })
+  }).pipe(
+    Effect.catchTags({
+      SqlError: () => new ClientDatabaseMigrationError(),
+      MigrationError: () => new ClientDatabaseMigrationError(),
+    })
+  )
 );
 
 export class ClientDatabaseDecodeError extends Schema.TaggedErrorClass<ClientDatabaseDecodeError>()(

@@ -16,7 +16,7 @@ import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { toDatabaseError } from '#src/services/database/index.ts';
 
 const AccountTable = Schema.Struct({
-  serverUrl: Schema.NonEmptyString.pipe(Schema.brand('AccountServerUrl')),
+  serverUrl: Schema.URLFromString.pipe(Schema.brand('AccountServerUrl')),
   username: Schema.NonEmptyString.pipe(Schema.brand('AccountUsername')),
   active: Schema.BooleanFromBit.pipe(Schema.brand('AccountActive')),
 });
@@ -139,20 +139,22 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: {
         activeAccount: Option.Option<AccountTable>;
         accounts: AccountTable[];
-        existingAuthClient: Option.Option<ReturnType<typeof createVoelAuthClient>>;
+        existingAuthClient: Option.Option<Effect.Success<ReturnType<typeof createVoelAuthClient>>>;
       }) {
         if (Option.isNone(activeAccount)) {
           return { activeAccount: Option.none(), accounts };
         }
 
         const scope = yield* Scope.make();
-        const authClient = Option.getOrElse(existingAuthClient, () =>
-          createVoelAuthClient({
-            serverUrl: activeAccount.value.serverUrl,
-            username: activeAccount.value.username,
-            storage: authClientStorage,
-          })
-        );
+        const authClient = yield* Option.match(existingAuthClient, {
+          onSome: Effect.succeed,
+          onNone: () =>
+            createVoelAuthClient({
+              serverUrl: activeAccount.value.serverUrl.toString(),
+              username: activeAccount.value.username,
+              storage: authClientStorage,
+            }),
+        });
 
         const unsubscribe = authClient.useSession.subscribe(() => void 0);
 
@@ -268,8 +270,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
         username: typeof AccountTable.fields.username.schema.Type;
         password: Redacted.Redacted;
       }) {
-        const authClient = createVoelAuthClient({
-          serverUrl,
+        const authClient = yield* createVoelAuthClient({
+          serverUrl: serverUrl.toString(),
           username,
           storage: authClientStorage,
         });

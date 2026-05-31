@@ -1,7 +1,12 @@
 import { expoClient } from '@better-auth/expo/client';
-import { Duration } from 'effect';
+import { Duration, Effect, Schema } from 'effect';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
+
+export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass<BetterAuthClientInitializationError>()(
+  'voel/services/auth-client/index/BetterAuthClientInitializationError',
+  { error: Schema.Unknown }
+) {}
 
 export const createVoelAuthClient = ({
   serverUrl,
@@ -12,16 +17,20 @@ export const createVoelAuthClient = ({
   readonly username: string;
   readonly storage: Parameters<typeof expoClient>[0]['storage'];
 }) =>
-  createAuthClient({
-    baseURL: serverUrl,
-    plugins: [
-      expoClient({
-        storage,
-        storagePrefix: `voel:authClient:${encodeURIComponent(serverUrl)}:${encodeURIComponent(username)}`,
-        cookiePrefix: 'auth',
+  Effect.try({
+    try: () =>
+      createAuthClient({
+        baseURL: serverUrl,
+        plugins: [
+          expoClient({
+            storage,
+            storagePrefix: `voel-authClient-${encodeURIComponent(serverUrl)}-${encodeURIComponent(username)}`,
+            cookiePrefix: 'auth',
+          }),
+        ],
+        sessionOptions: {
+          refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
+        },
       }),
-    ],
-    sessionOptions: {
-      refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
-    },
+    catch: (error) => new BetterAuthClientInitializationError({ error }),
   });

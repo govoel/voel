@@ -2,8 +2,8 @@ import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
+  DeepKeys,
   FormOptions,
-  StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
 import type { ManagedRuntime } from 'effect';
@@ -26,31 +26,49 @@ export type EffectSchemaForRuntime<
 
 const formatStandardSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 
-const createRuntimeStandardSchema = <
-  R,
-  E,
-  TType,
-  TEncoded,
-  TDecodingServices extends R,
-  TEncodingServices,
->(
-  runtime: ManagedRuntime.ManagedRuntime<R, E>,
-  schema: Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>
-): StandardSchemaV1<TEncoded, TType> => ({
-  '~standard': {
-    validate: async (value) =>
-      runtime.runPromise(
-        Schema.decodeUnknownEffect(schema)(value, { errors: 'all' }).pipe(
-          Effect.match({
-            onFailure: (error) => formatStandardSchemaIssue(error.issue),
-            onSuccess: (decodedValue) => ({ value: decodedValue }),
-          })
-        )
-      ),
-    vendor: 'effect',
-    version: 1,
-  },
-});
+interface EffectSchemaFieldErrors<TEncoded> {
+  readonly fields: Partial<Record<DeepKeys<TEncoded>, StandardSchemaV1Issue[]>>;
+  readonly form?: undefined;
+}
+
+const getStandardSchemaIssuePath = <TEncoded>(
+  issue: StandardSchemaV1Issue,
+  formValue: unknown
+): DeepKeys<TEncoded> => {
+  let currentFormValue = formValue;
+  let path = '';
+
+  for (const [index, pathSegment] of (issue.path ?? []).entries()) {
+    const segment = typeof pathSegment === 'object' ? pathSegment.key : pathSegment;
+    const segmentAsNumber = Number(segment);
+
+    path +=
+      Array.isArray(currentFormValue) && !Number.isNaN(segmentAsNumber)
+        ? `[${segmentAsNumber}]`
+        : `${index > 0 ? '.' : ''}${String(segment)}`;
+
+    currentFormValue =
+      typeof currentFormValue === 'object' && currentFormValue !== null
+        ? Reflect.get(currentFormValue, segment)
+        : void 0;
+  }
+
+  return path as DeepKeys<TEncoded>;
+};
+
+const groupStandardSchemaIssues = <TEncoded>(
+  issues: readonly StandardSchemaV1Issue[],
+  formValue: unknown
+): EffectSchemaFieldErrors<TEncoded> => {
+  const fields: Partial<Record<DeepKeys<TEncoded>, StandardSchemaV1Issue[]>> = {};
+
+  for (const issue of issues) {
+    const path = getStandardSchemaIssuePath<TEncoded>(issue, formValue);
+    fields[path] = [...(fields[path] ?? []), issue];
+  }
+
+  return { fields };
+};
 
 type StandardSchemaFieldContext<TData> = Omit<
   ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
@@ -69,24 +87,58 @@ type StandardSchemaFieldContext<TData> = Omit<
   };
 };
 
-type StandardSchemaFormHookContexts = Omit<typeof tanStackFormHookContexts, 'useFieldContext'> & {
-  readonly useFieldContext: <TData>() => StandardSchemaFieldContext<TData>;
+type StringErrorFormContext = Omit<
+  ReturnType<typeof tanStackFormHookContexts.useFormContext>,
+  'state'
+> & {
+  readonly state: Omit<
+    ReturnType<typeof tanStackFormHookContexts.useFormContext>['state'],
+    'errors'
+  > & {
+    readonly errors: string[];
+  };
 };
 
-export const { fieldContext, formContext, useFormContext, useFieldContext } =
-  tanStackFormHookContexts as StandardSchemaFormHookContexts;
+type StandardSchemaFormHookContexts = Omit<
+  typeof tanStackFormHookContexts,
+  'useFieldContext' | 'useFormContext'
+> & {
+  readonly useFieldContext: <TData>() => StandardSchemaFieldContext<TData>;
+  readonly useFormContext: () => StringErrorFormContext;
+};
+
+export const {
+  fieldContext,
+  formContext,
+  useFieldContext,
+  useFormContext,
+}: StandardSchemaFormHookContexts = tanStackFormHookContexts;
+
+type EffectSchemaChangeValidator<TEncoded> = (props: {
+  readonly value: TEncoded;
+  readonly formApi: AnyFormApi;
+  readonly signal: AbortSignal;
+}) =>
+  | EffectSchemaFieldErrors<TEncoded>
+  | undefined
+  | Promise<EffectSchemaFieldErrors<TEncoded> | undefined>;
 
 type EffectSchemaSubmitValidator<TEncoded> = (props: {
   readonly value: TEncoded;
   readonly formApi: AnyFormApi;
   readonly signal: AbortSignal;
-}) => string | null | Promise<string | null>;
+}) =>
+  | string
+  | null
+  | undefined
+  | EffectSchemaFieldErrors<TEncoded>
+  | Promise<string | null | undefined | EffectSchemaFieldErrors<TEncoded>>;
 
-type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOptions<
+type EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta = never> = FormOptions<
   TEncoded,
   undefined,
   undefined,
-  StandardSchemaV1<TEncoded, TType>,
+  EffectSchemaChangeValidator<TEncoded>,
   undefined,
   undefined,
   undefined,
@@ -98,7 +150,7 @@ type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOpt
 >;
 
 type EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> = Omit<
-  Parameters<NonNullable<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>['onSubmit']>>[0],
+  Parameters<NonNullable<EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>['onSubmit']>>[0],
   'value'
 > & {
   readonly value: TType;
@@ -111,7 +163,7 @@ type EffectSchemaFormOptions<
   TDecodingServices extends R,
   TEncodingServices,
   TSubmitMeta = never,
-> = Omit<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
+> = Omit<EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
   readonly schema: Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>;
   readonly onSubmit?: (props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>) => unknown;
 };
@@ -204,21 +256,38 @@ export const createEffectSchemaFormHook = <
 
               return onSubmit({ ...submitProps, value: parsed });
             },
-          } satisfies Pick<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit'>);
+          } satisfies Pick<EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>, 'onSubmit'>);
 
     const schemaDecodeEffect = Schema.decodeEffect(schema);
     const form = useTanStackAppForm({
       ...props,
       ...submitHandler,
       validators: {
-        onChangeAsync: createRuntimeStandardSchema(runtime, schema),
+        onChangeAsync: async ({ value, signal }) =>
+          runtime.runPromise(
+            Schema.decodeUnknownEffect(schema)(value, { errors: 'all' }).pipe(
+              Effect.match({
+                onFailure: (error) =>
+                  groupStandardSchemaIssues<TEncoded>(
+                    formatStandardSchemaIssue(error.issue).issues,
+                    value
+                  ),
+                onSuccess: () => void 0,
+              })
+            ),
+            { signal }
+          ),
         onSubmitAsync: async ({ value, signal }) => {
           parsedRef.current = void 0;
 
           return runtime.runPromise(
             schemaDecodeEffect(value, { errors: 'all' }).pipe(
               Effect.match({
-                onFailure: (error) => error.message,
+                onFailure: (error) =>
+                  groupStandardSchemaIssues<TEncoded>(
+                    formatStandardSchemaIssue(error.issue).issues,
+                    value
+                  ),
                 onSuccess: (decodedValue) => {
                   parsedRef.current = decodedValue;
                   return null;

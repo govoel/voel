@@ -45,7 +45,7 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
             HttpClientRequest.prependUrl(
               Option.match(serverUrl, {
                 onNone: () => '/api/rpc',
-                onSome: (url) => `${url}/api/rpc`,
+                onSome: (url) => `${url.toString()}/api/rpc`,
               })
             )
           )

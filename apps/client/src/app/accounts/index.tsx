@@ -1,4 +1,4 @@
-import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Host } from '@expo/ui';
 import {
   BottomSheet,
@@ -6,7 +6,6 @@ import {
   Form,
   Group,
   HStack,
-  Label,
   List,
   ProgressView,
   Section,
@@ -14,6 +13,7 @@ import {
   VStack,
 } from '@expo/ui/swift-ui';
 import {
+  autocorrectionDisabled,
   buttonStyle,
   containerRelativeFrame,
   font,
@@ -21,13 +21,18 @@ import {
   frame,
   headerProminence,
   interactiveDismissDisabled,
+  keyboardType,
+  multilineTextAlignment,
   padding,
+  textContentType,
+  textInputAutocapitalization,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { Effect, Redacted, Schema } from 'effect';
+import { Cause, Exit, Match, Option, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
+import { PlatformColor } from 'react-native';
 
 import { Icon, iosTextStyle } from '#modules/design-system';
 import { useAppForm } from '#src/components/form';
@@ -37,9 +42,14 @@ import { accountsAtom, upsertAccountAtom } from '#src/services/accounts/atoms.ts
 import { Runtime } from '#src/services/runtime.ts';
 
 const AddAccountSchema = Schema.Struct({
-  serverUrl: Schema.NonEmptyString,
-  username: Schema.NonEmptyString,
-  password: Schema.RedactedFromValue(Schema.NonEmptyString),
+  serverUrl: Schema.URLFromString,
+  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+  password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
+    Schema.decodeTo(Schema.Redacted(Schema.String), {
+      decode: SchemaGetter.transform((password) => Redacted.make(password)),
+      encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+    })
+  ),
 });
 
 export default function AccountsIndex() {
@@ -47,6 +57,7 @@ export default function AccountsIndex() {
   const [isPresented, setIsPresented] = useState(true);
 
   const [isAddPresented, setIsAddPresented] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const upsertAccountMutation = useAtomSet(upsertAccountAtom, { mode: 'promiseExit' });
 
@@ -58,11 +69,38 @@ export default function AccountsIndex() {
       username: '',
       password: '',
     },
-    onSubmit: async ({ value, formApi }) => {
-      const result = await upsertAccountMutation(value);
-      // formApi.setErrorMap();
+    onSubmit: async ({ value }) => {
+      setSubmitError(null);
+      const exit = await upsertAccountMutation(value);
+
+      if (Exit.isFailure(exit)) {
+        const errorOption = Exit.findErrorOption(exit).pipe(
+          Option.map((accountError) =>
+            Match.valueTags(accountError, {
+              'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
+                'Unexpected error during authentication. Try again.',
+              'voel/services/accounts/index/AccountSignInError': (signInError) =>
+                `Sign in failed: ${signInError.message}`,
+              'voel/services/database/ClientDatabaseSqlError': (databaseError) =>
+                `Database error: ${databaseError.message}`,
+              'voel/services/database/ClientDatabaseNoSuchElementError': () =>
+                'Database error: No such element',
+              'voel/services/database/ClientDatabaseDecodeError': () =>
+                'Database error: Decode error',
+            })
+          ),
+          Option.getOrElse(() => 'Unknown error')
+        );
+
+        setSubmitError(errorOption);
+        return;
+      }
+
       form.reset();
       setIsAddPresented(false);
+    },
+    onSubmitInvalid: () => {
+      setSubmitError(null);
     },
   });
 
@@ -93,7 +131,7 @@ export default function AccountsIndex() {
                       result.value.accounts.map((account) => (
                         <Button
                           modifiers={[tint('primary')]}
-                          key={`${account.serverUrl}-${account.username}`}>
+                          key={`${account.serverUrl.toString()}-${account.username}`}>
                           <HStack alignment="center" spacing={Spacing.two}>
                             <Icon
                               systemName="person.crop.circle.fill"
@@ -110,7 +148,7 @@ export default function AccountsIndex() {
                                 modifiers={[
                                   foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
                                 ]}>
-                                {account.serverUrl}
+                                {account.serverUrl.toString()}
                               </Text>
                             </VStack>
 
@@ -137,6 +175,7 @@ export default function AccountsIndex() {
                   label="Add account"
                   systemImage="person.crop.circle.badge.plus"
                   onPress={() => {
+                    setSubmitError(null);
                     setIsAddPresented(true);
                   }}
                 />
@@ -152,12 +191,36 @@ export default function AccountsIndex() {
                         {(field) => (
                           <field.TextField
                             label="Server URL"
-                            platformProps={{ ios: { placeholder: 'https://demo.voel.app' } }}
+                            platformProps={{
+                              ios: {
+                                placeholder: 'https://demo.voel.app',
+                                modifiers: [
+                                  keyboardType('url'),
+                                  textContentType('URL'),
+                                  textInputAutocapitalization('never'),
+                                  autocorrectionDisabled(),
+                                ],
+                              },
+                            }}
                           />
                         )}
                       </form.AppField>
                       <form.AppField name="username">
-                        {(field) => <field.TextField label="Username" />}
+                        {(field) => (
+                          <field.TextField
+                            label="Username"
+                            platformProps={{
+                              ios: {
+                                modifiers: [
+                                  keyboardType('ascii-capable'),
+                                  textContentType('username'),
+                                  textInputAutocapitalization('never'),
+                                  autocorrectionDisabled(),
+                                ],
+                              },
+                            }}
+                          />
+                        )}
                       </form.AppField>
                       <form.AppField name="password">
                         {(field) => <field.SecureField label="Password" />}
@@ -170,6 +233,16 @@ export default function AccountsIndex() {
                   <VStack
                     spacing={Spacing.two}
                     modifiers={[padding({ horizontal: Spacing.three })]}>
+                    {submitError === null ? null : (
+                      <Text
+                        modifiers={[
+                          foregroundStyle(PlatformColor('systemRed')),
+                          multilineTextAlignment('center'),
+                        ]}>
+                        {submitError}
+                      </Text>
+                    )}
+
                     <form.SubmitButton
                       platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}>
                       <Text modifiers={[frame({ maxWidth: Infinity })]}>Login</Text>
@@ -180,6 +253,7 @@ export default function AccountsIndex() {
                       modifiers={[buttonStyle('bordered')]}
                       onPress={() => {
                         form.reset();
+                        setSubmitError(null);
                         setIsAddPresented(false);
                       }}>
                       <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>

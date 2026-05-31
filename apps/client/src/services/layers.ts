@@ -15,5 +15,6 @@ export const CommonLayers = Layer.mergeAll(AccountManager.layer).pipe(
       Layer.unwrap
     )
   ),
-  Layer.provideMerge(Layer.mergeAll(AppConfig.layer, FetchHttpClient.layer))
+  Layer.provideMerge(Layer.mergeAll(AppConfig.layer, FetchHttpClient.layer)),
+  Layer.orDie
 );
