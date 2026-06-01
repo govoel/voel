@@ -10,7 +10,7 @@ import type { TextFieldComponent } from '#src/components/form/text-field';
 import { Text } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const TextField = (({ label, platformProps = {} }) => {
+export const TextField = (({ label, placeholder, platformProps = {} }) => {
   const field = useFieldContext<string>();
   const form = useFormContext();
   const errorMessage = field.state.meta.isTouched
@@ -24,6 +24,7 @@ export const TextField = (({ label, platformProps = {} }) => {
       <Text variant="caption">{label}</Text>
 
       <SwiftTextField
+        {...(typeof placeholder === 'string' ? { placeholder } : {})}
         {...('ios' in platformProps ? platformProps.ios : {})}
         modifiers={[
           disabled(isSubmitting),

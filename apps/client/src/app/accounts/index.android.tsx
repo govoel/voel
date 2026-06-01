@@ -10,6 +10,7 @@ import {
   Icon,
   LoadingIndicator,
   ModalBottomSheet,
+  OutlinedButton,
   Row,
   Spacer,
   useMaterialColors,
@@ -18,7 +19,7 @@ import { fillMaxWidth, padding, paddingAll, width } from '@expo/ui/jetpack-compo
 import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { SegmentedList, SegmentedListItem } from '#modules/design-system';
 import { FormSubmitError, useAppForm } from '#src/components/form';
@@ -30,8 +31,8 @@ import { Runtime } from '#src/services/runtime.ts';
 
 const AddAccountSchema = Schema.Struct({
   serverUrl: Schema.URLFromString,
-  username: Schema.NonEmptyString,
-  password: Schema.NonEmptyString.pipe(
+  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+  password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
     Schema.decodeTo(Schema.Redacted(Schema.String), {
       decode: SchemaGetter.transform((password) => Redacted.make(password)),
       encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
@@ -53,13 +54,21 @@ export default function AccountsIndex() {
       password: '',
     },
     onSubmit: Effect.fnUntraced(function* ({ value }) {
+      yield* Effect.sleep(10_000);
+
       const accountManage = yield* AccountManager;
       yield* accountManage.upsertAccount(value).pipe(
         Effect.catchTags({
           'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
-            new FormSubmitError({ message: 'Unexpected error during authentication. Try again.' }),
+            new FormSubmitError({
+              message: 'Unexpected error during authentication. Try again.',
+            }),
           'voel/services/accounts/index/AccountSignInError': (signInError) =>
-            new FormSubmitError({ message: `Sign in failed: ${signInError.message}` }),
+            new FormSubmitError({
+              message:
+                signInError.original.message ??
+                'Failed to sign in. Check your credentials and try again.',
+            }),
           'voel/services/database/ClientDatabaseError': () =>
             new FormSubmitError({ message: 'A database error occurred. Try again.' }),
         })
@@ -69,6 +78,12 @@ export default function AccountsIndex() {
       setIsAddPresented(false);
     }),
   });
+
+  useEffect(() => {
+    if (!isAddPresented) {
+      form.reset();
+    }
+  }, [isAddPresented, form]);
 
   return (
     <>
@@ -159,7 +174,17 @@ export default function AccountsIndex() {
                   {(field) => (
                     <field.TextField
                       label="Server URL"
-                      platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                      placeholder="https://demo.voel.app"
+                      platformProps={{
+                        android: {
+                          modifiers: [fillMaxWidth()],
+                          keyboardOptions: {
+                            keyboardType: 'uri',
+                            capitalization: 'none',
+                            autoCorrectEnabled: false,
+                          },
+                        },
+                      }}
                     />
                   )}
                 </form.AppField>
@@ -168,7 +193,17 @@ export default function AccountsIndex() {
                   {(field) => (
                     <field.TextField
                       label="Username"
-                      platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                      placeholder="you"
+                      platformProps={{
+                        android: {
+                          modifiers: [fillMaxWidth()],
+                          keyboardOptions: {
+                            keyboardType: 'ascii',
+                            capitalization: 'none',
+                            autoCorrectEnabled: false,
+                          },
+                        },
+                      }}
                     />
                   )}
                 </form.AppField>
@@ -177,25 +212,24 @@ export default function AccountsIndex() {
                   {(field) => (
                     <field.SecureField
                       label="Password"
+                      placeholder="ha!NiceTry"
                       platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
                     />
                   )}
                 </form.AppField>
 
-                <form.AppForm>
-                  <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-                    <Text>Login</Text>
-                  </form.SubmitButton>
-                </form.AppForm>
+                <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+                  <Text>Login</Text>
+                </form.SubmitButton>
 
-                <Button
+                <OutlinedButton
                   modifiers={[fillMaxWidth()]}
                   onClick={() => {
                     form.reset();
                     setIsAddPresented(false);
                   }}>
                   <Text>Cancel</Text>
-                </Button>
+                </OutlinedButton>
               </Column>
             </form.AppForm>
           </ModalBottomSheet>

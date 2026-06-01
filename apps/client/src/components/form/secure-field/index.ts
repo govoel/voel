@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 
 export type SecureFieldComponent = ComponentType<{
   label: string;
+  placeholder?: string;
   platformProps?:
     | { ios: SwiftSecureFieldProps }
     | { android: Omit<ComposeTextFieldProps, 'visualTransformation'> };

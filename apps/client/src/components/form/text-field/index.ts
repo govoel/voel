@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 
 export type TextFieldComponent = ComponentType<{
   label: string;
+  placeholder?: string;
   platformProps?:
     | { ios: SwiftTextFieldProps }
     | { android: Omit<ComposeTextFieldProps, 'visualTransformation'> };

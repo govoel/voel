@@ -10,7 +10,7 @@ import type { SecureFieldComponent } from '#src/components/form/secure-field';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const SecureField = (({ label, platformProps = {} }) => {
+export const SecureField = (({ label, placeholder, platformProps = {} }) => {
   const field = useFieldContext<string>();
   const form = useFormContext();
   const errorMessage = field.state.meta.isTouched
@@ -24,6 +24,7 @@ export const SecureField = (({ label, platformProps = {} }) => {
       <Text variant="caption">{label}</Text>
 
       <SwiftSecureField
+        {...(typeof placeholder === 'string' ? { placeholder } : {})}
         {...('ios' in platformProps ? platformProps.ios : {})}
         modifiers={[
           disabled(isSubmitting),

@@ -1,4 +1,4 @@
-import { Button, useMaterialColors } from '@expo/ui/jetpack-compose';
+import { Button, LoadingIndicator, Row, useMaterialColors } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { useStore } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
@@ -46,7 +46,14 @@ export const SubmitButton = (({
         onClick={() => {
           void form.handleSubmit();
         }}>
-        {children}
+        <Row
+          horizontalAlignment="center"
+          verticalAlignment="center"
+          horizontalArrangement={{ spacedBy: Spacing.one }}
+          {...('android' in containerModifiers ? { modifiers: containerModifiers.android } : {})}>
+          {isSubmitting ? <LoadingIndicator /> : null}
+          {children}
+        </Row>
       </Button>
     </>
   );

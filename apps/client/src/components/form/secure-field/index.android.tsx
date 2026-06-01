@@ -14,7 +14,7 @@ const defaultTextStyle = {
   letterSpacing: 0.5,
 } as const satisfies NonNullable<ComponentProps<typeof ComposeTextField>['textStyle']>;
 
-export const SecureField = (({ label, platformProps = {} }) => {
+export const SecureField = (({ label, placeholder, platformProps = {} }) => {
   const field = useFieldContext<string>();
   const form = useFormContext();
   const errorMessage = field.state.meta.isTouched
@@ -47,6 +47,12 @@ export const SecureField = (({ label, platformProps = {} }) => {
       <ComposeTextField.Label>
         <Text>{label}</Text>
       </ComposeTextField.Label>
+
+      {typeof placeholder === 'string' && placeholder.length > 0 ? (
+        <ComposeTextField.Placeholder>
+          <Text>{placeholder}</Text>
+        </ComposeTextField.Placeholder>
+      ) : null}
 
       {Option.match(errorMessage, {
         onNone: () => null,
