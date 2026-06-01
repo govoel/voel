@@ -1,12 +1,19 @@
-import { Button, Column, useMaterialColors } from '@expo/ui/jetpack-compose';
+import { Button, useMaterialColors } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { useStore } from '@tanstack/react-form';
+import { Array, Option } from 'effect';
 
 import { useFormContext, useFormSubmitError } from '#src/components/form/hooks.ts';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const SubmitButton = (({ children, disabled = false, platformProps = {} }) => {
+export const SubmitButton = (({
+  children,
+  disabled = false,
+  platformProps = {},
+  containerModifiers = {},
+}) => {
   const form = useFormContext();
   const submitError = useFormSubmitError();
   const [canSubmit, isSubmitting, formErrorMessages] = useStore(
@@ -18,23 +25,20 @@ export const SubmitButton = (({ children, disabled = false, platformProps = {} }
     ]
   );
 
-  const errorMessages = [
-    ...new Set(
-      submitError === null ? formErrorMessages : [...formErrorMessages, submitError.message]
-    ),
-  ];
+  const errorMessage = Option.firstSomeOf([submitError, Array.head(formErrorMessages)]);
 
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
     <>
-      <Column verticalArrangement={{ spacedBy: Spacing.one }}>
-        {errorMessages.map((message) => (
-          <Text key={message} color={colors.error}>
+      {Option.match(errorMessage, {
+        onNone: () => null,
+        onSome: (message) => (
+          <Text color={colors.error} modifiers={[padding(0, 0, 0, Spacing.one)]}>
             {message}
           </Text>
-        ))}
-      </Column>
+        ),
+      })}
 
       <Button
         {...('android' in platformProps ? platformProps.android : {})}

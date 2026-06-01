@@ -1,5 +1,6 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
 import { useStore } from '@tanstack/react-form';
+import { Array, Option } from 'effect';
 import type { ComponentProps } from 'react';
 
 import { useFieldContext, useFormContext } from '#src/components/form/hooks.ts';
@@ -16,7 +17,9 @@ const defaultTextStyle = {
 export const SecureField = (({ label, platformProps = {} }) => {
   const field = useFieldContext<string>();
   const form = useFormContext();
-  const isError = field.state.meta.isTouched && field.state.meta.errors.length > 0;
+  const errorMessage = field.state.meta.isTouched
+    ? Array.head(field.state.meta.errors)
+    : Option.none();
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const value = useNativeState(field.state.value);
 
@@ -40,17 +43,19 @@ export const SecureField = (({ label, platformProps = {} }) => {
         ('android' in platformProps ? (platformProps.android.enabled ?? true) : true)
       }
       singleLine={'android' in platformProps ? (platformProps.android.singleLine ?? true) : true}
-      isError={isError}>
+      isError={Option.isSome(errorMessage)}>
       <ComposeTextField.Label>
         <Text>{label}</Text>
       </ComposeTextField.Label>
-      {isError ? (
-        <ComposeTextField.SupportingText>
-          <Text variant="caption">
-            {field.state.meta.errors.map((error) => error.message).join(', ')}
-          </Text>
-        </ComposeTextField.SupportingText>
-      ) : null}
+
+      {Option.match(errorMessage, {
+        onNone: () => null,
+        onSome: ({ message }) => (
+          <ComposeTextField.SupportingText>
+            <Text variant="caption">{message}</Text>
+          </ComposeTextField.SupportingText>
+        ),
+      })}
     </ComposeTextField>
   );
 }) satisfies SecureFieldComponent;

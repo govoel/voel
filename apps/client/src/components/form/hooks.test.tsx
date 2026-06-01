@@ -1,5 +1,5 @@
 import { act, render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect, Layer, ManagedRuntime, Schema } from 'effect';
+import { Deferred, Effect, Layer, ManagedRuntime, Option, Schema } from 'effect';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -46,7 +46,7 @@ const completeSubmit = async (
 
 const ErrorProbe = () => {
   const submitError = useFormSubmitError();
-  return <Text role="alert">{submitError?.message ?? 'No submit error'}</Text>;
+  return <Text role="alert">{Option.getOrElse(submitError, () => 'No submit error')}</Text>;
 };
 
 const renderSubmitRaceForm = async (

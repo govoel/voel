@@ -35,7 +35,7 @@ export class FormSubmitError extends Schema.TaggedErrorClass<FormSubmitError>()(
 const isFormSubmitError = Schema.is(FormSubmitError);
 
 const formSubmitErrorScopedAtom = ScopedAtom.make(
-  (atom: Atom.Writable<FormSubmitError | null>) => atom
+  (atom: Atom.Writable<Option.Option<string>>) => atom
 );
 
 export const useFormSubmitError = () => {
@@ -203,10 +203,10 @@ export const createEffectSchemaFormHook = <
     // TanStack passes AbortSignals to async validators, but not to onSubmit. Keep a local
     // generation counter so a reset or newer submit can make older submit results stale.
     const submitAttemptRef = useRef(0);
-    const submitErrorAtomRef = useRef<Atom.Writable<FormSubmitError | null> | undefined>(void 0);
+    const submitErrorAtomRef = useRef<Atom.Writable<Option.Option<string>> | undefined>(void 0);
 
     if (submitErrorAtomRef.current === void 0) {
-      submitErrorAtomRef.current = Atom.make<FormSubmitError | null>(null);
+      submitErrorAtomRef.current = Atom.make<Option.Option<string>>(Option.none());
     }
 
     const submitErrorAtom = submitErrorAtomRef.current;
@@ -220,7 +220,7 @@ export const createEffectSchemaFormHook = <
               const submitAttempt = submitAttemptRef.current + 1;
               submitAttemptRef.current = submitAttempt;
 
-              setSubmitError(null);
+              setSubmitError(Option.none());
 
               if (Option.isNone(parsed)) {
                 throw new Error('Unexpected submit without parsed data');
@@ -246,7 +246,7 @@ export const createEffectSchemaFormHook = <
               );
 
               if (Option.isSome(submitError)) {
-                setSubmitError(submitError.value);
+                setSubmitError(Option.some(submitError.value.message));
                 return;
               }
 
@@ -279,7 +279,7 @@ export const createEffectSchemaFormHook = <
             vendor: 'effect-voel',
             version: 1,
             validate: async (value) => {
-              setSubmitError(null);
+              setSubmitError(Option.none());
               parsedRef.current = Option.none();
 
               return runtime.runPromise(
@@ -316,7 +316,7 @@ export const createEffectSchemaFormHook = <
         // otherwise finish later and restore a stale FormSubmitError.
         submitAttemptRef.current += 1;
         parsedRef.current = Option.none();
-        setSubmitError(null);
+        setSubmitError(Option.none());
         reset(...resetArgs);
       }) satisfies typeof form.reset;
 

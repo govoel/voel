@@ -201,6 +201,7 @@ export default function AccountsIndex() {
                             label="Username"
                             platformProps={{
                               ios: {
+                                placeholder: 'you',
                                 modifiers: [
                                   keyboardType('ascii-capable'),
                                   textContentType('username'),
@@ -213,7 +214,12 @@ export default function AccountsIndex() {
                         )}
                       </form.AppField>
                       <form.AppField name="password">
-                        {(field) => <field.SecureField label="Password" />}
+                        {(field) => (
+                          <field.SecureField
+                            label="Password"
+                            platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+                          />
+                        )}
                       </form.AppField>
                     </Section>
                   </Form>
@@ -224,8 +230,9 @@ export default function AccountsIndex() {
                     spacing={Spacing.two}
                     modifiers={[padding({ horizontal: Spacing.three })]}>
                     <form.SubmitButton
-                      platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}>
-                      <Text modifiers={[frame({ maxWidth: Infinity })]}>Login</Text>
+                      platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
+                      containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
+                      <Text>Login</Text>
                     </form.SubmitButton>
 
                     <Button
