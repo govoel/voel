@@ -3,7 +3,6 @@ import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import PersonAdd from '@expo/material-symbols/person_add.xml';
 import {
-  Button,
   Column,
   FilledTonalButton,
   Host,

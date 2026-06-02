@@ -1,5 +1,3 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import * as ScopedAtom from '@effect/atom-react/ScopedAtom';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
@@ -10,8 +8,7 @@ import type {
 } from '@tanstack/react-form';
 import type { ManagedRuntime } from 'effect';
 import { Cause, Effect, Exit, Option, Schema, SchemaIssue } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
-import { createElement, useMemo, useRef } from 'react';
+import { createContext, useContext, useMemo, useRef, useState } from 'react';
 import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -34,13 +31,16 @@ export class FormSubmitError extends Schema.TaggedErrorClass<FormSubmitError>()(
 
 const isFormSubmitError = Schema.is(FormSubmitError);
 
-const formSubmitErrorScopedAtom = ScopedAtom.make(
-  (atom: Atom.Writable<Option.Option<string>>) => atom
-);
+const formSubmitErrorContext = createContext<Option.Option<string> | undefined>(void 0);
 
 export const useFormSubmitError = () => {
-  const submitErrorAtom = formSubmitErrorScopedAtom.use();
-  return useAtomValue(submitErrorAtom);
+  const submitError = useContext(formSubmitErrorContext);
+
+  if (submitError === void 0) {
+    throw new Error('`useFormSubmitError` only works within `<form.AppForm />`');
+  }
+
+  return submitError;
 };
 
 const formatStandardSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
@@ -203,14 +203,10 @@ export const createEffectSchemaFormHook = <
     // TanStack passes AbortSignals to async validators, but not to onSubmit. Keep a local
     // generation counter so a reset or newer submit can make older submit results stale.
     const submitAttemptRef = useRef(0);
-    const submitErrorAtomRef = useRef<Atom.Writable<Option.Option<string>> | undefined>(void 0);
+    const [submitError, setSubmitError] = useState<Option.Option<string>>(Option.none());
+    const submitErrorRef = useRef(submitError);
+    submitErrorRef.current = submitError;
 
-    if (submitErrorAtomRef.current === void 0) {
-      submitErrorAtomRef.current = Atom.make<Option.Option<string>>(Option.none());
-    }
-
-    const submitErrorAtom = submitErrorAtomRef.current;
-    const setSubmitError = useAtomSet(submitErrorAtom);
     const submitHandler =
       onSubmit === void 0
         ? {}
@@ -240,13 +236,13 @@ export const createEffectSchemaFormHook = <
                 return;
               }
 
-              const submitError = Option.filter(
+              const formSubmitError = Option.filter(
                 Exit.findErrorOption(submitExit),
                 isFormSubmitError
               );
 
-              if (Option.isSome(submitError)) {
-                setSubmitError(Option.some(submitError.value.message));
+              if (Option.isSome(formSubmitError)) {
+                setSubmitError(Option.some(formSubmitError.value.message));
                 return;
               }
 
@@ -304,12 +300,13 @@ export const createEffectSchemaFormHook = <
     const wrappedForm = useMemo(() => {
       const reset = form.reset.bind(form);
 
-      const FormSubmitErrorAppForm = ({ children }: PropsWithChildren) =>
-        createElement(
-          formSubmitErrorScopedAtom.Provider,
-          { value: submitErrorAtom },
-          createElement(hookFormContext.Provider, { value: extendedFormRef.current }, children)
-        );
+      const FormSubmitErrorAppForm = ({ children }: PropsWithChildren) => (
+        <formSubmitErrorContext.Provider value={submitErrorRef.current}>
+          <hookFormContext.Provider value={extendedFormRef.current}>
+            {children}
+          </hookFormContext.Provider>
+        </formSubmitErrorContext.Provider>
+      );
 
       const resetWithSubmitError = ((...resetArgs: Parameters<typeof reset>) => {
         // Reset clears visible submit state and invalidates any in-flight submit that might
@@ -337,7 +334,7 @@ export const createEffectSchemaFormHook = <
       extendedFormRef.current = extendedForm;
 
       return extendedForm;
-    }, [form, setSubmitError, submitErrorAtom]);
+    }, [form]);
 
     return withoutFieldValidators(wrappedForm);
   };

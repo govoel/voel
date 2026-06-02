@@ -5,7 +5,7 @@ import { Array, Option } from 'effect';
 import { PlatformColor } from 'react-native';
 
 import { iosTextStyle } from '#modules/design-system/index.ts';
-import { useFieldContext, useFormContext } from '#src/components/form/hooks.ts';
+import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
 import type { SecureFieldComponent } from '#src/components/form/secure-field';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';

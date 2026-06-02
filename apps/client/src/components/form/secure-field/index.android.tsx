@@ -3,7 +3,7 @@ import { useStore } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
 import type { ComponentProps } from 'react';
 
-import { useFieldContext, useFormContext } from '#src/components/form/hooks.ts';
+import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
 import type { SecureFieldComponent } from '#src/components/form/secure-field';
 import { Text } from '#src/components/text';
 

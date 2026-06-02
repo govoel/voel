@@ -12,10 +12,29 @@ import { useStore } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
 import { PlatformColor } from 'react-native';
 
-import { useFormContext, useFormSubmitError } from '#src/components/form/hooks.ts';
+import { useFormContext, useFormSubmitError } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+
+const SubmitErrorMessage = ({ formErrorMessages }: { readonly formErrorMessages: string[] }) => {
+  const submitError = useFormSubmitError();
+  const errorMessage = Option.firstSomeOf([submitError, Array.head(formErrorMessages)]);
+
+  return Option.match(errorMessage, {
+    onNone: () => null,
+    onSome: (message) => (
+      <Text
+        modifiers={[
+          foregroundStyle(PlatformColor('systemRed')),
+          multilineTextAlignment('center'),
+          padding({ bottom: Spacing.one }),
+        ]}>
+        {message}
+      </Text>
+    ),
+  });
+};
 
 export const SubmitButton = (({
   children,
@@ -24,7 +43,6 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const form = useFormContext();
-  const submitError = useFormSubmitError();
   const [canSubmit, isSubmitting, formErrorMessages] = useStore(
     form.store,
     (state): readonly [boolean, boolean, string[]] => [
@@ -34,23 +52,9 @@ export const SubmitButton = (({
     ]
   );
 
-  const errorMessage = Option.firstSomeOf([submitError, Array.head(formErrorMessages)]);
-
   return (
     <>
-      {Option.match(errorMessage, {
-        onNone: () => null,
-        onSome: (message) => (
-          <Text
-            modifiers={[
-              foregroundStyle(PlatformColor('systemRed')),
-              multilineTextAlignment('center'),
-              padding({ bottom: Spacing.one }),
-            ]}>
-            {message}
-          </Text>
-        ),
-      })}
+      <SubmitErrorMessage formErrorMessages={formErrorMessages} />
 
       <Button
         {...('ios' in platformProps ? platformProps.ios : {})}

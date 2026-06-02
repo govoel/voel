@@ -10,7 +10,7 @@ import {
   fieldContext,
   formContext,
   useFormSubmitError,
-} from '#src/components/form/hooks.ts';
+} from '#src/components/form/hooks.tsx';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
 
