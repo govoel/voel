@@ -2,6 +2,7 @@ import { Label, SecureField as SwiftSecureField, VStack, useNativeState } from '
 import { disabled, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { useStore } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
+import { useRef } from 'react';
 import { PlatformColor } from 'react-native';
 
 import { iosTextStyle } from '#modules/design-system/index.ts';
@@ -18,6 +19,7 @@ export const SecureField = (({ label, placeholder, platformProps = {} }) => {
     : Option.none();
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const value = useNativeState(field.state.value);
+  const hasFocusedRef = useRef(false);
 
   return (
     <VStack alignment="leading" spacing={Spacing.one}>
@@ -33,9 +35,19 @@ export const SecureField = (({ label, placeholder, platformProps = {} }) => {
         text={value}
         onTextChange={field.handleChange}
         onFocusChange={(focused) => {
-          if (!focused) {
-            field.handleBlur();
+          // Keep blur semantics in parity with Android: only a field that has actually gained
+          // focus should become touched. This avoids exposing whole-form onChange validation
+          // for fields the user has not interacted with.
+          if (focused) {
+            hasFocusedRef.current = true;
+            return;
           }
+
+          if (!hasFocusedRef.current) {
+            return;
+          }
+
+          field.handleBlur();
         }}
       />
 

@@ -1,6 +1,7 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
 import { useStore } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
+import { useRef } from 'react';
 import type { ComponentProps } from 'react';
 
 import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
@@ -22,6 +23,7 @@ export const SecureField = (({ label, placeholder, platformProps = {} }) => {
     : Option.none();
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const value = useNativeState(field.state.value);
+  const hasFocusedRef = useRef(false);
 
   return (
     <ComposeTextField
@@ -34,9 +36,19 @@ export const SecureField = (({ label, placeholder, platformProps = {} }) => {
       value={value}
       onValueChange={field.handleChange}
       onFocusChanged={(focused) => {
-        if (!focused) {
-          field.handleBlur();
+        // Android Compose emits an initial unfocused event as the field mounts. Treating that
+        // as a blur marks every field as touched, so whole-form onChange validation becomes
+        // visible before the user has interacted with those fields.
+        if (focused) {
+          hasFocusedRef.current = true;
+          return;
         }
+
+        if (!hasFocusedRef.current) {
+          return;
+        }
+
+        field.handleBlur();
       }}
       enabled={
         !isSubmitting &&
