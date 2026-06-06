@@ -1,7 +1,7 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Schema } from 'effect';
 
 class AppConfigSchema extends Schema.Class<AppConfigSchema, { readonly brand: unique symbol }>(
-  'AppConfigSchema'
+  'voel/services/config/AppConfigSchema'
 )({
   DB_FILENAME: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed('voel.sqlite'))),
 }) {}

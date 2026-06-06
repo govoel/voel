@@ -20,7 +20,7 @@ import { AccountRepository } from '#src/services/database/repos/accounts.ts';
 class BetterAuthOriginalError extends Schema.Class<
   BetterAuthOriginalError,
   { readonly brand: unique symbol }
->('BetterAuthOriginalError')({
+>('voel/services/accounts/index/BetterAuthOriginalError')({
   code: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
   status: Schema.Number,
