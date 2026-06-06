@@ -5,10 +5,10 @@ import { baseTables } from './migrations/000001-base-tables.ts';
 
 const runMigrations = Migrator.make({});
 
-export class ClientDatabaseMigrationError extends Schema.TaggedErrorClass<ClientDatabaseMigrationError>()(
-  'voel/services/database/index/ClientDatabaseMigrationError',
-  {}
-) {}
+export class ClientDatabaseMigrationError extends Schema.TaggedErrorClass<
+  ClientDatabaseMigrationError,
+  { readonly brand: unique symbol }
+>()('voel/services/database/index/ClientDatabaseMigrationError', {}) {}
 
 export const DatabaseMigrationsLive = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -37,79 +37,74 @@ export const DatabaseMigrationsLive = Layer.effectDiscard(
   )
 );
 
-export class ClientDatabaseDecodeError extends Schema.TaggedErrorClass<ClientDatabaseDecodeError>()(
-  'voel/services/database/ClientDatabaseDecodeError',
-  {
-    operation: Schema.String,
-    issue: Schema.String,
-    cause: Schema.Defect,
-  }
-) {}
+export class ClientDatabaseDecodeError extends Schema.TaggedErrorClass<
+  ClientDatabaseDecodeError,
+  { readonly brand: unique symbol }
+>()('voel/services/database/ClientDatabaseDecodeError', {
+  operation: Schema.String,
+  issue: Schema.String,
+  cause: Schema.Defect,
+}) {}
 
-export class ClientDatabaseNoSuchElementError extends Schema.TaggedErrorClass<ClientDatabaseNoSuchElementError>()(
-  'voel/services/database/ClientDatabaseNoSuchElementError',
-  {
-    operation: Schema.String,
-  }
-) {}
+export class ClientDatabaseNoSuchElementError extends Schema.TaggedErrorClass<
+  ClientDatabaseNoSuchElementError,
+  { readonly brand: unique symbol }
+>()('voel/services/database/ClientDatabaseNoSuchElementError', {
+  operation: Schema.String,
+}) {}
 
-export class ClientDatabaseSqlError extends Schema.TaggedErrorClass<ClientDatabaseSqlError>()(
-  'voel/services/database/ClientDatabaseSqlError',
-  {
-    operation: Schema.String,
-    issue: Schema.String,
-    cause: SqlError.SqlError,
-  }
-) {}
+export class ClientDatabaseSqlError extends Schema.TaggedErrorClass<
+  ClientDatabaseSqlError,
+  { readonly brand: unique symbol }
+>()('voel/services/database/ClientDatabaseSqlError', {
+  operation: Schema.String,
+  issue: Schema.String,
+  cause: SqlError.SqlError,
+}) {}
 
 export const ClientDatabaseErrorReason = Schema.Union(
   [ClientDatabaseDecodeError, ClientDatabaseSqlError],
   { mode: 'oneOf' }
 );
 
-export const ClientDatabaseErrorReasonWithNoSuchElement = Schema.Union(
+export const ClientDatabaseErrorReasonWithNSE = Schema.Union(
   [ClientDatabaseDecodeError, ClientDatabaseSqlError, ClientDatabaseNoSuchElementError],
   { mode: 'oneOf' }
 );
 
-export class ClientDatabaseError extends Schema.TaggedErrorClass<ClientDatabaseError>()(
-  'voel/services/database/ClientDatabaseError',
-  {
-    reason: ClientDatabaseErrorReason,
-  }
-) {}
+export class ClientDatabaseError extends Schema.TaggedErrorClass<
+  ClientDatabaseError,
+  { readonly brand: unique symbol }
+>()('voel/services/database/ClientDatabaseError', {
+  reason: ClientDatabaseErrorReason,
+}) {}
 
-export class ClientDatabaseErrorWithNoSuchElement extends Schema.TaggedErrorClass<ClientDatabaseErrorWithNoSuchElement>()(
-  'voel/services/database/ClientDatabaseError',
-  {
-    reason: ClientDatabaseErrorReasonWithNoSuchElement,
-  }
-) {}
+export class ClientDatabaseErrorWithNSE extends Schema.TaggedErrorClass<
+  ClientDatabaseErrorWithNSE,
+  { readonly brand: unique symbol }
+>()('voel/services/database/ClientDatabaseError', {
+  reason: ClientDatabaseErrorReasonWithNSE,
+}) {}
 
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
 
-type ClientDatabaseErrorWithReason<R> = Omit<ClientDatabaseError, 'reason'> & {
-  readonly reason: R;
-};
+type ClientDatabaseErrorFor<E> =
+  Extract<E, Cause.NoSuchElementError | ClientDatabaseErrorWithNSE> extends never
+    ? ClientDatabaseError
+    : ClientDatabaseErrorWithNSE;
 
-type ToDatabaseErrorReason<E> = E extends Schema.SchemaError
-  ? ClientDatabaseDecodeError
-  : E extends SqlError.SqlError
-    ? ClientDatabaseSqlError
-    : E extends Cause.NoSuchElementError
-      ? ClientDatabaseNoSuchElementError
-      : never;
-
-type ToDatabaseError<E> = E extends
+type ToDatabaseError<E, Original = E> = E extends
   | Schema.SchemaError
   | SqlError.SqlError
   | Cause.NoSuchElementError
-  ? ClientDatabaseErrorWithReason<ToDatabaseErrorReason<E>>
+  | ClientDatabaseError
+  | ClientDatabaseErrorWithNSE
+  ? ClientDatabaseErrorFor<Original>
   : E;
 
 type ToDatabaseErrorUnion<E> = [E] extends [never] ? never : ToDatabaseError<E>;
 
-type ToDatabaseErrorWide<E> = E | ClientDatabaseError | ClientDatabaseErrorWithNoSuchElement;
+type ToDatabaseErrorWide<E> = E | ClientDatabaseError | ClientDatabaseErrorWithNSE;
 
 const mapDatabaseError = <E>(operation: string, error: E): ToDatabaseErrorWide<E> => {
   if (Schema.isSchemaError(error)) {
@@ -133,7 +128,7 @@ const mapDatabaseError = <E>(operation: string, error: E): ToDatabaseErrorWide<E
   }
 
   if (Cause.isNoSuchElementError(error)) {
-    return new ClientDatabaseErrorWithNoSuchElement({
+    return new ClientDatabaseErrorWithNSE({
       reason: new ClientDatabaseNoSuchElementError({
         operation: `${operation}.nse`,
       }),
@@ -147,6 +142,6 @@ export function toDatabaseError(
   operation: string
 ): <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, ToDatabaseErrorUnion<E>, R>;
 export function toDatabaseError(operation: string) {
-  return <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, ToDatabaseErrorWide<E>, R> =>
+  return <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.mapError((error) => mapDatabaseError(operation, error)));
 }

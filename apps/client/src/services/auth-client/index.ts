@@ -3,10 +3,12 @@ import { Duration, Effect, Schema } from 'effect';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass<BetterAuthClientInitializationError>()(
-  'voel/services/auth-client/index/BetterAuthClientInitializationError',
-  { error: Schema.Unknown }
-) {}
+export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass<
+  BetterAuthClientInitializationError,
+  { readonly brand: unique symbol }
+>()('voel/services/auth-client/index/BetterAuthClientInitializationError', {
+  error: Schema.Unknown,
+}) {}
 
 export const createVoelAuthClient = ({
   serverUrl,

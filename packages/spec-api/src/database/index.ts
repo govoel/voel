@@ -1,30 +1,30 @@
 import { Cause, Effect, Schema, SchemaIssue } from 'effect';
 import { SqlError } from 'effect/unstable/sql';
 
-export class DatabaseDecodeError extends Schema.TaggedErrorClass<DatabaseDecodeError>()(
-  '@repo/spec-api/database/DatabaseDecodeError',
-  {
-    operation: Schema.String,
-    issue: Schema.String,
-    cause: Schema.Defect,
-  }
-) {}
+export class DatabaseDecodeError extends Schema.TaggedErrorClass<
+  DatabaseDecodeError,
+  { readonly brand: unique symbol }
+>()('@repo/spec-api/database/DatabaseDecodeError', {
+  operation: Schema.String,
+  issue: Schema.String,
+  cause: Schema.Defect,
+}) {}
 
-export class DatabaseNoSuchElementError extends Schema.TaggedErrorClass<DatabaseNoSuchElementError>()(
-  '@repo/spec-api/database/DatabaseNoSuchElementError',
-  {
-    operation: Schema.String,
-  }
-) {}
+export class DatabaseNoSuchElementError extends Schema.TaggedErrorClass<
+  DatabaseNoSuchElementError,
+  { readonly brand: unique symbol }
+>()('@repo/spec-api/database/DatabaseNoSuchElementError', {
+  operation: Schema.String,
+}) {}
 
-export class DatabaseSqlError extends Schema.TaggedErrorClass<DatabaseSqlError>()(
-  '@repo/spec-api/database/DatabaseSqlError',
-  {
-    operation: Schema.String,
-    issue: Schema.String,
-    cause: SqlError.SqlError,
-  }
-) {}
+export class DatabaseSqlError extends Schema.TaggedErrorClass<
+  DatabaseSqlError,
+  { readonly brand: unique symbol }
+>()('@repo/spec-api/database/DatabaseSqlError', {
+  operation: Schema.String,
+  issue: Schema.String,
+  cause: SqlError.SqlError,
+}) {}
 
 export const DatabaseErrorReason = Schema.Union([DatabaseDecodeError, DatabaseSqlError], {
   mode: 'oneOf',
@@ -35,33 +35,30 @@ export const DatabaseErrorReasonWithNSE = Schema.Union(
   { mode: 'oneOf' }
 );
 
-export class DatabaseError extends Schema.TaggedErrorClass<DatabaseError>()(
-  '@repo/spec-api/database/DatabaseError',
-  { reason: DatabaseErrorReason }
-) {}
+export class DatabaseError extends Schema.TaggedErrorClass<
+  DatabaseError,
+  { readonly brand: unique symbol }
+>()('@repo/spec-api/database/DatabaseError', { reason: DatabaseErrorReason }) {}
 
-export class DatabaseErrorWithNSE extends Schema.TaggedErrorClass<DatabaseErrorWithNSE>()(
-  '@repo/spec-api/database/DatabaseError',
-  { reason: DatabaseErrorReasonWithNSE }
-) {}
+export class DatabaseErrorWithNSE extends Schema.TaggedErrorClass<
+  DatabaseErrorWithNSE,
+  { readonly brand: unique symbol }
+>()('@repo/spec-api/database/DatabaseError', { reason: DatabaseErrorReasonWithNSE }) {}
 
 const defaultFormatter = SchemaIssue.makeFormatterDefault();
 
-type DatabaseErrorWithReason<R> = Omit<DatabaseError, 'reason'> & { readonly reason: R };
+type DatabaseErrorFor<E> =
+  Extract<E, Cause.NoSuchElementError | DatabaseErrorWithNSE> extends never
+    ? DatabaseError
+    : DatabaseErrorWithNSE;
 
-type ToDatabaseErrorReason<E> = E extends Schema.SchemaError
-  ? DatabaseDecodeError
-  : E extends SqlError.SqlError
-    ? DatabaseSqlError
-    : E extends Cause.NoSuchElementError
-      ? DatabaseNoSuchElementError
-      : never;
-
-type ToDatabaseError<E> = E extends
+type ToDatabaseError<E, Original = E> = E extends
   | Schema.SchemaError
   | SqlError.SqlError
   | Cause.NoSuchElementError
-  ? DatabaseErrorWithReason<ToDatabaseErrorReason<E>>
+  | DatabaseError
+  | DatabaseErrorWithNSE
+  ? DatabaseErrorFor<Original>
   : E;
 
 type ToDatabaseErrorUnion<E> = [E] extends [never] ? never : ToDatabaseError<E>;
@@ -104,6 +101,6 @@ export function toDatabaseError(
   operation: string
 ): <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, ToDatabaseErrorUnion<E>, R>;
 export function toDatabaseError(operation: string) {
-  return <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, ToDatabaseErrorWide<E>, R> =>
+  return <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.mapError((error) => mapDatabaseError(operation, error)));
 }

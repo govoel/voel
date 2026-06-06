@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 
 import { DatabaseError, DatabaseErrorWithNSE } from '#src/database/index.ts';
-import { LibraryTable, MediaTypes } from '#src/database/library.ts';
+import { LibraryTable } from '#src/database/library.ts';
 import { makeCursorPaginated } from '#src/groups/utils.ts';
 import { AdminMiddleware } from '#src/middlewares/auth.ts';
 
@@ -22,9 +22,9 @@ export const library = [
   Rpc.make('libraryUpsert', {
     payload: Schema.Struct({
       id: Schema.Option(LibraryTable.fields.id),
-      type: MediaTypes,
-      name: Schema.String,
-      absolutePaths: Schema.Array(Schema.String),
+      type: LibraryTable.fields.type.schema,
+      name: LibraryTable.fields.name.schema,
+      absolutePaths: Schema.toEncoded(LibraryTable.fields.absolutePaths),
     }),
     success: Schema.Struct({ id: LibraryTable.fields.id }),
     error: Schema.Union([DatabaseErrorWithNSE, Schema.instanceOf(Schema.SchemaError)], {

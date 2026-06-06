@@ -24,10 +24,10 @@ export type EffectSchemaForRuntime<
   TEncodingServices,
 > = Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>;
 
-export class FormSubmitError extends Schema.TaggedErrorClass<FormSubmitError>()(
-  'voel/components/form/hooks/FormSubmitError',
-  { message: Schema.String }
-) {}
+export class FormSubmitError extends Schema.TaggedErrorClass<
+  FormSubmitError,
+  { readonly brand: unique symbol }
+>()('voel/components/form/hooks/FormSubmitError', { message: Schema.String }) {}
 
 const isFormSubmitError = Schema.is(FormSubmitError);
 

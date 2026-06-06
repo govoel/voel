@@ -1,5 +1,13 @@
-import { Button, LoadingIndicator, Row, useMaterialColors } from '@expo/ui/jetpack-compose';
-import { padding } from '@expo/ui/jetpack-compose/modifiers';
+import {
+  AnimatedVisibility,
+  Button,
+  EnterTransition,
+  ExitTransition,
+  LoadingIndicator,
+  Row,
+  useMaterialColors,
+} from '@expo/ui/jetpack-compose';
+import { padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { useStore } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
 
@@ -60,8 +68,14 @@ export const SubmitButton = (({
           horizontalAlignment="center"
           verticalAlignment="center"
           horizontalArrangement={{ spacedBy: Spacing.one }}
-          {...('android' in containerModifiers ? { modifiers: containerModifiers.android } : {})}>
-          {isSubmitting ? <LoadingIndicator /> : null}
+          modifiers={[...('android' in containerModifiers ? containerModifiers.android : [])]}>
+          <AnimatedVisibility
+            visible={isSubmitting}
+            enterTransition={EnterTransition.fadeIn().plus(EnterTransition.expandHorizontally())}
+            exitTransition={ExitTransition.fadeOut().plus(ExitTransition.shrinkHorizontally())}>
+            <LoadingIndicator modifiers={[size(Spacing.four, Spacing.four)]} />
+          </AnimatedVisibility>
+
           {children}
         </Row>
       </Button>

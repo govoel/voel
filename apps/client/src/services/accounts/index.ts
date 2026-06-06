@@ -9,104 +9,48 @@ import {
   Scope,
   SubscriptionRef,
 } from 'effect';
-import { SqlClient, SqlSchema } from 'effect/unstable/sql';
+import { SqlClient } from 'effect/unstable/sql';
 
 import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { toDatabaseError } from '#src/services/database/index.ts';
+import type { AccountTable } from '#src/services/database/repos/accounts.ts';
+import { AccountRepository } from '#src/services/database/repos/accounts.ts';
 
-const AccountTable = Schema.Struct({
-  serverUrl: Schema.URLFromString.pipe(Schema.brand('AccountServerUrl')),
-  username: Schema.NonEmptyString.pipe(Schema.brand('AccountUsername')),
-  active: Schema.BooleanFromBit.pipe(Schema.brand('AccountActive')),
-});
-export type AccountTable = typeof AccountTable.Type;
+class BetterAuthOriginalError extends Schema.Class<
+  BetterAuthOriginalError,
+  { readonly brand: unique symbol }
+>('BetterAuthOriginalError')({
+  code: Schema.optional(Schema.String),
+  message: Schema.optional(Schema.String),
+  status: Schema.Number,
+  statusText: Schema.String,
+}) {}
 
-class AccountRepository extends Context.Service<AccountRepository>()(
-  'voel/services/accounts/index/AccountRepository',
-  {
-    make: Effect.gen(function* () {
-      const sql = yield* SqlClient.SqlClient;
+export class AccountSignInError extends Schema.TaggedErrorClass<
+  AccountSignInError,
+  { readonly brand: unique symbol }
+>()('voel/services/accounts/index/AccountSignInError', { original: BetterAuthOriginalError }) {}
 
-      const get = SqlSchema.findOne({
-        Request: Schema.Struct({
-          serverUrl: AccountTable.fields.serverUrl,
-          username: AccountTable.fields.username,
-        }),
-        Result: AccountTable,
-        execute: ({ serverUrl, username }) => sql`
-          select serverUrl, username, active
-          from account
-          where serverUrl = ${serverUrl} and username = ${username}`,
+export class AccountSignUpError extends Schema.TaggedErrorClass<
+  AccountSignUpError,
+  { readonly brand: unique symbol }
+>()('voel/services/accounts/index/AccountSignUpError', { original: BetterAuthOriginalError }) {}
+
+const originalAuthErrorFromUnknown = (error: unknown) =>
+  error instanceof Error
+    ? new BetterAuthOriginalError({
+        message: error.message,
+        status: 0,
+        statusText: 'UNKNOWN',
+        code: 'UNKNOWN',
+      })
+    : new BetterAuthOriginalError({
+        message: 'An unknown error occurred.',
+        status: 0,
+        statusText: 'UNKNOWN',
+        code: 'UNKNOWN',
       });
-
-      const list = SqlSchema.findAll({
-        Request: Schema.Void,
-        Result: AccountTable,
-        execute: () =>
-          sql`select serverUrl, username, active from account order by serverUrl, username`,
-      });
-
-      const upsert = SqlSchema.findOne({
-        Request: Schema.Struct({
-          serverUrl: AccountTable.fields.serverUrl.schema,
-          username: AccountTable.fields.username.schema,
-          active: Schema.Option(AccountTable.fields.active.schema),
-        }),
-        Result: AccountTable,
-        execute: (row) => sql`
-          insert into account ${sql.insert({ ...row, active: Option.getOrElse(row.active, () => 0) })}
-          on conflict (serverUrl, username) do update set active = excluded.active
-          returning serverUrl, username, active`,
-      });
-
-      const clearActive = SqlSchema.void({
-        Request: Schema.Void,
-        execute: () => sql`update account set active = 0 where active = 1`,
-      });
-
-      const remove = SqlSchema.void({
-        Request: Schema.Struct({
-          serverUrl: AccountTable.fields.serverUrl,
-          username: AccountTable.fields.username,
-        }),
-        execute: ({ serverUrl, username }) =>
-          sql`delete from account where serverUrl = ${serverUrl} and username = ${username}`,
-      });
-
-      return {
-        get: (request: Parameters<typeof get>['0']) =>
-          get(request).pipe(toDatabaseError('AccountRepository.get')),
-
-        list: (request: Parameters<typeof list>['0']) =>
-          list(request).pipe(toDatabaseError('AccountRepository.list')),
-
-        upsert: (request: Parameters<typeof upsert>['0']) =>
-          upsert(request).pipe(toDatabaseError('AccountRepository.upsert')),
-
-        clearActive: (request: Parameters<typeof clearActive>['0']) =>
-          clearActive(request).pipe(toDatabaseError('AccountRepository.clearActive')),
-
-        remove: (request: Parameters<typeof remove>['0']) =>
-          remove(request).pipe(toDatabaseError('AccountRepository.remove')),
-      };
-    }),
-  }
-) {
-  public static readonly layer = Layer.effect(this, this.make);
-}
-
-export class AccountSignInError extends Schema.TaggedErrorClass<AccountSignInError>()(
-  'voel/services/accounts/index/AccountSignInError',
-  {
-    original: Schema.Struct({
-      code: Schema.optional(Schema.String),
-      message: Schema.optional(Schema.String),
-      status: Schema.Number,
-      statusText: Schema.String,
-    }),
-  }
-) {}
 
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/index/AccountManager',
@@ -184,9 +128,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const setActiveAccount = ({
         serverUrl,
         username,
-      }: {
-        serverUrl: AccountTable['serverUrl'];
-        username: AccountTable['username'];
+        authClient,
+      }: Pick<Parameters<typeof accountsRepo.upsert>['0'], 'serverUrl' | 'username'> & {
+        authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
       }) =>
         SubscriptionRef.modifySomeEffect(
           stateRef,
@@ -215,7 +159,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                 void 0,
                 yield* initializeActiveAccountState({
                   activeAccount: Option.some(account),
-                  existingAuthClient: Option.none(),
+                  existingAuthClient: Option.some(authClient),
                   accounts: yield* accountsRepo.list(),
                 }).pipe(Effect.map(Option.some)),
               ] as const;
@@ -228,10 +172,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const removeAccount = ({
         serverUrl,
         username,
-      }: {
-        serverUrl: AccountTable['serverUrl'];
-        username: AccountTable['username'];
-      }) =>
+      }: Parameters<typeof accountsRepo.remove>['0']) =>
         SubscriptionRef.modifyEffect(
           stateRef,
           Effect.fnUntraced(
@@ -267,9 +208,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         serverUrl,
         username,
         password,
-      }: {
-        serverUrl: typeof AccountTable.fields.serverUrl.schema.Type;
-        username: typeof AccountTable.fields.username.schema.Type;
+      }: Pick<Parameters<typeof setActiveAccount>['0'], 'serverUrl' | 'username'> & {
         password: Redacted.Redacted;
       }) {
         const authClient = yield* createVoelAuthClient({
@@ -282,67 +221,66 @@ export class AccountManager extends Context.Service<AccountManager>()(
           try: async () =>
             authClient.signIn.username({ username, password: Redacted.value(password) }),
           catch: (error) =>
-            new AccountSignInError(
-              error instanceof Error
-                ? {
-                    original: {
-                      message: error.message,
-                      status: 0,
-                      statusText: 'UNKNOWN',
-                      code: 'UNKNOWN',
-                    },
-                  }
-                : {
-                    original: {
-                      message: 'An unknown error occurred.',
-                      status: 0,
-                      statusText: 'UNKNOWN',
-                      code: 'UNKNOWN',
-                    },
-                  }
-            ),
+            new AccountSignInError({ original: originalAuthErrorFromUnknown(error) }),
         });
 
         if (signInResult.error !== null) {
-          return yield* new AccountSignInError({ original: signInResult.error });
+          return yield* new AccountSignInError({
+            original: new BetterAuthOriginalError(signInResult.error),
+          });
         }
 
-        return yield* SubscriptionRef.modifySomeEffect(
-          stateRef,
-          Effect.fnUntraced(
-            function* (state) {
-              if (
-                Option.isSome(state.activeAccount) &&
-                state.activeAccount.value.account.serverUrl === serverUrl &&
-                state.activeAccount.value.account.username === username
-              ) {
-                return [void 0, Option.none()] as const;
-              }
+        return yield* setActiveAccount({
+          serverUrl,
+          username,
+          authClient,
+        }).pipe(toDatabaseError('AccountManager.upsertAccount'));
+      });
 
-              yield* accountsRepo.clearActive();
-              const account = yield* accountsRepo.upsert({
-                serverUrl,
-                username,
-                active: Option.some(true),
-              });
+      const setupServerAccount = Effect.fnUntraced(function* ({
+        serverUrl,
+        name,
+        email,
+        username,
+        password,
+      }: Pick<Parameters<typeof setActiveAccount>['0'], 'serverUrl' | 'username'> &
+        Pick<
+          Parameters<
+            Effect.Success<ReturnType<typeof createVoelAuthClient>>['signUp']['email']
+          >['0'],
+          'name' | 'email'
+        > & {
+          password: Redacted.Redacted;
+        }) {
+        const authClient = yield* createVoelAuthClient({
+          serverUrl: serverUrl.toString(),
+          username,
+          storage: authClientStorage,
+        });
 
-              if (Option.isSome(state.activeAccount)) {
-                yield* Scope.close(state.activeAccount.value.state.scope, Exit.void);
-              }
+        const signUpResult = yield* Effect.tryPromise({
+          try: async () =>
+            authClient.signUp.email({
+              name,
+              email,
+              username,
+              password: Redacted.value(password),
+            }),
+          catch: (error) =>
+            new AccountSignUpError({ original: originalAuthErrorFromUnknown(error) }),
+        });
 
-              return [
-                void 0,
-                yield* initializeActiveAccountState({
-                  activeAccount: Option.some(account),
-                  existingAuthClient: Option.some(authClient),
-                  accounts: yield* accountsRepo.list(),
-                }).pipe(Effect.map(Option.some)),
-              ] as const;
-            },
-            (effect) =>
-              effect.pipe(sql.withTransaction, toDatabaseError('AccountManager.upsertAccount'))
-          )
-        );
+        if (signUpResult.error !== null) {
+          return yield* new AccountSignUpError({
+            original: new BetterAuthOriginalError(signUpResult.error),
+          });
+        }
+
+        return yield* setActiveAccount({
+          serverUrl,
+          username,
+          authClient,
+        }).pipe(toDatabaseError('AccountManager.setupServerAccount'));
       });
 
       return {
@@ -351,6 +289,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         setActiveAccount,
         removeAccount,
         upsertAccount,
+        setupServerAccount,
       };
     }),
   }

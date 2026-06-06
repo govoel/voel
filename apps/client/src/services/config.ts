@@ -1,13 +1,15 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Schema } from 'effect';
 
-const AppConfigSchema = Schema.Struct({
+class AppConfigSchema extends Schema.Class<AppConfigSchema, { readonly brand: unique symbol }>(
+  'AppConfigSchema'
+)({
   DB_FILENAME: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed('voel.sqlite'))),
-});
+}) {}
 
-export class AppConfigError extends Schema.TaggedErrorClass<AppConfigError>()(
-  'voel/services/config/AppConfigError',
-  {}
-) {}
+export class AppConfigError extends Schema.TaggedErrorClass<
+  AppConfigError,
+  { readonly brand: unique symbol }
+>()('voel/services/config/AppConfigError', {}) {}
 
 export class AppConfig extends Context.Service<AppConfig>()('voel/services/config/AppConfig', {
   make: Effect.gen(function* () {
