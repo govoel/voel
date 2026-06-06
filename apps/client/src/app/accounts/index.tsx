@@ -34,8 +34,6 @@ export class SetupServerAccountSchema extends Schema.Class<
   ),
 }) {}
 
-export type AccountFlow = 'add' | 'setup';
-
 export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void }) => {
   const form = useAppForm({
     runtime: Runtime,

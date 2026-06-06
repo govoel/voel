@@ -22,7 +22,6 @@ import { useState } from 'react';
 
 import { SegmentedList, SegmentedListItem } from '#modules/design-system';
 import { useAddAccountForm, useSetupServerForm } from '#src/app/accounts/index.tsx';
-import type { AccountFlow } from '#src/app/accounts/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom, accountsSheetAtom } from '#src/services/accounts/atoms.ts';
@@ -206,81 +205,116 @@ const SetupServerForm = ({ onClose }: { readonly onClose: () => void }) => {
   );
 };
 
-const SwitchAccountContent = ({
-  onAddAccount,
-  onSetupServer,
-}: {
-  readonly onAddAccount: () => void;
-  readonly onSetupServer: () => void;
-}) => {
+const SwitchAccountContent = () => {
+  const [isAddAccountPresented, setIsAddAccountPresented] = useState(false);
+  const [isSetupServerPresented, setIsSetupServerPresented] = useState(false);
   const accounts = useAtomValue(accountsAtom);
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
-    <Column modifiers={[paddingAll(Spacing.three)]} verticalArrangement={{ spacedBy: Spacing.two }}>
-      <Text variant="h3">Switch Account</Text>
+    <>
+      <Column
+        modifiers={[paddingAll(Spacing.three)]}
+        verticalArrangement={{ spacedBy: Spacing.two }}>
+        <Text variant="h3">Switch Account</Text>
 
-      {AsyncResult.matchWithError(accounts, {
-        onInitial: () => (
-          <Row horizontalAlignment="center">
-            <LoadingIndicator modifiers={[fillMaxWidth()]} />
-          </Row>
-        ),
-        onSuccess: (result) => (
-          <SegmentedList>
-            {result.value.accounts.length === 0 ? (
-              <SegmentedListItem index={0} count={1} enabled={false}>
-                <SegmentedListItem.HeadlineContent>
-                  <Text color={colors.onSurfaceVariant}>No accounts</Text>
-                </SegmentedListItem.HeadlineContent>
-              </SegmentedListItem>
-            ) : (
-              result.value.accounts.map((account, index) => (
-                <SegmentedListItem
-                  key={`${account.serverUrl.toString()}-${account.username}`}
-                  index={index}
-                  count={result.value.accounts.length}>
-                  <SegmentedListItem.LeadingContent>
-                    <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
-                  </SegmentedListItem.LeadingContent>
+        {AsyncResult.matchWithError(accounts, {
+          onInitial: () => (
+            <Row horizontalAlignment="center">
+              <LoadingIndicator modifiers={[fillMaxWidth()]} />
+            </Row>
+          ),
+          onSuccess: (result) => (
+            <SegmentedList>
+              {result.value.accounts.length === 0 ? (
+                <SegmentedListItem index={0} count={1} enabled={false}>
                   <SegmentedListItem.HeadlineContent>
-                    <Text>@{account.username}</Text>
+                    <Text color={colors.onSurfaceVariant}>No accounts</Text>
                   </SegmentedListItem.HeadlineContent>
-                  <SegmentedListItem.SupportingContent>
-                    <Text variant="caption" color={colors.onSurfaceVariant}>
-                      {account.serverUrl.toString()}
-                    </Text>
-                  </SegmentedListItem.SupportingContent>
-                  <SegmentedListItem.TrailingContent>
-                    <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
-                  </SegmentedListItem.TrailingContent>
                 </SegmentedListItem>
-              ))
-            )}
-          </SegmentedList>
-        ),
-        onError: () => <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>,
-        onDefect: () => <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>,
-      })}
+              ) : (
+                result.value.accounts.map((account, index) => (
+                  <SegmentedListItem
+                    key={`${account.serverUrl.toString()}-${account.username}`}
+                    index={index}
+                    count={result.value.accounts.length}>
+                    <SegmentedListItem.LeadingContent>
+                      <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
+                    </SegmentedListItem.LeadingContent>
+                    <SegmentedListItem.HeadlineContent>
+                      <Text>@{account.username}</Text>
+                    </SegmentedListItem.HeadlineContent>
+                    <SegmentedListItem.SupportingContent>
+                      <Text variant="caption" color={colors.onSurfaceVariant}>
+                        {account.serverUrl.toString()}
+                      </Text>
+                    </SegmentedListItem.SupportingContent>
+                    <SegmentedListItem.TrailingContent>
+                      <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                    </SegmentedListItem.TrailingContent>
+                  </SegmentedListItem>
+                ))
+              )}
+            </SegmentedList>
+          ),
+          onError: () => <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>,
+          onDefect: () => <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>,
+        })}
 
-      <FilledTonalButton onClick={onAddAccount} modifiers={[fillMaxWidth()]}>
-        <Icon source={PersonAddIcon} size={18} tint={colors.onSurfaceVariant} />
-        <Spacer modifiers={[width(Spacing.two)]} />
-        <Text>Add account</Text>
-      </FilledTonalButton>
+        <FilledTonalButton
+          onClick={() => {
+            setIsAddAccountPresented(true);
+          }}
+          modifiers={[fillMaxWidth()]}>
+          <Icon source={PersonAddIcon} size={18} tint={colors.onSurfaceVariant} />
+          <Spacer modifiers={[width(Spacing.two)]} />
+          <Text>Add account</Text>
+        </FilledTonalButton>
 
-      <FilledTonalButton onClick={onSetupServer} modifiers={[fillMaxWidth()]}>
-        <Icon source={HostIcon} size={18} tint={colors.onSurfaceVariant} />
-        <Spacer modifiers={[width(Spacing.two)]} />
-        <Text>Setup new server</Text>
-      </FilledTonalButton>
-    </Column>
+        <FilledTonalButton
+          onClick={() => {
+            setIsSetupServerPresented(true);
+          }}
+          modifiers={[fillMaxWidth()]}>
+          <Icon source={HostIcon} size={18} tint={colors.onSurfaceVariant} />
+          <Spacer modifiers={[width(Spacing.two)]} />
+          <Text>Setup new server</Text>
+        </FilledTonalButton>
+      </Column>
+
+      {isAddAccountPresented ? (
+        <ModalBottomSheet
+          skipPartiallyExpanded
+          onDismissRequest={() => {
+            setIsAddAccountPresented(false);
+          }}>
+          <AddAccountForm
+            onClose={() => {
+              setIsAddAccountPresented(false);
+            }}
+          />
+        </ModalBottomSheet>
+      ) : null}
+
+      {isSetupServerPresented ? (
+        <ModalBottomSheet
+          skipPartiallyExpanded
+          onDismissRequest={() => {
+            setIsSetupServerPresented(false);
+          }}>
+          <SetupServerForm
+            onClose={() => {
+              setIsSetupServerPresented(false);
+            }}
+          />
+        </ModalBottomSheet>
+      ) : null}
+    </>
   );
 };
 
 export default function AccountsIndex() {
   const [isPresented, setIsPresented] = useState(true);
-  const [accountFlow, setAccountFlow] = useState<AccountFlow | null>(null);
   const dismissable = useAtomValue(
     accountsSheetAtom,
     (state) => AsyncResult.isSuccess(state) && state.value.dismissable
@@ -293,6 +327,7 @@ export default function AccountsIndex() {
       <Host style={{ flex: 1 }} seedColor="#00AAFF">
         {isPresented ? (
           <ModalBottomSheet
+            skipPartiallyExpanded
             onDismissRequest={() => {
               setIsPresented(false);
             }}
@@ -302,37 +337,9 @@ export default function AccountsIndex() {
               shouldDismissOnBackPress: dismissable,
               shouldDismissOnClickOutside: dismissable,
             }}>
-            <SwitchAccountContent
-              onAddAccount={() => {
-                setAccountFlow('add');
-              }}
-              onSetupServer={() => {
-                setAccountFlow('setup');
-              }}
-            />
+            <SwitchAccountContent />
           </ModalBottomSheet>
         ) : null}
-
-        {accountFlow === null ? null : (
-          <ModalBottomSheet
-            onDismissRequest={() => {
-              setAccountFlow(null);
-            }}>
-            {accountFlow === 'setup' ? (
-              <SetupServerForm
-                onClose={() => {
-                  setAccountFlow(null);
-                }}
-              />
-            ) : (
-              <AddAccountForm
-                onClose={() => {
-                  setAccountFlow(null);
-                }}
-              />
-            )}
-          </ModalBottomSheet>
-        )}
       </Host>
     </>
   );

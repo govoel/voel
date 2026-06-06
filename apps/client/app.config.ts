@@ -53,9 +53,9 @@ export default function app({ config }: ConfigContext): ExpoConfig {
     ios: {
       supportsTablet: false,
       bundleIdentifier: Match.value(env.releaseChannel).pipe(
-        Match.when('prod', () => 'app.voel.ios'),
-        Match.when('preview', () => 'app.voel.ios.preview'),
-        Match.when('dev', () => 'app.voel.ios.dev'),
+        Match.when('prod', () => 'app.voel.rn'),
+        Match.when('preview', () => 'app.voel.rn.preview'),
+        Match.when('dev', () => 'app.voel.rn.dev'),
         Match.exhaustive
       ),
       icon: './assets/icons/ios-icon.icon',
@@ -65,9 +65,9 @@ export default function app({ config }: ConfigContext): ExpoConfig {
     },
     android: {
       package: Match.value(env.releaseChannel).pipe(
-        Match.when('prod', () => 'app.voel.android'),
-        Match.when('preview', () => 'app.voel.android.preview'),
-        Match.when('dev', () => 'app.voel.android.dev'),
+        Match.when('prod', () => 'app.voel.rn'),
+        Match.when('preview', () => 'app.voel.rn.preview'),
+        Match.when('dev', () => 'app.voel.rn.dev'),
         Match.exhaustive
       ),
       adaptiveIcon: {

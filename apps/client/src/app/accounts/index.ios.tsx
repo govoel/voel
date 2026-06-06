@@ -33,7 +33,6 @@ import { useState } from 'react';
 
 import { Icon, iosTextStyle } from '#modules/design-system';
 import { useAddAccountForm, useSetupServerForm } from '#src/app/accounts/index.tsx';
-import type { AccountFlow } from '#src/app/accounts/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom, accountsSheetAtom } from '#src/services/accounts/atoms.ts';
@@ -224,85 +223,112 @@ const SetupServerForm = ({ onClose }: { readonly onClose: () => void }) => {
   );
 };
 
-const SwitchAccountContent = ({
-  onAddAccount,
-  onSetupServer,
-}: {
-  readonly onAddAccount: () => void;
-  readonly onSetupServer: () => void;
-}) => {
+const SwitchAccountContent = () => {
+  const [isAddAccountPresented, setIsAddAccountPresented] = useState(false);
+  const [isSetupServerPresented, setIsSetupServerPresented] = useState(false);
   const accounts = useAtomValue(accountsAtom);
 
   return (
-    <List modifiers={[headerProminence('increased'), padding({ vertical: Spacing.three })]}>
-      <Section title="Switch Account">
-        {AsyncResult.matchWithError(accounts, {
-          onInitial: () => (
-            <ProgressView
-              modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
-            />
-          ),
-          onSuccess: (result) =>
-            result.value.accounts.length === 0 ? (
-              <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-                No accounts
-              </Text>
-            ) : (
-              result.value.accounts.map((account) => (
-                <Button
-                  modifiers={[tint('primary')]}
-                  key={`${account.serverUrl.toString()}-${account.username}`}>
-                  <HStack alignment="center" spacing={Spacing.two}>
-                    <Icon
-                      systemName="person.crop.circle.fill"
-                      modifiers={[
-                        iosTextStyle('largeTitle'),
-                        foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                      ]}
-                    />
-
-                    <VStack alignment="leading" spacing={Spacing.one}>
-                      <Text>@{account.username}</Text>
-                      <Text
-                        variant="caption"
-                        modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-                        {account.serverUrl.toString()}
-                      </Text>
-                    </VStack>
-
-                    <Spacer />
-
-                    <Icon
-                      systemName="chevron.right"
-                      modifiers={[
-                        font({ textStyle: 'footnote', weight: 'semibold' }),
-                        foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                      ]}
-                    />
-                  </HStack>
-                </Button>
-              ))
+    <Group>
+      <List modifiers={[headerProminence('increased'), padding({ vertical: Spacing.three })]}>
+        <Section title="Switch Account">
+          {AsyncResult.matchWithError(accounts, {
+            onInitial: () => (
+              <ProgressView
+                modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+              />
             ),
-          onError: () => <Text>Error</Text>,
-          onDefect: () => <Text>Defect</Text>,
-        })}
-      </Section>
+            onSuccess: (result) =>
+              result.value.accounts.length === 0 ? (
+                <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+                  No accounts
+                </Text>
+              ) : (
+                result.value.accounts.map((account) => (
+                  <Button
+                    modifiers={[tint('primary')]}
+                    key={`${account.serverUrl.toString()}-${account.username}`}>
+                    <HStack alignment="center" spacing={Spacing.two}>
+                      <Icon
+                        systemName="person.crop.circle.fill"
+                        modifiers={[
+                          iosTextStyle('largeTitle'),
+                          foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                        ]}
+                      />
 
-      <Section>
-        <Button
-          label="Add account"
-          systemImage="person.crop.circle.badge.plus"
-          onPress={onAddAccount}
+                      <VStack alignment="leading" spacing={Spacing.one}>
+                        <Text>@{account.username}</Text>
+                        <Text
+                          variant="caption"
+                          modifiers={[
+                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                          ]}>
+                          {account.serverUrl.toString()}
+                        </Text>
+                      </VStack>
+
+                      <Spacer />
+
+                      <Icon
+                        systemName="chevron.right"
+                        modifiers={[
+                          font({ textStyle: 'footnote', weight: 'semibold' }),
+                          foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                        ]}
+                      />
+                    </HStack>
+                  </Button>
+                ))
+              ),
+            onError: () => <Text>Error</Text>,
+            onDefect: () => <Text>Defect</Text>,
+          })}
+        </Section>
+
+        <Section>
+          <Button
+            label="Add account"
+            systemImage="person.crop.circle.badge.plus"
+            onPress={() => {
+              setIsAddAccountPresented(true);
+            }}
+          />
+          <Button
+            label="Setup new server"
+            systemImage="server.rack"
+            onPress={() => {
+              setIsSetupServerPresented(true);
+            }}
+          />
+        </Section>
+      </List>
+
+      <BottomSheet
+        isPresented={isAddAccountPresented}
+        onIsPresentedChange={setIsAddAccountPresented}>
+        <AddAccountForm
+          onClose={() => {
+            setIsAddAccountPresented(false);
+          }}
         />
-        <Button label="Setup new server" systemImage="server.rack" onPress={onSetupServer} />
-      </Section>
-    </List>
+      </BottomSheet>
+
+      <BottomSheet
+        isPresented={isSetupServerPresented}
+        onIsPresentedChange={setIsSetupServerPresented}>
+        <SetupServerForm
+          onClose={() => {
+            setIsSetupServerPresented(false);
+          }}
+        />
+      </BottomSheet>
+    </Group>
   );
 };
 
 export default function AccountsIndex() {
   const [isPresented, setIsPresented] = useState(true);
-  const [accountFlow, setAccountFlow] = useState<AccountFlow | null>(null);
   const dismissable = useAtomValue(
     accountsSheetAtom,
     (state) => AsyncResult.isSuccess(state) && state.value.dismissable
@@ -315,38 +341,7 @@ export default function AccountsIndex() {
       <Host style={{ flex: 1 }}>
         <BottomSheet isPresented={isPresented} onIsPresentedChange={setIsPresented}>
           <Group modifiers={[interactiveDismissDisabled(dismissable)]}>
-            <SwitchAccountContent
-              onAddAccount={() => {
-                setAccountFlow('add');
-              }}
-              onSetupServer={() => {
-                setAccountFlow('setup');
-              }}
-            />
-
-            {accountFlow === null ? null : (
-              <BottomSheet
-                isPresented
-                onIsPresentedChange={(presented) => {
-                  if (!presented) {
-                    setAccountFlow(null);
-                  }
-                }}>
-                {accountFlow === 'setup' ? (
-                  <SetupServerForm
-                    onClose={() => {
-                      setAccountFlow(null);
-                    }}
-                  />
-                ) : (
-                  <AddAccountForm
-                    onClose={() => {
-                      setAccountFlow(null);
-                    }}
-                  />
-                )}
-              </BottomSheet>
-            )}
+            <SwitchAccountContent />
           </Group>
         </BottomSheet>
       </Host>
