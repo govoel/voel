@@ -8,7 +8,7 @@ import type {
 } from '@tanstack/react-form';
 import type { ManagedRuntime } from 'effect';
 import { Cause, Effect, Exit, Option, Schema, SchemaIssue } from 'effect';
-import { createContext, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -31,16 +31,48 @@ export class FormSubmitError extends Schema.TaggedErrorClass<
 
 const isFormSubmitError = Schema.is(FormSubmitError);
 
-const formSubmitErrorContext = createContext<Option.Option<string> | undefined>(void 0);
+type FormSubmitErrorStore = {
+  readonly getSnapshot: () => Option.Option<string>;
+  readonly set: (submitError: Option.Option<string>) => void;
+  readonly subscribe: (listener: () => void) => () => void;
+};
+
+const makeFormSubmitErrorStore = (): FormSubmitErrorStore => {
+  let submitError = Option.none<string>();
+  const listeners = new Set<() => void>();
+
+  return {
+    getSnapshot: () => submitError,
+    set: (nextSubmitError) => {
+      submitError = nextSubmitError;
+      listeners.forEach((listener) => {
+        listener();
+      });
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+};
+
+const formSubmitErrorContext = createContext<FormSubmitErrorStore | undefined>(void 0);
 
 export const useFormSubmitError = () => {
-  const submitError = useContext(formSubmitErrorContext);
+  const submitErrorStore = useContext(formSubmitErrorContext);
 
-  if (submitError === void 0) {
+  if (submitErrorStore === void 0) {
     throw new Error('`useFormSubmitError` only works within `<form.AppForm />`');
   }
 
-  return submitError;
+  return useSyncExternalStore(
+    submitErrorStore.subscribe,
+    submitErrorStore.getSnapshot,
+    submitErrorStore.getSnapshot
+  );
 };
 
 const formatStandardSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
@@ -200,12 +232,14 @@ export const createEffectSchemaFormHook = <
     readonly runtime: ManagedRuntime.ManagedRuntime<R, E>;
   }) => {
     const parsedRef = useRef<Option.Option<TType>>(Option.none());
+    const submitErrorStoreRef = useRef<FormSubmitErrorStore>(void 0);
+
+    submitErrorStoreRef.current ??= makeFormSubmitErrorStore();
+
+    const submitErrorStore = submitErrorStoreRef.current;
     // TanStack passes AbortSignals to async validators, but not to onSubmit. Keep a local
     // generation counter so a reset or newer submit can make older submit results stale.
     const submitAttemptRef = useRef(0);
-    const [submitError, setSubmitError] = useState<Option.Option<string>>(Option.none());
-    const submitErrorRef = useRef(submitError);
-    submitErrorRef.current = submitError;
 
     const submitHandler =
       onSubmit === void 0
@@ -216,7 +250,7 @@ export const createEffectSchemaFormHook = <
               const submitAttempt = submitAttemptRef.current + 1;
               submitAttemptRef.current = submitAttempt;
 
-              setSubmitError(Option.none());
+              submitErrorStore.set(Option.none());
 
               if (Option.isNone(parsed)) {
                 throw new Error('Unexpected submit without parsed data');
@@ -242,7 +276,7 @@ export const createEffectSchemaFormHook = <
               );
 
               if (Option.isSome(formSubmitError)) {
-                setSubmitError(Option.some(formSubmitError.value.message));
+                submitErrorStore.set(Option.some(formSubmitError.value.message));
                 return;
               }
 
@@ -275,7 +309,7 @@ export const createEffectSchemaFormHook = <
             vendor: 'effect-voel',
             version: 1,
             validate: async (value) => {
-              setSubmitError(Option.none());
+              submitErrorStore.set(Option.none());
               parsedRef.current = Option.none();
 
               return runtime.runPromise(
@@ -301,7 +335,7 @@ export const createEffectSchemaFormHook = <
       const reset = form.reset.bind(form);
 
       const FormSubmitErrorAppForm = ({ children }: PropsWithChildren) => (
-        <formSubmitErrorContext.Provider value={submitErrorRef.current}>
+        <formSubmitErrorContext.Provider value={submitErrorStore}>
           <hookFormContext.Provider value={extendedFormRef.current}>
             {children}
           </hookFormContext.Provider>
@@ -313,7 +347,7 @@ export const createEffectSchemaFormHook = <
         // otherwise finish later and restore a stale FormSubmitError.
         submitAttemptRef.current += 1;
         parsedRef.current = Option.none();
-        setSubmitError(Option.none());
+        submitErrorStore.set(Option.none());
         reset(...resetArgs);
       }) satisfies typeof form.reset;
 
@@ -334,7 +368,7 @@ export const createEffectSchemaFormHook = <
       extendedFormRef.current = extendedForm;
 
       return extendedForm;
-    }, [form]);
+    }, [form, submitErrorStore]);
 
     return withoutFieldValidators(wrappedForm);
   };
