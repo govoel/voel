@@ -130,12 +130,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
         username,
         authClient,
       }: Pick<Parameters<typeof accountsRepo.upsert>['0'], 'serverUrl' | 'username'> & {
-        authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
+        authClient: Option.Option<Effect.Success<ReturnType<typeof createVoelAuthClient>>>;
       }) =>
         SubscriptionRef.modifySomeEffect(
           stateRef,
           Effect.fnUntraced(
             function* (state) {
+              yield* Effect.sleep(10_000);
               if (
                 Option.isSome(state.activeAccount) &&
                 state.activeAccount.value.account.serverUrl === serverUrl &&
@@ -159,7 +160,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                 void 0,
                 yield* initializeActiveAccountState({
                   activeAccount: Option.some(account),
-                  existingAuthClient: Option.some(authClient),
+                  existingAuthClient: authClient,
                   accounts: yield* accountsRepo.list(),
                 }).pipe(Effect.map(Option.some)),
               ] as const;
@@ -233,11 +234,11 @@ export class AccountManager extends Context.Service<AccountManager>()(
         return yield* setActiveAccount({
           serverUrl,
           username,
-          authClient,
+          authClient: Option.some(authClient),
         }).pipe(toDatabaseError('AccountManager.upsertAccount'));
       });
 
-      const setupServerAccount = Effect.fnUntraced(function* ({
+      const setupServerWithAccount = Effect.fnUntraced(function* ({
         serverUrl,
         name,
         email,
@@ -279,7 +280,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         return yield* setActiveAccount({
           serverUrl,
           username,
-          authClient,
+          authClient: Option.some(authClient),
         }).pipe(toDatabaseError('AccountManager.setupServerAccount'));
       });
 
@@ -289,7 +290,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         setActiveAccount,
         removeAccount,
         upsertAccount,
-        setupServerAccount,
+        setupServerAccount: setupServerWithAccount,
       };
     }),
   }

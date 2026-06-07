@@ -95,6 +95,11 @@ export const accountsSheetAtom = AppRuntime.atom(
   })
 );
 
+export const setActiveAccountAtom = AppRuntime.fn(
+  (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
+    AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
+);
+
 export const removeAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.removeAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(input)))

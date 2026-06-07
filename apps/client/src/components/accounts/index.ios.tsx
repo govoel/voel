@@ -3,6 +3,7 @@ import { Host } from '@expo/ui';
 import {
   BottomSheet,
   Button,
+  ConfirmationDialog,
   Form,
   Group,
   HStack,
@@ -17,6 +18,7 @@ import {
   autocorrectionDisabled,
   buttonStyle,
   containerRelativeFrame,
+  disabled,
   font,
   foregroundStyle,
   frame,
@@ -45,6 +47,7 @@ import {
   accountsAtom,
   accountsSheetAtom,
   removeAccountAtom,
+  setActiveAccountAtom,
 } from '#src/services/accounts/atoms.ts';
 
 const AddAccountForm = ({ onClose }: { readonly onClose: () => void }) => {
@@ -234,10 +237,16 @@ const SetupServerForm = ({ onClose }: { readonly onClose: () => void }) => {
 };
 
 const SwitchAccountContent = () => {
+  const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
   const [isAddAccountPresented, setIsAddAccountPresented] = useState(false);
   const [isSetupServerPresented, setIsSetupServerPresented] = useState(false);
+
   const accounts = useAtomValue(accountsAtom);
-  const removeAccount = useAtomSet(removeAccountAtom);
+  const [setActiveAccount, setActiveAccountMutation] = useAtom(setActiveAccountAtom);
+
+  const [isRemoveAccountConfirmationPresented, setIsRemoveAccountConfirmationPresented] =
+    useState(false);
+  const [removeAccount, removeAccountMutation] = useAtom(removeAccountAtom);
 
   return (
     <Group>
@@ -255,63 +264,182 @@ const SwitchAccountContent = () => {
                   No accounts
                 </Text>
               ) : (
-                result.value.accounts.map((account) => (
-                  <SwipeActions key={`${account.serverUrl.toString()}-${account.username}`}>
-                    <Button modifiers={[tint('primary')]}>
-                      <HStack alignment="center" spacing={Spacing.two}>
-                        <Icon
-                          systemName={
-                            account.active
-                              ? 'person.crop.circle.fill.badge.checkmark'
-                              : 'person.crop.circle.fill'
-                          }
-                          modifiers={[
-                            iosTextStyle('largeTitle'),
-                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                          ]}
-                        />
-
-                        <VStack alignment="leading" spacing={Spacing.one}>
-                          <Text>@{account.username}</Text>
-                          <Text
-                            variant="caption"
+                <Button
+                  modifiers={[tint('primary')]}
+                  onPress={() => {
+                    setIsSwitchAccountPresented(true);
+                  }}>
+                  <HStack alignment="center" spacing={Spacing.two}>
+                    {Option.match(result.value.activeAccount, {
+                      onNone: () => <Text>Pick an account</Text>,
+                      onSome: ({ account }) => (
+                        <>
+                          <Icon
+                            systemName="person.crop.circle.fill"
                             modifiers={[
+                              iosTextStyle('largeTitle'),
                               foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                            ]}>
-                            {account.serverUrl.toString()}
-                          </Text>
-                        </VStack>
+                            ]}
+                          />
 
-                        <Spacer />
+                          <VStack alignment="leading" spacing={Spacing.one}>
+                            <Text>@{account.username}</Text>
+                            <Text
+                              variant="caption"
+                              modifiers={[
+                                foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                              ]}>
+                              {account.serverUrl.toString()}
+                            </Text>
+                          </VStack>
+                        </>
+                      ),
+                    })}
 
-                        <Icon
-                          systemName="chevron.right"
-                          modifiers={[
-                            font({ textStyle: 'footnote', weight: 'semibold' }),
-                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                          ]}
-                        />
-                      </HStack>
-                    </Button>
+                    <Spacer />
 
-                    <SwipeActions.Actions edge="trailing">
-                      <Button
-                        label="Delete"
-                        systemImage="trash"
-                        role="destructive"
-                        modifiers={[labelStyle('iconOnly')]}
-                        onPress={() => {
-                          removeAccount(account);
-                        }}
-                      />
-                    </SwipeActions.Actions>
-                  </SwipeActions>
-                ))
+                    <Icon
+                      systemName="chevron.up.chevron.down"
+                      modifiers={[
+                        font({ textStyle: 'footnote', weight: 'semibold' }),
+                        foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                      ]}
+                    />
+                  </HStack>
+                </Button>
               ),
             onError: () => <Text>Error</Text>,
             onDefect: () => <Text>Defect</Text>,
           })}
         </Section>
+
+        {AsyncResult.isSuccess(accounts) && Option.isSome(accounts.value.activeAccount) ? (
+          <>
+            <Section>
+              <Button modifiers={[tint('primary')]}>
+                <HStack>
+                  <Text>Profile</Text>
+                  <Spacer />
+                  <Icon
+                    systemName="chevron.right"
+                    modifiers={[
+                      font({ textStyle: 'footnote', weight: 'semibold' }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
+                  />
+                </HStack>
+              </Button>
+              <Button modifiers={[tint('primary')]}>
+                <HStack>
+                  <Text>Settings</Text>
+                  <Spacer />
+                  <Icon
+                    systemName="chevron.right"
+                    modifiers={[
+                      font({ textStyle: 'footnote', weight: 'semibold' }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
+                  />
+                </HStack>
+              </Button>
+
+              <ConfirmationDialog
+                title="Remove account from this device"
+                isPresented={isRemoveAccountConfirmationPresented}
+                onIsPresentedChange={setIsRemoveAccountConfirmationPresented}
+                titleVisibility="visible">
+                <ConfirmationDialog.Trigger>
+                  <Button
+                    label="Remove account from this device"
+                    role="destructive"
+                    onPress={() => {
+                      setIsRemoveAccountConfirmationPresented(true);
+                    }}
+                  />
+                </ConfirmationDialog.Trigger>
+                <ConfirmationDialog.Actions>
+                  <Button
+                    label="Confirm"
+                    role="destructive"
+                    onPress={() => {
+                      if (
+                        AsyncResult.isSuccess(accounts) &&
+                        Option.isSome(accounts.value.activeAccount)
+                      ) {
+                        removeAccountMutation({
+                          serverUrl: accounts.value.activeAccount.value.account.serverUrl,
+                          username: accounts.value.activeAccount.value.account.username,
+                        });
+                      }
+                      setIsRemoveAccountConfirmationPresented(false);
+                    }}
+                  />
+                  <Button label="Cancel" role="cancel" />
+                </ConfirmationDialog.Actions>
+                <ConfirmationDialog.Message>
+                  <Text>
+                    Are you sure you want to remove @
+                    {accounts.value.activeAccount.value.account.username} on{' '}
+                    {accounts.value.activeAccount.value.account.serverUrl.toString()} from this
+                    device?
+                  </Text>
+                </ConfirmationDialog.Message>
+              </ConfirmationDialog>
+            </Section>
+
+            <Section
+              header={
+                <VStack alignment="leading">
+                  <Text variant="h4">Manage Server</Text>
+                  <Text
+                    variant="caption"
+                    modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+                    {accounts.value.activeAccount.value.account.serverUrl.hostname}
+                  </Text>
+                </VStack>
+              }>
+              <Button modifiers={[tint('primary')]}>
+                <HStack>
+                  <Text>Settings</Text>
+                  <Spacer />
+                  <Icon
+                    systemName="chevron.right"
+                    modifiers={[
+                      font({ textStyle: 'footnote', weight: 'semibold' }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
+                  />
+                </HStack>
+              </Button>
+              <Button modifiers={[tint('primary')]}>
+                <HStack>
+                  <Text>Libraries</Text>
+                  <Spacer />
+                  <Icon
+                    systemName="chevron.right"
+                    modifiers={[
+                      font({ textStyle: 'footnote', weight: 'semibold' }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
+                  />
+                </HStack>
+              </Button>
+              <Button modifiers={[tint('primary')]}>
+                <HStack>
+                  <Text>Users</Text>
+                  <Spacer />
+                  <Icon
+                    systemName="chevron.right"
+                    modifiers={[
+                      font({ textStyle: 'footnote', weight: 'semibold' }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
+                  />
+                </HStack>
+              </Button>
+            </Section>
+          </>
+        ) : null}
 
         <Section>
           <Button
@@ -330,6 +458,62 @@ const SwitchAccountContent = () => {
           />
         </Section>
       </List>
+
+      {AsyncResult.isSuccess(accounts) ? (
+        <BottomSheet
+          isPresented={isSwitchAccountPresented}
+          onIsPresentedChange={setIsSwitchAccountPresented}>
+          <List modifiers={[headerProminence('increased'), padding({ vertical: Spacing.three })]}>
+            <Section title="Pick an Account">
+              {accounts.value.accounts.map((account) => (
+                <Button
+                  modifiers={[tint('primary'), disabled(AsyncResult.isWaiting(setActiveAccount))]}
+                  key={`${account.serverUrl.toString()}-${account.username}`}
+                  onPress={() => {
+                    setActiveAccountMutation({
+                      serverUrl: account.serverUrl,
+                      username: account.username,
+                      authClient: Option.none(),
+                    });
+                  }}>
+                  <HStack alignment="center" spacing={Spacing.two}>
+                    <Icon
+                      systemName={
+                        account.active
+                          ? 'person.crop.circle.fill.badge.checkmark'
+                          : 'person.crop.circle.fill'
+                      }
+                      modifiers={[
+                        iosTextStyle('largeTitle'),
+                        foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                      ]}
+                    />
+
+                    <VStack alignment="leading" spacing={Spacing.one}>
+                      <Text
+                        modifiers={[foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>
+                        @{account.username}
+                      </Text>
+                      <Text
+                        variant="caption"
+                        modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+                        {account.serverUrl.toString()}
+                      </Text>
+                    </VStack>
+
+                    {AsyncResult.isWaiting(setActiveAccount) ? (
+                      <>
+                        <Spacer />
+                        <ProgressView />
+                      </>
+                    ) : null}
+                  </HStack>
+                </Button>
+              ))}
+            </Section>
+          </List>
+        </BottomSheet>
+      ) : null}
 
       <BottomSheet
         isPresented={isAddAccountPresented}
