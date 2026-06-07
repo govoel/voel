@@ -11,9 +11,9 @@ const { Class, Field } = VariantSchema.make({
 
 export class AccountTable extends Class<AccountTable>('AccountTable')({
   serverUrl: Field({
-    id: Schema.URL.pipe(Schema.brand('AccountServerUrl')),
-    select: Schema.URL.pipe(Schema.brand('AccountServerUrl')),
-    upsert: Schema.URL,
+    id: Schema.URLFromString.pipe(Schema.brand('AccountServerUrl')),
+    select: Schema.URLFromString.pipe(Schema.brand('AccountServerUrl')),
+    upsert: Schema.URLFromString,
   }),
   username: Field({
     id: Schema.NonEmptyString.pipe(Schema.brand('AccountUsername')),
