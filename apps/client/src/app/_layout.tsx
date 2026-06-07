@@ -3,7 +3,7 @@ import { Host, ProgressView } from '@expo/ui/swift-ui';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import AccountsAutoPresenter from '#src/components/accounts-auto-presenter.tsx';
+import { AccountsSheet } from '#src/components/accounts';
 import { accountsSheetAtom } from '#src/services/accounts/atoms.ts';
 import { AppRegistry } from '#src/services/registry.ts';
 
@@ -15,7 +15,6 @@ export const SuspenseFallback = () => (
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-
   const sheet = useAtomSuspense(accountsSheetAtom);
 
   return (
@@ -23,19 +22,11 @@ export default function TabLayout() {
       <ThemeProvider value={colorScheme === 'light' ? DefaultTheme : DarkTheme}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Protected guard={sheet.value.dismissable}>
-            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
           </Stack.Protected>
-
-          <Stack.Screen
-            name="accounts"
-            options={{
-              animation: 'none',
-              presentation: 'containedTransparentModal',
-            }}
-          />
         </Stack>
 
-        <AccountsAutoPresenter />
+        <AccountsSheet />
       </ThemeProvider>
     </RegistryContext.Provider>
   );

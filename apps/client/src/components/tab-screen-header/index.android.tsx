@@ -1,14 +1,15 @@
+import { useAtomSet } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import { Icon, Row, TextButton, useMaterialColors } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { useRouter } from 'expo-router';
 
+import { accountsSheetIsPresentedAtom } from '#src/components/accounts/shared.ts';
 import type { TabScreenHeaderComponent } from '#src/components/tab-screen-header';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const TabScreenHeader = (({ title }) => {
-  const router = useRouter();
+  const setIsPresented = useAtomSet(accountsSheetIsPresentedAtom);
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
@@ -20,7 +21,7 @@ export const TabScreenHeader = (({ title }) => {
 
       <TextButton
         onClick={() => {
-          router.navigate('/accounts');
+          setIsPresented(true);
         }}
         contentPadding={{
           start: Spacing.two,

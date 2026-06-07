@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtom, useAtomSet, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Host } from '@expo/ui';
 import {
   BottomSheet,
@@ -29,12 +29,16 @@ import {
   textInputAutocapitalization,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
+import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Icon, iosTextStyle } from '#modules/design-system';
-import { useAddAccountForm, useSetupServerForm } from '#src/app/accounts/index.tsx';
+import {
+  accountsSheetIsPresentedAtom,
+  useAddAccountForm,
+  useSetupServerForm,
+} from '#src/components/accounts/shared.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import {
@@ -252,13 +256,15 @@ const SwitchAccountContent = () => {
                 </Text>
               ) : (
                 result.value.accounts.map((account) => (
-                  <SwipeActions>
-                    <Button
-                      modifiers={[tint('primary')]}
-                      key={`${account.serverUrl.toString()}-${account.username}`}>
+                  <SwipeActions key={`${account.serverUrl.toString()}-${account.username}`}>
+                    <Button modifiers={[tint('primary')]}>
                       <HStack alignment="center" spacing={Spacing.two}>
                         <Icon
-                          systemName="person.crop.circle.fill"
+                          systemName={
+                            account.active
+                              ? 'person.crop.circle.fill.badge.checkmark'
+                              : 'person.crop.circle.fill'
+                          }
                           modifiers={[
                             iosTextStyle('largeTitle'),
                             foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
@@ -290,7 +296,9 @@ const SwitchAccountContent = () => {
 
                     <SwipeActions.Actions edge="trailing">
                       <Button
+                        label="Delete"
                         systemImage="trash"
+                        role="destructive"
                         modifiers={[labelStyle('iconOnly')]}
                         onPress={() => {
                           removeAccount(account);
@@ -346,36 +354,36 @@ const SwitchAccountContent = () => {
   );
 };
 
-export default function AccountsIndex() {
-  const [isSwitchPresented, setIsSwitchPresented] = useState(true);
-  const dismissable = useAtomValue(
-    accountsSheetAtom,
-    (state) => AsyncResult.isSuccess(state) && state.value.dismissable
-  );
-  const router = useRouter();
+export const AccountsSheet = () => {
+  const [isPresented, setIsPresented] = useAtom(accountsSheetIsPresentedAtom);
+
+  const sheet = useAtomSuspense(accountsSheetAtom);
+  const lastPresentedRef = useRef<Option.Option<(typeof sheet)['value']['mode']>>(Option.none());
+
+  useEffect(() => {
+    if (sheet.value.mode === 'IDLE') {
+      lastPresentedRef.current = Option.none();
+      return;
+    }
+
+    if (
+      Option.isSome(lastPresentedRef.current) &&
+      lastPresentedRef.current.value === sheet.value.mode
+    ) {
+      return;
+    }
+
+    lastPresentedRef.current = Option.some(sheet.value.mode);
+    setIsPresented(true);
+  }, [sheet, setIsPresented]);
 
   return (
-    <>
-      <Stack.Screen.Title>Switch Account</Stack.Screen.Title>
-
-      <Host style={{ flex: 1 }}>
-        <BottomSheet
-          isPresented={isSwitchPresented}
-          onIsPresentedChange={(isPresented) => {
-            setIsSwitchPresented(isPresented);
-            if (!isPresented) {
-              if (!router.canDismiss()) {
-                router.replace('/');
-              } else {
-                router.back();
-              }
-            }
-          }}>
-          <Group modifiers={[interactiveDismissDisabled(!dismissable)]}>
-            <SwitchAccountContent />
-          </Group>
-        </BottomSheet>
-      </Host>
-    </>
+    <Host>
+      <BottomSheet isPresented={isPresented} onIsPresentedChange={setIsPresented}>
+        <Group modifiers={[interactiveDismissDisabled(!sheet.value.dismissable)]}>
+          <SwitchAccountContent />
+        </Group>
+      </BottomSheet>
+    </Host>
   );
-}
+};

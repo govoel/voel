@@ -1,4 +1,4 @@
-import { useAtomValue } from '@effect/atom-react';
+import { useAtom, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import HostIcon from '@expo/material-symbols/host.xml';
@@ -16,12 +16,16 @@ import {
   useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, paddingAll, width } from '@expo/ui/jetpack-compose/modifiers';
+import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SegmentedList, SegmentedListItem } from '#modules/design-system';
-import { useAddAccountForm, useSetupServerForm } from '#src/app/accounts/index.tsx';
+import {
+  accountsSheetIsPresentedAtom,
+  useAddAccountForm,
+  useSetupServerForm,
+} from '#src/components/accounts/shared.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom, accountsSheetAtom } from '#src/services/accounts/atoms.ts';
@@ -313,34 +317,46 @@ const SwitchAccountContent = () => {
   );
 };
 
-export default function AccountsIndex() {
-  const [isPresented, setIsPresented] = useState(true);
-  const dismissable = useAtomValue(
-    accountsSheetAtom,
-    (state) => AsyncResult.isSuccess(state) && state.value.dismissable
-  );
+export const AccountsSheet = () => {
+  const [isPresented, setIsPresented] = useAtom(accountsSheetIsPresentedAtom);
+
+  const sheet = useAtomSuspense(accountsSheetAtom);
+  const lastPresentedRef = useRef<Option.Option<(typeof sheet)['value']['mode']>>(Option.none());
+
+  useEffect(() => {
+    if (sheet.value.mode === 'IDLE') {
+      lastPresentedRef.current = Option.none();
+      return;
+    }
+
+    if (
+      Option.isSome(lastPresentedRef.current) &&
+      lastPresentedRef.current.value === sheet.value.mode
+    ) {
+      return;
+    }
+
+    lastPresentedRef.current = Option.some(sheet.value.mode);
+    setIsPresented(true);
+  }, [sheet, setIsPresented]);
 
   return (
-    <>
-      <Stack.Screen.Title>Switch Account</Stack.Screen.Title>
-
-      <Host style={{ flex: 1 }} seedColor="#00AAFF">
-        {isPresented ? (
-          <ModalBottomSheet
-            skipPartiallyExpanded
-            onDismissRequest={() => {
-              setIsPresented(false);
-            }}
-            showDragHandle={dismissable}
-            sheetGesturesEnabled={dismissable}
-            properties={{
-              shouldDismissOnBackPress: dismissable,
-              shouldDismissOnClickOutside: dismissable,
-            }}>
-            <SwitchAccountContent />
-          </ModalBottomSheet>
-        ) : null}
-      </Host>
-    </>
+    <Host seedColor="#00AAFF">
+      {isPresented ? (
+        <ModalBottomSheet
+          skipPartiallyExpanded
+          onDismissRequest={() => {
+            setIsPresented(false);
+          }}
+          showDragHandle={sheet.value.dismissable}
+          sheetGesturesEnabled={sheet.value.dismissable}
+          properties={{
+            shouldDismissOnBackPress: sheet.value.dismissable,
+            shouldDismissOnClickOutside: sheet.value.dismissable,
+          }}>
+          <SwitchAccountContent />
+        </ModalBottomSheet>
+      ) : null}
+    </Host>
   );
-}
+};

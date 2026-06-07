@@ -1,14 +1,15 @@
+import { useAtomSet } from '@effect/atom-react';
 import { Button, HStack, Image, Spacer } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
-import { useRouter } from 'expo-router';
 import { PlatformColor } from 'react-native';
 
+import { accountsSheetIsPresentedAtom } from '#src/components/accounts/shared.ts';
 import type { TabScreenHeaderComponent } from '#src/components/tab-screen-header';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const TabScreenHeader = (({ title }) => {
-  const router = useRouter();
+  const setIsPresented = useAtomSet(accountsSheetIsPresentedAtom);
 
   return (
     <HStack alignment="center" spacing={Spacing.two} modifiers={[frame({ maxWidth: Infinity })]}>
@@ -17,10 +18,10 @@ export const TabScreenHeader = (({ title }) => {
       <Spacer />
 
       <Button
+        modifiers={[buttonStyle('plain')]}
         onPress={() => {
-          router.navigate('/accounts');
-        }}
-        modifiers={[buttonStyle('plain')]}>
+          setIsPresented(true);
+        }}>
         <Image
           systemName="person.crop.circle.fill"
           size={32}

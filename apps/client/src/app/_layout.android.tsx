@@ -1,18 +1,18 @@
-import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import { LoadingIndicator, getMaterialColors } from '@expo/ui/jetpack-compose';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { RegistryContext, useAtomSuspense } from '@effect/atom-react';
+import { Host, LoadingIndicator, getMaterialColors } from '@expo/ui/jetpack-compose';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router/react-navigation';
 import { StatusBar } from 'expo-status-bar';
-import { View, useColorScheme } from 'react-native';
+import { useColorScheme } from 'react-native';
 
+import { AccountsSheet } from '#src/components/accounts';
 import { accountsSheetAtom } from '#src/services/accounts/atoms.ts';
 import { AppRegistry } from '#src/services/registry.ts';
 
 export const SuspenseFallback = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+  <Host style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
     <LoadingIndicator />
-  </View>
+  </Host>
 );
 
 export default function TabLayout() {
@@ -44,7 +44,7 @@ export default function TabLayout() {
     },
   } satisfies Theme;
 
-  const sheet = useAtomValue(accountsSheetAtom);
+  const sheet = useAtomSuspense(accountsSheetAtom);
 
   return (
     <RegistryContext.Provider value={AppRegistry}>
@@ -52,12 +52,12 @@ export default function TabLayout() {
         <StatusBar style={colorScheme === 'light' ? 'dark' : 'light'} />
 
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={AsyncResult.isSuccess(sheet) && sheet.value.dismissable}>
+          <Stack.Protected guard={sheet.value.dismissable}>
             <Stack.Screen name="(tabs)" />
           </Stack.Protected>
-
-          <Stack.Screen name="accounts" />
         </Stack>
+
+        <AccountsSheet />
       </ThemeProvider>
     </RegistryContext.Provider>
   );
