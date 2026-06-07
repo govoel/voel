@@ -1,14 +1,13 @@
-import { Column } from '@expo/ui';
-
 import { SafeScrollView } from '#src/components/safe-scroll-view';
-import { Text } from '#src/components/text';
+import { TabScreenColumn } from '#src/components/tab-screen-column';
+import { TabScreenHeader } from '#src/components/tab-screen-header';
 
 export default function BooksScreen() {
   return (
     <SafeScrollView>
-      <Column spacing={12} alignment="start">
-        <Text variant="h1">Books</Text>
-      </Column>
+      <TabScreenColumn>
+        <TabScreenHeader title="Books" />
+      </TabScreenColumn>
     </SafeScrollView>
   );
 }

@@ -1,4 +1,4 @@
-import { useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Host } from '@expo/ui';
 import {
   BottomSheet,
@@ -10,6 +10,7 @@ import {
   ProgressView,
   Section,
   Spacer,
+  SwipeActions,
   VStack,
 } from '@expo/ui/swift-ui';
 import {
@@ -22,20 +23,25 @@ import {
   headerProminence,
   interactiveDismissDisabled,
   keyboardType,
+  labelStyle,
   padding,
   textContentType,
   textInputAutocapitalization,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { Icon, iosTextStyle } from '#modules/design-system';
 import { useAddAccountForm, useSetupServerForm } from '#src/app/accounts/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { accountsAtom, accountsSheetAtom } from '#src/services/accounts/atoms.ts';
+import {
+  accountsAtom,
+  accountsSheetAtom,
+  removeAccountAtom,
+} from '#src/services/accounts/atoms.ts';
 
 const AddAccountForm = ({ onClose }: { readonly onClose: () => void }) => {
   const form = useAddAccountForm({ onClose });
@@ -227,6 +233,7 @@ const SwitchAccountContent = () => {
   const [isAddAccountPresented, setIsAddAccountPresented] = useState(false);
   const [isSetupServerPresented, setIsSetupServerPresented] = useState(false);
   const accounts = useAtomValue(accountsAtom);
+  const removeAccount = useAtomSet(removeAccountAtom);
 
   return (
     <Group>
@@ -245,40 +252,52 @@ const SwitchAccountContent = () => {
                 </Text>
               ) : (
                 result.value.accounts.map((account) => (
-                  <Button
-                    modifiers={[tint('primary')]}
-                    key={`${account.serverUrl.toString()}-${account.username}`}>
-                    <HStack alignment="center" spacing={Spacing.two}>
-                      <Icon
-                        systemName="person.crop.circle.fill"
-                        modifiers={[
-                          iosTextStyle('largeTitle'),
-                          foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                        ]}
-                      />
-
-                      <VStack alignment="leading" spacing={Spacing.one}>
-                        <Text>@{account.username}</Text>
-                        <Text
-                          variant="caption"
+                  <SwipeActions>
+                    <Button
+                      modifiers={[tint('primary')]}
+                      key={`${account.serverUrl.toString()}-${account.username}`}>
+                      <HStack alignment="center" spacing={Spacing.two}>
+                        <Icon
+                          systemName="person.crop.circle.fill"
                           modifiers={[
+                            iosTextStyle('largeTitle'),
                             foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                          ]}>
-                          {account.serverUrl.toString()}
-                        </Text>
-                      </VStack>
+                          ]}
+                        />
 
-                      <Spacer />
+                        <VStack alignment="leading" spacing={Spacing.one}>
+                          <Text>@{account.username}</Text>
+                          <Text
+                            variant="caption"
+                            modifiers={[
+                              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                            ]}>
+                            {account.serverUrl.toString()}
+                          </Text>
+                        </VStack>
 
-                      <Icon
-                        systemName="chevron.right"
-                        modifiers={[
-                          font({ textStyle: 'footnote', weight: 'semibold' }),
-                          foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                        ]}
+                        <Spacer />
+
+                        <Icon
+                          systemName="chevron.right"
+                          modifiers={[
+                            font({ textStyle: 'footnote', weight: 'semibold' }),
+                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                          ]}
+                        />
+                      </HStack>
+                    </Button>
+
+                    <SwipeActions.Actions edge="trailing">
+                      <Button
+                        systemImage="trash"
+                        modifiers={[labelStyle('iconOnly')]}
+                        onPress={() => {
+                          removeAccount(account);
+                        }}
                       />
-                    </HStack>
-                  </Button>
+                    </SwipeActions.Actions>
+                  </SwipeActions>
                 ))
               ),
             onError: () => <Text>Error</Text>,
@@ -328,19 +347,31 @@ const SwitchAccountContent = () => {
 };
 
 export default function AccountsIndex() {
-  const [isPresented, setIsPresented] = useState(true);
+  const [isSwitchPresented, setIsSwitchPresented] = useState(true);
   const dismissable = useAtomValue(
     accountsSheetAtom,
     (state) => AsyncResult.isSuccess(state) && state.value.dismissable
   );
+  const router = useRouter();
 
   return (
     <>
       <Stack.Screen.Title>Switch Account</Stack.Screen.Title>
 
       <Host style={{ flex: 1 }}>
-        <BottomSheet isPresented={isPresented} onIsPresentedChange={setIsPresented}>
-          <Group modifiers={[interactiveDismissDisabled(dismissable)]}>
+        <BottomSheet
+          isPresented={isSwitchPresented}
+          onIsPresentedChange={(isPresented) => {
+            setIsSwitchPresented(isPresented);
+            if (!isPresented) {
+              if (!router.canDismiss()) {
+                router.replace('/');
+              } else {
+                router.back();
+              }
+            }
+          }}>
+          <Group modifiers={[interactiveDismissDisabled(!dismissable)]}>
             <SwitchAccountContent />
           </Group>
         </BottomSheet>

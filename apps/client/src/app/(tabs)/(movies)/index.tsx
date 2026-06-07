@@ -1,10 +1,13 @@
 import { SafeScrollView } from '#src/components/safe-scroll-view';
-import { Text } from '#src/components/text';
+import { TabScreenColumn } from '#src/components/tab-screen-column';
+import { TabScreenHeader } from '#src/components/tab-screen-header';
 
 export default function MoviesScreen() {
   return (
     <SafeScrollView>
-      <Text variant="h1">Movies</Text>
+      <TabScreenColumn>
+        <TabScreenHeader title="Movies" />
+      </TabScreenColumn>
     </SafeScrollView>
   );
 }
