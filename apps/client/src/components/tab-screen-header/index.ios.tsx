@@ -1,33 +1,28 @@
-import { useAtomSet } from '@effect/atom-react';
 import { Button, HStack, Image, Spacer } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
+import { router } from 'expo-router';
 import { PlatformColor } from 'react-native';
 
-import { accountsSheetIsPresentedAtom } from '#src/components/accounts/shared.ts';
 import type { TabScreenHeaderComponent } from '#src/components/tab-screen-header';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const TabScreenHeader = (({ title }) => {
-  const setIsPresented = useAtomSet(accountsSheetIsPresentedAtom);
+export const TabScreenHeader = (({ title }) => (
+  <HStack alignment="center" spacing={Spacing.two} modifiers={[frame({ maxWidth: Infinity })]}>
+    <Text variant="h1">{title}</Text>
 
-  return (
-    <HStack alignment="center" spacing={Spacing.two} modifiers={[frame({ maxWidth: Infinity })]}>
-      <Text variant="h1">{title}</Text>
+    <Spacer />
 
-      <Spacer />
-
-      <Button
-        modifiers={[buttonStyle('plain')]}
-        onPress={() => {
-          setIsPresented(true);
-        }}>
-        <Image
-          systemName="person.crop.circle.fill"
-          size={32}
-          color={PlatformColor('secondaryLabel')}
-        />
-      </Button>
-    </HStack>
-  );
-}) satisfies TabScreenHeaderComponent;
+    <Button
+      modifiers={[buttonStyle('plain')]}
+      onPress={() => {
+        router.push('/accounts');
+      }}>
+      <Image
+        systemName="person.crop.circle.fill"
+        size={32}
+        color={PlatformColor('secondaryLabel')}
+      />
+    </Button>
+  </HStack>
+)) satisfies TabScreenHeaderComponent;

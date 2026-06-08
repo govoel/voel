@@ -1,4 +1,4 @@
-import { Host, LazyColumn, getMaterialColors } from '@expo/ui/jetpack-compose';
+import { Host, LazyColumn, Surface, getMaterialColors } from '@expo/ui/jetpack-compose';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,12 +22,14 @@ export const SafeScrollView = (({ children }) => {
     <>
       <StatusBarGradient backgroundColor={background} />
 
-      <Host style={{ flex: 1 }}>
-        <LazyColumn
-          horizontalAlignment="start"
-          contentPadding={{ top: paddingTop + Spacing.three, bottom: Spacing.three }}>
-          {children}
-        </LazyColumn>
+      <Host seedColor="#00AAFF" style={{ flex: 1 }}>
+        <Surface>
+          <LazyColumn
+            horizontalAlignment="start"
+            contentPadding={{ top: paddingTop + Spacing.three, bottom: Spacing.three }}>
+            {children}
+          </LazyColumn>
+        </Surface>
       </Host>
     </>
   );

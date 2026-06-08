@@ -1,5 +1,4 @@
 import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
 
 import { FormSubmitError, useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -96,5 +95,3 @@ export const useSetupServerForm = ({ onClose }: { readonly onClose: () => void }
 
   return form;
 };
-
-export const accountsSheetIsPresentedAtom = Atom.make<boolean>(false);
