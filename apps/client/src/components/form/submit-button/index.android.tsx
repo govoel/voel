@@ -56,29 +56,33 @@ export const SubmitButton = (({
 
   return (
     <>
-      <SubmitErrorMessage color={colors.error} formErrorMessages={formErrorMessages} />
+      <Row>
+        <SubmitErrorMessage color={colors.error} formErrorMessages={formErrorMessages} />
+      </Row>
 
-      <Button
-        {...('android' in platformProps ? platformProps.android : {})}
-        enabled={canSubmit && !isSubmitting && !disabled}
-        onClick={() => {
-          void form.handleSubmit();
-        }}>
-        <Row
-          horizontalAlignment="center"
-          verticalAlignment="center"
-          horizontalArrangement={{ spacedBy: Spacing.one }}
-          modifiers={[...('android' in containerModifiers ? containerModifiers.android : [])]}>
-          <AnimatedVisibility
-            visible={isSubmitting}
-            enterTransition={EnterTransition.fadeIn().plus(EnterTransition.expandHorizontally())}
-            exitTransition={ExitTransition.fadeOut().plus(ExitTransition.shrinkHorizontally())}>
-            <LoadingIndicator modifiers={[size(Spacing.four, Spacing.four)]} />
-          </AnimatedVisibility>
+      <Row>
+        <Button
+          {...('android' in platformProps ? platformProps.android : {})}
+          enabled={canSubmit && !isSubmitting && !disabled}
+          onClick={() => {
+            void form.handleSubmit();
+          }}>
+          <Row
+            horizontalAlignment="center"
+            verticalAlignment="center"
+            horizontalArrangement={{ spacedBy: Spacing.one }}
+            modifiers={[...('android' in containerModifiers ? containerModifiers.android : [])]}>
+            <AnimatedVisibility
+              visible={isSubmitting}
+              enterTransition={EnterTransition.fadeIn().plus(EnterTransition.expandHorizontally())}
+              exitTransition={ExitTransition.fadeOut().plus(ExitTransition.shrinkHorizontally())}>
+              <LoadingIndicator modifiers={[size(Spacing.four, Spacing.four)]} />
+            </AnimatedVisibility>
 
-          {children}
-        </Row>
-      </Button>
+            {children}
+          </Row>
+        </Button>
+      </Row>
     </>
   );
 }) satisfies SubmitButtonComponent;

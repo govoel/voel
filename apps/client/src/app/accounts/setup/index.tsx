@@ -1,5 +1,5 @@
 import { Host } from '@expo/ui';
-import { Button, Group, List, Section, Spacer, VStack } from '@expo/ui/swift-ui';
+import { Group, List, Section, VStack, ZStack } from '@expo/ui/swift-ui';
 import {
   autocorrectionDisabled,
   buttonStyle,
@@ -23,8 +23,8 @@ export default function SetupServerScreen() {
     <Host style={{ flex: 1 }}>
       <Group>
         <form.AppForm>
-          <VStack modifiers={[padding({ vertical: Spacing.three })]}>
-            <List modifiers={[headerProminence('increased')]}>
+          <ZStack alignment="bottom">
+            <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
               <Section title="Setup new server">
                 <form.AppField name="serverUrl">
                   {(field) => (
@@ -101,26 +101,16 @@ export default function SetupServerScreen() {
               </Section>
             </List>
 
-            <Spacer />
-
-            <VStack spacing={Spacing.two} modifiers={[padding({ horizontal: Spacing.three })]}>
+            <VStack
+              spacing={Spacing.two}
+              modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
               <form.SubmitButton
                 platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
                 containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
                 <Text>Create account</Text>
               </form.SubmitButton>
-
-              <Button
-                role="destructive"
-                modifiers={[buttonStyle('bordered')]}
-                onPress={() => {
-                  form.reset();
-                  router.back();
-                }}>
-                <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
-              </Button>
             </VStack>
-          </VStack>
+          </ZStack>
         </form.AppForm>
       </Group>
     </Host>

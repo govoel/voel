@@ -1,5 +1,5 @@
 import { Host } from '@expo/ui';
-import { Button, Group, List, Section, Spacer, VStack } from '@expo/ui/swift-ui';
+import { Group, List, Section, VStack, ZStack } from '@expo/ui/swift-ui';
 import {
   autocorrectionDisabled,
   buttonStyle,
@@ -11,7 +11,6 @@ import {
   textInputAutocapitalization,
 } from '@expo/ui/swift-ui/modifiers';
 import { router } from 'expo-router';
-import { PlatformColor } from 'react-native';
 
 import { useAddAccountForm } from '#src/app/accounts/index.tsx';
 import { Text } from '#src/components/text';
@@ -21,11 +20,11 @@ export default function AddAccountScreen() {
   const form = useAddAccountForm({ onClose: router.back });
 
   return (
-    <Host style={{ flex: 1, backgroundColor: PlatformColor('systemGroupedBackground') }}>
+    <Host style={{ flex: 1 }}>
       <Group>
         <form.AppForm>
-          <VStack modifiers={[padding({ vertical: Spacing.three })]}>
-            <List modifiers={[headerProminence('increased')]}>
+          <ZStack alignment="bottom">
+            <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
               <Section title="Add an account">
                 <form.AppField name="serverUrl">
                   {(field) => (
@@ -74,26 +73,16 @@ export default function AddAccountScreen() {
               </Section>
             </List>
 
-            <Spacer />
-
-            <VStack spacing={Spacing.two} modifiers={[padding({ horizontal: Spacing.three })]}>
+            <VStack
+              spacing={Spacing.two}
+              modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
               <form.SubmitButton
                 platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
                 containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
                 <Text>Login</Text>
               </form.SubmitButton>
-
-              <Button
-                role="destructive"
-                modifiers={[buttonStyle('bordered')]}
-                onPress={() => {
-                  form.reset();
-                  router.back();
-                }}>
-                <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
-              </Button>
             </VStack>
-          </VStack>
+          </ZStack>
         </form.AppForm>
       </Group>
     </Host>

@@ -1,4 +1,4 @@
-import { Column, OutlinedButton } from '@expo/ui/jetpack-compose';
+import { Column } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
 import { router } from 'expo-router';
 
@@ -98,15 +98,6 @@ export default function SetupServerScreen() {
           <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
             <Text>Create account</Text>
           </form.SubmitButton>
-
-          <OutlinedButton
-            modifiers={[fillMaxWidth()]}
-            onClick={() => {
-              form.reset();
-              router.back();
-            }}>
-            <Text>Cancel</Text>
-          </OutlinedButton>
         </Column>
       </form.AppForm>
     </AndroidAccountsSheet>

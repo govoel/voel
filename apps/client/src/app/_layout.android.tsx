@@ -1,15 +1,20 @@
 import { RegistryContext } from '@effect/atom-react';
 import { Host, LoadingIndicator, getMaterialColors } from '@expo/ui/jetpack-compose';
+import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router/react-navigation';
-import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 
+import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter.tsx';
 import { AppRegistry } from '#src/services/registry.ts';
+
+const loadingIndicatorScale = 0.25;
 
 export const SuspenseFallback = () => (
   <Host seedColor="#00AAFF" style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <LoadingIndicator />
+    <LoadingIndicator
+      modifiers={[graphicsLayer({ scaleX: loadingIndicatorScale, scaleY: loadingIndicatorScale })]}
+    />
   </Host>
 );
 
@@ -45,18 +50,12 @@ export default function TabLayout() {
   return (
     <RegistryContext.Provider value={AppRegistry}>
       <ThemeProvider value={theme}>
-        <StatusBar style={colorScheme === 'light' ? 'dark' : 'light'} />
-
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="accounts"
-            options={{
-              presentation: 'transparentModal',
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
+          <Stack.Screen name="accounts" options={{ presentation: 'transparentModal' }} />
         </Stack>
+
+        <AccountsAutoPresenter />
       </ThemeProvider>
     </RegistryContext.Provider>
   );
