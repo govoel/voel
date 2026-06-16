@@ -1,4 +1,4 @@
-import { Effect, Option, Queue, Stream } from 'effect';
+import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -14,6 +14,97 @@ export const accountsAtom = AppRuntime.atom(
 export const activeAccountServerUrlAtom = accountsAtom.pipe(
   Atom.mapResult((accounts) =>
     accounts.activeAccount.pipe(Option.map(({ account }) => account.serverUrl))
+  )
+);
+
+export const activeAccountAuthClientAtom = accountsAtom.pipe(
+  Atom.mapResult((accounts) =>
+    accounts.activeAccount.pipe(Option.map(({ state }) => state.authClient))
+  )
+);
+
+class BetterAuthListUsersUnknownError extends Schema.TaggedErrorClass<
+  BetterAuthListUsersUnknownError,
+  { readonly brand: unique symbol }
+>()('voel/app/accounts/server/accounts/BetterAuthListUsersUnknownError', {}) {}
+
+class BetterAuthListUsersKnownError extends Schema.TaggedErrorClass<
+  BetterAuthListUsersKnownError,
+  { readonly brand: unique symbol }
+>()('voel/app/accounts/server/accounts/BetterAuthListUsersKnownError', {
+  code: Schema.optional(Schema.String),
+  message: Schema.optional(Schema.String),
+  status: Schema.Number,
+  statusText: Schema.String,
+}) {}
+
+export const listAccountsAtom2 = AppRuntime.atom(
+  Effect.fnUntraced(function* (get) {
+    const authClient = yield* get.result(activeAccountAuthClientAtom);
+
+    if (Option.isNone(authClient)) {
+      return Option.none();
+    }
+
+    const { data, error } = yield* Effect.tryPromise({
+      try: async () =>
+        authClient.value.admin.listUsers({
+          query: {
+            limit: 10,
+            offset: 0,
+          },
+        }),
+      catch: () => new BetterAuthListUsersUnknownError(),
+    });
+
+    if (error !== null) {
+      return yield* new BetterAuthListUsersKnownError(error);
+    }
+
+    return Option.some(data);
+  })
+);
+
+export class ListAccountsNoAuthClientError extends Schema.TaggedErrorClass<
+  ListAccountsNoAuthClientError,
+  { readonly brand: unique symbol }
+>()('voel/app/accounts/server/accounts/ListAccountsNoAuthClientError', {}) {}
+
+export const listAccountsAtom = AppRuntime.pull(
+  Effect.fnUntraced(
+    function* (get) {
+      const authClient = yield* get.result(activeAccountAuthClientAtom);
+
+      if (Option.isNone(authClient)) {
+        return yield* new ListAccountsNoAuthClientError();
+      }
+
+      return Stream.paginate(
+        0,
+        Effect.fnUntraced(function* (offset) {
+          const { data, error } = yield* Effect.tryPromise({
+            try: async () =>
+              authClient.value.admin.listUsers({
+                query: {
+                  limit: 10,
+                  offset,
+                },
+              }),
+            catch: () => new BetterAuthListUsersUnknownError(),
+          });
+
+          if (error !== null) {
+            return yield* new BetterAuthListUsersKnownError(error);
+          }
+
+          const nextOffset = offset + data.users.length;
+          const hasMore = data.users.length > 0 && nextOffset < data.total;
+
+          return [data.users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
+        })
+      );
+    },
+    (effect) => Stream.unwrap(effect)
   )
 );
 

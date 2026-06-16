@@ -12,7 +12,7 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { router, Stack } from 'expo-router';
 
-import { useSetupServerForm } from '#src/app/accounts/setup';
+import { useSetupServerForm } from '#src/app/accounts/setup/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 

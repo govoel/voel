@@ -11,7 +11,7 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { Stack, router } from 'expo-router';
 
-import { useAddAccountForm } from '#src/app/accounts/add';
+import { useAddAccountForm } from '#src/app/accounts/add/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
