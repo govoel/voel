@@ -2,7 +2,7 @@ import { Column } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
 import { router } from 'expo-router';
 
-import { useAddAccountForm } from '#src/app/accounts/index.tsx';
+import { useAddAccountForm } from '#src/app/accounts/add';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';

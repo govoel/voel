@@ -1,90 +1,50 @@
-import { Host } from '@expo/ui';
-import { Group, List, Section, VStack, ZStack } from '@expo/ui/swift-ui';
-import {
-  autocorrectionDisabled,
-  buttonStyle,
-  frame,
-  headerProminence,
-  keyboardType,
-  padding,
-  textContentType,
-  textInputAutocapitalization,
-} from '@expo/ui/swift-ui/modifiers';
-import { router } from 'expo-router';
+import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 
-import { useAddAccountForm } from '#src/app/accounts/index.tsx';
-import { Text } from '#src/components/text';
-import { Spacing } from '#src/constants/theme.ts';
+import { FormSubmitError, useAppForm } from '#src/components/form';
+import { AccountManager } from '#src/services/accounts/index.ts';
+import { Runtime } from '#src/services/runtime.ts';
 
-export default function AddAccountScreen() {
-  const form = useAddAccountForm({ onClose: router.back });
+export class AddAccountSchema extends Schema.Class<
+  AddAccountSchema,
+  { readonly brand: unique symbol }
+>('voel/app/accounts/AddAccountSchema')({
+  serverUrl: Schema.URLFromString,
+  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+  password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
+    Schema.decodeTo(Schema.Redacted(Schema.String), {
+      decode: SchemaGetter.transform((password) => Redacted.make(password)),
+      encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+    })
+  ),
+}) {}
 
-  return (
-    <Host style={{ flex: 1 }}>
-      <Group>
-        <form.AppForm>
-          <ZStack alignment="bottom">
-            <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-              <Section title="Add an account">
-                <form.AppField name="serverUrl">
-                  {(field) => (
-                    <field.TextField
-                      label="Server URL"
-                      platformProps={{
-                        ios: {
-                          placeholder: 'https://demo.voel.app',
-                          modifiers: [
-                            keyboardType('url'),
-                            textContentType('URL'),
-                            textInputAutocapitalization('never'),
-                            autocorrectionDisabled(),
-                          ],
-                        },
-                      }}
-                    />
-                  )}
-                </form.AppField>
-                <form.AppField name="username">
-                  {(field) => (
-                    <field.TextField
-                      label="Username"
-                      platformProps={{
-                        ios: {
-                          placeholder: 'you',
-                          modifiers: [
-                            keyboardType('ascii-capable'),
-                            textContentType('username'),
-                            textInputAutocapitalization('never'),
-                            autocorrectionDisabled(),
-                          ],
-                        },
-                      }}
-                    />
-                  )}
-                </form.AppField>
-                <form.AppField name="password">
-                  {(field) => (
-                    <field.SecureField
-                      label="Password"
-                      platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
-                    />
-                  )}
-                </form.AppField>
-              </Section>
-            </List>
+export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void }) => {
+  const form = useAppForm({
+    runtime: Runtime,
+    schema: AddAccountSchema,
+    defaultValues: { serverUrl: '', username: '', password: '' },
+    onSubmit: Effect.fnUntraced(function* ({ value }) {
+      yield* Effect.sleep(1000);
+      const accountManager = yield* AccountManager;
+      yield* accountManager.upsertAccount(value).pipe(
+        Effect.catchTags({
+          'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
+            new FormSubmitError({ message: 'Unexpected error during authentication. Try again.' }),
+          'voel/services/accounts/index/AccountSignInError': (signInError) =>
+            new FormSubmitError({
+              message:
+                signInError.original.message ??
+                'Failed to sign in. Check your credentials and try again.',
+            }),
+          'voel/services/database/ClientDatabaseError': () =>
+            new FormSubmitError({ message: 'A database error occurred. Try again.' }),
+        })
+      );
 
-            <VStack
-              spacing={Spacing.two}
-              modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
-              <form.SubmitButton
-                platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
-                containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
-                <Text>Login</Text>
-              </form.SubmitButton>
-            </VStack>
-          </ZStack>
-        </form.AppForm>
-      </Group>
-    </Host>
-  );
-}
+      form.reset();
+      onClose();
+    }),
+  });
+
+  return form;
+};

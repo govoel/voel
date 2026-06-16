@@ -52,7 +52,13 @@ export default function TabLayout() {
       <ThemeProvider value={theme}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="accounts" options={{ presentation: 'transparentModal' }} />
+          <Stack.Screen
+            name="accounts"
+            options={{
+              presentation: 'transparentModal',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
         </Stack>
 
         <AccountsAutoPresenter />
