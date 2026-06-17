@@ -16,8 +16,8 @@ import { fillMaxWidth, paddingAll, width } from '@expo/ui/jetpack-compose/modifi
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { router } from 'expo-router';
 
-import { SegmentedList, SegmentedListItem } from '#modules/design-system';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
+import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountsAtom } from '#src/services/accounts/atoms.ts';

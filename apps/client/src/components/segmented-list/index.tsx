@@ -38,15 +38,10 @@ interface SlotProps {
   children: ReactNode;
 }
 
-const NativeSegmentedList = requireNativeView<SegmentedListProps>(
-  'VoelDesignSystem',
-  'SegmentedList'
-);
+const NativeSegmentedList = requireNativeView<SegmentedListProps>('SegmentedList');
 
-const NativeSegmentedListItem = requireNativeView<NativeSegmentedListItemProps>(
-  'VoelDesignSystem',
-  'SegmentedListItem'
-);
+const NativeSegmentedListItem =
+  requireNativeView<NativeSegmentedListItemProps>('SegmentedListItem');
 
 const SlotNativeView: ComponentType<SlotProps> = requireNativeView('ExpoUI', 'SlotView');
 

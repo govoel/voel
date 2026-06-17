@@ -1,5 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
-import { Host, LoadingIndicator, getMaterialColors } from '@expo/ui/jetpack-compose';
+import { Host, LoadingIndicator, Surface, getMaterialColors } from '@expo/ui/jetpack-compose';
 import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router/react-navigation';
@@ -12,9 +12,13 @@ const loadingIndicatorScale = 0.25;
 
 export const SuspenseFallback = () => (
   <Host seedColor="#00AAFF" style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <LoadingIndicator
-      modifiers={[graphicsLayer({ scaleX: loadingIndicatorScale, scaleY: loadingIndicatorScale })]}
-    />
+    <Surface>
+      <LoadingIndicator
+        modifiers={[
+          graphicsLayer({ scaleX: loadingIndicatorScale, scaleY: loadingIndicatorScale }),
+        ]}
+      />
+    </Surface>
   </Host>
 );
 

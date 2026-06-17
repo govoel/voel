@@ -1,3 +1,6 @@
+// oxlint-disable-next-line import/no-nodejs-modules
+import { readFileSync } from 'node:fs';
+
 import { Config, ConfigProvider, Context, Effect, Layer, Match } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
 import expoFont from 'expo-font/plugin';
@@ -7,8 +10,53 @@ import expoSecureStore from 'expo-secure-store/plugin/build';
 import expoSplashScreen from 'expo-splash-screen/plugin';
 import expoWebBrowser from 'expo-web-browser/plugin';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+import { withProjectBuildGradle } from 'expo/config-plugins';
+import type { ConfigPlugin } from 'expo/config-plugins';
 
 import pkg from './package.json';
+
+// oxlint-disable-next-line unicorn/prefer-module
+const expoUiPackageJsonPath = require.resolve('@expo/ui/package.json');
+const expoUiAndroidBuildGradlePath = expoUiPackageJsonPath.replace(
+  /package\.json$/u,
+  'android/build.gradle'
+);
+const expoUiAndroidBuildGradle = readFileSync(expoUiAndroidBuildGradlePath, 'utf8');
+
+// oxlint-disable-next-line unicorn/prefer-module
+const reactNativePackageJsonPath = require.resolve('react-native/package.json');
+const reactNativeGradleVersionsPath = reactNativePackageJsonPath.replace(
+  /package\.json$/u,
+  'gradle/libs.versions.toml'
+);
+const reactNativeGradleVersions = readFileSync(reactNativeGradleVersionsPath, 'utf8');
+
+const getReactNativeKotlinVersion = () => {
+  const kotlinVersion = /^kotlin\s*=\s*"(?<version>[^"]+)"$/mu.exec(reactNativeGradleVersions)
+    ?.groups?.['version'];
+
+  if (typeof kotlinVersion !== 'string') {
+    throw new TypeError(`Could not find Kotlin version in ${reactNativeGradleVersionsPath}`);
+  }
+
+  return kotlinVersion;
+};
+
+const getExpoUiAndroidDependencyVersion = (coordinate: `${string}:${string}`) => {
+  const dependencyStart = expoUiAndroidBuildGradle.indexOf(`${coordinate}:`);
+
+  if (dependencyStart === -1) {
+    throw new Error(`Could not find ${coordinate} in @expo/ui android/build.gradle`);
+  }
+
+  const dependencyEnd = Math.min(
+    ...["'", '"']
+      .map((quote) => expoUiAndroidBuildGradle.indexOf(quote, dependencyStart))
+      .filter((index) => index !== -1)
+  );
+
+  return expoUiAndroidBuildGradle.slice(dependencyStart, dependencyEnd);
+};
 
 class Env extends Context.Service<Env>()('voel/app.config/Env', {
   make: Config.all({
@@ -22,10 +70,46 @@ class Env extends Context.Service<Env>()('voel/app.config/Env', {
   );
 }
 
+const withExpoInlineComposeModules = ((expoConfig) =>
+  withProjectBuildGradle(expoConfig, (config) => {
+    const composePluginClasspath = `    classpath("org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:${getReactNativeKotlinVersion()}")`;
+    const expoComposeProject = `
+project(':expo') {
+  apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+  plugins.withId('com.android.library') {
+    android {
+      buildFeatures {
+        compose true
+      }
+    }
+
+    dependencies.add('implementation', '${getExpoUiAndroidDependencyVersion('androidx.compose.foundation:foundation-android')}')
+    dependencies.add('implementation', '${getExpoUiAndroidDependencyVersion('androidx.compose.ui:ui-android')}')
+    dependencies.add('implementation', '${getExpoUiAndroidDependencyVersion('androidx.compose.material3:material3')}')
+    dependencies.add('implementation', '${getExpoUiAndroidDependencyVersion('androidx.compose.material3:material3-android')}')
+  }
+}
+`;
+
+    if (!config.modResults.contents.includes(composePluginClasspath)) {
+      config.modResults.contents = config.modResults.contents.replace(
+        "    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')",
+        `    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')\n${composePluginClasspath}`
+      );
+    }
+
+    if (!config.modResults.contents.includes("project(':expo')")) {
+      config.modResults.contents = `${config.modResults.contents.trimEnd()}\n${expoComposeProject}`;
+    }
+
+    return config;
+  })) satisfies ConfigPlugin;
+
 export default function app({ config }: ConfigContext): ExpoConfig {
   const env = Effect.runSync(Effect.service(Env).pipe(Effect.provide(Env.layer)));
 
-  return {
+  return withExpoInlineComposeModules({
     ...config,
     name: Match.value(env.releaseChannel).pipe(
       Match.when('prod', () => 'Voel'),
@@ -168,6 +252,9 @@ export default function app({ config }: ConfigContext): ExpoConfig {
     experiments: {
       typedRoutes: true,
       reactCompiler: true,
+      inlineModules: {
+        watchedDirectories: ['src'],
+      },
     },
-  };
+  } satisfies ExpoConfig);
 }
