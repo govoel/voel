@@ -1,5 +1,5 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
-import { Host } from '@expo/ui';
+import { Host, Icon } from '@expo/ui';
 import {
   BottomSheet,
   Button,
@@ -24,10 +24,10 @@ import {
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
-import { router, Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 
-import { Icon, iosTextStyle } from '#modules/design-system';
+import { iosTextStyle } from '#modules/design-system';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import {
@@ -46,7 +46,7 @@ const StackNavigationRow = ({ title, href }: { readonly title: string; readonly 
       <Text>{title}</Text>
       <Spacer />
       <Icon
-        systemName="chevron.right"
+        name="chevron.right"
         modifiers={[
           font({ textStyle: 'footnote', weight: 'semibold' }),
           foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
@@ -99,7 +99,7 @@ export default function AccountsScreen() {
                           onSome: ({ account }) => (
                             <>
                               <Icon
-                                systemName="person.crop.circle.fill"
+                                name="person.crop.circle.fill"
                                 modifiers={[
                                   iosTextStyle('largeTitle'),
                                   foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
@@ -123,7 +123,7 @@ export default function AccountsScreen() {
                         <Spacer />
 
                         <Icon
-                          systemName="chevron.up.chevron.down"
+                          name="chevron.up.chevron.down"
                           modifiers={[
                             font({ textStyle: 'footnote', weight: 'semibold' }),
                             foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
@@ -245,7 +245,7 @@ export default function AccountsScreen() {
                       }}>
                       <HStack alignment="center" spacing={Spacing.two}>
                         <Icon
-                          systemName={
+                          name={
                             account.active
                               ? 'person.crop.circle.fill.badge.checkmark'
                               : 'person.crop.circle.fill'
