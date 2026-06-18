@@ -5,8 +5,6 @@ import {
   foregroundStyle,
   headerProminence,
 } from '@expo/ui/swift-ui/modifiers';
-import { LegendList } from '@legendapp/list/react-native';
-import { Option, Schema } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 

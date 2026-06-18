@@ -26,7 +26,6 @@
         "@expo-google-fonts/google-sans": "0.4.0",
         "@expo/material-symbols": "^0.1.1",
         "@expo/ui": "~56.0.18",
-        "@legendapp/list": "3.0.4",
         "@op-engineering/op-sqlite": "^16.1.0",
         "@repo/auth-api": "workspace:*",
         "@repo/spec-api": "workspace:*",
@@ -538,8 +537,6 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
-
-    "@legendapp/list": ["@legendapp/list@3.0.4", "", { "dependencies": { "use-sync-external-store": "^1.5.0" }, "peerDependencies": { "react": "*", "react-dom": "*", "react-native": "*" }, "optionalPeers": ["react-dom", "react-native"] }, "sha512-Qev7LQ1yXihIRBiOH8d0t3EE1U2GpPYKPj/Odx8R+Zoc4gx5xI+kA/78gAnR9j5jqAUaaKXX46o+2felkjeP7Q=="],
 
     "@manypkg/find-root": ["@manypkg/find-root@1.1.0", "", { "dependencies": { "@babel/runtime": "^7.5.5", "@types/node": "^12.7.1", "find-up": "^4.1.0", "fs-extra": "^8.1.0" } }, "sha512-mki5uBvhHzO8kYYix/WRy2WX8S3B5wdVSc9D6KcU5lQNglP2yt58/VfLuAK49glRXChosY8ap2oJ1qgma3GUVA=="],
 

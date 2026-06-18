@@ -26,7 +26,6 @@
     "@expo-google-fonts/google-sans": "0.4.0",
     "@expo/material-symbols": "^0.1.1",
     "@expo/ui": "~56.0.18",
-    "@legendapp/list": "3.0.4",
     "@op-engineering/op-sqlite": "^16.1.0",
     "@repo/auth-api": "workspace:*",
     "@repo/spec-api": "workspace:*",
