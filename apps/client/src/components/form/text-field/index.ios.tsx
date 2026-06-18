@@ -5,10 +5,9 @@ import { Array, Option } from 'effect';
 import { useRef } from 'react';
 import { PlatformColor } from 'react-native';
 
-import { iosTextStyle } from '#modules/design-system/index.ts';
 import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
 import type { TextFieldComponent } from '#src/components/form/text-field';
-import { Text } from '#src/components/text/index.ios.tsx';
+import { Text, iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const TextField = (({ label, placeholder, platformProps = {} }) => {

@@ -27,8 +27,8 @@ import type { Href } from 'expo-router';
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 
-import { iosTextStyle } from '#modules/design-system';
 import { Text } from '#src/components/text';
+import { iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 import {
   accountsAtom,

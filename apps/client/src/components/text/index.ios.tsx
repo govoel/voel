@@ -1,9 +1,23 @@
 import { Text as SwiftText } from '@expo/ui/swift-ui';
-import { foregroundStyle } from '@expo/ui/swift-ui/modifiers';
+import { createModifier, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 
-import { iosTextStyle } from '#modules/design-system';
 import type { TextComponent } from '#src/components/text';
+
+export const iosTextStyle = (
+  style:
+    | 'largeTitle'
+    | 'title'
+    | 'title2'
+    | 'title3'
+    | 'headline'
+    | 'subheadline'
+    | 'body'
+    | 'callout'
+    | 'footnote'
+    | 'caption'
+    | 'caption2'
+) => createModifier('voelTextStyle', { style });
 
 export const Text = (({ variant = 'body', color, modifiers = [], children }) => (
   <SwiftText

@@ -5,8 +5,7 @@
   "main": "expo-router/entry",
   "imports": {
     "#src/*": "./src/*",
-    "#assets/*": "./assets/*",
-    "#modules/*": "./modules/*"
+    "#assets/*": "./assets/*"
   },
   "scripts": {
     "dev": "portless server bun run --watch src/index.ts",

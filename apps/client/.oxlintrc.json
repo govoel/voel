@@ -13,13 +13,5 @@
   "env": {
     "builtin": true,
     "node": true
-  },
-  "overrides": [
-    {
-      "files": ["modules/design-system/**"],
-      "rules": {
-        "unicorn/filename-case": "off"
-      }
-    }
-  ]
+  }
 }

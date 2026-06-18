@@ -1,5 +1,20 @@
-import ExpoModulesCore
+internal import ExpoModulesCore
+internal import ExpoUI
 import SwiftUI
+
+final class VoelTextStyleModule: Module {
+  public func definition() -> ModuleDefinition {
+    OnCreate {
+      ViewModifierRegistry.register("voelTextStyle") { params, appContext, _ in
+        return try VoelTextStyleModifier(from: params, appContext: appContext)
+      }
+    }
+
+    OnDestroy {
+      ViewModifierRegistry.unregister("voelTextStyle")
+    }
+  }
+}
 
 internal enum VoelTextStyle: String, Enumerable {
   case largeTitle
