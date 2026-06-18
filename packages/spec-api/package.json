@@ -12,7 +12,6 @@
   },
   "scripts": {
     "dev": "portless server bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir=dist --target=bun --format=esm --minify --sourcemap",
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {

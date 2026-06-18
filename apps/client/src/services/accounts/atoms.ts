@@ -1,4 +1,4 @@
-import { Effect, Option, Queue, Schema, Stream } from 'effect';
+import { Duration, Effect, Option, Queue, Schema, Stream } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -79,6 +79,8 @@ export const listAccountsAtom = AppRuntime.pull(
         return yield* new ListAccountsNoAuthClientError();
       }
 
+      yield* Effect.sleep(10_000);
+
       return Stream.paginate(
         0,
         Effect.fnUntraced(function* (offset) {
@@ -106,6 +108,9 @@ export const listAccountsAtom = AppRuntime.pull(
     },
     (effect) => Stream.unwrap(effect)
   )
+).pipe(
+  Atom.withReactivity(['accounts']),
+  Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true })
 );
 
 export const activeAccountSessionAtom = AppRuntime.atom((get) => {

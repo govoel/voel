@@ -12,6 +12,7 @@ final class ServerUsersListViewProps: ExpoSwiftUI.ViewProps {
   @Field var done: Bool = false
 
   var onEndReached = EventDispatcher()
+  var onTap = EventDispatcher()
 }
 
 struct ServerUsersListView: ExpoSwiftUI.View {
@@ -25,12 +26,25 @@ struct ServerUsersListView: ExpoSwiftUI.View {
     let thresholdIndex = props.users.count - 5
 
     ForEach(props.users.enumerated(), id: \.element.id) { offset, user in
-      Text("@\(user.username)")
-        .task {
-          if offset >= thresholdIndex, !props.waiting, !props.done {
-            props.onEndReached([:])
-          }
+      Button {
+        props.onTap([
+          "id": user.id
+        ])
+      } label: {
+        HStack {
+          Text("@\(user.username)")
+          Spacer()
+          Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
         }
+      }
+      .tint(.primary)
+      .task {
+        if offset >= thresholdIndex, !props.waiting, !props.done {
+          props.onEndReached([:])
+        }
+      }
     }
   }
 }
