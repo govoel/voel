@@ -6,7 +6,7 @@ export default function ProfileScreen() {
     <Host style={{ flex: 1 }}>
       <Group>
         <List modifiers={[headerProminence('increased')]}>
-          <Section title="Profile"></Section>
+          <Section title="Profile">{null}</Section>
         </List>
       </Group>
     </Host>
