@@ -1,14 +1,6 @@
 import type { Database, SQLQueryBindings } from 'bun:sqlite';
 
-import {
-  CompiledQuery,
-  IdentifierNode,
-  RawNode,
-  SqliteAdapter,
-  SqliteIntrospector,
-  SqliteQueryCompiler,
-  createQueryId,
-} from 'kysely';
+import { CompiledQuery, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely';
 import type {
   DatabaseConnection,
   DatabaseIntrospector,
@@ -20,18 +12,8 @@ import type {
   QueryResult,
 } from 'kysely';
 
-/**
- * Config for the SQLite dialect.
- */
 interface SourceTapDialectConfig {
-  /**
-   * An sqlite Database instance or a function that returns one.
-   */
   database: Database;
-
-  /**
-   * Called once when the first query is executed.
-   */
   onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
 }
 
@@ -61,12 +43,6 @@ export class SourceTapDialect implements Dialect {
     return new SqliteIntrospector(db);
   }
 }
-
-const parseSavepointCommand = (command: string, savepointName: string): RawNode =>
-  RawNode.createWithChildren([
-    RawNode.createWithSql(`${command} `),
-    IdentifierNode.create(savepointName), // ensures savepointName gets sanitized
-  ]);
 
 class SourceTapSqliteDriver implements Driver {
   readonly #config: SourceTapDialectConfig;
@@ -113,36 +89,18 @@ class SourceTapSqliteDriver implements Driver {
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
-  public async savepoint(
-    connection: DatabaseConnection,
-    savepointName: string,
-    compileQuery: QueryCompiler['compileQuery']
-  ): Promise<void> {
-    await connection.executeQuery(
-      compileQuery(parseSavepointCommand('savepoint', savepointName), createQueryId())
-    );
+  public async savepoint(): Promise<void> {
+    throw new Error('Savepoints are deliberately not supported');
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
-  public async rollbackToSavepoint(
-    connection: DatabaseConnection,
-    savepointName: string,
-    compileQuery: QueryCompiler['compileQuery']
-  ): Promise<void> {
-    await connection.executeQuery(
-      compileQuery(parseSavepointCommand('rollback to', savepointName), createQueryId())
-    );
+  public async rollbackToSavepoint(): Promise<void> {
+    throw new Error('Savepoints are deliberately not supported');
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
-  public async releaseSavepoint(
-    connection: DatabaseConnection,
-    savepointName: string,
-    compileQuery: QueryCompiler['compileQuery']
-  ): Promise<void> {
-    await connection.executeQuery(
-      compileQuery(parseSavepointCommand('release', savepointName), createQueryId())
-    );
+  public async releaseSavepoint(): Promise<void> {
+    throw new Error('Savepoints are deliberately not supported');
   }
 
   public async releaseConnection(): Promise<void> {
@@ -169,10 +127,9 @@ class SourceTapSqliteConnection implements DatabaseConnection {
       // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
       const rows = stmt.all(parameters as any);
       return {
-        // hack to get the last inserted id
-        // this is ok only because of the connection mutex
-        // guaranteeing that no other queries are running
-        // in between
+        // hack to get the last inserted id, which is ok
+        // only because of the connection mutex guaranteeing
+        // that no other queries are running in between
         insertId: BigInt(
           this.#db.query<{ id: number }, []>('select last_insert_rowid() as id').get()?.id ?? 0
         ),
@@ -276,36 +233,18 @@ class BunSqliteDriver implements Driver {
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
-  public async savepoint(
-    connection: DatabaseConnection,
-    savepointName: string,
-    compileQuery: QueryCompiler['compileQuery']
-  ): Promise<void> {
-    await connection.executeQuery(
-      compileQuery(parseSavepointCommand('savepoint', savepointName), createQueryId())
-    );
+  public async savepoint(): Promise<void> {
+    throw new Error('Savepoints are deliberately not supported');
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
-  public async rollbackToSavepoint(
-    connection: DatabaseConnection,
-    savepointName: string,
-    compileQuery: QueryCompiler['compileQuery']
-  ): Promise<void> {
-    await connection.executeQuery(
-      compileQuery(parseSavepointCommand('rollback to', savepointName), createQueryId())
-    );
+  public async rollbackToSavepoint(): Promise<void> {
+    throw new Error('Savepoints are deliberately not supported');
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
-  public async releaseSavepoint(
-    connection: DatabaseConnection,
-    savepointName: string,
-    compileQuery: QueryCompiler['compileQuery']
-  ): Promise<void> {
-    await connection.executeQuery(
-      compileQuery(parseSavepointCommand('release', savepointName), createQueryId())
-    );
+  public async releaseSavepoint(): Promise<void> {
+    throw new Error('Savepoints are deliberately not supported');
   }
 
   public async releaseConnection(): Promise<void> {
