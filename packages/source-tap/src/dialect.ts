@@ -15,6 +15,9 @@ import type {
 interface SourceTapDialectConfig {
   database: Database;
   onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
+  onBeginTransaction?: () => void;
+  onCommitTransaction?: () => void;
+  onRollbackTransaction?: () => void;
 }
 
 export class SourceTapDialect implements Dialect {
@@ -73,19 +76,19 @@ class SourceTapSqliteDriver implements Driver {
     return this.#connection!;
   }
 
-  // oxlint-disable-next-line eslint/class-methods-use-this
   public async beginTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('begin'));
+    this.#config.onBeginTransaction?.();
   }
 
-  // oxlint-disable-next-line eslint/class-methods-use-this
   public async commitTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('commit'));
+    this.#config.onCommitTransaction?.();
   }
 
-  // oxlint-disable-next-line eslint/class-methods-use-this
   public async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('rollback'));
+    this.#config.onRollbackTransaction?.();
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this

@@ -95,29 +95,29 @@ export const createDatabase = <DB>({
   const kysely = new Kysely<DB>({
     dialect:
       trackTables !== void 0
-        ? new SourceTapDialect({ database: new BunSqliteDatabase(filename) })
+        ? new SourceTapDialect({
+            database: new BunSqliteDatabase(filename),
+            onBeginTransaction: () => sourceTap?.beginTransaction(),
+            onCommitTransaction: () => sourceTap?.commitTransaction(),
+            onRollbackTransaction: () => sourceTap?.rollbackTransaction(),
+          })
         : new BunSqliteDialect({ database: new BunSqliteDatabase(filename) }),
     plugins: sourceTap !== void 0 ? [sourceTap] : [],
-    ...(enableLogging === true || sourceTap !== void 0
+    ...(enableLogging === true
       ? {
           log: (event) => {
-            if (enableLogging === true) {
-              if (event.level === 'query') {
-                // @effect-diagnostics-next-line globalConsole:off
-                // oxlint-disable-next-line eslint/no-console
-                console.log(
-                  `${sourceTap ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
-                );
-              } else {
-                // @effect-diagnostics-next-line globalConsole:off
-                // oxlint-disable-next-line eslint/no-console
-                console.log(
-                  `${sourceTap ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
-                );
-              }
-            }
-            if (sourceTap !== void 0) {
-              sourceTap.transactionDetector(event);
+            if (event.level === 'query') {
+              // @effect-diagnostics-next-line globalConsole:off
+              // oxlint-disable-next-line eslint/no-console
+              console.log(
+                `${sourceTap ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
+              );
+            } else {
+              // @effect-diagnostics-next-line globalConsole:off
+              // oxlint-disable-next-line eslint/no-console
+              console.log(
+                `${sourceTap ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
+              );
             }
           },
         }

@@ -1,3 +1,4 @@
+// oxlint-disable-next-line import/no-nodejs-modules
 import { EventEmitter } from 'node:events';
 
 import {
@@ -15,7 +16,6 @@ import {
 } from 'kysely';
 import type {
   KyselyPlugin,
-  LogEvent,
   PluginTransformQueryArgs,
   PluginTransformResultArgs,
   QueryResult,
@@ -250,30 +250,21 @@ export class SourceTap<DB> implements KyselyPlugin {
     return args.result;
   }
 
-  public transactionDetector(event: LogEvent) {
-    if (event.query.sql === 'begin') {
-      // we don't need to check if we are already in a transaction
-      // here because sqlite itself does not support nested transactions
-      // by calling begin again
-      this.#inTransaction = true;
-    } else if (event.query.sql === 'commit') {
-      this.#transactionEvents.forEach((transactionEvent) => {
-        this.events.emit(transactionEvent[0], transactionEvent[1]);
-      });
-      this.#transactionEvents = [];
-      this.#inTransaction = false;
-    } else if (event.query.sql === 'rollback') {
-      this.#transactionEvents = [];
-      this.#inTransaction = false;
-    } else if (
-      event.query.sql.startsWith('savepoint') ||
-      event.query.sql.startsWith('rollback to') ||
-      event.query.sql.startsWith('release')
-    ) {
-      this.#transactionEvents = [];
-      this.#inTransaction = false;
-      throw new Error('SourceTap does not support nested transactions');
-    }
+  public beginTransaction() {
+    this.#inTransaction = true;
+  }
+
+  public commitTransaction() {
+    this.#transactionEvents.forEach((transactionEvent) => {
+      this.events.emit(transactionEvent[0], transactionEvent[1]);
+    });
+    this.#transactionEvents = [];
+    this.#inTransaction = false;
+  }
+
+  public rollbackTransaction() {
+    this.#transactionEvents = [];
+    this.#inTransaction = false;
   }
 }
 
