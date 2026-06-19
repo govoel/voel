@@ -25,7 +25,7 @@ import type {
 } from 'kysely';
 
 type ListenerSignature<L> = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // oxlint-disable-next-line @typescript-eslint/no-explicit-any
   [E in keyof L]: (...args: any[]) => unknown;
 };
 
@@ -63,7 +63,7 @@ export interface SourceTapEvents<DB> {
 }
 
 export class SourceTap<DB> implements KyselyPlugin {
-  readonly events: TypedEmitter<SourceTapEvents<DB>>;
+  public readonly events: TypedEmitter<SourceTapEvents<DB>>;
 
   #inTransaction: boolean;
   #transactionEvents: [
@@ -71,18 +71,19 @@ export class SourceTap<DB> implements KyselyPlugin {
     Parameters<SourceTapEvents<DB>[keyof SourceTapEvents<DB>]>[0],
   ][];
 
-  readonly #trackTables: Set<keyof DB>;
+  readonly #trackTables: ReadonlySet<keyof DB>;
 
   readonly #transformer: SourceTapTransformer;
   readonly #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
-  readonly #currentTable: WeakMap<SourceTapQueryId, string>;
+  readonly #currentTable: WeakMap<SourceTapQueryId, Extract<keyof DB, string>>;
   readonly #currentQueryType: WeakMap<SourceTapQueryId, 'insert' | 'update'>;
   readonly #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
   readonly #currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>;
 
-  constructor(opts: { trackTables: Set<keyof DB> }) {
+  public constructor(opts: { trackTables: Set<keyof DB> }) {
     this.#trackTables = opts.trackTables;
 
+    // oxlint-disable-next-line unicorn/prefer-event-target, typescript/no-unsafe-type-assertion
     this.events = new EventEmitter() as TypedEmitter<SourceTapEvents<DB>>;
 
     this.#inTransaction = false;
@@ -101,23 +102,32 @@ export class SourceTap<DB> implements KyselyPlugin {
     );
   }
 
-  private setUpQuery(queryId: SourceTapQueryId, tableName: string, queryType: 'insert' | 'update') {
+  private isTrackedTable(tableName: string): tableName is Extract<keyof DB, string> {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return this.#trackTables.has(tableName as keyof DB);
+  }
+
+  private setUpQuery(
+    queryId: SourceTapQueryId,
+    tableName: Extract<keyof DB, string>,
+    queryType: 'insert' | 'update'
+  ) {
     this.#currentTable.set(queryId, tableName);
     this.#currentQueryType.set(queryId, queryType);
     this.#transformerVars.set('currentQueryId', queryId);
   }
 
-  transformQuery(args: PluginTransformQueryArgs): RootOperationNode {
+  public transformQuery(args: PluginTransformQueryArgs): RootOperationNode {
     if (
       InsertQueryNode.is(args.node) &&
       args.node.into &&
-      this.#trackTables.has(args.node.into.table.identifier.name as keyof DB)
+      this.isTrackedTable(args.node.into.table.identifier.name)
     ) {
       this.setUpQuery(args.queryId, args.node.into.table.identifier.name, 'insert');
       return this.#transformer.transformNode(args.node);
     } else if (UpdateQueryNode.is(args.node) && args.node.table) {
       if (TableNode.is(args.node.table)) {
-        if (this.#trackTables.has(args.node.table.table.identifier.name as keyof DB)) {
+        if (this.isTrackedTable(args.node.table.table.identifier.name)) {
           this.setUpQuery(args.queryId, args.node.table.table.identifier.name, 'update');
           return this.#transformer.transformNode(args.node);
         }
@@ -137,10 +147,14 @@ export class SourceTap<DB> implements KyselyPlugin {
     this.#currentOriginalReturningAlias.delete(queryId);
   }
 
-  async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
+  public async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
+    // oxlint-disable-next-line typescript/no-non-null-assertion
     const currentTable = this.#currentTable.get(args.queryId)!;
+    // oxlint-disable-next-line typescript/no-non-null-assertion
     const currentQueryType = this.#currentQueryType.get(args.queryId)!;
+    // oxlint-disable-next-line typescript/no-non-null-assertion
     const currentOriginalReturning = this.#currentOriginalReturning.get(args.queryId)!;
+    // oxlint-disable-next-line typescript/no-non-null-assertion
     const currentOriginalReturningAlias = this.#currentOriginalReturningAlias.get(args.queryId)!;
     if (typeof currentTable === 'string' && currentTable.length > 0) {
       let listenerRows: QueryResult<UnknownRow>['rows'] = [];
@@ -169,36 +183,38 @@ export class SourceTap<DB> implements KyselyPlugin {
           this.#transactionEvents.push([
             'update',
             {
-              table: currentTable as keyof DB,
+              table: currentTable,
+              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
               rows: listenerRows as Selectable<DB[keyof DB]>[],
             },
           ]);
         } else {
           this.events.emit('update', {
-            table: currentTable as keyof DB,
+            table: currentTable,
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
             rows: listenerRows as Selectable<DB[keyof DB]>[],
           });
         }
       }
 
+      // oxlint-disable-next-line eslint/no-useless-assignment
       let newArgs = args.result;
       if (currentOriginalReturning.size === 0) {
         // we return info about the query if the original
         // query had no RETURNING statement
-        if (currentQueryType === 'insert') {
-          newArgs = {
-            rows: [
-              {
-                insertId: args.result.insertId,
-                numInsertedOrUpdatedRows: args.result.numAffectedRows,
-              },
-            ],
-          };
-        } else {
-          newArgs = {
-            rows: [{ numUpdatedRows: args.result.numAffectedRows }],
-          };
-        }
+        newArgs =
+          currentQueryType === 'insert'
+            ? {
+                rows: [
+                  {
+                    insertId: args.result.insertId,
+                    numInsertedOrUpdatedRows: args.result.numAffectedRows,
+                  },
+                ],
+              }
+            : {
+                rows: [{ numUpdatedRows: args.result.numAffectedRows }],
+              };
       } else if (!currentOriginalReturning.has('*')) {
         // original query did not have RETURNING * which
         // means some data has to be removed before we send it back
@@ -234,7 +250,7 @@ export class SourceTap<DB> implements KyselyPlugin {
     return args.result;
   }
 
-  transactionDetector(event: LogEvent) {
+  public transactionDetector(event: LogEvent) {
     if (event.query.sql === 'begin') {
       // we don't need to check if we are already in a transaction
       // here because sqlite itself does not support nested transactions
@@ -266,10 +282,10 @@ class SourceTapTransformer extends OperationNodeTransformer {
   readonly #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
   readonly #currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>;
 
-  static returningNode = ReturningNode.create([SelectionNode.createSelectAll()]);
-  static selectAllNode = SelectionNode.createSelectAll();
+  public static returningNode = ReturningNode.create([SelectionNode.createSelectAll()]);
+  public static selectAllNode = SelectionNode.createSelectAll();
 
-  constructor(
+  public constructor(
     transformerVars: Map<'currentQueryId', SourceTapQueryId>,
     currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>,
     currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>
@@ -282,6 +298,7 @@ class SourceTapTransformer extends OperationNodeTransformer {
   }
 
   private addReturning<T extends InsertQueryNode | UpdateQueryNode>(node: T): T {
+    // oxlint-disable-next-line typescript/no-non-null-assertion
     const currentQueryId = this.#transformerVars.get('currentQueryId')!;
     this.#currentOriginalReturning.set(currentQueryId, new Set<string>());
     this.#currentOriginalReturningAlias.set(currentQueryId, new Set<string>());
@@ -293,32 +310,34 @@ class SourceTapTransformer extends OperationNodeTransformer {
   }
 
   protected override transformInsertQuery(node: InsertQueryNode): InsertQueryNode {
-    node = super.transformInsertQuery(node);
+    const transformedNode = super.transformInsertQuery(node);
 
-    if (node.returning === undefined) {
-      return this.addReturning(node);
+    if (transformedNode.returning === void 0) {
+      return this.addReturning(transformedNode);
     }
 
-    return node;
+    return transformedNode;
   }
 
   protected override transformUpdateQuery(node: UpdateQueryNode): UpdateQueryNode {
-    node = super.transformUpdateQuery(node);
+    const transformedNode = super.transformUpdateQuery(node);
 
-    if (node.returning === undefined) {
-      return this.addReturning(node);
+    if (transformedNode.returning === void 0) {
+      return this.addReturning(transformedNode);
     }
 
-    return node;
+    return transformedNode;
   }
 
   protected override transformReturning(returningNode: ReturningNode): ReturningNode {
-    returningNode = super.transformReturning(returningNode);
+    const transformedReturningNode = super.transformReturning(returningNode);
+    // oxlint-disable-next-line typescript/no-non-null-assertion
     const currentQueryId = this.#transformerVars.get('currentQueryId')!;
+
     const currentOriginalReturning = new Set<string>();
     const currentOriginalReturningAlias = new Set<string>();
 
-    for (const node of returningNode.selections) {
+    for (const node of transformedReturningNode.selections) {
       if (ColumnNode.is(node.selection)) {
         currentOriginalReturning.add(node.selection.column.name);
       } else if (ReferenceNode.is(node.selection)) {
@@ -327,19 +346,16 @@ class SourceTapTransformer extends OperationNodeTransformer {
         } else if (SelectAllNode.is(node.selection.column)) {
           currentOriginalReturning.add('*');
         } else {
-          throw new Error(
-            `SourceTap transformReturning has an unhandled ReferenceNode type: ${node.selection.column}`
-          );
+          throw new Error('SourceTap transformReturning has an unhandled ReferenceNode type');
         }
       } else if (AliasNode.is(node.selection)) {
-        let columnName: string | null = null;
-        if (ReferenceNode.is(node.selection.node) && ColumnNode.is(node.selection.node.column)) {
-          columnName = node.selection.node.column.column.name;
-        } else {
+        if (!(ReferenceNode.is(node.selection.node) && ColumnNode.is(node.selection.node.column))) {
           throw new Error(
-            `SourceTap transformReturning has an unhandled AliasNode.node type: ${node.selection.node}`
+            `SourceTap transformReturning has an unhandled AliasNode.node type: ${node.selection.node.kind}`
           );
         }
+
+        const columnName = node.selection.node.column.column.name;
 
         if (IdentifierNode.is(node.selection.alias)) {
           currentOriginalReturning.add(node.selection.alias.name);
@@ -350,15 +366,13 @@ class SourceTapTransformer extends OperationNodeTransformer {
           }
         } else {
           throw new Error(
-            `SourceTap transformReturning has an unhandled AliasNode.alias type: ${node.selection.alias}`
+            `SourceTap transformReturning has an unhandled AliasNode.alias type: ${node.selection.alias.kind}`
           );
         }
       } else if (SelectAllNode.is(node.selection)) {
         currentOriginalReturning.add('*');
       } else {
-        throw new Error(
-          `SourceTap transformReturning has an unhandled SelectionNode type: ${node.selection}`
-        );
+        throw new Error('SourceTap transformReturning has an unhandled SelectionNode type');
       }
     }
 
@@ -366,12 +380,12 @@ class SourceTapTransformer extends OperationNodeTransformer {
     this.#currentOriginalReturningAlias.set(currentQueryId, currentOriginalReturningAlias);
 
     if (currentOriginalReturning.has('*')) {
-      return returningNode;
+      return transformedReturningNode;
     }
 
     return {
-      ...returningNode,
-      selections: [...returningNode.selections, SourceTapTransformer.selectAllNode],
+      ...transformedReturningNode,
+      selections: [...transformedReturningNode.selections, SourceTapTransformer.selectAllNode],
     };
   }
 }

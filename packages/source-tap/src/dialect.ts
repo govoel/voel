@@ -197,7 +197,7 @@ class SourceTapSqliteConnection implements DatabaseConnection {
     const stmt = this.#db.prepare(sql);
 
     // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
-    for await (const row of stmt.iterate(parameters as any)) {
+    for (const row of stmt.iterate(parameters as any)) {
       // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       yield { rows: [row as R] };
     }
@@ -351,7 +351,7 @@ class BunSqliteConnection implements DatabaseConnection {
     const stmt = this.#db.prepare(sql);
 
     // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
-    for await (const row of stmt.iterate(parameters as any)) {
+    for (const row of stmt.iterate(parameters as any)) {
       // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       yield { rows: [row as R] };
     }

@@ -38,6 +38,7 @@
     "eslint/no-warning-comments": "off",
     "eslint/no-underscore-dangle": "off",
     "eslint/no-use-before-define": "off",
+    "eslint/max-depth": "off",
 
     "import/no-duplicates": ["error", { "preferInline": false }],
     "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
