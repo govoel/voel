@@ -88,47 +88,48 @@ export const createDatabase = <DB>({
   enableLogging,
 }: {
   filename: string;
-  trackTables?: Set<keyof DB>;
+  trackTables?: ReadonlySet<keyof DB>;
   enableLogging?: boolean;
-}) => {
-  const sourceTap = trackTables ? new SourceTap<DB>({ trackTables }) : void 0;
-  const kysely = new Kysely<DB>({
-    dialect:
-      trackTables !== void 0
-        ? new SourceTapDialect({
-            database: new BunSqliteDatabase(filename),
-            onBeginTransaction: () => sourceTap?.beginTransaction(),
-            onCommitTransaction: () => sourceTap?.commitTransaction(),
-            onRollbackTransaction: () => sourceTap?.rollbackTransaction(),
-          })
-        : new BunSqliteDialect({ database: new BunSqliteDatabase(filename) }),
-    plugins: sourceTap !== void 0 ? [sourceTap] : [],
-    ...(enableLogging === true
-      ? {
-          log: (event) => {
-            if (event.level === 'query') {
-              // @effect-diagnostics-next-line globalConsole:off
-              // oxlint-disable-next-line eslint/no-console
-              console.log(
-                `${sourceTap ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
-              );
-            } else {
-              // @effect-diagnostics-next-line globalConsole:off
-              // oxlint-disable-next-line eslint/no-console
-              console.log(
-                `${sourceTap ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
-              );
+}) =>
+  Effect.acquireRelease(
+    Effect.gen(function* () {
+      const sourceTap = trackTables ? yield* SourceTap.make<DB>({ trackTables }) : void 0;
+      const kysely = new Kysely<DB>({
+        dialect:
+          trackTables !== void 0
+            ? new SourceTapDialect({
+                database: new BunSqliteDatabase(filename),
+                onBeginTransaction: () => sourceTap?.beginTransaction(),
+                onCommitTransaction: () => sourceTap?.commitTransaction(),
+                onRollbackTransaction: () => sourceTap?.rollbackTransaction(),
+              })
+            : new BunSqliteDialect({ database: new BunSqliteDatabase(filename) }),
+        plugins: sourceTap !== void 0 ? [sourceTap] : [],
+        ...(enableLogging === true
+          ? {
+              log: (event) => {
+                if (event.level === 'query') {
+                  // @effect-diagnostics-next-line globalConsole:off
+                  // oxlint-disable-next-line eslint/no-console
+                  console.log(
+                    `${sourceTap ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
+                  );
+                } else {
+                  // @effect-diagnostics-next-line globalConsole:off
+                  // oxlint-disable-next-line eslint/no-console
+                  console.log(
+                    `${sourceTap ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
+                  );
+                }
+              },
             }
-          },
-        }
-      : {}),
-  });
+          : {}),
+      });
 
-  return Effect.acquireRelease(
-    Effect.succeed({ db: makeFromKysely(kysely), sourceTap }),
+      return { db: makeFromKysely(kysely), sourceTap };
+    }),
     ({ db }) => Effect.promise(async () => db.destroy())
   );
-};
 
 interface Executable<O> extends Compilable<O> {
   execute: () => Promise<O[]>;

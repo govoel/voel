@@ -1,4 +1,4 @@
-import { Effect, PubSub, Stream } from 'effect';
+import { Data, Effect, PubSub, Stream } from 'effect';
 import {
   AliasNode,
   ColumnNode,
@@ -34,14 +34,13 @@ interface SourceTapQueryState<TableName extends string = string> {
   originalReturningAlias: Set<string>;
 }
 
-export type SourceTapUpdate<DB> = {
-  [T in keyof DB]: {
-    readonly _tag: 'SourceTapUpdate';
-    readonly operation: 'insert' | 'update';
-    readonly table: T;
-    readonly rows: readonly Selectable<DB[T]>[];
-  };
-}[keyof DB];
+export class SourceTapUpdate<DB, Table extends keyof DB = keyof DB> extends Data.TaggedClass(
+  'SourceTapUpdate'
+)<{
+  readonly operation: 'insert' | 'update';
+  readonly table: Table;
+  readonly rows: readonly Selectable<DB[Table]>[];
+}> {}
 
 export class SourceTap<DB> implements KyselyPlugin {
   public readonly updates: Stream.Stream<SourceTapUpdate<DB>>;
@@ -56,17 +55,18 @@ export class SourceTap<DB> implements KyselyPlugin {
   readonly #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
   readonly #queryState: WeakMap<SourceTapQueryId, SourceTapQueryState<Extract<keyof DB, string>>>;
 
-  public static make = <Database>(opts: { trackTables: Set<keyof Database> }) =>
-    Effect.gen(function* () {
-      const pubsub = yield* PubSub.unbounded<SourceTapUpdate<Database>>();
+  public static make = Effect.fnUntraced(function* <Database>(opts: {
+    trackTables: ReadonlySet<keyof Database>;
+  }) {
+    const pubsub = yield* PubSub.unbounded<SourceTapUpdate<Database>>();
 
-      yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
+    yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
 
-      return new SourceTap(opts, pubsub);
-    });
+    return new SourceTap(opts, pubsub);
+  });
 
   private constructor(
-    opts: { trackTables: Set<keyof DB> },
+    opts: { trackTables: ReadonlySet<keyof DB> },
     pubsub: PubSub.PubSub<SourceTapUpdate<DB>>
   ) {
     this.#pubsub = pubsub;
@@ -155,21 +155,24 @@ export class SourceTap<DB> implements KyselyPlugin {
 
       if (listenerRows.length > 0) {
         if (this.#inTransaction) {
-          this.#transactionEvents.push({
-            _tag: 'SourceTapUpdate',
-            operation: queryState.queryType,
-            table: queryState.table,
-            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-            rows: listenerRows as Selectable<DB[keyof DB]>[],
-          } as SourceTapUpdate<DB>);
+          this.#transactionEvents.push(
+            new SourceTapUpdate<DB>({
+              operation: queryState.queryType,
+              table: queryState.table,
+              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+              rows: listenerRows as Selectable<DB[keyof DB]>[],
+            })
+          );
         } else {
-          PubSub.publishUnsafe(this.#pubsub, {
-            _tag: 'SourceTapUpdate',
-            operation: queryState.queryType,
-            table: queryState.table,
-            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-            rows: listenerRows as Selectable<DB[keyof DB]>[],
-          } as SourceTapUpdate<DB>);
+          PubSub.publishUnsafe(
+            this.#pubsub,
+            new SourceTapUpdate<DB>({
+              operation: queryState.queryType,
+              table: queryState.table,
+              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+              rows: listenerRows as Selectable<DB[keyof DB]>[],
+            })
+          );
         }
       }
 

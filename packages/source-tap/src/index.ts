@@ -1,2 +1,2 @@
 export { SourceTapDialect } from '#src/dialect.ts';
-export { SourceTap, type SourceTapEvents } from '#src/source-tap.ts';
+export { SourceTap, SourceTapUpdate } from '#src/source-tap.ts';

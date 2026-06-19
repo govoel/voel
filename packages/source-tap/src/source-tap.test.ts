@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from '@effect/vitest';
-import { Context, Effect, Layer } from 'effect';
+import { describe, expect, it } from '@effect/vitest';
+import { Context, Effect, Layer, Queue, Stream } from 'effect';
 import { sql } from 'kysely';
 import type { ColumnType, Generated } from 'kysely';
 
@@ -70,6 +70,66 @@ class TestDatabase extends Context.Service<
     Layer.effect(this, this.make(args));
 }
 
+const makeUpdateQueue = Effect.fnUntraced(function* (sourceTap: SourceTap<KyselyDB> | undefined) {
+  const queue = yield* Queue.unbounded<unknown>();
+
+  if (sourceTap === void 0) {
+    return queue;
+  }
+
+  yield* sourceTap.updates.pipe(
+    Stream.map((payload) => ({ table: payload.table, rows: payload.rows })),
+    Stream.runForEach((payload) => Queue.offer(queue, payload)),
+    Effect.forkScoped
+  );
+
+  yield* Effect.yieldNow;
+
+  return queue;
+});
+
+const expectNoUpdates = Effect.fnUntraced(function* (queue: Queue.Dequeue<unknown>) {
+  expect(yield* Queue.size(queue)).toBe(0);
+});
+
+const expectUpdates = Effect.fnUntraced(function* (
+  queue: Queue.Dequeue<unknown>,
+  updates: readonly unknown[]
+) {
+  for (const update of updates) {
+    expect(yield* Queue.take(queue)).toEqual(update);
+  }
+});
+
+const expectUpdateForEntry = Effect.fnUntraced(function* (
+  sourceTap: SourceTap<KyselyDB> | undefined,
+  queue: Queue.Dequeue<unknown>,
+  entry: { readonly updates?: readonly unknown[]; readonly [key: string]: unknown }
+) {
+  if (sourceTap !== void 0 && 'updates' in entry) {
+    yield* expectUpdates(queue, entry.updates);
+    return;
+  }
+
+  yield* expectNoUpdates(queue);
+});
+
+const expectAllUpdates = Effect.fnUntraced(function* (
+  sourceTap: SourceTap<KyselyDB> | undefined,
+  queue: Queue.Dequeue<unknown>,
+  queries: readonly { readonly updates?: readonly unknown[]; readonly [key: string]: unknown }[]
+) {
+  if (sourceTap !== void 0) {
+    for (const entry of queries) {
+      if ('updates' in entry) {
+        yield* expectUpdates(queue, entry.updates);
+      }
+    }
+  }
+
+  yield* expectNoUpdates(queue);
+});
+
 describe('SourceTap', () => {
   const cases = [
     [
@@ -80,7 +140,7 @@ describe('SourceTap', () => {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.insertInto('users3').values({ uuid: 'one', username: 'test1' }),
           execute: [{ insertId: 1n, numInsertedOrUpdatedRows: 1n }],
-          listener: [{ table: 'users3', rows: [{ uuid: 'one', username: 'test1', name: null }] }],
+          updates: [{ table: 'users3', rows: [{ uuid: 'one', username: 'test1', name: null }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -91,7 +151,7 @@ describe('SourceTap', () => {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.updateTable('users3').set({ uuid: 'updatedOne', username: 'updated1' }),
           execute: [{ numUpdatedRows: 1n }],
-          listener: [
+          updates: [
             { table: 'users3', rows: [{ uuid: 'updatedOne', username: 'updated1', name: null }] },
           ],
         },
@@ -107,7 +167,7 @@ describe('SourceTap', () => {
               { uuid: 'three', username: 'test3', name: 'testName3' },
             ]),
           executeTakeFirstOrThrow: { insertId: 3n, numInsertedOrUpdatedRows: 2n },
-          listener: [
+          updates: [
             {
               table: 'users3',
               rows: [
@@ -142,7 +202,7 @@ describe('SourceTap', () => {
               .set({ name: 'updatedName2' })
               .where((eb) => eb.or([eb('uuid', '=', 'two'), eb('uuid', '=', 'three')])),
           executeTakeFirstOrThrow: { numUpdatedRows: 2n },
-          listener: [
+          updates: [
             {
               table: 'users3',
               rows: [
@@ -165,7 +225,7 @@ describe('SourceTap', () => {
             { uuid: 'four', username: 'test4', name: 'testName4' },
             { uuid: 'five', username: 'test5', name: 'testName5' },
           ],
-          listener: [
+          updates: [
             {
               table: 'users3',
               rows: [
@@ -183,7 +243,7 @@ describe('SourceTap', () => {
               .where('uuid', '=', 'four')
               .returning(['uuid as uuid', 'username as username', 'name as name']),
           execute: [{ uuid: 'four', username: 'test4', name: 'updatedName4' }],
-          listener: [
+          updates: [
             {
               table: 'users3',
               rows: [{ uuid: 'four', username: 'test4', name: 'updatedName4' }],
@@ -225,7 +285,7 @@ describe('SourceTap', () => {
               .values({ id: 1, name: 'test1' })
               .returning(['id', 'name as namez']),
           executeTakeFirst: { id: 1, namez: 'test1' },
-          listener: [{ table: 'users', rows: [{ id: 1, name: 'test1' }] }],
+          updates: [{ table: 'users', rows: [{ id: 1, name: 'test1' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -236,7 +296,7 @@ describe('SourceTap', () => {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.insertInto('users').values({ id: 2, name: 'test2' }).returningAll(),
           execute: [{ id: 2, name: 'test2' }],
-          listener: [{ table: 'users', rows: [{ id: 2, name: 'test2' }] }],
+          updates: [{ table: 'users', rows: [{ id: 2, name: 'test2' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -251,13 +311,13 @@ describe('SourceTap', () => {
               .returningAll()
               .returning(['id as idz', 'name as namez']),
           executeTakeFirst: { id: 3, idz: 3, name: 'test3', namez: 'test3' },
-          listener: [{ table: 'users', rows: [{ id: 3, name: 'test3' }] }],
+          updates: [{ table: 'users', rows: [{ id: 3, name: 'test3' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.insertInto('users').values({ id: 4, name: 'test4' }),
           execute: [{ insertId: 4n, numInsertedOrUpdatedRows: 1n }],
-          listener: [{ table: 'users', rows: [{ id: 4, name: 'test4' }] }],
+          updates: [{ table: 'users', rows: [{ id: 4, name: 'test4' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -278,19 +338,19 @@ describe('SourceTap', () => {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.updateTable('users').set({ name: 'update' }).where('name', '=', 'test3'),
           executeTakeFirst: { numUpdatedRows: 1n },
-          listener: [{ table: 'users', rows: [{ id: 3, name: 'update' }] }],
+          updates: [{ table: 'users', rows: [{ id: 3, name: 'update' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.insertInto('users').values({ id: 5, name: 'test5' }).returning(['id']),
           executeTakeFirst: { id: 5 },
-          listener: [{ table: 'users', rows: [{ id: 5, name: 'test5' }] }],
+          updates: [{ table: 'users', rows: [{ id: 5, name: 'test5' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.insertInto('users').values({ id: 6, name: 'test6' }),
           execute: [{ insertId: 6n, numInsertedOrUpdatedRows: 1n }],
-          listener: [{ table: 'users', rows: [{ id: 6, name: 'test6' }] }],
+          updates: [{ table: 'users', rows: [{ id: 6, name: 'test6' }] }],
         },
       ],
     ],
@@ -305,7 +365,7 @@ describe('SourceTap', () => {
               .values({ id: 1, name: 'test1' })
               .returning(['id', 'name as namez']),
           executeTakeFirst: { id: 1, namez: 'test1' },
-          listener: [{ table: 'users', rows: [{ id: 1, name: 'test1' }] }],
+          updates: [{ table: 'users', rows: [{ id: 1, name: 'test1' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -314,7 +374,7 @@ describe('SourceTap', () => {
               .values({ id: 2, username: 'test2' })
               .returning(['id', 'username as userz']),
           executeTakeFirst: { id: 2, userz: 'test2' },
-          listener: [{ table: 'users2', rows: [{ id: 2, username: 'test2' }] }],
+          updates: [{ table: 'users2', rows: [{ id: 2, username: 'test2' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -347,7 +407,7 @@ describe('SourceTap', () => {
               .where('name', '=', 'test1')
               .returning(['id', 'name as namez']),
           executeTakeFirst: { id: 1, namez: 'update' },
-          listener: [{ table: 'users', rows: [{ id: 1, name: 'update' }] }],
+          updates: [{ table: 'users', rows: [{ id: 1, name: 'update' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -357,7 +417,7 @@ describe('SourceTap', () => {
               .where('username', '=', 'test2')
               .returning(['id', 'username as userz']),
           executeTakeFirst: { id: 2, userz: 'update2' },
-          listener: [{ table: 'users2', rows: [{ id: 2, username: 'update2' }] }],
+          updates: [{ table: 'users2', rows: [{ id: 2, username: 'update2' }] }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -391,24 +451,10 @@ describe('SourceTap', () => {
     '%s',
     Effect.fnUntraced(function* ([_, { trackTables }, queries]) {
       const effect = Effect.fnUntraced(function* () {
-        const listener1 = vi.fn();
-        const listener2 = vi.fn();
-        const listener3 = vi.fn();
-
         const { db, sourceTap } = yield* TestDatabase;
-        if (sourceTap !== void 0) {
-          sourceTap.events.on('update', (payload) => {
-            listener1(payload);
-          });
-          sourceTap.events.on('update', (payload) => {
-            listener2(payload);
-          });
-          sourceTap.events.on('update', (payload) => {
-            listener3(payload);
-          });
-        }
+        const updates = yield* makeUpdateQueue(sourceTap);
 
-        for (const [j, entry] of queries.entries()) {
+        for (const entry of queries) {
           if ('executeTakeFirstOrThrow' in entry) {
             expect(yield* db.executeTakeFirstOrError(entry.query(db))).toEqual(
               entry.executeTakeFirstOrThrow
@@ -423,40 +469,10 @@ describe('SourceTap', () => {
             throw new Error('Invalid query entry');
           }
 
-          if (sourceTap !== void 0) {
-            if ('listener' in entry) {
-              const listenerCallCount =
-                queries.slice(0, j).filter((q) => 'listener' in q).length + 1;
-              expect(listener1).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
-              expect(listener2).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
-              expect(listener3).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
-            } else {
-              expect(listener1).toHaveBeenCalledTimes(
-                queries.slice(0, j).filter((q) => 'listener' in q).length
-              );
-              expect(listener2).toHaveBeenCalledTimes(
-                queries.slice(0, j).filter((q) => 'listener' in q).length
-              );
-              expect(listener3).toHaveBeenCalledTimes(
-                queries.slice(0, j).filter((q) => 'listener' in q).length
-              );
-            }
-          } else {
-            expect(listener1).toHaveBeenCalledTimes(0);
-            expect(listener2).toHaveBeenCalledTimes(0);
-            expect(listener3).toHaveBeenCalledTimes(0);
-          }
+          yield* expectUpdateForEntry(sourceTap, updates, entry);
         }
 
-        if (sourceTap !== void 0) {
-          expect(listener1).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
-          expect(listener2).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
-          expect(listener3).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
-        } else {
-          expect(listener1).toHaveBeenCalledTimes(0);
-          expect(listener2).toHaveBeenCalledTimes(0);
-          expect(listener3).toHaveBeenCalledTimes(0);
-        }
+        yield* expectNoUpdates(updates);
       });
 
       yield* Effect.all(
@@ -473,22 +489,8 @@ describe('SourceTap', () => {
     'Transaction: %s',
     Effect.fnUntraced(function* ([_, { trackTables }, queries]) {
       const effect = Effect.fnUntraced(function* () {
-        const listener1 = vi.fn();
-        const listener2 = vi.fn();
-        const listener3 = vi.fn();
-
         const { db, sourceTap } = yield* TestDatabase;
-        if (sourceTap !== void 0) {
-          sourceTap.events.on('update', (payload) => {
-            listener1(payload);
-          });
-          sourceTap.events.on('update', (payload) => {
-            listener2(payload);
-          });
-          sourceTap.events.on('update', (payload) => {
-            listener3(payload);
-          });
-        }
+        const updates = yield* makeUpdateQueue(sourceTap);
 
         yield* db.trx().execute(
           Effect.fnUntraced(function* (trx) {
@@ -507,42 +509,14 @@ describe('SourceTap', () => {
                 throw new Error('Invalid query entry');
               }
 
-              expect(listener1).toHaveBeenCalledTimes(0);
-              expect(listener2).toHaveBeenCalledTimes(0);
-              expect(listener3).toHaveBeenCalledTimes(0);
+              yield* expectNoUpdates(updates);
             }
 
-            expect(listener1).toHaveBeenCalledTimes(0);
-            expect(listener2).toHaveBeenCalledTimes(0);
-            expect(listener3).toHaveBeenCalledTimes(0);
+            yield* expectNoUpdates(updates);
           })
         );
 
-        for (const [j, entry] of queries.entries()) {
-          if (sourceTap !== void 0) {
-            if ('listener' in entry) {
-              const listenerCallCount =
-                queries.slice(0, j).filter((q) => 'listener' in q).length + 1;
-              expect(listener1).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
-              expect(listener2).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
-              expect(listener3).toHaveBeenNthCalledWith(listenerCallCount, ...entry.listener);
-            }
-          } else {
-            expect(listener1).toHaveBeenCalledTimes(0);
-            expect(listener2).toHaveBeenCalledTimes(0);
-            expect(listener3).toHaveBeenCalledTimes(0);
-          }
-        }
-
-        if (sourceTap !== void 0) {
-          expect(listener1).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
-          expect(listener2).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
-          expect(listener3).toHaveBeenCalledTimes(queries.filter((q) => 'listener' in q).length);
-        } else {
-          expect(listener1).toHaveBeenCalledTimes(0);
-          expect(listener2).toHaveBeenCalledTimes(0);
-          expect(listener3).toHaveBeenCalledTimes(0);
-        }
+        yield* expectAllUpdates(sourceTap, updates, queries);
       });
 
       yield* Effect.all(
@@ -559,22 +533,8 @@ describe('SourceTap', () => {
     'Transaction rollback discards events: %s',
     Effect.fnUntraced(function* ([_, { trackTables }, queries]) {
       const effect = Effect.fnUntraced(function* () {
-        const listener1 = vi.fn();
-        const listener2 = vi.fn();
-        const listener3 = vi.fn();
-
         const { db, sourceTap } = yield* TestDatabase;
-        if (sourceTap !== void 0) {
-          sourceTap.events.on('update', (payload) => {
-            listener1(payload);
-          });
-          sourceTap.events.on('update', (payload) => {
-            listener2(payload);
-          });
-          sourceTap.events.on('update', (payload) => {
-            listener3(payload);
-          });
-        }
+        const updates = yield* makeUpdateQueue(sourceTap);
 
         yield* db
           .trx()
@@ -595,18 +555,14 @@ describe('SourceTap', () => {
                   throw new Error('Invalid query entry');
                 }
 
-                expect(listener1).toHaveBeenCalledTimes(0);
-                expect(listener2).toHaveBeenCalledTimes(0);
-                expect(listener3).toHaveBeenCalledTimes(0);
+                yield* expectNoUpdates(updates);
 
                 if (queries.length - 1 === j) {
                   return yield* Effect.fail('Intentionally cause a rollback');
                 }
               }
 
-              expect(listener1).toHaveBeenCalledTimes(0);
-              expect(listener2).toHaveBeenCalledTimes(0);
-              expect(listener3).toHaveBeenCalledTimes(0);
+              yield* expectNoUpdates(updates);
               expect(1).toEqual(2); // Should not reach here
 
               return yield* Effect.void;
@@ -619,9 +575,7 @@ describe('SourceTap', () => {
             })
           );
 
-        expect(listener1).toHaveBeenCalledTimes(0);
-        expect(listener2).toHaveBeenCalledTimes(0);
-        expect(listener3).toHaveBeenCalledTimes(0);
+        yield* expectNoUpdates(updates);
       });
 
       yield* Effect.all(
@@ -635,23 +589,16 @@ describe('SourceTap', () => {
   );
 
   it.effect(
-    'Modifying returned data should not affect event listeners',
+    'Modifying returned data should not affect stream updates',
     Effect.fnUntraced(
       function* () {
         const { db, sourceTap } = yield* TestDatabase;
-
-        let capturedPayload: unknown = void 0;
-        const listener = vi.fn((payload) => {
-          capturedPayload = payload;
-        });
-
-        if (sourceTap !== void 0) {
-          sourceTap.events.on('update', listener);
-        }
+        const updates = yield* makeUpdateQueue(sourceTap);
 
         const result = yield* db.executeTakeFirstOrError(
           db.insertInto('users').values({ name: 'modification-test' }).returning(['name'])
         );
+        const capturedPayload = yield* Queue.take(updates);
 
         result.name = 'MODIFIED';
 
