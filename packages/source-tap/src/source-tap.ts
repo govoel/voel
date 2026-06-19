@@ -1,6 +1,4 @@
-// oxlint-disable-next-line import/no-nodejs-modules
-import { EventEmitter } from 'node:events';
-
+import { Effect, PubSub, Schema, Stream } from 'effect';
 import {
   AliasNode,
   ColumnNode,
@@ -24,31 +22,6 @@ import type {
   UnknownRow,
 } from 'kysely';
 
-type ListenerSignature<L> = {
-  // oxlint-disable-next-line @typescript-eslint/no-explicit-any
-  [E in keyof L]: (...args: any[]) => unknown;
-};
-
-type DefaultListener = Record<string, (...args: unknown[]) => unknown>;
-
-interface TypedEmitter<L extends ListenerSignature<L> = DefaultListener> {
-  addListener<U extends keyof L>(event: U, listener: L[U]): this;
-  prependListener<U extends keyof L>(event: U, listener: L[U]): this;
-  prependOnceListener<U extends keyof L>(event: U, listener: L[U]): this;
-  removeListener<U extends keyof L>(event: U, listener: L[U]): this;
-  removeAllListeners(event?: keyof L): this;
-  once<U extends keyof L>(event: U, listener: L[U]): this;
-  on<U extends keyof L>(event: U, listener: L[U]): this;
-  off<U extends keyof L>(event: U, listener: L[U]): this;
-  emit<U extends keyof L>(event: U, ...args: Parameters<L[U]>): boolean;
-  eventNames<U extends keyof L>(): U[];
-  listenerCount(type: keyof L): number;
-  listeners<U extends keyof L>(type: U): L[U][];
-  rawListeners<U extends keyof L>(type: U): L[U][];
-  getMaxListeners(): number;
-  setMaxListeners(n: number): this;
-}
-
 type SourceTapQueryId =
   PluginTransformQueryArgs['queryId'] extends PluginTransformResultArgs['queryId']
     ? PluginTransformQueryArgs['queryId']
@@ -61,34 +34,50 @@ interface SourceTapQueryState<TableName extends string = string> {
   originalReturningAlias: Set<string>;
 }
 
-export interface SourceTapEvents<DB> {
-  update: (
-    payload: {
-      [T in keyof DB]: { table: T; rows: Selectable<DB[T]>[] };
-    }[keyof DB]
-  ) => void;
-}
+export class SourceTapUpdate extends Schema.TaggedClass<SourceTapUpdate>(
+  '@repo/source-tap/SourceTapUpdate'
+)('SourceTapUpdate', {
+  operation: Schema.Literals(['insert', 'update']),
+  table: Schema.Any,
+  rows: Schema.Array(Schema.Any),
+}) {}
+
+export type SourceTapUpdateFor<DB> = {
+  [T in keyof DB]: Omit<SourceTapUpdate, 'rows' | 'table'> & {
+    readonly table: T;
+    readonly rows: readonly Selectable<DB[T]>[];
+  };
+}[keyof DB];
 
 export class SourceTap<DB> implements KyselyPlugin {
-  public readonly events: TypedEmitter<SourceTapEvents<DB>>;
+  public readonly updates: Stream.Stream<SourceTapUpdateFor<DB>>;
 
   #inTransaction: boolean;
-  #transactionEvents: [
-    keyof SourceTapEvents<DB>,
-    Parameters<SourceTapEvents<DB>[keyof SourceTapEvents<DB>]>[0],
-  ][];
+  #transactionEvents: SourceTapUpdateFor<DB>[];
 
+  readonly #pubsub: PubSub.PubSub<SourceTapUpdateFor<DB>>;
   readonly #trackTables: ReadonlySet<keyof DB>;
 
   readonly #transformer: SourceTapTransformer<Extract<keyof DB, string>>;
   readonly #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
   readonly #queryState: WeakMap<SourceTapQueryId, SourceTapQueryState<Extract<keyof DB, string>>>;
 
-  public constructor(opts: { trackTables: Set<keyof DB> }) {
-    this.#trackTables = opts.trackTables;
+  public static make = <Database>(opts: { trackTables: Set<keyof Database> }) =>
+    Effect.gen(function* () {
+      const pubsub = yield* PubSub.unbounded<SourceTapUpdateFor<Database>>();
 
-    // oxlint-disable-next-line unicorn/prefer-event-target, typescript/no-unsafe-type-assertion
-    this.events = new EventEmitter() as TypedEmitter<SourceTapEvents<DB>>;
+      yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
+
+      return new SourceTap(opts, pubsub);
+    });
+
+  private constructor(
+    opts: { trackTables: Set<keyof DB> },
+    pubsub: PubSub.PubSub<SourceTapUpdateFor<DB>>
+  ) {
+    this.#pubsub = pubsub;
+    this.#trackTables = opts.trackTables;
+    this.updates = Stream.fromPubSub(this.#pubsub);
 
     this.#inTransaction = false;
     this.#transactionEvents = [];
@@ -172,20 +161,24 @@ export class SourceTap<DB> implements KyselyPlugin {
 
       if (listenerRows.length > 0) {
         if (this.#inTransaction) {
-          this.#transactionEvents.push([
-            'update',
-            {
+          this.#transactionEvents.push(
+            new SourceTapUpdate({
+              operation: queryState.queryType,
               table: queryState.table,
               // oxlint-disable-next-line typescript/no-unsafe-type-assertion
               rows: listenerRows as Selectable<DB[keyof DB]>[],
-            },
-          ]);
+            }) as SourceTapUpdateFor<DB>
+          );
         } else {
-          this.events.emit('update', {
-            table: queryState.table,
-            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-            rows: listenerRows as Selectable<DB[keyof DB]>[],
-          });
+          PubSub.publishUnsafe(
+            this.#pubsub,
+            new SourceTapUpdate({
+              operation: queryState.queryType,
+              table: queryState.table,
+              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+              rows: listenerRows as Selectable<DB[keyof DB]>[],
+            }) as SourceTapUpdateFor<DB>
+          );
         }
       }
 
@@ -248,7 +241,7 @@ export class SourceTap<DB> implements KyselyPlugin {
 
   public commitTransaction() {
     this.#transactionEvents.forEach((transactionEvent) => {
-      this.events.emit(transactionEvent[0], transactionEvent[1]);
+      PubSub.publishUnsafe(this.#pubsub, transactionEvent);
     });
     this.#transactionEvents = [];
     this.#inTransaction = false;
