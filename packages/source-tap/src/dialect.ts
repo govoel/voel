@@ -1,5 +1,6 @@
 import type { Database, SQLQueryBindings } from 'bun:sqlite';
 
+import { Effect, TxSemaphore } from 'effect';
 import { CompiledQuery, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely';
 import type {
   DatabaseConnection,
@@ -49,10 +50,10 @@ export class SourceTapDialect implements Dialect {
 
 class SourceTapSqliteDriver implements Driver {
   readonly #config: SourceTapDialectConfig;
-  readonly #connectionMutex = new ConnectionMutex();
 
   #db?: Database;
   #connection?: DatabaseConnection;
+  #connectionSemaphore?: TxSemaphore.TxSemaphore;
 
   public constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
@@ -60,6 +61,7 @@ class SourceTapSqliteDriver implements Driver {
 
   public async init(): Promise<void> {
     this.#db = this.#config.database;
+    this.#connectionSemaphore = await Effect.runPromise(TxSemaphore.make(1));
 
     this.#connection = new SourceTapSqliteConnection(this.#db);
 
@@ -69,11 +71,13 @@ class SourceTapSqliteDriver implements Driver {
   }
 
   public async acquireConnection(): Promise<DatabaseConnection> {
+    if (!this.#connection || !this.#connectionSemaphore) {
+      throw new Error('Connection has not been initialized. Call init() first.');
+    }
     // SQLite only has one single connection. We use a mutex here to wait
     // until the single connection has been released.
-    await this.#connectionMutex.lock();
-    // oxlint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return this.#connection!;
+    await Effect.runPromise(TxSemaphore.acquire(this.#connectionSemaphore));
+    return this.#connection;
   }
 
   public async beginTransaction(connection: DatabaseConnection): Promise<void> {
@@ -107,7 +111,10 @@ class SourceTapSqliteDriver implements Driver {
   }
 
   public async releaseConnection(): Promise<void> {
-    this.#connectionMutex.unlock();
+    if (!this.#connectionSemaphore) {
+      throw new Error('Connection has not been initialized. Call init() first.');
+    }
+    await Effect.runPromise(TxSemaphore.release(this.#connectionSemaphore));
   }
 
   public async destroy(): Promise<void> {
@@ -193,10 +200,10 @@ export class BunSqliteDialect implements Dialect {
 
 class BunSqliteDriver implements Driver {
   readonly #config: SourceTapDialectConfig;
-  readonly #connectionMutex = new ConnectionMutex();
 
   #db?: Database;
   #connection?: DatabaseConnection;
+  #connectionSemaphore?: TxSemaphore.TxSemaphore;
 
   public constructor(config: SourceTapDialectConfig) {
     this.#config = Object.freeze({ ...config });
@@ -204,6 +211,7 @@ class BunSqliteDriver implements Driver {
 
   public async init(): Promise<void> {
     this.#db = this.#config.database;
+    this.#connectionSemaphore = await Effect.runPromise(TxSemaphore.make(1));
 
     this.#connection = new BunSqliteConnection(this.#db);
 
@@ -213,11 +221,13 @@ class BunSqliteDriver implements Driver {
   }
 
   public async acquireConnection(): Promise<DatabaseConnection> {
+    if (!this.#connection || !this.#connectionSemaphore) {
+      throw new Error('Connection has not been initialized. Call init() first.');
+    }
     // SQLite only has one single connection. We use a mutex here to wait
     // until the single connection has been released.
-    await this.#connectionMutex.lock();
-    // oxlint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return this.#connection!;
+    await Effect.runPromise(TxSemaphore.acquire(this.#connectionSemaphore));
+    return this.#connection;
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
@@ -251,7 +261,10 @@ class BunSqliteDriver implements Driver {
   }
 
   public async releaseConnection(): Promise<void> {
-    this.#connectionMutex.unlock();
+    if (!this.#connectionSemaphore) {
+      throw new Error('Connection has not been initialized. Call init() first.');
+    }
+    await Effect.runPromise(TxSemaphore.release(this.#connectionSemaphore));
   }
 
   public async destroy(): Promise<void> {
@@ -297,32 +310,5 @@ class BunSqliteConnection implements DatabaseConnection {
       // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       yield { rows: [row as R] };
     }
-  }
-}
-
-class ConnectionMutex {
-  #promise?: Promise<void> | undefined;
-  #resolve?: (() => void) | undefined;
-
-  public async lock(): Promise<void> {
-    while (this.#promise) {
-      // oxlint-disable-next-line eslint/no-await-in-loop
-      await this.#promise;
-    }
-
-    // @effect-diagnostics-next-line newPromise:off
-    // oxlint-disable-next-line promise/avoid-new
-    this.#promise = new Promise((resolve) => {
-      this.#resolve = resolve;
-    });
-  }
-
-  public unlock(): void {
-    const resolve = this.#resolve;
-
-    this.#promise = void 0;
-    this.#resolve = void 0;
-
-    resolve?.();
   }
 }
