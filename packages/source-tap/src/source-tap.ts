@@ -54,6 +54,13 @@ type SourceTapQueryId =
     ? PluginTransformQueryArgs['queryId']
     : never;
 
+interface SourceTapQueryState<TableName extends string = string> {
+  table: TableName;
+  queryType: 'insert' | 'update';
+  originalReturning: Set<string>;
+  originalReturningAlias: Set<string>;
+}
+
 export interface SourceTapEvents<DB> {
   update: (
     payload: {
@@ -73,12 +80,9 @@ export class SourceTap<DB> implements KyselyPlugin {
 
   readonly #trackTables: ReadonlySet<keyof DB>;
 
-  readonly #transformer: SourceTapTransformer;
+  readonly #transformer: SourceTapTransformer<Extract<keyof DB, string>>;
   readonly #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
-  readonly #currentTable: WeakMap<SourceTapQueryId, Extract<keyof DB, string>>;
-  readonly #currentQueryType: WeakMap<SourceTapQueryId, 'insert' | 'update'>;
-  readonly #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
-  readonly #currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>;
+  readonly #queryState: WeakMap<SourceTapQueryId, SourceTapQueryState<Extract<keyof DB, string>>>;
 
   public constructor(opts: { trackTables: Set<keyof DB> }) {
     this.#trackTables = opts.trackTables;
@@ -89,17 +93,10 @@ export class SourceTap<DB> implements KyselyPlugin {
     this.#inTransaction = false;
     this.#transactionEvents = [];
 
-    this.#currentTable = new WeakMap();
-    this.#currentQueryType = new WeakMap();
-    this.#currentOriginalReturning = new WeakMap();
-    this.#currentOriginalReturningAlias = new WeakMap();
+    this.#queryState = new WeakMap();
 
     this.#transformerVars = new Map();
-    this.#transformer = new SourceTapTransformer(
-      this.#transformerVars,
-      this.#currentOriginalReturning,
-      this.#currentOriginalReturningAlias
-    );
+    this.#transformer = new SourceTapTransformer(this.#transformerVars, this.#queryState);
   }
 
   private isTrackedTable(tableName: string): tableName is Extract<keyof DB, string> {
@@ -112,8 +109,12 @@ export class SourceTap<DB> implements KyselyPlugin {
     tableName: Extract<keyof DB, string>,
     queryType: 'insert' | 'update'
   ) {
-    this.#currentTable.set(queryId, tableName);
-    this.#currentQueryType.set(queryId, queryType);
+    this.#queryState.set(queryId, {
+      table: tableName,
+      queryType,
+      originalReturning: new Set(),
+      originalReturningAlias: new Set(),
+    });
     this.#transformerVars.set('currentQueryId', queryId);
   }
 
@@ -141,31 +142,22 @@ export class SourceTap<DB> implements KyselyPlugin {
   }
 
   private cleanUpQuery(queryId: SourceTapQueryId) {
-    this.#currentTable.delete(queryId);
-    this.#currentQueryType.delete(queryId);
-    this.#currentOriginalReturning.delete(queryId);
-    this.#currentOriginalReturningAlias.delete(queryId);
+    this.#queryState.delete(queryId);
   }
 
   public async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    const currentTable = this.#currentTable.get(args.queryId)!;
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    const currentQueryType = this.#currentQueryType.get(args.queryId)!;
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    const currentOriginalReturning = this.#currentOriginalReturning.get(args.queryId)!;
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    const currentOriginalReturningAlias = this.#currentOriginalReturningAlias.get(args.queryId)!;
-    if (typeof currentTable === 'string' && currentTable.length > 0) {
+    const queryState = this.#queryState.get(args.queryId);
+
+    if (queryState !== void 0) {
       let listenerRows: QueryResult<UnknownRow>['rows'] = [];
 
-      if (currentOriginalReturningAlias.size > 0) {
+      if (queryState.originalReturningAlias.size > 0) {
         // original query has aliases that must be removed
         // since listeners expect data from RETURNING * only
         for (const row of args.result.rows) {
           const newRow: UnknownRow = {};
           for (const key in row) {
-            if (!currentOriginalReturningAlias.has(key)) {
+            if (!queryState.originalReturningAlias.has(key)) {
               newRow[key] = row[key];
             }
           }
@@ -183,14 +175,14 @@ export class SourceTap<DB> implements KyselyPlugin {
           this.#transactionEvents.push([
             'update',
             {
-              table: currentTable,
+              table: queryState.table,
               // oxlint-disable-next-line typescript/no-unsafe-type-assertion
               rows: listenerRows as Selectable<DB[keyof DB]>[],
             },
           ]);
         } else {
           this.events.emit('update', {
-            table: currentTable,
+            table: queryState.table,
             // oxlint-disable-next-line typescript/no-unsafe-type-assertion
             rows: listenerRows as Selectable<DB[keyof DB]>[],
           });
@@ -199,11 +191,11 @@ export class SourceTap<DB> implements KyselyPlugin {
 
       // oxlint-disable-next-line eslint/no-useless-assignment
       let newArgs = args.result;
-      if (currentOriginalReturning.size === 0) {
+      if (queryState.originalReturning.size === 0) {
         // we return info about the query if the original
         // query had no RETURNING statement
         newArgs =
-          currentQueryType === 'insert'
+          queryState.queryType === 'insert'
             ? {
                 rows: [
                   {
@@ -215,7 +207,7 @@ export class SourceTap<DB> implements KyselyPlugin {
             : {
                 rows: [{ numUpdatedRows: args.result.numAffectedRows }],
               };
-      } else if (!currentOriginalReturning.has('*')) {
+      } else if (!queryState.originalReturning.has('*')) {
         // original query did not have RETURNING * which
         // means some data has to be removed before we send it back
         newArgs = {
@@ -223,7 +215,7 @@ export class SourceTap<DB> implements KyselyPlugin {
           rows: args.result.rows.map((row) => {
             const filteredRow: UnknownRow = {};
             for (const key in row) {
-              if (currentOriginalReturning.has(key)) {
+              if (queryState.originalReturning.has(key)) {
                 filteredRow[key] = structuredClone(row[key]);
               }
             }
@@ -268,31 +260,39 @@ export class SourceTap<DB> implements KyselyPlugin {
   }
 }
 
-class SourceTapTransformer extends OperationNodeTransformer {
+class SourceTapTransformer<TableName extends string> extends OperationNodeTransformer {
   readonly #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
-  readonly #currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>;
-  readonly #currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>;
+  readonly #queryState: WeakMap<SourceTapQueryId, SourceTapQueryState<TableName>>;
 
   public static returningNode = ReturningNode.create([SelectionNode.createSelectAll()]);
   public static selectAllNode = SelectionNode.createSelectAll();
 
   public constructor(
     transformerVars: Map<'currentQueryId', SourceTapQueryId>,
-    currentOriginalReturning: WeakMap<SourceTapQueryId, Set<string>>,
-    currentOriginalReturningAlias: WeakMap<SourceTapQueryId, Set<string>>
+    queryState: WeakMap<SourceTapQueryId, SourceTapQueryState<TableName>>
   ) {
     super();
 
     this.#transformerVars = transformerVars;
-    this.#currentOriginalReturning = currentOriginalReturning;
-    this.#currentOriginalReturningAlias = currentOriginalReturningAlias;
+    this.#queryState = queryState;
+  }
+
+  private getCurrentQueryState(): SourceTapQueryState<TableName> {
+    // oxlint-disable-next-line typescript/no-non-null-assertion
+    const currentQueryId = this.#transformerVars.get('currentQueryId')!;
+    const queryState = this.#queryState.get(currentQueryId);
+
+    if (queryState === void 0) {
+      throw new Error('SourceTapTransformer could not find current query state');
+    }
+
+    return queryState;
   }
 
   private addReturning<T extends InsertQueryNode | UpdateQueryNode>(node: T): T {
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    const currentQueryId = this.#transformerVars.get('currentQueryId')!;
-    this.#currentOriginalReturning.set(currentQueryId, new Set<string>());
-    this.#currentOriginalReturningAlias.set(currentQueryId, new Set<string>());
+    const queryState = this.getCurrentQueryState();
+    queryState.originalReturning = new Set();
+    queryState.originalReturningAlias = new Set();
 
     return {
       ...node,
@@ -322,8 +322,7 @@ class SourceTapTransformer extends OperationNodeTransformer {
 
   protected override transformReturning(returningNode: ReturningNode): ReturningNode {
     const transformedReturningNode = super.transformReturning(returningNode);
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    const currentQueryId = this.#transformerVars.get('currentQueryId')!;
+    const queryState = this.getCurrentQueryState();
 
     const currentOriginalReturning = new Set<string>();
     const currentOriginalReturningAlias = new Set<string>();
@@ -367,8 +366,8 @@ class SourceTapTransformer extends OperationNodeTransformer {
       }
     }
 
-    this.#currentOriginalReturning.set(currentQueryId, currentOriginalReturning);
-    this.#currentOriginalReturningAlias.set(currentQueryId, currentOriginalReturningAlias);
+    queryState.originalReturning = currentOriginalReturning;
+    queryState.originalReturningAlias = currentOriginalReturningAlias;
 
     if (currentOriginalReturning.has('*')) {
       return transformedReturningNode;
