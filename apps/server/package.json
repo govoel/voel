@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.0-beta.66",
-    "@effect/sql-sqlite-bun": "4.0.0-beta.66",
     "@repo/auth-api": "workspace:*",
+    "@repo/source-tap": "workspace:*",
     "@repo/spec-api": "workspace:*",
     "effect": "4.0.0-beta.66"
   },

@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@better-auth/expo": "1.6.11",
-    "@effect/sql-sqlite-bun": "4.0.0-beta.66",
     "better-auth": "1.6.11",
     "effect": "4.0.0-beta.66"
   },

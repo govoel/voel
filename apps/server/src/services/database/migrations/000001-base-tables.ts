@@ -1,97 +1,106 @@
-import { Effect } from 'effect';
-import { SqlClient } from 'effect/unstable/sql';
+import { sql } from '@repo/source-tap';
+import type { Kysely } from '@repo/source-tap';
 
-const createIndex = Effect.fnUntraced(function* ({
+const createIndex = async ({
+  db,
   table,
   columns,
 }: {
+  db: Kysely<unknown>;
   table: string;
   columns: string[];
-}) {
-  const sql = (yield* SqlClient.SqlClient).withoutTransforms();
+}) => {
   const indexName = `${table}_${columns.join('_')}_idx`;
-  yield* sql`create index ${sql(indexName)} on ${sql(table)} (${sql.csv(columns)});`;
-});
+  await db.schema.createIndex(indexName).on(table).columns(columns).execute();
+};
 
-const createUniqueIndex = Effect.fnUntraced(function* ({
+const createUniqueIndex = async ({
+  db,
   table,
   columns,
 }: {
+  db: Kysely<unknown>;
   table: string;
   columns: string[];
-}) {
-  const sql = (yield* SqlClient.SqlClient).withoutTransforms();
+}) => {
   const indexName = `${table}_${columns.join('_')}_uniqueidx`;
-  yield* sql`create unique index ${sql(indexName)} on ${sql(table)} (${sql.csv(columns)});`;
-});
+  await db.schema.createIndex(indexName).unique().on(table).columns(columns).execute();
+};
 
-const createUpdatedAtTrigger = Effect.fnUntraced(function* ({
+const createUpdatedAtTrigger = async ({
+  db,
   table,
   columns,
 }: {
+  db: Kysely<unknown>;
   table: string;
   columns: string[];
-}) {
-  const sql = (yield* SqlClient.SqlClient).withoutTransforms();
+}) => {
   const triggerName = `${table}_updatedAt_trigger`;
-  yield* sql`
-    create trigger ${sql(triggerName)} before update of ${sql.csv(columns)} on ${sql(table)} for each row begin
-      update ${sql(table)} SET updatedAt = (unixepoch()) where id = new.id;
+  const updateColumns = columns.map((column) => sql.ref(column));
+
+  await sql`
+    create trigger ${sql.ref(triggerName)} before update of ${sql.join(updateColumns)} on ${sql.table(table)} for each row begin
+      update ${sql.table(table)} set updatedAt = (unixepoch()) where id = new.id;
     end;
-  `;
-});
+  `.execute(db);
+};
 
-export const baseTables = Effect.gen(function* () {
-  const sql = (yield* SqlClient.SqlClient).withoutTransforms();
+export const up = async (db: Kysely<unknown>) => {
+  await db.schema
+    .createTable('mediaType')
+    .addColumn('type', 'text', (col) => col.notNull().primaryKey())
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* sql`
-    create table mediaType (
-      "type" text not null primary key
-    ) strict;
-  `;
+  await db
+    // @ts-expect-error - We don't hand table types to migrations
+    .insertInto('mediaType')
+    .values([{ type: 'audiobook' }, { type: 'movie' }, { type: 'show' }])
+    .execute();
 
-  yield* sql`insert into mediaType ("type") values ('audiobook'), ('movie'), ('show');`;
+  await db.schema
+    .createTable('mediaItem')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('type', 'text', (col) =>
+      col.notNull().references('mediaType.type').onDelete('restrict').onUpdate('cascade')
+    )
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* sql`
-    create table mediaItem (
-      "id" integer not null primary key autoincrement,
-      "type" text not null references mediaType ("type") on delete restrict on update cascade,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await createIndex({ db, table: 'mediaItem', columns: ['type'] });
+  await createIndex({ db, table: 'mediaItem', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'mediaItem', columns: ['deletedAt'] });
 
-  yield* createIndex({ table: 'mediaItem', columns: ['type'] });
-  yield* createIndex({ table: 'mediaItem', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'mediaItem', columns: ['deletedAt'] });
+  await createUpdatedAtTrigger({ db, table: 'mediaItem', columns: ['id', 'type', 'deletedAt'] });
 
-  yield* createUpdatedAtTrigger({
-    table: 'mediaItem',
-    columns: ['id', 'type', 'deletedAt'],
-  });
+  await db.schema
+    .createTable('audiobook')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('asin', 'text', (col) => col.unique())
+    .addColumn('mediaItemId', 'integer', (col) =>
+      col.notNull().unique().references('mediaItem.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('title', 'text', (col) => col.notNull())
+    .addColumn('subtitle', 'text')
+    .addColumn('cover', 'text')
+    .addColumn('coverThumbhash', 'text')
+    .addColumn('summary', 'text')
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* sql`
-    create table audiobook (
-      "id" integer not null primary key autoincrement,
-      "asin" text unique,
-      "mediaItemId" integer not null unique references mediaItem (id) on delete cascade on update cascade,
-      "title" text not null,
-      "subtitle" text,
-      "cover" text,
-      "coverThumbhash" text,
-      "summary" text,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await createIndex({ db, table: 'audiobook', columns: ['mediaItemId'] });
+  await createIndex({ db, table: 'audiobook', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'audiobook', columns: ['deletedAt'] });
 
-  yield* createIndex({ table: 'audiobook', columns: ['mediaItemId'] });
-  yield* createIndex({ table: 'audiobook', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'audiobook', columns: ['deletedAt'] });
-
-  yield* createUpdatedAtTrigger({
+  await createUpdatedAtTrigger({
+    db,
     table: 'audiobook',
     columns: [
       'id',
@@ -106,196 +115,246 @@ export const baseTables = Effect.gen(function* () {
     ],
   });
 
-  yield* sql`
-    create table audiobookSeries (
-      "id" integer not null primary key autoincrement,
-      "asin" text not null unique,
-      "name" text not null,
-      "summary" text,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await db.schema
+    .createTable('audiobookSeries')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('asin', 'text', (col) => col.notNull().unique())
+    .addColumn('name', 'text', (col) => col.notNull())
+    .addColumn('summary', 'text')
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* createIndex({ table: 'audiobookSeries', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'audiobookSeries', columns: ['deletedAt'] });
+  await createIndex({ db, table: 'audiobookSeries', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'audiobookSeries', columns: ['deletedAt'] });
 
-  yield* createUpdatedAtTrigger({
+  await createUpdatedAtTrigger({
+    db,
     table: 'audiobookSeries',
     columns: ['id', 'asin', 'name', 'summary', 'deletedAt'],
   });
 
-  yield* sql`
-    create table audiobookSeriesMap (
-      "id" integer not null primary key autoincrement,
-      "audiobookId" integer not null references audiobook (id) on delete cascade on update cascade,
-      "audiobookSeriesId" integer references audiobookSeries (id) on delete cascade on update cascade,
-      "title" text not null,
-      "label" text not null,
-      "sort" integer not null,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await db.schema
+    .createTable('audiobookSeriesMap')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('audiobookId', 'integer', (col) =>
+      col.notNull().references('audiobook.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('audiobookSeriesId', 'integer', (col) =>
+      col.references('audiobookSeries.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('title', 'text', (col) => col.notNull())
+    .addColumn('label', 'text', (col) => col.notNull())
+    .addColumn('sort', 'integer', (col) => col.notNull())
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* createUniqueIndex({
+  await createUniqueIndex({
+    db,
     table: 'audiobookSeriesMap',
     columns: ['audiobookId', 'audiobookSeriesId', 'title', 'label', 'sort'],
   });
 
-  yield* createIndex({ table: 'audiobookSeriesMap', columns: ['audiobookId'] });
-  yield* createIndex({ table: 'audiobookSeriesMap', columns: ['audiobookSeriesId'] });
-  yield* createIndex({ table: 'audiobookSeriesMap', columns: ['title'] });
-  yield* createIndex({ table: 'audiobookSeriesMap', columns: ['sort'] });
-  yield* createIndex({ table: 'audiobookSeriesMap', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'audiobookSeriesMap', columns: ['deletedAt'] });
+  await createIndex({ db, table: 'audiobookSeriesMap', columns: ['audiobookId'] });
+  await createIndex({ db, table: 'audiobookSeriesMap', columns: ['audiobookSeriesId'] });
+  await createIndex({ db, table: 'audiobookSeriesMap', columns: ['title'] });
+  await createIndex({ db, table: 'audiobookSeriesMap', columns: ['sort'] });
+  await createIndex({ db, table: 'audiobookSeriesMap', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'audiobookSeriesMap', columns: ['deletedAt'] });
 
-  yield* createUpdatedAtTrigger({
+  await createUpdatedAtTrigger({
+    db,
     table: 'audiobookSeriesMap',
     columns: ['id', 'audiobookId', 'audiobookSeriesId', 'title', 'label', 'sort', 'deletedAt'],
   });
 
-  yield* sql`
-    create table audiobookContributor (
-      "id" integer not null primary key autoincrement,
-      "asin" text not null unique,
-      "name" text not null,
-      "about" text,
-      "avatar" text,
-      "avatarThumbhash" text,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await db.schema
+    .createTable('audiobookContributor')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('asin', 'text', (col) => col.notNull().unique())
+    .addColumn('name', 'text', (col) => col.notNull())
+    .addColumn('about', 'text')
+    .addColumn('avatar', 'text')
+    .addColumn('avatarThumbhash', 'text')
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* createIndex({ table: 'audiobookContributor', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'audiobookContributor', columns: ['deletedAt'] });
+  await createIndex({ db, table: 'audiobookContributor', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'audiobookContributor', columns: ['deletedAt'] });
 
-  yield* createUpdatedAtTrigger({
+  await createUpdatedAtTrigger({
+    db,
     table: 'audiobookContributor',
     columns: ['id', 'asin', 'name', 'about', 'avatar', 'avatarThumbhash', 'deletedAt'],
   });
 
-  yield* sql`
-    create table audiobookContributorRole (
-      "role" text not null primary key
-    ) strict;
-  `;
+  await db.schema
+    .createTable('audiobookContributorRole')
+    .addColumn('role', 'text', (col) => col.notNull().primaryKey())
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* sql`insert into audiobookContributorRole ("role") values ('author'), ('narrator'), ('editor'), ('translator'), ('foreword');`;
+  await db
+    // @ts-expect-error - We don't hand table types to migrations
+    .insertInto('audiobookContributorRole')
+    .values([
+      { role: 'author' },
+      { role: 'narrator' },
+      { role: 'editor' },
+      { role: 'translator' },
+      { role: 'foreword' },
+    ])
+    .execute();
 
-  yield* sql`
-    create table audiobookContributorMap (
-      "id" integer not null primary key autoincrement,
-      "audiobookId" integer not null references audiobook (id) on delete cascade on update cascade,
-      "audiobookContributorId" integer references audiobookContributor (id) on delete cascade on update cascade,
-      "name" text not null,
-      "role" text not null references audiobookContributorRole (role) on delete restrict on update cascade,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await db.schema
+    .createTable('audiobookContributorMap')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('audiobookId', 'integer', (col) =>
+      col.notNull().references('audiobook.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('audiobookContributorId', 'integer', (col) =>
+      col.references('audiobookContributor.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('name', 'text', (col) => col.notNull())
+    .addColumn('role', 'text', (col) =>
+      col
+        .notNull()
+        .references('audiobookContributorRole.role')
+        .onDelete('restrict')
+        .onUpdate('cascade')
+    )
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* createUniqueIndex({
+  await createUniqueIndex({
+    db,
     table: 'audiobookContributorMap',
     columns: ['audiobookId', 'audiobookContributorId', 'name', 'role'],
   });
 
-  yield* createIndex({ table: 'audiobookContributorMap', columns: ['audiobookId'] });
-  yield* createIndex({ table: 'audiobookContributorMap', columns: ['audiobookContributorId'] });
-  yield* createIndex({ table: 'audiobookContributorMap', columns: ['name'] });
-  yield* createIndex({ table: 'audiobookContributorMap', columns: ['role'] });
-  yield* createIndex({ table: 'audiobookContributorMap', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'audiobookContributorMap', columns: ['deletedAt'] });
+  await createIndex({ db, table: 'audiobookContributorMap', columns: ['audiobookId'] });
+  await createIndex({ db, table: 'audiobookContributorMap', columns: ['audiobookContributorId'] });
+  await createIndex({ db, table: 'audiobookContributorMap', columns: ['name'] });
+  await createIndex({ db, table: 'audiobookContributorMap', columns: ['role'] });
+  await createIndex({ db, table: 'audiobookContributorMap', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'audiobookContributorMap', columns: ['deletedAt'] });
 
-  yield* createUpdatedAtTrigger({
+  await createUpdatedAtTrigger({
+    db,
     table: 'audiobookContributorMap',
     columns: ['id', 'audiobookId', 'audiobookContributorId', 'name', 'role', 'deletedAt'],
   });
 
-  yield* sql`
-    create table library (
-      "id" integer not null primary key autoincrement,
-      "type" text not null references mediaType ("type") on delete restrict on update cascade,
-      "name" text not null unique,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await db.schema
+    .createTable('library')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('type', 'text', (col) =>
+      col.notNull().references('mediaType.type').onDelete('restrict').onUpdate('cascade')
+    )
+    .addColumn('name', 'text', (col) => col.notNull().unique())
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* createIndex({ table: 'library', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'library', columns: ['deletedAt'] });
+  await createIndex({ db, table: 'library', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'library', columns: ['deletedAt'] });
 
-  yield* createUpdatedAtTrigger({ table: 'library', columns: ['id', 'type', 'name', 'deletedAt'] });
+  await createUpdatedAtTrigger({
+    db,
+    table: 'library',
+    columns: ['id', 'type', 'name', 'deletedAt'],
+  });
 
-  yield* sql`
-    create table libraryPath (
-      "id" integer not null primary key autoincrement,
-      "libraryId" integer not null references library (id) on delete cascade on update cascade,
-      "absolutePath" text not null,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await db.schema
+    .createTable('libraryPath')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('libraryId', 'integer', (col) =>
+      col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('absolutePath', 'text', (col) => col.notNull())
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* createUniqueIndex({ table: 'libraryPath', columns: ['libraryId', 'absolutePath'] });
+  await createUniqueIndex({ db, table: 'libraryPath', columns: ['libraryId', 'absolutePath'] });
 
-  yield* createIndex({ table: 'libraryPath', columns: ['libraryId'] });
-  yield* createIndex({ table: 'libraryPath', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'libraryPath', columns: ['deletedAt'] });
+  await createIndex({ db, table: 'libraryPath', columns: ['libraryId'] });
+  await createIndex({ db, table: 'libraryPath', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'libraryPath', columns: ['deletedAt'] });
 
-  yield* createUpdatedAtTrigger({
+  await createUpdatedAtTrigger({
+    db,
     table: 'libraryPath',
     columns: ['id', 'libraryId', 'absolutePath', 'deletedAt'],
   });
 
-  yield* sql`
-    create table mediaFile (
-      "id" integer not null primary key autoincrement,
-      "absolutePath" text not null unique,
-      "durationMs" integer not null,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer
-    ) strict;
-  `;
+  await db.schema
+    .createTable('mediaFile')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('absolutePath', 'text', (col) => col.notNull().unique())
+    .addColumn('durationMs', 'integer', (col) => col.notNull())
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* sql`
-    create table libraryFileMap (
-      "id" integer not null primary key autoincrement,
-      "libraryId" integer not null references library (id) on delete cascade on update cascade,
-      "mediaFileId" integer not null references mediaFile (id) on delete cascade on update cascade,
-      "mediaItemId" integer references mediaItem (id) on delete cascade on update cascade,
-      "matchFailureReason" text,
-      "variant" text not null default ('default'),
-      "customOrder" integer not null,
-      "createdAt" integer not null default (unixepoch()),
-      "updatedAt" integer not null default (unixepoch()),
-      "deletedAt" integer,
-      check((mediaItemId is null and matchFailureReason is not null) or (mediaItemId is not null and matchFailureReason is null))
-    ) strict;
-  `;
+  await db.schema
+    .createTable('libraryFileMap')
+    .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
+    .addColumn('libraryId', 'integer', (col) =>
+      col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('mediaFileId', 'integer', (col) =>
+      col.notNull().references('mediaFile.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('mediaItemId', 'integer', (col) =>
+      col.references('mediaItem.id').onDelete('cascade').onUpdate('cascade')
+    )
+    .addColumn('matchFailureReason', 'text')
+    .addColumn('variant', 'text', (col) => col.notNull().defaultTo('default'))
+    .addColumn('customOrder', 'integer', (col) => col.notNull())
+    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('deletedAt', 'integer')
+    .addCheckConstraint(
+      'libraryFileMap_match_check',
+      sql`(mediaItemId is null and matchFailureReason is not null) or (mediaItemId is not null and matchFailureReason is null)`
+    )
+    .modifyEnd(sql`strict`)
+    .execute();
 
-  yield* createUniqueIndex({
+  await createUniqueIndex({
+    db,
     table: 'libraryFileMap',
     columns: ['libraryId', 'mediaFileId'],
   });
 
-  yield* createIndex({ table: 'libraryFileMap', columns: ['libraryId'] });
-  yield* createIndex({ table: 'libraryFileMap', columns: ['mediaFileId'] });
-  yield* createIndex({ table: 'libraryFileMap', columns: ['mediaItemId'] });
-  yield* createIndex({ table: 'libraryFileMap', columns: ['matchFailureReason'] });
-  yield* createIndex({ table: 'libraryFileMap', columns: ['variant'] });
-  yield* createIndex({ table: 'libraryFileMap', columns: ['updatedAt'] });
-  yield* createIndex({ table: 'libraryFileMap', columns: ['deletedAt'] });
+  await createIndex({ db, table: 'libraryFileMap', columns: ['libraryId'] });
+  await createIndex({ db, table: 'libraryFileMap', columns: ['mediaFileId'] });
+  await createIndex({ db, table: 'libraryFileMap', columns: ['mediaItemId'] });
+  await createIndex({ db, table: 'libraryFileMap', columns: ['matchFailureReason'] });
+  await createIndex({ db, table: 'libraryFileMap', columns: ['variant'] });
+  await createIndex({ db, table: 'libraryFileMap', columns: ['updatedAt'] });
+  await createIndex({ db, table: 'libraryFileMap', columns: ['deletedAt'] });
 
-  yield* createUpdatedAtTrigger({
+  await createUpdatedAtTrigger({
+    db,
     table: 'libraryFileMap',
     columns: [
       'id',
@@ -305,8 +364,22 @@ export const baseTables = Effect.gen(function* () {
       'matchFailureReason',
       'variant',
       'customOrder',
-      'durationMs',
       'deletedAt',
     ],
   });
-});
+};
+
+export const down = async (db: Kysely<unknown>) => {
+  await db.schema.dropTable('libraryFileMap').ifExists().execute();
+  await db.schema.dropTable('mediaFile').ifExists().execute();
+  await db.schema.dropTable('libraryPath').ifExists().execute();
+  await db.schema.dropTable('library').ifExists().execute();
+  await db.schema.dropTable('audiobookContributorMap').ifExists().execute();
+  await db.schema.dropTable('audiobookContributorRole').ifExists().execute();
+  await db.schema.dropTable('audiobookContributor').ifExists().execute();
+  await db.schema.dropTable('audiobookSeriesMap').ifExists().execute();
+  await db.schema.dropTable('audiobookSeries').ifExists().execute();
+  await db.schema.dropTable('audiobook').ifExists().execute();
+  await db.schema.dropTable('mediaItem').ifExists().execute();
+  await db.schema.dropTable('mediaType').ifExists().execute();
+};

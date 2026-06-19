@@ -62,7 +62,6 @@
       },
       "devDependencies": {
         "@effect/language-service": "0.86.1",
-        "@effect/sql-sqlite-bun": "4.0.0-beta.66",
         "@effect/vitest": "4.0.0-beta.66",
         "@repo/tsconfig": "workspace:*",
         "@srsholmes/vitest-react-native": "0.1.5",
@@ -81,8 +80,8 @@
       "version": "0.0.0",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-beta.66",
-        "@effect/sql-sqlite-bun": "4.0.0-beta.66",
         "@repo/auth-api": "workspace:*",
+        "@repo/source-tap": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "effect": "4.0.0-beta.66",
       },
@@ -101,7 +100,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.6.11",
-        "@effect/sql-sqlite-bun": "4.0.0-beta.66",
         "better-auth": "1.6.11",
         "effect": "4.0.0-beta.66",
       },
@@ -150,7 +148,6 @@
     },
   },
   "patchedDependencies": {
-    "@effect/sql-sqlite-bun@4.0.0-beta.66": "patches/@effect%2Fsql-sqlite-bun@4.0.0-beta.66.patch",
     "effect@4.0.0-beta.66": "patches/effect@4.0.0-beta.66.patch",
   },
   "packages": {
@@ -365,8 +362,6 @@
     "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.66", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.66" }, "peerDependencies": { "effect": "^4.0.0-beta.66" } }, "sha512-egxbmAEtJZ8FYTaPMrYu3VwjgVuzHj3VdUyPyZ/QhSFP/DW2Yunlk/ouChi1JzX/m+Gj8tdMma7NiqO59J9d5Q=="],
 
     "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.66", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.20.0" }, "peerDependencies": { "effect": "^4.0.0-beta.66" } }, "sha512-+ymrhBnESv/hmn5SKTe2//IY9Ox/hGPeoogEWhW47ZGyhFI5eMYFxdEUBa+3IAV05rrBzrxON9lynu68n0DM7w=="],
-
-    "@effect/sql-sqlite-bun": ["@effect/sql-sqlite-bun@4.0.0-beta.66", "", { "peerDependencies": { "effect": "^4.0.0-beta.66" } }, "sha512-UYsrAb/5T0ZRypeN9Kmv3/ZInibGCjM6dtoiAWtfG+xKyuq8N05wmuVCXB0+XgVmUBxDWjw/S1fu4ivS0vZVuw=="],
 
     "@effect/sql-sqlite-react-native": ["@effect/sql-sqlite-react-native@4.0.0-beta.66", "", { "peerDependencies": { "@op-engineering/op-sqlite": "15.0.4", "effect": "^4.0.0-beta.66" } }, "sha512-UWzm6mzirBHX1khIU3iit7E9jDM8EDw/EVpusm20OYt6Go+6q2NW4+n8/vU0WY8deJlQxfbZzrBCm/MRE4nDrA=="],
 

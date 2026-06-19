@@ -3,6 +3,7 @@
 import BunSqliteDatabase from 'bun:sqlite';
 
 import { Array, Cause, Effect, Option } from 'effect';
+import type { Scope } from 'effect';
 import { SqlError } from 'effect/unstable/sql';
 import { Kysely } from 'kysely';
 import type {
@@ -82,16 +83,38 @@ export const makeFromKysely = <DB>(kysely: Kysely<DB>): EffectKysely<DB> => {
   });
 };
 
-export const createDatabase = <DB>({
-  filename,
-  trackTables,
-  enableLogging,
-}: {
+interface CreateDatabaseOptions<DB> {
   filename: string;
   trackTables?: ReadonlySet<keyof DB>;
   enableLogging?: boolean;
-}) =>
-  Effect.acquireRelease(
+}
+
+interface CreateTrackedDatabaseOptions<DB> extends CreateDatabaseOptions<DB> {
+  trackTables: ReadonlySet<keyof DB>;
+}
+
+interface CreatedDatabase<DB> {
+  db: EffectKysely<DB>;
+  sourceTap: SourceTap<DB> | undefined;
+  kysely: Kysely<DB>;
+}
+
+interface CreatedTrackedDatabase<DB> extends CreatedDatabase<DB> {
+  sourceTap: SourceTap<DB>;
+}
+
+export function createDatabase<DB>(
+  options: CreateTrackedDatabaseOptions<DB>
+): Effect.Effect<CreatedTrackedDatabase<DB>, never, Scope.Scope>;
+export function createDatabase<DB>(
+  options: CreateDatabaseOptions<DB>
+): Effect.Effect<CreatedDatabase<DB>, never, Scope.Scope>;
+export function createDatabase<DB>({
+  filename,
+  trackTables,
+  enableLogging,
+}: CreateDatabaseOptions<DB>) {
+  return Effect.acquireRelease(
     Effect.gen(function* () {
       const sourceTap = trackTables ? yield* SourceTap.make<DB>({ trackTables }) : void 0;
       const kysely = new Kysely<DB>({
@@ -126,10 +149,11 @@ export const createDatabase = <DB>({
           : {}),
       });
 
-      return { db: makeFromKysely(kysely), sourceTap };
+      return { db: makeFromKysely(kysely), sourceTap, kysely };
     }),
     ({ db }) => Effect.promise(async () => db.destroy())
   );
+}
 
 interface Executable<O> extends Compilable<O> {
   execute: () => Promise<O[]>;
