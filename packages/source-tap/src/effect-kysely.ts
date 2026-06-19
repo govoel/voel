@@ -18,20 +18,22 @@ import { BunSqliteDialect, SourceTapDialect } from '#src/dialect.ts';
 import { SourceTap } from '#src/source-tap.ts';
 
 interface EffectExecutor {
-  executeRaw: <O>(query: QueryRaw<O>) => Effect.Effect<QueryResult<O>, SqlError.SqlError>;
-  execute: <O>(query: Query<O>) => Effect.Effect<O[], SqlError.SqlError>;
-  executeTakeFirstOption: <O>(
-    query: Query<O>
-  ) => Effect.Effect<Option.Option<O>, SqlError.SqlError>;
-  executeTakeFirstOrUndefined: <O>(
-    query: Query<O>
-  ) => Effect.Effect<O | undefined, SqlError.SqlError>;
-  executeTakeFirstOrError: <O>(
-    query: Query<O>
-  ) => Effect.Effect<O, SqlError.SqlError | Cause.NoSuchElementError>;
+  executeRaw: <Q extends AnyRawQuery>(
+    query: Q
+  ) => Effect.Effect<QueryResult<QueryOutput<Q>>, SqlError.SqlError>;
+  execute: <Q extends AnyQuery>(query: Q) => Effect.Effect<QueryOutput<Q>[], SqlError.SqlError>;
+  executeTakeFirstOption: <Q extends AnyQuery>(
+    query: Q
+  ) => Effect.Effect<Option.Option<QueryOutput<Q>>, SqlError.SqlError>;
+  executeTakeFirstOrUndefined: <Q extends AnyQuery>(
+    query: Q
+  ) => Effect.Effect<QueryOutput<Q> | undefined, SqlError.SqlError>;
+  executeTakeFirstOrError: <Q extends AnyQuery>(
+    query: Q
+  ) => Effect.Effect<QueryOutput<Q>, SqlError.SqlError | Cause.NoSuchElementError>;
 }
 
-interface EffectTransition<DB>
+export interface EffectTransaction<DB>
   extends
     Omit<Transaction<DB>, 'transaction' | 'startTransaction' | 'executeQuery'>,
     EffectExecutor {}
@@ -39,7 +41,7 @@ interface EffectTransition<DB>
 export interface EffectKysely<DB>
   extends Omit<Kysely<DB>, 'transaction' | 'startTransaction' | 'executeQuery'>, EffectExecutor {
   trx: () => Omit<TransactionBuilder<DB>, 'execute'> & {
-    execute: <A, E>(f: (trx: EffectTransition<DB>) => Effect.Effect<A, E>) => Effect.Effect<A, E>;
+    execute: <A, E>(f: (trx: EffectTransaction<DB>) => Effect.Effect<A, E>) => Effect.Effect<A, E>;
   };
 }
 
@@ -53,7 +55,7 @@ const makeExecutor = <DB>(client: Kysely<DB>): EffectExecutor => ({
 
 const executeTransaction = <DB, A, E>(
   kyselyBuilderExecute: TransactionBuilder<DB>['execute'],
-  f: (trx: EffectTransition<DB>) => Effect.Effect<A, E>
+  f: (trx: EffectTransaction<DB>) => Effect.Effect<A, E>
 ) =>
   Effect.tryPromise({
     try: async () =>
@@ -73,7 +75,7 @@ export const makeFromKysely = <DB>(kysely: Kysely<DB>): EffectKysely<DB> => {
       const kyselyBuilderExecute = builder.execute.bind(builder);
 
       return Object.assign(builder, {
-        execute: (<A, E>(f: (trx: EffectTransition<DB>) => Effect.Effect<A, E>) =>
+        execute: (<A, E>(f: (trx: EffectTransaction<DB>) => Effect.Effect<A, E>) =>
           executeTransaction(kyselyBuilderExecute, f)).bind(builder),
       });
     }).bind(kysely),
@@ -136,6 +138,9 @@ interface ExecutableRaw<O> extends Executable<O>, QueryExecutorProvider {}
 
 type Query<O> = Executable<O> | RawBuilder<O>;
 type QueryRaw<O> = ExecutableRaw<O> | RawBuilder<O>;
+type AnyQuery = Query<unknown>;
+type AnyRawQuery = QueryRaw<unknown>;
+type QueryOutput<Q> = Q extends RawBuilder<infer O> ? O : Q extends Executable<infer O> ? O : never;
 
 const isRawBuilder = <O>(query: Executable<O> | RawBuilder<O>): query is RawBuilder<O> =>
   `isRawBuilder` in query && query.isRawBuilder;
@@ -175,30 +180,33 @@ const executeSpan = <DB>(client: Kysely<DB>, query: Query<unknown> | QueryRaw<un
 
 const executeRaw =
   <DB>(client: Kysely<DB>) =>
-  <O>(query: QueryRaw<O>) =>
+  <Q extends AnyRawQuery>(query: Q) =>
     Effect.tryPromise({
-      try: async () => queryAsPromise(client, query),
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      try: async () => queryAsPromise(client, query) as Promise<QueryResult<QueryOutput<Q>>>,
       catch: (cause) => toSqlError('kysely.executeRaw', cause),
     }).pipe(executeSpan(client, query));
 
 const execute =
   <DB>(client: Kysely<DB>) =>
-  <O>(query: Query<O>) =>
+  <Q extends AnyQuery>(query: Q) =>
     Effect.tryPromise({
       try: async () => {
         if (isRawBuilder(query)) {
           const result = await queryAsPromise(client, query);
-          return result.rows;
+          // oxlint-disable-next-line no-unsafe-type-assertion
+          return result.rows as QueryOutput<Q>[];
         }
         const results = await query.execute();
-        return results;
+        // oxlint-disable-next-line no-unsafe-type-assertion
+        return results as QueryOutput<Q>[];
       },
       catch: (cause) => toSqlError('kysely.execute', cause),
     }).pipe(executeSpan(client, query));
 
 const executeTakeFirstOption =
   <DB>(client: Kysely<DB>) =>
-  <O>(query: Query<O>) =>
+  <Q extends AnyQuery>(query: Q) =>
     execute(client)(query).pipe(
       Effect.map((result) =>
         Array.isReadonlyArrayNonEmpty(result) ? Option.some(result[0]) : Option.none()
@@ -207,14 +215,14 @@ const executeTakeFirstOption =
 
 const executeTakeFirstOrUndefined =
   <DB>(client: Kysely<DB>) =>
-  <O>(query: Query<O>) =>
+  <Q extends AnyQuery>(query: Q) =>
     executeTakeFirstOption(client)(query).pipe(
       Effect.map((result) => Option.getOrUndefined(result))
     );
 
 const executeTakeFirstOrError =
   <DB>(client: Kysely<DB>) =>
-  <O>(query: Query<O>) =>
+  <Q extends AnyQuery>(query: Q) =>
     executeTakeFirstOption(client)(query).pipe(
       Effect.flatMap((result) =>
         Effect.mapError(Effect.fromOption(result), () => new Cause.NoSuchElementError())
