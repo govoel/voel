@@ -158,8 +158,12 @@ class Library extends Timestamped.extend<Library>('Library')({
 
 interface LibraryTable extends TimesampedTable {
   id: ColumnType<Library['id'], never, never>;
-  type: ColumnType<Library['type'], never, never>;
-  name: ColumnType<Library['name'], never, never>;
+  type: Library['type'];
+  name: ColumnType<
+    Library['name'],
+    (typeof Library)['fields']['name']['schema']['Type'],
+    (typeof Library)['fields']['name']['schema']['Type']
+  >;
 }
 
 class LibraryPath extends Timestamped.extend<LibraryPath>('LibraryPath')({
