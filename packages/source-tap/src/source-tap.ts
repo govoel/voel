@@ -1,4 +1,4 @@
-import { Effect, PubSub, Schema, Stream } from 'effect';
+import { Effect, PubSub, Stream } from 'effect';
 import {
   AliasNode,
   ColumnNode,
@@ -34,28 +34,22 @@ interface SourceTapQueryState<TableName extends string = string> {
   originalReturningAlias: Set<string>;
 }
 
-export class SourceTapUpdate extends Schema.TaggedClass<SourceTapUpdate>(
-  '@repo/source-tap/SourceTapUpdate'
-)('SourceTapUpdate', {
-  operation: Schema.Literals(['insert', 'update']),
-  table: Schema.Any,
-  rows: Schema.Array(Schema.Any),
-}) {}
-
-export type SourceTapUpdateFor<DB> = {
-  [T in keyof DB]: Omit<SourceTapUpdate, 'rows' | 'table'> & {
+export type SourceTapUpdate<DB> = {
+  [T in keyof DB]: {
+    readonly _tag: 'SourceTapUpdate';
+    readonly operation: 'insert' | 'update';
     readonly table: T;
     readonly rows: readonly Selectable<DB[T]>[];
   };
 }[keyof DB];
 
 export class SourceTap<DB> implements KyselyPlugin {
-  public readonly updates: Stream.Stream<SourceTapUpdateFor<DB>>;
+  public readonly updates: Stream.Stream<SourceTapUpdate<DB>>;
 
   #inTransaction: boolean;
-  #transactionEvents: SourceTapUpdateFor<DB>[];
+  #transactionEvents: SourceTapUpdate<DB>[];
 
-  readonly #pubsub: PubSub.PubSub<SourceTapUpdateFor<DB>>;
+  readonly #pubsub: PubSub.PubSub<SourceTapUpdate<DB>>;
   readonly #trackTables: ReadonlySet<keyof DB>;
 
   readonly #transformer: SourceTapTransformer<Extract<keyof DB, string>>;
@@ -64,7 +58,7 @@ export class SourceTap<DB> implements KyselyPlugin {
 
   public static make = <Database>(opts: { trackTables: Set<keyof Database> }) =>
     Effect.gen(function* () {
-      const pubsub = yield* PubSub.unbounded<SourceTapUpdateFor<Database>>();
+      const pubsub = yield* PubSub.unbounded<SourceTapUpdate<Database>>();
 
       yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
 
@@ -73,7 +67,7 @@ export class SourceTap<DB> implements KyselyPlugin {
 
   private constructor(
     opts: { trackTables: Set<keyof DB> },
-    pubsub: PubSub.PubSub<SourceTapUpdateFor<DB>>
+    pubsub: PubSub.PubSub<SourceTapUpdate<DB>>
   ) {
     this.#pubsub = pubsub;
     this.#trackTables = opts.trackTables;
@@ -161,24 +155,21 @@ export class SourceTap<DB> implements KyselyPlugin {
 
       if (listenerRows.length > 0) {
         if (this.#inTransaction) {
-          this.#transactionEvents.push(
-            new SourceTapUpdate({
-              operation: queryState.queryType,
-              table: queryState.table,
-              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-              rows: listenerRows as Selectable<DB[keyof DB]>[],
-            }) as SourceTapUpdateFor<DB>
-          );
+          this.#transactionEvents.push({
+            _tag: 'SourceTapUpdate',
+            operation: queryState.queryType,
+            table: queryState.table,
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+            rows: listenerRows as Selectable<DB[keyof DB]>[],
+          } as SourceTapUpdate<DB>);
         } else {
-          PubSub.publishUnsafe(
-            this.#pubsub,
-            new SourceTapUpdate({
-              operation: queryState.queryType,
-              table: queryState.table,
-              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-              rows: listenerRows as Selectable<DB[keyof DB]>[],
-            }) as SourceTapUpdateFor<DB>
-          );
+          PubSub.publishUnsafe(this.#pubsub, {
+            _tag: 'SourceTapUpdate',
+            operation: queryState.queryType,
+            table: queryState.table,
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+            rows: listenerRows as Selectable<DB[keyof DB]>[],
+          } as SourceTapUpdate<DB>);
         }
       }
 
