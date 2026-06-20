@@ -1,13 +1,14 @@
 import { Effect } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
-import { SqlClient } from 'effect/unstable/sql';
 
 import type { TestHelpers } from '@repo/auth-api/server.ts';
+import { sql } from '@repo/source-tap';
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { Auth } from '#src/services/auth.ts';
+import { Database } from '#src/services/database/index.ts';
 
 const isTestHelpers = (value: unknown): value is TestHelpers =>
   typeof value === 'object' &&
@@ -24,7 +25,7 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
   readonly name?: string;
 }) {
   const auth = yield* Auth;
-  const sql = yield* SqlClient.SqlClient;
+  const { db } = yield* Database;
   const context = yield* Effect.tryPromise(async () => auth.$context).pipe(Effect.orDie);
 
   if (!('test' in context) || !isTestHelpers(context.test)) {
@@ -43,7 +44,7 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
     )
   ).pipe(Effect.orDie);
 
-  yield* sql`update "user" set "role" = ${user.role} where "id" = ${savedUser.id}`;
+  yield* db.executeRaw(sql`update "user" set "role" = ${user.role} where "id" = ${savedUser.id}`);
 
   yield* Effect.addFinalizer(() =>
     Effect.tryPromise(async () => test.deleteUser(savedUser.id)).pipe(Effect.orDie)

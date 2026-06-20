@@ -1,4 +1,3 @@
-import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { Context, Effect, Layer, Match, Redacted } from 'effect';
 import { HttpEffect, HttpRouter } from 'effect/unstable/http';
 
@@ -11,17 +10,18 @@ import {
 } from '@repo/spec-api/middlewares/auth.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
+import { Database } from '#src/services/database/index.ts';
 
 export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', {
   make: Effect.gen(function* () {
     const config = yield* ApiConfig;
-    const sql = yield* SqliteClient.SqliteClient;
+    const sql = yield* Database;
 
     const runtime = Effect.runSyncWith(yield* Effect.context());
 
     return createAuth({
       secret: Redacted.value(config.auth.secret),
-      database: sql.database,
+      database: sql.kysely,
       logger: {
         log: (level, message, ...args) => {
           Match.value(level).pipe(

@@ -13,8 +13,7 @@ import {
   AuthRouterLive,
 } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
-import { DatabaseLive } from '#src/services/database/index.ts';
-import { LibraryRepository } from '#src/services/database/repos/library.ts';
+import { Database } from '#src/services/database/index.ts';
 
 export const AllRoutes = RpcServer.layerHttp({
   group: Api,
@@ -24,8 +23,8 @@ export const AllRoutes = RpcServer.layerHttp({
 }).pipe(
   Layer.provideMerge(Layer.mergeAll(AuthRouterLive, LibraryHandlers)),
   Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
-  Layer.provideMerge(Layer.mergeAll(LibraryRepository.layer, Auth.layer)),
-  Layer.provideMerge(Layer.mergeAll(DatabaseLive)),
+  Layer.provideMerge(Layer.mergeAll(Auth.layer)),
+  Layer.provideMerge(Layer.mergeAll(Database.layer)),
   Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerMsgPack, BunPath.layer))
 );
 

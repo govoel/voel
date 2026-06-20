@@ -7,10 +7,10 @@ export class CurrentSession extends Context.Service<CurrentSession, Session>()(
   '@repo/spec-api/middlewares/auth/CurrentSession'
 ) {}
 
-export class Unauthorized extends Schema.TaggedErrorClass<Unauthorized>()(
-  '@repo/spec-api/middlewares/auth/Unauthorized',
-  {}
-) {}
+export class Unauthorized extends Schema.TaggedErrorClass<
+  Unauthorized,
+  { readonly brand: unique symbol }
+>()('@repo/spec-api/middlewares/auth/Unauthorized', {}) {}
 
 export class AuthMiddleware extends RpcMiddleware.Service<
   AuthMiddleware,

@@ -81,6 +81,7 @@
         "@effect/platform-bun": "4.0.0-beta.66",
         "@effect/sql-sqlite-bun": "4.0.0-beta.66",
         "@repo/auth-api": "workspace:*",
+        "@repo/source-tap": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "effect": "4.0.0-beta.66",
       },
@@ -98,7 +99,9 @@
       "name": "@repo/auth-api",
       "version": "0.0.0",
       "dependencies": {
+        "@better-auth/expo": "1.6.11",
         "@effect/sql-sqlite-bun": "4.0.0-beta.66",
+        "@repo/source-tap": "workspace:*",
         "better-auth": "1.6.11",
         "effect": "4.0.0-beta.66",
       },
@@ -131,6 +134,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/auth-api": "workspace:*",
+        "@repo/source-tap": "workspace:*",
         "effect": "4.0.0-beta.66",
       },
       "devDependencies": {
