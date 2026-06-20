@@ -43,7 +43,7 @@ export class ClientDatabaseDecodeError extends Schema.TaggedErrorClass<
 >()('voel/services/database/ClientDatabaseDecodeError', {
   operation: Schema.String,
   issue: Schema.String,
-  cause: Schema.Defect,
+  cause: Schema.Defect(),
 }) {}
 
 export class ClientDatabaseNoSuchElementError extends Schema.TaggedErrorClass<

@@ -19,7 +19,7 @@
     "@better-auth/expo": "1.6.11",
     "@repo/source-tap": "workspace:*",
     "better-auth": "1.6.11",
-    "effect": "4.0.0-beta.66"
+    "effect": "4.0.0-beta.85"
   },
   "devDependencies": {
     "@effect/language-service": "0.86.1",

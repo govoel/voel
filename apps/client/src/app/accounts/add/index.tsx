@@ -11,7 +11,7 @@ export class AddAccountSchema extends Schema.Class<
   serverUrl: Schema.URLFromString,
   username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
   password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
-    Schema.decodeTo(Schema.Redacted(Schema.String), {
+    Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
       decode: SchemaGetter.transform((password) => Redacted.make(password)),
       encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
     })
