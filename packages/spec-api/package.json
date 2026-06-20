@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@repo/auth-api": "workspace:*",
+    "@repo/source-tap": "workspace:*",
     "effect": "4.0.0-beta.66"
   },
   "devDependencies": {

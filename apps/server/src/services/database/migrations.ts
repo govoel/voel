@@ -6,6 +6,10 @@ import type { Kysely, MigrationProvider } from '@repo/source-tap';
 
 export const createMigrationProvider = (): MigrationProvider => ({
   getMigrations: async () => ({
+    '000001-auth-tables': {
+      up: (await import('@repo/auth-api/migrations/000001-auth-tables.ts')).up,
+      down: (await import('@repo/auth-api/migrations/000001-auth-tables.ts')).down,
+    },
     '000001-base-tables': {
       up: (await import('#src/services/database/migrations/000001-base-tables.ts')).up,
       down: (await import('#src/services/database/migrations/000001-base-tables.ts')).down,

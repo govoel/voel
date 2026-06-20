@@ -100,6 +100,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.6.11",
+        "@repo/source-tap": "workspace:*",
         "better-auth": "1.6.11",
         "effect": "4.0.0-beta.66",
       },
@@ -132,6 +133,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/auth-api": "workspace:*",
+        "@repo/source-tap": "workspace:*",
         "effect": "4.0.0-beta.66",
       },
       "devDependencies": {

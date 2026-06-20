@@ -2,9 +2,8 @@
 
 import BunSqliteDatabase from 'bun:sqlite';
 
-import { Array, Cause, Effect, Option } from 'effect';
+import { Array, Effect, Option, Schema } from 'effect';
 import type { Scope } from 'effect';
-import { SqlError } from 'effect/unstable/sql';
 import { Kysely } from 'kysely';
 import type {
   Compilable,
@@ -18,20 +17,37 @@ import type {
 import { BunSqliteDialect, SourceTapDialect } from '#src/dialect.ts';
 import { SourceTap } from '#src/source-tap.ts';
 
+export class DatabaseSqlError extends Schema.TaggedErrorClass<
+  DatabaseSqlError,
+  { readonly brand: unique symbol }
+>()('@repo/source-tap/effect-kysely/DatabaseSqlError', {
+  cause: Schema.Unknown,
+  message: Schema.optional(Schema.String),
+}) {
+  public static readonly is = Schema.is(this);
+}
+
+export class DatabaseNseError extends Schema.TaggedErrorClass<
+  DatabaseNseError,
+  { readonly brand: unique symbol }
+>()('@repo/source-tap/effect-kysely/DatabaseNseError', {}) {
+  public static readonly is = Schema.is(this);
+}
+
 interface EffectExecutor {
   executeRaw: <Q extends AnyRawQuery>(
     query: Q
-  ) => Effect.Effect<QueryResult<QueryOutput<Q>>, SqlError.SqlError>;
-  execute: <Q extends AnyQuery>(query: Q) => Effect.Effect<QueryOutput<Q>[], SqlError.SqlError>;
+  ) => Effect.Effect<QueryResult<QueryOutput<Q>>, DatabaseSqlError>;
+  execute: <Q extends AnyQuery>(query: Q) => Effect.Effect<QueryOutput<Q>[], DatabaseSqlError>;
   executeTakeFirstOption: <Q extends AnyQuery>(
     query: Q
-  ) => Effect.Effect<Option.Option<QueryOutput<Q>>, SqlError.SqlError>;
+  ) => Effect.Effect<Option.Option<QueryOutput<Q>>, DatabaseSqlError>;
   executeTakeFirstOrUndefined: <Q extends AnyQuery>(
     query: Q
-  ) => Effect.Effect<QueryOutput<Q> | undefined, SqlError.SqlError>;
+  ) => Effect.Effect<QueryOutput<Q> | undefined, DatabaseSqlError>;
   executeTakeFirstOrError: <Q extends AnyQuery>(
     query: Q
-  ) => Effect.Effect<QueryOutput<Q>, SqlError.SqlError | Cause.NoSuchElementError>;
+  ) => Effect.Effect<QueryOutput<Q>, DatabaseSqlError | DatabaseNseError>;
 }
 
 export interface EffectTransaction<DB>
@@ -182,13 +198,10 @@ const queryAsPromise = async <DB, O>(
   return executor.executeQuery(compiledQuery);
 };
 
-const toSqlError = (operation: string, cause: unknown) =>
-  new SqlError.SqlError({
-    reason: new SqlError.UnknownError({
-      cause,
-      operation,
-      ...(cause instanceof Error ? { message: cause.message } : {}),
-    }),
+const toSqlError = (cause: unknown) =>
+  new DatabaseSqlError({
+    cause,
+    ...(cause instanceof Error ? { message: cause.message } : {}),
   });
 
 const executeSpan = <DB>(client: Kysely<DB>, query: Query<unknown> | QueryRaw<unknown>) => {
@@ -209,7 +222,7 @@ const executeRaw =
     Effect.tryPromise({
       // oxlint-disable-next-line no-unsafe-type-assertion
       try: async () => queryAsPromise(client, query) as Promise<QueryResult<QueryOutput<Q>>>,
-      catch: (cause) => toSqlError('kysely.executeRaw', cause),
+      catch: (cause) => toSqlError(cause),
     }).pipe(executeSpan(client, query));
 
 const execute =
@@ -226,7 +239,7 @@ const execute =
         // oxlint-disable-next-line no-unsafe-type-assertion
         return results as QueryOutput<Q>[];
       },
-      catch: (cause) => toSqlError('kysely.execute', cause),
+      catch: (cause) => toSqlError(cause),
     }).pipe(executeSpan(client, query));
 
 const executeTakeFirstOption =
@@ -250,6 +263,6 @@ const executeTakeFirstOrError =
   <Q extends AnyQuery>(query: Q) =>
     executeTakeFirstOption(client)(query).pipe(
       Effect.flatMap((result) =>
-        Effect.mapError(Effect.fromOption(result), () => new Cause.NoSuchElementError())
+        Effect.mapError(Effect.fromOption(result), () => new DatabaseNseError())
       )
     );

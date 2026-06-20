@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 // oxlint-disable-next-line import/no-nodejs-modules
 import { readFileSync } from 'node:fs';
 

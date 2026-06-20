@@ -1,5 +1,3 @@
-import type Database from 'bun:sqlite';
-
 import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
@@ -9,11 +7,14 @@ import { admin } from 'better-auth/plugins/admin';
 import { username } from 'better-auth/plugins/username';
 import { Duration } from 'effect';
 
+import type { Kysely } from '@repo/source-tap';
+
 export type { TestHelpers } from 'better-auth/plugins';
 
 export const createAuth = (config: {
   secret: NonNullable<BetterAuthOptions['secret']>;
-  database: Database;
+  // oxlint-disable-next-line typescript/no-explicit-any
+  database: Kysely<any>;
   logger: BetterAuthOptions['logger'];
 }) =>
   betterAuth({
@@ -32,7 +33,7 @@ export const createAuth = (config: {
         maxAge: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
       },
     },
-    database: config.database,
+    database: { db: config.database, type: 'sqlite' },
     plugins: [
       expo(),
       username(),

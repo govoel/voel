@@ -1,40 +1,66 @@
 import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 
-import { DatabaseError, DatabaseErrorWithNSE } from '#src/database/index.ts';
-import { LibraryTable } from '#src/database/library.ts';
+import { DatabaseNseError, DatabaseSqlError } from '@repo/source-tap';
+
+import { Library, LibraryPath } from '#src/database/schema.ts';
 import { makeCursorPaginated } from '#src/groups/utils.ts';
 import { AdminMiddleware } from '#src/middlewares/auth.ts';
 
 export const library = [
   makeCursorPaginated('libraryList', {
-    cursor: LibraryTable.fields.id,
-    success: LibraryTable,
-    error: DatabaseError,
+    cursor: Library.json.fields.id,
+    success: Schema.Struct({
+      id: Library.json.fields.id,
+      type: Library.json.fields.type,
+      name: Library.json.fields.name,
+      absolutePaths: Schema.Array(
+        Schema.Struct({
+          id: LibraryPath.json.fields.id,
+          absolutePath: LibraryPath.json.fields.absolutePath,
+        })
+      ),
+    }),
+    error: DatabaseSqlError,
   }),
 
   Rpc.make('libraryGet', {
-    payload: Schema.Struct({ id: LibraryTable.fields.id }),
-    success: LibraryTable,
-    error: DatabaseErrorWithNSE,
+    payload: Schema.Struct({ id: Library.json.fields.id }),
+    success: Schema.Struct({
+      id: Library.json.fields.id,
+      type: Library.json.fields.type,
+      name: Library.json.fields.name,
+      absolutePaths: Schema.Array(
+        Schema.Struct({
+          id: LibraryPath.json.fields.id,
+          absolutePath: LibraryPath.json.fields.absolutePath,
+        })
+      ),
+    }),
+    error: Schema.Union([DatabaseSqlError, DatabaseNseError], { mode: 'oneOf' }),
   }),
 
   Rpc.make('libraryUpsert', {
     payload: Schema.Struct({
-      id: Schema.Option(LibraryTable.fields.id),
-      type: LibraryTable.fields.type.schema,
-      name: LibraryTable.fields.name.schema,
-      absolutePaths: Schema.toEncoded(LibraryTable.fields.absolutePaths),
+      id: Library.jsonUpdate.fields.id,
+      type: Library.jsonUpdate.fields.type,
+      name: Library.jsonUpdate.fields.name,
+      absolutePaths: Schema.Array(
+        Schema.Struct({
+          absolutePath: LibraryPath.jsonUpdate.fields.absolutePath,
+        })
+      ),
     }),
-    success: Schema.Struct({ id: LibraryTable.fields.id }),
-    error: Schema.Union([DatabaseErrorWithNSE, Schema.instanceOf(Schema.SchemaError)], {
-      mode: 'oneOf',
-    }),
+    success: Schema.Struct({ id: Library.fields.id }),
+    error: Schema.Union(
+      [DatabaseSqlError, DatabaseNseError, Schema.instanceOf(Schema.SchemaError)],
+      { mode: 'oneOf' }
+    ),
   }).middleware(AdminMiddleware),
 
   Rpc.make('libraryDelete', {
-    payload: Schema.Struct({ id: LibraryTable.fields.id }),
+    payload: Schema.Struct({ id: Library.json.fields.id }),
     success: Schema.Void,
-    error: DatabaseError,
+    error: DatabaseSqlError,
   }).middleware(AdminMiddleware),
 ];

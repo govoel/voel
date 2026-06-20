@@ -1,4 +1,4 @@
-import { Duration, Effect, Option, Queue, Schema, Stream } from 'effect';
+import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';

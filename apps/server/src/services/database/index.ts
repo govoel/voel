@@ -1,16 +1,20 @@
 import { Context, Effect, Layer } from 'effect';
 
 import { createDatabase, sql } from '@repo/source-tap';
-import type { EffectKysely, SourceTap } from '@repo/source-tap';
+import type { EffectKysely, Kysely, SourceTap } from '@repo/source-tap';
+import type { DatabaseTables } from '@repo/spec-api/database/schema.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
-import type { DatabaseTables } from '#src/services/database/schema.ts';
 
 import { runDatabaseMigrations } from './migrations';
 
-class Database extends Context.Service<
+export class Database extends Context.Service<
   Database,
-  { db: EffectKysely<DatabaseTables>; sourceTap: SourceTap<DatabaseTables> }
+  {
+    db: EffectKysely<DatabaseTables>;
+    sourceTap: SourceTap<DatabaseTables>;
+    kysely: Kysely<DatabaseTables>;
+  }
 >()('@repo/server/services/database/index/Database', {
   make: Effect.fnUntraced(function* ({ filename }: { filename: string }) {
     const { db, sourceTap, kysely } = yield* createDatabase<DatabaseTables>({
@@ -37,7 +41,7 @@ class Database extends Context.Service<
 
     yield* runDatabaseMigrations({ db: kysely });
 
-    return { db, sourceTap };
+    return { db, sourceTap, kysely };
   }),
 }) {
   public static readonly layer = Layer.effect(
@@ -46,4 +50,7 @@ class Database extends Context.Service<
       Effect.flatMap((config) => this.make({ filename: config.db.filename }))
     )
   );
+
+  public static readonly layerTest = (args: Parameters<(typeof this)['make']>['0']) =>
+    Layer.effect(this, this.make(args));
 }
