@@ -5,7 +5,7 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
 import { Stack, router } from 'expo-router';
 import type { ComponentType } from 'react';
-import { PlatformColor } from 'react-native';
+import { PlatformColor as platformColor } from 'react-native';
 
 import { Text } from '#src/components/text';
 import { listAccountsAtom } from '#src/services/accounts/atoms.ts';
@@ -29,7 +29,7 @@ export default function ServerUsersScreen() {
   return (
     <>
       <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
-      <Host style={{ flex: 1, backgroundColor: PlatformColor('systemGroupedBackground') }}>
+      <Host style={{ flex: 1, backgroundColor: platformColor('systemGroupedBackground') }}>
         {AsyncResult.matchWithError(accounts, {
           onInitial: () => (
             <ProgressView

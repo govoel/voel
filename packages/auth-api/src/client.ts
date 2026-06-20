@@ -4,14 +4,14 @@ import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/
 
 import type { BetterAuthInstance } from '#src/server.ts';
 
-type CreateAuthClientOptions<Plugins extends BetterAuthClientPlugin[] | undefined> = Pick<
+type CreateAuthClientOptions<Plugins extends readonly BetterAuthClientPlugin[]> = Pick<
   BetterAuthClientOptions,
   'baseURL' | 'fetchOptions' | 'sessionOptions'
 > & {
   readonly plugins?: Plugins;
 };
 
-export const createAuthClient = <const Plugins extends BetterAuthClientPlugin[] | undefined>({
+export const createAuthClient = <const Plugins extends readonly BetterAuthClientPlugin[] = []>({
   baseURL,
   fetchOptions,
   plugins,

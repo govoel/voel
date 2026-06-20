@@ -11,7 +11,7 @@ import type {
 import type { ManagedRuntime } from 'effect';
 import { Cause, Effect, Exit, Option, Schema, SchemaIssue } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
-import { useContext, useMemo, useRef } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -294,18 +294,8 @@ export const createEffectSchemaFormHook = <
       },
     });
 
-    const extendedFormRef = useRef(form);
-
-    const wrappedForm = useMemo(() => {
+    const resetForm = useMemo(() => {
       const reset = form.reset.bind(form);
-
-      const FormSubmitErrorAppForm = ({ children }: PropsWithChildren) => (
-        <formSubmitErrorAtom.Provider value={submitErrorAtom}>
-          <hookFormContext.Provider value={extendedFormRef.current}>
-            {children}
-          </hookFormContext.Provider>
-        </formSubmitErrorAtom.Provider>
-      );
 
       const resetWithSubmitError = ((...resetArgs: Parameters<typeof reset>) => {
         // Reset clears visible submit state and invalidates any in-flight submit that might
@@ -316,12 +306,8 @@ export const createEffectSchemaFormHook = <
         reset(...resetArgs);
       }) satisfies typeof form.reset;
 
-      const extendedForm = new Proxy(form, {
+      return new Proxy(form, {
         get: (target, property, receiver) => {
-          if (property === 'AppForm') {
-            return FormSubmitErrorAppForm;
-          }
-
           if (property === 'reset') {
             return resetWithSubmitError;
           }
@@ -329,11 +315,30 @@ export const createEffectSchemaFormHook = <
           return Reflect.get(target, property, receiver);
         },
       });
+    }, [form, setSubmitError]);
 
-      extendedFormRef.current = extendedForm;
+    const FormSubmitErrorAppForm = useCallback(
+      ({ children }: PropsWithChildren) => (
+        <formSubmitErrorAtom.Provider value={submitErrorAtom}>
+          <hookFormContext.Provider value={resetForm}>{children}</hookFormContext.Provider>
+        </formSubmitErrorAtom.Provider>
+      ),
+      [resetForm, submitErrorAtom]
+    );
 
-      return extendedForm;
-    }, [form, setSubmitError, submitErrorAtom]);
+    const wrappedForm = useMemo(
+      () =>
+        new Proxy(resetForm, {
+          get: (target, property, receiver) => {
+            if (property === 'AppForm') {
+              return FormSubmitErrorAppForm;
+            }
+
+            return Reflect.get(target, property, receiver);
+          },
+        }),
+      [FormSubmitErrorAppForm, resetForm]
+    );
 
     return withoutFieldValidators(wrappedForm);
   };

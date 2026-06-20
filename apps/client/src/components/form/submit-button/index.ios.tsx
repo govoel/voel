@@ -43,6 +43,7 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const form = useFormContext();
+  // oxlint-disable-next-line typescript/no-deprecated - waiting for useSelector in upstream
   const [canSubmit, isSubmitting, formErrorMessages] = useStore(
     form.store,
     (state): readonly [boolean, boolean, string[]] => [

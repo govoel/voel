@@ -62,7 +62,7 @@ it.layer(
   iit.effect.each(['user', 'under18'] as const)(
     'should reject %s library mutations',
     Effect.fnUntraced(function* (role) {
-      const client = yield* makeAuthedClient({ username: `library-auth-${role}`, role });
+      const client = yield* makeAuthedClient({ username: `library_auth_${role}`, role });
 
       const upsertResult = yield* client
         .libraryUpsert({
@@ -103,7 +103,7 @@ it.layer(
     'should allow %s library reads',
     Effect.fnUntraced(function* (role) {
       const adminClient = yield* makeAuthedClient({
-        username: `library-read-admin-${role}`,
+        username: `library_read_admin_${role}`,
         role: 'admin',
       });
       const marker = yield* adminClient.libraryUpsert({
@@ -118,7 +118,7 @@ it.layer(
         name: `${role} Read Library`,
         absolutePaths: makeAbsolutePaths([`/show/${role}-read`]),
       });
-      const client = yield* makeAuthedClient({ username: `library-read-${role}`, role });
+      const client = yield* makeAuthedClient({ username: `library_read_${role}`, role });
 
       const getResult = yield* client.libraryGet({ id: library.id });
       const listResult = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 1 });

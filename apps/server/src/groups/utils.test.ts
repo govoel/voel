@@ -28,9 +28,9 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       const { db } = yield* Database;
 
       yield* makeAuthedClient({
-        username: 'utils-library-admin',
+        username: 'utils_library_admin',
         role: 'admin',
-        email: 'utils-library-admin@example.test',
+        email: 'utils_library_admin@example.test',
         name: 'Utils Library Admin',
       }).pipe(Effect.provide(AuthMiddlewareLive));
 
@@ -41,15 +41,15 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
           readonly email: string;
           readonly username: string;
           readonly role: string;
-        }>`select id, name, email, username, role from "user" where username = ${'utils-library-admin'}`
+        }>`select id, name, email, username, role from "user" where username = ${'utils_library_admin'}`
       );
 
       expect(users.rows).toHaveLength(1);
       const [user] = users.rows;
       expect(user?.id).toBeTypeOf('string');
       expect(user?.name).toBe('Utils Library Admin');
-      expect(user?.email).toBe('utils-library-admin@example.test');
-      expect(user?.username).toBe('utils-library-admin');
+      expect(user?.email).toBe('utils_library_admin@example.test');
+      expect(user?.username).toBe('utils_library_admin');
       expect(user?.role).toBe('admin');
 
       const sessions = yield* db.executeRaw(
@@ -75,14 +75,14 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
 
       yield* Effect.scoped(
         Effect.gen(function* () {
-          yield* makeAuthedClient({ username: 'utils-library-cleanup', role: 'admin' }).pipe(
+          yield* makeAuthedClient({ username: 'utils_library_cleanup', role: 'admin' }).pipe(
             Effect.provide(AuthMiddlewareLive)
           );
 
           const users = yield* db.executeRaw(
             sql<{
               readonly id: string;
-            }>`select id from "user" where username = ${'utils-library-cleanup'}`
+            }>`select id from "user" where username = ${'utils_library_cleanup'}`
           );
           expect(users.rows).toHaveLength(1);
           userId = users.rows[0]?.id ?? '';
@@ -119,7 +119,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       );
       expect(existingUsers.rows).toEqual([]);
 
-      yield* makeAuthedClient({ username: 'utils-library-first-user', role: 'user' }).pipe(
+      yield* makeAuthedClient({ username: 'utils_library_first_user', role: 'user' }).pipe(
         Effect.provide(AuthMiddlewareLive)
       );
 
@@ -127,10 +127,10 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         sql<{
           readonly username: string;
           readonly role: string;
-        }>`select username, role from "user" where username = ${'utils-library-first-user'}`
+        }>`select username, role from "user" where username = ${'utils_library_first_user'}`
       );
 
-      expect(users.rows).toEqual([{ username: 'utils-library-first-user', role: 'user' }]);
+      expect(users.rows).toEqual([{ username: 'utils_library_first_user', role: 'user' }]);
     })
   );
 });
@@ -142,7 +142,7 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
       let capturedHeaders = Option.none<EffectHeaders.Headers>();
 
       const client = yield* makeAuthedClient({
-        username: 'utils-library-headers',
+        username: 'utils_library_headers',
         role: 'admin',
       }).pipe(
         Effect.provide(

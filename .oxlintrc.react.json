@@ -9,6 +9,8 @@
     "react/jsx-pascal-case": "off",
     "react/no-multi-comp": "off",
     "react/only-export-components": "off",
-    "react/forbid-component-props": "off"
+    "react/forbid-component-props": "off",
+    "react/jsx-no-literals": "off",
+    "react/no-unstable-nested-components": "off"
   }
 }
