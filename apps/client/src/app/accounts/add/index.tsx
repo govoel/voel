@@ -24,7 +24,6 @@ export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void })
     schema: AddAccountSchema,
     defaultValues: { serverUrl: '', username: '', password: '' },
     onSubmit: Effect.fnUntraced(function* ({ value }) {
-      yield* Effect.sleep(1000);
       const accountManager = yield* AccountManager;
       yield* accountManager.upsertAccount(value).pipe(
         Effect.catchTags({

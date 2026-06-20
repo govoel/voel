@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react"],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/jsx-filename-extension": "off",
+    "react/jsx-max-depth": "off",
+    "react/jsx-props-no-spreading": "off",
+    "react/jsx-pascal-case": "off",
+    "react/no-multi-comp": "off",
+    "react/only-export-components": "off",
+    "react/forbid-component-props": "off",
+    "react/jsx-no-literals": "off",
+    "react/no-unstable-nested-components": "off"
+  }
+}

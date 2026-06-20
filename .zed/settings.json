@@ -1,5 +1,5 @@
 {
-  "file_scan_exclusions": [".repos/**"],
+  "file_scan_exclusions": [".repos/**", "**/.DS_Store"],
   "languages": {
     "CSS": {
       "format_on_save": "on",

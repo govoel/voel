@@ -26,7 +26,6 @@ export const useSetupServerForm = ({ onClose }: { readonly onClose: () => void }
     schema: SetupServerAccountSchema,
     defaultValues: { serverUrl: '', name: '', email: '', username: '', password: '' },
     onSubmit: Effect.fnUntraced(function* ({ value }) {
-      yield* Effect.sleep(1000);
       const accountManager = yield* AccountManager;
       yield* accountManager.setupServerAccount(value).pipe(
         Effect.catchTags({
