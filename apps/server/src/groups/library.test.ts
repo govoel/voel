@@ -28,6 +28,9 @@ const formatSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 const makeAbsolutePaths = (absolutePaths: readonly string[]) =>
   absolutePaths.map((absolutePath) => ({ absolutePath }));
 
+const makeExpectedAbsolutePaths = (absolutePaths: readonly string[]) =>
+  absolutePaths.map((absolutePath) => ({ id: expect.any(Number) as unknown, absolutePath }));
+
 it.layer(
   RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request)).pipe(
     Layer.provideMerge(makeTestLayer())
@@ -124,7 +127,7 @@ it.layer(
         id: library.id,
         type: MediaType.fields.type.make('show'),
         name: `${role} Read Library`,
-        absolutePaths: makeAbsolutePaths([`/show/${role}-read`]),
+        absolutePaths: makeExpectedAbsolutePaths([`/show/${role}-read`]),
       });
       expect(listResult).toEqual({
         items: [getResult],
@@ -169,13 +172,13 @@ it.layer(makeTestLayer())('library', (iit) => {
             id: result1.id,
             type: MediaType.fields.type.make('movie'),
             name: 'List Movie Library',
-            absolutePaths: makeAbsolutePaths(['/movie/list-path']),
+            absolutePaths: makeExpectedAbsolutePaths(['/movie/list-path']),
           },
           {
             id: result3.id,
             type: MediaType.fields.type.make('audiobook'),
             name: 'List Audiobook Library',
-            absolutePaths: makeAbsolutePaths([]),
+            absolutePaths: makeExpectedAbsolutePaths([]),
           },
         ],
         nextCursor: Option.none(),
@@ -229,13 +232,13 @@ it.layer(makeTestLayer())('library', (iit) => {
             id: result1.id,
             type: MediaType.fields.type.make('movie'),
             name: 'Page Movie Library',
-            absolutePaths: makeAbsolutePaths(['/movie/page-path']),
+            absolutePaths: makeExpectedAbsolutePaths(['/movie/page-path']),
           },
           {
             id: result3.id,
             type: MediaType.fields.type.make('audiobook'),
             name: 'Page Audiobook Library',
-            absolutePaths: makeAbsolutePaths(['/audiobook/page-path']),
+            absolutePaths: makeExpectedAbsolutePaths(['/audiobook/page-path']),
           },
         ],
         nextCursor: Option.some(result3.id),
@@ -249,7 +252,7 @@ it.layer(makeTestLayer())('library', (iit) => {
             id: result4.id,
             type: MediaType.fields.type.make('movie'),
             name: 'Page Extra Movie Library',
-            absolutePaths: makeAbsolutePaths([]),
+            absolutePaths: makeExpectedAbsolutePaths([]),
           },
         ],
         nextCursor: Option.none(),
@@ -266,7 +269,7 @@ it.layer(makeTestLayer())('library', (iit) => {
             id: result3.id,
             type: MediaType.fields.type.make('audiobook'),
             name: 'Page Audiobook Library',
-            absolutePaths: makeAbsolutePaths(['/audiobook/page-path']),
+            absolutePaths: makeExpectedAbsolutePaths(['/audiobook/page-path']),
           },
         ],
         nextCursor: Option.some(result3.id),
@@ -327,13 +330,13 @@ it.layer(makeTestLayer())('library', (iit) => {
             id: result1.id,
             type: MediaType.fields.type.make('movie'),
             name: 'Large Page Movie Library',
-            absolutePaths: makeAbsolutePaths(['/movie/large-page-path']),
+            absolutePaths: makeExpectedAbsolutePaths(['/movie/large-page-path']),
           },
           {
             id: result2.id,
             type: MediaType.fields.type.make('audiobook'),
             name: 'Large Page Audiobook Library',
-            absolutePaths: makeAbsolutePaths([]),
+            absolutePaths: makeExpectedAbsolutePaths([]),
           },
         ],
         nextCursor: Option.none(),
@@ -357,7 +360,7 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       expect(result.name).toBe(`My ${type}`);
       expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/path`]));
+      expect(result.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path`]));
       expect(result.id).toBeTypeOf('number');
     })
   );
@@ -378,7 +381,7 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       expect(result.name).toBe(`My ${type} None`);
       expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(makeAbsolutePaths([]));
+      expect(result.absolutePaths).toEqual(makeExpectedAbsolutePaths([]));
       expect(result.id).toBeTypeOf('number');
     })
   );
@@ -399,7 +402,9 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       expect(result.name).toBe(`My ${type} Multi`);
       expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/path1`, `/${type}/path2`]));
+      expect(result.absolutePaths).toEqual(
+        makeExpectedAbsolutePaths([`/${type}/path1`, `/${type}/path2`])
+      );
       expect(result.id).toBeTypeOf('number');
     })
   );
@@ -432,11 +437,11 @@ it.layer(makeTestLayer())('library', (iit) => {
       expect(issues).toEqual([
         expect.objectContaining({
           message: 'Expected an absolute path',
-          path: [1],
+          path: [1, 'absolutePath'],
         }),
         expect.objectContaining({
           message: 'Expected an absolute path',
-          path: [3],
+          path: [3, 'absolutePath'],
         }),
       ]);
     })
@@ -468,7 +473,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       expect(result2.id).toBe(result1.id);
       expect(result2.name).toBe(`My ${type} Delete`);
       expect(result2.type).toBe(type);
-      expect(result2.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/path-delete`]));
+      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-delete`]));
     })
   );
 
@@ -501,7 +506,9 @@ it.layer(makeTestLayer())('library', (iit) => {
       expect(result2.id).toBe(result1.id);
       expect(result2.name).toBe(`My ${type} Restored By Id`);
       expect(result2.type).toBe(type);
-      expect(result2.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/path-restore-by-id`]));
+      expect(result2.absolutePaths).toEqual(
+        makeExpectedAbsolutePaths([`/${type}/path-restore-by-id`])
+      );
     })
   );
 
@@ -518,7 +525,7 @@ it.layer(makeTestLayer())('library', (iit) => {
           absolutePaths: makeAbsolutePaths([`/${type}/path-old`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-      expect(result1.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/path-old`]));
+      expect(result1.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-old`]));
 
       const result2 = yield* client
         .libraryUpsert({
@@ -529,7 +536,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
-      expect(result2.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/path-new`]));
+      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-new`]));
 
       const result3 = yield* client
         .libraryUpsert({
@@ -543,7 +550,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       expect(result3.id).toBe(result1.id);
       expect(result3.name).toBe(`My ${type} Path Delete`);
       expect(result3.type).toBe(type);
-      expect(result3.absolutePaths).toEqual(makeAbsolutePaths([]));
+      expect(result3.absolutePaths).toEqual(makeExpectedAbsolutePaths([]));
     })
   );
 
@@ -563,7 +570,7 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       expect(result.name).toBe(`My ${type} Duplicate Paths`);
       expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/duplicate-path`]));
+      expect(result.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/duplicate-path`]));
     })
   );
 
@@ -589,7 +596,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
       expect(result2.id).toBe(result1.id);
-      expect(result2.absolutePaths).toEqual(makeAbsolutePaths([]));
+      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([]));
 
       const result3 = yield* client
         .libraryUpsert({
@@ -601,7 +608,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
 
       expect(result3.id).toBe(result1.id);
-      expect(result3.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/restore-path`]));
+      expect(result3.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/restore-path`]));
     })
   );
 
@@ -633,7 +640,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       expect(result2.id).toBe(result1.id);
       expect(result2.name).toBe(`My ${type} New Name`);
       expect(result2.type).toBe(type);
-      expect(result2.absolutePaths).toEqual(makeAbsolutePaths([`/${type}/path-name`]));
+      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-name`]));
     })
   );
 

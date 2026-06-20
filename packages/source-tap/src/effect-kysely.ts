@@ -4,7 +4,7 @@ import BunSqliteDatabase from 'bun:sqlite';
 
 import { Array, Effect, Option, Schema } from 'effect';
 import type { Scope } from 'effect';
-import { Kysely } from 'kysely';
+import { Kysely, ParseJSONResultsPlugin } from 'kysely';
 import type {
   Compilable,
   QueryExecutorProvider,
@@ -132,6 +132,7 @@ export function createDatabase<DB>({
 }: CreateDatabaseOptions<DB>) {
   return Effect.acquireRelease(
     Effect.gen(function* () {
+      const parseJsonResultsPlugin = new ParseJSONResultsPlugin();
       const sourceTap = trackTables ? yield* SourceTap.make<DB>({ trackTables }) : void 0;
       const kysely = new Kysely<DB>({
         dialect:
@@ -143,7 +144,8 @@ export function createDatabase<DB>({
                 onRollbackTransaction: () => sourceTap?.rollbackTransaction(),
               })
             : new BunSqliteDialect({ database: new BunSqliteDatabase(filename) }),
-        plugins: sourceTap !== void 0 ? [sourceTap] : [],
+        plugins:
+          sourceTap !== void 0 ? [sourceTap, parseJsonResultsPlugin] : [parseJsonResultsPlugin],
         ...(enableLogging === true
           ? {
               log: (event) => {
