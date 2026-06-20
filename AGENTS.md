@@ -15,16 +15,6 @@ Run these commands in parallel after you are done with your changes:
 
 Before writing any Effect code, YOU MUST read `.repos/effect/LLMS.md` fully.
 
-## Agent skills
-
 ### Browse library code
 
 Use `.agents/skills/opensrc/SKILL.md` to browse the code of libraries this repo depends on. Do not read from `node_modules` directly.
-
-### Issue tracker
-
-Issues and PRDs are tracked as local markdown files under `.issues/`. See `docs/agents/issue-tracker.md`.
-
-### Domain docs
-
-This repo uses a multi-context domain docs layout rooted at `CONTEXT-MAP.md`. See `docs/agents/domain.md`.
