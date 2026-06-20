@@ -47,4 +47,4 @@ jobs:
         run: bun turbo run check-types
 
       - name: Test
-        run: bun --bun turbo run test
+        run: bun turbo run test
