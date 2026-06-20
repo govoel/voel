@@ -3,39 +3,25 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
+import { DatabaseNseError, DatabaseSqlError } from '@repo/source-tap';
 import { Api } from '@repo/spec-api';
-import {
-  DatabaseErrorWithNSE,
-  DatabaseNoSuchElementError,
-  DatabaseSqlError,
-} from '@repo/spec-api/database/index.ts';
-import { LibraryTable, MediaTypes } from '@repo/spec-api/database/library.ts';
+import { Library, MediaType } from '@repo/spec-api/database/schema.js';
 import { AuthMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlers } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
 import { AdminMiddlewareLive, Auth, AuthMiddlewareLive } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
-import { DatabaseLive } from '#src/services/database/index.ts';
-import { LibraryRepository } from '#src/services/database/repos/library.ts';
+import { Database } from '#src/services/database/index.ts';
 
 const makeTestLayer = () =>
   LibraryHandlers.pipe(
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
-    Layer.provideMerge(Layer.mergeAll(Auth.layer, LibraryRepository.layer)),
-    Layer.provideMerge(DatabaseLive),
+    Layer.provideMerge(Layer.mergeAll(Auth.layer)),
+    Layer.provideMerge(Database.layerTest({ filename: ':memory:' })),
     Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
   );
-
-const forceBrandLibraryId = Schema.decodeEffect(
-  Schema.Number.pipe(
-    Schema.decodeTo(LibraryTable.fields.id, {
-      decode: SchemaGetter.transform((i) => i),
-      encode: SchemaGetter.transform((i) => i),
-    })
-  )
-);
 
 const formatSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 
@@ -52,14 +38,14 @@ it.layer(
       const upsertResult = yield* client
         .libraryUpsert({
           id: Option.none(),
-          type: 'movie',
+          type: MediaType.fields.type.make('movie'),
           name: 'Unauthorized Library',
           absolutePaths: [],
         })
         .pipe(Effect.flip);
 
       const deleteResult = yield* client
-        .libraryDelete({ id: yield* forceBrandLibraryId(999_999) })
+        .libraryDelete({ id: Library.fields.id.make(999_999) })
         .pipe(Effect.flip);
 
       expect(upsertResult).toBeInstanceOf(Unauthorized);
@@ -75,7 +61,7 @@ it.layer(
       const upsertResult = yield* client
         .libraryUpsert({
           id: Option.none(),
-          type: 'movie',
+          type: MediaType.fields.type.schema.literals[1],
           name: `${role} Unauthorized Library`,
           absolutePaths: [],
         })
@@ -116,13 +102,13 @@ it.layer(
       });
       const marker = yield* adminClient.libraryUpsert({
         id: Option.none(),
-        type: 'movie',
+        type: MediaType.fields.type.schema.literals[1],
         name: `${role} Read Marker Library`,
         absolutePaths: [],
       });
       const library = yield* adminClient.libraryUpsert({
         id: Option.none(),
-        type: 'show',
+        type: MediaType.fields.type.schema.literals['2'],
         name: `${role} Read Library`,
         absolutePaths: [`/show/${role}-read`],
       });
@@ -153,19 +139,19 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
-        type: 'movie',
+        type: MediaType.fields.type.schema.literals['1'],
         name: 'List Movie Library',
         absolutePaths: ['/movie/list-path'],
       });
       const result2 = yield* client.libraryUpsert({
         id: Option.none(),
-        type: 'show',
+        type: MediaType.fields.type.schema.literals['2'],
         name: 'List Show Library',
         absolutePaths: ['/show/list-path-1', '/show/list-path-2'],
       });
       const result3 = yield* client.libraryUpsert({
         id: Option.none(),
-        type: 'audiobook',
+        type: MediaType.fields.type.schema.literals['3'],
         name: 'List Audiobook Library',
         absolutePaths: [],
       });
@@ -352,7 +338,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'should create a %s library',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -373,7 +359,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'should create a %s library with no paths',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -394,7 +380,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'should create a %s library with multiple paths',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -453,7 +439,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'should soft delete a %s library and recreate it',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -483,7 +469,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'should soft delete a %s library and restore it by id',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -519,7 +505,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     '%s library paths should not get deleted on upsert',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -561,7 +547,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'should de-duplicate paths for a %s library',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -581,7 +567,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'should restore a removed path for a %s library',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -619,7 +605,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     'name changes for %s library is supported',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -651,7 +637,7 @@ it.layer(makeTestLayer())('library', (iit) => {
     })
   );
 
-  iit.effect.each(MediaTypes.literals)(
+  iit.effect.each(MediaType.select.fields.type.schema.literals)(
     '%s library type should change on upsert, with associated tables cleaned up',
     Effect.fnUntraced(function* (type) {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
@@ -690,10 +676,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryGet({ id: yield* forceBrandLibraryId(999_999) })
         .pipe(Effect.flip);
 
-      if (!Schema.is(DatabaseErrorWithNSE)(result)) {
-        throw new Error('Expected a DatabaseError');
-      }
-      expect(result.reason).toBeInstanceOf(DatabaseNoSuchElementError);
+      expect(DatabaseNseError.is(result)).toBe(true);
     })
   );
 
@@ -713,10 +696,7 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
 
-      if (!Schema.is(DatabaseErrorWithNSE)(result2)) {
-        throw new Error('Expected a DatabaseError');
-      }
-      expect(result2.reason).toBeInstanceOf(DatabaseNoSuchElementError);
+      expect(DatabaseNseError.is(result2)).toBe(true);
     })
   );
 
@@ -743,14 +723,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      if (!Schema.is(DatabaseErrorWithNSE)(result)) {
-        throw new Error('Expected a DatabaseError');
-      }
-      expect(result.reason).toBeInstanceOf(DatabaseNoSuchElementError);
-      if (!Schema.is(DatabaseNoSuchElementError)(result.reason)) {
-        throw new Error('Expected a DatabaseNoSuchElementError');
-      }
-      expect(result.reason.operation).toBe('LibraryRepository.upsertLibrary.nse');
+      expect(DatabaseNseError.is(result)).toBe(true);
     })
   );
 
@@ -781,14 +754,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      if (!Schema.is(DatabaseErrorWithNSE)(result)) {
-        throw new Error('Expected a DatabaseError');
-      }
-      expect(result.reason).toBeInstanceOf(DatabaseSqlError);
-      if (!Schema.is(DatabaseSqlError)(result.reason)) {
-        throw new Error('Expected a DatabaseSqlError');
-      }
-      expect(result.reason.operation).toBe('LibraryRepository.upsertLibrary.sql');
+      expect(DatabaseSqlError.is(result)).toBe(true);
     })
   );
 });
