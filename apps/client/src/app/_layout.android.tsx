@@ -1,8 +1,11 @@
+import { RegistryContext } from '@effect/atom-react';
 import { Host, LoadingIndicator, Surface, getMaterialColors } from '@expo/ui/jetpack-compose';
 import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router/react-navigation';
 import { useColorScheme } from 'react-native';
+
+import { AppRegistry } from '#src/services/registry.ts';
 
 const loadingIndicatorScale = 0.25;
 
@@ -48,17 +51,19 @@ export default function TabLayout() {
   } satisfies Theme;
 
   return (
-    <ThemeProvider value={theme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="accounts"
-          options={{
-            presentation: 'transparentModal',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-      </Stack>
-    </ThemeProvider>
+    <RegistryContext.Provider value={AppRegistry}>
+      <ThemeProvider value={theme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="accounts"
+            options={{
+              presentation: 'transparentModal',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+        </Stack>
+      </ThemeProvider>
+    </RegistryContext.Provider>
   );
 }
