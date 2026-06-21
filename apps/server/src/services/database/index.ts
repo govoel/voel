@@ -1,38 +1,56 @@
-import { SqliteClient } from '@effect/sql-sqlite-bun';
-import { Effect, Layer } from 'effect';
-import { Migrator, SqlClient } from 'effect/unstable/sql';
+import { Context, Effect, Layer } from 'effect';
 
-import { initialTables } from '@repo/auth-api/migrations.ts';
+import { createDatabase, sql } from '@repo/source-tap';
+import type { EffectKysely, Kysely, SourceTap } from '@repo/source-tap';
+import type { DatabaseTables } from '@repo/spec-api/database/schema.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
-import { baseTables } from '#src/services/database/migrations/000001-base-tables.ts';
 
-const runMigrations = Migrator.make({});
+import { runDatabaseMigrations } from './migrations';
 
-export const DatabaseLive = Layer.provideMerge(
-  Layer.effectDiscard(
-    Effect.gen(function* () {
-      const sql = yield* SqlClient.SqlClient;
-      yield* sql`PRAGMA foreign_keys = ON`;
-      yield* sql`PRAGMA synchronous = NORMAL`;
+export class Database extends Context.Service<
+  Database,
+  {
+    db: EffectKysely<DatabaseTables>;
+    sourceTap: SourceTap<DatabaseTables>;
+    kysely: Kysely<DatabaseTables>;
+  }
+>()('@repo/server/services/database/index/Database', {
+  make: Effect.fnUntraced(function* ({ filename }: { filename: string }) {
+    const { db, sourceTap, kysely } = yield* createDatabase<DatabaseTables>({
+      filename,
+      trackTables: new Set([
+        'mediaType',
+        'mediaItem',
+        'audiobook',
+        'audiobookSeries',
+        'audiobookSeriesMap',
+        'audiobookContributor',
+        'audiobookContributorRole',
+        'audiobookContributorMap',
+        'library',
+        'libraryPath',
+        'mediaFile',
+        'libraryFileMap',
+      ] as const),
+    });
 
-      yield* runMigrations({
-        loader: Migrator.fromRecord({
-          '000001_initialAuthTables': initialTables,
-          '000002_baseTables': baseTables,
-        }),
-      }).pipe(
-        Effect.tap((results) =>
-          results.length === 0
-            ? Effect.void
-            : Effect.logInfo('Database migrations ran successfully', { results })
-        ),
-        Effect.tapError((error) => Effect.logError('Database migrations failed', { error }))
-      );
-    })
-  ),
-  Effect.service(ApiConfig).pipe(
-    Effect.map((config) => SqliteClient.layer({ filename: config.db.filename, disableWAL: false })),
-    Layer.unwrap
-  )
-);
+    yield* db.executeRaw(sql`PRAGMA journal_mode = WAL`);
+    yield* db.executeRaw(sql`PRAGMA foreign_keys = ON`);
+    yield* db.executeRaw(sql`PRAGMA synchronous = NORMAL`);
+
+    yield* runDatabaseMigrations({ db: kysely });
+
+    return { db, sourceTap, kysely };
+  }),
+}) {
+  public static readonly layer = Layer.effect(
+    this,
+    Effect.service(ApiConfig).pipe(
+      Effect.flatMap((config) => this.make({ filename: config.db.filename }))
+    )
+  );
+
+  public static readonly layerTest = (args: Parameters<(typeof this)['make']>['0']) =>
+    Layer.effect(this, this.make(args));
+}

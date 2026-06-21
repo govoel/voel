@@ -1,5 +1,4 @@
-import type Database from 'bun:sqlite';
-
+import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
@@ -8,11 +7,14 @@ import { admin } from 'better-auth/plugins/admin';
 import { username } from 'better-auth/plugins/username';
 import { Duration } from 'effect';
 
+import type { Kysely } from '@repo/source-tap';
+
 export type { TestHelpers } from 'better-auth/plugins';
 
 export const createAuth = (config: {
   secret: NonNullable<BetterAuthOptions['secret']>;
-  database: Database;
+  // oxlint-disable-next-line typescript/no-explicit-any
+  database: Kysely<any>;
   logger: BetterAuthOptions['logger'];
 }) =>
   betterAuth({
@@ -23,7 +25,7 @@ export const createAuth = (config: {
     advanced: { cookiePrefix: 'auth' },
     emailAndPassword: { enabled: true, autoSignIn: true, disableSignUp: true },
     telemetry: { enabled: false },
-    trustedOrigins: ['voel://'],
+    trustedOrigins: ['voel://', 'voel-preview://', 'voel-dev://'],
     logger: config.logger,
     session: {
       cookieCache: {
@@ -31,8 +33,9 @@ export const createAuth = (config: {
         maxAge: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
       },
     },
-    database: config.database,
+    database: { db: config.database, type: 'sqlite' },
     plugins: [
+      expo(),
       username(),
       admin({ defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
       {
