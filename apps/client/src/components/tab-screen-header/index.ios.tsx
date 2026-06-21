@@ -1,5 +1,6 @@
 import { Button, HStack, Image, Spacer } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
+import { router } from 'expo-router';
 import { PlatformColor } from 'react-native';
 
 import type { TabScreenHeaderComponent } from '#src/components/tab-screen-header';
@@ -15,7 +16,7 @@ export const TabScreenHeader = (({ title }) => (
     <Button
       modifiers={[buttonStyle('plain')]}
       onPress={() => {
-        // router.push('/accounts');
+        router.push('/accounts');
       }}>
       <Image
         systemName="person.crop.circle.fill"
