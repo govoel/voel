@@ -1,16 +1,31 @@
-import type { BetterAuthClientOptions } from 'better-auth/client';
+import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 
 import type { BetterAuthInstance } from '#src/server.ts';
 
-export const createAuthClient = ({
+type CreateAuthClientOptions<Plugins extends readonly BetterAuthClientPlugin[]> = Pick<
+  BetterAuthClientOptions,
+  'baseURL' | 'fetchOptions' | 'sessionOptions'
+> & {
+  readonly plugins?: Plugins;
+};
+
+export const createAuthClient = <const Plugins extends readonly BetterAuthClientPlugin[] = []>({
   baseURL,
   fetchOptions,
-}: Pick<BetterAuthClientOptions, 'baseURL' | 'fetchOptions'>) =>
+  plugins,
+  sessionOptions,
+}: CreateAuthClientOptions<Plugins>) =>
   createBetterAuthClient({
     baseURL,
     basePath: '/api/auth',
     fetchOptions,
-    plugins: [usernameClient(), adminClient(), inferAdditionalFields<BetterAuthInstance>()],
+    sessionOptions,
+    plugins: [
+      ...(plugins ?? []),
+      usernameClient(),
+      adminClient(),
+      inferAdditionalFields<BetterAuthInstance>(),
+    ],
   });
