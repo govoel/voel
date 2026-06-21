@@ -23,6 +23,6 @@
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.3.14",
     "typescript": "6.0.3",
-    "vitest": "4.1.6"
+    "vitest": "4.1.9"
   }
 }
