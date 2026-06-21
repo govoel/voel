@@ -14,15 +14,15 @@
     "test": "bun --bun run vitest"
   },
   "dependencies": {
-    "effect": "4.0.0-beta.66",
+    "effect": "4.0.0-beta.85",
     "kysely": "0.29.2"
   },
   "devDependencies": {
-    "@effect/language-service": "0.86.1",
-    "@effect/vitest": "4.0.0-beta.66",
+    "@effect/language-service": "0.86.2",
+    "@effect/vitest": "4.0.0-beta.85",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.3.14",
     "typescript": "6.0.3",
-    "vitest": "4.1.6"
+    "vitest": "4.1.9"
   }
 }
