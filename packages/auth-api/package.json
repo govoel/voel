@@ -17,10 +17,10 @@
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/expo": "1.6.11",
+    "@better-auth/expo": "1.6.19",
     "@effect/sql-sqlite-bun": "4.0.0-beta.66",
     "@repo/source-tap": "workspace:*",
-    "better-auth": "1.6.11",
+    "better-auth": "1.6.19",
     "effect": "4.0.0-beta.66"
   },
   "devDependencies": {
