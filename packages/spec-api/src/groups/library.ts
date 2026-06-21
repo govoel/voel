@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 
-import { DatabaseNseError, DatabaseSqlError } from '@repo/source-tap';
+import { DatabaseNseError, DatabaseSqlError } from '@repo/effect-kysely';
 
 import { Library, LibraryPath } from '#src/database/schema.ts';
 import { makeCursorPaginated } from '#src/groups/utils.ts';

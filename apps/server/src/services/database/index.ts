@@ -1,7 +1,8 @@
 import { Context, Effect, Layer } from 'effect';
 
+import type { EffectKysely } from '@repo/effect-kysely';
 import { createDatabase, sql } from '@repo/source-tap';
-import type { EffectKysely, Kysely, SourceTap } from '@repo/source-tap';
+import type { Kysely, SourceTap } from '@repo/source-tap';
 import type { DatabaseTables } from '@repo/spec-api/database/schema.ts';
 
 import { ApiConfig } from '#src/services/config.ts';

@@ -3,7 +3,7 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option, Schema, SchemaIssue } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
-import { DatabaseNseError, DatabaseSqlError } from '@repo/source-tap';
+import { DatabaseNseError, DatabaseSqlError } from '@repo/effect-kysely';
 import { Api } from '@repo/spec-api';
 import { Library, MediaType } from '@repo/spec-api/database/schema.js';
 import { AuthMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';

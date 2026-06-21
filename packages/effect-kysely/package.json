@@ -1,5 +1,5 @@
 {
-  "name": "@repo/source-tap",
+  "name": "@repo/effect-kysely",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,11 +10,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
-    "test": "bun --bun run vitest"
+    "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {
-    "@repo/effect-kysely": "workspace:*",
     "effect": "4.0.0-beta.85",
     "kysely": "0.29.2"
   },
