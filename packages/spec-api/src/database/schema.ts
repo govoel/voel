@@ -3,7 +3,7 @@ import { Model } from 'effect/unstable/schema';
 
 import type { ColumnType } from '@repo/source-tap';
 
-class Timestamped extends Model.Class<Timestamped>('@voel/server/Timestamped')({
+class Timestamped extends Model.Class<Timestamped>('@repo/spec-api/server/Timestamped')({
   createdAt: Model.Field({
     select: Schema.Int,
     json: Schema.Int,
@@ -21,23 +21,23 @@ class Timestamped extends Model.Class<Timestamped>('@voel/server/Timestamped')({
   public static readonly fullFields = Model.fields(this);
 }
 
-export class MediaType extends Model.Class<MediaType>('@voel/server/MediaType')({
+export class MediaType extends Model.Class<MediaType>('@repo/spec-api/server/MediaType')({
   type: Model.Field({
     select: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-      Schema.brand('@voel/server/MediaType/type')
+      Schema.brand('@repo/spec-api/server/MediaType/type')
     ),
     json: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-      Schema.brand('@voel/server/MediaType/type')
+      Schema.brand('@repo/spec-api/server/MediaType/type')
     ),
   }),
 }) {}
 
 export type MediaTypesTable = TableFromModel<typeof MediaType>;
 
-export class MediaItem extends Model.Class<MediaItem>('@voel/server/MediaItem')({
+export class MediaItem extends Model.Class<MediaItem>('@repo/spec-api/server/MediaItem')({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/MediaItem/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/MediaItem/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/MediaItem/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/MediaItem/id')),
   }),
   type: Model.Field({ select: MediaType.fields.type, json: MediaType.fields.type }),
   ...Timestamped.fullFields,
@@ -45,62 +45,80 @@ export class MediaItem extends Model.Class<MediaItem>('@voel/server/MediaItem')(
 
 export type MediaItemTable = TableFromModel<typeof MediaItem>;
 
-export class Audiobook extends Model.Class<Audiobook>('@voel/server/Audiobook')({
+export class Audiobook extends Model.Class<Audiobook>('@repo/spec-api/server/Audiobook')({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/Audiobook/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/Audiobook/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/Audiobook/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/Audiobook/id')),
   }),
   asin: Model.Field({
-    select: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/asin'))),
-    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/asin'))),
+    select: Schema.NullOr(Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/asin'))),
+    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/asin'))),
   }),
   mediaItemId: Model.Field({
     select: MediaItem.fields.id,
     json: MediaItem.fields.id,
   }),
   title: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/Audiobook/title')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/Audiobook/title')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/title')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/title')),
   }),
   subtitle: Model.Field({
-    select: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/subtitle'))),
-    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/subtitle'))),
+    select: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/subtitle'))
+    ),
+    json: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/subtitle'))
+    ),
   }),
   cover: Model.Field({
-    select: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/cover'))),
-    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/cover'))),
+    select: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/cover'))
+    ),
+    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/cover'))),
   }),
   coverThumbhash: Model.Field({
     select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/Audiobook/coverThumbhash'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/coverThumbhash'))
     ),
-    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/coverThumbhash'))),
+    json: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/coverThumbhash'))
+    ),
   }),
   summary: Model.Field({
-    select: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/summary'))),
-    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/Audiobook/summary'))),
+    select: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/summary'))
+    ),
+    json: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/Audiobook/summary'))
+    ),
   }),
   ...Timestamped.fullFields,
 }) {}
 
 export type AudiobookTable = TableFromModel<typeof Audiobook>;
 
-export class AudiobookSeries extends Model.Class<AudiobookSeries>('@voel/server/AudiobookSeries')({
+export class AudiobookSeries extends Model.Class<AudiobookSeries>(
+  '@repo/spec-api/server/AudiobookSeries'
+)({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookSeries/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookSeries/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/id')),
   }),
   asin: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeries/asin')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeries/asin')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/asin')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/asin')),
   }),
   name: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeries/name')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeries/name')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/name')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/name')),
   }),
   summary: Model.Field({
-    select: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeries/summary'))),
-    json: Schema.NullOr(Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeries/summary'))),
+    select: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/summary'))
+    ),
+    json: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeries/summary'))
+    ),
   }),
   ...Timestamped.fullFields,
 }) {}
@@ -108,11 +126,11 @@ export class AudiobookSeries extends Model.Class<AudiobookSeries>('@voel/server/
 export type AudiobookSeriesTable = TableFromModel<typeof AudiobookSeries>;
 
 export class AudiobookSeriesMap extends Model.Class<AudiobookSeriesMap>(
-  '@voel/server/AudiobookSeriesMap'
+  '@repo/spec-api/server/AudiobookSeriesMap'
 )({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/id')),
   }),
   audiobookId: Model.Field({ select: Audiobook.fields.id, json: Audiobook.fields.id }),
   audiobookSeriesId: Model.Field({
@@ -120,16 +138,16 @@ export class AudiobookSeriesMap extends Model.Class<AudiobookSeriesMap>(
     json: Schema.NullOr(AudiobookSeries.fields.id),
   }),
   title: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/title')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/title')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/title')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/title')),
   }),
   label: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/label')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/label')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/label')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/label')),
   }),
   sort: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/sort')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookSeriesMap/sort')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/sort')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookSeriesMap/sort')),
   }),
   ...Timestamped.fullFields,
 }) {}
@@ -137,42 +155,42 @@ export class AudiobookSeriesMap extends Model.Class<AudiobookSeriesMap>(
 export type AudiobookSeriesMapTable = TableFromModel<typeof AudiobookSeriesMap>;
 
 export class AudiobookContributor extends Model.Class<AudiobookContributor>(
-  '@voel/server/AudiobookContributor'
+  '@repo/spec-api/server/AudiobookContributor'
 )({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookContributor/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookContributor/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/id')),
   }),
   asin: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/asin')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/asin')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/asin')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/asin')),
   }),
   name: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/name')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/name')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/name')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/name')),
   }),
   about: Model.Field({
     select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/about'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/about'))
     ),
     json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/about'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/about'))
     ),
   }),
   avatar: Model.Field({
     select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/avatar'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/avatar'))
     ),
     json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/avatar'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/avatar'))
     ),
   }),
   avatarThumbhash: Model.Field({
     select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/avatarThumbhash'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/avatarThumbhash'))
     ),
     json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributor/avatarThumbhash'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributor/avatarThumbhash'))
     ),
   }),
   ...Timestamped.fullFields,
@@ -181,14 +199,14 @@ export class AudiobookContributor extends Model.Class<AudiobookContributor>(
 export type AudiobookContributorTable = TableFromModel<typeof AudiobookContributor>;
 
 export class AudiobookContributorRole extends Model.Class<AudiobookContributorRole>(
-  '@voel/server/AudiobookContributorRole'
+  '@repo/spec-api/server/AudiobookContributorRole'
 )({
   role: Model.Field({
     select: Schema.Literals(['author', 'narrator', 'editor', 'translator', 'foreword']).pipe(
-      Schema.brand('@voel/server/AudiobookContributorRole/role')
+      Schema.brand('@repo/spec-api/server/AudiobookContributorRole/role')
     ),
     json: Schema.Literals(['author', 'narrator', 'editor', 'translator', 'foreword']).pipe(
-      Schema.brand('@voel/server/AudiobookContributorRole/role')
+      Schema.brand('@repo/spec-api/server/AudiobookContributorRole/role')
     ),
   }),
 }) {}
@@ -196,11 +214,11 @@ export class AudiobookContributorRole extends Model.Class<AudiobookContributorRo
 export type AudiobookContributorRoleTable = TableFromModel<typeof AudiobookContributorRole>;
 
 export class AudiobookContributorMap extends Model.Class<AudiobookContributorMap>(
-  '@voel/server/AudiobookContributorMap'
+  '@repo/spec-api/server/AudiobookContributorMap'
 )({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookContributorMap/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/AudiobookContributorMap/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributorMap/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributorMap/id')),
   }),
   audiobookId: Model.Field({ select: Audiobook.fields.id, json: Audiobook.fields.id }),
   audiobookContributorId: Model.Field({
@@ -208,8 +226,8 @@ export class AudiobookContributorMap extends Model.Class<AudiobookContributorMap
     json: Schema.NullOr(AudiobookContributor.fields.id),
   }),
   name: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributorMap/name')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/AudiobookContributorMap/name')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributorMap/name')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/AudiobookContributorMap/name')),
   }),
   role: Model.Field({
     select: AudiobookContributorRole.fields.role,
@@ -220,11 +238,11 @@ export class AudiobookContributorMap extends Model.Class<AudiobookContributorMap
 
 export type AudiobookContributorMapTable = TableFromModel<typeof AudiobookContributorMap>;
 
-export class Library extends Model.Class<Library>('@voel/server/Library')({
+export class Library extends Model.Class<Library>('@repo/spec-api/server/Library')({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/Library/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/Library/id')),
-    jsonUpdate: Schema.Option(Schema.Int.pipe(Schema.brand('@voel/server/Library/id'))),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/Library/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/Library/id')),
+    jsonUpdate: Schema.Option(Schema.Int.pipe(Schema.brand('@repo/spec-api/server/Library/id'))),
   }),
   type: Model.Field({
     select: MediaType.fields.type,
@@ -234,10 +252,10 @@ export class Library extends Model.Class<Library>('@voel/server/Library')({
     jsonUpdate: MediaType.fields.type,
   }),
   name: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/Library/name')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/Library/name')),
     insert: Schema.String,
     update: Schema.String,
-    json: Schema.String.pipe(Schema.brand('@voel/server/Library/name')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/Library/name')),
     jsonUpdate: Schema.String,
   }),
   ...Timestamped.fullFields,
@@ -245,10 +263,10 @@ export class Library extends Model.Class<Library>('@voel/server/Library')({
 
 export type LibraryTable = TableFromModel<typeof Library>;
 
-export class LibraryPath extends Model.Class<LibraryPath>('@voel/server/LibraryPath')({
+export class LibraryPath extends Model.Class<LibraryPath>('@repo/spec-api/server/LibraryPath')({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/LibraryPath/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/LibraryPath/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/LibraryPath/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/LibraryPath/id')),
   }),
   libraryId: Model.Field({
     select: Library.fields.id,
@@ -256,10 +274,10 @@ export class LibraryPath extends Model.Class<LibraryPath>('@voel/server/LibraryP
     json: Library.fields.id,
   }),
   absolutePath: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/LibraryPath/absolutePath')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/LibraryPath/absolutePath')),
     insert: Schema.String,
     update: Schema.String,
-    json: Schema.String.pipe(Schema.brand('@voel/server/LibraryPath/absolutePath')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/LibraryPath/absolutePath')),
     jsonUpdate: Schema.String,
   }),
   ...Timestamped.fullFields,
@@ -267,28 +285,30 @@ export class LibraryPath extends Model.Class<LibraryPath>('@voel/server/LibraryP
 
 export type LibraryPathTable = TableFromModel<typeof LibraryPath>;
 
-export class MediaFile extends Model.Class<MediaFile>('@voel/server/MediaFile')({
+export class MediaFile extends Model.Class<MediaFile>('@repo/spec-api/server/MediaFile')({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/MediaFile/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/MediaFile/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/MediaFile/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/MediaFile/id')),
   }),
   absolutePath: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/MediaFile/absolutePath')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/MediaFile/absolutePath')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/MediaFile/absolutePath')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/MediaFile/absolutePath')),
   }),
   durationMs: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/MediaFile/durationMs')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/MediaFile/durationMs')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/MediaFile/durationMs')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/MediaFile/durationMs')),
   }),
   ...Timestamped.fullFields,
 }) {}
 
 export type MediaFileTable = TableFromModel<typeof MediaFile>;
 
-export class LibraryFileMap extends Model.Class<LibraryFileMap>('@voel/server/LibraryFileMap')({
+export class LibraryFileMap extends Model.Class<LibraryFileMap>(
+  '@repo/spec-api/server/LibraryFileMap'
+)({
   id: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/LibraryFileMap/id')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/LibraryFileMap/id')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/id')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/id')),
   }),
   libraryId: Model.Field({ select: Library.fields.id, json: Library.fields.id }),
   mediaFileId: Model.Field({ select: MediaFile.fields.id, json: MediaFile.fields.id }),
@@ -298,19 +318,19 @@ export class LibraryFileMap extends Model.Class<LibraryFileMap>('@voel/server/Li
   }),
   matchFailureReason: Model.Field({
     select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/LibraryFileMap/matchFailureReason'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/matchFailureReason'))
     ),
     json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@voel/server/LibraryFileMap/matchFailureReason'))
+      Schema.String.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/matchFailureReason'))
     ),
   }),
   variant: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@voel/server/LibraryFileMap/variant')),
-    json: Schema.String.pipe(Schema.brand('@voel/server/LibraryFileMap/variant')),
+    select: Schema.String.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/variant')),
+    json: Schema.String.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/variant')),
   }),
   customOrder: Model.Field({
-    select: Schema.Int.pipe(Schema.brand('@voel/server/LibraryFileMap/customOrder')),
-    json: Schema.Int.pipe(Schema.brand('@voel/server/LibraryFileMap/customOrder')),
+    select: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/customOrder')),
+    json: Schema.Int.pipe(Schema.brand('@repo/spec-api/server/LibraryFileMap/customOrder')),
   }),
   ...Timestamped.fullFields,
 }) {}
