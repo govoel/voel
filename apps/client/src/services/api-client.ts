@@ -17,17 +17,13 @@ const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
 
     const state = yield* accountManager.state;
 
-    if (Option.isNone(state.activeAccount)) {
+    if (Option.isNone(state)) {
       return yield* next(request);
     }
 
     return yield* next({
       ...request,
-      headers: Headers.set(
-        request.headers,
-        'cookie',
-        state.activeAccount.value.state.authClient.getCookie()
-      ),
+      headers: Headers.set(request.headers, 'cookie', state.value.state.authClient.getCookie()),
     });
   })
 );

@@ -9,13 +9,15 @@ import {
   Scope,
   SubscriptionRef,
 } from 'effect';
-import { SqlClient } from 'effect/unstable/sql';
+import { Reactivity } from 'effect/unstable/reactivity';
+
+import type { Insertable, Selectable } from '@repo/effect-kysely';
 
 import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import { toDatabaseError } from '#src/services/database/index.ts';
-import type { AccountTable } from '#src/services/database/repos/accounts.ts';
-import { AccountRepository } from '#src/services/database/repos/accounts.ts';
+import { MainDatabase } from '#src/services/database/main/index.ts';
+import { Account } from '#src/services/database/main/schema.ts';
+import type { AccountTable } from '#src/services/database/main/schema.ts';
 
 class BetterAuthOriginalError extends Schema.Class<
   BetterAuthOriginalError,
@@ -56,8 +58,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/index/AccountManager',
   {
     make: Effect.gen(function* () {
-      const accountsRepo = yield* AccountRepository;
-      const sql = yield* SqlClient.SqlClient;
+      const db = yield* MainDatabase;
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -80,15 +81,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
       const initializeActiveAccountState = Effect.fnUntraced(function* ({
         activeAccount,
-        accounts,
         existingAuthClient,
       }: {
-        activeAccount: Option.Option<AccountTable>;
-        accounts: AccountTable[];
+        activeAccount: Option.Option<Selectable<AccountTable>>;
         existingAuthClient: Option.Option<Effect.Success<ReturnType<typeof createVoelAuthClient>>>;
       }) {
         if (Option.isNone(activeAccount)) {
-          return { activeAccount: Option.none(), accounts };
+          return Option.none();
         }
 
         const scope = yield* Scope.make();
@@ -106,113 +105,120 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
         yield* Scope.addFinalizer(scope, Effect.sync(unsubscribe));
 
-        return {
-          activeAccount: Option.some({
-            account: activeAccount.value,
-            state: { authClient, scope },
-          }),
-          accounts,
-        };
+        return Option.some({
+          account: activeAccount.value,
+          state: { authClient, scope },
+        });
       });
 
-      const stateRef = yield* accountsRepo.list().pipe(
-        Effect.map((accounts) => ({
-          activeAccount: Option.fromNullishOr(accounts.find((account) => account.active)),
-          existingAuthClient: Option.none(),
-          accounts,
-        })),
-        Effect.flatMap(initializeActiveAccountState),
-        Effect.flatMap(SubscriptionRef.make)
-      );
+      const stateRef = yield* db
+        .executeTakeFirstOption(
+          db
+            .selectFrom('account')
+            .where('account.active', '=', Account.fields.active.make(1))
+            .selectAll()
+        )
+        .pipe(
+          Effect.flatMap((activeAccount) =>
+            initializeActiveAccountState({ activeAccount, existingAuthClient: Option.none() })
+          ),
+          Effect.flatMap(SubscriptionRef.make)
+        );
 
       const setActiveAccount = ({
         serverUrl,
         username,
         authClient,
-      }: Pick<Parameters<typeof accountsRepo.upsert>['0'], 'serverUrl' | 'username'> & {
+      }: Pick<Insertable<AccountTable>, 'serverUrl' | 'username'> & {
         authClient: Option.Option<Effect.Success<ReturnType<typeof createVoelAuthClient>>>;
       }) =>
         SubscriptionRef.modifySomeEffect(
           stateRef,
-          Effect.fnUntraced(
-            function* (state) {
-              if (
-                Option.isSome(state.activeAccount) &&
-                state.activeAccount.value.account.serverUrl === serverUrl &&
-                state.activeAccount.value.account.username === username
-              ) {
-                return [void 0, Option.none()] as const;
-              }
+          Effect.fnUntraced(function* (state) {
+            if (
+              Option.isSome(state) &&
+              state.value.account.serverUrl === serverUrl &&
+              state.value.account.username === username
+            ) {
+              return [void 0, Option.none()] as const;
+            }
 
-              yield* accountsRepo.clearActive();
-              const account = yield* accountsRepo.upsert({
-                serverUrl,
-                username,
-                active: Option.some(true),
-              });
+            const activeAccount = yield* db
+              .trx()
+              .execute(
+                Effect.fnUntraced(function* (trx) {
+                  yield* trx.execute(
+                    trx
+                      .updateTable('account')
+                      .set({ active: Account.fields.active.make(0) })
+                      .where('active', '=', Account.fields.active.make(1))
+                  );
 
-              if (Option.isSome(state.activeAccount)) {
-                yield* Scope.close(state.activeAccount.value.state.scope, Exit.void);
-              }
+                  return yield* trx.executeTakeFirstOption(
+                    trx
+                      .insertInto('account')
+                      .values({ serverUrl, username, active: Account.fields.active.make(1) })
+                      .onConflict((oc) =>
+                        oc.columns(['serverUrl', 'username']).doUpdateSet({ active: 1 })
+                      )
+                      .returningAll()
+                  );
+                })
+              )
+              .pipe(Reactivity.mutation(['account']));
 
-              return [
-                void 0,
-                yield* initializeActiveAccountState({
-                  activeAccount: Option.some(account),
-                  existingAuthClient: authClient,
-                  accounts: yield* accountsRepo.list(),
-                }).pipe(Effect.map(Option.some)),
-              ] as const;
-            },
-            (effect) =>
-              effect.pipe(sql.withTransaction, toDatabaseError('AccountManager.setActiveAccount'))
-          )
+            if (Option.isSome(state)) {
+              yield* Scope.close(state.value.state.scope, Exit.void);
+            }
+
+            return [
+              void 0,
+              yield* initializeActiveAccountState({
+                activeAccount,
+                existingAuthClient: authClient,
+              }).pipe(Effect.map(Option.some)),
+            ] as const;
+          })
         );
 
       const removeAccount = ({
         serverUrl,
         username,
-      }: Parameters<typeof accountsRepo.remove>['0']) =>
+      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'>) =>
         SubscriptionRef.modifyEffect(
           stateRef,
-          Effect.fnUntraced(
-            function* (state) {
-              yield* accountsRepo.remove({ serverUrl, username });
+          Effect.fnUntraced(function* (state) {
+            yield* db
+              .execute(
+                db
+                  .deleteFrom('account')
+                  .where('serverUrl', '=', serverUrl)
+                  .where('username', '=', username)
+              )
+              .pipe(Reactivity.mutation(['account']));
 
-              if (
-                Option.isSome(state.activeAccount) &&
-                state.activeAccount.value.account.serverUrl === serverUrl &&
-                state.activeAccount.value.account.username === username
-              ) {
-                yield* Scope.close(state.activeAccount.value.state.scope, Exit.void);
-                return [
-                  void 0,
-                  { activeAccount: Option.none(), accounts: yield* accountsRepo.list() },
-                ] as const;
-              }
+            if (
+              Option.isSome(state) &&
+              state.value.account.serverUrl === serverUrl &&
+              state.value.account.username === username
+            ) {
+              yield* Scope.close(state.value.state.scope, Exit.void);
+              return [void 0, Option.none()] as const;
+            }
 
-              return [
-                void 0,
-                {
-                  activeAccount: state.activeAccount,
-                  accounts: yield* accountsRepo.list(),
-                },
-              ] as const;
-            },
-            (effect) =>
-              effect.pipe(sql.withTransaction, toDatabaseError('AccountManager.removeAccount'))
-          )
+            return [void 0, state] as const;
+          })
         );
 
       const upsertAccount = Effect.fnUntraced(function* ({
         serverUrl,
         username,
         password,
-      }: Pick<Parameters<typeof setActiveAccount>['0'], 'serverUrl' | 'username'> & {
+      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
         password: Redacted.Redacted;
       }) {
         const authClient = yield* createVoelAuthClient({
-          serverUrl: serverUrl.toString(),
+          serverUrl,
           username,
           storage: authClientStorage,
         });
@@ -234,7 +240,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           serverUrl,
           username,
           authClient: Option.some(authClient),
-        }).pipe(toDatabaseError('AccountManager.upsertAccount'));
+        });
       });
 
       const setupServerWithAccount = Effect.fnUntraced(function* ({
@@ -243,7 +249,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         email,
         username,
         password,
-      }: Pick<Parameters<typeof setActiveAccount>['0'], 'serverUrl' | 'username'> &
+      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> &
         Pick<
           Parameters<
             Effect.Success<ReturnType<typeof createVoelAuthClient>>['signUp']['email']
@@ -253,7 +259,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           password: Redacted.Redacted;
         }) {
         const authClient = yield* createVoelAuthClient({
-          serverUrl: serverUrl.toString(),
+          serverUrl,
           username,
           storage: authClientStorage,
         });
@@ -280,7 +286,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           serverUrl,
           username,
           authClient: Option.some(authClient),
-        }).pipe(toDatabaseError('AccountManager.setupServerAccount'));
+        });
       });
 
       return {
@@ -289,12 +295,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
         setActiveAccount,
         removeAccount,
         upsertAccount,
-        setupServerAccount: setupServerWithAccount,
+        setupServerWithAccount,
       };
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make).pipe(
-    Layer.provide(AccountRepository.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make);
 }

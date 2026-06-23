@@ -2,16 +2,17 @@ import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 
 import { FormSubmitError, useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { Account } from '#src/services/database/main/schema.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
 export class SetupServerAccountSchema extends Schema.Class<
   SetupServerAccountSchema,
   { readonly brand: unique symbol }
 >('voel/app/accounts/SetupServerAccountSchema')({
-  serverUrl: Schema.URLFromString,
+  serverUrl: Account.fields.serverUrl,
   name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
   email: Schema.String.check(Schema.isNonEmpty({ message: 'Email is required' })),
-  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+  username: Account.fields.username.check(Schema.isNonEmpty({ message: 'Username is required' })),
   password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
     Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
       decode: SchemaGetter.transform((password) => Redacted.make(password)),
@@ -27,7 +28,7 @@ export const useSetupServerForm = ({ onClose }: { readonly onClose: () => void }
     defaultValues: { serverUrl: '', name: '', email: '', username: '', password: '' },
     onSubmit: Effect.fnUntraced(function* ({ value }) {
       const accountManager = yield* AccountManager;
-      yield* accountManager.setupServerAccount(value).pipe(
+      yield* accountManager.setupServerWithAccount(value).pipe(
         Effect.catchTags({
           'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
             new FormSubmitError({ message: 'Unexpected error during account setup. Try again.' }),
@@ -37,7 +38,7 @@ export const useSetupServerForm = ({ onClose }: { readonly onClose: () => void }
                 signUpError.original.message ??
                 'Failed to create the account. Check the server and try again.',
             }),
-          'voel/services/database/ClientDatabaseError': () =>
+          '@repo/effect-kysely/effect-kysely/DatabaseSqlError': () =>
             new FormSubmitError({ message: 'A database error occurred. Try again.' }),
         })
       );

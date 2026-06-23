@@ -2,14 +2,15 @@ import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 
 import { FormSubmitError, useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { Account } from '#src/services/database/main/schema.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
 export class AddAccountSchema extends Schema.Class<
   AddAccountSchema,
   { readonly brand: unique symbol }
 >('voel/app/accounts/AddAccountSchema')({
-  serverUrl: Schema.URLFromString,
-  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+  serverUrl: Account.fields.serverUrl,
+  username: Account.fields.username.check(Schema.isNonEmpty({ message: 'Username is required' })),
   password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
     Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
       decode: SchemaGetter.transform((password) => Redacted.make(password)),
@@ -35,7 +36,7 @@ export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void })
                 signInError.original.message ??
                 'Failed to sign in. Check your credentials and try again.',
             }),
-          'voel/services/database/ClientDatabaseError': () =>
+          '@repo/effect-kysely/effect-kysely/DatabaseSqlError': () =>
             new FormSubmitError({ message: 'A database error occurred. Try again.' }),
         })
       );
