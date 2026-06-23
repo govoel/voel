@@ -101,7 +101,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.6.20",
-        "@repo/source-tap": "workspace:*",
+        "@repo/effect-kysely": "workspace:*",
         "better-auth": "1.6.20",
         "effect": "4.0.0-beta.85",
       },
@@ -151,7 +151,6 @@
       "dependencies": {
         "@repo/auth-api": "workspace:*",
         "@repo/effect-kysely": "workspace:*",
-        "@repo/source-tap": "workspace:*",
         "effect": "4.0.0-beta.85",
       },
       "devDependencies": {

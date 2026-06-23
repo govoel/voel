@@ -1,4 +1,4 @@
-import type { Kysely } from '@repo/source-tap';
+import type { Kysely } from '@repo/effect-kysely';
 
 export const up = async (db: Kysely<unknown>) => {
   await db.schema

@@ -3,7 +3,7 @@ import { Headers as EffectHeaders } from 'effect/unstable/http';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import type { TestHelpers } from '@repo/auth-api/server.ts';
-import { sql } from '@repo/source-tap';
+import { sql } from '@repo/effect-kysely';
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 

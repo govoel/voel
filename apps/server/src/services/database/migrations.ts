@@ -1,8 +1,8 @@
 // oxlint-disable unicorn/no-await-expression-member
 import { Effect, Schema } from 'effect';
 
-import { Migrator } from '@repo/source-tap';
-import type { Kysely, MigrationProvider } from '@repo/source-tap';
+import { Migrator } from '@repo/effect-kysely';
+import type { Kysely, MigrationProvider } from '@repo/effect-kysely';
 
 export const createMigrationProvider = (): MigrationProvider => ({
   getMigrations: async () => ({

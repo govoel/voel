@@ -3,7 +3,7 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
 
-import { sql } from '@repo/source-tap';
+import { sql } from '@repo/effect-kysely';
 import { AuthMiddleware, CurrentSession, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlers } from '#src/groups/library.ts';
