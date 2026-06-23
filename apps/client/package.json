@@ -21,7 +21,6 @@
   "dependencies": {
     "@better-auth/expo": "1.6.20",
     "@effect/atom-react": "4.0.0-beta.85",
-    "@effect/sql-sqlite-react-native": "4.0.0-beta.85",
     "@expo-google-fonts/google-sans": "0.4.0",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~56.0.18",

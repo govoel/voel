@@ -37,7 +37,8 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
       ),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make({ filename: 'main.db' }));
+  public static readonly layer = (args: Parameters<(typeof this)['make']>['0']) =>
+    Layer.effect(this, this.make(args));
 
   public static readonly layerTest = (args: Parameters<(typeof this)['make']>['0']) =>
     Layer.effect(this, this.make(args));

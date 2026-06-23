@@ -1,4 +1,3 @@
-import { SqliteClient } from '@effect/sql-sqlite-react-native';
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
@@ -9,11 +8,13 @@ import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 
 export const CommonLayers = Layer.mergeAll(AccountManager.layer).pipe(
-  Layer.provideMerge(Layer.mergeAll(MainDatabase.layer, AuthClientStorage.layer)),
   Layer.provideMerge(
-    AppConfig.pipe(
-      Effect.map((config) => SqliteClient.layer({ filename: config.db.filename })),
-      Layer.unwrap
+    Layer.mergeAll(
+      AppConfig.pipe(
+        Effect.map((config) => MainDatabase.layer({ filename: config.mainDb.filename })),
+        Layer.unwrap
+      ),
+      AuthClientStorage.layer
     )
   ),
   Layer.provideMerge(Layer.mergeAll(AppConfig.layer, FetchHttpClient.layer, Reactivity.layer)),
