@@ -1,6 +1,6 @@
 import { Array, Effect, Layer, Option, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
 
-import { jsonArrayFrom } from '@repo/source-tap';
+import { jsonArrayFrom } from '@repo/effect-kysely';
 import { Api } from '@repo/spec-api';
 import type { ApiPayload } from '@repo/spec-api';
 import { LibraryPath } from '@repo/spec-api/database/schema.ts';

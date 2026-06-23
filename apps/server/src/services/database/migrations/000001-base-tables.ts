@@ -1,5 +1,5 @@
-import { sql } from '@repo/source-tap';
-import type { Kysely } from '@repo/source-tap';
+import { sql } from '@repo/effect-kysely';
+import type { Kysely } from '@repo/effect-kysely';
 
 const createIndex = async ({
   db,

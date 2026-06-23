@@ -7,7 +7,7 @@ import { admin } from 'better-auth/plugins/admin';
 import { username } from 'better-auth/plugins/username';
 import { Duration } from 'effect';
 
-import type { Kysely } from '@repo/source-tap';
+import type { Kysely } from '@repo/effect-kysely';
 
 export type { TestHelpers } from 'better-auth/plugins';
 
