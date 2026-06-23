@@ -1,4 +1,13 @@
 /**
+ * Builds and opens typed IndexedDB databases from versioned schema migrations.
+ *
+ * This module turns an `IndexedDbVersion` migration chain into an
+ * `IndexedDbDatabase` layer. The layer opens the browser database, runs any
+ * pending upgrade migrations, provides a query builder for the current schema,
+ * and exposes a `rebuild` effect that deletes and reopens the database.
+ * Migration transactions can create or delete object stores and indexes, and
+ * database failures are represented as `IndexedDbDatabaseError` values.
+ *
  * @since 4.0.0
  */
 import * as Context from "effect/Context"
@@ -60,8 +69,10 @@ const SchemaProto = {
 }
 
 /**
- * @since 4.0.0
+ * String union describing the failure categories for IndexedDB database opening, migration, and schema operations.
+ *
  * @category errors
+ * @since 4.0.0
  */
 export type ErrorReason =
   | "TransactionError"
@@ -73,8 +84,10 @@ export type ErrorReason =
   | "MissingIndex"
 
 /**
- * @since 4.0.0
+ * Tagged error for IndexedDB database operations, carrying a database error reason and the original cause.
+ *
  * @category errors
+ * @since 4.0.0
  */
 export class IndexedDbDatabaseError extends Data.TaggedError(
   "IndexedDbDatabaseError"
@@ -83,6 +96,8 @@ export class IndexedDbDatabaseError extends Data.TaggedError(
   cause: unknown
 }> {
   /**
+   * Marks this value as an IndexedDB database error for runtime guards.
+   *
    * @since 4.0.0
    */
   readonly [ErrorTypeId]: typeof ErrorTypeId = ErrorTypeId
@@ -90,8 +105,29 @@ export class IndexedDbDatabaseError extends Data.TaggedError(
 }
 
 /**
- * @since 4.0.0
+ * Service tag for an open IndexedDB database, its `IDBKeyRange` constructor, reactivity service, and rebuild effect.
+ *
+ * **When to use**
+ *
+ * Use when you need access to the live database service after an
+ * `IndexedDbSchema` layer has been provided, especially for `rebuild` or
+ * lower-level database primitives.
+ *
+ * **Details**
+ *
+ * `database` is a mutable reference to the current `IDBDatabase`. `IDBKeyRange`
+ * and `reactivity` are shared with query builders created from the schema.
+ *
+ * **Gotchas**
+ *
+ * `rebuild` closes and deletes the browser database, then reopens it and reruns
+ * migrations. Records not recreated by migrations are removed.
+ *
+ * @see {@link IndexedDb.IndexedDb} for the lower-level browser IndexedDB primitives
+ * @see {@link make} for creating a schema that provides this service as a layer
+ *
  * @category models
+ * @since 4.0.0
  */
 export class IndexedDbDatabase extends Context.Service<
   IndexedDbDatabase,
@@ -104,8 +140,10 @@ export class IndexedDbDatabase extends Context.Service<
 >()(TypeId) {}
 
 /**
- * @since 4.0.0
+ * Describes an IndexedDB schema version and its migrations, and acts as an effect that yields a query builder for the target version.
+ *
  * @category models
+ * @since 4.0.0
  */
 export interface IndexedDbSchema<
   in out FromVersion extends IndexedDbVersion.AnyWithProps,
@@ -155,8 +193,10 @@ export interface IndexedDbSchema<
 }
 
 /**
- * @since 4.0.0
+ * Query builder available during a database migration, extended with object-store and index management helpers for the active `IDBTransaction`.
+ *
  * @category models
+ * @since 4.0.0
  */
 export interface Transaction<
   Source extends IndexedDbVersion.AnyWithProps = never
@@ -192,8 +232,10 @@ export interface Transaction<
 }
 
 /**
- * @since 4.0.0
+ * Extracts the string-literal index names defined by an `IndexedDbTable`.
+ *
  * @category models
+ * @since 4.0.0
  */
 export type IndexFromTable<Table extends IndexedDbTable.AnyWithProps> = IsStringLiteral<
   Extract<keyof IndexedDbTable.Indexes<Table>, string>
@@ -201,8 +243,10 @@ export type IndexFromTable<Table extends IndexedDbTable.AnyWithProps> = IsString
   : never
 
 /**
- * @since 4.0.0
+ * Extracts the valid index names for a table name within an IndexedDB version.
+ *
  * @category models
+ * @since 4.0.0
  */
 export type IndexFromTableName<
   Version extends IndexedDbVersion.AnyWithProps,
@@ -212,8 +256,10 @@ export type IndexFromTableName<
 >
 
 /**
- * @since 4.0.0
+ * Type-erased IndexedDB schema shape used when traversing schema migration chains.
+ *
  * @category models
+ * @since 4.0.0
  */
 export interface Any {
   readonly previous?: Any | undefined
@@ -227,8 +273,10 @@ export interface Any {
 }
 
 /**
- * @since 4.0.0
+ * Type-erased `IndexedDbSchema` covering any source version, target version, and migration error type.
+ *
  * @category models
+ * @since 4.0.0
  */
 export type AnySchema = IndexedDbSchema<
   IndexedDbVersion.AnyWithProps,
@@ -237,8 +285,10 @@ export type AnySchema = IndexedDbSchema<
 >
 
 /**
- * @since 4.0.0
+ * Creates the initial `IndexedDbSchema` from a version and an initialization migration run during database upgrade.
+ *
  * @category constructors
+ * @since 4.0.0
  */
 export const make = <
   InitialVersion extends IndexedDbVersion.AnyWithProps,

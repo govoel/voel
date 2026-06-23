@@ -1,4 +1,13 @@
 /**
+ * Wraps HTTP server apps with request and response behavior.
+ *
+ * A middleware is a function from one HTTP server app effect to another. The app
+ * runs with the current `HttpServerRequest` in its context, so middleware can
+ * inspect or rewrite the request, provide request-scoped services, attach hooks
+ * before the response is sent, or observe the app exit. This module includes
+ * middleware for response logging, server tracing, forwarded proxy headers,
+ * parsed search parameters, and CORS response headers.
+ *
  * @since 4.0.0
  */
 import { Clock } from "../../Clock.ts"
@@ -22,18 +31,25 @@ import * as TraceContext from "./HttpTraceContext.ts"
 import { appendPreResponseHandlerUnsafe } from "./internal/preResponseHandler.ts"
 
 /**
- * @since 4.0.0
+ * Middleware that transforms an HTTP server app effect into another HTTP server app effect.
+ *
  * @category models
+ * @since 4.0.0
  */
 export interface HttpMiddleware {
   <E, R>(self: Effect.Effect<HttpServerResponse, E, R | HttpServerRequest>): Effect.Effect<HttpServerResponse, any, any>
 }
 
 /**
+ * Namespace containing types associated with `HttpMiddleware`.
+ *
  * @since 4.0.0
  */
 export declare namespace HttpMiddleware {
   /**
+   * Callable type representing middleware already specialized to a particular transformed app type.
+   *
+   * @category models
    * @since 4.0.0
    */
   export interface Applied<A extends Effect.Effect<HttpServerResponse, any, any>, E, R> {
@@ -42,8 +58,10 @@ export declare namespace HttpMiddleware {
 }
 
 /**
- * @since 4.0.0
+ * Defines an `HttpMiddleware` while preserving its precise type.
+ *
  * @category constructors
+ * @since 4.0.0
  */
 export const make = <M extends HttpMiddleware>(middleware: M): M => middleware
 
@@ -63,8 +81,10 @@ const stripSearchAndHash = (url: string): string => {
 }
 
 /**
- * @since 4.0.0
+ * Runs an effect with HTTP response logging disabled for the current server request.
+ *
  * @category Logger
+ * @since 4.0.0
  */
 export const withLoggerDisabled = <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R | HttpServerRequest> =>
   Effect.withFiber((fiber) => {
@@ -74,8 +94,10 @@ export const withLoggerDisabled = <A, E, R>(self: Effect.Effect<A, E, R>): Effec
   })
 
 /**
- * @since 4.0.0
+ * Context reference for a predicate that disables server-side tracing for matching requests.
+ *
  * @category Tracer
+ * @since 4.0.0
  */
 export const TracerDisabledWhen = Context.Reference<Predicate<HttpServerRequest>>(
   "effect/http/HttpMiddleware/TracerDisabledWhen",
@@ -83,16 +105,20 @@ export const TracerDisabledWhen = Context.Reference<Predicate<HttpServerRequest>
 )
 
 /**
- * @since 4.0.0
+ * Creates a layer that disables server-side tracing for requests whose URL exactly matches one of the supplied URLs.
+ *
  * @category Tracer
+ * @since 4.0.0
  */
 export const layerTracerDisabledForUrls = (
   urls: ReadonlyArray<string>
 ): Layer.Layer<never> => Layer.succeed(TracerDisabledWhen)((req) => urls.includes(req.url))
 
 /**
- * @since 4.0.0
+ * Context reference for generating server span names from HTTP server requests.
+ *
  * @category Tracer
+ * @since 4.0.0
  */
 export const SpanNameGenerator = Context.Reference<(request: HttpServerRequest) => string>(
   "@effect/platform/HttpMiddleware/SpanNameGenerator",
@@ -100,14 +126,15 @@ export const SpanNameGenerator = Context.Reference<(request: HttpServerRequest) 
 )
 
 /**
- * @since 4.0.0
+ * Middleware that logs sent HTTP responses with request method, request URL, and response status annotations.
+ *
  * @category Logger
+ * @since 4.0.0
  */
 export const logger: <E, R>(
   httpApp: Effect.Effect<HttpServerResponse, E, HttpServerRequest | R>
-) => Effect.Effect<HttpServerResponse, E, HttpServerRequest | R> = make((httpApp) => {
-  let counter = 0
-  return Effect.withFiber((fiber) => {
+) => Effect.Effect<HttpServerResponse, E, HttpServerRequest | R> = make((httpApp) =>
+  Effect.withFiber((fiber) => {
     const request = Context.getUnsafe(fiber.context, HttpServerRequest)
     const path = stripSearchAndHash(request.url)
     return Effect.withLogSpan(
@@ -134,14 +161,16 @@ export const logger: <E, R>(
           exit
         )
       }),
-      `http.span.${++counter}`
+      "http.span"
     )
   })
-})
+)
 
 /**
- * @since 4.0.0
+ * Middleware that creates a server trace span for each request and records request and response HTTP attributes.
+ *
  * @category Tracer
+ * @since 4.0.0
  */
 export const tracer: <E, R>(
   httpApp: Effect.Effect<HttpServerResponse, E, HttpServerRequest | R>
@@ -203,8 +232,10 @@ export const tracer: <E, R>(
 )
 
 /**
- * @since 4.0.0
+ * Middleware that trusts `X-Forwarded-Host` and `X-Forwarded-For`, updating the request host header and remote address.
+ *
  * @category Proxying
+ * @since 4.0.0
  */
 export const xForwardedHeaders = make((httpApp) =>
   Effect.updateService(httpApp, HttpServerRequest, (request) =>
@@ -221,8 +252,10 @@ export const xForwardedHeaders = make((httpApp) =>
 )
 
 /**
+ * Middleware that parses the current request URL's search parameters and provides them as `ParsedSearchParams`.
+ *
+ * @category search params
  * @since 4.0.0
- * @category Search params
  */
 export const searchParamsParser = <E, R>(
   httpApp: Effect.Effect<HttpServerResponse, E, R>
@@ -239,8 +272,10 @@ export const searchParamsParser = <E, R>(
   })
 
 /**
- * @since 4.0.0
+ * Middleware that handles CORS preflight requests and adds configured CORS headers to HTTP responses.
+ *
  * @category CORS
+ * @since 4.0.0
  */
 export const cors = (options?: {
   readonly allowedOrigins?: ReadonlyArray<string> | Predicate<string> | undefined
