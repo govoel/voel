@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Model } from 'effect/unstable/schema';
 
-import type { ColumnType } from '@repo/source-tap';
+import type { TableFromModel } from '@repo/effect-kysely';
 
 class Timestamped extends Model.Class<Timestamped>('@repo/spec-api/server/Timestamped')({
   createdAt: Model.Field({
@@ -351,23 +351,3 @@ export interface DatabaseTables {
   mediaFile: MediaFileTable;
   libraryFileMap: LibraryFileMapTable;
 }
-
-type FieldType<F> = F extends Schema.Top ? Schema.Schema.Type<F> : never;
-
-type FieldValue<Fields, K extends PropertyKey> = K extends keyof Fields
-  ? FieldType<Fields[K]>
-  : never;
-
-type TableFromModel<M extends Model.Any> = M extends {
-  readonly select: { readonly fields: infer SelectFields };
-  readonly insert: { readonly fields: infer InsertFields };
-  readonly update: { readonly fields: infer UpdateFields };
-}
-  ? {
-      [K in keyof SelectFields]: ColumnType<
-        FieldValue<SelectFields, K>,
-        FieldValue<InsertFields, K>,
-        FieldValue<UpdateFields, K>
-      >;
-    }
-  : never;

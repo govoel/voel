@@ -1,7 +1,9 @@
 // oxlint-disable no-extra-bind
 
 import { Array, Effect, Option, Schema } from 'effect';
+import type { Model } from 'effect/unstable/schema';
 import type {
+  ColumnType,
   Compilable,
   Kysely,
   QueryExecutorProvider,
@@ -10,6 +12,48 @@ import type {
   Transaction,
   TransactionBuilder,
 } from 'kysely';
+
+export {
+  AliasNode,
+  ColumnNode,
+  CompiledQuery,
+  IdentifierNode,
+  InsertQueryNode,
+  Kysely,
+  OperationNodeTransformer,
+  ParseJSONResultsPlugin,
+  ReferenceNode,
+  ReturningNode,
+  SelectAllNode,
+  SelectionNode,
+  sql,
+  SqliteAdapter,
+  SqliteIntrospector,
+  SqliteQueryCompiler,
+  TableNode,
+  UpdateQueryNode,
+} from 'kysely';
+export type {
+  ColumnType,
+  DatabaseConnection,
+  DatabaseIntrospector,
+  Dialect,
+  DialectAdapter,
+  Driver,
+  Generated,
+  KyselyPlugin,
+  PluginTransformQueryArgs,
+  PluginTransformResultArgs,
+  QueryCompiler,
+  QueryResult,
+  RootOperationNode,
+  Insertable,
+  Selectable,
+  UnknownRow,
+} from 'kysely';
+export { jsonArrayFrom } from 'kysely/helpers/sqlite';
+export { Migrator } from 'kysely/migration';
+export type { MigrationProvider } from 'kysely/migration';
 
 export class DatabaseSqlError extends Schema.TaggedErrorClass<
   DatabaseSqlError,
@@ -188,3 +232,23 @@ const executeTakeFirstOrError =
         Effect.mapError(Effect.fromOption(result), () => new DatabaseNseError())
       )
     );
+
+type FieldType<F> = F extends Schema.Top ? Schema.Schema.Type<F> : never;
+
+type FieldValue<Fields, K extends PropertyKey> = K extends keyof Fields
+  ? FieldType<Fields[K]>
+  : never;
+
+export type TableFromModel<M extends Model.Any> = M extends {
+  readonly select: { readonly fields: infer SelectFields };
+  readonly insert: { readonly fields: infer InsertFields };
+  readonly update: { readonly fields: infer UpdateFields };
+}
+  ? {
+      [K in keyof SelectFields]: ColumnType<
+        FieldValue<SelectFields, K>,
+        FieldValue<InsertFields, K>,
+        FieldValue<UpdateFields, K>
+      >;
+    }
+  : never;

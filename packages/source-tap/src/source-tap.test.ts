@@ -1,9 +1,8 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Context, Effect, Layer, Queue, Stream } from 'effect';
-import { sql } from 'kysely';
-import type { ColumnType, Generated } from 'kysely';
 
-import type { EffectKysely, EffectTransaction } from '@repo/effect-kysely';
+import { sql } from '@repo/effect-kysely';
+import type { ColumnType, EffectKysely, EffectTransaction, Generated } from '@repo/effect-kysely';
 
 import { createDatabase } from '#src/database.ts';
 import type { SourceTap } from '#src/source-tap.ts';

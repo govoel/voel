@@ -1,12 +1,9 @@
-// oxlint-disable no-extra-bind
-
 import BunSqliteDatabase from 'bun:sqlite';
 
 import { Effect } from 'effect';
 import type { Scope } from 'effect';
-import { Kysely, ParseJSONResultsPlugin } from 'kysely';
 
-import { makeFromKysely } from '@repo/effect-kysely';
+import { Kysely, ParseJSONResultsPlugin, makeFromKysely } from '@repo/effect-kysely';
 import type { EffectKysely } from '@repo/effect-kysely';
 
 import { BunSqliteDialect, SourceTapDialect } from '#src/dialect.ts';

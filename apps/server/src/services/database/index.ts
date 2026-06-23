@@ -6,8 +6,7 @@ import type { Kysely, SourceTap } from '@repo/source-tap';
 import type { DatabaseTables } from '@repo/spec-api/database/schema.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
-
-import { runDatabaseMigrations } from './migrations';
+import { runDatabaseMigrations } from '#src/services/database/migrations.ts';
 
 export class Database extends Context.Service<
   Database,

@@ -1,7 +1,13 @@
 import type { Database, SQLQueryBindings } from 'bun:sqlite';
 
 import { Effect, TxSemaphore } from 'effect';
-import { CompiledQuery, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely';
+
+import {
+  CompiledQuery,
+  SqliteAdapter,
+  SqliteIntrospector,
+  SqliteQueryCompiler,
+} from '@repo/effect-kysely';
 import type {
   DatabaseConnection,
   DatabaseIntrospector,
@@ -11,7 +17,7 @@ import type {
   Kysely,
   QueryCompiler,
   QueryResult,
-} from 'kysely';
+} from '@repo/effect-kysely';
 
 interface SourceTapDialectConfig {
   database: Database;
