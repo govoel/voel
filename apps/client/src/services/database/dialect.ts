@@ -1,5 +1,5 @@
 import { open } from '@op-engineering/op-sqlite';
-import type { DB } from '@op-engineering/op-sqlite';
+import type { DB, Scalar } from '@op-engineering/op-sqlite';
 import { Effect, TxSemaphore } from 'effect';
 
 import {
@@ -135,22 +135,16 @@ class OpSqliteConnection implements DatabaseConnection {
   public async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
     const { sql, parameters } = compiledQuery;
 
-    const stmt = this.#db.prepareStatement(sql);
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-explicit-any
-    await stmt.bind(parameters as any[]);
-    const result = await stmt.execute();
-
-    if (result.columnNames !== void 0 && result.columnNames.length > 0) {
-      return {
-        // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        rows: result.rows as O[],
-      };
-    }
+    // Execute each compiled query directly. Prepared statements only help when reused, and their
+    // result shape differs from execute on native op-sqlite, which made zero-row reads ambiguous.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const result = await this.#db.execute(sql, parameters as Scalar[]);
 
     return {
-      insertId: BigInt(result.insertId ?? 0),
+      ...(typeof result.insertId === 'number' ? { insertId: BigInt(result.insertId) } : void 0),
       numAffectedRows: BigInt(result.rowsAffected),
-      rows: [],
+      // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      rows: result.rows as O[],
     };
   }
 
