@@ -1,4 +1,13 @@
 /**
+ * Schema-aware `RequestResolver` helpers for SQL-backed data loading.
+ *
+ * This module represents each lookup or mutation as a `SqlRequest` and batches
+ * concurrent requests into SQL operations. Request payloads are encoded with the
+ * request schema before `execute` is called, and returned rows are decoded with
+ * the result schema before requests are completed. It provides ordered,
+ * grouped, id-based, and side-effect-only resolver constructors, and keeps
+ * batches separated by the active SQL transaction connection.
+ *
  * @since 4.0.0
  */
 import * as Arr from "../../Array.ts"
@@ -8,6 +17,7 @@ import * as Equal from "../../Equal.ts"
 import * as Exit from "../../Exit.ts"
 import * as Hash from "../../Hash.ts"
 import * as MutableHashMap from "../../MutableHashMap.ts"
+import * as Option from "../../Option.ts"
 import * as Request from "../../Request.ts"
 import * as RequestResolver from "../../RequestResolver.ts"
 import * as Schema from "../../Schema.ts"
@@ -16,8 +26,11 @@ import * as SqlClient from "./SqlClient.ts"
 import { ResultLengthMismatch } from "./SqlError.ts"
 
 /**
- * @since 4.0.0
+ * Request type used by SQL request resolvers, carrying the input payload
+ * together with the resolver's result, error, and environment types.
+ *
  * @category requests
+ * @since 4.0.0
  */
 export interface SqlRequest<In, A, E, R> extends Request.Request<A, E | Schema.SchemaError, R> {
   readonly payload: In
@@ -37,8 +50,11 @@ const SqlRequestProto = {
 }
 
 /**
- * @since 4.0.0
+ * Runs a payload as a `SqlRequest` through a request resolver, either directly
+ * with a payload and resolver or curried by resolver.
+ *
  * @category requests
+ * @since 4.0.0
  */
 export const request: {
   <In, A, E, R>(
@@ -57,8 +73,11 @@ export const request: {
 } as any
 
 /**
- * @since 4.0.0
+ * Constructs a `SqlRequest` from a payload. Equality and hashing are based on
+ * the payload so equal requests can be batched and deduplicated.
+ *
  * @category requests
+ * @since 4.0.0
  */
 export const SqlRequest = <In, A, E, R>(payload: In): SqlRequest<In, A, E, R> => {
   const self = Object.create(SqlRequestProto)
@@ -67,15 +86,17 @@ export const SqlRequest = <In, A, E, R>(payload: In): SqlRequest<In, A, E, R> =>
 }
 
 /**
- * Create a resolver for a sql query with a request schema and a result schema.
+ * Creates a resolver for a SQL query with a request schema and a result schema.
  *
- * The request schema is used to validate the input of the query.
- * The result schema is used to validate the output of the query.
+ * **Details**
  *
- * Results are mapped to the requests in order, so the length of the results must match the length of the requests.
+ * The request schema is used to validate the input of the query, and the result
+ * schema is used to validate the output of the query. Results are mapped to the
+ * requests in order, so the length of the results must match the length of the
+ * requests.
  *
- * @since 4.0.0
  * @category resolvers
+ * @since 4.0.0
  */
 export const ordered = <Req extends Schema.Top, Res extends Schema.Top, _, E, R>(
   options: {
@@ -118,12 +139,12 @@ export const ordered = <Req extends Schema.Top, Res extends Schema.Top, _, E, R>
 }
 
 /**
- * Create a resolver the can return multiple results for a single request.
+ * Creates a batched SQL request resolver that encodes requests, decodes result
+ * rows, groups decoded results by matching request and result keys, and fails a
+ * request with `NoSuchElementError` when no result group exists.
  *
- * Results are grouped by a common key extracted from the request and result.
- *
- * @since 4.0.0
  * @category resolvers
+ * @since 4.0.0
  */
 export const grouped = <Req extends Schema.Top, Res extends Schema.Top, K, Row, E, R>(
   options: {
@@ -187,10 +208,12 @@ export const grouped = <Req extends Schema.Top, Res extends Schema.Top, K, Row, 
 }
 
 /**
- * Create a resolver that resolves results by id.
+ * Creates a batched resolver that fetches rows for encoded ids, decodes
+ * results, completes each matching request using `ResultId`, and fails missing
+ * ids with `NoSuchElementError`.
  *
- * @since 4.0.0
  * @category resolvers
+ * @since 4.0.0
  */
 export const findById = <Id extends Schema.Top, Res extends Schema.Top, Row, E, R>(
   options: {
@@ -289,8 +312,8 @@ export {
   /**
    * Create a resolver that performs side effects.
    *
-   * @since 4.0.0
    * @category resolvers
+   * @since 4.0.0
    */
   void_ as void
 }
@@ -342,8 +365,20 @@ const partitionRequestsById = function*<In, A, E, R, InE>(
 
   for (let i = 0; i < len; i++) {
     entry = requests[i]
-    yield (Effect.provideContext(handle(encode(entry.request.payload)), entry.context) as Effect.Effect<void>)
-    MutableHashMap.set(byIdMap, entry.request.payload, entry)
+    const existing = MutableHashMap.get(byIdMap, entry.request.payload)
+    if (Option.isSome(existing)) {
+      const duplicate = entry
+      MutableHashMap.set(byIdMap, entry.request.payload, {
+        ...existing.value,
+        completeUnsafe(exit) {
+          existing.value.completeUnsafe(exit)
+          duplicate.completeUnsafe(exit)
+        }
+      })
+    } else {
+      yield (Effect.provideContext(handle(encode(entry.request.payload)), entry.context) as Effect.Effect<void>)
+      MutableHashMap.set(byIdMap, entry.request.payload, entry)
+    }
   }
 
   return [inputs, byIdMap] as const

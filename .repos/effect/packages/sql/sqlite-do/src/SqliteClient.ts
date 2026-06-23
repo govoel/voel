@@ -1,5 +1,13 @@
 /**
- * @since 1.0.0
+ * Connects Effect SQL to SQLite storage inside Cloudflare Durable Objects.
+ *
+ * This module wraps a Durable Object `SqlStorage` handle and exposes it as both
+ * `SqliteClient` and the generic Effect SQL client. It serializes access,
+ * supports normal and streaming queries, converts returned `ArrayBuffer` values
+ * to `Uint8Array`, and provides layers for wiring the client into an Effect
+ * application. `updateValues` is not supported by this driver.
+ *
+ * @since 4.0.0
  */
 import type { SqlStorage } from "@cloudflare/workers-types"
 import * as Config from "effect/Config"
@@ -23,20 +31,26 @@ const classifyError = (cause: unknown, message: string, operation: string) =>
   classifySqliteError(cause, { message, operation })
 
 /**
- * @category type ids
- * @since 1.0.0
+ * Runtime type identifier used to mark Cloudflare Durable Object `SqliteClient` values.
+ *
+ * @category type IDs
+ * @since 4.0.0
  */
 export const TypeId: TypeId = "~@effect/sql-sqlite-do/SqliteClient"
 
 /**
- * @category type ids
- * @since 1.0.0
+ * Type-level identifier used to mark Cloudflare Durable Object `SqliteClient` values.
+ *
+ * @category type IDs
+ * @since 4.0.0
  */
 export type TypeId = "~@effect/sql-sqlite-do/SqliteClient"
 
 /**
+ * Cloudflare Durable Object SQLite client service, extending `SqlClient` with its configuration. `updateValues` is not supported.
+ *
  * @category models
- * @since 1.0.0
+ * @since 4.0.0
  */
 export interface SqliteClient extends Client.SqlClient {
   readonly [TypeId]: TypeId
@@ -47,14 +61,23 @@ export interface SqliteClient extends Client.SqlClient {
 }
 
 /**
- * @category tags
- * @since 1.0.0
+ * Service tag for the Cloudflare Durable Object SQLite client service.
+ *
+ * **When to use**
+ *
+ * Use to access or provide a Durable Object SQLite client through the Effect
+ * context.
+ *
+ * @category services
+ * @since 4.0.0
  */
 export const SqliteClient = Context.Service<SqliteClient>("@effect/sql-sqlite-do/SqliteClient")
 
 /**
+ * Configuration for a Cloudflare Durable Object SQLite client, including the `SqlStorage` handle, span attributes, and query/result name transforms.
+ *
  * @category models
- * @since 1.0.0
+ * @since 4.0.0
  */
 export interface SqliteClientConfig {
   readonly db: SqlStorage
@@ -65,8 +88,10 @@ export interface SqliteClientConfig {
 }
 
 /**
- * @category constructor
- * @since 1.0.0
+ * Creates a scoped Cloudflare Durable Object SQLite client around `SqlStorage`, serializing access and converting returned `ArrayBuffer` values to `Uint8Array`.
+ *
+ * @category constructors
+ * @since 4.0.0
  */
 export const make = (
   options: SqliteClientConfig
@@ -188,14 +213,16 @@ export const make = (
   })
 
 /**
+ * Creates a layer from a `Config`-wrapped Durable Object SQLite client configuration, providing both `SqliteClient` and `SqlClient`.
+ *
  * @category layers
- * @since 1.0.0
+ * @since 4.0.0
  */
 export const layerConfig = (
   config: Config.Wrap<SqliteClientConfig>
 ): Layer.Layer<SqliteClient | Client.SqlClient, Config.ConfigError> =>
   Layer.effectContext(
-    Config.unwrap(config).asEffect().pipe(
+    Config.unwrap(config).pipe(
       Effect.flatMap(make),
       Effect.map((client) =>
         Context.make(SqliteClient, client).pipe(
@@ -206,8 +233,10 @@ export const layerConfig = (
   ).pipe(Layer.provide(Reactivity.layer))
 
 /**
+ * Creates a layer from a concrete Durable Object SQLite client configuration, providing both `SqliteClient` and `SqlClient`.
+ *
  * @category layers
- * @since 1.0.0
+ * @since 4.0.0
  */
 export const layer = (
   config: SqliteClientConfig

@@ -1,9 +1,26 @@
 /**
- * @since 1.0.0
+ * Bundle report generation for the Effect bundle-size tooling.
+ *
+ * The reporter coordinates fixture discovery with the Rollup service to turn
+ * measured fixture bundles into Markdown tables or visualization output. It is
+ * used by the bundle CLI to compare the current workspace against a checked-out
+ * base directory, to print a one-off report for selected entry files, and to
+ * generate visualizations when a size change needs inspection.
+ *
+ * Reports compare files by basename and display gzipped Rollup output sizes in
+ * decimal kilobytes. Base fixtures are bundled only when the matching file
+ * exists; if a current fixture has no matching basename in the base directory it
+ * is reported as unchanged. Visualization artifacts are named from entry file
+ * stems in the requested output directory, so duplicate names can make the
+ * output misleading.
+ *
+ * @since 4.0.0
  */
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
+import { constFalse } from "effect/Function"
 import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
 import { Fixtures } from "./Fixtures.ts"
@@ -11,24 +28,30 @@ import type { BundleStats } from "./Rollup.ts"
 import { Rollup } from "./Rollup.ts"
 
 /**
- * @since 1.0.0
+ * Error raised when generating a bundle size report or visualization fails.
+ *
  * @category errors
+ * @since 4.0.0
  */
 export class ReporterError extends Data.TaggedError("ReporterError")<{
   readonly cause: unknown
 }> {}
 
 /**
- * @since 1.0.0
- * @category models
+ * Options for generating a bundle size comparison report against fixture files from a base directory.
+ *
+ * @category options
+ * @since 4.0.0
  */
 export interface ReportOptions {
   readonly baseDirectory: string
 }
 
 /**
- * @since 1.0.0
- * @category models
+ * Options for generating bundle visualizations for selected entry files into an output directory.
+ *
+ * @category options
+ * @since 4.0.0
  */
 export interface VisualizeOptions {
   readonly paths: ReadonlyArray<string>
@@ -36,21 +59,26 @@ export interface VisualizeOptions {
 }
 
 /**
- * @since 1.0.0
- * @category models
+ * Options for generating a bundle size report for an explicit list of entry files.
+ *
+ * @category options
+ * @since 4.0.0
  */
 export interface ReportSelectedOptions {
   readonly paths: ReadonlyArray<string>
 }
 
 /**
- * @since 1.0.0
+ * Context service for producing bundle size reports and visualizations from Rollup-generated fixture stats.
+ *
  * @category services
+ * @since 4.0.0
  */
 export class Reporter extends Context.Service<Reporter>()(
   "@effect/bundle/Reporter",
   {
     make: Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const { fixtures, fixturesDir } = yield* Fixtures
       const rollup = yield* Rollup
@@ -116,12 +144,19 @@ export class Reporter extends Context.Service<Reporter>()(
         function*(options: ReportOptions) {
           yield* Effect.logInfo(`Found ${fixtures.length} files to bundle`)
 
+          const currentPaths = fixtures.map((fixture) => path.join(fixturesDir, fixture))
+          const previousPaths = yield* Effect.filter(
+            fixtures.map((fixture) => path.join(options.baseDirectory, fixture)),
+            (previousPath) => fs.exists(previousPath).pipe(Effect.orElseSucceed(constFalse)),
+            { concurrency: fixtures.length }
+          )
+
           const [currentStats, previousStats] = yield* Effect.all([
             rollup.bundleAll({
-              paths: fixtures.map((fixture) => path.join(fixturesDir, fixture))
+              paths: currentPaths
             }),
             rollup.bundleAll({
-              paths: fixtures.map((fixture) => path.join(options.baseDirectory, fixture))
+              paths: previousPaths
             })
           ], { concurrency: 2 })
 
