@@ -3,7 +3,9 @@ import { Config, ConfigProvider, Context, Effect, Layer, Schema } from 'effect';
 class AppConfigSchema extends Schema.Class<AppConfigSchema, { readonly brand: unique symbol }>(
   'voel/services/config/AppConfigSchema'
 )({
-  DB_FILENAME: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed('voel.sqlite'))),
+  MAINDB_FILENAME: Schema.String.pipe(
+    Schema.withDecodingDefaultType(Effect.succeed('main.sqlite'))
+  ),
 }) {}
 
 export class AppConfigError extends Schema.TaggedErrorClass<
@@ -14,7 +16,7 @@ export class AppConfigError extends Schema.TaggedErrorClass<
 export class AppConfig extends Context.Service<AppConfig>()('voel/services/config/AppConfig', {
   make: Effect.gen(function* () {
     const config = yield* Config.schema(AppConfigSchema);
-    return { db: { filename: config.DB_FILENAME } };
+    return { mainDb: { filename: config.MAINDB_FILENAME } };
   }).pipe(Effect.catchTags({ ConfigError: () => new AppConfigError() })),
 }) {
   public static readonly layer = Layer.effect(this, this.make).pipe(
@@ -26,7 +28,7 @@ export class AppConfig extends Context.Service<AppConfig>()('voel/services/confi
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
-            DB_FILENAME: ':memory:',
+            MAINDB_FILENAME: ':memory:',
             ...config,
           } satisfies (typeof AppConfigSchema)['Encoded'])
         )

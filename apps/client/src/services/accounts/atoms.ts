@@ -2,25 +2,28 @@ import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AppRuntime } from '#src/services/registry.ts';
 
 export const accountsAtom = AppRuntime.atom(
+  Effect.service(MainDatabase).pipe(
+    Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll()))
+  )
+).pipe(Atom.withReactivity(['account']));
+
+export const activeAccountAtom = AppRuntime.atom(
   AccountManager.pipe(
     Effect.map((manager) => manager.changes),
     Stream.unwrap
   )
 );
 
-export const activeAccountServerUrlAtom = accountsAtom.pipe(
-  Atom.mapResult((accounts) =>
-    accounts.activeAccount.pipe(Option.map(({ account }) => account.serverUrl))
-  )
+export const activeAccountServerUrlAtom = activeAccountAtom.pipe(
+  Atom.mapResult((accounts) => accounts.pipe(Option.map(({ account }) => account.serverUrl)))
 );
 
-export const activeAccountAuthClientAtom = accountsAtom.pipe(
-  Atom.mapResult((accounts) =>
-    accounts.activeAccount.pipe(Option.map(({ state }) => state.authClient))
-  )
+export const activeAccountAuthClientAtom = activeAccountAtom.pipe(
+  Atom.mapResult((accounts) => accounts.pipe(Option.map(({ state }) => state.authClient)))
 );
 
 class BetterAuthListUsersUnknownError extends Schema.TaggedErrorClass<
@@ -79,19 +82,16 @@ export const listAccountsAtom = AppRuntime.pull(
     },
     (effect) => Stream.unwrap(effect)
   )
-).pipe(
-  Atom.withReactivity(['accounts']),
-  Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true })
-);
+).pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
 
 export const activeAccountSessionAtom = AppRuntime.atom((get) => {
-  const accounts = get.streamResult(accountsAtom);
+  const activeAccount = get.streamResult(activeAccountAtom);
 
-  const changes = Stream.changesWith(accounts, (previous, next) =>
-    Option.match(previous.activeAccount, {
-      onNone: () => Option.isNone(next.activeAccount),
+  const changes = Stream.changesWith(activeAccount, (previous, next) =>
+    Option.match(previous, {
+      onNone: () => Option.isNone(next),
       onSome: (previousActiveAccount) =>
-        Option.match(next.activeAccount, {
+        Option.match(next, {
           onNone: () => false,
           onSome: (nextActiveAccount) =>
             previousActiveAccount.state.authClient === nextActiveAccount.state.authClient,
@@ -99,8 +99,8 @@ export const activeAccountSessionAtom = AppRuntime.atom((get) => {
     })
   );
 
-  return Stream.switchMap(changes, ({ activeAccount }) =>
-    Option.match(activeAccount, {
+  return Stream.switchMap(changes, (newActiveAccount) =>
+    Option.match(newActiveAccount, {
       onNone: () => Stream.make(Option.none()),
       onSome: ({ state }) =>
         Stream.callback<
@@ -120,45 +120,34 @@ export const activeAccountSessionAtom = AppRuntime.atom((get) => {
   );
 });
 
-type ActiveAccountSession = Atom.Success<typeof activeAccountSessionAtom>;
-
 export const upsertAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.upsertAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.upsertAccount(input)))
 );
 
-const getAccountsSheet = ({
-  accounts,
-  activeAccountSession,
-}: {
-  readonly accounts: Atom.Success<typeof accountsAtom>;
-  readonly activeAccountSession: ActiveAccountSession;
-}) => {
-  if (accounts.accounts.length === 0) {
-    return { mode: 'ONBOARDING', dismissable: false } as const;
-  }
-
-  if (Option.isNone(accounts.activeAccount)) {
-    return { mode: 'MUST_PICK_ACCOUNT', dismissable: false } as const;
-  }
-
-  if (
-    Option.isNone(activeAccountSession) ||
-    activeAccountSession.value.error !== null ||
-    activeAccountSession.value.data === null
-  ) {
-    return { mode: 'INVALID_SESSION', dismissable: true } as const;
-  }
-
-  return { mode: 'IDLE', dismissable: true } as const;
-};
-
 export const accountsSheetAtom = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {
     const accounts = yield* get.result(accountsAtom);
-    const activeAccountSession = yield* get.result(activeAccountSessionAtom);
 
-    return getAccountsSheet({ accounts, activeAccountSession });
+    if (accounts.length === 0) {
+      return { mode: 'ONBOARDING', dismissable: false } as const;
+    }
+
+    const activeAccount = yield* get.result(activeAccountAtom);
+    if (Option.isNone(activeAccount)) {
+      return { mode: 'MUST_PICK_ACCOUNT', dismissable: false } as const;
+    }
+
+    const activeAccountSession = yield* get.result(activeAccountSessionAtom);
+    if (
+      Option.isNone(activeAccountSession) ||
+      activeAccountSession.value.error !== null ||
+      activeAccountSession.value.data === null
+    ) {
+      return { mode: 'INVALID_SESSION', dismissable: true } as const;
+    }
+
+    return { mode: 'IDLE', dismissable: true } as const;
   })
 );
 
