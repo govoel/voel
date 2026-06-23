@@ -15,7 +15,7 @@ const createUpdatedAtTrigger = async ({
 
   await sql`
     create trigger ${sql.ref(triggerName)} before update of ${sql.join(updateColumns)} on ${sql.table(table)} for each row begin
-      update ${sql.table(table)} set updatedAt = (unixepoch()) where id = new.id;
+      update ${sql.table(table)} set updatedAt = (unixepoch()) where rowid = new.rowid;
     end;
   `.execute(db);
 };

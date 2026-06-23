@@ -9,7 +9,9 @@ export class SetupServerAccountSchema extends Schema.Class<
   SetupServerAccountSchema,
   { readonly brand: unique symbol }
 >('voel/app/accounts/SetupServerAccountSchema')({
-  serverUrl: Account.fields.serverUrl,
+  serverUrl: Account.fields.serverUrl.check(
+    Schema.makeFilter((s) => (URL.canParse(s) ? true : 'Server URL must be a valid URL'))
+  ),
   name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
   email: Schema.String.check(Schema.isNonEmpty({ message: 'Email is required' })),
   username: Account.fields.username.check(Schema.isNonEmpty({ message: 'Username is required' })),

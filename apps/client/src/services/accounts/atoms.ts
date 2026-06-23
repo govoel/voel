@@ -9,7 +9,7 @@ export const accountsAtom = AppRuntime.atom(
   Effect.service(MainDatabase).pipe(
     Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll()))
   )
-).pipe(Atom.withReactivity(['accounts']));
+).pipe(Atom.withReactivity(['account']));
 
 export const activeAccountAtom = AppRuntime.atom(
   AccountManager.pipe(
@@ -82,10 +82,7 @@ export const listAccountsAtom = AppRuntime.pull(
     },
     (effect) => Stream.unwrap(effect)
   )
-).pipe(
-  Atom.withReactivity(['accounts']),
-  Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true })
-);
+).pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
 
 export const activeAccountSessionAtom = AppRuntime.atom((get) => {
   const activeAccount = get.streamResult(activeAccountAtom);

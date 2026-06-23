@@ -9,7 +9,9 @@ export class AddAccountSchema extends Schema.Class<
   AddAccountSchema,
   { readonly brand: unique symbol }
 >('voel/app/accounts/AddAccountSchema')({
-  serverUrl: Account.fields.serverUrl,
+  serverUrl: Account.fields.serverUrl.check(
+    Schema.makeFilter((s) => (URL.canParse(s) ? true : 'Server URL must be a valid URL'))
+  ),
   username: Account.fields.username.check(Schema.isNonEmpty({ message: 'Username is required' })),
   password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
     Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
