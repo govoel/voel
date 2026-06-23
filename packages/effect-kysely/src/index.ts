@@ -1,12 +1,11 @@
 // oxlint-disable no-extra-bind
 
-import BunSqliteDatabase from 'bun:sqlite';
-
 import { Array, Effect, Option, Schema } from 'effect';
-import type { Scope } from 'effect';
-import { Kysely, ParseJSONResultsPlugin } from 'kysely';
+import type { Model } from 'effect/unstable/schema';
 import type {
+  ColumnType,
   Compilable,
+  Kysely,
   QueryExecutorProvider,
   QueryResult,
   RawBuilder,
@@ -14,13 +13,52 @@ import type {
   TransactionBuilder,
 } from 'kysely';
 
-import { BunSqliteDialect, SourceTapDialect } from '#src/dialect.ts';
-import { SourceTap } from '#src/source-tap.ts';
+export {
+  AliasNode,
+  ColumnNode,
+  CompiledQuery,
+  IdentifierNode,
+  InsertQueryNode,
+  Kysely,
+  OperationNodeTransformer,
+  ParseJSONResultsPlugin,
+  ReferenceNode,
+  ReturningNode,
+  SelectAllNode,
+  SelectionNode,
+  sql,
+  SqliteAdapter,
+  SqliteIntrospector,
+  SqliteQueryCompiler,
+  TableNode,
+  UpdateQueryNode,
+} from 'kysely';
+export type {
+  ColumnType,
+  DatabaseConnection,
+  DatabaseIntrospector,
+  Dialect,
+  DialectAdapter,
+  Driver,
+  Generated,
+  KyselyPlugin,
+  PluginTransformQueryArgs,
+  PluginTransformResultArgs,
+  QueryCompiler,
+  QueryResult,
+  RootOperationNode,
+  Insertable,
+  Selectable,
+  UnknownRow,
+} from 'kysely';
+export { jsonArrayFrom } from 'kysely/helpers/sqlite';
+export { Migrator } from 'kysely/migration';
+export type { MigrationProvider } from 'kysely/migration';
 
 export class DatabaseSqlError extends Schema.TaggedErrorClass<
   DatabaseSqlError,
   { readonly brand: unique symbol }
->()('@repo/source-tap/effect-kysely/DatabaseSqlError', {
+>()('@repo/effect-kysely/effect-kysely/DatabaseSqlError', {
   cause: Schema.Unknown,
   message: Schema.optional(Schema.String),
 }) {
@@ -30,7 +68,7 @@ export class DatabaseSqlError extends Schema.TaggedErrorClass<
 export class DatabaseNseError extends Schema.TaggedErrorClass<
   DatabaseNseError,
   { readonly brand: unique symbol }
->()('@repo/source-tap/effect-kysely/DatabaseNseError', {}) {
+>()('@repo/effect-kysely/effect-kysely/DatabaseNseError', {}) {
   public static readonly is = Schema.is(this);
 }
 
@@ -98,80 +136,6 @@ export const makeFromKysely = <DB>(kysely: Kysely<DB>): EffectKysely<DB> => {
     }).bind(kysely),
   });
 };
-
-interface CreateDatabaseOptions<DB> {
-  filename: string;
-  trackTables?: ReadonlySet<keyof DB>;
-  enableLogging?: boolean;
-}
-
-interface CreateTrackedDatabaseOptions<DB> extends CreateDatabaseOptions<DB> {
-  trackTables: ReadonlySet<keyof DB>;
-}
-
-interface CreatedDatabase<DB> {
-  db: EffectKysely<DB>;
-  sourceTap: SourceTap<DB> | undefined;
-  kysely: Kysely<DB>;
-}
-
-interface CreatedTrackedDatabase<DB> extends CreatedDatabase<DB> {
-  sourceTap: SourceTap<DB>;
-}
-
-export function createDatabase<DB>(
-  options: CreateTrackedDatabaseOptions<DB>
-): Effect.Effect<CreatedTrackedDatabase<DB>, never, Scope.Scope>;
-export function createDatabase<DB>(
-  options: CreateDatabaseOptions<DB>
-): Effect.Effect<CreatedDatabase<DB>, never, Scope.Scope>;
-export function createDatabase<DB>({
-  filename,
-  trackTables,
-  enableLogging,
-}: CreateDatabaseOptions<DB>) {
-  return Effect.acquireRelease(
-    Effect.gen(function* () {
-      const parseJsonResultsPlugin = new ParseJSONResultsPlugin();
-      const sourceTap = trackTables ? yield* SourceTap.make<DB>({ trackTables }) : void 0;
-      const kysely = new Kysely<DB>({
-        dialect:
-          trackTables !== void 0
-            ? new SourceTapDialect({
-                database: new BunSqliteDatabase(filename),
-                onBeginTransaction: () => sourceTap?.beginTransaction(),
-                onCommitTransaction: () => sourceTap?.commitTransaction(),
-                onRollbackTransaction: () => sourceTap?.rollbackTransaction(),
-              })
-            : new BunSqliteDialect({ database: new BunSqliteDatabase(filename) }),
-        plugins:
-          sourceTap !== void 0 ? [sourceTap, parseJsonResultsPlugin] : [parseJsonResultsPlugin],
-        ...(enableLogging === true
-          ? {
-              log: (event) => {
-                if (event.level === 'query') {
-                  // @effect-diagnostics-next-line globalConsole:off
-                  // oxlint-disable-next-line eslint/no-console
-                  console.log(
-                    `${sourceTap ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
-                  );
-                } else {
-                  // @effect-diagnostics-next-line globalConsole:off
-                  // oxlint-disable-next-line eslint/no-console
-                  console.log(
-                    `${sourceTap ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
-                  );
-                }
-              },
-            }
-          : {}),
-      });
-
-      return { db: makeFromKysely(kysely), sourceTap, kysely };
-    }),
-    ({ db }) => Effect.promise(async () => db.destroy())
-  );
-}
 
 interface Executable<O> extends Compilable<O> {
   execute: () => Promise<O[]>;
@@ -268,3 +232,23 @@ const executeTakeFirstOrError =
         Effect.mapError(Effect.fromOption(result), () => new DatabaseNseError())
       )
     );
+
+type FieldType<F> = F extends Schema.Top ? Schema.Schema.Type<F> : never;
+
+type FieldValue<Fields, K extends PropertyKey> = K extends keyof Fields
+  ? FieldType<Fields[K]>
+  : never;
+
+export type TableFromModel<M extends Model.Any> = M extends {
+  readonly select: { readonly fields: infer SelectFields };
+  readonly insert: { readonly fields: infer InsertFields };
+  readonly update: { readonly fields: infer UpdateFields };
+}
+  ? {
+      [K in keyof SelectFields]: ColumnType<
+        FieldValue<SelectFields, K>,
+        FieldValue<InsertFields, K>,
+        FieldValue<UpdateFields, K>
+      >;
+    }
+  : never;

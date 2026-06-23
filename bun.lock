@@ -81,6 +81,7 @@
       "dependencies": {
         "@effect/platform-bun": "4.0.0-beta.85",
         "@repo/auth-api": "workspace:*",
+        "@repo/effect-kysely": "workspace:*",
         "@repo/source-tap": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "effect": "4.0.0-beta.85",
@@ -112,12 +113,28 @@
         "typescript": "6.0.3",
       },
     },
-    "packages/source-tap": {
-      "name": "@repo/source-tap",
+    "packages/effect-kysely": {
+      "name": "@repo/effect-kysely",
       "version": "0.0.0",
       "dependencies": {
         "effect": "4.0.0-beta.85",
         "kysely": "0.29.2",
+      },
+      "devDependencies": {
+        "@effect/language-service": "0.86.2",
+        "@effect/vitest": "4.0.0-beta.85",
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.3.14",
+        "typescript": "6.0.3",
+        "vitest": "4.1.9",
+      },
+    },
+    "packages/source-tap": {
+      "name": "@repo/source-tap",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/effect-kysely": "workspace:*",
+        "effect": "4.0.0-beta.85",
       },
       "devDependencies": {
         "@effect/language-service": "0.86.2",
@@ -133,6 +150,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/auth-api": "workspace:*",
+        "@repo/effect-kysely": "workspace:*",
         "@repo/source-tap": "workspace:*",
         "effect": "4.0.0-beta.85",
       },
@@ -749,6 +767,8 @@
     "@react-native/virtualized-lists": ["@react-native/virtualized-lists@0.85.3", "", { "dependencies": { "invariant": "^2.2.4", "nullthrows": "^1.1.1" }, "peerDependencies": { "@types/react": "^19.2.0", "react": "*", "react-native": "0.85.3" }, "optionalPeers": ["@types/react"] }, "sha512-dsCjI//OIPEUJMyNHp4l7zNLVjCx7bcaRUceOCkU+IB17hkbtbGWvi7HjGFSzy7FJGmS/MOlcfpb72xXiy1Oig=="],
 
     "@repo/auth-api": ["@repo/auth-api@workspace:packages/auth-api"],
+
+    "@repo/effect-kysely": ["@repo/effect-kysely@workspace:packages/effect-kysely"],
 
     "@repo/server": ["@repo/server@workspace:apps/server"],
 

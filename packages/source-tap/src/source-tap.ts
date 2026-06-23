@@ -1,4 +1,5 @@
 import { Data, Effect, PubSub, Stream } from 'effect';
+
 import {
   AliasNode,
   ColumnNode,
@@ -11,7 +12,7 @@ import {
   SelectionNode,
   TableNode,
   UpdateQueryNode,
-} from 'kysely';
+} from '@repo/effect-kysely';
 import type {
   KyselyPlugin,
   PluginTransformQueryArgs,
@@ -20,7 +21,7 @@ import type {
   RootOperationNode,
   Selectable,
   UnknownRow,
-} from 'kysely';
+} from '@repo/effect-kysely';
 
 type SourceTapQueryId =
   PluginTransformQueryArgs['queryId'] extends PluginTransformResultArgs['queryId']
