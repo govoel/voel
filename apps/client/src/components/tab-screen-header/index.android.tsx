@@ -3,8 +3,8 @@ import { Icon, IconButton, Row } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { router } from 'expo-router';
 
-import type { TabScreenHeaderComponent } from '#src/components/tab-screen-header';
-import { Text } from '#src/components/text';
+import type { TabScreenHeaderComponent } from '#src/components/tab-screen-header/index.tsx';
+import { Text } from '#src/components/text/index.tsx';
 
 export const TabScreenHeader = (({ title }) => (
   <Row verticalAlignment="center" horizontalArrangement="spaceBetween" modifiers={[fillMaxWidth()]}>

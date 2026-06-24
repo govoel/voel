@@ -5,8 +5,8 @@ import { useRef } from 'react';
 import type { ComponentProps } from 'react';
 
 import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
-import type { SecureFieldComponent } from '#src/components/form/secure-field';
-import { Text } from '#src/components/text';
+import type { SecureFieldComponent } from '#src/components/form/secure-field/index.ts';
+import { Text } from '#src/components/text/index.tsx';
 
 const defaultTextStyle = {
   fontFamily: 'Google Sans',

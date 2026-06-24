@@ -2,7 +2,7 @@ import { Text as SwiftText } from '@expo/ui/swift-ui';
 import { createModifier, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 
-import type { TextComponent } from '#src/components/text';
+import type { TextComponent } from '#src/components/text/index.tsx';
 
 export const iosTextStyle = (
   style:

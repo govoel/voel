@@ -7,7 +7,7 @@ import { Stack, router } from 'expo-router';
 import type { ComponentType } from 'react';
 import { PlatformColor as platformColor } from 'react-native';
 
-import { Text } from '#src/components/text';
+import { Text } from '#src/components/text/index.tsx';
 import { listAccountsAtom } from '#src/services/accounts/atoms.ts';
 
 interface ServerUsersListProps {
