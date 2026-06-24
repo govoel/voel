@@ -1,6 +1,6 @@
 import { VStack } from '@expo/ui/swift-ui';
 
-import type { TabScreenColumnComponent } from '#src/components/tab-screen-column';
+import type { TabScreenColumnComponent } from '#src/components/tab-screen-column/index.tsx';
 
 export const TabScreenColumn = (({ children }) => (
   <VStack alignment="leading" spacing={12}>

@@ -18,8 +18,8 @@ import { router } from 'expo-router';
 
 import { accountsWithActiveAccount } from '#src/app/accounts/index.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list';
-import { Text } from '#src/components/text';
+import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Text } from '#src/components/text/index.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function AccountsScreen() {

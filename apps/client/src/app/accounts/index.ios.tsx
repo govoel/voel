@@ -28,8 +28,8 @@ import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 
 import { accountsWithActiveAccount, activeAccountLiteral } from '#src/app/accounts/index.tsx';
-import { Text } from '#src/components/text';
 import { iosTextStyle } from '#src/components/text/index.ios.tsx';
+import { Text } from '#src/components/text/index.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 import { removeAccountAtom, setActiveAccountAtom } from '#src/services/accounts/atoms.ts';
 

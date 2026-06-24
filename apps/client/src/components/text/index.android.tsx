@@ -1,7 +1,7 @@
 import { Text as ComposeText } from '@expo/ui/jetpack-compose';
 import { Match } from 'effect';
 
-import type { TextComponent } from '#src/components/text';
+import type { TextComponent } from '#src/components/text/index.tsx';
 
 export const Text = (({ variant = 'body', modifiers, children, color }) => (
   <ComposeText
