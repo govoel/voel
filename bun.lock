@@ -7,6 +7,7 @@
       "devDependencies": {
         "@changesets/changelog-github": "0.7.0",
         "@changesets/cli": "2.31.0",
+        "@oxlint/plugins": "1.70.0",
         "eslint-plugin-turbo": "2.9.18",
         "opensrc": "0.7.2",
         "oxfmt": "0.55.0",
@@ -63,6 +64,7 @@
       "devDependencies": {
         "@effect/language-service": "0.86.2",
         "@effect/vitest": "4.0.0-beta.85",
+        "@repo/server": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "@srsholmes/vitest-react-native": "0.1.5",
         "@testing-library/react-native": "14.0.0",
@@ -686,6 +688,8 @@
     "@oxlint/binding-win32-ia32-msvc": ["@oxlint/binding-win32-ia32-msvc@1.70.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-FHMSWbVsPVs/f+Jcl04ws4JJ2wUnauyTzlpxWRG/lSO/8GpX08Fo2gQZqdA6CrRFI+zvkxl+N/KwJGWfUwYVZA=="],
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.70.0", "", { "os": "win32", "cpu": "x64" }, "sha512-ptOlKwCz7n4AKs5VweMqG6DAg677FmKOK+vBkkL9DMNgFATIQ+upqUYBTOEwRQyRAx1ncGlPlXleV2hIcm3z4g=="],
+
+    "@oxlint/plugins": ["@oxlint/plugins@1.70.0", "", {}, "sha512-Ut6i0mPdferb+8YJFPaVAg95Fcqduk6fL3PlA4CX58OaPJOi8vvTAcm6iO40Krd5FFMWP+hAhIxlYEhvgvYA6w=="],
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
 

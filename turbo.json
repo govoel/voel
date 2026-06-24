@@ -16,7 +16,7 @@
     },
     "//#lint": {
       "cache": true,
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json", "$TURBO_ROOT$/.oxlint-rules/**"]
     },
     "//#lint:fix": {
       "cache": false
