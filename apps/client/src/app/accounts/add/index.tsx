@@ -1,6 +1,6 @@
 import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 
-import { FormSubmitError, useAppForm } from '#src/components/form';
+import { FormSubmitError, useAppForm } from '#src/components/form/index.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { Runtime } from '#src/services/runtime.ts';

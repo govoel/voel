@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { Text } from '#src/components/text';
+import { Text } from '#src/components/text/index.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function AddAccountScreen() {

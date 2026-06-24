@@ -13,5 +13,20 @@
   "env": {
     "builtin": true,
     "node": true
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.{js,jsx,ts,tsx}"],
+      "excludeFiles": [
+        "**/__tests__/**",
+        "**/*.test.{js,jsx,ts,tsx}",
+        "**/*.spec.{js,jsx,ts,tsx}",
+        "**/*.test.{cjs,cts,mjs,mts}",
+        "**/*.spec.{cjs,cts,mjs,mts}"
+      ],
+      "rules": {
+        "voel/no-server-imports-in-client": "error"
+      }
+    }
+  ]
 }

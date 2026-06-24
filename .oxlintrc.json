@@ -72,5 +72,5 @@
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"
   },
-  "jsPlugins": ["eslint-plugin-turbo"]
+  "jsPlugins": ["eslint-plugin-turbo", "./.oxlint-rules/client-server-imports.mts"]
 }
