@@ -8,9 +8,7 @@ import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 
 export const CommonGlobalLayers = Layer.mergeAll(AccountManager.layer).pipe(
-  Layer.provideMerge(
-    Layer.mergeAll(AuthClientStorage.layer, FetchHttpClient.layer, Reactivity.layer)
-  )
+  Layer.provideMerge(Layer.mergeAll(FetchHttpClient.layer, Reactivity.layer))
 );
 
 export const CommonExpoLayers = Layer.mergeAll(CommonGlobalLayers).pipe(
@@ -22,6 +20,6 @@ export const CommonExpoLayers = Layer.mergeAll(CommonGlobalLayers).pipe(
       )
     )
   ),
-  Layer.provideMerge(Layer.mergeAll(AppConfig.layer)),
+  Layer.provideMerge(Layer.mergeAll(AuthClientStorage.layer, AppConfig.layer)),
   Layer.orDie
 );

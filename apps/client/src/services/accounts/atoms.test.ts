@@ -8,6 +8,7 @@ import { ApiConfig } from '@repo/server/services/config.ts';
 
 import { makeAccountsAtoms } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -41,7 +42,7 @@ const makeClientTestLayers = () =>
         Layer.unwrap
       )
     ),
-    Layer.provideMerge(AppConfig.layerTest())
+    Layer.provideMerge(Layer.mergeAll(AuthClientStorage.layerTest, AppConfig.layerTest()))
   );
 
 it.layer(Layer.mergeAll(makeServerTestLayers(), makeClientTestLayers()))(
