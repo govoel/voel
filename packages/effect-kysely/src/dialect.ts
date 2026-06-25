@@ -1,13 +1,7 @@
 import type { Database, SQLQueryBindings } from 'bun:sqlite';
 
 import { Effect, TxSemaphore } from 'effect';
-
-import {
-  CompiledQuery,
-  SqliteAdapter,
-  SqliteIntrospector,
-  SqliteQueryCompiler,
-} from '@repo/effect-kysely';
+import { CompiledQuery, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely';
 import type {
   DatabaseConnection,
   DatabaseIntrospector,
@@ -17,9 +11,9 @@ import type {
   Kysely,
   QueryCompiler,
   QueryResult,
-} from '@repo/effect-kysely';
+} from 'kysely';
 
-interface SourceTapDialectConfig {
+interface BunSqliteDialectConfig {
   database: Database;
   onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
   onBeginTransaction?: () => void;
@@ -27,15 +21,15 @@ interface SourceTapDialectConfig {
   onRollbackTransaction?: () => void;
 }
 
-export class SourceTapDialect implements Dialect {
-  readonly #config: SourceTapDialectConfig;
+export class BunSqliteDialect implements Dialect {
+  readonly #config: BunSqliteDialectConfig;
 
-  public constructor(config: SourceTapDialectConfig) {
+  public constructor(config: BunSqliteDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
   public createDriver(): Driver {
-    return new SourceTapSqliteDriver(this.#config);
+    return new BunSqliteDriver(this.#config);
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
@@ -54,14 +48,14 @@ export class SourceTapDialect implements Dialect {
   }
 }
 
-class SourceTapSqliteDriver implements Driver {
-  readonly #config: SourceTapDialectConfig;
+class BunSqliteDriver implements Driver {
+  readonly #config: BunSqliteDialectConfig;
 
   #db?: Database;
   #connection?: DatabaseConnection;
   #connectionSemaphore?: TxSemaphore.TxSemaphore;
 
-  public constructor(config: SourceTapDialectConfig) {
+  public constructor(config: BunSqliteDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
@@ -69,7 +63,7 @@ class SourceTapSqliteDriver implements Driver {
     this.#db = this.#config.database;
     this.#connectionSemaphore = await Effect.runPromise(TxSemaphore.make(1));
 
-    this.#connection = new SourceTapSqliteConnection(this.#db);
+    this.#connection = new BunSqliteConnection(this.#db);
 
     if (this.#config.onCreateConnection) {
       await this.#config.onCreateConnection(this.#connection);
@@ -86,19 +80,19 @@ class SourceTapSqliteDriver implements Driver {
     return this.#connection;
   }
 
+  // oxlint-disable-next-line eslint/class-methods-use-this
   public async beginTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('begin'));
-    this.#config.onBeginTransaction?.();
   }
 
+  // oxlint-disable-next-line eslint/class-methods-use-this
   public async commitTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('commit'));
-    this.#config.onCommitTransaction?.();
   }
 
+  // oxlint-disable-next-line eslint/class-methods-use-this
   public async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('rollback'));
-    this.#config.onRollbackTransaction?.();
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
@@ -128,7 +122,7 @@ class SourceTapSqliteDriver implements Driver {
   }
 }
 
-class SourceTapSqliteConnection implements DatabaseConnection {
+class BunSqliteConnection implements DatabaseConnection {
   readonly #db: Database;
 
   public constructor(db: Database) {
@@ -140,17 +134,9 @@ class SourceTapSqliteConnection implements DatabaseConnection {
     const stmt = this.#db.prepare<O, SQLQueryBindings[]>(sql);
 
     if (stmt.columnNames.length > 0) {
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
-      const rows = stmt.all(parameters as any);
       return {
-        // hack to get the last inserted id, which is ok
-        // only because of the connection mutex guaranteeing
-        // that no other queries are running in between
-        insertId: BigInt(
-          this.#db.query<{ id: number }, []>('select last_insert_rowid() as id').get()?.id ?? 0
-        ),
-        numAffectedRows: BigInt(rows.length),
-        rows,
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
+        rows: stmt.all(parameters as any),
       };
     }
 

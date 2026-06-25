@@ -5,27 +5,6 @@ import { AccountManager } from '#src/services/accounts/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AppRuntime } from '#src/services/registry.ts';
 
-export const accountsAtom = AppRuntime.atom(
-  Effect.service(MainDatabase).pipe(
-    Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll()))
-  )
-).pipe(Atom.withReactivity(['account']));
-
-export const activeAccountAtom = AppRuntime.atom(
-  AccountManager.pipe(
-    Effect.map((manager) => manager.changes),
-    Stream.unwrap
-  )
-);
-
-export const activeAccountServerUrlAtom = activeAccountAtom.pipe(
-  Atom.mapResult((accounts) => accounts.pipe(Option.map(({ account }) => account.serverUrl)))
-);
-
-export const activeAccountAuthClientAtom = activeAccountAtom.pipe(
-  Atom.mapResult((accounts) => accounts.pipe(Option.map(({ state }) => state.authClient)))
-);
-
 class BetterAuthListUsersUnknownError extends Schema.TaggedErrorClass<
   BetterAuthListUsersUnknownError,
   { readonly brand: unique symbol }
@@ -46,117 +25,172 @@ export class ListAccountsNoAuthClientError extends Schema.TaggedErrorClass<
   { readonly brand: unique symbol }
 >()('voel/app/accounts/server/accounts/ListAccountsNoAuthClientError', {}) {}
 
-export const listAccountsAtom = AppRuntime.pull(
-  Effect.fnUntraced(
-    function* (get) {
-      const authClient = yield* get.result(activeAccountAuthClientAtom);
+export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | MainDatabase>) => {
+  const accountsAtom = runtime
+    .atom(
+      Effect.service(MainDatabase).pipe(
+        Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll()))
+      )
+    )
+    .pipe(Atom.withReactivity(['account']));
 
-      if (Option.isNone(authClient)) {
-        return yield* new ListAccountsNoAuthClientError();
-      }
+  const activeAccountAtom = runtime.atom(
+    AccountManager.pipe(
+      Effect.map((manager) => manager.changes),
+      Stream.unwrap
+    )
+  );
 
-      return Stream.paginate(
-        0,
-        Effect.fnUntraced(function* (offset) {
-          const { data, error } = yield* Effect.tryPromise({
-            try: async () =>
-              authClient.value.admin.listUsers({
-                query: {
-                  limit: 10,
-                  offset,
-                },
-              }),
-            catch: () => new BetterAuthListUsersUnknownError(),
-          });
+  const activeAccountServerUrlAtom = activeAccountAtom.pipe(
+    Atom.mapResult((accounts) => accounts.pipe(Option.map(({ account }) => account.serverUrl)))
+  );
 
-          if (error !== null) {
-            return yield* new BetterAuthListUsersKnownError(error);
+  const activeAccountAuthClientAtom = activeAccountAtom.pipe(
+    Atom.mapResult((accounts) => accounts.pipe(Option.map(({ state }) => state.authClient)))
+  );
+
+  const listAccountsAtom = runtime
+    .pull(
+      Effect.fnUntraced(
+        function* (get) {
+          const authClient = yield* get.result(activeAccountAuthClientAtom);
+
+          if (Option.isNone(authClient)) {
+            return yield* new ListAccountsNoAuthClientError();
           }
 
-          const nextOffset = offset + data.users.length;
-          const hasMore = data.users.length > 0 && nextOffset < data.total;
+          return Stream.paginate(
+            0,
+            Effect.fnUntraced(function* (offset) {
+              const { data, error } = yield* Effect.tryPromise({
+                try: async () =>
+                  authClient.value.admin.listUsers({
+                    query: {
+                      limit: 10,
+                      offset,
+                    },
+                  }),
+                catch: () => new BetterAuthListUsersUnknownError(),
+              });
 
-          return [data.users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
-        })
-      );
-    },
-    (effect) => Stream.unwrap(effect)
-  )
-).pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
+              if (error !== null) {
+                return yield* new BetterAuthListUsersKnownError(error);
+              }
 
-export const activeAccountSessionAtom = AppRuntime.atom((get) => {
-  const activeAccount = get.streamResult(activeAccountAtom);
+              const nextOffset = offset + data.users.length;
+              const hasMore = data.users.length > 0 && nextOffset < data.total;
 
-  const changes = Stream.changesWith(activeAccount, (previous, next) =>
-    Option.match(previous, {
-      onNone: () => Option.isNone(next),
-      onSome: (previousActiveAccount) =>
-        Option.match(next, {
-          onNone: () => false,
-          onSome: (nextActiveAccount) =>
-            previousActiveAccount.state.authClient === nextActiveAccount.state.authClient,
-        }),
+              return [data.users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
+            })
+          );
+        },
+        (effect) => Stream.unwrap(effect)
+      )
+    )
+    .pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
+
+  const activeAccountSessionAtom = runtime.atom((get) => {
+    const activeAccount = get.streamResult(activeAccountAtom);
+
+    const changes = Stream.changesWith(activeAccount, (previous, next) =>
+      Option.match(previous, {
+        onNone: () => Option.isNone(next),
+        onSome: (previousActiveAccount) =>
+          Option.match(next, {
+            onNone: () => false,
+            onSome: (nextActiveAccount) =>
+              previousActiveAccount.state.authClient === nextActiveAccount.state.authClient,
+          }),
+      })
+    );
+
+    return Stream.switchMap(changes, (newActiveAccount) =>
+      Option.match(newActiveAccount, {
+        onNone: () => Stream.make(Option.none()),
+        onSome: ({ state }) =>
+          Stream.callback<
+            Option.Option<
+              Parameters<Parameters<typeof state.authClient.useSession.subscribe>[0]>[0]
+            >
+          >(
+            Effect.fnUntraced(function* (queue) {
+              const unsubscribe = yield* Effect.sync(() =>
+                state.authClient.useSession.subscribe((session) => {
+                  Queue.offerUnsafe(queue, Option.some(session));
+                })
+              );
+
+              yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
+            })
+          ),
+      })
+    );
+  });
+
+  const upsertAccountAtom = runtime.fn(
+    (input: Parameters<typeof AccountManager.Service.upsertAccount>[0]) =>
+      AccountManager.pipe(Effect.flatMap((manager) => manager.upsertAccount(input)))
+  );
+
+  const accountsSheetAtom = runtime.atom(
+    Effect.fnUntraced(function* (get) {
+      const accounts = yield* get.result(accountsAtom);
+
+      if (accounts.length === 0) {
+        return { mode: 'ONBOARDING', dismissable: false } as const;
+      }
+
+      const activeAccount = yield* get.result(activeAccountAtom);
+      if (Option.isNone(activeAccount)) {
+        return { mode: 'MUST_PICK_ACCOUNT', dismissable: false } as const;
+      }
+
+      const activeAccountSession = yield* get.result(activeAccountSessionAtom);
+      if (
+        Option.isNone(activeAccountSession) ||
+        activeAccountSession.value.error !== null ||
+        activeAccountSession.value.data === null
+      ) {
+        return { mode: 'INVALID_SESSION', dismissable: true } as const;
+      }
+
+      return { mode: 'IDLE', dismissable: true } as const;
     })
   );
 
-  return Stream.switchMap(changes, (newActiveAccount) =>
-    Option.match(newActiveAccount, {
-      onNone: () => Stream.make(Option.none()),
-      onSome: ({ state }) =>
-        Stream.callback<
-          Option.Option<Parameters<Parameters<typeof state.authClient.useSession.subscribe>[0]>[0]>
-        >(
-          Effect.fnUntraced(function* (queue) {
-            const unsubscribe = yield* Effect.sync(() =>
-              state.authClient.useSession.subscribe((session) => {
-                Queue.offerUnsafe(queue, Option.some(session));
-              })
-            );
-
-            yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
-          })
-        ),
-    })
+  const setActiveAccountAtom = runtime.fn(
+    (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
+      AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
   );
-});
 
-export const upsertAccountAtom = AppRuntime.fn(
-  (input: Parameters<typeof AccountManager.Service.upsertAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.upsertAccount(input)))
-);
+  const removeAccountAtom = runtime.fn(
+    (input: Parameters<typeof AccountManager.Service.removeAccount>[0]) =>
+      AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(input)))
+  );
 
-export const accountsSheetAtom = AppRuntime.atom(
-  Effect.fnUntraced(function* (get) {
-    const accounts = yield* get.result(accountsAtom);
+  return {
+    accountsAtom,
+    activeAccountAtom,
+    activeAccountServerUrlAtom,
+    activeAccountAuthClientAtom,
+    listAccountsAtom,
+    activeAccountSessionAtom,
+    upsertAccountAtom,
+    accountsSheetAtom,
+    setActiveAccountAtom,
+    removeAccountAtom,
+  };
+};
 
-    if (accounts.length === 0) {
-      return { mode: 'ONBOARDING', dismissable: false } as const;
-    }
-
-    const activeAccount = yield* get.result(activeAccountAtom);
-    if (Option.isNone(activeAccount)) {
-      return { mode: 'MUST_PICK_ACCOUNT', dismissable: false } as const;
-    }
-
-    const activeAccountSession = yield* get.result(activeAccountSessionAtom);
-    if (
-      Option.isNone(activeAccountSession) ||
-      activeAccountSession.value.error !== null ||
-      activeAccountSession.value.data === null
-    ) {
-      return { mode: 'INVALID_SESSION', dismissable: true } as const;
-    }
-
-    return { mode: 'IDLE', dismissable: true } as const;
-  })
-);
-
-export const setActiveAccountAtom = AppRuntime.fn(
-  (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
-);
-
-export const removeAccountAtom = AppRuntime.fn(
-  (input: Parameters<typeof AccountManager.Service.removeAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(input)))
-);
+export const {
+  accountsAtom,
+  activeAccountAtom,
+  activeAccountServerUrlAtom,
+  activeAccountAuthClientAtom,
+  listAccountsAtom,
+  activeAccountSessionAtom,
+  upsertAccountAtom,
+  accountsSheetAtom,
+  setActiveAccountAtom,
+  removeAccountAtom,
+} = makeAccountsAtoms(AppRuntime);

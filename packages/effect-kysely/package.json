@@ -7,7 +7,8 @@
     "#src/*": "./src/*"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./*": "./src/*"
   },
   "scripts": {
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"

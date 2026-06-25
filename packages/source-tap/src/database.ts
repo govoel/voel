@@ -5,8 +5,9 @@ import type { Scope } from 'effect';
 
 import { Kysely, ParseJSONResultsPlugin, makeFromKysely } from '@repo/effect-kysely';
 import type { EffectKysely } from '@repo/effect-kysely';
+import { BunSqliteDialect } from '@repo/effect-kysely/dialect.ts';
 
-import { BunSqliteDialect, SourceTapDialect } from '#src/dialect.ts';
+import { SourceTapDialect } from '#src/dialect.ts';
 import { SourceTap } from '#src/source-tap.ts';
 
 interface CreateDatabaseOptions<DB> {
