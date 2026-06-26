@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "portless server bun run --watch src/index.ts",
     "check-types": "expo customize tsconfig.json && tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
-    "test": "bun --bun run vitest",
+    "test": "vitest",
     "android:dev": "RELEASE_CHANNEL=dev expo run:android",
     "android:preview": "RELEASE_CHANNEL=preview expo run:android",
     "android:prod": "RELEASE_CHANNEL=prod expo run:android",
