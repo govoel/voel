@@ -8,7 +8,7 @@
         "@changesets/changelog-github": "0.7.0",
         "@changesets/cli": "2.31.0",
         "eslint-plugin-turbo": "2.9.18",
-        "opensrc": "0.7.2",
+        "opensrc": "0.7.3",
         "oxfmt": "0.55.0",
         "oxlint": "1.70.0",
         "oxlint-tsgolint": "0.23.0",
@@ -1521,7 +1521,7 @@
 
     "open": ["open@7.4.2", "", { "dependencies": { "is-docker": "^2.0.0", "is-wsl": "^2.1.1" } }, "sha512-MVHddDVweXZF3awtlAS+6pgKLlm/JgxZ90+/NBurBoQctVOOB/zDdVjcyPzQ+0laDGbsWgrRkflI65sQeOgT9Q=="],
 
-    "opensrc": ["opensrc@0.7.2", "", { "bin": { "opensrc": "bin/opensrc.js" } }, "sha512-Tm0JVco91JYuaousOrWMvEhPd7cAOQuSp3v800VtUs2xRAmt60Wi431AfEKBEWpUGYCNXh25Eiod4xYS+8WAEg=="],
+    "opensrc": ["opensrc@0.7.3", "", { "bin": { "opensrc": "bin/opensrc.js" } }, "sha512-REvdS9CG2q1KW6fiyLQkZgrhvNykARJCbigDF7vJOskGwqamwF74OzHRbgblZ7YlRkaLc7CTOsUMfnxw+NW83A=="],
 
     "optionator": ["optionator@0.9.4", "", { "dependencies": { "deep-is": "^0.1.3", "fast-levenshtein": "^2.0.6", "levn": "^0.4.1", "prelude-ls": "^1.2.1", "type-check": "^0.4.0", "word-wrap": "^1.2.5" } }, "sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g=="],
 
