@@ -1,4 +1,4 @@
-import type { HarnessTestContext } from '@react-native-harness/bridge';
+import type { HarnessTestContext, TestFn } from '@react-native-harness/bridge';
 import {
   afterAll,
   beforeAll,
@@ -20,7 +20,7 @@ export {
 export type { HarnessTaskContext, HarnessTestContext } from '@react-native-harness/bridge';
 
 export type HarnessTestApi = typeof harnessIt;
-export type HarnessTestFunction = Parameters<HarnessTestApi>[1];
+export type HarnessTestFunction = TestFn;
 
 type HarnessRegister = (name: string, fn: HarnessTestFunction) => void;
 
@@ -59,20 +59,22 @@ export interface LayerOptions {
 export type LayerBlock<R> = ((fn: (it: MethodsNonLive<R>) => void) => void) &
   ((name: string, fn: (it: MethodsNonLive<R>) => void) => void);
 
-export interface MethodsNonLive<R = never> extends HarnessTestApi {
+interface BaseMethods<R, TLayerOptions> extends HarnessTestApi {
   readonly effect: EffectTester<R | Scope.Scope>;
   readonly scoped: EffectTester<R | Scope.Scope>;
   readonly layer: <R2, E>(
     layer: Layer.Layer<R2, E, R>,
-    options?: LayerOptions
+    options?: TLayerOptions
   ) => LayerBlock<R | R2>;
   readonly each: Each;
 }
 
-export interface Methods<R = never> extends MethodsNonLive<R> {
+export type MethodsNonLive<R = never> = BaseMethods<R, never>;
+
+export type Methods<R = never> = BaseMethods<R, LayerOptions> & {
   readonly live: EffectTester<R | Scope.Scope>;
   readonly scopedLive: EffectTester<R | Scope.Scope>;
-}
+};
 
 type TestEnvironment = TestConsole.TestConsole | TestClock.TestClock;
 
@@ -125,6 +127,16 @@ const runTest =
   async <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
     runPromise(effect, context);
 
+const runEffectTest = async <A, E, R, Args extends unknown[]>(
+  context: HarnessTestContext,
+  args: Args,
+  options: {
+    readonly self: EffectTestFunction<A, E, R, Args>;
+    readonly mapEffect: EffectMap<R>;
+  }
+): Promise<A> =>
+  Effect.suspend(() => options.self(...args)).pipe(options.mapEffect, runTest(context));
+
 const expectFailure = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<void, never, R> =>
   Effect.exit(effect).pipe(
     Effect.flatMap((exit) => {
@@ -146,7 +158,7 @@ const testOptions =
   <R>(api: HarnessRegister, mapEffect: EffectMap<R>): EffectTest<R> =>
   (name, self) => {
     api(name, async (context) => {
-      await Effect.suspend(() => self(context)).pipe(mapEffect, runTest(context));
+      await runEffectTest(context, [context], { self, mapEffect });
     });
   };
 
@@ -154,7 +166,10 @@ const failingTestOptions =
   <R>(api: HarnessRegister, mapEffect: EffectMap<R>): EffectTest<R> =>
   (name, self) => {
     api(name, async (context) => {
-      await Effect.suspend(() => self(context)).pipe(expectFailure, mapEffect, runTest(context));
+      await runEffectTest(context, [context], {
+        self: (testContext) => expectFailure(self(testContext)),
+        mapEffect,
+      });
     });
   };
 
@@ -219,7 +234,7 @@ const makeEffectEach =
       const caseIndex = index;
       index += 1;
       api(formatCaseName(name, testCase, caseIndex), async (context) => {
-        await Effect.suspend(() => self(testCase, context)).pipe(mapEffect, runTest(context));
+        await runEffectTest(context, [testCase, context], { self, mapEffect });
       });
     }
   };
@@ -340,15 +355,11 @@ const makeLayerBlock =
     const withLayer = <A, E2, R2>(effect: Effect.Effect<A, E2, R2>) =>
       contextEffect.pipe(Effect.flatMap((context) => effect.pipe(Effect.provide(context))));
 
-    const nestedLayer: MethodsNonLive<R>['layer'] = (nestedLayer_, nestedOptions) => {
-      const { memoMap: nestedMemoMap } = nestedOptions ?? {};
-
-      return makeLayerBlock(Layer.provideMerge(nestedLayer_, layerWithTestEnv), {
-        ...nestedOptions,
+    const nestedLayer: MethodsNonLive<R>['layer'] = (nestedLayer_) =>
+      makeLayerBlock(Layer.provideMerge(nestedLayer_, layerWithTestEnv), {
         excludeTestServices,
-        memoMap: nestedMemoMap ?? Layer.forkMemoMapUnsafe(memoMap),
+        memoMap: Layer.forkMemoMapUnsafe(memoMap),
       });
-    };
 
     const mapLayer = <A, E2>(effect: Effect.Effect<A, E2, R | Scope.Scope>) =>
       effect.pipe(Effect.scoped, withLayer);
