@@ -14,9 +14,26 @@ export {
   afterEach,
   beforeAll,
   beforeEach,
+  cleanup,
+  clearAllMocks,
+  createElement,
   describe,
   expect,
+  fn,
+  harness,
+  mock,
+  ReactNativeHarness,
+  render,
+  requireActual,
+  resetAllMocks,
+  resetModules,
+  restoreAllMocks,
+  spyOn,
+  unmock,
+  waitFor,
+  waitUntil,
 } from '@react-native-harness/runtime';
+export type { HarnessNamespace, RenderOptions, RenderResult } from '@react-native-harness/runtime';
 export type { HarnessTaskContext, HarnessTestContext } from '@react-native-harness/bridge';
 
 export type HarnessTestApi = typeof harnessIt;
