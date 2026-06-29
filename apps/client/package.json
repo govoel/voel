@@ -67,7 +67,7 @@
     "@testing-library/react-native": "14.0.0",
     "@types/react": "~19.2.2",
     "@vitejs/plugin-react": "6.0.2",
-    "agent-device": "0.17.6",
+    "agent-device": "0.18.0",
     "bun-types": "1.3.14",
     "test-renderer": "1.2.0",
     "typescript": "6.0.3",
