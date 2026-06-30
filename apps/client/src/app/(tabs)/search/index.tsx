@@ -1,8 +1,8 @@
 import { Host } from '@expo/ui';
 import { Stack } from 'expo-router';
 
-import { SafeScrollView } from '#src/components/safe-scroll-view/index.tsx';
-import { Text } from '#src/components/text/index.tsx';
+import { SafeScrollView } from '#src/components/safe-scroll-view';
+import { Text } from '#src/components/text';
 
 export default function SearchScreen() {
   return (

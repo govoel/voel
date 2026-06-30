@@ -1,6 +1,6 @@
-import { SafeScrollView } from '#src/components/safe-scroll-view/index.tsx';
-import { TabScreenColumn } from '#src/components/tab-screen-column/index.tsx';
-import { TabScreenHeader } from '#src/components/tab-screen-header/index.tsx';
+import { SafeScrollView } from '#src/components/safe-scroll-view';
+import { TabScreenColumn } from '#src/components/tab-screen-column';
+import { TabScreenHeader } from '#src/components/tab-screen-header';
 
 export default function BooksScreen() {
   return (

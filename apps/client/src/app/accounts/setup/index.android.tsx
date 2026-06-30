@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 import { useSetupServerForm } from '#src/app/accounts/setup/index.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { Text } from '#src/components/text/index.tsx';
+import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function SetupServerScreen() {

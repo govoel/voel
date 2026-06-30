@@ -12,7 +12,7 @@ import {
 import { Stack, router } from 'expo-router';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.tsx';
-import { Text } from '#src/components/text/index.tsx';
+import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function AddAccountScreen() {

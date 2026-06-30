@@ -3,10 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "main": "expo-router/entry",
-  "imports": {
-    "#src/*": "./src/*",
-    "#assets/*": "./assets/*"
-  },
   "scripts": {
     "dev": "portless server bun run --watch src/index.ts",
     "check-types": "expo customize tsconfig.json && tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",

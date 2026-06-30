@@ -2,8 +2,8 @@ import Search from '@expo/material-symbols/search.xml';
 import { Column, DockedSearchBar, Icon } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 
-import { SafeScrollView } from '#src/components/safe-scroll-view/index.tsx';
-import { Text } from '#src/components/text/index.tsx';
+import { SafeScrollView } from '#src/components/safe-scroll-view';
+import { Text } from '#src/components/text';
 
 export default function SearchScreen() {
   return (

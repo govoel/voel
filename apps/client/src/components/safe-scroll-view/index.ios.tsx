@@ -2,7 +2,7 @@ import { Host, LazyVStack, ScrollView } from '@expo/ui/swift-ui';
 import { padding } from '@expo/ui/swift-ui/modifiers';
 import { useColorScheme } from 'react-native';
 
-import type { SafeScrollViewComponent } from '#src/components/safe-scroll-view/index.tsx';
+import type { SafeScrollViewComponent } from '#src/components/safe-scroll-view';
 import { StatusBarGradient } from '#src/components/safe-scroll-view/status-bar-gradient.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 

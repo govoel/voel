@@ -3,7 +3,7 @@ import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { SafeScrollViewComponent } from '#src/components/safe-scroll-view/index.tsx';
+import type { SafeScrollViewComponent } from '#src/components/safe-scroll-view';
 import { StatusBarGradient } from '#src/components/safe-scroll-view/status-bar-gradient.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 

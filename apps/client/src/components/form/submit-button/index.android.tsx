@@ -13,7 +13,7 @@ import { Array, Option } from 'effect';
 
 import { useFormContext, useFormSubmitError } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.ts';
-import { Text } from '#src/components/text/index.tsx';
+import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 const SubmitErrorMessage = ({

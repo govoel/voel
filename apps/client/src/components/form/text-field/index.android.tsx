@@ -6,7 +6,7 @@ import type { ComponentProps } from 'react';
 
 import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
 import type { TextFieldComponent } from '#src/components/form/text-field/index.ts';
-import { Text } from '#src/components/text/index.tsx';
+import { Text } from '#src/components/text';
 
 const defaultTextStyle = {
   fontFamily: 'Google Sans',
