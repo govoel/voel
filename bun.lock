@@ -25,7 +25,7 @@
         "@expo-google-fonts/google-sans": "0.4.0",
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~56.0.18",
-        "@op-engineering/op-sqlite": "17.0.0",
+        "@op-engineering/op-sqlite": "17.1.1",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-kysely": "workspace:*",
         "@repo/spec-api": "workspace:*",
@@ -593,7 +593,7 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
-    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@17.0.0", "", { "peerDependencies": { "@sqlite.org/sqlite-wasm": "*", "react": "*", "react-native": "*" }, "optionalPeers": ["@sqlite.org/sqlite-wasm"] }, "sha512-S7KfrUee7H8oTgfAQzPYouS1sXl24w/oTLBP8xOqh0rOXjY2W2WlVfbaqzrxMWLhnCrj+oHj7Rsv8gEDDUiETg=="],
+    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@17.1.1", "", { "peerDependencies": { "@sqlite.org/sqlite-wasm": "*", "react": "*", "react-native": "*" }, "optionalPeers": ["@sqlite.org/sqlite-wasm"] }, "sha512-SRptONQMkcNGPcDwaV9mDhHXpX+XVjPD7scftrH7CbgZp/NB1DJiAMBUDpF4zptDaVskpWPVNGt+qBGfeFdDpQ=="],
 
     "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.41.1", "", {}, "sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA=="],
 
