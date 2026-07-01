@@ -15,7 +15,7 @@ const makeClientTestLayers = () =>
   Layer.mergeAll(CommonGlobalLayers).pipe(
     Layer.provideMerge(
       AppConfig.pipe(
-        Effect.map((config) => MainDatabase.layerTest({ filename: config.mainDb.filename })),
+        Effect.map((config) => MainDatabase.layer({ filename: config.mainDb.filename })),
         Layer.unwrap
       )
     ),

@@ -1,0 +1,56 @@
+diff --git a/dist/preset.js b/dist/preset.js
+index 69a33352d9ed0977e8cd43b6ddadc7aca970154e..60243d2aee3e9e2a4dedd21e7dc55d924d0dbf96 100644
+--- a/dist/preset.js
++++ b/dist/preset.js
+@@ -11,18 +11,18 @@ const getIstanbulPlugin = () => {
+     const coverageRoot = process.env.RN_HARNESS_COVERAGE_ROOT;
+     if (coverageRoot) {
+         return [
+-            'babel-plugin-istanbul',
++            require.resolve('babel-plugin-istanbul'),
+             { cwd: path_1.default.resolve(process.cwd(), coverageRoot) },
+         ];
+     }
+-    return 'babel-plugin-istanbul';
++    return require.resolve('babel-plugin-istanbul');
+ };
+ exports.rnHarnessPlugins = [
+-    '@babel/plugin-transform-class-static-block',
++    require.resolve('@babel/plugin-transform-class-static-block'),
+     resolve_weak_plugin_1.default,
+     getIstanbulPlugin(),
+     [
+-        '@babel/plugin-transform-react-jsx',
++        require.resolve('@babel/plugin-transform-react-jsx'),
+         {
+             runtime: 'automatic',
+             importSource: '@react-native-harness/runtime',
+diff --git a/src/preset.ts b/src/preset.ts
+index e7e3d9d25db6f5794dc78e999bac682532798dbf..ef4f426803eb8d588e1aabc43b133a679be9a644 100644
+--- a/src/preset.ts
++++ b/src/preset.ts
+@@ -9,20 +9,20 @@ const getIstanbulPlugin = (): string | [string, object] | null => {
+   const coverageRoot = process.env.RN_HARNESS_COVERAGE_ROOT;
+   if (coverageRoot) {
+     return [
+-      'babel-plugin-istanbul',
++      require.resolve('babel-plugin-istanbul'),
+       { cwd: path.resolve(process.cwd(), coverageRoot) },
+     ];
+   }
+ 
+-  return 'babel-plugin-istanbul';
++  return require.resolve('babel-plugin-istanbul');
+ };
+ 
+ export const rnHarnessPlugins = [
+-  '@babel/plugin-transform-class-static-block',
++  require.resolve('@babel/plugin-transform-class-static-block'),
+   resolveWeakPlugin,
+   getIstanbulPlugin(),
+   [
+-    '@babel/plugin-transform-react-jsx',
++    require.resolve('@babel/plugin-transform-react-jsx'),
+     {
+       runtime: 'automatic',
+       importSource: '@react-native-harness/runtime',

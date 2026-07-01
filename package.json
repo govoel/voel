@@ -31,5 +31,10 @@
   "engines": {
     "bun": "1.3.14"
   },
-  "packageManager": "bun@1.3.14"
+  "packageManager": "bun@1.3.14",
+  "patchedDependencies": {
+    "@react-native-harness/jest@1.3.0": "patches/@react-native-harness%2Fjest@1.3.0.patch",
+    "@react-native-harness/babel-preset@1.3.0": "patches/@react-native-harness%2Fbabel-preset@1.3.0.patch",
+    "@react-native-harness/bundler-metro@1.3.0": "patches/@react-native-harness%2Fbundler-metro@1.3.0.patch"
+  }
 }
