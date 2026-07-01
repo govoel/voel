@@ -1,7 +1,4 @@
 import type { Database, SQLQueryBindings } from 'bun:sqlite';
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-// oxlint-disable-next-line import/no-nodejs-modules
-import type { DatabaseSync } from 'node:sqlite';
 
 import { Effect, TxSemaphore } from 'effect';
 import { CompiledQuery, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely';
@@ -24,14 +21,6 @@ interface BunSqliteDialectConfig {
   onRollbackTransaction?: () => void;
 }
 
-interface NodeSqliteDialectConfig {
-  database: DatabaseSync;
-  onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
-}
-
-type NodeSqliteStatement = ReturnType<DatabaseSync['prepare']>;
-type NodeSqliteStatementParameters = Parameters<NodeSqliteStatement['all']>;
-
 export class BunSqliteDialect implements Dialect {
   readonly #config: BunSqliteDialectConfig;
 
@@ -41,33 +30,6 @@ export class BunSqliteDialect implements Dialect {
 
   public createDriver(): Driver {
     return new BunSqliteDriver(this.#config);
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public createQueryCompiler(): QueryCompiler {
-    return new SqliteQueryCompiler();
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public createAdapter(): DialectAdapter {
-    return new SqliteAdapter();
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public createIntrospector(db: Kysely<unknown>): DatabaseIntrospector {
-    return new SqliteIntrospector(db);
-  }
-}
-
-export class NodeSqliteDialect implements Dialect {
-  readonly #config: NodeSqliteDialectConfig;
-
-  public constructor(config: NodeSqliteDialectConfig) {
-    this.#config = Object.freeze({ ...config });
-  }
-
-  public createDriver(): Driver {
-    return new NodeSqliteDriver(this.#config);
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
@@ -102,80 +64,6 @@ class BunSqliteDriver implements Driver {
     this.#connectionSemaphore = await Effect.runPromise(TxSemaphore.make(1));
 
     this.#connection = new BunSqliteConnection(this.#db);
-
-    if (this.#config.onCreateConnection) {
-      await this.#config.onCreateConnection(this.#connection);
-    }
-  }
-
-  public async acquireConnection(): Promise<DatabaseConnection> {
-    if (!this.#connection || !this.#connectionSemaphore) {
-      throw new Error('Connection has not been initialized. Call init() first.');
-    }
-    // SQLite only has one single connection. We use a mutex here to wait
-    // until the single connection has been released.
-    await Effect.runPromise(TxSemaphore.acquire(this.#connectionSemaphore));
-    return this.#connection;
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public async beginTransaction(connection: DatabaseConnection): Promise<void> {
-    await connection.executeQuery(CompiledQuery.raw('begin'));
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public async commitTransaction(connection: DatabaseConnection): Promise<void> {
-    await connection.executeQuery(CompiledQuery.raw('commit'));
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
-    await connection.executeQuery(CompiledQuery.raw('rollback'));
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public async savepoint(): Promise<void> {
-    throw new Error('Savepoints are deliberately not supported');
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public async rollbackToSavepoint(): Promise<void> {
-    throw new Error('Savepoints are deliberately not supported');
-  }
-
-  // oxlint-disable-next-line eslint/class-methods-use-this
-  public async releaseSavepoint(): Promise<void> {
-    throw new Error('Savepoints are deliberately not supported');
-  }
-
-  public async releaseConnection(): Promise<void> {
-    if (!this.#connectionSemaphore) {
-      throw new Error('Connection has not been initialized. Call init() first.');
-    }
-    await Effect.runPromise(TxSemaphore.release(this.#connectionSemaphore));
-  }
-
-  public async destroy(): Promise<void> {
-    this.#db?.close();
-  }
-}
-
-class NodeSqliteDriver implements Driver {
-  readonly #config: NodeSqliteDialectConfig;
-
-  #db?: DatabaseSync;
-  #connection?: DatabaseConnection;
-  #connectionSemaphore?: TxSemaphore.TxSemaphore;
-
-  public constructor(config: NodeSqliteDialectConfig) {
-    this.#config = Object.freeze({ ...config });
-  }
-
-  public async init(): Promise<void> {
-    this.#db = this.#config.database;
-    this.#connectionSemaphore = await Effect.runPromise(TxSemaphore.make(1));
-
-    this.#connection = new NodeSqliteConnection(this.#db);
 
     if (this.#config.onCreateConnection) {
       await this.#config.onCreateConnection(this.#connection);
@@ -269,49 +157,6 @@ class BunSqliteConnection implements DatabaseConnection {
 
     // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
     for (const row of stmt.iterate(parameters as any)) {
-      // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      yield { rows: [row as R] };
-    }
-  }
-}
-
-class NodeSqliteConnection implements DatabaseConnection {
-  readonly #db: DatabaseSync;
-
-  public constructor(db: DatabaseSync) {
-    this.#db = db;
-  }
-
-  public async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
-    const { sql, parameters } = compiledQuery;
-    const stmt = this.#db.prepare(sql);
-    // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const statementParameters = parameters as NodeSqliteStatementParameters;
-
-    if (stmt.columns().length > 0) {
-      return {
-        // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        rows: stmt.all(...statementParameters) as O[],
-      };
-    }
-
-    const results = stmt.run(...statementParameters);
-    return {
-      insertId: BigInt(results.lastInsertRowid),
-      numAffectedRows: BigInt(results.changes),
-      rows: [],
-    };
-  }
-
-  public async *streamQuery<R>(
-    compiledQuery: CompiledQuery
-  ): AsyncIterableIterator<QueryResult<R>> {
-    const { sql, parameters } = compiledQuery;
-    const stmt = this.#db.prepare(sql);
-    // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const statementParameters = parameters as NodeSqliteStatementParameters;
-
-    for (const row of stmt.iterate(...statementParameters)) {
       // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       yield { rows: [row as R] };
     }
