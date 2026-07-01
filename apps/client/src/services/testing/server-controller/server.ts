@@ -1,24 +1,13 @@
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
-import { Context, Effect, Layer, LayerMap, PlatformError, Schema } from 'effect';
+import { Context, Effect, Layer, LayerMap } from 'effect';
 import { HttpRouter } from 'effect/unstable/http';
-import { ChildProcessSpawner, ChildProcess } from 'effect/unstable/process';
-import { Rpc, RpcGroup, RpcSerialization, RpcServer } from 'effect/unstable/rpc';
+import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
-const TestServerControllerApi = RpcGroup.make(
-  Rpc.make('start', {
-    payload: Schema.Struct({ port: Schema.Number }),
-    success: Schema.Void,
-    error: Schema.instanceOf(PlatformError.PlatformError),
-  }),
-  Rpc.make('stop', {
-    payload: Schema.Struct({ port: Schema.Number }),
-    success: Schema.Void,
-    error: Schema.instanceOf(PlatformError.PlatformError),
-  })
-);
+import { TestServerControllerApi } from '#src/services/testing/server-controller/spec.ts';
 
 class RunningTestServer extends Context.Service<RunningTestServer>()(
-  'voel/services/testing/server-controller/RunningTestServer',
+  'voel/services/testing/server-controller/server/RunningTestServer',
   {
     make: Effect.fnUntraced(function* ({ port }: { port: number }) {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -42,7 +31,7 @@ class RunningTestServer extends Context.Service<RunningTestServer>()(
 }
 
 class TestServers extends LayerMap.Service<TestServers>()(
-  'voel/services/testing/server-controller/TestServers',
+  'voel/services/testing/server-controller/server/TestServers',
   {
     lookup: ({ port }: { port: number }) => RunningTestServer.layer({ port }),
     idleTimeToLive: 'Infinity',
