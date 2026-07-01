@@ -7,7 +7,8 @@ import {
   test as harnessTest,
 } from '@react-native-harness/runtime';
 import { Cause, Effect, Exit, Fiber, Layer, Scope } from 'effect';
-import { TestClock, TestConsole } from 'effect/testing';
+import * as TestClock from 'effect/testing/TestClock';
+import * as TestConsole from 'effect/testing/TestConsole';
 
 export {
   afterAll,
