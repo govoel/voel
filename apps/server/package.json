@@ -13,16 +13,16 @@
     "test": "bun --bun run vitest"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.85",
+    "@effect/platform-bun": "4.0.0-beta.91",
     "@repo/auth-api": "workspace:*",
     "@repo/effect-kysely": "workspace:*",
     "@repo/source-tap": "workspace:*",
     "@repo/spec-api": "workspace:*",
-    "effect": "4.0.0-beta.85"
+    "effect": "4.0.0-beta.91"
   },
   "devDependencies": {
     "@effect/language-service": "0.86.2",
-    "@effect/vitest": "4.0.0-beta.85",
+    "@effect/vitest": "4.0.0-beta.91",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.3.14",
     "portless": "0.14.0",
