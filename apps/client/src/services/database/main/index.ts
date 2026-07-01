@@ -3,6 +3,7 @@ import { Context, Effect, Layer, Schema } from 'effect';
 import { Kysely, ParseJSONResultsPlugin, makeFromKysely, sql } from '@repo/effect-kysely';
 import type { Dialect, EffectKysely } from '@repo/effect-kysely';
 
+import { OpSqliteDialect } from '#src/services/database/dialect.ts';
 import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts';
 import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
 
@@ -37,31 +38,5 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
   }
 ) {
   public static readonly layer = ({ filename }: { filename: string }) =>
-    Layer.effect(
-      this,
-      Effect.promise(async () => import('#src/services/database/dialect.ts')).pipe(
-        Effect.flatMap(({ OpSqliteDialect }) =>
-          this.make({ dialect: new OpSqliteDialect({ filename }) })
-        )
-      )
-    );
-
-  public static readonly layerTest = ({ filename }: { filename: string }) =>
-    Layer.effect(
-      this,
-      Effect.all([
-        Effect.promise(async () => import('@repo/effect-kysely/dialect.ts')),
-        // @effect-diagnostics-next-line nodeBuiltinImport:off
-        // oxlint-disable-next-line import/no-nodejs-modules
-        Effect.promise(async () => import('node:sqlite')),
-      ]).pipe(
-        Effect.flatMap(([{ NodeSqliteDialect }, { DatabaseSync }]) =>
-          this.make({
-            dialect: new NodeSqliteDialect({
-              database: new DatabaseSync(filename),
-            }),
-          })
-        )
-      )
-    );
+    Layer.effect(this, this.make({ dialect: new OpSqliteDialect({ filename }) }));
 }
