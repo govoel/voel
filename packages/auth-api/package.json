@@ -19,7 +19,7 @@
     "@better-auth/expo": "1.6.20",
     "@repo/effect-kysely": "workspace:*",
     "better-auth": "1.6.20",
-    "effect": "4.0.0-beta.85"
+    "effect": "4.0.0-beta.91"
   },
   "devDependencies": {
     "@effect/language-service": "0.86.2",
