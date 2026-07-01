@@ -14,13 +14,19 @@ export class AuthClientStorageSetItemError extends Schema.TaggedErrorClass<
 export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
   'voel/services/auth-client/storage/AuthClientStorage',
   {
-    make: Effect.gen(function* () {
+    make: Effect.fnUntraced(function* ({
+      getItem,
+      setItem,
+    }: {
+      getItem: (key: string) => string | null;
+      setItem: (key: string, value: string) => void;
+    }) {
       const cache = yield* Cache.make<string, Option.Option<string>, AuthClientStorageGetItemError>(
         {
           capacity: 8,
           lookup: (key) =>
             Effect.try({
-              try: () => Option.fromNullishOr(SecureStore.getItem(key)),
+              try: () => Option.fromNullishOr(getItem(key)),
               catch: () => new AuthClientStorageGetItemError({ key }),
             }),
         }
@@ -34,7 +40,7 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
         setItem: Effect.fnUntraced(function* (key: string, value: string) {
           yield* Effect.try({
             try: () => {
-              SecureStore.setItem(key, value);
+              setItem(key, value);
             },
             catch: () => new AuthClientStorageSetItemError({ key }),
           });
@@ -44,5 +50,22 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layer = Layer.effect(
+    this,
+    this.make({ getItem: SecureStore.getItem, setItem: SecureStore.setItem })
+  );
+
+  public static readonly layerTest = Layer.effect(
+    this,
+    Effect.sync(() => new Map<string, string>()).pipe(
+      Effect.flatMap((items) =>
+        this.make({
+          getItem: (key) => items.get(key) ?? null,
+          setItem: (key, value) => {
+            items.set(key, value);
+          },
+        })
+      )
+    )
+  );
 }
