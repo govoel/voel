@@ -1,5 +1,5 @@
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
-import { Context, Effect, Layer, LayerMap, Schedule } from 'effect';
+import { Console, Context, Effect, Layer, LayerMap, Schedule, Stream } from 'effect';
 import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
@@ -25,6 +25,22 @@ class RunningTestServer extends Context.Service<RunningTestServer>()(
           })
         ),
         (h) => h.kill().pipe(Effect.catch(() => Effect.void))
+      );
+
+      yield* handle.stdout.pipe(
+        Stream.decodeText(),
+        Stream.splitLines,
+        Stream.runForEach((line) => Console.log(`[${port}] ${line}`)),
+        Effect.catch(() => Effect.void),
+        Effect.forkScoped
+      );
+
+      yield* handle.stderr.pipe(
+        Stream.decodeText(),
+        Stream.splitLines,
+        Stream.runForEach((line) => Console.error(`[${port}] ${line}`)),
+        Effect.catch(() => Effect.void),
+        Effect.forkScoped
       );
 
       const client = yield* HttpClient.HttpClient;
@@ -69,12 +85,10 @@ const TestServerControllerRoutes = RpcServer.layerHttp({
   Layer.provideMerge(FetchHttpClient.layer)
 );
 
+export const TestServerControllerServerLive = HttpRouter.serve(TestServerControllerRoutes).pipe(
+  Layer.provide(BunHttpServer.layer({ port: 3000 }))
+);
+
 if (import.meta.main) {
-  const HttpServerLive = BunHttpServer.layer({ port: 3000 });
-
-  const ServerLive = HttpRouter.serve(TestServerControllerRoutes).pipe(
-    Layer.provide(HttpServerLive)
-  );
-
-  BunRuntime.runMain(Layer.launch(ServerLive));
+  BunRuntime.runMain(Layer.launch(TestServerControllerServerLive));
 }
