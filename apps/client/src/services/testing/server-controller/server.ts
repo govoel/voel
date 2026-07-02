@@ -1,6 +1,6 @@
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
-import { Context, Effect, Layer, LayerMap } from 'effect';
-import { HttpRouter } from 'effect/unstable/http';
+import { Context, Effect, Layer, LayerMap, Schedule } from 'effect';
+import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
@@ -15,11 +15,24 @@ class RunningTestServer extends Context.Service<RunningTestServer>()(
       const handle = yield* Effect.acquireRelease(
         spawner.spawn(
           ChildProcess.make('bun', ['run', 'src/index.ts'], {
-            cwd: '../../apps/server',
-            env: { PORT: port.toString() },
+            cwd: `${import.meta.dir}/../../../../../server`,
+            env: {
+              AUTH_SECRET: 'test',
+              DB_FILENAME: ':memory:',
+              PORT: port.toString(),
+            },
+            extendEnv: true,
           })
         ),
         (h) => h.kill().pipe(Effect.catch(() => Effect.void))
+      );
+
+      const client = yield* HttpClient.HttpClient;
+
+      yield* client.get(`http://localhost:${port}/api/auth/get-session`).pipe(
+        Effect.retry({
+          schedule: Schedule.exponential('50 millis').pipe(Schedule.both(Schedule.recurs(50))),
+        })
       );
 
       return { handle, port };
@@ -52,7 +65,8 @@ const TestServerControllerRoutes = RpcServer.layerHttp({
   concurrency: 'unbounded',
 }).pipe(
   Layer.provideMerge(Layer.mergeAll(TestServerControllerHandlers)),
-  Layer.provideMerge(Layer.mergeAll(TestServers.layer, RpcSerialization.layerJson))
+  Layer.provideMerge(Layer.mergeAll(TestServers.layer, RpcSerialization.layerJson)),
+  Layer.provideMerge(FetchHttpClient.layer)
 );
 
 if (import.meta.main) {

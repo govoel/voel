@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Redacted } from 'effect';
+import { Context, Effect, Layer, Option, Random, Redacted } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import { expect, it } from '@repo/effect-react-native-harness';
@@ -10,6 +10,7 @@ import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { CommonGlobalLayers } from '#src/services/layers.ts';
+import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
 const makeClientTestLayers = () =>
   CommonGlobalLayers.pipe(
@@ -19,13 +20,24 @@ const makeClientTestLayers = () =>
         Layer.unwrap
       )
     ),
-    Layer.provideMerge(Layer.mergeAll(AuthClientStorage.layerTest, AppConfig.layerTest()))
+    Layer.provideMerge(
+      Layer.mergeAll(
+        AuthClientStorage.layerTest,
+        AppConfig.layerTest(),
+        TestServerControllerClient.layer
+      )
+    )
   );
 
 it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
   iit.effect(
     'creates an account and sets it as the active account',
     Effect.fnUntraced(function* () {
+      const port = yield* Random.nextIntBetween(49_152, 65_535);
+      const serverUrl = yield* TestServerControllerClient.use((controller) =>
+        controller.start({ port })
+      ).pipe(Effect.map(Account.fields.serverUrl.make));
+
       const services = yield* Effect.context<AccountManager | MainDatabase>();
       const runtime = Atom.runtime(Layer.succeedContext(services));
       const { activeAccountAtom } = makeAccountsAtoms(runtime);
@@ -42,26 +54,29 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
 
       expect(yield* AtomRegistry.getResult(registry, activeAccountAtom)).toBe(Option.none());
 
-      const context = yield* AtomRegistry.getResult(registry, runtime);
+      const manager = yield* AtomRegistry.getResult(registry, runtime).pipe(
+        Effect.map(Context.get(AccountManager))
+      );
 
-      const manager = Context.get(context, AccountManager);
+      const username = Account.fields.username.make(
+        `test.admin.${Math.abs(yield* Random.nextInt)}`
+      );
 
       yield* manager.setupServerWithAccount({
-        serverUrl: Account.fields.serverUrl.make('http://test/'),
+        serverUrl,
         name: 'Test Admin',
-        email: 'test.admin@voel.app',
-        username: Account.fields.username.make('test.admin'),
+        email: `${username}@voel.app`,
+        username,
         password: Redacted.make('ha!niceTry'),
       });
 
-      expect(
-        yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
-          Effect.map(Option.map(({ account }) => account)),
-          Effect.map(({ valueOrUndefined }) => valueOrUndefined)
-        )
-      ).toMatchObject({
-        serverUrl: 'http://test/',
-        username: 'test.admin',
+      const activeAccount = yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
+        Effect.map(Option.map(({ account }) => account))
+      );
+
+      expect(activeAccount.valueOrUndefined).toMatchObject({
+        serverUrl,
+        username,
         active: 1,
         createdAt: expect.any(Number),
         updatedAt: expect.any(Number),
