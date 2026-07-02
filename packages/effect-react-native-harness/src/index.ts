@@ -352,8 +352,8 @@ const makeLayerBlock =
   ) => {
     const { excludeTestServices = false, memoMap: providedMemoMap } = options;
     const layerWithTestEnv = excludeTestServices ? layer_ : Layer.provideMerge(layer_, TestEnv);
-    const memoMap = providedMemoMap ?? Effect.runSync(Layer.makeMemoMap);
-    const scope = Effect.runSync(Scope.make());
+    const memoMap = providedMemoMap ?? Layer.makeMemoMapUnsafe();
+    const scope = Scope.makeUnsafe();
     const contextEffect = Layer.buildWithMemoMap(layerWithTestEnv, memoMap, scope).pipe(
       Effect.orDie,
       Effect.cached,

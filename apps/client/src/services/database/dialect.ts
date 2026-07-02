@@ -63,7 +63,11 @@ export class OpSqliteDriver implements Driver {
   }
 
   public async init(): Promise<void> {
-    this.#db = open({ name: this.#config.filename });
+    this.#db = open(
+      this.#config.filename === ':memory:'
+        ? { name: 'inMemoryDb', location: ':memory:' }
+        : { name: this.#config.filename }
+    );
     this.#connectionSemaphore = await Effect.runPromise(TxSemaphore.make(1));
 
     this.#connection = new OpSqliteConnection(this.#db);

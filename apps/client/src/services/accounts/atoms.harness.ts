@@ -12,7 +12,7 @@ import { Account } from '#src/services/database/main/schema.ts';
 import { CommonGlobalLayers } from '#src/services/layers.ts';
 
 const makeClientTestLayers = () =>
-  Layer.mergeAll(CommonGlobalLayers).pipe(
+  CommonGlobalLayers.pipe(
     Layer.provideMerge(
       AppConfig.pipe(
         Effect.map((config) => MainDatabase.layer({ filename: config.mainDb.filename })),
@@ -40,13 +40,9 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
       registry.mount(runtime);
       registry.mount(activeAccountAtom);
 
-      expect(
-        yield* AtomRegistry.getResult(registry, activeAccountAtom, { suspendOnWaiting: true })
-      ).toBe(Option.none());
+      expect(yield* AtomRegistry.getResult(registry, activeAccountAtom)).toBe(Option.none());
 
-      const context = yield* AtomRegistry.getResult(registry, runtime, {
-        suspendOnWaiting: true,
-      });
+      const context = yield* AtomRegistry.getResult(registry, runtime);
 
       const manager = Context.get(context, AccountManager);
 
@@ -59,10 +55,17 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
       });
 
       expect(
-        yield* AtomRegistry.getResult(registry, activeAccountAtom, {
-          suspendOnWaiting: true,
-        }).pipe(Effect.map(Option.map(({ account }) => account)))
-      );
+        yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
+          Effect.map(Option.map(({ account }) => account)),
+          Effect.map(({ valueOrUndefined }) => valueOrUndefined)
+        )
+      ).toMatchObject({
+        serverUrl: 'http://test/',
+        username: 'test.admin',
+        active: 1,
+        createdAt: expect.any(Number),
+        updatedAt: expect.any(Number),
+      });
     })
   );
 
