@@ -51,6 +51,8 @@
     "import/group-exports": "off",
     "import/namespace": "off",
 
+    "node/no-sync": "off",
+
     "oxc/no-async-await": "off",
     "oxc/no-optional-chaining": "off",
     "oxc/no-rest-spread-properties": "off",
@@ -68,6 +70,7 @@
     "unicorn/no-abusive-eslint-disable": "off",
     "unicorn/no-array-callback-reference": "off",
     "unicorn/no-negated-condition": "off",
+    "unicorn/max-nested-calls": "off",
 
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"

@@ -36,7 +36,7 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
       const port = yield* Random.nextIntBetween(49_152, 65_535);
       const serverUrl = yield* TestServerControllerClient.use((controller) =>
         controller.start({ port })
-      ).pipe(Effect.map(Account.fields.serverUrl.make));
+      ).pipe(Effect.map((url) => Account.fields.serverUrl.make(url)));
 
       const services = yield* Effect.context<AccountManager | MainDatabase>();
       const runtime = Atom.runtime(Layer.succeedContext(services));
@@ -78,7 +78,9 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
         serverUrl,
         username,
         active: 1,
+        // oxlint-disable-next-line typescript/no-unsafe-assignment
         createdAt: expect.any(Number),
+        // oxlint-disable-next-line typescript/no-unsafe-assignment
         updatedAt: expect.any(Number),
       });
     })
