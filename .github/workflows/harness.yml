@@ -180,55 +180,6 @@ jobs:
         if: always() && matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready == 'false'
         run: ccache --show-stats --verbose || true
 
-      - name: Resolve Android Harness SDK cache
-        if: matrix.platform == 'android'
-        id: android-harness-sdk
-        working-directory: apps/client
-        run: |
-          bun - <<'BUN'
-          import { appendFileSync } from 'node:fs';
-
-          const { default: config } = await import('./rn-harness.config.mjs');
-          const androidRunner = config.runners?.find(
-            (runner) => runner.platformId === 'android' || runner.config?.name === 'android',
-          );
-          const device = androidRunner?.config?.device;
-
-          if (device?.type !== 'emulator') {
-            throw new Error('Expected the Android Harness runner to use androidEmulator(...)');
-          }
-
-          const apiLevel = device.avd?.apiLevel;
-
-          if (!Number.isInteger(apiLevel)) {
-            throw new Error('Expected Android Harness emulator apiLevel to be an integer');
-          }
-
-          const outputPath = process.env.GITHUB_OUTPUT;
-
-          if (!outputPath) {
-            throw new Error('GITHUB_OUTPUT is not set');
-          }
-
-          const systemImagePath = `${process.env.ANDROID_HOME}/system-images/android-${apiLevel}/default/x86_64`;
-
-          appendFileSync(outputPath, `api_level=${apiLevel}\n`);
-          appendFileSync(outputPath, `system_image_path=${systemImagePath}\n`);
-          console.log(`Android Harness emulator API level: ${apiLevel}`);
-          BUN
-
-      - name: Restore Android SDK emulator cache
-        if: matrix.platform == 'android'
-        id: cache-android-sdk-restore
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            /usr/local/lib/android/sdk/emulator
-            ${{ steps.android-harness-sdk.outputs.system_image_path }}
-          key: android-sdk-emulator-${{ runner.os }}-api-${{ steps.android-harness-sdk.outputs.api_level }}-default-x86_64-v1
-          restore-keys: |
-            android-sdk-emulator-${{ runner.os }}-api-${{ steps.android-harness-sdk.outputs.api_level }}-default-x86_64-
-
       - name: Enable iOS ccache
         if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
         working-directory: apps/client
@@ -386,15 +337,6 @@ jobs:
           cacheAvd: true
           afterRunHook: |
             echo "Harness finished with exit code: $HARNESS_EXIT_CODE"
-
-      - name: Save Android SDK cache
-        if: matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true' && steps.cache-android-sdk-restore.outputs.cache-primary-key != ''
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            /usr/local/lib/android/sdk/emulator
-            ${{ steps.android-harness-sdk.outputs.system_image_path }}
-          key: ${{ steps.cache-android-sdk-restore.outputs.cache-primary-key }}
 
       - name: Upload test server controller log
         if: always()
