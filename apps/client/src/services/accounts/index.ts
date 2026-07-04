@@ -90,7 +90,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           return Option.none();
         }
 
-        const scope = yield* Scope.make();
+        const scope = yield* Scope.fork(yield* Scope.Scope);
         const authClient = yield* Option.match(existingAuthClient, {
           onSome: Effect.succeed,
           onNone: () =>

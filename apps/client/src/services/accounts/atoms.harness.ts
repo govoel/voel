@@ -21,13 +21,7 @@ const makeClientTestLayers = () =>
         Layer.unwrap
       )
     ),
-    Layer.provideMerge(
-      Layer.mergeAll(
-        AuthClientStorage.layerTest,
-        AppConfig.layerTest(),
-        TestServerControllerClient.layer
-      )
-    )
+    Layer.provideMerge(Layer.mergeAll(AuthClientStorage.layerTest, AppConfig.layerTest()))
   );
 
 type AccountManagerService = typeof AccountManager.Service;
@@ -57,6 +51,53 @@ const makeAuthClient = ({
   username,
 }: Pick<ActiveAccount['account'], 'serverUrl' | 'username'>) =>
   createVoelAuthClient({ serverUrl, username, storage: makeAuthClientStorage() });
+
+const makeAtomTaskScheduler = () => {
+  const scheduledTasks = new Set<() => void>();
+
+  return {
+    scheduleTask: (task: () => void) => {
+      let active = true;
+      const scheduledTask = () => {
+        if (!active) {
+          return;
+        }
+
+        active = false;
+        scheduledTasks.delete(scheduledTask);
+        task();
+      };
+
+      scheduledTasks.add(scheduledTask);
+      queueMicrotask(scheduledTask);
+
+      return () => {
+        active = false;
+        scheduledTasks.delete(scheduledTask);
+      };
+    },
+    drain: Effect.sync(() => {
+      let drainCount = 0;
+
+      while (scheduledTasks.size > 0) {
+        if (drainCount > 1000) {
+          throw new Error('Atom task scheduler did not settle.');
+        }
+
+        drainCount += 1;
+
+        const tasks: (() => void)[] = [];
+        for (const scheduledTask of scheduledTasks) {
+          tasks.push(scheduledTask);
+        }
+
+        for (const scheduledTask of tasks) {
+          scheduledTask();
+        }
+      }
+    }),
+  };
+};
 
 const makeUseSessionSubscribeSpy = Effect.fnUntraced(function* (authClient: AuthClient) {
   const originalSubscribe = authClient.useSession.subscribe.bind(authClient.useSession);
@@ -98,7 +139,8 @@ const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
   const manager = Context.get(services, AccountManager);
   const runtime = Atom.runtime(Layer.succeedContext(services));
   const { activeAccountAtom, activeAccountSessionAtom } = makeAccountsAtoms(runtime);
-  const registry = AtomRegistry.make();
+  const atomTaskScheduler = makeAtomTaskScheduler();
+  const registry = AtomRegistry.make({ scheduleTask: atomTaskScheduler.scheduleTask });
 
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {
@@ -108,149 +150,162 @@ const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
 
   registry.mount(runtime);
 
-  return { activeAccountAtom, activeAccountSessionAtom, manager, registry };
+  return {
+    activeAccountAtom,
+    activeAccountSessionAtom,
+    drainAtomTasks: atomTaskScheduler.drain,
+    manager,
+    registry,
+  };
 });
 
-const flushAtomStreams = Effect.gen(function* () {
-  yield* Effect.yieldNow;
-  yield* Effect.yieldNow;
-});
-
-it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
+it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => {
   iit.effect(
     'creating an account and sets it as the active account',
-    Effect.fnUntraced(function* () {
-      const serverUrl = yield* makeServerUrl();
-      const { activeAccountAtom, manager, registry } = yield* makeTestAccountsAtoms();
+    Effect.fnUntraced(
+      function* () {
+        const serverUrl = yield* makeServerUrl();
+        const { activeAccountAtom, manager, registry } = yield* makeTestAccountsAtoms();
 
-      registry.mount(activeAccountAtom);
+        registry.mount(activeAccountAtom);
 
-      expect(yield* AtomRegistry.getResult(registry, activeAccountAtom)).toBe(Option.none());
+        expect(yield* AtomRegistry.getResult(registry, activeAccountAtom)).toBe(Option.none());
 
-      const username = Account.fields.username.make(
-        `test.admin.${Math.abs(yield* Random.nextInt)}`
-      );
+        const username = Account.fields.username.make(
+          `test.admin.${Math.abs(yield* Random.nextInt)}`
+        );
 
-      yield* manager.setupServerWithAccount({
-        serverUrl,
-        name: 'Test Admin',
-        email: `${username}@voel.app`,
-        username,
-        password: Redacted.make('ha!niceTry'),
-      });
+        yield* manager.setupServerWithAccount({
+          serverUrl,
+          name: 'Test Admin',
+          email: `${username}@voel.app`,
+          username,
+          password: Redacted.make('ha!niceTry'),
+        });
 
-      const activeAccount = yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
-        Effect.map(Option.map(({ account }) => account))
-      );
+        const activeAccount = yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
+          Effect.map(Option.map(({ account }) => account))
+        );
 
-      expect(activeAccount.valueOrUndefined).toMatchObject({
-        serverUrl,
-        username,
-        active: 1,
-        // oxlint-disable-next-line typescript/no-unsafe-assignment
-        createdAt: expect.any(Number),
-        // oxlint-disable-next-line typescript/no-unsafe-assignment
-        updatedAt: expect.any(Number),
-      });
-    })
+        expect(activeAccount.valueOrUndefined).toMatchObject({
+          serverUrl,
+          username,
+          active: 1,
+          // oxlint-disable-next-line typescript/no-unsafe-assignment
+          createdAt: expect.any(Number),
+          // oxlint-disable-next-line typescript/no-unsafe-assignment
+          updatedAt: expect.any(Number),
+        });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
   );
 
   iit.effect(
     'subscribes to authClient.useSession and unsubscribes on account change',
-    Effect.fnUntraced(function* () {
-      const serverUrl = yield* makeServerUrl();
-      const { activeAccountSessionAtom, manager, registry } = yield* makeTestAccountsAtoms();
-      const firstUsername = Account.fields.username.make(
-        `test.admin.${Math.abs(yield* Random.nextInt)}`
-      );
-      const secondUsername = Account.fields.username.make(
-        `test.admin.${Math.abs(yield* Random.nextInt)}`
-      );
-      const firstClient = yield* makeAuthClient({ serverUrl, username: firstUsername });
-      const secondClient = yield* makeAuthClient({ serverUrl, username: secondUsername });
-      const firstClientSubscribe = yield* makeUseSessionSubscribeSpy(firstClient);
-      const secondClientSubscribe = yield* makeUseSessionSubscribeSpy(secondClient);
+    Effect.fnUntraced(
+      function* () {
+        const serverUrl = yield* makeServerUrl();
+        const firstUsername = Account.fields.username.make(
+          `test.admin.${Math.abs(yield* Random.nextInt)}`
+        );
+        const secondUsername = Account.fields.username.make(
+          `test.user.${Math.abs(yield* Random.nextInt)}`
+        );
+        const firstClient = yield* makeAuthClient({ serverUrl, username: firstUsername });
+        const secondClient = yield* makeAuthClient({ serverUrl, username: secondUsername });
+        const firstClientSubscribe = yield* makeUseSessionSubscribeSpy(firstClient);
+        const secondClientSubscribe = yield* makeUseSessionSubscribeSpy(secondClient);
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username: firstUsername,
-        authClient: Option.some(firstClient),
-      });
+        yield* Effect.gen(function* () {
+          const { activeAccountSessionAtom, drainAtomTasks, manager, registry } =
+            yield* makeTestAccountsAtoms();
 
-      expect(firstClientSubscribe.subscribeCount).toBe(1);
+          yield* manager.setActiveAccount({
+            serverUrl,
+            username: firstUsername,
+            authClient: Option.some(firstClient),
+          });
 
-      registry.mount(activeAccountSessionAtom);
-      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
+          // AccountManager subscribes once to keep Better Auth session alive
+          yield* drainAtomTasks;
+          expect(firstClientSubscribe.subscribeCount).toBe(1);
 
-      // AccountManager subscribes once to keep Better Auth alive; reading the atom adds the second subscription.
-      expect(firstClientSubscribe.subscribeCount).toBe(2);
-      expect(firstClientSubscribe.unsubscribeCount).toBe(0);
+          // Reading the atom adds the second subscription.
+          registry.mount(activeAccountSessionAtom);
+          yield* drainAtomTasks;
+          expect(firstClientSubscribe.subscribeCount).toBe(2);
+          expect(firstClientSubscribe.unsubscribeCount).toBe(0);
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username: secondUsername,
-        authClient: Option.some(secondClient),
-      });
+          yield* manager.setActiveAccount({
+            serverUrl,
+            username: secondUsername,
+            authClient: Option.some(secondClient),
+          });
 
-      yield* flushAtomStreams;
-      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
+          yield* drainAtomTasks;
+          expect(firstClientSubscribe.unsubscribeCount).toBe(2);
+          expect(secondClientSubscribe.subscribeCount).toBe(2);
+        }).pipe(Effect.provide(makeClientTestLayers()), Effect.scoped);
 
-      expect(firstClientSubscribe.unsubscribeCount).toBe(2);
-      expect(secondClientSubscribe.subscribeCount).toBe(2);
-    })
+        expect(secondClientSubscribe.unsubscribeCount).toBe(2);
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
   );
 
   iit.effect(
     'does not resubscribe when AccountManager emits changes for the same auth client',
-    Effect.fnUntraced(function* () {
-      const serverUrl = yield* makeServerUrl();
-      const { activeAccountAtom, activeAccountSessionAtom, manager, registry } =
-        yield* makeTestAccountsAtoms();
-      const firstUsername = Account.fields.username.make(
-        `test.admin.${Math.abs(yield* Random.nextInt)}`
-      );
-      const secondUsername = Account.fields.username.make(
-        `test.admin.${Math.abs(yield* Random.nextInt)}`
-      );
-      const client = yield* makeAuthClient({ serverUrl, username: firstUsername });
-      const clientSubscribe = yield* makeUseSessionSubscribeSpy(client);
+    Effect.fnUntraced(
+      function* () {
+        const serverUrl = yield* makeServerUrl();
+        const { activeAccountAtom, activeAccountSessionAtom, drainAtomTasks, manager, registry } =
+          yield* makeTestAccountsAtoms();
+        const firstUsername = Account.fields.username.make(
+          `test.admin.${Math.abs(yield* Random.nextInt)}`
+        );
+        const secondUsername = Account.fields.username.make(
+          `test.user.${Math.abs(yield* Random.nextInt)}`
+        );
+        const client = yield* makeAuthClient({ serverUrl, username: firstUsername });
+        const clientSubscribe = yield* makeUseSessionSubscribeSpy(client);
 
-      registry.mount(activeAccountAtom);
+        yield* manager.setActiveAccount({
+          serverUrl,
+          username: firstUsername,
+          authClient: Option.some(client),
+        });
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username: firstUsername,
-        authClient: Option.some(client),
-      });
+        // AccountManager subscribes once to keep Better Auth session alive
+        yield* drainAtomTasks;
+        expect(clientSubscribe.subscribeCount).toBe(1);
 
-      expect(clientSubscribe.subscribeCount).toBe(1);
+        // Reading the atom adds the second subscription.
+        registry.mount(activeAccountSessionAtom);
+        yield* drainAtomTasks;
+        expect(clientSubscribe.subscribeCount).toBe(2);
+        expect(clientSubscribe.unsubscribeCount).toBe(0);
 
-      registry.mount(activeAccountSessionAtom);
-      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
+        yield* manager.setActiveAccount({
+          serverUrl,
+          username: secondUsername,
+          authClient: Option.some(client),
+        });
 
-      // AccountManager subscribes once to keep Better Auth alive; reading the atom adds the second subscription.
-      expect(clientSubscribe.subscribeCount).toBe(2);
-      expect(clientSubscribe.unsubscribeCount).toBe(0);
+        yield* drainAtomTasks;
+        const activeAccount = yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
+          Effect.map(Option.map(({ account }) => account))
+        );
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username: secondUsername,
-        authClient: Option.some(client),
-      });
-      yield* flushAtomStreams;
-      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
-
-      const activeAccount = yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
-        Effect.map(Option.map(({ account }) => account))
-      );
-
-      expect(activeAccount.valueOrUndefined).toMatchObject({
-        serverUrl,
-        username: secondUsername,
-      });
-      // The extra call is AccountManager refreshing its keepalive subscription for the new account.
-      expect(clientSubscribe.subscribeCount).toBe(3);
-      expect(clientSubscribe.unsubscribeCount).toBe(1);
-    })
+        expect(activeAccount.valueOrUndefined).toMatchObject({
+          serverUrl,
+          username: secondUsername,
+        });
+        // The extra call is AccountManager refreshing its keepalive subscription for the new account.
+        expect(clientSubscribe.subscribeCount).toBe(3);
+        expect(clientSubscribe.unsubscribeCount).toBe(1);
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
   );
 });
