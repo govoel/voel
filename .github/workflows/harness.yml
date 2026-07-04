@@ -50,19 +50,6 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
-      - name: Set up JDK 17
-        if: matrix.platform == 'android'
-        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
-        with:
-          java-version: '17'
-          distribution: temurin
-
-      - name: Setup Gradle
-        if: matrix.platform == 'android'
-        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          cache-read-only: false
-
       - name: Generate Android project
         if: matrix.platform == 'android'
         working-directory: apps/client
@@ -102,46 +89,6 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install Android ccache
-        if: matrix.platform == 'android'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ccache
-
-      - name: Install iOS ccache
-        if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
-        run: brew install ccache
-
-      - name: Setup ccache
-        if: matrix.platform == 'android' || (matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true')
-        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # v1.2.23
-        with:
-          create-symlink: false
-          key: ${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.hash }}
-          restore-keys: ${{ runner.os }}-${{ matrix.platform }}-
-          max-size: 5G
-          save: true
-          append-timestamp: true
-        env:
-          CCACHE_DIR: ${{ runner.temp }}/ccache
-
-      - name: Configure ccache
-        if: matrix.platform == 'android' || (matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true')
-        run: |
-          ccache_dir="${{ runner.temp }}/ccache"
-          mkdir -p "$ccache_dir"
-          echo "CCACHE_DIR=$ccache_dir" >> "$GITHUB_ENV"
-          echo "CCACHE_CONFIGPATH=$ccache_dir/ccache.conf" >> "$GITHUB_ENV"
-          echo "USE_CCACHE=1" >> "$GITHUB_ENV"
-          echo "CCACHE_SLOPPINESS=clang_index_store,file_macro,file_stat_matches,include_file_mtime,include_file_ctime,ivfsoverlay,modules,pch_defines,system_headers,time_macros" >> "$GITHUB_ENV"
-          echo "CCACHE_FILECLONE=true" >> "$GITHUB_ENV"
-          echo "CCACHE_DEPEND=true" >> "$GITHUB_ENV"
-          echo "CCACHE_INODECACHE=true" >> "$GITHUB_ENV"
-          export CCACHE_DIR="$ccache_dir"
-          export CCACHE_CONFIGPATH="$ccache_dir/ccache.conf"
-          ccache --max-size=5G
-          ccache --set-config=compiler_check="%compiler% --version"
-          ccache --zero-stats
-          ccache --show-config
-
       - name: Restore Android Gradle build cache
         if: matrix.platform == 'android'
         id: cache-android-gradle-build-restore
@@ -168,6 +115,59 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up JDK 17
+        if: matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready != 'true'
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          java-version: '17'
+          distribution: temurin
+
+      - name: Setup Gradle
+        if: matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready != 'true'
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-read-only: false
+
+      - name: Install Android ccache
+        if: matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready != 'true'
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ccache
+
+      - name: Install iOS ccache
+        if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
+        run: brew install ccache
+
+      - name: Setup ccache
+        if: (matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready != 'true') || (matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true')
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # v1.2.23
+        with:
+          create-symlink: false
+          key: ${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.hash }}
+          restore-keys: ${{ runner.os }}-${{ matrix.platform }}-
+          max-size: 5G
+          save: true
+          append-timestamp: true
+        env:
+          CCACHE_DIR: ${{ runner.temp }}/ccache
+
+      - name: Configure ccache
+        if: (matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready != 'true') || (matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true')
+        run: |
+          ccache_dir="${{ runner.temp }}/ccache"
+          mkdir -p "$ccache_dir"
+          echo "CCACHE_DIR=$ccache_dir" >> "$GITHUB_ENV"
+          echo "CCACHE_CONFIGPATH=$ccache_dir/ccache.conf" >> "$GITHUB_ENV"
+          echo "USE_CCACHE=1" >> "$GITHUB_ENV"
+          echo "CCACHE_SLOPPINESS=clang_index_store,file_macro,file_stat_matches,include_file_mtime,include_file_ctime,ivfsoverlay,modules,pch_defines,system_headers,time_macros" >> "$GITHUB_ENV"
+          echo "CCACHE_FILECLONE=true" >> "$GITHUB_ENV"
+          echo "CCACHE_DEPEND=true" >> "$GITHUB_ENV"
+          echo "CCACHE_INODECACHE=true" >> "$GITHUB_ENV"
+          export CCACHE_DIR="$ccache_dir"
+          export CCACHE_CONFIGPATH="$ccache_dir/ccache.conf"
+          ccache --max-size=5G
+          ccache --set-config=compiler_check="%compiler% --version"
+          ccache --zero-stats
+          ccache --show-config
+
       - name: Build Android app
         if: matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready != 'true'
         working-directory: apps/client/android
@@ -177,7 +177,7 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
 
       - name: Android ccache stats
-        if: always() && matrix.platform == 'android'
+        if: always() && matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready == 'false'
         run: ccache --show-stats --verbose || true
 
       - name: Restore Android SDK emulator cache
@@ -272,7 +272,7 @@ jobs:
           key: ${{ steps.cache-ios-app-restore.outputs.cache-primary-key }}
 
       - name: Save Android Gradle build cache
-        if: always() && matrix.platform == 'android' && steps.cache-android-gradle-build-restore.outputs.cache-hit != 'true' && steps.cache-android-gradle-build-restore.outputs.cache-primary-key != ''
+        if: matrix.platform == 'android' && steps.cache-android-gradle-build-restore.outputs.cache-hit != 'true' && steps.cache-android-gradle-build-restore.outputs.cache-primary-key != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -282,7 +282,7 @@ jobs:
           key: ${{ steps.cache-android-gradle-build-restore.outputs.cache-primary-key }}
 
       - name: Save CocoaPods cache
-        if: always() && matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true' && steps.cache-pods-restore.outputs.cache-hit != 'true' && steps.cache-pods-restore.outputs.cache-primary-key != ''
+        if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true' && steps.cache-pods-restore.outputs.cache-hit != 'true' && steps.cache-pods-restore.outputs.cache-primary-key != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -310,7 +310,7 @@ jobs:
             echo "Harness finished with exit code: $HARNESS_EXIT_CODE"
 
       - name: Save Android SDK cache
-        if: always() && matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true' && steps.cache-android-sdk-restore.outputs.cache-primary-key != ''
+        if: matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true' && steps.cache-android-sdk-restore.outputs.cache-primary-key != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
