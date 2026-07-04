@@ -1,4 +1,4 @@
-import { Context, Deferred, Effect, Layer, Option, Random, Redacted } from 'effect';
+import { Context, Effect, Layer, Option, Random, Redacted } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import { expect, it, spyOn } from '@repo/effect-react-native-harness';
@@ -34,29 +34,6 @@ type AccountManagerService = typeof AccountManager.Service;
 type ActiveAccount = Option.Option.Value<Effect.Success<AccountManagerService['state']>>;
 type AuthClient = ActiveAccount['state']['authClient'];
 
-interface CountWaiter {
-  readonly count: number;
-  readonly deferred: Deferred.Deferred<boolean>;
-}
-
-const waitForCount = (waiters: Set<CountWaiter>, getCount: () => number) => (count: number) =>
-  Effect.gen(function* () {
-    if (getCount() >= count) {
-      return true;
-    }
-
-    const deferred = yield* Deferred.make<boolean>();
-    const waiter = { count, deferred };
-    waiters.add(waiter);
-
-    if (getCount() >= count) {
-      waiters.delete(waiter);
-      yield* Deferred.succeed(deferred, true);
-    }
-
-    return yield* Deferred.await(deferred);
-  });
-
 const makeServerUrl = Effect.fnUntraced(function* () {
   const port = yield* Random.nextIntBetween(49_152, 65_535);
   return yield* TestServerControllerClient.use((controller) => controller.start({ port })).pipe(
@@ -82,33 +59,18 @@ const makeAuthClient = ({
   createVoelAuthClient({ serverUrl, username, storage: makeAuthClientStorage() });
 
 const makeUseSessionSubscribeSpy = Effect.fnUntraced(function* (authClient: AuthClient) {
-  const runSyncWithServices = yield* Effect.context().pipe(Effect.map(Effect.runSyncWith));
-
   const originalSubscribe = authClient.useSession.subscribe.bind(authClient.useSession);
-  const subscribeWaiters = new Set<CountWaiter>();
-  const unsubscribeWaiters = new Set<CountWaiter>();
   let subscribeCount = 0;
   let unsubscribeCount = 0;
-
-  const notifyWaiters = (waiters: Set<CountWaiter>, currentCount: number) => {
-    for (const waiter of waiters) {
-      if (currentCount >= waiter.count) {
-        waiters.delete(waiter);
-        runSyncWithServices(Deferred.succeed(waiter.deferred, true));
-      }
-    }
-  };
 
   const subscribeSpy = spyOn(authClient.useSession, 'subscribe').mockImplementation(
     (subscriber) => {
       subscribeCount += 1;
-      notifyWaiters(subscribeWaiters, subscribeCount);
 
       const unsubscribe = originalSubscribe(subscriber);
 
       return () => {
         unsubscribeCount += 1;
-        notifyWaiters(unsubscribeWaiters, unsubscribeCount);
 
         unsubscribe();
       };
@@ -128,8 +90,6 @@ const makeUseSessionSubscribeSpy = Effect.fnUntraced(function* (authClient: Auth
     get unsubscribeCount() {
       return unsubscribeCount;
     },
-    awaitSubscribeCount: waitForCount(subscribeWaiters, () => subscribeCount),
-    awaitUnsubscribeCount: waitForCount(unsubscribeWaiters, () => unsubscribeCount),
   };
 });
 
@@ -211,16 +171,18 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
       const firstClientSubscribe = yield* makeUseSessionSubscribeSpy(firstClient);
       const secondClientSubscribe = yield* makeUseSessionSubscribeSpy(secondClient);
 
-      registry.mount(activeAccountSessionAtom);
-
       yield* manager.setActiveAccount({
         serverUrl,
         username: firstUsername,
         authClient: Option.some(firstClient),
       });
 
-      yield* firstClientSubscribe.awaitSubscribeCount(2);
-      // AccountManager subscribes once to keep Better Auth alive; the atom adds the second subscription.
+      expect(firstClientSubscribe.subscribeCount).toBe(1);
+
+      registry.mount(activeAccountSessionAtom);
+      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
+
+      // AccountManager subscribes once to keep Better Auth alive; reading the atom adds the second subscription.
       expect(firstClientSubscribe.subscribeCount).toBe(2);
       expect(firstClientSubscribe.unsubscribeCount).toBe(0);
 
@@ -230,8 +192,9 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
         authClient: Option.some(secondClient),
       });
 
-      yield* firstClientSubscribe.awaitUnsubscribeCount(2);
-      yield* secondClientSubscribe.awaitSubscribeCount(2);
+      yield* flushAtomStreams;
+      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
+
       expect(firstClientSubscribe.unsubscribeCount).toBe(2);
       expect(secondClientSubscribe.subscribeCount).toBe(2);
     })
@@ -253,7 +216,6 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
       const clientSubscribe = yield* makeUseSessionSubscribeSpy(client);
 
       registry.mount(activeAccountAtom);
-      registry.mount(activeAccountSessionAtom);
 
       yield* manager.setActiveAccount({
         serverUrl,
@@ -261,8 +223,12 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
         authClient: Option.some(client),
       });
 
-      yield* clientSubscribe.awaitSubscribeCount(2);
-      // AccountManager subscribes once to keep Better Auth alive; the atom adds the second subscription.
+      expect(clientSubscribe.subscribeCount).toBe(1);
+
+      registry.mount(activeAccountSessionAtom);
+      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
+
+      // AccountManager subscribes once to keep Better Auth alive; reading the atom adds the second subscription.
       expect(clientSubscribe.subscribeCount).toBe(2);
       expect(clientSubscribe.unsubscribeCount).toBe(0);
 
@@ -272,6 +238,7 @@ it.layer(makeClientTestLayers())('activeAccountSessionAtom', (iit) => {
         authClient: Option.some(client),
       });
       yield* flushAtomStreams;
+      yield* AtomRegistry.getResult(registry, activeAccountSessionAtom);
 
       const activeAccount = yield* AtomRegistry.getResult(registry, activeAccountAtom).pipe(
         Effect.map(Option.map(({ account }) => account))
