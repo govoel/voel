@@ -130,8 +130,10 @@ jobs:
             exit 1
           fi
 
+          log_path="$RUNNER_TEMP/ios-simulator-boot.log"
           echo "Starting simulator boot for $IOS_SIMULATOR_NAME ($IOS_SIMULATOR_OS): $udid"
-          xcrun simctl boot "$udid" || true
+          echo "Simulator boot log: $log_path"
+          nohup xcrun simctl boot "$udid" > "$log_path" 2>&1 &
 
       - name: Install Android ccache
         if: matrix.platform == 'android'
