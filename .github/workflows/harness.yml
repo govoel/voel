@@ -189,8 +189,6 @@ jobs:
             /usr/local/lib/android/sdk/emulator
             /usr/local/lib/android/sdk/platforms/android-35
             /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
-            /usr/local/lib/android/sdk/ndk
-            /usr/local/lib/android/sdk/cmake
           key: android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-v1
           restore-keys: |
             android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-
@@ -319,8 +317,6 @@ jobs:
             /usr/local/lib/android/sdk/emulator
             /usr/local/lib/android/sdk/platforms/android-35
             /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
-            /usr/local/lib/android/sdk/ndk
-            /usr/local/lib/android/sdk/cmake
           key: ${{ steps.cache-android-sdk-restore.outputs.cache-primary-key }}
 
       - name: Upload test server controller log
