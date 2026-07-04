@@ -21,7 +21,7 @@
     "ios:prod": "RELEASE_CHANNEL=prod expo run:ios"
   },
   "dependencies": {
-    "@babel/runtime": "7.29.7",
+    "@babel/runtime": "8.0.0",
     "@better-auth/expo": "1.6.23",
     "@effect/atom-react": "4.0.0-beta.93",
     "@expo-google-fonts/google-sans": "0.4.0",
