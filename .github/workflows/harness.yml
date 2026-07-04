@@ -52,6 +52,38 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
+      - name: Start iOS simulator boot
+        if: matrix.platform == 'ios'
+        run: |
+          boot_script="$RUNNER_TEMP/boot-ios-simulator.sh"
+          cat > "$boot_script" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          runtime_suffix="iOS-${IOS_SIMULATOR_OS//./-}"
+          udid="$(xcrun simctl list devices available --json | jq -r --arg name "$IOS_SIMULATOR_NAME" --arg runtime_suffix "$runtime_suffix" '
+            .devices
+            | to_entries[]
+            | select(.key | endswith($runtime_suffix))
+            | .value[]
+            | select(.name == $name)
+            | .udid
+          ' | head -n 1)"
+
+          if [ -z "$udid" ]; then
+            echo "Could not find simulator: $IOS_SIMULATOR_NAME ($IOS_SIMULATOR_OS)"
+            exit 1
+          fi
+
+          echo "Starting simulator boot for $IOS_SIMULATOR_NAME ($IOS_SIMULATOR_OS): $udid"
+          xcrun simctl boot "$udid" || true
+          SH
+          chmod +x "$boot_script"
+
+          log_path="$RUNNER_TEMP/ios-simulator-boot.log"
+          echo "Starting simulator boot in the background. Log: $log_path"
+          nohup "$boot_script" > "$log_path" 2>&1 &
+
       - name: Set up JDK 17
         if: matrix.platform == 'android'
         uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
@@ -111,29 +143,6 @@ jobs:
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Boot iOS simulator
-        if: matrix.platform == 'ios'
-        run: |
-          runtime_suffix="iOS-${IOS_SIMULATOR_OS//./-}"
-          udid="$(xcrun simctl list devices available --json | jq -r --arg name "$IOS_SIMULATOR_NAME" --arg runtime_suffix "$runtime_suffix" '
-            .devices
-            | to_entries[]
-            | select(.key | endswith($runtime_suffix))
-            | .value[]
-            | select(.name == $name)
-            | .udid
-          ' | head -n 1)"
-
-          if [ -z "$udid" ]; then
-            echo "Could not find simulator: $IOS_SIMULATOR_NAME ($IOS_SIMULATOR_OS)"
-            exit 1
-          fi
-
-          log_path="$RUNNER_TEMP/ios-simulator-boot.log"
-          echo "Starting simulator boot for $IOS_SIMULATOR_NAME ($IOS_SIMULATOR_OS): $udid"
-          echo "Simulator boot log: $log_path"
-          nohup xcrun simctl boot "$udid" > "$log_path" 2>&1 &
 
       - name: Install Android ccache
         if: matrix.platform == 'android'
@@ -323,7 +332,7 @@ jobs:
           key: ${{ steps.cache-ios-app-restore.outputs.cache-primary-key }}
 
       - name: Save Android Gradle build cache
-        if: always() && matrix.platform == 'android' && steps.cache-android-gradle-build-restore.outputs.cache-hit != 'true'
+        if: always() && matrix.platform == 'android' && steps.cache-android-gradle-build-restore.outputs.cache-hit != 'true' && steps.cache-android-gradle-build-restore.outputs.cache-primary-key != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -333,7 +342,7 @@ jobs:
           key: ${{ steps.cache-android-gradle-build-restore.outputs.cache-primary-key }}
 
       - name: Save CocoaPods cache
-        if: always() && matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true' && steps.cache-pods-restore.outputs.cache-hit != 'true'
+        if: always() && matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true' && steps.cache-pods-restore.outputs.cache-hit != 'true' && steps.cache-pods-restore.outputs.cache-primary-key != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -364,7 +373,7 @@ jobs:
             echo "Harness finished with exit code: $HARNESS_EXIT_CODE"
 
       - name: Save Android SDK cache
-        if: always() && matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true'
+        if: always() && matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true' && steps.cache-android-sdk-restore.outputs.cache-primary-key != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
