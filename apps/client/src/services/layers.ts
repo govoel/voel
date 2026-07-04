@@ -7,16 +7,19 @@ import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 
-export const CommonLayers = Layer.mergeAll(AccountManager.layer).pipe(
+export const CommonGlobalLayers = Layer.mergeAll(AccountManager.layer).pipe(
+  Layer.provideMerge(Layer.mergeAll(FetchHttpClient.layer, Reactivity.layer))
+);
+
+export const CommonExpoLayers = Layer.mergeAll(CommonGlobalLayers).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       AppConfig.pipe(
         Effect.map((config) => MainDatabase.layer({ filename: config.mainDb.filename })),
         Layer.unwrap
-      ),
-      AuthClientStorage.layer
+      )
     )
   ),
-  Layer.provideMerge(Layer.mergeAll(AppConfig.layer, FetchHttpClient.layer, Reactivity.layer)),
+  Layer.provideMerge(Layer.mergeAll(AuthClientStorage.layer, AppConfig.layer)),
   Layer.orDie
 );

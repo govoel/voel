@@ -1,0 +1,216 @@
+diff --git a/dist/resolvers/resolver.js b/dist/resolvers/resolver.js
+index f9035b775331d31ec343c9c359ac235a07f72c76..b9199918e5d364fbdffdd8897b8414453d21ec9f 100644
+--- a/dist/resolvers/resolver.js
++++ b/dist/resolvers/resolver.js
+@@ -1,29 +1,78 @@
+ import { createRequire } from 'node:module';
++import fs from 'node:fs';
+ import path from 'node:path';
+ import { getResolvedEntryPointWithoutExtension } from '../entry-point-utils.js';
+ import { createHarnessResolver } from './composite-resolver.js';
+ import { createTsConfigResolver } from './tsconfig-resolver.js';
+ const require = createRequire(import.meta.url);
++const CODE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
+ const getExtensionlessAbsolutePath = (basePath, relativePath = '') => {
+     const fullPath = path.resolve(basePath, relativePath);
+     const parsed = path.parse(fullPath);
+     return path.join(parsed.dir, parsed.name);
+ };
++const getRealExtensionlessPath = (extensionlessPath) => {
++    for (const extension of CODE_EXTENSIONS) {
++        const candidatePath = `${extensionlessPath}${extension}`;
++        try {
++            if (!fs.statSync(candidatePath).isFile()) {
++                continue;
++            }
++            return getExtensionlessAbsolutePath(fs.realpathSync(candidatePath));
++        }
++        catch {
++            continue;
++        }
++    }
++    return null;
++};
++const getOptionalExpoWinterPath = (rootPath) => {
++    for (const specifier of ['expo/src/winter', 'expo/src/winter/index.ts']) {
++        try {
++            return require.resolve(specifier, { paths: [rootPath] });
++        }
++        catch {
++            continue;
++        }
++    }
++    return null;
++};
++const getImportSpecifier = (fromPath, toPath) => {
++    const relativePath = path.relative(path.dirname(fromPath), toPath);
++    const importPath = relativePath.startsWith('.')
++        ? relativePath
++        : `./${relativePath}`;
++    return importPath.split(path.sep).join('/');
++};
++const getResolvedHarnessEntryPoint = (rootPath, resolvedHarnessPath) => {
++    const expoWinterPath = getOptionalExpoWinterPath(rootPath);
++    if (!expoWinterPath) {
++        return resolvedHarnessPath;
++    }
++    const entryPointPath = path.join(rootPath, '.harness', 'entry-point.js');
++    const entryPointContent = [expoWinterPath, resolvedHarnessPath]
++        .map((modulePath) => `import ${JSON.stringify(getImportSpecifier(entryPointPath, modulePath))};`)
++        .join('\n');
++    fs.mkdirSync(path.dirname(entryPointPath), { recursive: true });
++    fs.writeFileSync(entryPointPath, `${entryPointContent}\n`);
++    return entryPointPath;
++};
+ export const createHarnessEntryPointResolver = (harnessConfig) => {
+     const rootPath = path.resolve(process.cwd());
+     const expectedEntryPoint = path.resolve(rootPath, getResolvedEntryPointWithoutExtension(rootPath, harnessConfig.entryPoint));
++    const realExpectedEntryPoint = getRealExtensionlessPath(expectedEntryPoint) ?? expectedEntryPoint;
+     const resolvedHarnessPath = require.resolve('@react-native-harness/runtime/entry-point');
++    const resolvedHarnessEntryPoint = getResolvedHarnessEntryPoint(rootPath, resolvedHarnessPath);
+     return (context, moduleName, platform) => {
+         void platform;
+         const currentOrigin = path.resolve(context.originModulePath);
+-        if (currentOrigin !== rootPath) {
+-            return null;
+-        }
+         const requestedModule = getExtensionlessAbsolutePath(currentOrigin, moduleName);
+-        if (requestedModule === expectedEntryPoint) {
++        const realRequestedModule = getRealExtensionlessPath(requestedModule) ?? requestedModule;
++        if (requestedModule === expectedEntryPoint ||
++            realRequestedModule === realExpectedEntryPoint) {
+             return {
+                 type: 'sourceFile',
+-                filePath: resolvedHarnessPath,
++                filePath: resolvedHarnessEntryPoint,
+             };
+         }
+         return null;
+diff --git a/src/resolvers/resolver.ts b/src/resolvers/resolver.ts
+index 135a3f59b211be5818e4d1dc20d931546e9de262..e826353cad4f40584227b73b0da3f035b9e9c483 100644
+--- a/src/resolvers/resolver.ts
++++ b/src/resolvers/resolver.ts
+@@ -1,4 +1,5 @@
+ import { createRequire } from 'node:module';
++import fs from 'node:fs';
+ import path from 'node:path';
+ import type { MetroConfig } from '@react-native/metro-config';
+ import type { Config as HarnessConfig } from '@react-native-harness/config';
+@@ -8,6 +9,7 @@ import { createTsConfigResolver } from './tsconfig-resolver.js';
+ import type { HarnessResolver, MetroResolver } from './types.js';
+ 
+ const require = createRequire(import.meta.url);
++const CODE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
+ 
+ const getExtensionlessAbsolutePath = (
+   basePath: string,
+@@ -18,6 +20,69 @@ const getExtensionlessAbsolutePath = (
+   return path.join(parsed.dir, parsed.name);
+ };
+ 
++const getRealExtensionlessPath = (extensionlessPath: string): string | null => {
++  for (const extension of CODE_EXTENSIONS) {
++    const candidatePath = `${extensionlessPath}${extension}`;
++
++    try {
++      if (!fs.statSync(candidatePath).isFile()) {
++        continue;
++      }
++
++      return getExtensionlessAbsolutePath(fs.realpathSync(candidatePath));
++    } catch {
++      continue;
++    }
++  }
++
++  return null;
++};
++
++const getOptionalExpoWinterPath = (rootPath: string): string | null => {
++  for (const specifier of ['expo/src/winter', 'expo/src/winter/index.ts']) {
++    try {
++      return require.resolve(specifier, { paths: [rootPath] });
++    } catch {
++      continue;
++    }
++  }
++
++  return null;
++};
++
++const getImportSpecifier = (fromPath: string, toPath: string): string => {
++  const relativePath = path.relative(path.dirname(fromPath), toPath);
++  const importPath = relativePath.startsWith('.')
++    ? relativePath
++    : `./${relativePath}`;
++
++  return importPath.split(path.sep).join('/');
++};
++
++const getResolvedHarnessEntryPoint = (
++  rootPath: string,
++  resolvedHarnessPath: string,
++): string => {
++  const expoWinterPath = getOptionalExpoWinterPath(rootPath);
++
++  if (!expoWinterPath) {
++    return resolvedHarnessPath;
++  }
++
++  const entryPointPath = path.join(rootPath, '.harness', 'entry-point.js');
++  const entryPointContent = [expoWinterPath, resolvedHarnessPath]
++    .map(
++      (modulePath) =>
++        `import ${JSON.stringify(getImportSpecifier(entryPointPath, modulePath))};`,
++    )
++    .join('\n');
++
++  fs.mkdirSync(path.dirname(entryPointPath), { recursive: true });
++  fs.writeFileSync(entryPointPath, `${entryPointContent}\n`);
++
++  return entryPointPath;
++};
++
+ export const createHarnessEntryPointResolver = (
+   harnessConfig: HarnessConfig,
+ ): HarnessResolver => {
+@@ -26,26 +91,32 @@ export const createHarnessEntryPointResolver = (
+     rootPath,
+     getResolvedEntryPointWithoutExtension(rootPath, harnessConfig.entryPoint),
+   );
++  const realExpectedEntryPoint =
++    getRealExtensionlessPath(expectedEntryPoint) ?? expectedEntryPoint;
+   const resolvedHarnessPath =
+     require.resolve('@react-native-harness/runtime/entry-point');
++  const resolvedHarnessEntryPoint = getResolvedHarnessEntryPoint(
++    rootPath,
++    resolvedHarnessPath,
++  );
+ 
+   return (context, moduleName, platform) => {
+     void platform;
+     const currentOrigin = path.resolve(context.originModulePath);
+-
+-    if (currentOrigin !== rootPath) {
+-      return null;
+-    }
+-
+     const requestedModule = getExtensionlessAbsolutePath(
+       currentOrigin,
+       moduleName,
+     );
++    const realRequestedModule =
++      getRealExtensionlessPath(requestedModule) ?? requestedModule;
+ 
+-    if (requestedModule === expectedEntryPoint) {
++    if (
++      requestedModule === expectedEntryPoint ||
++      realRequestedModule === realExpectedEntryPoint
++    ) {
+       return {
+         type: 'sourceFile',
+-        filePath: resolvedHarnessPath,
++        filePath: resolvedHarnessEntryPoint,
+       };
+     }
+ 

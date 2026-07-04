@@ -13,5 +13,6 @@
   "env": {
     "builtin": true,
     "node": true
-  }
+  },
+  "overrides": [{ "files": ["./fingerprint.config.cjs"], "rules": { "import/unambiguous": "off" } }]
 }

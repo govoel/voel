@@ -6,6 +6,10 @@
   "imports": {
     "#src/*": "./src/*"
   },
+  "exports": {
+    ".": "./src/index.ts",
+    "./services/config.ts": "./src/services/config.ts"
+  },
   "scripts": {
     "dev": "portless server --app-port 3000 bun run --watch src/index.ts",
     "build": "bun build src/index.ts --outdir=dist --target=bun --format=esm --minify --sourcemap",

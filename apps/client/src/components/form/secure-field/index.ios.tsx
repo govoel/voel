@@ -6,7 +6,7 @@ import { useRef } from 'react';
 import { PlatformColor } from 'react-native';
 
 import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
-import type { SecureFieldComponent } from '#src/components/form/secure-field';
+import type { SecureFieldComponent } from '#src/components/form/secure-field/index.ts';
 import { Text, iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 

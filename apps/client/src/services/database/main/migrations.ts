@@ -1,15 +1,13 @@
-// oxlint-disable unicorn/no-await-expression-member
 import { Effect, Schema } from 'effect';
 
 import { Migrator } from '@repo/effect-kysely';
 import type { Kysely, MigrationProvider } from '@repo/effect-kysely';
 
+import * as BaseTables from '#src/services/database/main/migrations/000001-base-tables.ts';
+
 export const createMigrationProvider = (): MigrationProvider => ({
   getMigrations: async () => ({
-    '000001-base-tables': {
-      up: (await import('#src/services/database/main/migrations/000001-base-tables.ts')).up,
-      down: (await import('#src/services/database/main/migrations/000001-base-tables.ts')).down,
-    },
+    '000001-base-tables': BaseTables,
   }),
 });
 

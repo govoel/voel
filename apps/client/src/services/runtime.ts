@@ -1,6 +1,6 @@
 import { ManagedRuntime } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { CommonLayers } from '#src/services/layers.ts';
+import { CommonExpoLayers } from '#src/services/layers.ts';
 
-export const Runtime = ManagedRuntime.make(CommonLayers, { memoMap: Atom.defaultMemoMap });
+export const Runtime = ManagedRuntime.make(CommonExpoLayers, { memoMap: Atom.defaultMemoMap });

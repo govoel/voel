@@ -1,0 +1,58 @@
+diff --git a/assets/harness-module-system.js b/assets/harness-module-system.js
+index 153b7066e8a0836a875cc6e1d3a5c5274b7dda03..a7eda7875c71dd12f1628b2d4777be0872019d91 100644
+--- a/assets/harness-module-system.js
++++ b/assets/harness-module-system.js
+@@ -9,14 +9,25 @@
+     return globalObject.__r(id);
+   };
+ 
+-  const myImportDefault = function (id) {
++  // Metro's async import helper receives the module-local `require` function
++  // and calls `require.importAll(...)`. Keep those helper methods available on
++  // the wrapped require so dynamic `import()` continues to work.
++  myRequire.importDefault = function (id) {
+     return globalObject.__r.importDefault(id);
+   };
+ 
+-  const myImportAll = function (id) {
++  myRequire.importAll = function (id) {
+     return globalObject.__r.importAll(id);
+   };
+ 
++  const myImportDefault = function (id) {
++    return myRequire.importDefault(id);
++  };
++
++  const myImportAll = function (id) {
++    return myRequire.importAll(id);
++  };
++
+   // Monkey-patch define
+   const originalDefine = globalObject.__d;
+   globalObject.__d = function (factory, moduleId, dependencyMap) {
+diff --git a/dist/bundler/bundle.js b/dist/bundler/bundle.js
+index abc86b64d38265d8c605925ed71f6138f3b48e37..9007ab0ba8d0b61e1b3d34fb24a0eef525bd2cbb 100644
+--- a/dist/bundler/bundle.js
++++ b/dist/bundler/bundle.js
+@@ -7,6 +7,8 @@ const getModuleUrl = (fileName) => {
+     const urlSearchParams = new URLSearchParams({
+         modulesOnly: 'true',
+         platform: Platform.OS,
++        'transform.engine': 'hermes',
++        unstable_transformProfile: 'hermes-stable',
+     });
+     return `${devServerUrl}${bundleName}?${urlSearchParams.toString()}`;
+ };
+diff --git a/src/bundler/bundle.ts b/src/bundler/bundle.ts
+index 4adf52166f6c0369f4dab39838378251dbc76c38..abc91dcb690e232ca3a6be08f872967caa0981a9 100644
+--- a/src/bundler/bundle.ts
++++ b/src/bundler/bundle.ts
+@@ -8,6 +8,8 @@ const getModuleUrl = (fileName: string): string => {
+   const urlSearchParams = new URLSearchParams({
+     modulesOnly: 'true',
+     platform: Platform.OS,
++    'transform.engine': 'hermes',
++    unstable_transformProfile: 'hermes-stable',
+   });
+ 
+   return `${devServerUrl}${bundleName}?${urlSearchParams.toString()}`;

@@ -1,13 +1,7 @@
-import { open } from '@op-engineering/op-sqlite';
-import type { DB, Scalar } from '@op-engineering/op-sqlite';
-import { Effect, TxSemaphore } from 'effect';
+import type { Database, SQLQueryBindings } from 'bun:sqlite';
 
-import {
-  CompiledQuery,
-  SqliteAdapter,
-  SqliteIntrospector,
-  SqliteQueryCompiler,
-} from '@repo/effect-kysely';
+import { Effect, TxSemaphore } from 'effect';
+import { CompiledQuery, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely';
 import type {
   DatabaseConnection,
   DatabaseIntrospector,
@@ -17,22 +11,22 @@ import type {
   Kysely,
   QueryCompiler,
   QueryResult,
-} from '@repo/effect-kysely';
+} from 'kysely';
 
-interface OpSqliteDialectConfig {
-  filename: string;
+interface BunSqliteDialectConfig {
+  database: Database;
   onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
 }
 
-export class OpSqliteDialect implements Dialect {
-  readonly #config: OpSqliteDialectConfig;
+export class BunSqliteDialect implements Dialect {
+  readonly #config: BunSqliteDialectConfig;
 
-  public constructor(config: OpSqliteDialectConfig) {
+  public constructor(config: BunSqliteDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
   public createDriver(): Driver {
-    return new OpSqliteDriver(this.#config);
+    return new BunSqliteDriver(this.#config);
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this
@@ -51,26 +45,22 @@ export class OpSqliteDialect implements Dialect {
   }
 }
 
-export class OpSqliteDriver implements Driver {
-  readonly #config: OpSqliteDialectConfig;
+class BunSqliteDriver implements Driver {
+  readonly #config: BunSqliteDialectConfig;
 
-  #db?: DB;
+  #db?: Database;
   #connection?: DatabaseConnection;
   #connectionSemaphore?: TxSemaphore.TxSemaphore;
 
-  public constructor(config: OpSqliteDialectConfig) {
+  public constructor(config: BunSqliteDialectConfig) {
     this.#config = Object.freeze({ ...config });
   }
 
   public async init(): Promise<void> {
-    this.#db = open(
-      this.#config.filename === ':memory:'
-        ? { name: 'inMemoryDb', location: ':memory:' }
-        : { name: this.#config.filename }
-    );
+    this.#db = this.#config.database;
     this.#connectionSemaphore = await Effect.runPromise(TxSemaphore.make(1));
 
-    this.#connection = new OpSqliteConnection(this.#db);
+    this.#connection = new BunSqliteConnection(this.#db);
 
     if (this.#config.onCreateConnection) {
       await this.#config.onCreateConnection(this.#connection);
@@ -129,31 +119,43 @@ export class OpSqliteDriver implements Driver {
   }
 }
 
-class OpSqliteConnection implements DatabaseConnection {
-  readonly #db: DB;
+class BunSqliteConnection implements DatabaseConnection {
+  readonly #db: Database;
 
-  public constructor(db: DB) {
+  public constructor(db: Database) {
     this.#db = db;
   }
 
   public async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
     const { sql, parameters } = compiledQuery;
+    const stmt = this.#db.prepare<O, SQLQueryBindings[]>(sql);
 
-    // Execute each compiled query directly. Prepared statements only help when reused, and their
-    // result shape differs from execute on native op-sqlite, which made zero-row reads ambiguous.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const result = await this.#db.execute(sql, parameters as Scalar[]);
+    if (stmt.columnNames.length > 0) {
+      return {
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
+        rows: stmt.all(parameters as any),
+      };
+    }
 
+    // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
+    const results = stmt.run(parameters as any);
     return {
-      ...(typeof result.insertId === 'number' ? { insertId: BigInt(result.insertId) } : void 0),
-      numAffectedRows: BigInt(result.rowsAffected),
-      // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      rows: result.rows as O[],
+      insertId: BigInt(results.lastInsertRowid),
+      numAffectedRows: BigInt(results.changes),
+      rows: [],
     };
   }
 
-  // oxlint-disable-next-line eslint/class-methods-use-this, eslint/require-yield
-  public async *streamQuery<R>(): AsyncIterableIterator<QueryResult<R>> {
-    throw new Error('OpSqlite driver does not support streaming of queries');
+  public async *streamQuery<R>(
+    compiledQuery: CompiledQuery
+  ): AsyncIterableIterator<QueryResult<R>> {
+    const { sql, parameters } = compiledQuery;
+    const stmt = this.#db.prepare(sql);
+
+    // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
+    for (const row of stmt.iterate(parameters as any)) {
+      // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      yield { rows: [row as R] };
+    }
   }
 }

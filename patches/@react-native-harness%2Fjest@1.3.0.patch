@@ -1,0 +1,117 @@
+diff --git a/dist/run.js b/dist/run.js
+index 4fddd206ade872916170f28c80f9ee4149d8233f..a569cf3cecdffa6fec52207602e1c7143a0362e1 100644
+--- a/dist/run.js
++++ b/dist/run.js
+@@ -1,4 +1,5 @@
+ import path from 'node:path';
++import fs from 'node:fs';
+ import { formatResultsErrors } from 'jest-message-util';
+ import { toTestResult } from './toTestResult.js';
+ // Helper function to flatten nested test suites into a flat array of tests with hierarchy
+@@ -42,12 +43,35 @@ const calculateStats = (tests) => {
+     }
+     return { passes, failures, pending, todo };
+ };
++const findWorkspaceRoot = (startDir) => {
++    let currentDir = startDir;
++    while (true) {
++        const packageJsonPath = path.join(currentDir, 'package.json');
++        if (fs.existsSync(packageJsonPath)) {
++            try {
++                const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
++                if (packageJson.workspaces) {
++                    return currentDir;
++                }
++            }
++            catch {
++                // Ignore invalid package.json files and continue walking up.
++            }
++        }
++        const parentDir = path.dirname(currentDir);
++        if (parentDir === currentDir) {
++            return startDir;
++        }
++        currentDir = parentDir;
++    }
++};
++const getMetroRelativePath = (rootDir, filePath) => path.relative(findWorkspaceRoot(rootDir), filePath);
+ export const runHarnessTestFile = async ({ testPath, globalConfig, projectConfig, session, }) => {
+     const start = Date.now();
+-    const relativeTestPath = path.relative(globalConfig.rootDir, testPath);
++    const relativeTestPath = getMetroRelativePath(globalConfig.rootDir, testPath);
+     // Extract setup files from Jest config and convert to relative paths
+-    const setupFiles = projectConfig.setupFiles?.map((setupFile) => path.relative(globalConfig.rootDir, setupFile));
+-    const setupFilesAfterEnv = projectConfig.setupFilesAfterEnv?.map((setupFile) => path.relative(globalConfig.rootDir, setupFile));
++    const setupFiles = projectConfig.setupFiles?.map((setupFile) => getMetroRelativePath(globalConfig.rootDir, setupFile));
++    const setupFilesAfterEnv = projectConfig.setupFilesAfterEnv?.map((setupFile) => getMetroRelativePath(globalConfig.rootDir, setupFile));
+     const harnessResult = await session.runTestFile(relativeTestPath, {
+         testNamePattern: globalConfig.testNamePattern,
+         setupFiles,
+diff --git a/src/run.ts b/src/run.ts
+index 998b3f043baf89491c4234f2c66a7e8385a2e868..b51641c1649a96390ac13672432a5313772fd1bc 100644
+--- a/src/run.ts
++++ b/src/run.ts
+@@ -1,4 +1,5 @@
+ import path from 'node:path';
++import fs from 'node:fs';
+ import type { Config as JestConfig } from 'jest-runner';
+ import { TestResult as JestTestResult } from '@jest/test-result';
+ import type {
+@@ -72,6 +73,39 @@ export type RunHarnessTestFile = (options: {
+   duration: number;
+ }>;
+ 
++const findWorkspaceRoot = (startDir: string): string => {
++  let currentDir = startDir;
++
++  while (true) {
++    const packageJsonPath = path.join(currentDir, 'package.json');
++
++    if (fs.existsSync(packageJsonPath)) {
++      try {
++        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
++          workspaces?: unknown;
++        };
++
++        if (packageJson.workspaces) {
++          return currentDir;
++        }
++      } catch {
++        // Ignore invalid package.json files and continue walking up.
++      }
++    }
++
++    const parentDir = path.dirname(currentDir);
++
++    if (parentDir === currentDir) {
++      return startDir;
++    }
++
++    currentDir = parentDir;
++  }
++};
++
++const getMetroRelativePath = (rootDir: string, filePath: string): string =>
++  path.relative(findWorkspaceRoot(rootDir), filePath);
++
+ export const runHarnessTestFile: RunHarnessTestFile = async ({
+   testPath,
+   globalConfig,
+@@ -79,14 +113,14 @@ export const runHarnessTestFile: RunHarnessTestFile = async ({
+   session,
+ }) => {
+   const start = Date.now();
+-  const relativeTestPath = path.relative(globalConfig.rootDir, testPath);
++  const relativeTestPath = getMetroRelativePath(globalConfig.rootDir, testPath);
+ 
+   // Extract setup files from Jest config and convert to relative paths
+   const setupFiles = projectConfig.setupFiles?.map((setupFile) =>
+-    path.relative(globalConfig.rootDir, setupFile)
++    getMetroRelativePath(globalConfig.rootDir, setupFile)
+   );
+   const setupFilesAfterEnv = projectConfig.setupFilesAfterEnv?.map(
+-    (setupFile) => path.relative(globalConfig.rootDir, setupFile)
++    (setupFile) => getMetroRelativePath(globalConfig.rootDir, setupFile)
+   );
+ 
+   const harnessResult = await session.runTestFile(relativeTestPath, {

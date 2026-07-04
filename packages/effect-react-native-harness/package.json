@@ -1,5 +1,5 @@
 {
-  "name": "@repo/effect-kysely",
+  "name": "@repo/effect-react-native-harness",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,22 +7,20 @@
     "#src/*": "./src/*"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {
-    "effect": "4.0.0-beta.85",
-    "kysely": "0.29.2"
+    "@react-native-harness/bridge": "1.3.0",
+    "@react-native-harness/runtime": "1.3.0",
+    "effect": "4.0.0-beta.85"
   },
   "devDependencies": {
     "@effect/language-service": "0.86.2",
-    "@effect/vitest": "4.0.0-beta.85",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.3.14",
-    "typescript": "6.0.3",
-    "vitest": "4.1.9"
+    "typescript": "6.0.3"
   }
 }

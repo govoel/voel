@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 
 import { Kysely, ParseJSONResultsPlugin, makeFromKysely, sql } from '@repo/effect-kysely';
-import type { EffectKysely } from '@repo/effect-kysely';
+import type { Dialect, EffectKysely } from '@repo/effect-kysely';
 
 import { OpSqliteDialect } from '#src/services/database/dialect.ts';
 import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts';
@@ -15,11 +15,11 @@ export class ClientDatabaseMigrationError extends Schema.TaggedErrorClass<
 export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<MainDatabaseTables>>()(
   'voel/services/database/main/index/MainDatabase',
   {
-    make: ({ filename }: { filename: string }) =>
+    make: ({ dialect }: { dialect: Dialect }) =>
       Effect.acquireRelease(
         Effect.gen(function* () {
           const kysely = new Kysely<MainDatabaseTables>({
-            dialect: new OpSqliteDialect({ filename }),
+            dialect,
             plugins: [new ParseJSONResultsPlugin()],
           });
 
@@ -37,9 +37,6 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
       ),
   }
 ) {
-  public static readonly layer = (args: Parameters<(typeof this)['make']>['0']) =>
-    Layer.effect(this, this.make(args));
-
-  public static readonly layerTest = (args: Parameters<(typeof this)['make']>['0']) =>
-    Layer.effect(this, this.make(args));
+  public static readonly layer = ({ filename }: { filename: string }) =>
+    Layer.effect(this, this.make({ dialect: new OpSqliteDialect({ filename }) }));
 }
