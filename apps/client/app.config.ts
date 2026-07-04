@@ -9,6 +9,7 @@ import expoImage from 'expo-image/plugin';
 import expoRouter from 'expo-router/plugin/build';
 import expoSecureStore from 'expo-secure-store/plugin/build';
 import expoSplashScreen from 'expo-splash-screen/plugin';
+import expoStatusBar from 'expo-status-bar/plugin';
 import expoWebBrowser from 'expo-web-browser/plugin';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 import { withProjectBuildGradle } from 'expo/config-plugins';
@@ -175,6 +176,7 @@ export default function app({ config }: ConfigContext): ExpoConfig {
         imageWidth: 200,
       }),
       expoSecureStore(),
+      expoStatusBar(),
       expoBuildProperties({
         android: { usesCleartextTraffic: true },
         // ios: { useFrameworks: 'static' },

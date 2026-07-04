@@ -27,7 +27,7 @@ bun opensrc path effect-ts/effect-smol
 bun opensrc path effect @expo/ui
 
 # Specific versions
-opensrc path effect@4.0.0-beta.85
+opensrc path effect@4.0.0-beta.93
 opensrc path owner/repo@v1.0.0
 opensrc path owner/repo#main
 ```
