@@ -42,8 +42,6 @@ jobs:
       RELEASE_CHANNEL: dev
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      IOS_SIMULATOR_NAME: iPhone 17 Pro
-      IOS_SIMULATOR_OS: '26.5'
 
     steps:
       - name: Checkout
@@ -51,38 +49,6 @@ jobs:
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
-
-      - name: Start iOS simulator boot
-        if: matrix.platform == 'ios'
-        run: |
-          boot_script="$RUNNER_TEMP/boot-ios-simulator.sh"
-          cat > "$boot_script" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-
-          runtime_suffix="iOS-${IOS_SIMULATOR_OS//./-}"
-          udid="$(xcrun simctl list devices available --json | jq -r --arg name "$IOS_SIMULATOR_NAME" --arg runtime_suffix "$runtime_suffix" '
-            .devices
-            | to_entries[]
-            | select(.key | endswith($runtime_suffix))
-            | .value[]
-            | select(.name == $name)
-            | .udid
-          ' | head -n 1)"
-
-          if [ -z "$udid" ]; then
-            echo "Could not find simulator: $IOS_SIMULATOR_NAME ($IOS_SIMULATOR_OS)"
-            exit 1
-          fi
-
-          echo "Starting simulator boot for $IOS_SIMULATOR_NAME ($IOS_SIMULATOR_OS): $udid"
-          xcrun simctl boot "$udid" || true
-          SH
-          chmod +x "$boot_script"
-
-          log_path="$RUNNER_TEMP/ios-simulator-boot.log"
-          echo "Starting simulator boot in the background. Log: $log_path"
-          nohup "$boot_script" > "$log_path" 2>&1 &
 
       - name: Set up JDK 17
         if: matrix.platform == 'android'
@@ -115,21 +81,13 @@ jobs:
           echo "Native fingerprint: $hash"
           echo "hash=$hash" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve Xcode version
-        if: matrix.platform == 'ios'
-        id: xcode-version
-        run: |
-          xcodebuild -version
-          hash="$(xcodebuild -version | shasum -a 256 | awk '{print $1}')"
-          echo "hash=$hash" >> "$GITHUB_OUTPUT"
-
       - name: Restore iOS app cache
         if: matrix.platform == 'ios'
         id: cache-ios-app-restore
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/client/${{ matrix.app }}
-          key: ios-app-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode-version.outputs.hash }}-${{ steps.native-fingerprint.outputs.hash }}
+          key: ios-app-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-fingerprint.outputs.hash }}
 
       - name: Check iOS app build output
         if: matrix.platform == 'ios'
@@ -260,27 +218,12 @@ jobs:
           path: |
             ~/Library/Caches/CocoaPods
             ~/.cocoapods
-            apps/client/ios/Podfile.lock
-            apps/client/ios/Pods
-            apps/client/ios/VoelDev.xcworkspace
-          key: pods-${{ runner.os }}-${{ hashFiles('bun.lock', 'apps/client/package.json', 'apps/client/ios/Podfile', 'apps/client/ios/Podfile.properties.json') }}
+          key: pods-${{ runner.os }}-${{ steps.native-fingerprint.outputs.hash }}
           restore-keys: |
             pods-${{ runner.os }}-
 
-      - name: Check CocoaPods cache output
-        if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
-        id: ios-pods-output
-        working-directory: apps/client/ios
-        run: |
-          if [ "${{ steps.cache-pods-restore.outputs.cache-hit }}" = "true" ] && [ -f Podfile.lock ] && [ -d Pods ] && [ -d VoelDev.xcworkspace ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "Using cached CocoaPods output"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Install CocoaPods
-        if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true' && steps.ios-pods-output.outputs.ready != 'true'
+        if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
         working-directory: apps/client/ios
         run: pod install
 
@@ -305,7 +248,6 @@ jobs:
             -scheme VoelDev \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=$IOS_SIMULATOR_NAME,OS=$IOS_SIMULATOR_OS" \
             -derivedDataPath ios/build \
             -parallelizeTargets \
             -jobs $(sysctl -n hw.ncpu) \
@@ -348,9 +290,6 @@ jobs:
           path: |
             ~/Library/Caches/CocoaPods
             ~/.cocoapods
-            apps/client/ios/Podfile.lock
-            apps/client/ios/Pods
-            apps/client/ios/VoelDev.xcworkspace
           key: ${{ steps.cache-pods-restore.outputs.cache-primary-key }}
 
       - name: Run test server controller
