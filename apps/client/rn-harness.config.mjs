@@ -12,9 +12,9 @@ const config = {
   runners: [
     androidPlatform({
       name: 'android',
-      device: androidEmulator('Pixel_8_API_35', {
-        apiLevel: 35,
-        profile: 'pixel_6',
+      device: androidEmulator('medium_phone', {
+        apiLevel: 36,
+        profile: 'medium_phone',
         diskSize: '2G',
         heapSize: '1G',
         snapshot: { enabled: true },
