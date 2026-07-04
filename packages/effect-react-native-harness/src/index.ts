@@ -64,10 +64,7 @@ export type EffectTester<R> = EffectTest<R> & {
   readonly only: EffectTest<R>;
   readonly each: <T>(
     cases: readonly T[]
-  ) => <A, E>(
-    name: string,
-    self: EffectTestFunction<A, E, R, [testCase: T, context: HarnessTestContext]>
-  ) => void;
+  ) => <A, E>(name: string, self: EffectTestFunction<A, E, R, [testCase: T]>) => void;
   readonly fails: EffectTest<R>;
 };
 
@@ -109,7 +106,22 @@ interface MethodMaps<R> {
 
 const TestEnv: Layer.Layer<TestEnvironment> = Layer.mergeAll(TestConsole.layer, TestClock.layer());
 
+const hasAddEqualityTesters = (
+  value: unknown
+): value is { readonly addEqualityTesters: (customTesters: readonly unknown[]) => void } => {
+  if (typeof value !== 'object' || value === null || !('addEqualityTesters' in value)) {
+    return false;
+  }
+
+  return typeof value.addEqualityTesters === 'function';
+};
+
 export const addEqualityTesters = (): void => {
+  if (hasAddEqualityTesters(harnessExpect)) {
+    harnessExpect.addEqualityTesters([]);
+    return;
+  }
+
   harnessExpect.extend({});
 };
 
@@ -117,7 +129,7 @@ const runPromise = async <A, E>(
   effect: Effect.Effect<A, E>,
   context?: HarnessTestContext
 ): Promise<A> => {
-  const program: Effect.Effect<() => A> = Effect.gen(function* () {
+  const program: Effect.Effect<A, E> = Effect.gen(function* () {
     const fiber = yield* effect.pipe(Effect.forkChild);
 
     context?.onTestFinished(async () => {
@@ -127,7 +139,7 @@ const runPromise = async <A, E>(
     const exit = yield* Fiber.await(fiber);
 
     if (Exit.isSuccess(exit)) {
-      return () => exit.value;
+      return exit.value;
     }
 
     const errors = Cause.prettyErrors(exit.cause);
@@ -135,14 +147,10 @@ const runPromise = async <A, E>(
       yield* Effect.logError(error);
     }
 
-    const error = errors[0] ?? new Error('Effect failed without a reported cause');
-    return () => {
-      throw error;
-    };
+    return yield* exit;
   });
 
-  const resume = await Effect.runPromise(program);
-  return resume();
+  return Effect.runPromise(program);
 };
 
 const runTest =
@@ -169,6 +177,20 @@ const expectFailure = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<v
 
       return Effect.die(new Error('Expected effect to fail'));
     })
+  );
+
+const runEffectFailureTest = async <A, E, R, Args extends readonly unknown[]>(
+  context: HarnessTestContext,
+  args: Args,
+  options: {
+    readonly self: EffectTestFunction<A, E, R, Args>;
+    readonly mapEffect: EffectMap<R>;
+  }
+): Promise<void> =>
+  Effect.suspend(() => options.self(...args)).pipe(
+    options.mapEffect,
+    expectFailure,
+    runTest(context)
   );
 
 const mapTestEnv = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>): Effect.Effect<A, E> =>
@@ -238,7 +260,7 @@ const makeEffectEach =
       const caseIndex = index;
       index += 1;
       api(formatCaseName(name, testCase, caseIndex), async (context) => {
-        await runEffectTest(context, [testCase, context], { self, mapEffect });
+        await runEffectTest(context, [testCase], { self, mapEffect });
       });
     }
   };
@@ -267,10 +289,7 @@ const makeTester = <R>(
 
   const fails: EffectTest<R> = (name, self) => {
     api(name, async (context) => {
-      await runEffectTest(context, [context], {
-        self: (testContext) => expectFailure(self(testContext)),
-        mapEffect,
-      });
+      await runEffectFailureTest(context, [context], { self, mapEffect });
     });
   };
 
