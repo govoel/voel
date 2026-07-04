@@ -180,18 +180,17 @@ jobs:
         if: always() && matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready == 'false'
         run: ccache --show-stats --verbose || true
 
-      # - name: Restore Android SDK emulator cache
-      #   if: matrix.platform == 'android'
-      #   id: cache-android-sdk-restore
-      #   uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      #   with:
-      #     path: |
-      #       /usr/local/lib/android/sdk/emulator
-      #       /usr/local/lib/android/sdk/platforms/android-35
-      #       /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
-      #     key: android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-v1
-      #     restore-keys: |
-      #       android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-
+      - name: Restore Android SDK emulator cache
+        if: matrix.platform == 'android'
+        id: cache-android-sdk-restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
+          key: android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-v1
+          restore-keys: |
+            android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-
 
       - name: Enable iOS ccache
         if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
@@ -309,15 +308,14 @@ jobs:
           afterRunHook: |
             echo "Harness finished with exit code: $HARNESS_EXIT_CODE"
 
-      # - name: Save Android SDK cache
-      #   if: matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true' && steps.cache-android-sdk-restore.outputs.cache-primary-key != ''
-      #   uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      #   with:
-      #     path: |
-      #       /usr/local/lib/android/sdk/emulator
-      #       /usr/local/lib/android/sdk/platforms/android-35
-      #       /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
-      #     key: ${{ steps.cache-android-sdk-restore.outputs.cache-primary-key }}
+      - name: Save Android SDK cache
+        if: matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true' && steps.cache-android-sdk-restore.outputs.cache-primary-key != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
+          key: ${{ steps.cache-android-sdk-restore.outputs.cache-primary-key }}
 
       - name: Upload test server controller log
         if: always()
