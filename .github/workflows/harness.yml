@@ -180,6 +180,43 @@ jobs:
         if: always() && matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready == 'false'
         run: ccache --show-stats --verbose || true
 
+      - name: Resolve Android Harness SDK cache
+        if: matrix.platform == 'android'
+        id: android-harness-sdk
+        working-directory: apps/client
+        run: |
+          bun - <<'BUN'
+          import { appendFileSync } from 'node:fs';
+
+          const { default: config } = await import('./rn-harness.config.mjs');
+          const androidRunner = config.runners?.find(
+            (runner) => runner.platformId === 'android' || runner.config?.name === 'android',
+          );
+          const device = androidRunner?.config?.device;
+
+          if (device?.type !== 'emulator') {
+            throw new Error('Expected the Android Harness runner to use androidEmulator(...)');
+          }
+
+          const apiLevel = device.avd?.apiLevel;
+
+          if (!Number.isInteger(apiLevel)) {
+            throw new Error('Expected Android Harness emulator apiLevel to be an integer');
+          }
+
+          const outputPath = process.env.GITHUB_OUTPUT;
+
+          if (!outputPath) {
+            throw new Error('GITHUB_OUTPUT is not set');
+          }
+
+          const systemImagePath = `${process.env.ANDROID_HOME}/system-images/android-${apiLevel}/default/x86_64`;
+
+          appendFileSync(outputPath, `api_level=${apiLevel}\n`);
+          appendFileSync(outputPath, `system_image_path=${systemImagePath}\n`);
+          console.log(`Android Harness emulator API level: ${apiLevel}`);
+          BUN
+
       - name: Restore Android SDK emulator cache
         if: matrix.platform == 'android'
         id: cache-android-sdk-restore
@@ -187,10 +224,10 @@ jobs:
         with:
           path: |
             /usr/local/lib/android/sdk/emulator
-            /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
-          key: android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-v1
+            ${{ steps.android-harness-sdk.outputs.system_image_path }}
+          key: android-sdk-emulator-${{ runner.os }}-api-${{ steps.android-harness-sdk.outputs.api_level }}-default-x86_64-v1
           restore-keys: |
-            android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-
+            android-sdk-emulator-${{ runner.os }}-api-${{ steps.android-harness-sdk.outputs.api_level }}-default-x86_64-
 
       - name: Enable iOS ccache
         if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
@@ -224,6 +261,45 @@ jobs:
         working-directory: apps/client/ios
         run: pod install
 
+      - name: Resolve iOS Harness destination
+        if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
+        id: ios-harness-destination
+        working-directory: apps/client
+        run: |
+          bun - <<'BUN'
+          import { appendFileSync } from 'node:fs';
+
+          const { default: config } = await import('./rn-harness.config.mjs');
+          const iosRunner = config.runners?.find(
+            (runner) => runner.platformId === 'ios' || runner.config?.name === 'ios',
+          );
+          const device = iosRunner?.config?.device;
+
+          if (device?.type !== 'simulator') {
+            throw new Error('Expected the iOS Harness runner to use appleSimulator(...)');
+          }
+
+          if (typeof device.name !== 'string' || device.name.length === 0) {
+            throw new Error('Expected iOS Harness simulator name to be a non-empty string');
+          }
+
+          const destinationParts = ['platform=iOS Simulator', `name=${device.name}`];
+
+          if (device.systemVersion != null) {
+            destinationParts.push(`OS=${device.systemVersion}`);
+          }
+
+          const destination = destinationParts.join(',');
+          const outputPath = process.env.GITHUB_OUTPUT;
+
+          if (!outputPath) {
+            throw new Error('GITHUB_OUTPUT is not set');
+          }
+
+          appendFileSync(outputPath, `destination=${destination}\n`);
+          console.log(`iOS Harness destination: ${destination}`);
+          BUN
+
       - name: Build iOS app
         if: matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
         working-directory: apps/client
@@ -245,6 +321,7 @@ jobs:
             -scheme VoelDev \
             -configuration Debug \
             -sdk iphonesimulator \
+            -destination "$IOS_HARNESS_DESTINATION" \
             -derivedDataPath ios/build \
             -parallelizeTargets \
             -jobs $(sysctl -n hw.ncpu) \
@@ -258,6 +335,8 @@ jobs:
             LD="$PWD/.ci/ccache-clang.sh" \
             LDPLUSPLUS="$PWD/.ci/ccache-clang++.sh" \
             build
+        env:
+          IOS_HARNESS_DESTINATION: ${{ steps.ios-harness-destination.outputs.destination }}
 
       - name: iOS ccache stats
         if: always() && matrix.platform == 'ios' && steps.ios-app-build-output.outputs.ready != 'true'
@@ -314,7 +393,7 @@ jobs:
         with:
           path: |
             /usr/local/lib/android/sdk/emulator
-            /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
+            ${{ steps.android-harness-sdk.outputs.system_image_path }}
           key: ${{ steps.cache-android-sdk-restore.outputs.cache-primary-key }}
 
       - name: Upload test server controller log
