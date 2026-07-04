@@ -159,6 +159,29 @@ const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
   };
 });
 
+it.todo('accountsAtom reacts to account table mutations');
+it.todo('accountsAtom returns persisted account rows with current active flags');
+
+it.todo('accountsSheetAtom returns ONBOARDING and is not dismissable when there are no accounts');
+it.todo(
+  'accountsSheetAtom returns MUST_PICK_ACCOUNT and is not dismissable when accounts exist but none is active'
+);
+it.todo('accountsSheetAtom returns INVALID_SESSION and is dismissable when there is no session');
+it.todo(
+  'accountsSheetAtom returns INVALID_SESSION and is dismissable when the session has an error'
+);
+it.todo('accountsSheetAtom returns INVALID_SESSION and is dismissable when session data is null');
+it.todo('accountsSheetAtom returns IDLE and is dismissable when the session is valid');
+
+it.todo(
+  'listAccountsAtom fails with ListAccountsNoAuthClientError when there is no active auth client'
+);
+it.todo('listAccountsAtom paginates users until the next offset reaches the total');
+it.todo('listAccountsAtom stops pagination on an empty page');
+it.todo('listAccountsAtom maps thrown listUsers failures to the unknown list-users error');
+it.todo('listAccountsAtom maps Better Auth listUsers errors to the known list-users error');
+it.todo('listAccountsAtom uses the current active account auth client after switching accounts');
+
 it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => {
   iit.effect(
     'creating an account and sets it as the active account',
