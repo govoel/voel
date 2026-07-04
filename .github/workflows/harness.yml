@@ -40,6 +40,8 @@ jobs:
       TURBO_TELEMETRY_DISABLED: 1
       DO_NOT_TRACK: 1
       RELEASE_CHANNEL: dev
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout
@@ -75,7 +77,7 @@ jobs:
         id: native-fingerprint
         working-directory: apps/client
         run: |
-          hash="$(bunx fingerprint fingerprint:generate --platform "${{ matrix.platform }}" | jq -r .hash)"
+          hash="$(bunx @expo/fingerprint fingerprint:generate --platform "${{ matrix.platform }}" | jq -r .hash)"
           echo "Native fingerprint: $hash"
           echo "hash=$hash" >> "$GITHUB_OUTPUT"
 
@@ -128,24 +130,27 @@ jobs:
             apps/client/android/.gradle
             apps/client/android/build
             apps/client/android/app/build
-          key: android-gradle-build-${{ runner.os }}-${{ steps.native-fingerprint.outputs.hash }}
+          key: android-gradle-build-x86_64-${{ runner.os }}-${{ steps.native-fingerprint.outputs.hash }}
           restore-keys: |
-            android-gradle-build-${{ runner.os }}-
+            android-gradle-build-x86_64-${{ runner.os }}-
 
-      - name: Restore Android AVD cache
+      - name: Check Android Gradle build output
         if: matrix.platform == 'android'
-        id: cache-android-avd-restore
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-android-api-35-pixel-8
+        id: android-gradle-build-output
+        run: |
+          app_path="apps/client/${{ matrix.app }}"
+
+          if [ "${{ steps.cache-android-gradle-build-restore.outputs.cache-hit }}" = "true" ] && [ -f "$app_path" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Using cached Android app at $app_path"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build Android app
-        if: matrix.platform == 'android'
+        if: matrix.platform == 'android' && steps.android-gradle-build-output.outputs.ready != 'true'
         working-directory: apps/client/android
-        run: ./gradlew assembleDebug --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M --no-daemon
+        run: ./gradlew assembleDebug --build-cache --parallel --stacktrace -Dorg.gradle.jvmargs=-Xmx6144M -PreactNativeArchitectures=x86_64 --no-daemon
         env:
           CMAKE_C_COMPILER_LAUNCHER: /usr/bin/ccache
           CMAKE_CXX_COMPILER_LAUNCHER: /usr/bin/ccache
@@ -153,6 +158,21 @@ jobs:
       - name: Android ccache stats
         if: always() && matrix.platform == 'android'
         run: ccache --show-stats --verbose || true
+
+      - name: Restore Android SDK emulator cache
+        if: matrix.platform == 'android'
+        id: cache-android-sdk-restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/platforms/android-35
+            /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
+            /usr/local/lib/android/sdk/ndk
+            /usr/local/lib/android/sdk/cmake
+          key: android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-v1
+          restore-keys: |
+            android-sdk-emulator-${{ runner.os }}-api-35-default-x86_64-
 
       - name: Enable iOS ccache
         if: matrix.platform == 'ios'
@@ -260,18 +280,21 @@ jobs:
           runner: ${{ matrix.platform }}
           projectRoot: apps/client
           packageManager: bun
-          cacheAvd: false
+          cacheAvd: true
           afterRunHook: |
             echo "Harness finished with exit code: $HARNESS_EXIT_CODE"
 
-      - name: Save Android AVD cache
-        if: always() && matrix.platform == 'android' && steps.cache-android-avd-restore.outputs.cache-hit != 'true'
+      - name: Save Android SDK cache
+        if: always() && matrix.platform == 'android' && steps.cache-android-sdk-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: ${{ steps.cache-android-avd-restore.outputs.cache-primary-key }}
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/platforms/android-35
+            /usr/local/lib/android/sdk/system-images/android-35/default/x86_64
+            /usr/local/lib/android/sdk/ndk
+            /usr/local/lib/android/sdk/cmake
+          key: ${{ steps.cache-android-sdk-restore.outputs.cache-primary-key }}
 
       - name: Upload test server controller log
         if: always()

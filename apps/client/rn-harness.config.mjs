@@ -17,6 +17,7 @@ const config = {
         profile: 'pixel_6',
         diskSize: '2G',
         heapSize: '1G',
+        snapshot: { enabled: true },
       }),
       bundleId: 'app.voel.rn.dev',
     }),
