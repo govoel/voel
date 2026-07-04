@@ -2,11 +2,18 @@ import type { HarnessTestContext, TestFn } from '@react-native-harness/bridge';
 import {
   afterAll,
   beforeAll,
+  beforeEach,
   describe,
+  expect as harnessExpect,
   it as harnessIt,
   test as harnessTest,
 } from '@react-native-harness/runtime';
-import { Cause, Effect, Exit, Fiber, Layer, Scope } from 'effect';
+import * as Cause from 'effect/Cause';
+import * as Effect from 'effect/Effect';
+import * as Exit from 'effect/Exit';
+import * as Fiber from 'effect/Fiber';
+import * as Layer from 'effect/Layer';
+import * as Scope from 'effect/Scope';
 import * as TestClock from 'effect/testing/TestClock';
 import * as TestConsole from 'effect/testing/TestConsole';
 
@@ -38,11 +45,10 @@ export type { HarnessNamespace, RenderOptions, RenderResult } from '@react-nativ
 export type { HarnessTaskContext, HarnessTestContext } from '@react-native-harness/bridge';
 
 export type HarnessTestApi = typeof harnessIt;
+export type API = HarnessTestApi;
 export type HarnessTestFunction = TestFn;
 
-type HarnessRegister = (name: string, fn: HarnessTestFunction) => void;
-
-export type EffectTestFunction<A, E, R, Args extends unknown[]> = (
+export type EffectTestFunction<A, E, R, Args extends readonly unknown[]> = (
   ...args: Args
 ) => Effect.Effect<A, E, R>;
 
@@ -79,7 +85,6 @@ export type LayerBlock<R> = ((fn: (it: MethodsNonLive<R>) => void) => void) &
 
 interface BaseMethods<R, TLayerOptions> extends HarnessTestApi {
   readonly effect: EffectTester<R | Scope.Scope>;
-  readonly scoped: EffectTester<R | Scope.Scope>;
   readonly layer: <R2, E>(
     layer: Layer.Layer<R2, E, R>,
     options?: TLayerOptions
@@ -91,7 +96,6 @@ export type MethodsNonLive<R = never> = BaseMethods<R, never>;
 
 export type Methods<R = never> = BaseMethods<R, LayerOptions> & {
   readonly live: EffectTester<R | Scope.Scope>;
-  readonly scopedLive: EffectTester<R | Scope.Scope>;
 };
 
 type TestEnvironment = TestConsole.TestConsole | TestClock.TestClock;
@@ -105,29 +109,30 @@ interface MethodMaps<R> {
 
 const TestEnv: Layer.Layer<TestEnvironment> = Layer.mergeAll(TestConsole.layer, TestClock.layer());
 
+export const addEqualityTesters = (): void => {
+  harnessExpect.extend({});
+};
+
 const runPromise = async <A, E>(
   effect: Effect.Effect<A, E>,
   context?: HarnessTestContext
 ): Promise<A> => {
   const program: Effect.Effect<() => A> = Effect.gen(function* () {
-    const fiber = yield* effect.pipe(Effect.exit, Effect.forkChild);
+    const fiber = yield* effect.pipe(Effect.forkChild);
 
     context?.onTestFinished(async () => {
       await Fiber.interrupt(fiber).pipe(Effect.asVoid, Effect.runPromise);
     });
 
-    const exit = yield* Fiber.join(fiber);
+    const exit = yield* Fiber.await(fiber);
 
     if (Exit.isSuccess(exit)) {
       return () => exit.value;
     }
 
     const errors = Cause.prettyErrors(exit.cause);
-    for (let i = 1; i < errors.length; i += 1) {
-      const error = errors[i];
-      if (error !== void 0) {
-        yield* Effect.logError(error);
-      }
+    for (const error of errors) {
+      yield* Effect.logError(error);
     }
 
     const error = errors[0] ?? new Error('Effect failed without a reported cause');
@@ -145,7 +150,7 @@ const runTest =
   async <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
     runPromise(effect, context);
 
-const runEffectTest = async <A, E, R, Args extends unknown[]>(
+const runEffectTest = async <A, E, R, Args extends readonly unknown[]>(
   context: HarnessTestContext,
   args: Args,
   options: {
@@ -171,25 +176,6 @@ const mapTestEnv = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>): Effect.Effe
 
 const mapLive = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>): Effect.Effect<A, E> =>
   effect.pipe(Effect.scoped);
-
-const testOptions =
-  <R>(api: HarnessRegister, mapEffect: EffectMap<R>): EffectTest<R> =>
-  (name, self) => {
-    api(name, async (context) => {
-      await runEffectTest(context, [context], { self, mapEffect });
-    });
-  };
-
-const failingTestOptions =
-  <R>(api: HarnessRegister, mapEffect: EffectMap<R>): EffectTest<R> =>
-  (name, self) => {
-    api(name, async (context) => {
-      await runEffectTest(context, [context], {
-        self: (testContext) => expectFailure(self(testContext)),
-        mapEffect,
-      });
-    });
-  };
 
 const formatValue = (value: unknown, json = false): string => {
   if (json) {
@@ -230,7 +216,7 @@ const formatCaseName = (name: string, testCase: unknown, index: number): string 
 };
 
 const makeEach =
-  (api: HarnessRegister): Each =>
+  (api: HarnessTestApi): Each =>
   (cases) =>
   (name, fn) => {
     let index = 0;
@@ -244,7 +230,7 @@ const makeEach =
   };
 
 const makeEffectEach =
-  <R>(api: HarnessRegister, mapEffect: EffectMap<R>): EffectTester<R>['each'] =>
+  <R>(api: HarnessTestApi, mapEffect: EffectMap<R>): EffectTester<R>['each'] =>
   (cases) =>
   (name, self) => {
     let index = 0;
@@ -257,16 +243,36 @@ const makeEffectEach =
     }
   };
 
-const makeTester = <R>(api: HarnessTestApi, mapEffect: EffectMap<R>): EffectTester<R> => {
-  const effect = testOptions<R>((name, fn) => {
-    api(name, fn);
-  }, mapEffect);
-  const skip = testOptions<R>((name, fn) => {
-    api.skip(name, fn);
-  }, mapEffect);
-  const only = testOptions<R>((name, fn) => {
-    api.only(name, fn);
-  }, mapEffect);
+const makeTester = <R>(
+  mapEffect: EffectMap<R>,
+  api: HarnessTestApi = harnessIt
+): EffectTester<R> => {
+  const effect: EffectTest<R> = (name, self) => {
+    api(name, async (context) => {
+      await runEffectTest(context, [context], { self, mapEffect });
+    });
+  };
+
+  const skip: EffectTest<R> = (name, self) => {
+    api.skip(name, async (context) => {
+      await runEffectTest(context, [context], { self, mapEffect });
+    });
+  };
+
+  const only: EffectTest<R> = (name, self) => {
+    api.only(name, async (context) => {
+      await runEffectTest(context, [context], { self, mapEffect });
+    });
+  };
+
+  const fails: EffectTest<R> = (name, self) => {
+    api(name, async (context) => {
+      await runEffectTest(context, [context], {
+        self: (testContext) => expectFailure(self(testContext)),
+        mapEffect,
+      });
+    });
+  };
 
   return Object.assign(effect, {
     skip,
@@ -280,13 +286,11 @@ const makeTester = <R>(api: HarnessTestApi, mapEffect: EffectMap<R>): EffectTest
     },
     only,
     each: makeEffectEach(api, mapEffect),
-    fails: failingTestOptions<R>((name, fn) => {
-      api(name, fn);
-    }, mapEffect),
+    fails,
   });
 };
 
-const makeCallable = <TMethods extends object>(
+const makeItProxy = <TMethods extends object>(
   api: HarnessTestApi,
   overrides: TMethods
 ): TMethods & HarnessTestApi => {
@@ -310,50 +314,64 @@ const makeCallable = <TMethods extends object>(
   return Object.assign(callable, overrides);
 };
 
+const makeRecordingApi = (api: HarnessTestApi, record: (name: string) => void): HarnessTestApi =>
+  Object.assign(
+    (name: string, fn: HarnessTestFunction) => {
+      record(name);
+      api(name, fn);
+    },
+    {
+      skip: (name: string, fn: HarnessTestFunction) => {
+        api.skip(name, fn);
+      },
+      only: (name: string, fn: HarnessTestFunction) => {
+        record(name);
+        api.only(name, fn);
+      },
+      todo: (name: string) => {
+        api.todo(name);
+      },
+    }
+  );
+
 const makeNonLiveMethods = <R>(
   api: HarnessTestApi,
   mapEffect: EffectMap<R | Scope.Scope>,
   layer: MethodsNonLive<R>['layer']
-): MethodsNonLive<R> => {
-  const effect = makeTester(api, mapEffect);
-
-  return makeCallable(api, {
-    effect,
-    scoped: effect,
+): MethodsNonLive<R> =>
+  makeItProxy(api, {
+    effect: makeTester(mapEffect, api),
     layer,
     each: makeEach(api),
   });
-};
 
 const makeMethodsWithLayer = <R>(
   api: HarnessTestApi,
   maps: MethodMaps<R>,
   layer: Methods<R>['layer']
-): Methods<R> => {
-  const effect = makeTester(api, maps.effect);
-  const live = makeTester(api, maps.live);
-
-  return makeCallable(api, {
-    effect,
-    live,
-    scoped: effect,
-    scopedLive: live,
+): Methods<R> =>
+  makeItProxy(api, {
+    effect: makeTester(maps.effect, api),
+    live: makeTester(maps.live, api),
     layer,
     each: makeEach(api),
   });
-};
 
 const makeLayerBlock =
-  <R, E>(layer_: Layer.Layer<R, E>, options: LayerOptions = {}): LayerBlock<R> =>
+  <R, E>(
+    layer_: Layer.Layer<R, E>,
+    options: LayerOptions = {},
+    parentRecordTask?: (name: string) => void
+  ): LayerBlock<R> =>
   (
     ...args:
       | [fn: (it: MethodsNonLive<R>) => void]
       | [name: string, fn: (it: MethodsNonLive<R>) => void]
   ) => {
-    const { excludeTestServices = false, memoMap: providedMemoMap } = options;
+    const excludeTestServices = options.excludeTestServices ?? false;
     const layerWithTestEnv = excludeTestServices ? layer_ : Layer.provideMerge(layer_, TestEnv);
-    const memoMap = providedMemoMap ?? Layer.makeMemoMapUnsafe();
-    const scope = Scope.makeUnsafe();
+    const memoMap = options.memoMap ?? Effect.runSync(Layer.makeMemoMap);
+    const scope = Effect.runSync(Scope.make());
     const contextEffect = Layer.buildWithMemoMap(layerWithTestEnv, memoMap, scope).pipe(
       Effect.orDie,
       Effect.cached,
@@ -373,35 +391,79 @@ const makeLayerBlock =
     const withLayer = <A, E2, R2>(effect: Effect.Effect<A, E2, R2>) =>
       contextEffect.pipe(Effect.flatMap((context) => effect.pipe(Effect.provide(context))));
 
-    const nestedLayer: MethodsNonLive<R>['layer'] = (nestedLayer_) =>
-      makeLayerBlock(Layer.provideMerge(nestedLayer_, layerWithTestEnv), {
-        excludeTestServices,
-        memoMap: Layer.forkMemoMapUnsafe(memoMap),
-      });
-
     const mapLayer = <A, E2>(effect: Effect.Effect<A, E2, R | Scope.Scope>) =>
       effect.pipe(Effect.scoped, withLayer);
-    const layeredIt = makeNonLiveMethods(harnessIt, mapLayer, nestedLayer);
 
-    const register = (fn: (it: MethodsNonLive<R>) => void) => {
+    const makeNestedLayer =
+      (recordTask?: (name: string) => void): MethodsNonLive<R>['layer'] =>
+      (nestedLayer_) =>
+        makeLayerBlock(
+          Layer.provideMerge(nestedLayer_, layerWithTestEnv),
+          {
+            excludeTestServices,
+            memoMap: Layer.forkMemoMapUnsafe(memoMap),
+          },
+          recordTask
+        );
+
+    const makeIt = (api: HarnessTestApi, recordTask?: (name: string) => void): MethodsNonLive<R> =>
+      makeNonLiveMethods(api, mapLayer, makeNestedLayer(recordTask));
+
+    if (args.length === 1) {
+      const blockTaskCounts = new Map<string, number>();
+      const recordTask = (name: string) => {
+        blockTaskCounts.set(name, (blockTaskCounts.get(name) ?? 0) + 1);
+        parentRecordTask?.(name);
+      };
+
+      const [fn] = args;
+      fn(makeIt(makeRecordingApi(harnessIt, recordTask), recordTask));
+
+      let remaining = 0;
+      for (const count of blockTaskCounts.values()) {
+        remaining += count;
+      }
+
+      if (remaining === 0) {
+        afterAll(async () => {
+          await closeScope();
+        });
+        return;
+      }
+
+      beforeEach(async (context): Promise<void> => {
+        const count = blockTaskCounts.get(context.task.name);
+        if (count === void 0 || count <= 0) {
+          return;
+        }
+
+        blockTaskCounts.set(context.task.name, count - 1);
+        context.onTestFinished(async () => {
+          remaining -= 1;
+          if (remaining === 0) {
+            await closeScope(context);
+          }
+        });
+
+        await contextEffect.pipe(Effect.asVoid, runTest(context));
+      });
+      afterAll(async () => {
+        await closeScope();
+      });
+      return;
+    }
+
+    const [name, fn] = args;
+    describe(name, () => {
       beforeAll(async () => {
         await contextEffect.pipe(Effect.asVoid, runPromise);
       });
       afterAll(async () => {
         await closeScope();
       });
-      fn(layeredIt);
-    };
-
-    if (args.length === 1) {
-      const [fn] = args;
-      register(fn);
-      return;
-    }
-
-    const [name, fn] = args;
-    describe(name, () => {
-      register(fn);
+      const api =
+        parentRecordTask === void 0 ? harnessIt : makeRecordingApi(harnessIt, parentRecordTask);
+      fn(makeIt(api, parentRecordTask));
     });
   };
 
