@@ -16,9 +16,6 @@ import type {
 interface BunSqliteDialectConfig {
   database: Database;
   onCreateConnection?: (connection: DatabaseConnection) => Promise<void>;
-  onBeginTransaction?: () => void;
-  onCommitTransaction?: () => void;
-  onRollbackTransaction?: () => void;
 }
 
 export class BunSqliteDialect implements Dialect {
