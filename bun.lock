@@ -71,7 +71,7 @@
         "@repo/effect-react-native-harness": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "@srsholmes/vitest-react-native": "0.1.5",
-        "@testing-library/react-native": "14.0.0",
+        "@testing-library/react-native": "14.0.1",
         "@types/react": "~19.2.2",
         "@vitejs/plugin-react": "6.0.2",
         "agent-device": "0.17.6",
@@ -1005,7 +1005,7 @@
 
     "@testing-library/jest-dom": ["@testing-library/jest-dom@6.9.1", "", { "dependencies": { "@adobe/css-tools": "^4.4.0", "aria-query": "^5.0.0", "css.escape": "^1.5.1", "dom-accessibility-api": "^0.6.3", "picocolors": "^1.1.1", "redent": "^3.0.0" } }, "sha512-zIcONa+hVtVSSep9UT3jZ5rizo2BsxgyDYU7WFD5eICBE7no3881HGeb/QkGfsJs6JTkY1aQhT7rIPC7e+0nnA=="],
 
-    "@testing-library/react-native": ["@testing-library/react-native@14.0.0", "", { "dependencies": { "jest-matcher-utils": "^30.4.1", "picocolors": "^1.1.1", "pretty-format": "^30.4.1", "redent": "^3.0.0" }, "peerDependencies": { "jest": ">=29.0.0", "react": ">=19.0.0", "react-native": ">=0.78", "test-renderer": "^1.0.0" }, "optionalPeers": ["jest"] }, "sha512-Ji+mmlvWp9kTOhqWIskVfCQ05LdmsS3NN6PtG8blYHyd5yLvghSsul5QS4ci01Fw65H9oa6slj9PEOyoogj1VQ=="],
+    "@testing-library/react-native": ["@testing-library/react-native@14.0.1", "", { "dependencies": { "jest-matcher-utils": "^30.4.1", "picocolors": "^1.1.1", "pretty-format": "^30.4.1", "redent": "^3.0.0" }, "peerDependencies": { "jest": ">=29.0.0", "react": ">=19.0.0", "react-native": ">=0.78", "test-renderer": "^1.0.0" }, "optionalPeers": ["jest"] }, "sha512-2r2e2y8SkUNRWKRXlUGqDYunB+AkbdXUPn49Bs5rpv9oxRb0K3USBVugbPbAKJjfj4w5Ba91NJ8LcQCZyopUZA=="],
 
     "@testing-library/user-event": ["@testing-library/user-event@14.6.1", "", { "peerDependencies": { "@testing-library/dom": ">=7.21.4" } }, "sha512-vq7fv0rnt+QTXgPxr5Hjc210p6YKq2kmdziLgnsZGgLJ9e6VAShx1pACLuRjd/AS/sr7phAR58OIIpf0LlmQNw=="],
 
