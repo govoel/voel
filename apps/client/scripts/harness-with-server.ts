@@ -5,10 +5,10 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 import { TestServerControllerServerLive } from '#src/services/testing/server-controller/server.ts';
 
-class HarnessFailure extends Schema.TaggedErrorClass<HarnessFailure>()(
-  'voel/scripts/harness-with-server/HarnessFailure',
-  { exitCode: Schema.Number }
-) {
+class HarnessFailure extends Schema.TaggedErrorClass<
+  HarnessFailure,
+  { readonly brand: unique symbol }
+>()('voel/scripts/harness-with-server/HarnessFailure', { exitCode: Schema.Number }) {
   public override get [Runtime.errorExitCode](): number {
     return this.exitCode;
   }

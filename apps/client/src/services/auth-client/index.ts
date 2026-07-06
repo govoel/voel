@@ -1,5 +1,6 @@
 import { expoClient } from '@better-auth/expo/client';
 import { Duration, Effect, Schema } from 'effect';
+import { hash128 } from 'react-native-xxhash';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
@@ -26,7 +27,7 @@ export const createVoelAuthClient = ({
         plugins: [
           expoClient({
             storage,
-            storagePrefix: `voel_authClient_${encodeURIComponent(serverUrl).replaceAll('%', '-')}_${encodeURIComponent(username).replaceAll('%', '-')}`,
+            storagePrefix: hash128(`voel::auth::${serverUrl}::${username}`),
             cookiePrefix: 'auth',
           }),
         ],
