@@ -59,6 +59,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
   {
     make: Effect.gen(function* () {
       const db = yield* MainDatabase;
+      const serviceScope = yield* Scope.Scope;
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -90,7 +91,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           return Option.none();
         }
 
-        const scope = yield* Scope.fork(yield* Scope.Scope);
+        const scope = yield* Scope.fork(serviceScope);
         const authClient = yield* Option.match(existingAuthClient, {
           onSome: Effect.succeed,
           onNone: () =>
