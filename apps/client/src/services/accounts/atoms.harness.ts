@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Option, Redacted } from 'effect';
+import { Context, Deferred, Effect, Layer, Option, Redacted } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
-import { expect, it, spyOn } from '@repo/effect-react-native-harness';
+import { describe, expect, it, spyOn } from '@repo/effect-react-native-harness';
 
 import { ListAccountsNoAuthClientError, makeAccountsAtoms } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -98,7 +98,31 @@ const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
 });
 
 type AuthClient = Effect.Success<ReturnType<typeof makeAuthClient>>;
-type SessionState = Parameters<Parameters<AuthClient['useSession']['subscribe']>[0]>[0];
+
+const waitForSessionRequest = (authClient: AuthClient) => {
+  const initialSession = authClient.useSession.get();
+  if (!initialSession.isPending && !initialSession.isRefetching) {
+    return Effect.void;
+  }
+
+  return Effect.callback((resume) => {
+    let completed = false;
+
+    const unsubscribe = authClient.useSession.subscribe(({ isPending, isRefetching }) => {
+      if (completed || isPending || isRefetching) {
+        return;
+      }
+
+      completed = true;
+      unsubscribe();
+      resume(Effect.void);
+    });
+
+    return Effect.sync(() => {
+      unsubscribe();
+    });
+  });
+};
 
 interface TestUser {
   readonly id: string;
@@ -122,35 +146,6 @@ interface TestListUsersResult {
 type TestListUsers = (input: {
   readonly query: { readonly limit: number; readonly offset: number };
 }) => Promise<TestListUsersResult>;
-
-const mockSession = Effect.fnUntraced(function* (
-  authClient: AuthClient,
-  overrides: Partial<SessionState> = {}
-) {
-  const state: SessionState = {
-    data: null,
-    error: null,
-    isPending: false,
-    isRefetching: false,
-    refetch: async () => void 0,
-    ...overrides,
-  };
-  const subscribeSpy = spyOn(authClient.useSession, 'subscribe').mockImplementation(
-    (subscriber) => {
-      subscriber(state);
-
-      return () => {
-        authClient.useSession.get();
-      };
-    }
-  );
-
-  yield* Effect.addFinalizer(() =>
-    Effect.sync(() => {
-      subscribeSpy.mockRestore();
-    })
-  );
-});
 
 const listUsersSuccess = (
   users: readonly TestUser[],
@@ -270,98 +265,167 @@ it.effect(
   )
 );
 
-it.effect(
-  'accountsSheetAtom returns INVALID_SESSION and is dismissable when there is no session',
-  Effect.fnUntraced(
-    function* () {
-      const { accountsSheetAtom, drainAtomTasks, manager, registry } =
-        yield* makeTestAccountsAtoms();
-      const serverUrl = Account.fields.serverUrl.make('http://no-session.example.test');
-      const username = Account.fields.username.make('no-session');
-      const authClient = yield* makeAuthClient({ serverUrl, username });
+describe('accountsSheetAtom pending and failed sessions', () => {
+  it.effect(
+    'returns IDLE and is dismissable while the session is pending',
+    Effect.fnUntraced(
+      function* () {
+        const { accountsSheetAtom, drainAtomTasks, manager, registry } =
+          yield* makeTestAccountsAtoms();
+        const serverUrl = Account.fields.serverUrl.make('http://pending-session.example.test');
+        const username = Account.fields.username.make('pending-session');
+        const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+          const requestUrl = input instanceof Request ? input.url : String(input);
+          if (new URL(requestUrl).pathname !== '/api/auth/get-session') {
+            throw new Error(`Unexpected request: ${requestUrl}`);
+          }
 
-      yield* mockSession(authClient);
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username,
-        authClient: Option.some(authClient),
-      });
+          return Effect.runPromise(Effect.never);
+        });
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            fetchSpy.mockRestore();
+          })
+        );
+        const authClient = yield* makeAuthClient({ serverUrl, username });
 
-      yield* drainAtomTasks;
-      expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
-        mode: 'INVALID_SESSION',
-        dismissable: true,
-      });
-    },
-    (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-  )
-);
+        yield* manager.setActiveAccount({
+          serverUrl,
+          username,
+          authClient: Option.some(authClient),
+        });
 
-it.effect(
-  'accountsSheetAtom returns INVALID_SESSION and is dismissable when the session has an error',
-  Effect.fnUntraced(
-    function* () {
-      const { accountsSheetAtom, drainAtomTasks, manager, registry } =
-        yield* makeTestAccountsAtoms();
-      const serverUrl = Account.fields.serverUrl.make('http://session-error.example.test');
-      const username = Account.fields.username.make('session-error');
-      const authClient = yield* makeAuthClient({ serverUrl, username });
+        expect(authClient.useSession.get()).toMatchObject({
+          data: null,
+          error: null,
+          isPending: true,
+        });
+        yield* drainAtomTasks;
+        expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
+          mode: 'IDLE',
+          dismissable: true,
+        });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
 
-      yield* mockSession(authClient, {
-        error: {
-          status: 401,
-          statusText: 'Unauthorized',
-          name: 'Unauthorized',
-          message: 'Unauthorized',
-          error: 'Unauthorized',
-        },
-      });
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username,
-        authClient: Option.some(authClient),
-      });
+  it.effect(
+    'returns IDLE and is dismissable when the session request fails',
+    Effect.fnUntraced(
+      function* () {
+        const { accountsSheetAtom, drainAtomTasks, manager, registry } =
+          yield* makeTestAccountsAtoms();
+        const serverUrl = Account.fields.serverUrl.make('http://failed-session.example.test');
+        const username = Account.fields.username.make('failed-session');
+        const getSessionResponse = yield* Deferred.make<Response, Error>();
+        const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+          const requestUrl = input instanceof Request ? input.url : String(input);
+          if (new URL(requestUrl).pathname !== '/api/auth/get-session') {
+            throw new Error(`Unexpected request: ${requestUrl}`);
+          }
 
-      yield* drainAtomTasks;
-      expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
-        mode: 'INVALID_SESSION',
-        dismissable: true,
-      });
-    },
-    (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-  )
-);
+          return Effect.runPromise(Deferred.await(getSessionResponse));
+        });
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            fetchSpy.mockRestore();
+          })
+        );
+        const authClient = yield* makeAuthClient({ serverUrl, username });
 
-it.effect(
-  'accountsSheetAtom returns IDLE and is dismissable when the session is valid',
-  Effect.fnUntraced(
-    function* () {
-      const { accountsSheetAtom, drainAtomTasks, manager, registry } =
-        yield* makeTestAccountsAtoms();
-      const serverUrl = Account.fields.serverUrl.make('http://valid-session.example.test');
-      const username = Account.fields.username.make('valid-session');
-      const authClient = yield* makeAuthClient({ serverUrl, username });
+        yield* manager.setActiveAccount({
+          serverUrl,
+          username,
+          authClient: Option.some(authClient),
+        });
+        yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
+        yield* waitForSessionRequest(authClient);
 
-      yield* mockSession(authClient, {
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        data: {} as NonNullable<SessionState['data']>,
-      });
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username,
-        authClient: Option.some(authClient),
-      });
-      yield* drainAtomTasks;
-      registry.mount(accountsSheetAtom);
+        const failedSession = authClient.useSession.get();
+        expect(failedSession).toMatchObject({ data: null, isPending: false });
+        expect(failedSession.error).not.toBeNull();
 
-      expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
-        mode: 'IDLE',
-        dismissable: true,
-      });
-    },
-    (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-  )
-);
+        yield* drainAtomTasks;
+        expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
+          mode: 'IDLE',
+          dismissable: true,
+        });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
+});
+
+it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (iit) => {
+  iit.effect(
+    'returns IDLE and is dismissable while a valid session is valid',
+    Effect.fnUntraced(
+      function* () {
+        const { accountsSheetAtom, drainAtomTasks, manager, registry } =
+          yield* makeTestAccountsAtoms();
+        const serverUrl = yield* makeServerUrl();
+        const username = yield* makeUsername('test.admin');
+
+        yield* manager.setupServerWithAccount({
+          serverUrl,
+          name: 'Test Admin',
+          email: `${username}@voel.app`,
+          username,
+          password: Redacted.make('ha!niceTry'),
+        });
+
+        const { authClient } = Option.getOrThrow(yield* manager.state).state;
+        yield* waitForSessionRequest(authClient);
+        const validSession = authClient.useSession.get();
+        expect(validSession).toMatchObject({ error: null, isPending: false });
+        expect(validSession.data).not.toBeNull();
+
+        yield* drainAtomTasks;
+        expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
+          mode: 'IDLE',
+          dismissable: true,
+        });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
+
+  iit.effect(
+    'returns INVALID_SESSION and is dismissable when the session is revoked',
+    Effect.fnUntraced(
+      function* () {
+        const { accountsSheetAtom, activeAccountSessionAtom, drainAtomTasks, manager, registry } =
+          yield* makeTestAccountsAtoms();
+        const serverUrl = yield* makeServerUrl();
+        const username = yield* makeUsername('test.admin');
+
+        yield* manager.setupServerWithAccount({
+          serverUrl,
+          name: 'Test Admin',
+          email: `${username}@voel.app`,
+          username,
+          password: Redacted.make('ha!niceTry'),
+        });
+        const { authClient } = Option.getOrThrow(yield* manager.state).state;
+
+        const revokeResult = yield* Effect.promise(async () => authClient.signOut());
+        expect(revokeResult).toMatchObject({ data: { success: true }, error: null });
+
+        yield* Effect.promise(async () =>
+          authClient.useSession.get().refetch({ query: { disableCookieCache: true } })
+        );
+        yield* waitForSessionRequest(authClient);
+
+        yield* drainAtomTasks;
+        expect(
+          yield* AtomRegistry.getResult(registry, accountsSheetAtom, { suspendOnWaiting: true })
+        ).toEqual({ mode: 'INVALID_SESSION', dismissable: true });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
+});
 
 it.effect(
   'listAccountsAtom fails with ListAccountsNoAuthClientError when there is no active auth client',
