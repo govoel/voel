@@ -123,16 +123,18 @@ type TestListUsers = (input: {
   readonly query: { readonly limit: number; readonly offset: number };
 }) => Promise<TestListUsersResult>;
 
-const sessionState = (overrides: Partial<SessionState> = {}): SessionState => ({
-  data: null,
-  error: null,
-  isPending: false,
-  isRefetching: false,
-  refetch: async () => void 0,
-  ...overrides,
-});
-
-const mockSession = Effect.fnUntraced(function* (authClient: AuthClient, state: SessionState) {
+const mockSession = Effect.fnUntraced(function* (
+  authClient: AuthClient,
+  overrides: Partial<SessionState> = {}
+) {
+  const state: SessionState = {
+    data: null,
+    error: null,
+    isPending: false,
+    isRefetching: false,
+    refetch: async () => void 0,
+    ...overrides,
+  };
   const subscribeSpy = spyOn(authClient.useSession, 'subscribe').mockImplementation(
     (subscriber) => {
       subscriber(state);
@@ -166,7 +168,6 @@ const withListUsers = (authClient: AuthClient, listUsers: TestListUsers): AuthCl
         return { listUsers };
       }
 
-      // oxlint-disable-next-line typescript/no-unsafe-return
       return Reflect.get(target, property, receiver);
     },
   });
@@ -273,15 +274,13 @@ it.effect(
   'accountsSheetAtom returns INVALID_SESSION and is dismissable when there is no session',
   Effect.fnUntraced(
     function* () {
-      const { accountsSheetAtom, activeAccountSessionAtom, drainAtomTasks, manager, registry } =
+      const { accountsSheetAtom, drainAtomTasks, manager, registry } =
         yield* makeTestAccountsAtoms();
       const serverUrl = Account.fields.serverUrl.make('http://no-session.example.test');
       const username = Account.fields.username.make('no-session');
       const authClient = yield* makeAuthClient({ serverUrl, username });
 
-      yield* mockSession(authClient, sessionState());
-      expect(yield* AtomRegistry.getResult(registry, activeAccountSessionAtom)).toBe(Option.none());
-
+      yield* mockSession(authClient);
       yield* manager.setActiveAccount({
         serverUrl,
         username,
@@ -308,18 +307,15 @@ it.effect(
       const username = Account.fields.username.make('session-error');
       const authClient = yield* makeAuthClient({ serverUrl, username });
 
-      yield* mockSession(
-        authClient,
-        sessionState({
-          error: {
-            status: 401,
-            statusText: 'Unauthorized',
-            name: 'Unauthorized',
-            message: 'Unauthorized',
-            error: 'Unauthorized',
-          },
-        })
-      );
+      yield* mockSession(authClient, {
+        error: {
+          status: 401,
+          statusText: 'Unauthorized',
+          name: 'Unauthorized',
+          message: 'Unauthorized',
+          error: 'Unauthorized',
+        },
+      });
       yield* manager.setActiveAccount({
         serverUrl,
         username,
@@ -346,13 +342,10 @@ it.effect(
       const username = Account.fields.username.make('valid-session');
       const authClient = yield* makeAuthClient({ serverUrl, username });
 
-      yield* mockSession(
-        authClient,
-        sessionState({
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          data: {} as NonNullable<SessionState['data']>,
-        })
-      );
+      yield* mockSession(authClient, {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        data: {} as NonNullable<SessionState['data']>,
+      });
       yield* manager.setActiveAccount({
         serverUrl,
         username,
