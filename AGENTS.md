@@ -15,6 +15,6 @@ Run these commands in parallel after you are done with your changes:
 
 Before writing any Effect code, YOU MUST read `.repos/effect/LLMS.md` fully.
 
-### Browse library code
+# Browse library code
 
 Use `.agents/skills/opensrc/SKILL.md` to browse the code of libraries this repo depends on. Do not read from `node_modules` directly.
