@@ -146,9 +146,10 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
 
       const activeAccountSession = yield* get.result(activeAccountSessionAtom);
       if (
-        Option.isNone(activeAccountSession) ||
-        activeAccountSession.value.error !== null ||
-        activeAccountSession.value.data === null
+        Option.isSome(activeAccountSession) &&
+        !activeAccountSession.value.isPending /* nothing in-flight while there is no session */ &&
+        activeAccountSession.value.error === null /* no error hitting the server */ &&
+        activeAccountSession.value.data === null /* no session of any kind */
       ) {
         return { mode: 'INVALID_SESSION', dismissable: true } as const;
       }
