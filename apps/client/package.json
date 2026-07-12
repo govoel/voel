@@ -27,7 +27,7 @@
     "@expo-google-fonts/google-sans": "0.4.0",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~57.0.3",
-    "@op-engineering/op-sqlite": "17.1.1",
+    "@op-engineering/op-sqlite": "17.1.2",
     "@repo/auth-api": "workspace:*",
     "@repo/effect-kysely": "workspace:*",
     "@repo/spec-api": "workspace:*",
