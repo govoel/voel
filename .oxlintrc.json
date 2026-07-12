@@ -1,76 +1,26 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": [".repos/**", ".agents/skills/**"],
-  "plugins": ["unicorn", "typescript", "import", "oxc", "promise", "node", "eslint"],
-  "categories": {
-    "correctness": "error",
-    "suspicious": "error",
-    "pedantic": "error",
-    "perf": "error",
-    "style": "error",
-    "restriction": "error",
-    "nursery": "error"
-  },
-  "env": {
-    "builtin": true,
-    "node": true
-  },
-  "rules": {
-    "eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
-    "eslint/new-cap": "off",
-    "eslint/max-classes-per-file": "off",
-    "eslint/func-names": ["error", "as-needed", { "generators": "never" }],
-    "eslint/no-ternary": "off",
-    "eslint/sort-keys": "off",
-    "eslint/sort-imports": ["error", { "ignoreDeclarationSort": true }],
-    "eslint/max-lines-per-function": "off",
-    "eslint/max-statements": "off",
-    "eslint/id-length": "off",
-    "eslint/complexity": "off",
-    "eslint/max-lines": "off",
-    "eslint/capitalized-comments": "off",
-    "eslint/no-inline-comments": "off",
-    "eslint/no-magic-numbers": "off",
-    "eslint/no-void": "off",
-    "eslint/require-await": "off",
-    "eslint/no-negated-condition": "off",
-    "eslint/no-undefined": "error",
-    "eslint/no-warning-comments": "off",
-    "eslint/no-underscore-dangle": "off",
-    "eslint/no-use-before-define": "off",
-    "eslint/max-depth": "off",
-
-    "import/no-duplicates": ["error", { "preferInline": false }],
-    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
-    "import/prefer-default-export": "off",
-    "import/no-default-export": "off",
-    "import/no-named-export": "off",
-    "import/no-namespace": "off",
-    "import/max-dependencies": "off",
-    "import/exports-last": "off",
-    "import/group-exports": "off",
-    "import/namespace": "off",
-
-    "oxc/no-async-await": "off",
-    "oxc/no-optional-chaining": "off",
-    "oxc/no-rest-spread-properties": "off",
-    "oxc/no-map-spread": "off",
-
-    "typescript/explicit-function-return-type": "off",
-    "typescript/explicit-module-boundary-types": "off",
-    "typescript/require-await": "off",
-    "typescript/prefer-readonly-parameter-types": "off",
-
-    "unicorn/no-null": "off",
-    "unicorn/catch-error-name": ["error", { "ignore": ["e", "err", "error"] }],
-    "unicorn/no-array-for-each": "off",
-    "unicorn/no-nested-ternary": "off",
-    "unicorn/no-abusive-eslint-disable": "off",
-    "unicorn/no-array-callback-reference": "off",
-    "unicorn/no-negated-condition": "off",
-
-    "promise/prefer-await-to-then": "off",
-    "promise/prefer-await-to-callbacks": "off"
-  },
-  "jsPlugins": ["eslint-plugin-turbo"]
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "extends": ["./packages/tools/oxc/oxlintrc.json"],
+  "ignorePatterns": [
+    "LLMS.md",
+    "**/dist",
+    "**/build",
+    "**/docs",
+    "**/.tsbuildinfo",
+    "packages/effect/typeperf/**/*",
+    "packages/**/CHANGELOG.md",
+    "!scratchpad/**/*",
+    ".agents/**/*",
+    ".context/**/*",
+    ".specs/**/*"
+  ],
+  "jsPlugins": ["@effect/oxc/oxlint"],
+  "overrides": [{
+    "files": ["**/{test,typetest,examples,ai-docs,benchmark,bundle,scripts,scratchpad}/**"],
+    "rules": {
+      "effect/no-bigint-literals": "off",
+      "eslint/no-console": "off",
+      "effect/no-import-from-barrel-package": "off"
+    }
+  }]
 }
