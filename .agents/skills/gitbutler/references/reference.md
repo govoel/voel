@@ -9,7 +9,7 @@ Agent-focused reference for useful `but` commands.
 - [Committing](#committing) - `commit`, `absorb`
 - [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
-- [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
+- [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `land`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`
 - [History & Undo](#history--undo) - `undo`, `oplog`
 - [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`, `gui`
@@ -182,7 +182,7 @@ but commit empty --after <target>        # Insert empty commit after target
 
 **Placing commits:** Use `--before <target>` or `--after <target>` when the new commit should be inserted at a specific position in existing history. After an insertion, later commit IDs may be rewritten; use fresh IDs from returned status output for subsequent history edits.
 
-**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit <branch> -m "msg1" --changes a1,b2 && but commit <branch> -m "msg2" --changes c3,d4`. File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. Do not chain mutations that consume commit IDs (`amend`, `squash`, `move`, `uncommit`) — those get rewritten, so run them one at a time.
+**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit <branch> -m "msg1" --changes a1,b2 && but commit <branch> -m "msg2" --changes c3,d4`. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. Do not chain mutations that consume commit IDs (`amend`, `squash`, `move`, `uncommit`) — those get rewritten, so run them one at a time. If a commit must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit them, then `but move <preserved-commit-id> <branch>` rather than anchoring with `--before`/`--after`.
 
 Example: `but commit my-branch -m "Fix bug" --changes ab,cd` commits files/hunks `ab` and `cd`.
 
@@ -423,15 +423,18 @@ Agents must use `--message (-m)`, `--file (-F)`, or `--default (-t)` to avoid ed
 
 Requires forge integration to be configured via `but config forge auth`.
 
-### `but merge <branch>`
+### `but land <branch>`
 
-Merge branch into local target branch.
+Land a branch directly onto the target (e.g. `origin/master`), skipping a pull request. Fast-forwards
+when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves the refs
+locally. Then reconciles the remaining branches like `but pull`.
 
 ```bash
-but merge <branch-id>
+but land <branch-id> --yes            # Land onto the target (--yes required non-interactively)
+but land <branch-id> --no-ff --yes    # Force a merge commit instead of fast-forwarding
 ```
 
-Merges into local target branch, then runs `but pull` to update.
+Direct target updates are hard to reverse, so confirmation is required (agents must pass `--yes`).
 
 ## Workspace Maintenance
 
