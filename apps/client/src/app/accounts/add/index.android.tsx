@@ -1,5 +1,5 @@
 import { Column } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, padding, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
 import { router } from 'expo-router';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.tsx';
@@ -14,7 +14,7 @@ export default function AddAccountScreen() {
     <AndroidAccountsSheet>
       <form.AppForm>
         <Column
-          modifiers={[paddingAll(Spacing.three)]}
+          modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
           verticalArrangement={{ spacedBy: Spacing.two }}>
           <Text variant="h3">Add an account</Text>
 

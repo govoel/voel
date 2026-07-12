@@ -1,5 +1,5 @@
 import { Column } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { router } from 'expo-router';
 
 import { useSetupServerForm } from '#src/app/accounts/setup/index.tsx';
@@ -14,7 +14,7 @@ export default function SetupServerScreen() {
     <AndroidAccountsSheet>
       <form.AppForm>
         <Column
-          modifiers={[paddingAll(Spacing.three)]}
+          modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
           verticalArrangement={{ spacedBy: Spacing.two }}>
           <Text variant="h3">Setup new server</Text>
 
