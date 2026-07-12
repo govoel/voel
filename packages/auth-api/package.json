@@ -26,6 +26,6 @@
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.3.14",
     "portless": "0.15.1",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   }
 }

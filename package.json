@@ -26,7 +26,7 @@
     "oxlint": "1.73.0",
     "oxlint-tsgolint": "0.24.0",
     "turbo": "2.10.4",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "engines": {
     "bun": "1.3.14"
