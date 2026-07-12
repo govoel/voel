@@ -47,7 +47,7 @@ class RunningTestServer extends Context.Service<RunningTestServer>()(
 
       yield* client.get(`http://localhost:${port}/api/auth/get-session`).pipe(
         Effect.retry({
-          schedule: Schedule.exponential('50 millis').pipe(Schedule.both(Schedule.recurs(50))),
+          schedule: Schedule.max([Schedule.exponential('50 millis'), Schedule.recurs(50)]),
         })
       );
 
