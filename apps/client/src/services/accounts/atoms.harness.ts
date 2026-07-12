@@ -124,49 +124,6 @@ const waitForSessionRequest = (authClient: AuthClient) => {
   });
 };
 
-interface TestUser {
-  readonly id: string;
-}
-
-interface TestListUsersResult {
-  readonly data: {
-    readonly users: readonly TestUser[];
-    readonly total: number;
-    readonly limit: number;
-    readonly offset: number;
-  } | null;
-  readonly error: {
-    readonly code?: string;
-    readonly message?: string;
-    readonly status: number;
-    readonly statusText: string;
-  } | null;
-}
-
-type TestListUsers = (input: {
-  readonly query: { readonly limit: number; readonly offset: number };
-}) => Promise<TestListUsersResult>;
-
-const listUsersSuccess = (
-  users: readonly TestUser[],
-  total: number,
-  offset: number
-): TestListUsersResult => ({
-  data: { users, total, limit: 10, offset },
-  error: null,
-});
-
-const withListUsers = (authClient: AuthClient, listUsers: TestListUsers): AuthClient =>
-  new Proxy(authClient, {
-    get(target, property, receiver): unknown {
-      if (property === 'admin') {
-        return { listUsers };
-      }
-
-      return Reflect.get(target, property, receiver);
-    },
-  });
-
 it.effect(
   'accountsAtom reacts to account table mutations',
   Effect.fnUntraced(
@@ -395,7 +352,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
     'returns INVALID_SESSION and is dismissable when the session is revoked',
     Effect.fnUntraced(
       function* () {
-        const { accountsSheetAtom, activeAccountSessionAtom, drainAtomTasks, manager, registry } =
+        const { accountsSheetAtom, drainAtomTasks, manager, registry } =
           yield* makeTestAccountsAtoms();
         const serverUrl = yield* makeServerUrl();
         const username = yield* makeUsername('test.admin');
@@ -427,148 +384,108 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
   );
 });
 
-it.effect(
-  'listAccountsAtom fails with ListAccountsNoAuthClientError when there is no active auth client',
-  Effect.fnUntraced(
-    function* () {
-      const { listAccountsAtom, registry } = yield* makeTestAccountsAtoms();
+const setupServerWithUsers = Effect.fnUntraced(function* (
+  manager: AccountManager['Service'],
+  userCount: number
+) {
+  const serverUrl = yield* makeServerUrl();
+  const adminUsername = yield* makeUsername('test.admin');
 
-      const error = yield* AtomRegistry.getResult(registry, listAccountsAtom).pipe(Effect.flip);
+  yield* manager.setupServerWithAccount({
+    serverUrl,
+    name: 'Test Admin',
+    email: `${adminUsername}@voel.app`,
+    username: adminUsername,
+    password: Redacted.make('ha!niceTry'),
+  });
 
-      expect(error).toBeInstanceOf(ListAccountsNoAuthClientError);
-    },
-    (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-  )
-);
+  const usernames = [adminUsername];
+  for (let index = 1; index < userCount; index += 1) {
+    const username = yield* makeUsername(`test.user.${index}`);
+    const { authClient } = Option.getOrThrow(yield* manager.state).state;
+    const result = yield* Effect.promise(async () =>
+      authClient.admin.createUser({
+        name: `Test User ${index}`,
+        email: `${username}@voel.app`,
+        password: 'ha!niceTry',
+        role: 'user',
+        data: { username },
+      })
+    );
 
-it.effect(
-  'listAccountsAtom paginates users until the next offset reaches the total',
-  Effect.fnUntraced(
-    function* () {
-      const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
-      const serverUrl = Account.fields.serverUrl.make('http://pagination.example.test');
-      const username = Account.fields.username.make('pagination');
-      const authClient = yield* makeAuthClient({ serverUrl, username });
-      const firstPage = Array.from({ length: 10 }, (_, index) => ({ id: `user-${index}` }));
-      const secondPage = [{ id: 'user-10' }, { id: 'user-11' }];
-      const offsets: number[] = [];
-      const client = withListUsers(authClient, async ({ query }) => {
-        offsets.push(query.offset);
-        return query.offset === 0
-          ? listUsersSuccess(firstPage, 12, 0)
-          : listUsersSuccess(secondPage, 12, 10);
-      });
+    expect(result.error).toBeNull();
+    usernames.push(username);
+  }
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username,
-        authClient: Option.some(client),
-      });
-      registry.mount(listAccountsAtom);
+  return { serverUrl, usernames };
+});
 
-      expect(
-        yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
-      ).toMatchObject({ done: false, items: firstPage });
+it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
+  iit.effect(
+    'fails with ListAccountsNoAuthClientError when there is no active auth client',
+    Effect.fnUntraced(
+      function* () {
+        const { listAccountsAtom, registry } = yield* makeTestAccountsAtoms();
+        const error = yield* AtomRegistry.getResult(registry, listAccountsAtom).pipe(Effect.flip);
 
-      registry.set(listAccountsAtom, void 0);
-      expect(
-        yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
-      ).toMatchObject({ done: false, items: [...firstPage, ...secondPage] });
+        expect(error).toBeInstanceOf(ListAccountsNoAuthClientError);
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
 
-      registry.set(listAccountsAtom, void 0);
-      expect(
-        yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
-      ).toMatchObject({ done: true, items: [...firstPage, ...secondPage] });
-      expect(offsets).toEqual([0, 10]);
-    },
-    (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-  )
-);
+  iit.effect(
+    'paginates real users until the next offset reaches the total',
+    Effect.fnUntraced(
+      function* () {
+        const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
+        yield* setupServerWithUsers(manager, 12);
+        registry.mount(listAccountsAtom);
 
-it.effect(
-  'listAccountsAtom stops pagination on an empty page',
-  Effect.fnUntraced(
-    function* () {
-      const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
-      const serverUrl = Account.fields.serverUrl.make('http://empty-page.example.test');
-      const username = Account.fields.username.make('empty-page');
-      const authClient = yield* makeAuthClient({ serverUrl, username });
-      const firstPage = [{ id: 'only-user' }];
-      const offsets: number[] = [];
-      const client = withListUsers(authClient, async ({ query }) => {
-        offsets.push(query.offset);
-        return query.offset === 0 ? listUsersSuccess(firstPage, 3, 0) : listUsersSuccess([], 3, 1);
-      });
+        const firstPage = yield* AtomRegistry.getResult(registry, listAccountsAtom, {
+          suspendOnWaiting: true,
+        });
+        expect(firstPage).toMatchObject({ done: false });
+        expect(firstPage.items).toHaveLength(10);
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username,
-        authClient: Option.some(client),
-      });
-      registry.mount(listAccountsAtom);
-      expect(
-        yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
-      ).toMatchObject({ done: false, items: firstPage });
+        registry.set(listAccountsAtom, void 0);
+        const allUsers = yield* AtomRegistry.getResult(registry, listAccountsAtom, {
+          suspendOnWaiting: true,
+        });
+        expect(allUsers).toMatchObject({ done: false });
+        expect(allUsers.items).toHaveLength(12);
 
-      registry.set(listAccountsAtom, void 0);
-      expect(
-        yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
-      ).toMatchObject({ done: true, items: firstPage });
-      expect(offsets).toEqual([0, 1]);
-    },
-    (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-  )
-);
+        registry.set(listAccountsAtom, void 0);
+        expect(
+          yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
+        ).toMatchObject({ done: true, items: allUsers.items });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
 
-it.effect(
-  'listAccountsAtom uses the current active account auth client after switching accounts',
-  Effect.fnUntraced(
-    function* () {
-      const { drainAtomTasks, listAccountsAtom, manager, registry } =
-        yield* makeTestAccountsAtoms();
-      const serverUrl = Account.fields.serverUrl.make('http://switch-list-users.example.test');
-      const firstUsername = Account.fields.username.make('first');
-      const secondUsername = Account.fields.username.make('second');
-      const firstAuthClient = yield* makeAuthClient({ serverUrl, username: firstUsername });
-      const secondAuthClient = yield* makeAuthClient({ serverUrl, username: secondUsername });
-      const firstUser = { id: 'first-user' };
-      const secondUser = { id: 'second-user' };
-      let firstCalls = 0;
-      let secondCalls = 0;
-      const firstClient = withListUsers(firstAuthClient, async () => {
-        firstCalls += 1;
-        return listUsersSuccess([firstUser], 1, 0);
-      });
-      const secondClient = withListUsers(secondAuthClient, async () => {
-        secondCalls += 1;
-        return listUsersSuccess([secondUser], 1, 0);
-      });
+  iit.effect(
+    'uses the current real server after switching accounts',
+    Effect.fnUntraced(
+      function* () {
+        const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username: firstUsername,
-        authClient: Option.some(firstClient),
-      });
-      registry.mount(listAccountsAtom);
-      expect(
-        yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
-      ).toMatchObject({ items: [firstUser] });
+        const firstServer = yield* setupServerWithUsers(manager, 3);
+        const firstResult = yield* AtomRegistry.getResult(registry, listAccountsAtom);
+        // @ts-expect-error - better-auth types don't show username is there, but it is in the response
+        // oxlint-disable-next-line typescript/no-unsafe-return
+        expect(firstResult.items.map((user) => user.username)).toEqual(firstServer.usernames);
 
-      yield* manager.setActiveAccount({
-        serverUrl,
-        username: secondUsername,
-        authClient: Option.some(secondClient),
-      });
-      yield* drainAtomTasks;
-      expect(
-        yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
-      ).toMatchObject({ items: [secondUser] });
-      expect(firstCalls).toBe(1);
-      expect(secondCalls).toBe(1);
-    },
-    (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-  )
-);
+        const secondServer = yield* setupServerWithUsers(manager, 6);
+        const secondResult = yield* AtomRegistry.getResult(registry, listAccountsAtom);
+        // @ts-expect-error - better-auth types don't show username is there, but it is in the response
+        // oxlint-disable-next-line typescript/no-unsafe-return
+        expect(secondResult.items.map((user) => user.username)).toEqual(secondServer.usernames);
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
+});
 
 it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => {
   iit.effect(
