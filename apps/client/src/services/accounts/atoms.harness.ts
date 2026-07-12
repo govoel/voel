@@ -232,9 +232,9 @@ describe('accountsSheetAtom pending and failed sessions', () => {
         const serverUrl = Account.fields.serverUrl.make('http://pending-session.example.test');
         const username = Account.fields.username.make('pending-session');
         const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-          const requestUrl = input instanceof Request ? input.url : String(input);
-          if (new URL(requestUrl).pathname !== '/api/auth/get-session') {
-            throw new Error(`Unexpected request: ${requestUrl}`);
+          const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
+          if (requestUrl.pathname !== '/api/auth/get-session') {
+            throw new Error(`Unexpected request: ${requestUrl.toString()}`);
           }
 
           return Effect.runPromise(Effect.never);
@@ -277,9 +277,9 @@ describe('accountsSheetAtom pending and failed sessions', () => {
         const username = Account.fields.username.make('failed-session');
         const getSessionResponse = yield* Deferred.make<Response, Error>();
         const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-          const requestUrl = input instanceof Request ? input.url : String(input);
-          if (new URL(requestUrl).pathname !== '/api/auth/get-session') {
-            throw new Error(`Unexpected request: ${requestUrl}`);
+          const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
+          if (requestUrl.pathname !== '/api/auth/get-session') {
+            throw new Error(`Unexpected request: ${requestUrl.toString()}`);
           }
 
           return Effect.runPromise(Deferred.await(getSessionResponse));
