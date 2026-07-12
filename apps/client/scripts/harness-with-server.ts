@@ -5,10 +5,10 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 import { TestServerControllerServerLive } from '#src/services/testing/server-controller/server.ts';
 
-class HarnessFailure extends Schema.TaggedErrorClass<HarnessFailure>()(
-  'voel/scripts/harness-with-server/HarnessFailure',
-  { exitCode: Schema.Number }
-) {
+class HarnessFailure extends Schema.TaggedErrorClass<
+  HarnessFailure,
+  { readonly brand: unique symbol }
+>()('voel/scripts/harness-with-server/HarnessFailure', { exitCode: Schema.Number }) {
   public override get [Runtime.errorExitCode](): number {
     return this.exitCode;
   }
@@ -29,10 +29,14 @@ const runHarness = Effect.fn('runHarness')(function* (runner: 'ios' | 'android')
   return yield* Effect.void;
 });
 
-const withTestServer = Effect.fn('withTestServer')(function* (
-  runners: readonly ('ios' | 'android')[]
-) {
-  yield* TestServerControllerServerLive.pipe(Layer.launch, Effect.forkScoped);
+const withTestServer = Effect.fn('withTestServer')(function* ({
+  runners,
+  verbose,
+}: {
+  readonly runners: readonly ('ios' | 'android')[];
+  readonly verbose: boolean;
+}) {
+  yield* TestServerControllerServerLive({ verbose }).pipe(Layer.launch, Effect.forkScoped);
 
   for (const runner of runners) {
     yield* runHarness(runner);
@@ -43,8 +47,11 @@ const command = Command.make(
   'harness-with-server',
   {
     runners: Flag.choice('harnessRunner', ['ios', 'android']).pipe(Flag.atLeast(1)),
+    verbose: Flag.boolean('verbose').pipe(
+      Flag.withDescription('Print test server stdout and stderr')
+    ),
   },
-  ({ runners }) => withTestServer(runners).pipe(Effect.scoped)
+  (args) => withTestServer(args).pipe(Effect.scoped)
 );
 
 command.pipe(

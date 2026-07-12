@@ -12,11 +12,13 @@
     "test": {
       "cache": true,
       "dependsOn": ["^test"],
-      "inputs": ["$TURBO_DEFAULT$"]
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputLogs": "errors-only"
     },
     "//#lint": {
       "cache": true,
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"],
+      "outputLogs": "errors-only"
     },
     "//#lint:fix": {
       "cache": false
@@ -31,7 +33,8 @@
     "check-types": {
       "cache": true,
       "dependsOn": ["^check-types"],
-      "inputs": ["$TURBO_DEFAULT$"]
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputLogs": "errors-only"
     },
     "dev": {
       "cache": false,

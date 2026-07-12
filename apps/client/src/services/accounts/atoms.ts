@@ -1,5 +1,5 @@
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
@@ -26,13 +26,12 @@ export class ListAccountsNoAuthClientError extends Schema.TaggedErrorClass<
 >()('voel/app/accounts/server/accounts/ListAccountsNoAuthClientError', {}) {}
 
 export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | MainDatabase>) => {
-  const accountsAtom = runtime
-    .atom(
-      Effect.service(MainDatabase).pipe(
-        Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll()))
-      )
+  const accountsAtom = runtime.atom(
+    Effect.service(MainDatabase).pipe(
+      Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll())),
+      Reactivity.stream(['account'])
     )
-    .pipe(Atom.withReactivity(['account']));
+  );
 
   const activeAccountAtom = runtime.atom(
     AccountManager.pipe(
@@ -147,9 +146,10 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
 
       const activeAccountSession = yield* get.result(activeAccountSessionAtom);
       if (
-        Option.isNone(activeAccountSession) ||
-        activeAccountSession.value.error !== null ||
-        activeAccountSession.value.data === null
+        Option.isSome(activeAccountSession) &&
+        !activeAccountSession.value.isPending /* nothing in-flight while there is no session */ &&
+        activeAccountSession.value.error === null /* no error hitting the server */ &&
+        activeAccountSession.value.data === null /* no session of any kind */
       ) {
         return { mode: 'INVALID_SESSION', dismissable: true } as const;
       }

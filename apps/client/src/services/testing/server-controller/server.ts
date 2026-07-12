@@ -6,11 +6,17 @@ import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
 import { TestServerControllerApi } from '#src/services/testing/server-controller/spec.ts';
 
+const TestServerLogging = Context.Reference<boolean>(
+  'voel/services/testing/server-controller/server/TestServerLogging',
+  { defaultValue: () => false }
+);
+
 class RunningTestServer extends Context.Service<RunningTestServer>()(
   'voel/services/testing/server-controller/server/RunningTestServer',
   {
     make: Effect.fnUntraced(function* ({ port }: { port: number }) {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const verbose = yield* TestServerLogging;
 
       const handle = yield* Effect.acquireRelease(
         spawner.spawn(
@@ -22,26 +28,30 @@ class RunningTestServer extends Context.Service<RunningTestServer>()(
               PORT: port.toString(),
             },
             extendEnv: true,
+            stdout: verbose ? 'pipe' : 'ignore',
+            stderr: verbose ? 'pipe' : 'ignore',
           })
         ),
         (h) => h.kill().pipe(Effect.catch(() => Effect.void))
       );
 
-      yield* handle.stdout.pipe(
-        Stream.decodeText(),
-        Stream.splitLines,
-        Stream.runForEach((line) => Console.log(`[${port}] ${line}`)),
-        Effect.catch(() => Effect.void),
-        Effect.forkScoped
-      );
+      if (verbose) {
+        yield* handle.stdout.pipe(
+          Stream.decodeText(),
+          Stream.splitLines,
+          Stream.runForEach((line) => Console.log(`[${port}] ${line}`)),
+          Effect.catch(() => Effect.void),
+          Effect.forkScoped
+        );
 
-      yield* handle.stderr.pipe(
-        Stream.decodeText(),
-        Stream.splitLines,
-        Stream.runForEach((line) => Console.error(`[${port}] ${line}`)),
-        Effect.catch(() => Effect.void),
-        Effect.forkScoped
-      );
+        yield* handle.stderr.pipe(
+          Stream.decodeText(),
+          Stream.splitLines,
+          Stream.runForEach((line) => Console.error(`[${port}] ${line}`)),
+          Effect.catch(() => Effect.void),
+          Effect.forkScoped
+        );
+      }
 
       const client = yield* HttpClient.HttpClient;
 
@@ -85,10 +95,20 @@ const TestServerControllerRoutes = RpcServer.layerHttp({
   Layer.provideMerge(FetchHttpClient.layer)
 );
 
-export const TestServerControllerServerLive = HttpRouter.serve(TestServerControllerRoutes).pipe(
-  Layer.provide(BunHttpServer.layer({ port: 3000 }))
-);
+export const TestServerControllerServerLive = ({
+  verbose = false,
+}: {
+  readonly verbose?: boolean;
+}) =>
+  HttpRouter.serve(TestServerControllerRoutes, {
+    disableListenLog: !verbose,
+    disableLogger: !verbose,
+  }).pipe(
+    Layer.provide(
+      Layer.mergeAll(BunHttpServer.layer({ port: 3000 }), Layer.succeed(TestServerLogging, verbose))
+    )
+  );
 
 if (import.meta.main) {
-  BunRuntime.runMain(Layer.launch(TestServerControllerServerLive));
+  BunRuntime.runMain(Layer.launch(TestServerControllerServerLive({ verbose: true })));
 }

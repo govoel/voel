@@ -17,10 +17,10 @@ export const createMigrationProvider = (): MigrationProvider => ({
   }),
 });
 
-class MigrationError extends Schema.TaggedErrorClass<MigrationError>()(
-  '@repo/server/services/database/migrations/MigrationError',
-  {}
-) {}
+class MigrationError extends Schema.TaggedErrorClass<
+  MigrationError,
+  { readonly brand: unique symbol }
+>()('@repo/server/services/database/migrations/MigrationError', {}) {}
 
 export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { db: Kysely<DB> }) {
   const provider = createMigrationProvider();
