@@ -1,6 +1,6 @@
 import { Label, SecureField as SwiftSecureField, VStack, useNativeState } from '@expo/ui/swift-ui';
 import { disabled, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
-import { useStore } from '@tanstack/react-form';
+import { useSelector } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
 import { useRef } from 'react';
 import { PlatformColor } from 'react-native';
@@ -16,8 +16,7 @@ export const SecureField = (({ label, placeholder, platformProps = {} }) => {
   const errorMessage = field.state.meta.isTouched
     ? Array.head(field.state.meta.errors)
     : Option.none();
-  // oxlint-disable-next-line typescript/no-deprecated - waiting for useSelector in upstream
-  const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
   const value = useNativeState(field.state.value);
   const hasFocusedRef = useRef(false);
 
