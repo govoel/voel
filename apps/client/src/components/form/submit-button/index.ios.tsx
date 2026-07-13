@@ -8,7 +8,7 @@ import {
   multilineTextAlignment,
   padding,
 } from '@expo/ui/swift-ui/modifiers';
-import { useStore } from '@tanstack/react-form';
+import { useSelector } from '@tanstack/react-form';
 import { Array, Option } from 'effect';
 import { PlatformColor } from 'react-native';
 
@@ -43,8 +43,7 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const form = useFormContext();
-  // oxlint-disable-next-line typescript/no-deprecated - waiting for useSelector in upstream
-  const [canSubmit, isSubmitting, formErrorMessages] = useStore(
+  const [canSubmit, isSubmitting, formErrorMessages] = useSelector(
     form.store,
     (state): readonly [boolean, boolean, string[]] => [
       state.canSubmit,
