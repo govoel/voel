@@ -12,12 +12,13 @@ import {
   TextButton,
   useMaterialColors,
 } from '@expo/ui/jetpack-compose';
+import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   accountsWithActiveAccount,
@@ -58,6 +59,12 @@ const StackNavigationRow = ({
 
 export default function AccountsScreen() {
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
+  const switchAccountSheetRef = useRef<ModalBottomSheetRef>(null);
+
+  const dismissSwitchAccountSheet = async () => {
+    await switchAccountSheetRef.current?.hide();
+    setIsSwitchAccountPresented(false);
+  };
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
@@ -237,6 +244,7 @@ export default function AccountsScreen() {
 
         {AsyncResult.isSuccess(accounts) && isSwitchAccountPresented ? (
           <ModalBottomSheet
+            ref={switchAccountSheetRef}
             skipPartiallyExpanded
             onDismissRequest={() => {
               setIsSwitchAccountPresented(false);
@@ -261,7 +269,7 @@ export default function AccountsScreen() {
                           authClient: Option.none(),
                         },
                         () => {
-                          setIsSwitchAccountPresented(false);
+                          void dismissSwitchAccountSheet();
                         }
                       );
                     }}>
