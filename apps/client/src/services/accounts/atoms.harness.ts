@@ -99,16 +99,13 @@ const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
 
 type AuthClient = Effect.Success<ReturnType<typeof makeAuthClient>>;
 
-const waitForSessionRequest = (authClient: AuthClient) => {
-  const initialSession = authClient.useSession.get();
-  if (!initialSession.isPending && !initialSession.isRefetching) {
-    return Effect.void;
-  }
-
-  return Effect.callback((resume) => {
+const waitForSessionRequest = (authClient: AuthClient) =>
+  Effect.callback((resume) => {
     let completed = false;
-
-    const unsubscribe = authClient.useSession.subscribe(({ isPending, isRefetching }) => {
+    const completeIfSettled = ({
+      isPending,
+      isRefetching,
+    }: ReturnType<AuthClient['useSession']['get']>) => {
       if (completed || isPending || isRefetching) {
         return;
       }
@@ -116,13 +113,13 @@ const waitForSessionRequest = (authClient: AuthClient) => {
       completed = true;
       unsubscribe();
       resume(Effect.void);
-    });
+    };
+    const unsubscribe = authClient.useSession.listen(completeIfSettled);
 
-    return Effect.sync(() => {
-      unsubscribe();
-    });
+    completeIfSettled(authClient.useSession.get());
+
+    return Effect.sync(unsubscribe);
   });
-};
 
 describe('accountsAtom', () => {
   it.effect(
@@ -234,13 +231,21 @@ describe('accountsSheetAtom', () => {
             yield* makeTestAccountsAtoms();
           const serverUrl = Account.fields.serverUrl.make('http://pending-session.example.test');
           const username = Account.fields.username.make('pending-session');
-          const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+          const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
               throw new Error(`Unexpected request: ${requestUrl.toString()}`);
             }
 
-            return Effect.runPromise(Effect.never);
+            const signal = input instanceof Request ? input.signal : init?.signal;
+            if (signal === void 0) {
+              throw new Error('Expected the get-session request to have an AbortSignal.');
+            }
+
+            return Effect.runPromise(Effect.never, {
+              // @ts-expect-error - React Native's AbortSignal type omits DOM-only members.
+              signal,
+            });
           });
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => {

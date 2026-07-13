@@ -34,6 +34,10 @@ export const SecureField = (({ label, placeholder, platformProps = {} }) => {
         ...('android' in platformProps ? platformProps.android.textStyle : {}),
       }}
       visualTransformation="password"
+      keyboardOptions={{
+        keyboardType: 'password',
+        ...('android' in platformProps ? platformProps.android.keyboardOptions : {}),
+      }}
       value={value}
       onValueChange={field.handleChange}
       onFocusChanged={(focused) => {

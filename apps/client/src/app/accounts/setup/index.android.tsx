@@ -1,6 +1,8 @@
 import { Column } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
+import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
+import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { router } from 'expo-router';
+import { useRef } from 'react';
 
 import { useSetupServerForm } from '#src/app/accounts/setup/index.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
@@ -8,13 +10,22 @@ import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function SetupServerScreen() {
-  const form = useSetupServerForm({ onClose: router.back });
+  const sheetRef = useRef<ModalBottomSheetRef>(null);
+  const closeSheet = async () => {
+    await sheetRef.current?.hide();
+    router.back();
+  };
+  const form = useSetupServerForm({
+    onClose: () => {
+      void closeSheet();
+    },
+  });
 
   return (
-    <AndroidAccountsSheet>
+    <AndroidAccountsSheet ref={sheetRef}>
       <form.AppForm>
         <Column
-          modifiers={[paddingAll(Spacing.three)]}
+          modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
           verticalArrangement={{ spacedBy: Spacing.two }}>
           <Text variant="h3">Setup new server</Text>
 

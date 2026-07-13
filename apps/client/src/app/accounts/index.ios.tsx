@@ -1,9 +1,9 @@
-import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Host, Icon } from '@expo/ui';
 import {
+  Alert,
   BottomSheet,
   Button,
-  ConfirmationDialog,
   Group,
   HStack,
   List,
@@ -27,11 +27,15 @@ import type { Href } from 'expo-router';
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 
-import { accountsWithActiveAccount, activeAccountLiteral } from '#src/app/accounts/index.tsx';
+import {
+  accountsWithActiveAccount,
+  activeAccountLiteral,
+  useSetActiveAccount,
+} from '#src/app/accounts/index.tsx';
 import { Text } from '#src/components/text';
 import { iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
-import { removeAccountAtom, setActiveAccountAtom } from '#src/services/accounts/atoms.ts';
+import { removeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => (
   <Button
@@ -57,7 +61,7 @@ export default function AccountsScreen() {
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
   const accounts = useAtomValue(accountsWithActiveAccount);
-  const [setActiveAccount, setActiveAccountMutation] = useAtom(setActiveAccountAtom);
+  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   const [isRemoveAccountConfirmationPresented, setIsRemoveAccountConfirmationPresented] =
     useState(false);
@@ -150,12 +154,11 @@ export default function AccountsScreen() {
                   <StackNavigationRow title="Profile" href="/accounts/profile" />
                   <StackNavigationRow title="Settings" href="/accounts/settings" />
 
-                  <ConfirmationDialog
-                    title="Remove account from this device"
+                  <Alert
+                    title="Remove account from this device?"
                     isPresented={isRemoveAccountConfirmationPresented}
-                    onIsPresentedChange={setIsRemoveAccountConfirmationPresented}
-                    titleVisibility="visible">
-                    <ConfirmationDialog.Trigger>
+                    onIsPresentedChange={setIsRemoveAccountConfirmationPresented}>
+                    <Alert.Trigger>
                       <Button
                         label="Remove account from this device"
                         role="destructive"
@@ -163,10 +166,10 @@ export default function AccountsScreen() {
                           setIsRemoveAccountConfirmationPresented(true);
                         }}
                       />
-                    </ConfirmationDialog.Trigger>
-                    <ConfirmationDialog.Actions>
+                    </Alert.Trigger>
+                    <Alert.Actions>
                       <Button
-                        label="Confirm"
+                        label="Remove"
                         role="destructive"
                         onPress={() => {
                           if (
@@ -182,17 +185,16 @@ export default function AccountsScreen() {
                         }}
                       />
                       <Button label="Cancel" role="cancel" />
-                    </ConfirmationDialog.Actions>
-                    <ConfirmationDialog.Message>
+                    </Alert.Actions>
+                    <Alert.Message>
                       <Text>
-                        Are you sure you want to remove @
+                        This will sign you out and remove all data associated with @
                         {accounts.value.activeAccount.value.account.username} on{' '}
                         {accounts.value.activeAccount.value.account.serverUrl.toString()} from this
-                        device? This will sign you out and remove all data associated with this
-                        account from this device.
+                        device.
                       </Text>
-                    </ConfirmationDialog.Message>
-                  </ConfirmationDialog>
+                    </Alert.Message>
+                  </Alert>
                 </Section>
 
                 <Section
@@ -223,9 +225,13 @@ export default function AccountsScreen() {
             <BottomSheet
               isPresented={isSwitchAccountPresented}
               onIsPresentedChange={setIsSwitchAccountPresented}>
-              <List
-                modifiers={[headerProminence('increased'), padding({ vertical: Spacing.three })]}>
-                <Section title="Pick an Account">
+              <List modifiers={[headerProminence('increased')]}>
+                <Section
+                  header={
+                    <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
+                      Pick an Account
+                    </Text>
+                  }>
                   {accounts.value.accounts.map((account) => (
                     <Button
                       modifiers={[
@@ -234,11 +240,16 @@ export default function AccountsScreen() {
                       ]}
                       key={`${account.serverUrl.toString()}-${account.username}`}
                       onPress={() => {
-                        setActiveAccountMutation({
-                          serverUrl: account.serverUrl,
-                          username: account.username,
-                          authClient: Option.none(),
-                        });
+                        void setActiveAccountAndDismiss(
+                          {
+                            serverUrl: account.serverUrl,
+                            username: account.username,
+                            authClient: Option.none(),
+                          },
+                          () => {
+                            setIsSwitchAccountPresented(false);
+                          }
+                        );
                       }}>
                       <HStack alignment="center" spacing={Spacing.two}>
                         <Icon
