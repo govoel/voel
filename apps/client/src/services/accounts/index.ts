@@ -12,6 +12,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
+import { uuid } from 'expo-modules-core';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
@@ -135,7 +136,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
               onNone: () =>
                 createVoelAuthClient({
                   serverUrl: activeAccount.serverUrl.toString(),
-                  username: activeAccount.username,
+                  authStorageId: activeAccount.authStorageId,
                   storage: authClientStorage,
                 }),
             });
@@ -293,7 +294,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: {
         readonly account: Pick<
           Insertable<AccountTable>,
-          'serverUrl' | 'userId' | 'username' | 'role' | 'profilePicture'
+          'serverUrl' | 'userId' | 'username' | 'authStorageId' | 'role' | 'profilePicture'
         >;
         readonly authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
       }) {
@@ -308,6 +309,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   .onConflict((oc) =>
                     oc.columns(['serverUrl', 'userId']).doUpdateSet({
                       username: account.username,
+                      authStorageId: account.authStorageId,
                       role: account.role,
                       profilePicture: account.profilePicture,
                       active: Account.fields.active.make(1),
@@ -379,9 +381,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
         password: Redacted.Redacted;
       }) {
+        const authStorageId = Account.fields.authStorageId.make(uuid.v4());
         const authClient = yield* createVoelAuthClient({
           serverUrl,
-          username,
+          authStorageId,
           storage: authClientStorage,
         });
 
@@ -403,6 +406,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             serverUrl,
             userId: signInResult.data.user.id,
             username: signInResult.data.user.username ?? username,
+            authStorageId,
             role: AccountRole.decodeSyncFromNullishString(signInResult.data.user.role).value,
             profilePicture: signInResult.data.user.image ?? null,
           },
@@ -425,9 +429,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
         > & {
           password: Redacted.Redacted;
         }) {
+        const authStorageId = Account.fields.authStorageId.make(uuid.v4());
         const authClient = yield* createVoelAuthClient({
           serverUrl,
-          username,
+          authStorageId,
           storage: authClientStorage,
         });
 
@@ -454,6 +459,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             serverUrl,
             userId: signUpResult.data.user.id,
             username: signUpResult.data.user.username ?? username,
+            authStorageId,
             role: AccountRole.decodeSyncFromNullishString(signUpResult.data.user.role).value,
             profilePicture: signUpResult.data.user.image ?? null,
           },

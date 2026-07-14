@@ -54,12 +54,14 @@ describe('AccountManager', () => {
         const db = yield* MainDatabase;
         const serverUrl = Account.fields.serverUrl.make('http://restored.example.test');
         const username = Account.fields.username.make('restored');
+        const authStorageId = Account.fields.authStorageId.make('restored-auth-storage');
 
         yield* db.execute(
           db.insertInto('account').values({
             serverUrl,
             userId: username,
             username,
+            authStorageId,
             role: 'user',
             active: Account.fields.active.make(1),
           })
@@ -107,9 +109,10 @@ describe('AccountManager', () => {
             password,
           });
 
+          const persistedAccount = Option.getOrThrow(yield* manager.state).account;
           const storage = yield* AuthClientStorage;
           const storedCookie = yield* storage.getItem(
-            `${hash128(`voel::auth::${serverUrl}::${username}`)}_cookie`
+            `${hash128(`voel::auth::${serverUrl}::${persistedAccount.authStorageId}`)}_cookie`
           );
 
           expect(storedCookie.valueOrUndefined).toContain('auth.session_token');
@@ -145,7 +148,7 @@ describe('AccountManager', () => {
           const password = Redacted.make('ha!niceTry');
           const manager = yield* AccountManager;
 
-          const authClient = yield* makeAuthClient({ serverUrl, username });
+          const authClient = yield* makeAuthClient({ serverUrl });
           yield* Effect.promise(async () =>
             authClient.signUp.email({
               name: 'Test User',
@@ -209,7 +212,7 @@ describe('AccountManager', () => {
     );
 
     iit.effect(
-      'synchronizes username and profile picture after the user updates their profile',
+      'synchronizes profile metadata while preserving auth storage across a username change',
       Effect.fnUntraced(
         function* () {
           const serverUrl = yield* makeServerUrl();
@@ -243,6 +246,7 @@ describe('AccountManager', () => {
             serverUrl,
             userId: activeAccount.account.userId,
             username: updatedUsername,
+            authStorageId: activeAccount.account.authStorageId,
             role: 'admin',
             profilePicture,
             active: 1,
@@ -252,11 +256,34 @@ describe('AccountManager', () => {
               serverUrl,
               userId: activeAccount.account.userId,
               username: updatedUsername,
+              authStorageId: activeAccount.account.authStorageId,
               role: 'admin',
               profilePicture,
               active: 1,
             },
           ]);
+
+          const storage = yield* AuthClientStorage;
+          const storedCookie = yield* storage.getItem(
+            `${hash128(`voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`)}_cookie`
+          );
+          const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
+            storedCookie.valueOrUndefined
+          );
+
+          yield* Effect.gen(function* () {
+            const freshManager = yield* AccountManager;
+            const restoredAccount = Option.getOrThrow(yield* freshManager.state);
+
+            expect(restoredAccount.account).toMatchObject({
+              serverUrl,
+              username: updatedUsername,
+              authStorageId: synchronizedAccount.authStorageId,
+            });
+            expect(restoredAccount.state.authClient.getCookie()).toContain(
+              `auth.session_token=${parsedCookie['auth.session_token'].value}`
+            );
+          }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
@@ -280,7 +307,6 @@ describe('AccountManager', () => {
 
           const adminAuthClient = yield* makeAuthClient({
             serverUrl: testServer.serverUrl,
-            username: adminUsername,
           });
           const adminSignInResult = yield* Effect.promise(async () =>
             adminAuthClient.signIn.username({
@@ -363,7 +389,6 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -403,11 +428,9 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const firstClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
           const secondClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -440,11 +463,9 @@ describe('AccountManager', () => {
           const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
           const firstClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: firstAccount.username,
           });
           const secondClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: secondAccount.username,
           });
 
           yield* manager.setActiveAccount({
@@ -496,7 +517,6 @@ describe('AccountManager', () => {
             authClient: Option.some(
               yield* makeAuthClient({
                 serverUrl: testServer.serverUrl,
-                username: firstAccount.username,
               })
             ),
           });
@@ -506,7 +526,6 @@ describe('AccountManager', () => {
             authClient: Option.some(
               yield* makeAuthClient({
                 serverUrl: testServer.serverUrl,
-                username: secondAccount.username,
               })
             ),
           });
@@ -516,7 +535,6 @@ describe('AccountManager', () => {
             authClient: Option.some(
               yield* makeAuthClient({
                 serverUrl: testServer.serverUrl,
-                username: firstAccount.username,
               })
             ),
           });
@@ -547,11 +565,9 @@ describe('AccountManager', () => {
           const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
           const firstClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: firstAccount.username,
           });
           const secondClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: secondAccount.username,
           });
 
           yield* manager.setActiveAccount({
@@ -587,7 +603,6 @@ describe('AccountManager', () => {
           const activeUsername = activeAccount.username;
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: activeUsername,
           });
 
           yield* manager.setActiveAccount({
@@ -625,7 +640,6 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -655,7 +669,6 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
