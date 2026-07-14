@@ -126,9 +126,9 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
     );
   });
 
-  const upsertAccountAtom = runtime.fn(
-    (input: Parameters<typeof AccountManager.Service.upsertAccount>[0]) =>
-      AccountManager.pipe(Effect.flatMap((manager) => manager.upsertAccount(input)))
+  const signInAccountAtom = runtime.fn(
+    (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>
+      AccountManager.pipe(Effect.flatMap((manager) => manager.signInAccount(input)))
   );
 
   const accountsSheetAtom = runtime.atom(
@@ -175,7 +175,7 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
     activeAccountAuthClientAtom,
     listAccountsAtom,
     activeAccountSessionAtom,
-    upsertAccountAtom,
+    signInAccountAtom,
     accountsSheetAtom,
     setActiveAccountAtom,
     removeAccountAtom,
@@ -189,7 +189,7 @@ export const {
   activeAccountAuthClientAtom,
   listAccountsAtom,
   activeAccountSessionAtom,
-  upsertAccountAtom,
+  signInAccountAtom,
   accountsSheetAtom,
   setActiveAccountAtom,
   removeAccountAtom,

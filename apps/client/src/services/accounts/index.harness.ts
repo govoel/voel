@@ -181,33 +181,63 @@ describe('AccountManager', () => {
             username,
             active: 1,
           });
-          expect(yield* getAccounts).toMatchObject([{ serverUrl, username, active: 1 }]);
+          const accounts = yield* getAccounts;
+          expect(accounts).toMatchObject([{ serverUrl, username, role: 'admin', active: 1 }]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
     );
   });
 
-  describe('setActiveAccount', () => {
-    it.effect(
+  it.layer(TestServerControllerClient.layer)('setActiveAccount', (iit) => {
+    iit.effect(
+      'fails when the account does not exist',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const serverUrl = Account.fields.serverUrl.make('http://profile.example.test');
+          const userId = Account.fields.userId.make('missing');
+          const error = yield* manager
+            .setActiveAccount({
+              serverUrl,
+              userId,
+              authClient: Option.none(),
+            })
+            .pipe(Effect.flip);
+
+          expect(error).toEqual(new AccountNotFoundError({ serverUrl, userId }));
+          expect(yield* manager.state).toBe(Option.none());
+          expect(yield* getAccounts).toEqual([]);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
       'does nothing when the account is already active',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://active.example.test');
-          const username = Account.fields.username.make('active');
+          const {
+            accounts: [account],
+            serverUrl,
+          } = yield* setupTestServerWithUsers(manager, {
+            userCount: 1,
+            persistUsersLocally: true,
+          });
+          const { username } = account;
           const client = yield* makeAuthClientWithSpy({ serverUrl, username });
 
           yield* manager.setActiveAccount({
             serverUrl,
-            username,
+            userId: account.userId,
             authClient: Option.some(client.authClient),
           });
           const before = yield* manager.state;
 
           yield* manager.setActiveAccount({
             serverUrl,
-            username,
+            userId: account.userId,
             authClient: Option.some(client.authClient),
           });
 
@@ -220,14 +250,58 @@ describe('AccountManager', () => {
       )
     );
 
-    it.effect(
+    iit.effect(
+      'reinitializes an active account when its auth client changes',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const {
+            accounts: [account],
+            serverUrl,
+          } = yield* setupTestServerWithUsers(manager, {
+            userCount: 1,
+            persistUsersLocally: true,
+          });
+          const { username } = account;
+          const firstClient = yield* makeAuthClientWithSpy({ serverUrl, username });
+          const secondClient = yield* makeAuthClientWithSpy({ serverUrl, username });
+
+          yield* manager.setActiveAccount({
+            serverUrl,
+            userId: account.userId,
+            authClient: Option.some(firstClient.authClient),
+          });
+          yield* manager.setActiveAccount({
+            serverUrl,
+            userId: account.userId,
+            authClient: Option.some(secondClient.authClient),
+          });
+
+          expect((yield* manager.state).valueOrUndefined?.state.authClient).toBe(
+            secondClient.authClient
+          );
+          expect(firstClient.unsubscribeCount).toBe(1);
+          expect(secondClient.subscribeCount).toBe(1);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
       'deactivates the previous account and activates the new one',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://switch.example.test');
-          const firstUsername = Account.fields.username.make('first');
-          const secondUsername = Account.fields.username.make('second');
+          const {
+            accounts: [firstAccount, ...additionalAccounts],
+            serverUrl,
+          } = yield* setupTestServerWithUsers(manager, {
+            userCount: 2,
+            persistUsersLocally: true,
+          });
+          const secondAccount = Option.getOrThrow(Option.fromNullishOr(additionalAccounts[0]));
+          const firstUsername = firstAccount.username;
+          const secondUsername = secondAccount.username;
           const firstClient = yield* makeAuthClientWithSpy({
             serverUrl,
             username: firstUsername,
@@ -264,28 +338,35 @@ describe('AccountManager', () => {
       )
     );
 
-    it.effect(
+    iit.effect(
       'reactivates an existing account without duplicating it',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://reactivate.example.test');
-          const firstUsername = Account.fields.username.make('first');
-          const secondUsername = Account.fields.username.make('second');
+          const {
+            accounts: [firstAccount, ...additionalAccounts],
+            serverUrl,
+          } = yield* setupTestServerWithUsers(manager, {
+            userCount: 2,
+            persistUsersLocally: true,
+          });
+          const secondAccount = Option.getOrThrow(Option.fromNullishOr(additionalAccounts[0]));
+          const firstUsername = firstAccount.username;
+          const secondUsername = secondAccount.username;
 
           yield* manager.setActiveAccount({
             serverUrl,
-            username: firstUsername,
+            userId: firstAccount.userId,
             authClient: Option.some(yield* makeAuthClient({ serverUrl, username: firstUsername })),
           });
           yield* manager.setActiveAccount({
             serverUrl,
-            username: secondUsername,
+            userId: secondAccount.userId,
             authClient: Option.some(yield* makeAuthClient({ serverUrl, username: secondUsername })),
           });
           yield* manager.setActiveAccount({
             serverUrl,
-            username: firstUsername,
+            userId: firstAccount.userId,
             authClient: Option.some(yield* makeAuthClient({ serverUrl, username: firstUsername })),
           });
 

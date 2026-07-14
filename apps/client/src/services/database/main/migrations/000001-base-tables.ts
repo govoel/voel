@@ -24,8 +24,13 @@ export const up = async (db: Kysely<unknown>) => {
   await db.schema
     .createTable('account')
     .addColumn('serverUrl', 'text', (col) => col.notNull())
+    .addColumn('userId', 'text', (col) => col.notNull())
+    .addPrimaryKeyConstraint('account_serverUrl_userId_pkey', ['serverUrl', 'userId'])
     .addColumn('username', 'text', (col) => col.notNull())
-    .addPrimaryKeyConstraint('account_serverUrl_username_pkey', ['serverUrl', 'username'])
+    .addColumn('role', 'text', (col) =>
+      col.notNull().check(sql`"role" in ('admin', 'user', 'under18')`)
+    )
+    .addColumn('profilePicture', 'text')
     .addColumn('active', 'integer', (col) =>
       col
         .notNull()
@@ -37,14 +42,10 @@ export const up = async (db: Kysely<unknown>) => {
     .modifyEnd(sql`strict`)
     .execute();
 
-  await sql`create unique index account_active_uniqueidx on account (active) where active = 1;`.execute(
-    db
-  );
-
   await createUpdatedAtTrigger({
     db,
     table: 'account',
-    columns: ['serverUrl', 'username', 'active'],
+    columns: ['serverUrl', 'userId', 'username', 'role', 'profilePicture', 'active'],
   });
 };
 

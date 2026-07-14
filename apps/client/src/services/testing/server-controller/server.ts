@@ -105,7 +105,7 @@ export const TestServerControllerServerLive = ({
     disableLogger: !verbose,
   }).pipe(
     Layer.provide(
-      Layer.mergeAll(BunHttpServer.layer({ port: 3000 }), Layer.succeed(TestServerLogging, verbose))
+      Layer.mergeAll(BunHttpServer.layer({ port: 6000 }), Layer.succeed(TestServerLogging, verbose))
     )
   );
 
