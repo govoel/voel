@@ -4,12 +4,9 @@
 
 # Validations
 
-Run these commands in parallel after you are done with your changes:
+Run this commands after you are done with your changes:
 
-- `bun run lint`
-- `bun run format`
-- `bun turbo run check-types`
-- `bun turbo run test && bun run --filter=voel harness:all`
+- `bun turbo run check-types && bun turbo run lint && bun turbo run test && bun run --filter=voel harness:all && bun run format`
 
 # This project uses "effect"
 

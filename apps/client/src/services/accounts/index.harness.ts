@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Redacted, Schema } from 'effect';
+import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
@@ -21,6 +21,20 @@ import {
 const getAccounts = MainDatabase.pipe(
   Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll().orderBy('username')))
 );
+
+const forkNextAccountManagerChange = Effect.fnUntraced(function* (
+  manager: AccountManager['Service']
+) {
+  const subscribed = yield* Deferred.make<true>();
+  const fiber = yield* manager.changes.pipe(
+    Stream.tap(() => Deferred.succeed(subscribed, true)),
+    Stream.drop(1),
+    Stream.runHead,
+    Effect.forkChild
+  );
+  yield* Deferred.await(subscribed);
+  return fiber;
+});
 
 describe('AccountManager', () => {
   it.effect(
@@ -189,6 +203,127 @@ describe('AccountManager', () => {
           });
           const accounts = yield* getAccounts;
           expect(accounts).toMatchObject([{ serverUrl, username, role: 'admin', active: 1 }]);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
+      'synchronizes username and profile picture after the user updates their profile',
+      Effect.fnUntraced(
+        function* () {
+          const serverUrl = yield* makeServerUrl();
+          const username = yield* makeUsername('test.admin');
+          const updatedUsername = yield* makeUsername('updated.admin');
+          const profilePicture = 'https://voel.app/profile.png';
+          const manager = yield* AccountManager;
+
+          yield* manager.setupServerWithAccount({
+            serverUrl,
+            name: 'Test Admin',
+            email: `${username}@voel.app`,
+            username,
+            password: Redacted.make('ha!niceTry'),
+          });
+
+          const activeAccount = Option.getOrThrow(yield* manager.state);
+          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
+          const updateResult = yield* Effect.promise(async () =>
+            activeAccount.state.authClient.updateUser({
+              username: updatedUsername,
+              image: profilePicture,
+            })
+          );
+          expect(updateResult.error).toBeNull();
+
+          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
+          const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
+
+          expect(synchronizedAccount).toMatchObject({
+            serverUrl,
+            userId: activeAccount.account.userId,
+            username: updatedUsername,
+            role: 'admin',
+            profilePicture,
+            active: 1,
+          });
+          expect(yield* getAccounts).toMatchObject([
+            {
+              serverUrl,
+              userId: activeAccount.account.userId,
+              username: updatedUsername,
+              role: 'admin',
+              profilePicture,
+              active: 1,
+            },
+          ]);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
+      'synchronizes a role changed by another account after the session refreshes',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+          const [adminUsername, username] = testServer.usernames;
+
+          yield* manager.signInAccount({
+            serverUrl: testServer.serverUrl,
+            username,
+            password: testServer.password,
+          });
+          const activeAccount = Option.getOrThrow(yield* manager.state);
+          expect(activeAccount.account.role).toBe('user');
+
+          const adminAuthClient = yield* makeAuthClient({
+            serverUrl: testServer.serverUrl,
+            username: adminUsername,
+          });
+          const adminSignInResult = yield* Effect.promise(async () =>
+            adminAuthClient.signIn.username({
+              username: adminUsername,
+              password: Redacted.value(testServer.password),
+            })
+          );
+          expect(adminSignInResult.error).toBeNull();
+
+          const roleResult = yield* Effect.promise(async () =>
+            adminAuthClient.admin.setRole({
+              userId: activeAccount.account.userId,
+              role: 'admin',
+            })
+          );
+          expect(roleResult.error).toBeNull();
+
+          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
+          yield* Effect.promise(async () =>
+            activeAccount.state.authClient.useSession.get().refetch({
+              query: { disableCookieCache: true },
+            })
+          );
+
+          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
+          const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
+
+          expect(synchronizedAccount).toMatchObject({
+            serverUrl: testServer.serverUrl,
+            userId: activeAccount.account.userId,
+            username,
+            role: 'admin',
+            active: 1,
+          });
+          expect(yield* getAccounts).toMatchObject([
+            {
+              serverUrl: testServer.serverUrl,
+              userId: activeAccount.account.userId,
+              username,
+              role: 'admin',
+              active: 1,
+            },
+          ]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

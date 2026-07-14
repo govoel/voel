@@ -4,9 +4,11 @@ import {
   Exit,
   Layer,
   Option,
+  Queue,
   Redacted,
   Schema,
   Scope,
+  Stream,
   SubscriptionRef,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
@@ -137,8 +139,88 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   storage: authClientStorage,
                 }),
             });
-            const unsubscribe = authClient.useSession.subscribe(() => void 0);
-            yield* Scope.addFinalizer(scope, Effect.sync(unsubscribe));
+
+            // Subscribe directly rather than through Stream.callback, which acquires lazily:
+            // forkIn may return before its callback runs. Account initialization must own the
+            // subscription synchronously so an immediate account switch closes it deterministically.
+            type SessionState = Parameters<
+              Parameters<typeof authClient.useSession.subscribe>[0]
+            >[0];
+            const sessionStates = yield* Queue.unbounded<SessionState>();
+
+            const synchronizeAccount = Effect.fnUntraced(function* (sessionState: SessionState) {
+              if (sessionState.data === null) {
+                return;
+              }
+
+              const sessionUser = sessionState.data.user;
+              yield* SubscriptionRef.modifySomeEffect(
+                stateRef,
+                Effect.fnUntraced(function* (currentState) {
+                  if (
+                    Option.isNone(currentState) ||
+                    currentState.value.state.authClient !== authClient ||
+                    currentState.value.account.userId !== sessionUser.id
+                  ) {
+                    return [void 0, Option.none()] as const;
+                  }
+
+                  const username = sessionUser.username ?? currentState.value.account.username;
+                  const role = AccountRole.decodeSyncFromNullishString(sessionUser.role).value;
+                  const profilePicture = sessionUser.image ?? null;
+                  if (
+                    currentState.value.account.username === username &&
+                    currentState.value.account.role === role &&
+                    currentState.value.account.profilePicture === profilePicture
+                  ) {
+                    return [void 0, Option.none()] as const;
+                  }
+
+                  const persistedAccount = yield* db
+                    .executeTakeFirstOption(
+                      db
+                        .updateTable('account')
+                        .set({ username, role, profilePicture })
+                        .where('serverUrl', '=', currentState.value.account.serverUrl)
+                        .where('userId', '=', currentState.value.account.userId)
+                        .returningAll()
+                    )
+                    .pipe(Reactivity.mutation(['account']));
+                  if (Option.isNone(persistedAccount)) {
+                    return [void 0, Option.none()] as const;
+                  }
+
+                  return [
+                    void 0,
+                    Option.some(
+                      Option.some({
+                        account: persistedAccount.value,
+                        state: currentState.value.state,
+                      })
+                    ),
+                  ] as const;
+                })
+              ).pipe(
+                Effect.catchCause((cause) =>
+                  Effect.logError('Failed to synchronize active account from session', cause)
+                )
+              );
+            });
+
+            yield* Stream.fromQueue(sessionStates).pipe(
+              Stream.runForEach(synchronizeAccount),
+              Effect.forkIn(scope, { startImmediately: true })
+            );
+
+            const unsubscribe = authClient.useSession.subscribe((sessionState) => {
+              Queue.offerUnsafe(sessionStates, sessionState);
+            });
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.all([Effect.sync(unsubscribe), Queue.shutdown(sessionStates)], {
+                discard: true,
+              })
+            );
 
             if (Option.isSome(state)) {
               yield* Scope.close(state.value.state.scope, Exit.void);
