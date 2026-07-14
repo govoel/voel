@@ -71,6 +71,7 @@
     "unicorn/no-array-callback-reference": "off",
     "unicorn/no-negated-condition": "off",
     "unicorn/max-nested-calls": "off",
+    "unicorn/no-array-sort": "off",
 
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"

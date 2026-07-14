@@ -3,7 +3,7 @@ import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
 
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -14,6 +14,8 @@ import {
   makeClientTestLayers,
   makeServerUrl,
   makeUsername,
+  setupTestServerWithUsers,
+  signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
 
 const getAccounts = MainDatabase.pipe(
@@ -42,7 +44,9 @@ describe('AccountManager', () => {
         yield* db.execute(
           db.insertInto('account').values({
             serverUrl,
+            userId: username,
             username,
+            role: 'user',
             active: Account.fields.active.make(1),
           })
         );
@@ -119,7 +123,7 @@ describe('AccountManager', () => {
     );
 
     iit.effect(
-      'upsertAccount signs in, persists the account, and activates it',
+      'signInAccount signs in, persists the account, and activates it',
       Effect.fnUntraced(
         function* () {
           const serverUrl = yield* makeServerUrl();
@@ -136,14 +140,16 @@ describe('AccountManager', () => {
               password: Redacted.value(password),
             })
           );
-          yield* manager.upsertAccount({ serverUrl, username, password });
+          yield* manager.signInAccount({ serverUrl, username, password });
 
           expect((yield* manager.state).valueOrUndefined?.account).toMatchObject({
             serverUrl,
             username,
             active: 1,
           });
-          expect(yield* getAccounts).toMatchObject([{ serverUrl, username, active: 1 }]);
+          expect(yield* getAccounts).toMatchObject([
+            { serverUrl, username, role: 'admin', active: 1 },
+          ]);
 
           yield* Effect.gen(function* () {
             const freshManager = yield* AccountManager;
@@ -181,81 +187,158 @@ describe('AccountManager', () => {
             username,
             active: 1,
           });
-          expect(yield* getAccounts).toMatchObject([{ serverUrl, username, active: 1 }]);
+          const accounts = yield* getAccounts;
+          expect(accounts).toMatchObject([{ serverUrl, username, role: 'admin', active: 1 }]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
     );
   });
 
-  describe('setActiveAccount', () => {
-    it.effect(
+  it.layer(TestServerControllerClient.layer)('setActiveAccount', (iit) => {
+    iit.effect(
+      'fails when the account does not exist',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const serverUrl = Account.fields.serverUrl.make('http://profile.example.test');
+          const userId = Account.fields.userId.make('missing');
+          const error = yield* manager
+            .setActiveAccount({
+              serverUrl,
+              userId,
+              authClient: Option.none(),
+            })
+            .pipe(Effect.flip);
+
+          expect(error).toEqual(new AccountNotFoundError({ serverUrl, userId }));
+          expect(yield* manager.state).toBe(Option.none());
+          expect(yield* getAccounts).toEqual([]);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
       'does nothing when the account is already active',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://active.example.test');
-          const username = Account.fields.username.make('active');
-          const client = yield* makeAuthClientWithSpy({ serverUrl, username });
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          const [account] = yield* signInTestServerUsers(manager, testServer);
+          const client = yield* makeAuthClientWithSpy({
+            serverUrl: testServer.serverUrl,
+            username: account.username,
+          });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username,
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
             authClient: Option.some(client.authClient),
           });
           const before = yield* manager.state;
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username,
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
             authClient: Option.some(client.authClient),
           });
 
           expect(yield* manager.state).toBe(before);
           expect(client.subscribeCount).toBe(1);
           expect(client.unsubscribeCount).toBe(0);
-          expect(yield* getAccounts).toMatchObject([{ serverUrl, username, active: 1 }]);
+          expect(yield* getAccounts).toMatchObject([
+            {
+              serverUrl: testServer.serverUrl,
+              username: account.username,
+              active: 1,
+            },
+          ]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
     );
 
-    it.effect(
+    iit.effect(
+      'reinitializes an active account when its auth client changes',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          const [account] = yield* signInTestServerUsers(manager, testServer);
+          const firstClient = yield* makeAuthClientWithSpy({
+            serverUrl: testServer.serverUrl,
+            username: account.username,
+          });
+          const secondClient = yield* makeAuthClientWithSpy({
+            serverUrl: testServer.serverUrl,
+            username: account.username,
+          });
+
+          yield* manager.setActiveAccount({
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
+            authClient: Option.some(firstClient.authClient),
+          });
+          yield* manager.setActiveAccount({
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
+            authClient: Option.some(secondClient.authClient),
+          });
+
+          expect((yield* manager.state).valueOrUndefined?.state.authClient).toBe(
+            secondClient.authClient
+          );
+          expect(firstClient.unsubscribeCount).toBe(1);
+          expect(secondClient.subscribeCount).toBe(1);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
       'deactivates the previous account and activates the new one',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://switch.example.test');
-          const firstUsername = Account.fields.username.make('first');
-          const secondUsername = Account.fields.username.make('second');
+          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+          const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
           const firstClient = yield* makeAuthClientWithSpy({
-            serverUrl,
-            username: firstUsername,
+            serverUrl: testServer.serverUrl,
+            username: firstAccount.username,
           });
           const secondClient = yield* makeAuthClientWithSpy({
-            serverUrl,
-            username: secondUsername,
+            serverUrl: testServer.serverUrl,
+            username: secondAccount.username,
           });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: firstUsername,
+            serverUrl: testServer.serverUrl,
+            userId: firstAccount.userId,
             authClient: Option.some(firstClient.authClient),
           });
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: secondUsername,
+            serverUrl: testServer.serverUrl,
+            userId: secondAccount.userId,
             authClient: Option.some(secondClient.authClient),
           });
 
           expect((yield* manager.state).valueOrUndefined?.account).toMatchObject({
-            serverUrl,
-            username: secondUsername,
+            serverUrl: testServer.serverUrl,
+            username: secondAccount.username,
             active: 1,
           });
           expect(yield* getAccounts).toMatchObject([
-            { serverUrl, username: firstUsername, active: 0 },
-            { serverUrl, username: secondUsername, active: 1 },
+            {
+              serverUrl: testServer.serverUrl,
+              username: firstAccount.username,
+              active: 0,
+            },
+            {
+              serverUrl: testServer.serverUrl,
+              username: secondAccount.username,
+              active: 1,
+            },
           ]);
           expect(firstClient.unsubscribeCount).toBe(1);
           expect(secondClient.subscribeCount).toBe(1);
@@ -264,62 +347,86 @@ describe('AccountManager', () => {
       )
     );
 
-    it.effect(
+    iit.effect(
       'reactivates an existing account without duplicating it',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://reactivate.example.test');
-          const firstUsername = Account.fields.username.make('first');
-          const secondUsername = Account.fields.username.make('second');
+          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+          const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: firstUsername,
-            authClient: Option.some(yield* makeAuthClient({ serverUrl, username: firstUsername })),
+            serverUrl: testServer.serverUrl,
+            userId: firstAccount.userId,
+            authClient: Option.some(
+              yield* makeAuthClient({
+                serverUrl: testServer.serverUrl,
+                username: firstAccount.username,
+              })
+            ),
           });
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: secondUsername,
-            authClient: Option.some(yield* makeAuthClient({ serverUrl, username: secondUsername })),
+            serverUrl: testServer.serverUrl,
+            userId: secondAccount.userId,
+            authClient: Option.some(
+              yield* makeAuthClient({
+                serverUrl: testServer.serverUrl,
+                username: secondAccount.username,
+              })
+            ),
           });
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: firstUsername,
-            authClient: Option.some(yield* makeAuthClient({ serverUrl, username: firstUsername })),
+            serverUrl: testServer.serverUrl,
+            userId: firstAccount.userId,
+            authClient: Option.some(
+              yield* makeAuthClient({
+                serverUrl: testServer.serverUrl,
+                username: firstAccount.username,
+              })
+            ),
           });
 
           expect(yield* getAccounts).toMatchObject([
-            { serverUrl, username: firstUsername, active: 1 },
-            { serverUrl, username: secondUsername, active: 0 },
+            {
+              serverUrl: testServer.serverUrl,
+              username: firstAccount.username,
+              active: 1,
+            },
+            {
+              serverUrl: testServer.serverUrl,
+              username: secondAccount.username,
+              active: 0,
+            },
           ]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
     );
 
-    it.effect(
+    iit.effect(
       'closes the previous auth client scope when switching accounts',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://scope-switch.example.test');
-          const firstUsername = Account.fields.username.make('first');
-          const secondUsername = Account.fields.username.make('second');
-          const firstClient = yield* makeAuthClientWithSpy({ serverUrl, username: firstUsername });
+          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+          const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
+          const firstClient = yield* makeAuthClientWithSpy({
+            serverUrl: testServer.serverUrl,
+            username: firstAccount.username,
+          });
           const secondClient = yield* makeAuthClientWithSpy({
-            serverUrl,
-            username: secondUsername,
+            serverUrl: testServer.serverUrl,
+            username: secondAccount.username,
           });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: firstUsername,
+            serverUrl: testServer.serverUrl,
+            userId: firstAccount.userId,
             authClient: Option.some(firstClient.authClient),
           });
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: secondUsername,
+            serverUrl: testServer.serverUrl,
+            userId: secondAccount.userId,
             authClient: Option.some(secondClient.authClient),
           });
 
@@ -331,62 +438,70 @@ describe('AccountManager', () => {
     );
   });
 
-  describe('removeAccount', () => {
-    it.effect(
+  it.layer(TestServerControllerClient.layer)('removeAccount', (iit) => {
+    iit.effect(
       'leaves active state unchanged when removing an inactive account',
       Effect.fnUntraced(
         function* () {
-          const db = yield* MainDatabase;
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://remove-inactive.example.test');
-          const activeUsername = Account.fields.username.make('active');
-          const inactiveUsername = Account.fields.username.make('inactive');
+          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+          const [inactiveAccount, activeAccount] = yield* signInTestServerUsers(
+            manager,
+            testServer
+          );
+          const activeUsername = activeAccount.username;
           const client = yield* makeAuthClientWithSpy({
-            serverUrl,
+            serverUrl: testServer.serverUrl,
             username: activeUsername,
           });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username: activeUsername,
+            serverUrl: testServer.serverUrl,
+            userId: activeAccount.userId,
             authClient: Option.some(client.authClient),
           });
-          yield* db.execute(
-            db.insertInto('account').values({
-              serverUrl,
-              username: inactiveUsername,
-              active: Account.fields.active.make(0),
-            })
-          );
 
           const before = yield* manager.state;
-          yield* manager.removeAccount({ serverUrl, username: inactiveUsername });
+          yield* manager.removeAccount({
+            serverUrl: testServer.serverUrl,
+            userId: inactiveAccount.userId,
+          });
 
           expect(yield* manager.state).toBe(before);
           expect(client.unsubscribeCount).toBe(0);
           expect(yield* getAccounts).toMatchObject([
-            { serverUrl, username: activeUsername, active: 1 },
+            {
+              serverUrl: testServer.serverUrl,
+              username: activeUsername,
+              active: 1,
+            },
           ]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
     );
 
-    it.effect(
+    iit.effect(
       'clears active state and closes its scope when removing the active account',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://remove-active.example.test');
-          const username = Account.fields.username.make('active');
-          const client = yield* makeAuthClientWithSpy({ serverUrl, username });
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          const [account] = yield* signInTestServerUsers(manager, testServer);
+          const client = yield* makeAuthClientWithSpy({
+            serverUrl: testServer.serverUrl,
+            username: account.username,
+          });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username,
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
             authClient: Option.some(client.authClient),
           });
-          yield* manager.removeAccount({ serverUrl, username });
+          yield* manager.removeAccount({
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
+          });
 
           expect(yield* manager.state).toBe(Option.none());
           expect(client.unsubscribeCount).toBe(1);
@@ -396,29 +511,38 @@ describe('AccountManager', () => {
       )
     );
 
-    it.effect(
+    iit.effect(
       'does nothing when the account does not exist',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const serverUrl = Account.fields.serverUrl.make('http://remove-missing.example.test');
-          const username = Account.fields.username.make('active');
-          const client = yield* makeAuthClientWithSpy({ serverUrl, username });
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          const [account] = yield* signInTestServerUsers(manager, testServer);
+          const client = yield* makeAuthClientWithSpy({
+            serverUrl: testServer.serverUrl,
+            username: account.username,
+          });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username,
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
             authClient: Option.some(client.authClient),
           });
           const before = yield* manager.state;
           yield* manager.removeAccount({
-            serverUrl,
-            username: Account.fields.username.make('missing'),
+            serverUrl: testServer.serverUrl,
+            userId: Account.fields.userId.make('missing'),
           });
 
           expect(yield* manager.state).toBe(before);
           expect(client.unsubscribeCount).toBe(0);
-          expect(yield* getAccounts).toMatchObject([{ serverUrl, username, active: 1 }]);
+          expect(yield* getAccounts).toMatchObject([
+            {
+              serverUrl: testServer.serverUrl,
+              username: account.username,
+              active: 1,
+            },
+          ]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

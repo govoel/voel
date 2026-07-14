@@ -28,7 +28,7 @@ export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void })
     defaultValues: { serverUrl: '', username: '', password: '' },
     onSubmit: Effect.fnUntraced(function* ({ value }) {
       const accountManager = yield* AccountManager;
-      yield* accountManager.upsertAccount(value).pipe(
+      yield* accountManager.signInAccount(value).pipe(
         Effect.catchTags({
           'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
             new FormSubmitError({ message: 'Unexpected error during authentication. Try again.' }),
@@ -38,7 +38,7 @@ export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void })
                 signInError.original.message ??
                 'Failed to sign in. Check your credentials and try again.',
             }),
-          '@repo/effect-kysely/effect-kysely/DatabaseSqlError': () =>
+          'voel/services/accounts/index/AccountDatabaseError': () =>
             new FormSubmitError({ message: 'A database error occurred. Try again.' }),
         })
       );

@@ -34,7 +34,7 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
     Layer.provideMerge(
       RpcClient.layerProtocolHttp({
         url:
-          Platform.OS === 'ios' ? 'http://localhost:3000/api/rpc' : 'http://10.0.2.2:3000/api/rpc',
+          Platform.OS === 'ios' ? 'http://localhost:6000/api/rpc' : 'http://10.0.2.2:6000/api/rpc',
       })
     ),
     Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerJson, FetchHttpClient.layer))

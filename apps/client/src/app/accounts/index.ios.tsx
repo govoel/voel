@@ -178,7 +178,7 @@ export default function AccountsScreen() {
                           ) {
                             removeAccountMutation({
                               serverUrl: accounts.value.activeAccount.value.account.serverUrl,
-                              username: accounts.value.activeAccount.value.account.username,
+                              userId: accounts.value.activeAccount.value.account.userId,
                             });
                           }
                           setIsRemoveAccountConfirmationPresented(false);
@@ -238,12 +238,12 @@ export default function AccountsScreen() {
                         tint('primary'),
                         disabled(AsyncResult.isWaiting(setActiveAccount)),
                       ]}
-                      key={`${account.serverUrl.toString()}-${account.username}`}
+                      key={`${account.serverUrl.toString()}-${account.userId}`}
                       onPress={() => {
                         void setActiveAccountAndDismiss(
                           {
                             serverUrl: account.serverUrl,
-                            username: account.username,
+                            userId: account.userId,
                             authClient: Option.none(),
                           },
                           () => {

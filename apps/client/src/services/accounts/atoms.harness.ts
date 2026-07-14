@@ -14,6 +14,8 @@ import {
   makeClientTestLayers,
   makeServerUrl,
   makeUsername,
+  setupTestServerWithUsers,
+  signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
 
 const makeAtomTaskScheduler = () => {
@@ -121,29 +123,30 @@ const waitForSessionRequest = (authClient: AuthClient) =>
     return Effect.sync(unsubscribe);
   });
 
-describe('accountsAtom', () => {
-  it.effect(
+it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
+  iit.effect(
     'reacts to account table mutations',
     Effect.fnUntraced(
       function* () {
         const { accountsAtom, drainAtomTasks, manager, registry } = yield* makeTestAccountsAtoms();
-        const serverUrl = Account.fields.serverUrl.make('http://atoms.example.test');
-        const username = Account.fields.username.make('reactive');
 
         expect(yield* AtomRegistry.getResult(registry, accountsAtom)).toEqual([]);
-
-        yield* manager.setActiveAccount({
-          serverUrl,
-          username,
-          authClient: Option.none(),
-        });
+        const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, testServer);
 
         yield* drainAtomTasks;
         expect(yield* AtomRegistry.getResult(registry, accountsAtom)).toMatchObject([
-          { serverUrl, username, active: 1 },
+          {
+            serverUrl: testServer.serverUrl,
+            username: account.username,
+            active: 1,
+          },
         ]);
 
-        yield* manager.removeAccount({ serverUrl, username });
+        yield* manager.removeAccount({
+          serverUrl: testServer.serverUrl,
+          userId: account.userId,
+        });
 
         yield* drainAtomTasks;
         expect(yield* AtomRegistry.getResult(registry, accountsAtom)).toEqual([]);
@@ -152,29 +155,25 @@ describe('accountsAtom', () => {
     )
   );
 
-  it.effect(
+  iit.effect(
     'returns persisted account rows with current active flags',
     Effect.fnUntraced(
       function* () {
         const { accountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
-        const serverUrl = Account.fields.serverUrl.make('http://persisted-atoms.example.test');
-        const firstUsername = Account.fields.username.make('first');
-        const secondUsername = Account.fields.username.make('second');
-
-        yield* manager.setActiveAccount({
-          serverUrl,
-          username: firstUsername,
-          authClient: Option.none(),
-        });
-        yield* manager.setActiveAccount({
-          serverUrl,
-          username: secondUsername,
-          authClient: Option.none(),
-        });
+        const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
 
         expect(yield* AtomRegistry.getResult(registry, accountsAtom)).toMatchObject([
-          { serverUrl, username: firstUsername, active: 0 },
-          { serverUrl, username: secondUsername, active: 1 },
+          {
+            serverUrl: testServer.serverUrl,
+            username: firstAccount.username,
+            active: 0,
+          },
+          {
+            serverUrl: testServer.serverUrl,
+            username: secondAccount.username,
+            active: 1,
+          },
         ]);
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
@@ -198,29 +197,37 @@ describe('accountsSheetAtom', () => {
     )
   );
 
-  it.effect(
-    'requires account selection and cannot be dismissed when no account is active',
-    Effect.fnUntraced(
-      function* () {
-        const db = yield* MainDatabase;
-        const { accountsSheetAtom, registry } = yield* makeTestAccountsAtoms();
+  it.layer(TestServerControllerClient.layer)('with persisted accounts', (iit) => {
+    iit.effect(
+      'requires account selection and cannot be dismissed when no account is active',
+      Effect.fnUntraced(
+        function* () {
+          const db = yield* MainDatabase;
+          const manager = yield* AccountManager;
+          const testServer = yield* setupTestServerWithUsers({
+            userCount: 1,
+          });
+          yield* signInTestServerUsers(manager, testServer);
+          yield* db.execute(
+            db
+              .updateTable('account')
+              .set({ active: Account.fields.active.make(0) })
+              .where('serverUrl', '=', testServer.serverUrl)
+          );
 
-        yield* db.execute(
-          db.insertInto('account').values({
-            serverUrl: Account.fields.serverUrl.make('http://pick-account.example.test'),
-            username: Account.fields.username.make('inactive'),
-            active: Account.fields.active.make(0),
-          })
-        );
+          yield* Effect.gen(function* () {
+            const { accountsSheetAtom, registry } = yield* makeTestAccountsAtoms();
 
-        expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
-          mode: 'MUST_PICK_ACCOUNT',
-          dismissable: false,
-        });
-      },
-      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-    )
-  );
+            expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
+              mode: 'MUST_PICK_ACCOUNT',
+              dismissable: false,
+            });
+          }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+  });
 
   describe('session states', () => {
     it.effect(
@@ -229,8 +236,16 @@ describe('accountsSheetAtom', () => {
         function* () {
           const { accountsSheetAtom, drainAtomTasks, manager, registry } =
             yield* makeTestAccountsAtoms();
-          const serverUrl = Account.fields.serverUrl.make('http://pending-session.example.test');
-          const username = Account.fields.username.make('pending-session');
+          const db = yield* MainDatabase;
+          const account = {
+            serverUrl: Account.fields.serverUrl.make('http://pending-session.example.test'),
+            userId: Account.fields.userId.make('pending-session-id'),
+            username: Account.fields.username.make('pending-session'),
+            role: 'user' as const,
+            profilePicture: null,
+            active: Account.fields.active.make(0),
+          };
+          yield* db.execute(db.insertInto('account').values(account));
           const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
@@ -252,11 +267,14 @@ describe('accountsSheetAtom', () => {
               fetchSpy.mockRestore();
             })
           );
-          const authClient = yield* makeAuthClient({ serverUrl, username });
+          const authClient = yield* makeAuthClient({
+            serverUrl: account.serverUrl,
+            username: account.username,
+          });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username,
+            serverUrl: account.serverUrl,
+            userId: account.userId,
             authClient: Option.some(authClient),
           });
 
@@ -281,8 +299,16 @@ describe('accountsSheetAtom', () => {
         function* () {
           const { accountsSheetAtom, drainAtomTasks, manager, registry } =
             yield* makeTestAccountsAtoms();
-          const serverUrl = Account.fields.serverUrl.make('http://failed-session.example.test');
-          const username = Account.fields.username.make('failed-session');
+          const db = yield* MainDatabase;
+          const account = {
+            serverUrl: Account.fields.serverUrl.make('http://failed-session.example.test'),
+            userId: Account.fields.userId.make('failed-session-id'),
+            username: Account.fields.username.make('failed-session'),
+            role: 'user' as const,
+            profilePicture: null,
+            active: Account.fields.active.make(0),
+          };
+          yield* db.execute(db.insertInto('account').values(account));
           const getSessionResponse = yield* Deferred.make<Response, Error>();
           const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
@@ -297,11 +323,14 @@ describe('accountsSheetAtom', () => {
               fetchSpy.mockRestore();
             })
           );
-          const authClient = yield* makeAuthClient({ serverUrl, username });
+          const authClient = yield* makeAuthClient({
+            serverUrl: account.serverUrl,
+            username: account.username,
+          });
 
           yield* manager.setActiveAccount({
-            serverUrl,
-            username,
+            serverUrl: account.serverUrl,
+            userId: account.userId,
             authClient: Option.some(authClient),
           });
           yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
@@ -321,112 +350,81 @@ describe('accountsSheetAtom', () => {
       )
     );
   });
-
-  it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (iit) => {
-    iit.effect(
-      'stays idle and dismissable when the session is valid',
-      Effect.fnUntraced(
-        function* () {
-          const { accountsSheetAtom, drainAtomTasks, manager, registry } =
-            yield* makeTestAccountsAtoms();
-          const serverUrl = yield* makeServerUrl();
-          const username = yield* makeUsername('test.admin');
-
-          yield* manager.setupServerWithAccount({
-            serverUrl,
-            name: 'Test Admin',
-            email: `${username}@voel.app`,
-            username,
-            password: Redacted.make('ha!niceTry'),
-          });
-
-          const { authClient } = Option.getOrThrow(yield* manager.state).state;
-          yield* waitForSessionRequest(authClient);
-          const validSession = authClient.useSession.get();
-          expect(validSession).toMatchObject({ error: null, isPending: false });
-          expect(validSession.data).not.toBeNull();
-
-          yield* drainAtomTasks;
-          expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
-            mode: 'IDLE',
-            dismissable: true,
-          });
-        },
-        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-      )
-    );
-
-    iit.effect(
-      'shows an invalid session and remains dismissable after session revocation',
-      Effect.fnUntraced(
-        function* () {
-          const { accountsSheetAtom, drainAtomTasks, manager, registry } =
-            yield* makeTestAccountsAtoms();
-          const serverUrl = yield* makeServerUrl();
-          const username = yield* makeUsername('test.admin');
-
-          yield* manager.setupServerWithAccount({
-            serverUrl,
-            name: 'Test Admin',
-            email: `${username}@voel.app`,
-            username,
-            password: Redacted.make('ha!niceTry'),
-          });
-          const { authClient } = Option.getOrThrow(yield* manager.state).state;
-
-          const revokeResult = yield* Effect.promise(async () => authClient.signOut());
-          expect(revokeResult).toMatchObject({ data: { success: true }, error: null });
-
-          yield* Effect.promise(async () =>
-            authClient.useSession.get().refetch({ query: { disableCookieCache: true } })
-          );
-          yield* waitForSessionRequest(authClient);
-
-          yield* drainAtomTasks;
-          expect(
-            yield* AtomRegistry.getResult(registry, accountsSheetAtom, { suspendOnWaiting: true })
-          ).toEqual({ mode: 'INVALID_SESSION', dismissable: true });
-        },
-        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-      )
-    );
-  });
 });
 
-const setupServerWithUsers = Effect.fnUntraced(function* (
-  manager: AccountManager['Service'],
-  userCount: number
-) {
-  const serverUrl = yield* makeServerUrl();
-  const adminUsername = yield* makeUsername('test.admin');
+it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (iit) => {
+  iit.effect(
+    'stays idle and dismissable when the session is valid',
+    Effect.fnUntraced(
+      function* () {
+        const { accountsSheetAtom, drainAtomTasks, manager, registry } =
+          yield* makeTestAccountsAtoms();
+        const serverUrl = yield* makeServerUrl();
+        const username = yield* makeUsername('test.admin');
 
-  yield* manager.setupServerWithAccount({
-    serverUrl,
-    name: 'Test Admin',
-    email: `${adminUsername}@voel.app`,
-    username: adminUsername,
-    password: Redacted.make('ha!niceTry'),
-  });
+        yield* manager.setupServerWithAccount({
+          serverUrl,
+          name: 'Test Admin',
+          email: `${username}@voel.app`,
+          username,
+          password: Redacted.make('ha!niceTry'),
+        });
 
-  const usernames = [adminUsername];
-  for (let index = 1; index < userCount; index += 1) {
-    const username = yield* makeUsername(`test.user.${index}`);
-    const { authClient } = Option.getOrThrow(yield* manager.state).state;
-    const result = yield* Effect.promise(async () =>
-      authClient.admin.createUser({
-        name: `Test User ${index}`,
-        email: `${username}@voel.app`,
-        password: 'ha!niceTry',
-        role: 'user',
-        data: { username },
-      })
-    );
+        const { authClient } = Option.getOrThrow(yield* manager.state).state;
+        yield* waitForSessionRequest(authClient);
+        const validSession = authClient.useSession.get();
+        expect(validSession).toMatchObject({ error: null, isPending: false });
+        expect(validSession.data).not.toBeNull();
 
-    expect(result.error).toBeNull();
-    usernames.push(username);
-  }
+        yield* drainAtomTasks;
+        expect(yield* AtomRegistry.getResult(registry, accountsSheetAtom)).toEqual({
+          mode: 'IDLE',
+          dismissable: true,
+        });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
 
-  return { serverUrl, usernames };
+  iit.effect(
+    'shows an invalid session and remains dismissable after session revocation',
+    Effect.fnUntraced(
+      function* () {
+        const { accountsSheetAtom, drainAtomTasks, manager, registry } =
+          yield* makeTestAccountsAtoms();
+        const serverUrl = yield* makeServerUrl();
+        const username = yield* makeUsername('test.admin');
+
+        yield* manager.setupServerWithAccount({
+          serverUrl,
+          name: 'Test Admin',
+          email: `${username}@voel.app`,
+          username,
+          password: Redacted.make('ha!niceTry'),
+        });
+        const { authClient } = Option.getOrThrow(yield* manager.state).state;
+
+        const revokeResult = yield* Effect.promise(async () => authClient.signOut());
+        expect(revokeResult).toMatchObject({
+          data: { success: true },
+          error: null,
+        });
+
+        yield* Effect.promise(async () =>
+          authClient.useSession.get().refetch({ query: { disableCookieCache: true } })
+        );
+        yield* waitForSessionRequest(authClient);
+
+        yield* drainAtomTasks;
+        expect(
+          yield* AtomRegistry.getResult(registry, accountsSheetAtom, {
+            suspendOnWaiting: true,
+          })
+        ).toEqual({ mode: 'INVALID_SESSION', dismissable: true });
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
 });
 
 it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
@@ -448,7 +446,12 @@ it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
     Effect.fnUntraced(
       function* () {
         const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
-        yield* setupServerWithUsers(manager, 12);
+        const testServer = yield* setupTestServerWithUsers({ userCount: 12 });
+        yield* manager.signInAccount({
+          serverUrl: testServer.serverUrl,
+          username: testServer.adminUsername,
+          password: testServer.password,
+        });
         registry.mount(listAccountsAtom);
 
         const firstPage = yield* AtomRegistry.getResult(registry, listAccountsAtom, {
@@ -466,7 +469,9 @@ it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
 
         registry.set(listAccountsAtom, void 0);
         expect(
-          yield* AtomRegistry.getResult(registry, listAccountsAtom, { suspendOnWaiting: true })
+          yield* AtomRegistry.getResult(registry, listAccountsAtom, {
+            suspendOnWaiting: true,
+          })
         ).toMatchObject({ done: true, items: allUsers.items });
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
@@ -479,17 +484,33 @@ it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
       function* () {
         const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
 
-        const firstServer = yield* setupServerWithUsers(manager, 3);
+        const firstServer = yield* setupTestServerWithUsers({ userCount: 3 });
+        yield* manager.signInAccount({
+          serverUrl: firstServer.serverUrl,
+          username: firstServer.adminUsername,
+          password: firstServer.password,
+        });
         const firstResult = yield* AtomRegistry.getResult(registry, listAccountsAtom);
         // @ts-expect-error - better-auth types don't show username is there, but it is in the response
-        // oxlint-disable-next-line typescript/no-unsafe-return
-        expect(firstResult.items.map((user) => user.username)).toEqual(firstServer.usernames);
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const firstUsernames = firstResult.items.map((user) => user.username as string);
+        expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
+          firstServer.usernames.sort((first, second) => first.localeCompare(second))
+        );
 
-        const secondServer = yield* setupServerWithUsers(manager, 6);
+        const secondServer = yield* setupTestServerWithUsers({ userCount: 6 });
+        yield* manager.signInAccount({
+          serverUrl: secondServer.serverUrl,
+          username: secondServer.adminUsername,
+          password: secondServer.password,
+        });
         const secondResult = yield* AtomRegistry.getResult(registry, listAccountsAtom);
         // @ts-expect-error - better-auth types don't show username is there, but it is in the response
-        // oxlint-disable-next-line typescript/no-unsafe-return
-        expect(secondResult.items.map((user) => user.username)).toEqual(secondServer.usernames);
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const secondUsernames = secondResult.items.map((user) => user.username as string);
+        expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
+          secondServer.usernames.sort((first, second) => first.localeCompare(second))
+        );
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -541,26 +562,23 @@ it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => 
   iit.effect(
     'subscribes to authClient.useSession and unsubscribes on account change',
     Effect.fnUntraced(function* () {
-      const serverUrl = yield* makeServerUrl();
-      const firstUsername = yield* makeUsername('test.admin');
-      const secondUsername = yield* makeUsername();
-
-      const firstClient = yield* makeAuthClientWithSpy({
-        serverUrl,
-        username: firstUsername,
-      });
-      const secondClient = yield* makeAuthClientWithSpy({
-        serverUrl,
-        username: secondUsername,
-      });
-
-      yield* Effect.gen(function* () {
+      const finalClient = yield* Effect.gen(function* () {
         const { activeAccountSessionAtom, drainAtomTasks, manager, registry } =
           yield* makeTestAccountsAtoms();
+        const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
+        const firstClient = yield* makeAuthClientWithSpy({
+          serverUrl: testServer.serverUrl,
+          username: firstAccount.username,
+        });
+        const secondClient = yield* makeAuthClientWithSpy({
+          serverUrl: testServer.serverUrl,
+          username: secondAccount.username,
+        });
 
         yield* manager.setActiveAccount({
-          serverUrl,
-          username: firstUsername,
+          serverUrl: testServer.serverUrl,
+          userId: firstAccount.userId,
           authClient: Option.some(firstClient.authClient),
         });
 
@@ -575,17 +593,18 @@ it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => 
         expect(firstClient.unsubscribeCount).toBe(0);
 
         yield* manager.setActiveAccount({
-          serverUrl,
-          username: secondUsername,
+          serverUrl: testServer.serverUrl,
+          userId: secondAccount.userId,
           authClient: Option.some(secondClient.authClient),
         });
 
         yield* drainAtomTasks;
         expect(firstClient.unsubscribeCount).toBe(2);
         expect(secondClient.subscribeCount).toBe(2);
+        return secondClient;
       }).pipe(Effect.provide(makeClientTestLayers()), Effect.scoped);
 
-      expect(secondClient.unsubscribeCount).toBe(2);
+      expect(finalClient.unsubscribeCount).toBe(2);
     })
   );
 
@@ -593,20 +612,19 @@ it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => 
     'does not resubscribe when AccountManager emits changes for the same auth client',
     Effect.fnUntraced(
       function* () {
-        const serverUrl = yield* makeServerUrl();
         const { activeAccountAtom, activeAccountSessionAtom, drainAtomTasks, manager, registry } =
           yield* makeTestAccountsAtoms();
-        const firstUsername = yield* makeUsername('test.admin');
-        const secondUsername = yield* makeUsername();
+        const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
 
         const client = yield* makeAuthClientWithSpy({
-          serverUrl,
-          username: firstUsername,
+          serverUrl: testServer.serverUrl,
+          username: firstAccount.username,
         });
 
         yield* manager.setActiveAccount({
-          serverUrl,
-          username: firstUsername,
+          serverUrl: testServer.serverUrl,
+          userId: firstAccount.userId,
           authClient: Option.some(client.authClient),
         });
 
@@ -621,8 +639,8 @@ it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => 
         expect(client.unsubscribeCount).toBe(0);
 
         yield* manager.setActiveAccount({
-          serverUrl,
-          username: secondUsername,
+          serverUrl: testServer.serverUrl,
+          userId: secondAccount.userId,
           authClient: Option.some(client.authClient),
         });
 
@@ -632,8 +650,8 @@ it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => 
         );
 
         expect(activeAccount.valueOrUndefined).toMatchObject({
-          serverUrl,
-          username: secondUsername,
+          serverUrl: testServer.serverUrl,
+          username: secondAccount.username,
         });
         // The extra call is AccountManager refreshing its keepalive subscription for the new account.
         expect(client.subscribeCount).toBe(3);

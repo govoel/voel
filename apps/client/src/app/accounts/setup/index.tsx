@@ -40,7 +40,7 @@ export const useSetupServerForm = ({ onClose }: { readonly onClose: () => void }
                 signUpError.original.message ??
                 'Failed to create the account. Check the server and try again.',
             }),
-          '@repo/effect-kysely/effect-kysely/DatabaseSqlError': () =>
+          'voel/services/accounts/index/AccountDatabaseError': () =>
             new FormSubmitError({ message: 'A database error occurred. Try again.' }),
         })
       );
