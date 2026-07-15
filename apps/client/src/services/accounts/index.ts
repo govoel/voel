@@ -4,12 +4,15 @@ import {
   Exit,
   Layer,
   Option,
+  Queue,
   Redacted,
   Schema,
   Scope,
+  Stream,
   SubscriptionRef,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
+import { uuid } from 'expo-modules-core';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
@@ -133,12 +136,92 @@ export class AccountManager extends Context.Service<AccountManager>()(
               onNone: () =>
                 createVoelAuthClient({
                   serverUrl: activeAccount.serverUrl.toString(),
-                  username: activeAccount.username,
+                  authStorageId: activeAccount.authStorageId,
                   storage: authClientStorage,
                 }),
             });
-            const unsubscribe = authClient.useSession.subscribe(() => void 0);
-            yield* Scope.addFinalizer(scope, Effect.sync(unsubscribe));
+
+            // Subscribe directly rather than through Stream.callback, which acquires lazily:
+            // forkIn may return before its callback runs. Account initialization must own the
+            // subscription synchronously so an immediate account switch closes it deterministically.
+            type SessionState = Parameters<
+              Parameters<typeof authClient.useSession.subscribe>[0]
+            >[0];
+            const sessionStates = yield* Queue.unbounded<SessionState>();
+
+            const synchronizeAccount = Effect.fnUntraced(function* (sessionState: SessionState) {
+              if (sessionState.data === null) {
+                return;
+              }
+
+              const sessionUser = sessionState.data.user;
+              yield* SubscriptionRef.modifySomeEffect(
+                stateRef,
+                Effect.fnUntraced(function* (currentState) {
+                  if (
+                    Option.isNone(currentState) ||
+                    currentState.value.state.authClient !== authClient ||
+                    currentState.value.account.userId !== sessionUser.id
+                  ) {
+                    return [void 0, Option.none()] as const;
+                  }
+
+                  const username = sessionUser.username ?? currentState.value.account.username;
+                  const role = AccountRole.decodeSyncFromNullishString(sessionUser.role).value;
+                  const profilePicture = sessionUser.image ?? null;
+                  if (
+                    currentState.value.account.username === username &&
+                    currentState.value.account.role === role &&
+                    currentState.value.account.profilePicture === profilePicture
+                  ) {
+                    return [void 0, Option.none()] as const;
+                  }
+
+                  const persistedAccount = yield* db
+                    .executeTakeFirstOption(
+                      db
+                        .updateTable('account')
+                        .set({ username, role, profilePicture })
+                        .where('serverUrl', '=', currentState.value.account.serverUrl)
+                        .where('userId', '=', currentState.value.account.userId)
+                        .returningAll()
+                    )
+                    .pipe(Reactivity.mutation(['account']));
+                  if (Option.isNone(persistedAccount)) {
+                    return [void 0, Option.none()] as const;
+                  }
+
+                  return [
+                    void 0,
+                    Option.some(
+                      Option.some({
+                        account: persistedAccount.value,
+                        state: currentState.value.state,
+                      })
+                    ),
+                  ] as const;
+                })
+              ).pipe(
+                Effect.catchCause((cause) =>
+                  Effect.logError('Failed to synchronize active account from session', cause)
+                )
+              );
+            });
+
+            yield* Stream.fromQueue(sessionStates).pipe(
+              Stream.runForEach(synchronizeAccount),
+              Effect.forkIn(scope, { startImmediately: true })
+            );
+
+            const unsubscribe = authClient.useSession.subscribe((sessionState) => {
+              Queue.offerUnsafe(sessionStates, sessionState);
+            });
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.all([Effect.sync(unsubscribe), Queue.shutdown(sessionStates)], {
+                discard: true,
+              })
+            );
 
             if (Option.isSome(state)) {
               yield* Scope.close(state.value.state.scope, Exit.void);
@@ -211,7 +294,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: {
         readonly account: Pick<
           Insertable<AccountTable>,
-          'serverUrl' | 'userId' | 'username' | 'role' | 'profilePicture'
+          'serverUrl' | 'userId' | 'username' | 'authStorageId' | 'role' | 'profilePicture'
         >;
         readonly authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
       }) {
@@ -226,6 +309,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   .onConflict((oc) =>
                     oc.columns(['serverUrl', 'userId']).doUpdateSet({
                       username: account.username,
+                      authStorageId: account.authStorageId,
                       role: account.role,
                       profilePicture: account.profilePicture,
                       active: Account.fields.active.make(1),
@@ -297,9 +381,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
         password: Redacted.Redacted;
       }) {
+        const authStorageId = Account.fields.authStorageId.make(uuid.v4());
         const authClient = yield* createVoelAuthClient({
           serverUrl,
-          username,
+          authStorageId,
           storage: authClientStorage,
         });
 
@@ -321,6 +406,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             serverUrl,
             userId: signInResult.data.user.id,
             username: signInResult.data.user.username ?? username,
+            authStorageId,
             role: AccountRole.decodeSyncFromNullishString(signInResult.data.user.role).value,
             profilePicture: signInResult.data.user.image ?? null,
           },
@@ -343,9 +429,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
         > & {
           password: Redacted.Redacted;
         }) {
+        const authStorageId = Account.fields.authStorageId.make(uuid.v4());
         const authClient = yield* createVoelAuthClient({
           serverUrl,
-          username,
+          authStorageId,
           storage: authClientStorage,
         });
 
@@ -372,6 +459,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             serverUrl,
             userId: signUpResult.data.user.id,
             username: signUpResult.data.user.username ?? username,
+            authStorageId,
             role: AccountRole.decodeSyncFromNullishString(signUpResult.data.user.role).value,
             profilePicture: signUpResult.data.user.image ?? null,
           },

@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Redacted, Schema } from 'effect';
+import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
@@ -22,6 +22,20 @@ const getAccounts = MainDatabase.pipe(
   Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll().orderBy('username')))
 );
 
+const forkNextAccountManagerChange = Effect.fnUntraced(function* (
+  manager: AccountManager['Service']
+) {
+  const subscribed = yield* Deferred.make<true>();
+  const fiber = yield* manager.changes.pipe(
+    Stream.tap(() => Deferred.succeed(subscribed, true)),
+    Stream.drop(1),
+    Stream.runHead,
+    Effect.forkChild
+  );
+  yield* Deferred.await(subscribed);
+  return fiber;
+});
+
 describe('AccountManager', () => {
   it.effect(
     'starts without an active account when the database is empty',
@@ -40,12 +54,14 @@ describe('AccountManager', () => {
         const db = yield* MainDatabase;
         const serverUrl = Account.fields.serverUrl.make('http://restored.example.test');
         const username = Account.fields.username.make('restored');
+        const authStorageId = Account.fields.authStorageId.make('restored-auth-storage');
 
         yield* db.execute(
           db.insertInto('account').values({
             serverUrl,
             userId: username,
             username,
+            authStorageId,
             role: 'user',
             active: Account.fields.active.make(1),
           })
@@ -93,9 +109,10 @@ describe('AccountManager', () => {
             password,
           });
 
+          const persistedAccount = Option.getOrThrow(yield* manager.state).account;
           const storage = yield* AuthClientStorage;
           const storedCookie = yield* storage.getItem(
-            `${hash128(`voel::auth::${serverUrl}::${username}`)}_cookie`
+            `${hash128(`voel::auth::${serverUrl}::${persistedAccount.authStorageId}`)}_cookie`
           );
 
           expect(storedCookie.valueOrUndefined).toContain('auth.session_token');
@@ -131,7 +148,7 @@ describe('AccountManager', () => {
           const password = Redacted.make('ha!niceTry');
           const manager = yield* AccountManager;
 
-          const authClient = yield* makeAuthClient({ serverUrl, username });
+          const authClient = yield* makeAuthClient({ serverUrl });
           yield* Effect.promise(async () =>
             authClient.signUp.email({
               name: 'Test User',
@@ -193,6 +210,150 @@ describe('AccountManager', () => {
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
     );
+
+    iit.effect(
+      'synchronizes profile metadata while preserving auth storage across a username change',
+      Effect.fnUntraced(
+        function* () {
+          const serverUrl = yield* makeServerUrl();
+          const username = yield* makeUsername('test.admin');
+          const updatedUsername = yield* makeUsername('updated.admin');
+          const profilePicture = 'https://voel.app/profile.png';
+          const manager = yield* AccountManager;
+
+          yield* manager.setupServerWithAccount({
+            serverUrl,
+            name: 'Test Admin',
+            email: `${username}@voel.app`,
+            username,
+            password: Redacted.make('ha!niceTry'),
+          });
+
+          const activeAccount = Option.getOrThrow(yield* manager.state);
+          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
+          const updateResult = yield* Effect.promise(async () =>
+            activeAccount.state.authClient.updateUser({
+              username: updatedUsername,
+              image: profilePicture,
+            })
+          );
+          expect(updateResult.error).toBeNull();
+
+          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
+          const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
+
+          expect(synchronizedAccount).toMatchObject({
+            serverUrl,
+            userId: activeAccount.account.userId,
+            username: updatedUsername,
+            authStorageId: activeAccount.account.authStorageId,
+            role: 'admin',
+            profilePicture,
+            active: 1,
+          });
+          expect(yield* getAccounts).toMatchObject([
+            {
+              serverUrl,
+              userId: activeAccount.account.userId,
+              username: updatedUsername,
+              authStorageId: activeAccount.account.authStorageId,
+              role: 'admin',
+              profilePicture,
+              active: 1,
+            },
+          ]);
+
+          const storage = yield* AuthClientStorage;
+          const storedCookie = yield* storage.getItem(
+            `${hash128(`voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`)}_cookie`
+          );
+          const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
+            storedCookie.valueOrUndefined
+          );
+
+          yield* Effect.gen(function* () {
+            const freshManager = yield* AccountManager;
+            const restoredAccount = Option.getOrThrow(yield* freshManager.state);
+
+            expect(restoredAccount.account).toMatchObject({
+              serverUrl,
+              username: updatedUsername,
+              authStorageId: synchronizedAccount.authStorageId,
+            });
+            expect(restoredAccount.state.authClient.getCookie()).toContain(
+              `auth.session_token=${parsedCookie['auth.session_token'].value}`
+            );
+          }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
+      'synchronizes a role changed by another account after the session refreshes',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+          const [adminUsername, username] = testServer.usernames;
+
+          yield* manager.signInAccount({
+            serverUrl: testServer.serverUrl,
+            username,
+            password: testServer.password,
+          });
+          const activeAccount = Option.getOrThrow(yield* manager.state);
+          expect(activeAccount.account.role).toBe('user');
+
+          const adminAuthClient = yield* makeAuthClient({
+            serverUrl: testServer.serverUrl,
+          });
+          const adminSignInResult = yield* Effect.promise(async () =>
+            adminAuthClient.signIn.username({
+              username: adminUsername,
+              password: Redacted.value(testServer.password),
+            })
+          );
+          expect(adminSignInResult.error).toBeNull();
+
+          const roleResult = yield* Effect.promise(async () =>
+            adminAuthClient.admin.setRole({
+              userId: activeAccount.account.userId,
+              role: 'admin',
+            })
+          );
+          expect(roleResult.error).toBeNull();
+
+          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
+          yield* Effect.promise(async () =>
+            activeAccount.state.authClient.useSession.get().refetch({
+              query: { disableCookieCache: true },
+            })
+          );
+
+          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
+          const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
+
+          expect(synchronizedAccount).toMatchObject({
+            serverUrl: testServer.serverUrl,
+            userId: activeAccount.account.userId,
+            username,
+            role: 'admin',
+            active: 1,
+          });
+          expect(yield* getAccounts).toMatchObject([
+            {
+              serverUrl: testServer.serverUrl,
+              userId: activeAccount.account.userId,
+              username,
+              role: 'admin',
+              active: 1,
+            },
+          ]);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
   });
 
   it.layer(TestServerControllerClient.layer)('setActiveAccount', (iit) => {
@@ -228,7 +389,6 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -268,11 +428,9 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const firstClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
           const secondClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -305,11 +463,9 @@ describe('AccountManager', () => {
           const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
           const firstClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: firstAccount.username,
           });
           const secondClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: secondAccount.username,
           });
 
           yield* manager.setActiveAccount({
@@ -361,7 +517,6 @@ describe('AccountManager', () => {
             authClient: Option.some(
               yield* makeAuthClient({
                 serverUrl: testServer.serverUrl,
-                username: firstAccount.username,
               })
             ),
           });
@@ -371,7 +526,6 @@ describe('AccountManager', () => {
             authClient: Option.some(
               yield* makeAuthClient({
                 serverUrl: testServer.serverUrl,
-                username: secondAccount.username,
               })
             ),
           });
@@ -381,7 +535,6 @@ describe('AccountManager', () => {
             authClient: Option.some(
               yield* makeAuthClient({
                 serverUrl: testServer.serverUrl,
-                username: firstAccount.username,
               })
             ),
           });
@@ -412,11 +565,9 @@ describe('AccountManager', () => {
           const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
           const firstClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: firstAccount.username,
           });
           const secondClient = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: secondAccount.username,
           });
 
           yield* manager.setActiveAccount({
@@ -452,7 +603,6 @@ describe('AccountManager', () => {
           const activeUsername = activeAccount.username;
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: activeUsername,
           });
 
           yield* manager.setActiveAccount({
@@ -490,7 +640,6 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -520,7 +669,6 @@ describe('AccountManager', () => {
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const client = yield* makeAuthClientWithSpy({
             serverUrl: testServer.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({

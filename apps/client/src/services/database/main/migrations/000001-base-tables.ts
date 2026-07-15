@@ -27,6 +27,7 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('userId', 'text', (col) => col.notNull())
     .addPrimaryKeyConstraint('account_serverUrl_userId_pkey', ['serverUrl', 'userId'])
     .addColumn('username', 'text', (col) => col.notNull())
+    .addColumn('authStorageId', 'text', (col) => col.notNull())
     .addColumn('role', 'text', (col) =>
       col.notNull().check(sql`"role" in ('admin', 'user', 'under18')`)
     )
@@ -45,7 +46,15 @@ export const up = async (db: Kysely<unknown>) => {
   await createUpdatedAtTrigger({
     db,
     table: 'account',
-    columns: ['serverUrl', 'userId', 'username', 'role', 'profilePicture', 'active'],
+    columns: [
+      'serverUrl',
+      'userId',
+      'username',
+      'authStorageId',
+      'role',
+      'profilePicture',
+      'active',
+    ],
   });
 };
 

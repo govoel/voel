@@ -37,6 +37,11 @@ export class Account extends Model.Class<Account>('voel/database/main/Account')(
     insert: Schema.String,
     update: Schema.String,
   }),
+  authStorageId: Model.Field({
+    select: Schema.String.pipe(Schema.brand('voel/database/main/Account/authStorageId')),
+    insert: Schema.String,
+    update: Schema.String,
+  }),
   role: Model.Field({
     select: AccountRole.fields.value.pipe(Schema.brand('voel/database/main/Account/role')),
     insert: AccountRole.fields.value,

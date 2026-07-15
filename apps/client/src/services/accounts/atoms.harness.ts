@@ -241,6 +241,7 @@ describe('accountsSheetAtom', () => {
             serverUrl: Account.fields.serverUrl.make('http://pending-session.example.test'),
             userId: Account.fields.userId.make('pending-session-id'),
             username: Account.fields.username.make('pending-session'),
+            authStorageId: Account.fields.authStorageId.make('pending-session-auth-storage'),
             role: 'user' as const,
             profilePicture: null,
             active: Account.fields.active.make(0),
@@ -269,7 +270,6 @@ describe('accountsSheetAtom', () => {
           );
           const authClient = yield* makeAuthClient({
             serverUrl: account.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -304,6 +304,7 @@ describe('accountsSheetAtom', () => {
             serverUrl: Account.fields.serverUrl.make('http://failed-session.example.test'),
             userId: Account.fields.userId.make('failed-session-id'),
             username: Account.fields.username.make('failed-session'),
+            authStorageId: Account.fields.authStorageId.make('failed-session-auth-storage'),
             role: 'user' as const,
             profilePicture: null,
             active: Account.fields.active.make(0),
@@ -325,7 +326,6 @@ describe('accountsSheetAtom', () => {
           );
           const authClient = yield* makeAuthClient({
             serverUrl: account.serverUrl,
-            username: account.username,
           });
 
           yield* manager.setActiveAccount({
@@ -569,11 +569,9 @@ it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => 
         const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
         const firstClient = yield* makeAuthClientWithSpy({
           serverUrl: testServer.serverUrl,
-          username: firstAccount.username,
         });
         const secondClient = yield* makeAuthClientWithSpy({
           serverUrl: testServer.serverUrl,
-          username: secondAccount.username,
         });
 
         yield* manager.setActiveAccount({
@@ -619,7 +617,6 @@ it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => 
 
         const client = yield* makeAuthClientWithSpy({
           serverUrl: testServer.serverUrl,
-          username: firstAccount.username,
         });
 
         yield* manager.setActiveAccount({

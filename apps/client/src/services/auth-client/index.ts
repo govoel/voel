@@ -13,11 +13,11 @@ export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass
 
 export const createVoelAuthClient = ({
   serverUrl,
-  username,
+  authStorageId,
   storage,
 }: {
   readonly serverUrl: NonNullable<Parameters<typeof createAuthClient>[0]['baseURL']>;
-  readonly username: string;
+  readonly authStorageId: string;
   readonly storage: Parameters<typeof expoClient>[0]['storage'];
 }) =>
   Effect.try({
@@ -27,7 +27,7 @@ export const createVoelAuthClient = ({
         plugins: [
           expoClient({
             storage,
-            storagePrefix: hash128(`voel::auth::${serverUrl}::${username}`),
+            storagePrefix: hash128(`voel::auth::${serverUrl}::${authStorageId}`),
             cookiePrefix: 'auth',
           }),
         ],

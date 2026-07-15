@@ -1,5 +1,6 @@
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
+import { uuid } from 'expo-modules-core';
 
 import { spyOn } from '@repo/effect-react-native-harness';
 
@@ -52,11 +53,15 @@ export const makeUsername = (prefix = 'test.user') =>
 
 export const makeAuthClient = ({
   serverUrl,
-  username,
 }: Pick<
   Option.Option.Value<Effect.Success<(typeof AccountManager.Service)['state']>>['account'],
-  'serverUrl' | 'username'
->) => createVoelAuthClient({ serverUrl, username, storage: makeAuthClientStorage() });
+  'serverUrl'
+>) =>
+  createVoelAuthClient({
+    serverUrl,
+    authStorageId: uuid.v4(),
+    storage: makeAuthClientStorage(),
+  });
 
 interface TestServer<UserCount extends number> {
   readonly adminUsername: TestAccount['username'];
@@ -76,7 +81,7 @@ export const setupTestServerWithUsers = Effect.fnUntraced(function* <
     (index) => makeUsername(index === 0 ? 'test.admin' : `test.user.${index}`)
   );
   const adminUsername = Array.headNonEmpty(usernames);
-  const adminAuthClient = yield* makeAuthClient({ serverUrl, username: adminUsername });
+  const adminAuthClient = yield* makeAuthClient({ serverUrl });
 
   const signUpResult = yield* Effect.promise(async () =>
     adminAuthClient.signUp.email({
@@ -147,9 +152,8 @@ export const signInTestServerUsers = Effect.fnUntraced(function* <const UserCoun
 
 export const makeAuthClientWithSpy = Effect.fnUntraced(function* ({
   serverUrl,
-  username,
 }: Parameters<typeof makeAuthClient>[0]) {
-  const authClient = yield* makeAuthClient({ serverUrl, username });
+  const authClient = yield* makeAuthClient({ serverUrl });
   const originalSubscribe = authClient.useSession.subscribe.bind(authClient.useSession);
   let subscribeCount = 0;
   let unsubscribeCount = 0;
