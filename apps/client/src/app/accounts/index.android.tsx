@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
@@ -29,7 +29,7 @@ import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { removeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { accountsSheetAtom, removeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const StackNavigationRow = ({
   index,
@@ -58,6 +58,8 @@ const StackNavigationRow = ({
 );
 
 export default function AccountsScreen() {
+  const accountsSheet = useAtomSuspense(accountsSheetAtom);
+
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
   const switchAccountSheetRef = useRef<ModalBottomSheetRef>(null);
 
@@ -75,9 +77,16 @@ export default function AccountsScreen() {
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
-    <AndroidAccountsSheet>
+    <AndroidAccountsSheet dismissable={accountsSheet.value.dismissable}>
       <Column
-        modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
+        modifiers={[
+          padding(
+            Spacing.three,
+            accountsSheet.value.dismissable ? 0 : Spacing.four,
+            Spacing.three,
+            Spacing.three
+          ),
+        ]}
         verticalArrangement={{ spacedBy: Spacing.four }}>
         <Column verticalArrangement={{ spacedBy: Spacing.two }}>
           <Text variant="h3">Switch Account</Text>
