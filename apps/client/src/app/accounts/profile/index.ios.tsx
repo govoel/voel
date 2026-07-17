@@ -19,18 +19,19 @@ import {
   headerProminence,
   padding,
 } from '@expo/ui/swift-ui/modifiers';
-import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { Match } from 'effect';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { updateActiveUserProfile } from '#src/app/accounts/profile/index.tsx';
+import { activeUserProfileAtom } from '#src/app/accounts/profile/index.tsx';
+import type {
+  ActiveUserProfile,
+  ActiveUserProfileState,
+} from '#src/app/accounts/profile/index.tsx';
 import { Text } from '#src/components/text';
 import { UserProfileEditor } from '#src/components/user-profile-editor/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
-import { AccountRole } from '#src/services/database/main/schema';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased')]}>{children}</List>
@@ -41,12 +42,7 @@ const LoadedProfile = ({
   name,
   role,
   username,
-}: {
-  readonly email: string;
-  readonly name: string;
-  readonly role: string;
-  readonly username: string;
-}) => {
+}: Pick<ActiveUserProfile, 'email' | 'name' | 'role' | 'username'>) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   return (
@@ -121,7 +117,6 @@ const LoadedProfile = ({
         {isEditingProfile ? (
           <UserProfileEditor
             profile={{ name, username }}
-            updateProfile={updateActiveUserProfile}
             onProfileUpdated={() => {
               setIsEditingProfile(false);
             }}
@@ -132,81 +127,55 @@ const LoadedProfile = ({
   );
 };
 
+const renderProfileState = Match.type<ActiveUserProfileState>().pipe(
+  Match.tagsExhaustive({
+    Loading: () => (
+      <ProfileList>
+        <Section>
+          <ProgressView
+            modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+          />
+        </Section>
+      </ProfileList>
+    ),
+    NoActiveUser: () => (
+      <ProfileList>
+        <Section>
+          <Text>No active user</Text>
+        </Section>
+      </ProfileList>
+    ),
+    LoadError: () => (
+      <ProfileList>
+        <Section>
+          <Text>Unable to load the user profile</Text>
+        </Section>
+      </ProfileList>
+    ),
+    Loaded: ({ profile }) => (
+      <LoadedProfile
+        key={profile.id}
+        email={profile.email}
+        name={profile.name}
+        role={profile.role}
+        username={profile.username}
+      />
+    ),
+  })
+);
+
+const ProfileState = ({ state }: { readonly state: ActiveUserProfileState }) =>
+  renderProfileState(state);
+
 export default function ProfileScreen() {
-  const activeAccountSession = useAtomValue(activeAccountSessionAtom);
+  const profileState = useAtomValue(activeUserProfileAtom);
 
   return (
     <>
       <Stack.Screen.Title />
       <Host style={{ flex: 1 }}>
         <Group>
-          {AsyncResult.matchWithError(activeAccountSession, {
-            onInitial: () => (
-              <ProfileList>
-                <Section>
-                  <ProgressView
-                    modifiers={[
-                      containerRelativeFrame({ axes: 'horizontal', alignment: 'center' }),
-                    ]}
-                  />
-                </Section>
-              </ProfileList>
-            ),
-            onSuccess: ({ value }) =>
-              Option.match(value, {
-                onNone: () => (
-                  <ProfileList>
-                    <Section>
-                      <Text>No active user</Text>
-                    </Section>
-                  </ProfileList>
-                ),
-                onSome: (session) => {
-                  if (session.data === null) {
-                    return (
-                      <ProfileList>
-                        <Section>
-                          {session.isPending ? (
-                            <ProgressView
-                              modifiers={[
-                                containerRelativeFrame({
-                                  axes: 'horizontal',
-                                  alignment: 'center',
-                                }),
-                              ]}
-                            />
-                          ) : (
-                            <Text>Unable to load the user profile</Text>
-                          )}
-                        </Section>
-                      </ProfileList>
-                    );
-                  }
-
-                  const { user } = session.data;
-
-                  return (
-                    <LoadedProfile
-                      key={user.id}
-                      email={user.email}
-                      name={user.name}
-                      role={AccountRole.formatFromNullishString(user.role)}
-                      username={user.username ?? ''}
-                    />
-                  );
-                },
-              }),
-            onError: () => (
-              <ProfileList>
-                <Text>Unable to load the user profile</Text>
-              </ProfileList>
-            ),
-            onDefect: () => (
-              <ProfileList>
-                <Text>Unable to load the user profile</Text>
-              </ProfileList>
-            ),
-          })}
+          <ProfileState state={profileState} />
         </Group>
       </Host>
     </>

@@ -1,28 +1,78 @@
-import { Effect, Option } from 'effect';
+import { Option, Schema } from 'effect';
+import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import { FormSubmitError } from '#src/components/form';
-import type { UpdateUserProfile } from '#src/components/user-profile-editor';
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
+import { AccountRole } from '#src/services/database/main/schema.ts';
 
-export const updateActiveUserProfile = Effect.fnUntraced(function* (profile) {
-  const manager = yield* AccountManager;
-  const activeAccount = yield* manager.state;
+export class ActiveUserProfile extends Schema.Class<
+  ActiveUserProfile,
+  { readonly brand: unique symbol }
+>('voel/app/accounts/profile/ActiveUserProfile')({
+  email: Schema.String,
+  id: Schema.String,
+  name: Schema.String,
+  role: Schema.String,
+  username: Schema.String,
+}) {}
 
-  if (Option.isNone(activeAccount)) {
-    return yield* new FormSubmitError({ message: 'No active user is available.' });
-  }
+export class ActiveUserProfileLoading extends Schema.TaggedClass<ActiveUserProfileLoading>()(
+  'Loading',
+  {}
+) {}
 
-  const { authClient } = activeAccount.value.state;
-  const updateResult = yield* Effect.tryPromise({
-    try: async () => authClient.updateUser(profile),
-    catch: () => new FormSubmitError({ message: 'Unable to update the profile. Try again.' }),
-  });
+export class ActiveUserProfileNoActiveUser extends Schema.TaggedClass<ActiveUserProfileNoActiveUser>()(
+  'NoActiveUser',
+  {}
+) {}
 
-  if (updateResult.error !== null) {
-    return yield* new FormSubmitError({
-      message: updateResult.error.message ?? 'Unable to update the profile. Try again.',
-    });
-  }
+export class ActiveUserProfileLoadError extends Schema.TaggedClass<ActiveUserProfileLoadError>()(
+  'LoadError',
+  {}
+) {}
 
-  return void 0;
-}) satisfies UpdateUserProfile;
+export class ActiveUserProfileLoaded extends Schema.TaggedClass<ActiveUserProfileLoaded>()(
+  'Loaded',
+  { profile: ActiveUserProfile }
+) {}
+
+export type ActiveUserProfileState =
+  | ActiveUserProfileLoading
+  | ActiveUserProfileNoActiveUser
+  | ActiveUserProfileLoadError
+  | ActiveUserProfileLoaded;
+
+export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
+  Atom.map(
+    AsyncResult.matchWithError({
+      onInitial: () => new ActiveUserProfileLoading(),
+      onError: () => new ActiveUserProfileLoadError(),
+      onDefect: () => new ActiveUserProfileLoadError(),
+      onSuccess: ({ value }): ActiveUserProfileState =>
+        Option.match(value, {
+          onNone: () => new ActiveUserProfileNoActiveUser(),
+          onSome: (session) => {
+            if (session.data === null) {
+              return session.isPending
+                ? new ActiveUserProfileLoading()
+                : new ActiveUserProfileLoadError();
+            }
+
+            const { user } = session.data;
+            if (user.username === null || user.username === void 0) {
+              return new ActiveUserProfileLoadError();
+            }
+
+            return new ActiveUserProfileLoaded({
+              profile: new ActiveUserProfile({
+                email: user.email,
+                id: user.id,
+                name: user.name,
+                role: AccountRole.formatFromNullishString(user.role),
+                username: user.username,
+              }),
+            });
+          },
+        }),
+    })
+  )
+);

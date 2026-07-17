@@ -8,19 +8,20 @@ import {
 } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { Match } from 'effect';
 import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { updateActiveUserProfile } from '#src/app/accounts/profile/index.tsx';
+import { activeUserProfileAtom } from '#src/app/accounts/profile/index.tsx';
+import type {
+  ActiveUserProfile,
+  ActiveUserProfileState,
+} from '#src/app/accounts/profile/index.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { UserProfileEditor } from '#src/components/user-profile-editor/index.android.tsx';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
-import { AccountRole } from '#src/services/database/main/schema';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -35,12 +36,7 @@ const LoadedProfile = ({
   name,
   role,
   username,
-}: {
-  readonly email: string;
-  readonly name: string;
-  readonly role: string;
-  readonly username: string;
-}) => {
+}: Pick<ActiveUserProfile, 'email' | 'name' | 'role' | 'username'>) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const editProfileSheetRef = useRef<ModalBottomSheetRef>(null);
 
@@ -108,7 +104,6 @@ const LoadedProfile = ({
             verticalArrangement={{ spacedBy: Spacing.two }}>
             <UserProfileEditor
               profile={{ name, username }}
-              updateProfile={updateActiveUserProfile}
               onProfileUpdated={() => {
                 void dismissEditProfileSheet();
               }}
@@ -120,61 +115,44 @@ const LoadedProfile = ({
   );
 };
 
+const renderProfileState = Match.type<ActiveUserProfileState>().pipe(
+  Match.tagsExhaustive({
+    Loading: () => (
+      <ProfileList>
+        <LoadingIndicator modifiers={[fillMaxWidth()]} />
+      </ProfileList>
+    ),
+    NoActiveUser: () => (
+      <ProfileList>
+        <Text>No active user</Text>
+      </ProfileList>
+    ),
+    LoadError: () => (
+      <ProfileList>
+        <Text>Unable to load the user profile</Text>
+      </ProfileList>
+    ),
+    Loaded: ({ profile }) => (
+      <LoadedProfile
+        key={profile.id}
+        email={profile.email}
+        name={profile.name}
+        role={profile.role}
+        username={profile.username}
+      />
+    ),
+  })
+);
+
+const ProfileState = ({ state }: { readonly state: ActiveUserProfileState }) =>
+  renderProfileState(state);
+
 export default function ProfileScreen() {
-  const activeAccountSession = useAtomValue(activeAccountSessionAtom);
+  const profileState = useAtomValue(activeUserProfileAtom);
 
   return (
     <AndroidAccountsSheet>
-      {AsyncResult.matchWithError(activeAccountSession, {
-        onInitial: () => (
-          <ProfileList>
-            <LoadingIndicator modifiers={[fillMaxWidth()]} />
-          </ProfileList>
-        ),
-        onSuccess: ({ value }) =>
-          Option.match(value, {
-            onNone: () => (
-              <ProfileList>
-                <Text>No active user</Text>
-              </ProfileList>
-            ),
-            onSome: (session) => {
-              if (session.data === null) {
-                return (
-                  <ProfileList>
-                    {session.isPending ? (
-                      <LoadingIndicator modifiers={[fillMaxWidth()]} />
-                    ) : (
-                      <Text>Unable to load the user profile</Text>
-                    )}
-                  </ProfileList>
-                );
-              }
-
-              const { user } = session.data;
-
-              return (
-                <LoadedProfile
-                  key={user.id}
-                  email={user.email}
-                  name={user.name}
-                  role={AccountRole.formatFromNullishString(user.role)}
-                  username={user.username ?? ''}
-                />
-              );
-            },
-          }),
-        onError: () => (
-          <ProfileList>
-            <Text>Unable to load the user profile</Text>
-          </ProfileList>
-        ),
-        onDefect: () => (
-          <ProfileList>
-            <Text>Unable to load the user profile</Text>
-          </ProfileList>
-        ),
-      })}
+      <ProfileState state={profileState} />
     </AndroidAccountsSheet>
   );
 }

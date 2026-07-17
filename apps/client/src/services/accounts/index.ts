@@ -55,6 +55,23 @@ export class AccountNotFoundError extends Schema.TaggedErrorClass<
   userId: Schema.String,
 }) {}
 
+export class ActiveAccountNotFoundError extends Schema.TaggedErrorClass<
+  ActiveAccountNotFoundError,
+  { readonly brand: unique symbol }
+>()('voel/services/accounts/index/ActiveAccountNotFoundError', {}) {}
+
+export class UserProfileUpdateError extends Schema.TaggedErrorClass<
+  UserProfileUpdateError,
+  { readonly brand: unique symbol }
+>()('voel/services/accounts/index/UserProfileUpdateError', {
+  original: BetterAuthOriginalError,
+}) {}
+
+export interface UserProfileUpdate {
+  readonly name: string;
+  readonly username: string;
+}
+
 const originalAuthErrorFromUnknown = (error: unknown) =>
   error instanceof Error
     ? new BetterAuthOriginalError({
@@ -374,6 +391,27 @@ export class AccountManager extends Context.Service<AccountManager>()(
           })
         );
 
+      const updateActiveUserProfile = Effect.fnUntraced(function* (profile: UserProfileUpdate) {
+        const activeAccount = yield* SubscriptionRef.get(stateRef);
+        if (Option.isNone(activeAccount)) {
+          return yield* new ActiveAccountNotFoundError();
+        }
+
+        const updateResult = yield* Effect.tryPromise({
+          try: async () => activeAccount.value.state.authClient.updateUser(profile),
+          catch: (error) =>
+            new UserProfileUpdateError({ original: originalAuthErrorFromUnknown(error) }),
+        });
+
+        if (updateResult.error !== null) {
+          return yield* new UserProfileUpdateError({
+            original: new BetterAuthOriginalError(updateResult.error),
+          });
+        }
+
+        return void 0;
+      });
+
       const signInAccount = Effect.fnUntraced(function* ({
         serverUrl,
         username,
@@ -472,6 +510,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         state: SubscriptionRef.get(stateRef),
         setActiveAccount,
         removeAccount,
+        updateActiveUserProfile,
         signInAccount,
         setupServerWithAccount,
       };

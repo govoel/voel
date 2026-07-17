@@ -3,7 +3,11 @@ import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
 
-import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
+import {
+  AccountManager,
+  AccountNotFoundError,
+  ActiveAccountNotFoundError,
+} from '#src/services/accounts/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -42,6 +46,21 @@ describe('AccountManager', () => {
     Effect.fnUntraced(
       function* () {
         expect(yield* AccountManager.use((am) => am.state)).toBe(Option.none());
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
+
+  it.effect(
+    'rejects profile updates without an active account',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const error = yield* manager
+          .updateActiveUserProfile({ name: 'Test User', username: 'test.user' })
+          .pipe(Effect.flip);
+
+        expect(error).toEqual(new ActiveAccountNotFoundError());
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -284,6 +303,36 @@ describe('AccountManager', () => {
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
           }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
+      'updates the active user profile',
+      Effect.fnUntraced(
+        function* () {
+          const serverUrl = yield* makeServerUrl();
+          const username = yield* makeUsername('test.admin');
+          const updatedUsername = yield* makeUsername('updated.admin');
+          const manager = yield* AccountManager;
+
+          yield* manager.setupServerWithAccount({
+            serverUrl,
+            name: 'Test Admin',
+            email: `${username}@voel.app`,
+            username,
+            password: Redacted.make('ha!niceTry'),
+          });
+
+          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
+          yield* manager.updateActiveUserProfile({
+            name: 'Updated Admin',
+            username: updatedUsername,
+          });
+
+          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
+          expect(Option.getOrThrow(synchronizedState).account.username).toBe(updatedUsername);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

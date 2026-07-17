@@ -7,8 +7,8 @@ import { useUserProfileForm } from '#src/components/user-profile-editor/form.tsx
 import type { UserProfileEditorComponent } from '#src/components/user-profile-editor/index.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const UserProfileEditor = (({ onProfileUpdated, profile, updateProfile }) => {
-  const form = useUserProfileForm({ onProfileUpdated, profile, updateProfile });
+export const UserProfileEditor = (({ onProfileUpdated, profile }) => {
+  const form = useUserProfileForm({ onProfileUpdated, profile });
   const isDirty = useSelector(form.store, (state) => state.isDirty);
 
   return (

@@ -1,10 +1,8 @@
 import { Effect, Schema } from 'effect';
 
-import { useAppForm } from '#src/components/form';
-import type {
-  UpdateUserProfile,
-  UserProfileValues,
-} from '#src/components/user-profile-editor/index.ts';
+import { FormSubmitError, useAppForm } from '#src/components/form';
+import type { UserProfileValues } from '#src/components/user-profile-editor/index.ts';
+import { AccountManager } from '#src/services/accounts/index.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
 export class UserProfileSchema extends Schema.Class<
@@ -24,18 +22,26 @@ export class UserProfileSchema extends Schema.Class<
 export const useUserProfileForm = ({
   onProfileUpdated,
   profile,
-  updateProfile,
 }: {
   readonly onProfileUpdated: () => void;
   readonly profile: UserProfileValues;
-  readonly updateProfile: UpdateUserProfile;
 }) => {
   const form = useAppForm({
     runtime: Runtime,
     schema: UserProfileSchema,
     defaultValues: profile,
     onSubmit: Effect.fnUntraced(function* ({ value }) {
-      yield* updateProfile(value);
+      const accountManager = yield* AccountManager;
+      yield* accountManager.updateActiveUserProfile(value).pipe(
+        Effect.catchTags({
+          'voel/services/accounts/index/ActiveAccountNotFoundError': () =>
+            new FormSubmitError({ message: 'No active user is available.' }),
+          'voel/services/accounts/index/UserProfileUpdateError': (error) =>
+            new FormSubmitError({
+              message: error.original.message ?? 'Unable to update the profile. Try again.',
+            }),
+        })
+      );
       onProfileUpdated();
     }),
   });
