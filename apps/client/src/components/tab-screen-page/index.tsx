@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { NoActiveAccountView } from '#src/components/no-active-account-view';
 import { SafeScrollView } from '#src/components/safe-scroll-view';
 import { TabScreenColumn } from '#src/components/tab-screen-column';
+import { CenteredTabScreenPage } from '#src/components/tab-screen-page/centered';
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 export const TabScreenPage = ({
@@ -17,7 +18,11 @@ export const TabScreenPage = ({
   const activeAccount = useAtomSuspense(activeAccountAtom);
 
   return Option.match(activeAccount.value, {
-    onNone: () => <NoActiveAccountView header={header} />,
+    onNone: () => (
+      <CenteredTabScreenPage header={header}>
+        <NoActiveAccountView />
+      </CenteredTabScreenPage>
+    ),
     onSome: () => (
       <SafeScrollView>
         <TabScreenColumn>

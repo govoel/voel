@@ -1,7 +1,5 @@
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentType } from 'react';
 
-export type NoActiveAccountViewComponent = ComponentType<{
-  readonly header: ReactNode;
-}>;
+export type NoActiveAccountViewComponent = ComponentType;
 
 export declare const NoActiveAccountView: NoActiveAccountViewComponent;
