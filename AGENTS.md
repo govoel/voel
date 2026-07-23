@@ -1,12 +1,10 @@
 # Information
 
-- The package manager and runtime used is `bun`.
+The package manager and runtime used is `bun`.
 
 # Validations
 
-Run this commands after you are done with your changes:
-
-- `bun turbo run check-types && bun turbo run lint && bun turbo run test && bun run --filter=voel harness:all && bun run format`
+Run this commands after you are done with your changes: `bun turbo run check-types && bun turbo run lint && bun turbo run test && bun run --filter=voel harness:all && bun run format`
 
 # This project uses "effect"
 

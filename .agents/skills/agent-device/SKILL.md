@@ -1,6 +1,7 @@
 ---
 name: agent-device
 description: Automates Apple-platform apps (iOS, tvOS, macOS) and Android devices. Use when navigating apps, taking snapshots/screenshots, tapping, typing, scrolling, extracting UI info, collecting logs/network/perf evidence, or planning agent-device CLI commands.
+disable-model-invocation: true
 ---
 
 # agent-device

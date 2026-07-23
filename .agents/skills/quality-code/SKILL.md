@@ -1,6 +1,7 @@
 ---
 name: quality-code
 description: Use when writing or reviewing TypeScript/full-stack code. Encodes principles for type safety, Effect services, real tests over mocks, built-in Effect observability, and choosing abstractions only when they pay for themselves.
+disable-model-invocation: true
 ---
 
 # Writing quality TypeScript
