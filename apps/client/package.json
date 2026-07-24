@@ -31,7 +31,7 @@
     "@repo/auth-api": "workspace:*",
     "@repo/effect-kysely": "workspace:*",
     "@repo/spec-api": "workspace:*",
-    "@tanstack/react-form": "1.33.1",
+    "@tanstack/react-form": "1.33.2",
     "better-auth": "1.6.23",
     "effect": "4.0.0-beta.97",
     "expo": "~57.0.4",
