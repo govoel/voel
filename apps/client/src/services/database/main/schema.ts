@@ -1,4 +1,4 @@
-import { Schema, SchemaGetter } from 'effect';
+import { Match, Schema, SchemaGetter } from 'effect';
 import { Model } from 'effect/unstable/schema';
 
 import type { TableFromModel } from '@repo/effect-kysely';
@@ -16,6 +16,23 @@ export class AccountRole extends Schema.Class<AccountRole, { readonly brand: uni
         value: this.isValue(value) ? value : 'under18',
       })),
       encode: SchemaGetter.transform(({ value }) => value),
+    }),
+    Schema.decodeSync
+  );
+
+  public static readonly formatFromNullishString = Schema.NullishOr(Schema.String).pipe(
+    Schema.decodeTo(Schema.Literals(['Admin', 'User', 'Under 18', 'Unknown']), {
+      decode: SchemaGetter.transform((value) =>
+        this.isValue(value)
+          ? Match.value(value).pipe(
+              Match.when('admin', () => 'Admin' as const),
+              Match.when('user', () => 'User' as const),
+              Match.when('under18', () => 'Under 18' as const),
+              Match.exhaustive
+            )
+          : ('Unknown' as const)
+      ),
+      encode: SchemaGetter.forbidden(() => 'encoding is forbidden'),
     }),
     Schema.decodeSync
   );
