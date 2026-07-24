@@ -2,12 +2,12 @@ import Search from '@expo/material-symbols/search.xml';
 import { Column, DockedSearchBar, Icon } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 
-import { SafeScrollView } from '#src/components/safe-scroll-view';
+import { TabScreenPage } from '#src/components/tab-screen-page';
 import { Text } from '#src/components/text';
 
 export default function SearchScreen() {
   return (
-    <SafeScrollView>
+    <TabScreenPage>
       <Column>
         <DockedSearchBar modifiers={[fillMaxWidth()]}>
           <DockedSearchBar.Placeholder>
@@ -18,6 +18,6 @@ export default function SearchScreen() {
           </DockedSearchBar.LeadingIcon>
         </DockedSearchBar>
       </Column>
-    </SafeScrollView>
+    </TabScreenPage>
   );
 }
