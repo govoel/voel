@@ -5,6 +5,7 @@ import { describe, expect, it, spyOn } from '@repo/effect-react-native-harness';
 
 import { ListAccountsNoAuthClientError, makeAccountsAtoms } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import type { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
@@ -66,7 +67,7 @@ const makeAtomTaskScheduler = () => {
 };
 
 const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
-  const services = yield* Effect.context<AccountManager | MainDatabase>();
+  const services = yield* Effect.context<AccountManager | CurrentAuthClient | MainDatabase>();
   const manager = Context.get(services, AccountManager);
   const runtime = Atom.runtime(Layer.succeedContext(services));
   const {

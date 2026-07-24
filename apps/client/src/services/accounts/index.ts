@@ -16,21 +16,15 @@ import { uuid } from 'expo-modules-core';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
-import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import {
+  BetterAuthOriginalError,
+  betterAuthOriginalErrorFromUnknown,
+  createVoelAuthClient,
+} from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
-
-class BetterAuthOriginalError extends Schema.Class<
-  BetterAuthOriginalError,
-  { readonly brand: unique symbol }
->('voel/services/accounts/index/BetterAuthOriginalError')({
-  code: Schema.optional(Schema.String),
-  message: Schema.optional(Schema.String),
-  status: Schema.Number,
-  statusText: Schema.String,
-}) {}
 
 export class AccountSignInError extends Schema.TaggedErrorClass<
   AccountSignInError,
@@ -54,47 +48,6 @@ export class AccountNotFoundError extends Schema.TaggedErrorClass<
   serverUrl: Schema.String,
   userId: Schema.String,
 }) {}
-
-export class ActiveAccountNotFoundError extends Schema.TaggedErrorClass<
-  ActiveAccountNotFoundError,
-  { readonly brand: unique symbol }
->()('voel/services/accounts/index/ActiveAccountNotFoundError', {}) {}
-
-export class UserProfileUpdateError extends Schema.TaggedErrorClass<
-  UserProfileUpdateError,
-  { readonly brand: unique symbol }
->()('voel/services/accounts/index/UserProfileUpdateError', {
-  original: BetterAuthOriginalError,
-}) {}
-
-export class UserProfileUpdate extends Schema.Class<
-  UserProfileUpdate,
-  { readonly brand: unique symbol }
->('voel/services/accounts/index/UserProfileUpdate')({
-  name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
-  username: Schema.String.check(
-    Schema.isMinLength(3, { message: 'Username must be at least 3 characters' }),
-    Schema.isMaxLength(30, { message: 'Username must be at most 30 characters' }),
-    Schema.isPattern(/^[a-zA-Z0-9_.]+$/u, {
-      message: 'Username can only contain letters, numbers, underscores, and periods',
-    })
-  ),
-}) {}
-
-const originalAuthErrorFromUnknown = (error: unknown) =>
-  error instanceof Error
-    ? new BetterAuthOriginalError({
-        message: error.message,
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      })
-    : new BetterAuthOriginalError({
-        message: 'An unknown error occurred.',
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      });
 
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/index/AccountManager',
@@ -400,27 +353,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
           })
         );
 
-      const updateActiveUserProfile = Effect.fnUntraced(function* (profile: UserProfileUpdate) {
-        const activeAccount = yield* SubscriptionRef.get(stateRef);
-        if (Option.isNone(activeAccount)) {
-          return yield* new ActiveAccountNotFoundError();
-        }
-
-        const updateResult = yield* Effect.tryPromise({
-          try: async () => activeAccount.value.state.authClient.updateUser(profile),
-          catch: (error) =>
-            new UserProfileUpdateError({ original: originalAuthErrorFromUnknown(error) }),
-        });
-
-        if (updateResult.error !== null) {
-          return yield* new UserProfileUpdateError({
-            original: new BetterAuthOriginalError(updateResult.error),
-          });
-        }
-
-        return void 0;
-      });
-
       const signInAccount = Effect.fnUntraced(function* ({
         serverUrl,
         username,
@@ -439,7 +371,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           try: async () =>
             authClient.signIn.username({ username, password: Redacted.value(password) }),
           catch: (error) =>
-            new AccountSignInError({ original: originalAuthErrorFromUnknown(error) }),
+            new AccountSignInError({ original: betterAuthOriginalErrorFromUnknown(error) }),
         });
 
         if (signInResult.error !== null) {
@@ -492,7 +424,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
               password: Redacted.value(password),
             }),
           catch: (error) =>
-            new AccountSignUpError({ original: originalAuthErrorFromUnknown(error) }),
+            new AccountSignUpError({ original: betterAuthOriginalErrorFromUnknown(error) }),
         });
 
         if (signUpResult.error !== null) {
@@ -519,7 +451,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
         state: SubscriptionRef.get(stateRef),
         setActiveAccount,
         removeAccount,
-        updateActiveUserProfile,
         signInAccount,
         setupServerWithAccount,
       };

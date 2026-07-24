@@ -7,23 +7,21 @@ import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { activeAccountServerUrlAtom } from '#src/services/accounts/atoms.ts';
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { CommonExpoLayers } from '#src/services/layers.ts';
 
 const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
   AuthMiddleware,
   Effect.fnUntraced(function* ({ request, next }) {
-    const accountManager = yield* AccountManager;
-
-    const state = yield* accountManager.state;
-
-    if (Option.isNone(state)) {
-      return yield* next(request);
-    }
+    const currentAuthClient = yield* CurrentAuthClient;
+    const cookie = yield* currentAuthClient.getCookie().pipe(Effect.option);
 
     return yield* next({
       ...request,
-      headers: Headers.set(request.headers, 'cookie', state.value.state.authClient.getCookie()),
+      headers: Option.match(cookie, {
+        onNone: () => request.headers,
+        onSome: (value) => Headers.set(request.headers, 'cookie', value),
+      }),
     });
   })
 );

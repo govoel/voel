@@ -2,31 +2,19 @@ import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/registry.ts';
-
-class BetterAuthListUsersUnknownError extends Schema.TaggedErrorClass<
-  BetterAuthListUsersUnknownError,
-  { readonly brand: unique symbol }
->()('voel/app/accounts/server/accounts/BetterAuthListUsersUnknownError', {}) {}
-
-class BetterAuthListUsersKnownError extends Schema.TaggedErrorClass<
-  BetterAuthListUsersKnownError,
-  { readonly brand: unique symbol }
->()('voel/app/accounts/server/accounts/BetterAuthListUsersKnownError', {
-  code: Schema.optional(Schema.String),
-  message: Schema.optional(Schema.String),
-  status: Schema.Number,
-  statusText: Schema.String,
-}) {}
 
 export class ListAccountsNoAuthClientError extends Schema.TaggedErrorClass<
   ListAccountsNoAuthClientError,
   { readonly brand: unique symbol }
 >()('voel/app/accounts/server/accounts/ListAccountsNoAuthClientError', {}) {}
 
-export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | MainDatabase>) => {
+export const makeAccountsAtoms = (
+  runtime: Atom.AtomRuntime<AccountManager | CurrentAuthClient | MainDatabase>
+) => {
   const accountsAtom = runtime.atom(
     Effect.service(MainDatabase).pipe(
       Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll())),
@@ -59,23 +47,16 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
             return yield* new ListAccountsNoAuthClientError();
           }
 
+          const currentAuthClient = yield* CurrentAuthClient;
           return Stream.paginate(
             0,
             Effect.fnUntraced(function* (offset) {
-              const { data, error } = yield* Effect.tryPromise({
-                try: async () =>
-                  authClient.value.admin.listUsers({
-                    query: {
-                      limit: 10,
-                      offset,
-                    },
-                  }),
-                catch: () => new BetterAuthListUsersUnknownError(),
+              const data = yield* currentAuthClient.listUsers({
+                query: {
+                  limit: 10,
+                  offset,
+                },
               });
-
-              if (error !== null) {
-                return yield* new BetterAuthListUsersKnownError(error);
-              }
 
               const nextOffset = offset + data.users.length;
               const hasMore = data.users.length > 0 && nextOffset < data.total;

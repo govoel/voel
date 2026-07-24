@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import type { UserProfileUpdate } from '#src/services/accounts/index.ts';
+import type { UserProfileUpdate } from '#src/components/user-profile-editor/schema.ts';
 
 export interface UserProfileEditorProps {
   readonly onProfileUpdated: () => void;

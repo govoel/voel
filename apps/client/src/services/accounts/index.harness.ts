@@ -3,12 +3,9 @@ import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
 
-import {
-  AccountManager,
-  AccountNotFoundError,
-  ActiveAccountNotFoundError,
-  UserProfileUpdate,
-} from '#src/services/accounts/index.ts';
+import { UserProfileUpdate } from '#src/components/user-profile-editor/schema.ts';
+import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
+import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -53,17 +50,13 @@ describe('AccountManager', () => {
   );
 
   it.effect(
-    'rejects profile updates without an active account',
+    'rejects current-auth-client operations without an active account',
     Effect.fnUntraced(
       function* () {
-        const manager = yield* AccountManager;
-        const error = yield* manager
-          .updateActiveUserProfile(
-            new UserProfileUpdate({ name: 'Test User', username: 'test.user' })
-          )
-          .pipe(Effect.flip);
+        const currentAuthClient = yield* CurrentAuthClient;
+        const error = yield* currentAuthClient.getCookie().pipe(Effect.flip);
 
-        expect(error).toEqual(new ActiveAccountNotFoundError());
+        expect(error).toEqual(new NoCurrentAuthClientError());
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -242,6 +235,7 @@ describe('AccountManager', () => {
           const updatedUsername = yield* makeUsername('updated.admin');
           const profilePicture = 'https://voel.app/profile.png';
           const manager = yield* AccountManager;
+          const currentAuthClient = yield* CurrentAuthClient;
 
           yield* manager.setupServerWithAccount({
             serverUrl,
@@ -253,13 +247,10 @@ describe('AccountManager', () => {
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          const updateResult = yield* Effect.promise(async () =>
-            activeAccount.state.authClient.updateUser({
-              username: updatedUsername,
-              image: profilePicture,
-            })
-          );
-          expect(updateResult.error).toBeNull();
+          yield* currentAuthClient.updateUser({
+            username: updatedUsername,
+            image: profilePicture,
+          });
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
@@ -319,6 +310,7 @@ describe('AccountManager', () => {
           const username = yield* makeUsername('test.admin');
           const updatedUsername = yield* makeUsername('updated.admin');
           const manager = yield* AccountManager;
+          const currentAuthClient = yield* CurrentAuthClient;
 
           yield* manager.setupServerWithAccount({
             serverUrl,
@@ -329,7 +321,7 @@ describe('AccountManager', () => {
           });
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          yield* manager.updateActiveUserProfile(
+          yield* currentAuthClient.updateUser(
             new UserProfileUpdate({
               name: 'Updated Admin',
               username: updatedUsername,

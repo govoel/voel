@@ -37,3 +37,5 @@ export const createVoelAuthClient = ({
       }),
     catch: (error) => new BetterAuthClientInitializationError({ error }),
   });
+
+export type VoelAuthClient = Effect.Success<ReturnType<typeof createVoelAuthClient>>;
