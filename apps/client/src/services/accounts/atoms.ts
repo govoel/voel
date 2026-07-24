@@ -1,8 +1,9 @@
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
-import { Atom, Reactivity } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
+import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/registry.ts';
 
 class BetterAuthListUsersUnknownError extends Schema.TaggedErrorClass<
@@ -126,6 +127,40 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
     );
   });
 
+  const activeUserProfileAtom = activeAccountSessionAtom.pipe(
+    Atom.map((result) =>
+      // oxlint-disable-next-line unicorn/no-array-method-this-argument -- This is Effect's dual API, not Array.prototype.flatMap.
+      AsyncResult.flatMap(result, (activeAccountSession) =>
+        Option.match(activeAccountSession, {
+          onNone: () => AsyncResult.success(Option.none<ActiveUserProfile>()),
+          onSome: (sessionState) => {
+            if (sessionState.data === null) {
+              return sessionState.isPending
+                ? AsyncResult.initial(true)
+                : AsyncResult.fail('ActiveUserProfileUnavailable' as const);
+            }
+
+            const { user } = sessionState.data;
+            if (user.username === null || user.username === void 0) {
+              return AsyncResult.fail('ActiveUserProfileUnavailable' as const);
+            }
+
+            return AsyncResult.success(
+              Option.some({
+                email: user.email,
+                id: user.id,
+                name: user.name,
+                role: AccountRole.formatFromNullishString(user.role),
+                username: user.username,
+              }),
+              { waiting: sessionState.isPending || sessionState.isRefetching }
+            );
+          },
+        })
+      )
+    )
+  );
+
   const signInAccountAtom = runtime.fn(
     (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>
       AccountManager.pipe(Effect.flatMap((manager) => manager.signInAccount(input)))
@@ -173,6 +208,7 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
     activeAccountAtom,
     activeAccountServerUrlAtom,
     activeAccountAuthClientAtom,
+    activeUserProfileAtom,
     listAccountsAtom,
     activeAccountSessionAtom,
     signInAccountAtom,
@@ -187,6 +223,7 @@ export const {
   activeAccountAtom,
   activeAccountServerUrlAtom,
   activeAccountAuthClientAtom,
+  activeUserProfileAtom,
   listAccountsAtom,
   activeAccountSessionAtom,
   signInAccountAtom,
@@ -194,3 +231,11 @@ export const {
   setActiveAccountAtom,
   removeAccountAtom,
 } = makeAccountsAtoms(AppRuntime);
+
+export interface ActiveUserProfile {
+  readonly email: string;
+  readonly id: string;
+  readonly name: string;
+  readonly role: string;
+  readonly username: string;
+}

@@ -19,19 +19,18 @@ import {
   headerProminence,
   padding,
 } from '@expo/ui/swift-ui/modifiers';
-import { Match } from 'effect';
+import { Option } from 'effect';
+import { AsyncResult } from 'effect/unstable/reactivity';
+import type { Atom } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { activeUserProfileAtom } from '#src/app/accounts/profile/index.tsx';
-import type {
-  ActiveUserProfile,
-  ActiveUserProfileState,
-} from '#src/app/accounts/profile/index.tsx';
 import { Text } from '#src/components/text';
 import { UserProfileEditor } from '#src/components/user-profile-editor/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeUserProfileAtom } from '#src/services/accounts/atoms.ts';
+import type { ActiveUserProfile } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased')]}>{children}</List>
@@ -127,9 +126,9 @@ const LoadedProfile = ({
   );
 };
 
-const renderProfileState = Match.type<ActiveUserProfileState>().pipe(
-  Match.tagsExhaustive({
-    Loading: () => (
+const renderProfileState = (state: Atom.Type<typeof activeUserProfileAtom>) =>
+  AsyncResult.matchWithError(state, {
+    onInitial: () => (
       <ProfileList>
         <Section>
           <ProgressView
@@ -138,34 +137,40 @@ const renderProfileState = Match.type<ActiveUserProfileState>().pipe(
         </Section>
       </ProfileList>
     ),
-    NoActiveUser: () => (
-      <ProfileList>
-        <Section>
-          <Text>No active user</Text>
-        </Section>
-      </ProfileList>
-    ),
-    LoadError: () => (
+    onError: () => (
       <ProfileList>
         <Section>
           <Text>Unable to load the user profile</Text>
         </Section>
       </ProfileList>
     ),
-    Loaded: ({ profile }) => (
-      <LoadedProfile
-        key={profile.id}
-        email={profile.email}
-        name={profile.name}
-        role={profile.role}
-        username={profile.username}
-      />
+    onDefect: () => (
+      <ProfileList>
+        <Section>
+          <Text>Unable to load the user profile</Text>
+        </Section>
+      </ProfileList>
     ),
-  })
-);
-
-const ProfileState = ({ state }: { readonly state: ActiveUserProfileState }) =>
-  renderProfileState(state);
+    onSuccess: ({ value }) =>
+      Option.match(value, {
+        onNone: () => (
+          <ProfileList>
+            <Section>
+              <Text>No active user</Text>
+            </Section>
+          </ProfileList>
+        ),
+        onSome: (profile) => (
+          <LoadedProfile
+            key={profile.id}
+            email={profile.email}
+            name={profile.name}
+            role={profile.role}
+            username={profile.username}
+          />
+        ),
+      }),
+  });
 
 export default function ProfileScreen() {
   const profileState = useAtomValue(activeUserProfileAtom);
@@ -174,9 +179,7 @@ export default function ProfileScreen() {
     <>
       <Stack.Screen.Title />
       <Host style={{ flex: 1 }}>
-        <Group>
-          <ProfileState state={profileState} />
-        </Group>
+        <Group>{renderProfileState(profileState)}</Group>
       </Host>
     </>
   );

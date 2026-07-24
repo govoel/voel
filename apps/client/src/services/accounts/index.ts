@@ -67,10 +67,19 @@ export class UserProfileUpdateError extends Schema.TaggedErrorClass<
   original: BetterAuthOriginalError,
 }) {}
 
-export interface UserProfileUpdate {
-  readonly name: string;
-  readonly username: string;
-}
+export class UserProfileUpdate extends Schema.Class<
+  UserProfileUpdate,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/index/UserProfileUpdate')({
+  name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
+  username: Schema.String.check(
+    Schema.isMinLength(3, { message: 'Username must be at least 3 characters' }),
+    Schema.isMaxLength(30, { message: 'Username must be at most 30 characters' }),
+    Schema.isPattern(/^[a-zA-Z0-9_.]+$/u, {
+      message: 'Username can only contain letters, numbers, underscores, and periods',
+    })
+  ),
+}) {}
 
 const originalAuthErrorFromUnknown = (error: unknown) =>
   error instanceof Error
@@ -391,6 +400,47 @@ export class AccountManager extends Context.Service<AccountManager>()(
           })
         );
 
+      const persistAccountSession = Effect.fnUntraced(function* ({
+        account,
+        authClient,
+        sessionUser,
+      }: {
+        readonly account: Selectable<AccountTable>;
+        readonly authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
+        readonly sessionUser: NonNullable<
+          ReturnType<typeof authClient.useSession.get>['data']
+        >['user'];
+      }) {
+        const username = sessionUser.username ?? account.username;
+        const role = AccountRole.decodeSyncFromNullishString(sessionUser.role).value;
+        const profilePicture = sessionUser.image ?? null;
+
+        const persistedAccount = yield* db
+          .executeTakeFirstOrError(
+            db
+              .updateTable('account')
+              .set({ username, role, profilePicture })
+              .where('serverUrl', '=', account.serverUrl)
+              .where('userId', '=', account.userId)
+              .returningAll()
+          )
+          .pipe(
+            Reactivity.mutation(['account']),
+            Effect.mapError(() => new AccountDatabaseError())
+          );
+
+        yield* SubscriptionRef.update(
+          stateRef,
+          Option.map((currentState) =>
+            currentState.state.authClient === authClient &&
+            currentState.account.serverUrl === persistedAccount.serverUrl &&
+            currentState.account.userId === persistedAccount.userId
+              ? { ...currentState, account: persistedAccount }
+              : currentState
+          )
+        );
+      });
+
       const updateActiveUserProfile = Effect.fnUntraced(function* (profile: UserProfileUpdate) {
         const activeAccount = yield* SubscriptionRef.get(stateRef);
         if (Option.isNone(activeAccount)) {
@@ -408,6 +458,36 @@ export class AccountManager extends Context.Service<AccountManager>()(
             original: new BetterAuthOriginalError(updateResult.error),
           });
         }
+
+        const sessionState = yield* Effect.tryPromise({
+          try: async () => {
+            await activeAccount.value.state.authClient.useSession.get().refetch({
+              query: { disableCookieCache: true },
+            });
+            return activeAccount.value.state.authClient.useSession.get();
+          },
+          catch: (error) =>
+            new UserProfileUpdateError({ original: originalAuthErrorFromUnknown(error) }),
+        });
+
+        if (sessionState.error !== null) {
+          return yield* new UserProfileUpdateError({
+            original: new BetterAuthOriginalError(sessionState.error),
+          });
+        }
+        if (sessionState.data === null) {
+          return yield* new UserProfileUpdateError({
+            original: originalAuthErrorFromUnknown(
+              new Error('The updated user session is unavailable.')
+            ),
+          });
+        }
+
+        yield* persistAccountSession({
+          account: activeAccount.value.account,
+          authClient: activeAccount.value.state.authClient,
+          sessionUser: sessionState.data.user,
+        });
 
         return void 0;
       });

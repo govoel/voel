@@ -7,6 +7,7 @@ import {
   AccountManager,
   AccountNotFoundError,
   ActiveAccountNotFoundError,
+  UserProfileUpdate,
 } from '#src/services/accounts/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
@@ -57,7 +58,9 @@ describe('AccountManager', () => {
       function* () {
         const manager = yield* AccountManager;
         const error = yield* manager
-          .updateActiveUserProfile({ name: 'Test User', username: 'test.user' })
+          .updateActiveUserProfile(
+            new UserProfileUpdate({ name: 'Test User', username: 'test.user' })
+          )
           .pipe(Effect.flip);
 
         expect(error).toEqual(new ActiveAccountNotFoundError());
@@ -325,14 +328,22 @@ describe('AccountManager', () => {
             password: Redacted.make('ha!niceTry'),
           });
 
-          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          yield* manager.updateActiveUserProfile({
+          yield* manager.updateActiveUserProfile(
+            new UserProfileUpdate({
+              name: 'Updated Admin',
+              username: updatedUsername,
+            })
+          );
+
+          const synchronizedState = Option.getOrThrow(yield* manager.state);
+          expect(synchronizedState.account.username).toBe(updatedUsername);
+          expect(synchronizedState.state.authClient.useSession.get().data?.user).toMatchObject({
             name: 'Updated Admin',
             username: updatedUsername,
           });
-
-          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
-          expect(Option.getOrThrow(synchronizedState).account.username).toBe(updatedUsername);
+          expect(yield* getAccounts).toEqual(
+            expect.arrayContaining([expect.objectContaining({ username: updatedUsername })])
+          );
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

@@ -8,20 +8,19 @@ import {
 } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Match } from 'effect';
+import { Option } from 'effect';
+import { AsyncResult } from 'effect/unstable/reactivity';
+import type { Atom } from 'effect/unstable/reactivity';
 import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { activeUserProfileAtom } from '#src/app/accounts/profile/index.tsx';
-import type {
-  ActiveUserProfile,
-  ActiveUserProfileState,
-} from '#src/app/accounts/profile/index.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { UserProfileEditor } from '#src/components/user-profile-editor/index.android.tsx';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeUserProfileAtom } from '#src/services/accounts/atoms.ts';
+import type { ActiveUserProfile } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -115,44 +114,44 @@ const LoadedProfile = ({
   );
 };
 
-const renderProfileState = Match.type<ActiveUserProfileState>().pipe(
-  Match.tagsExhaustive({
-    Loading: () => (
+const renderProfileState = (state: Atom.Type<typeof activeUserProfileAtom>) =>
+  AsyncResult.matchWithError(state, {
+    onInitial: () => (
       <ProfileList>
         <LoadingIndicator modifiers={[fillMaxWidth()]} />
       </ProfileList>
     ),
-    NoActiveUser: () => (
-      <ProfileList>
-        <Text>No active user</Text>
-      </ProfileList>
-    ),
-    LoadError: () => (
+    onError: () => (
       <ProfileList>
         <Text>Unable to load the user profile</Text>
       </ProfileList>
     ),
-    Loaded: ({ profile }) => (
-      <LoadedProfile
-        key={profile.id}
-        email={profile.email}
-        name={profile.name}
-        role={profile.role}
-        username={profile.username}
-      />
+    onDefect: () => (
+      <ProfileList>
+        <Text>Unable to load the user profile</Text>
+      </ProfileList>
     ),
-  })
-);
-
-const ProfileState = ({ state }: { readonly state: ActiveUserProfileState }) =>
-  renderProfileState(state);
+    onSuccess: ({ value }) =>
+      Option.match(value, {
+        onNone: () => (
+          <ProfileList>
+            <Text>No active user</Text>
+          </ProfileList>
+        ),
+        onSome: (profile) => (
+          <LoadedProfile
+            key={profile.id}
+            email={profile.email}
+            name={profile.name}
+            role={profile.role}
+            username={profile.username}
+          />
+        ),
+      }),
+  });
 
 export default function ProfileScreen() {
   const profileState = useAtomValue(activeUserProfileAtom);
 
-  return (
-    <AndroidAccountsSheet>
-      <ProfileState state={profileState} />
-    </AndroidAccountsSheet>
-  );
+  return <AndroidAccountsSheet>{renderProfileState(profileState)}</AndroidAccountsSheet>;
 }
