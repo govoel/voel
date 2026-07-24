@@ -328,6 +328,7 @@ describe('AccountManager', () => {
             password: Redacted.make('ha!niceTry'),
           });
 
+          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
           yield* manager.updateActiveUserProfile(
             new UserProfileUpdate({
               name: 'Updated Admin',
@@ -335,9 +336,10 @@ describe('AccountManager', () => {
             })
           );
 
-          const synchronizedState = Option.getOrThrow(yield* manager.state);
-          expect(synchronizedState.account.username).toBe(updatedUsername);
-          expect(synchronizedState.state.authClient.useSession.get().data?.user).toMatchObject({
+          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
+          const synchronizedAccount = Option.getOrThrow(synchronizedState);
+          expect(synchronizedAccount.account.username).toBe(updatedUsername);
+          expect(synchronizedAccount.state.authClient.useSession.get().data?.user).toMatchObject({
             name: 'Updated Admin',
             username: updatedUsername,
           });

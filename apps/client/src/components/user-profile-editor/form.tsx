@@ -26,8 +26,6 @@ export const useUserProfileForm = ({
             new FormSubmitError({
               message: error.original.message ?? 'Unable to update the profile. Try again.',
             }),
-          'voel/services/accounts/index/AccountDatabaseError': () =>
-            new FormSubmitError({ message: 'Unable to save the updated profile. Try again.' }),
         })
       );
       onProfileUpdated();
