@@ -4,14 +4,16 @@ import { Atom } from 'effect/unstable/reactivity';
 import { CurrentAuthClient } from '#src/services/auth-client/current';
 import { AppRuntime } from '#src/services/registry';
 
-export class ServerUser extends Schema.Class<ServerUser, { readonly brand: unique symbol }>(
-  'voel/app/accounts/server/users/ServerUser'
-)({
+export class ServerUser extends Schema.TaggedClass<ServerUser>()('ServerUser', {
   id: Schema.String,
   username: Schema.String,
-}) {}
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(ServerUser);
 
-const decodeServerUsers = Schema.decodeUnknownEffect(Schema.Array(ServerUser));
+  public static readonly decodeUnknownArrayEffect = Schema.decodeUnknownEffect(
+    Schema.Array(ServerUser)
+  );
+}
 
 export const makeListUsersAtom = (runtime: Atom.AtomRuntime<CurrentAuthClient>) => ({
   listUsersAtom: runtime
@@ -29,7 +31,7 @@ export const makeListUsersAtom = (runtime: Atom.AtomRuntime<CurrentAuthClient>) 
                 },
               });
 
-              const users = yield* decodeServerUsers(data.users);
+              const users = yield* ServerUser.decodeUnknownArrayEffect(data.users);
               const nextOffset = offset + users.length;
               const hasMore = users.length > 0 && nextOffset < data.total;
 

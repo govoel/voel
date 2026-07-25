@@ -58,7 +58,7 @@ export type { MigrationProvider } from 'kysely/migration';
 export class DatabaseSqlError extends Schema.TaggedErrorClass<
   DatabaseSqlError,
   { readonly brand: unique symbol }
->()('@repo/effect-kysely/effect-kysely/DatabaseSqlError', {
+>()('@repo/effect-kysely/index/DatabaseSqlError', {
   cause: Schema.Unknown,
   message: Schema.optional(Schema.String),
 }) {
@@ -68,7 +68,7 @@ export class DatabaseSqlError extends Schema.TaggedErrorClass<
 export class DatabaseNseError extends Schema.TaggedErrorClass<
   DatabaseNseError,
   { readonly brand: unique symbol }
->()('@repo/effect-kysely/effect-kysely/DatabaseNseError', {}) {
+>()('@repo/effect-kysely/index/DatabaseNseError', {}) {
   public static readonly is = Schema.is(this);
 }
 

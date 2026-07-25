@@ -14,7 +14,7 @@ export const createMigrationProvider = (): MigrationProvider => ({
 class ClientMigrationError extends Schema.TaggedErrorClass<
   ClientMigrationError,
   { readonly brand: unique symbol }
->()('voel/services/database/migrations/ClientMigrationError', {}) {}
+>()('voel/services/database/main/migrations/ClientMigrationError', {}) {}
 
 export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { db: Kysely<DB> }) {
   const provider = createMigrationProvider();
