@@ -1,15 +1,10 @@
-import { Effect, Option, Queue, Schema, Stream } from 'effect';
+import { Effect, Option, Queue, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/registry.ts';
-
-export class ListAccountsNoAuthClientError extends Schema.TaggedErrorClass<
-  ListAccountsNoAuthClientError,
-  { readonly brand: unique symbol }
->()('voel/app/accounts/server/accounts/ListAccountsNoAuthClientError', {}) {}
 
 export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | MainDatabase>) => {
   const accountsAtom = runtime.atom(

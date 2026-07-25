@@ -4,8 +4,9 @@ import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { describe, expect, it, spyOn } from '@repo/effect-react-native-harness';
 
 import { makeListUsersAtom } from '#src/app/accounts/server/users/index.ts';
-import { ListAccountsNoAuthClientError, makeAccountsAtoms } from '#src/services/accounts/atoms.ts';
+import { makeAccountsAtoms } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import type { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -427,13 +428,13 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
 
 it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   iit.effect(
-    'fails with ListAccountsNoAuthClientError without an active auth client',
+    'fails with NoCurrentAuthClientError without an active auth client',
     Effect.fnUntraced(
       function* () {
         const { listUsersAtom, registry } = yield* makeTestAccountsAtoms();
         const error = yield* AtomRegistry.getResult(registry, listUsersAtom).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(ListAccountsNoAuthClientError);
+        expect(error).toBeInstanceOf(NoCurrentAuthClientError);
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
