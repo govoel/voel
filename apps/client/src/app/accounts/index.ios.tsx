@@ -143,7 +143,7 @@ export default function AccountsScreen() {
                 <Section
                   header={
                     <VStack alignment="leading">
-                      <Text variant="h4">Manage User</Text>
+                      <Text variant="h4">Your Account</Text>
                       <Text
                         variant="caption"
                         modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>

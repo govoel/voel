@@ -145,7 +145,7 @@ export default function AccountsScreen() {
           <>
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Column verticalArrangement={{ spacedBy: 0 }}>
-                <Text variant="h4">Manage User</Text>
+                <Text variant="h4">Your Account</Text>
                 <Text variant="caption" color={colors.onSurfaceVariant}>
                   @{accounts.value.activeAccount.value.account.username}
                 </Text>
