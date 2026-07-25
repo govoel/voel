@@ -12,42 +12,103 @@ import {
   ZStack,
 } from '@expo/ui/swift-ui';
 import {
+  autocorrectionDisabled,
   buttonStyle,
   containerRelativeFrame,
   foregroundStyle,
   frame,
   headerProminence,
+  keyboardType,
   padding,
+  textContentType,
+  textInputAutocapitalization,
 } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { useUserProfileForm } from '#src/app/accounts/profile/index.ts';
 import { Text } from '#src/components/text';
-import { UserProfileEditor } from '#src/components/user-profile-editor/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 import { activeUserProfileAtom } from '#src/services/accounts/atoms.ts';
-import type { ActiveUserProfile } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
-  <List modifiers={[headerProminence('increased')]}>{children}</List>
+  <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
+    {children}
+  </List>
 );
 
+const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProfileForm>[0]) => {
+  const form = useUserProfileForm({ onSuccess, profile });
+
+  return (
+    <form.AppForm>
+      <ZStack alignment="bottom">
+        <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
+          <Section
+            header={
+              <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
+                Edit Profile
+              </Text>
+            }>
+            <form.AppField name="name">
+              {(field) => (
+                <field.TextField
+                  label="Name"
+                  platformProps={{ ios: { modifiers: [textContentType('name')] } }}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="username">
+              {(field) => (
+                <field.TextField
+                  label="Username"
+                  platformProps={{
+                    ios: {
+                      modifiers: [
+                        keyboardType('ascii-capable'),
+                        textContentType('username'),
+                        textInputAutocapitalization('never'),
+                        autocorrectionDisabled(),
+                      ],
+                    },
+                  }}
+                />
+              )}
+            </form.AppField>
+          </Section>
+        </List>
+        <VStack
+          spacing={Spacing.two}
+          modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
+          <form.SubmitButton
+            platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
+            containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
+            <Text>Save Changes</Text>
+          </form.SubmitButton>
+        </VStack>
+      </ZStack>
+    </form.AppForm>
+  );
+};
+
 const LoadedProfile = ({
-  email,
-  name,
-  role,
-  username,
-}: Pick<ActiveUserProfile, 'email' | 'name' | 'role' | 'username'>) => {
+  profile: { email, name, role, username },
+}: {
+  profile: Pick<
+    Option.Option.Value<Atom.Success<typeof activeUserProfileAtom>>,
+    'email' | 'name' | 'role' | 'username'
+  >;
+}) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   return (
     <>
       <ZStack alignment="bottom">
-        <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
+        <ProfileList>
           <Section title="Your Profile">
             <LabeledContent label="Name">
               <Text
@@ -94,7 +155,7 @@ const LoadedProfile = ({
               </Text>
             </LabeledContent>
           </Section>
-        </List>
+        </ProfileList>
 
         <VStack modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
           <Button
@@ -116,7 +177,7 @@ const LoadedProfile = ({
         {isEditingProfile ? (
           <UserProfileEditor
             profile={{ name, username }}
-            onProfileUpdated={() => {
+            onSuccess={async () => {
               setIsEditingProfile(false);
             }}
           />
@@ -126,60 +187,53 @@ const LoadedProfile = ({
   );
 };
 
-const renderProfileState = (state: Atom.Type<typeof activeUserProfileAtom>) =>
-  AsyncResult.matchWithError(state, {
-    onInitial: () => (
-      <ProfileList>
-        <Section>
-          <ProgressView
-            modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
-          />
-        </Section>
-      </ProfileList>
-    ),
-    onError: () => (
-      <ProfileList>
-        <Section>
-          <Text>Unable to load the user profile</Text>
-        </Section>
-      </ProfileList>
-    ),
-    onDefect: () => (
-      <ProfileList>
-        <Section>
-          <Text>Unable to load the user profile</Text>
-        </Section>
-      </ProfileList>
-    ),
-    onSuccess: ({ value }) =>
-      Option.match(value, {
-        onNone: () => (
-          <ProfileList>
-            <Section>
-              <Text>No active user</Text>
-            </Section>
-          </ProfileList>
-        ),
-        onSome: (profile) => (
-          <LoadedProfile
-            key={profile.id}
-            email={profile.email}
-            name={profile.name}
-            role={profile.role}
-            username={profile.username}
-          />
-        ),
-      }),
-  });
-
 export default function ProfileScreen() {
-  const profileState = useAtomValue(activeUserProfileAtom);
+  const state = useAtomValue(activeUserProfileAtom);
 
   return (
     <>
       <Stack.Screen.Title />
       <Host style={{ flex: 1 }}>
-        <Group>{renderProfileState(profileState)}</Group>
+        <Group>
+          {AsyncResult.matchWithError(state, {
+            onInitial: () => (
+              <ProfileList>
+                <Section>
+                  <ProgressView
+                    modifiers={[
+                      containerRelativeFrame({ axes: 'horizontal', alignment: 'center' }),
+                    ]}
+                  />
+                </Section>
+              </ProfileList>
+            ),
+            onError: () => (
+              <ProfileList>
+                <Section>
+                  <Text>Unable to load the user profile</Text>
+                </Section>
+              </ProfileList>
+            ),
+            onDefect: () => (
+              <ProfileList>
+                <Section>
+                  <Text>Unable to load the user profile</Text>
+                </Section>
+              </ProfileList>
+            ),
+            onSuccess: ({ value }) =>
+              Option.match(value, {
+                onNone: () => (
+                  <ProfileList>
+                    <Section>
+                      <Text>No active user</Text>
+                    </Section>
+                  </ProfileList>
+                ),
+                onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
+              }),
+          })}
+        </Group>
       </Host>
     </>
   );

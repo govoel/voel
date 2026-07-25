@@ -19,8 +19,8 @@ import type { Insertable, Selectable } from '@repo/effect-kysely';
 import {
   BetterAuthOriginalError,
   betterAuthOriginalErrorFromUnknown,
-  createVoelAuthClient,
-} from '#src/services/auth-client/index.ts';
+} from '#src/services/auth-client/errors.ts';
+import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';

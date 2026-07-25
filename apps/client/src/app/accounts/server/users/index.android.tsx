@@ -12,14 +12,14 @@ import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { router } from 'expo-router';
 
+import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { listAccountsAtom } from '#src/services/accounts/atoms.ts';
 
 export default function ServerUsersScreen() {
-  const [accounts, loadMoreAccounts] = useAtom(listAccountsAtom);
+  const [users, loadMoreUsers] = useAtom(listUsersAtom);
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
@@ -32,7 +32,7 @@ export default function ServerUsersScreen() {
           bottom: Spacing.three,
         }}>
         <Text variant="h3">Manage Users</Text>
-        {AsyncResult.matchWithError(accounts, {
+        {AsyncResult.matchWithError(users, {
           onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
           onSuccess: ({ value: { items, done }, waiting }) => (
             <>
@@ -49,7 +49,6 @@ export default function ServerUsersScreen() {
                       <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
                     </SegmentedListItem.LeadingContent>
                     <SegmentedListItem.HeadlineContent>
-                      {/* @ts-expect-error - username exists, but better-auth doesn't type it */}
                       <Text>@{user.username}</Text>
                     </SegmentedListItem.HeadlineContent>
                     <SegmentedListItem.TrailingContent>
@@ -63,7 +62,7 @@ export default function ServerUsersScreen() {
                   enabled={!waiting}
                   modifiers={[fillMaxWidth()]}
                   onClick={() => {
-                    loadMoreAccounts();
+                    loadMoreUsers();
                   }}>
                   {waiting ? <LoadingIndicator /> : <Text>Load more</Text>}
                 </FilledTonalButton>

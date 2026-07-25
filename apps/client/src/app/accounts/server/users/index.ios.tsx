@@ -7,11 +7,12 @@ import { Stack, router } from 'expo-router';
 import type { ComponentType } from 'react';
 import { PlatformColor as platformColor } from 'react-native';
 
+import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import type { ServerUser } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
-import { listAccountsAtom } from '#src/services/accounts/atoms.ts';
 
 interface ServerUsersListProps {
-  readonly users: readonly { readonly id: string; readonly username: string }[];
+  readonly users: readonly ServerUser[];
   readonly waiting: boolean;
   readonly done: boolean;
   readonly onEndReached: () => void;
@@ -24,13 +25,13 @@ const NativeServerUsersList: ComponentType<ServerUsersListProps> =
 const ServerUsersList = (props: ServerUsersListProps) => <NativeServerUsersList {...props} />;
 
 export default function ServerUsersScreen() {
-  const [accounts, loadMoreAccounts] = useAtom(listAccountsAtom);
+  const [users, loadMoreUsers] = useAtom(listUsersAtom);
 
   return (
     <>
       <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
       <Host style={{ flex: 1, backgroundColor: platformColor('systemGroupedBackground') }}>
-        {AsyncResult.matchWithError(accounts, {
+        {AsyncResult.matchWithError(users, {
           onInitial: () => (
             <ProgressView
               modifiers={[
@@ -43,7 +44,6 @@ export default function ServerUsersScreen() {
             <List modifiers={[headerProminence('increased')]}>
               <Section title="Users">
                 <ServerUsersList
-                  // @ts-expect-error - username exists, but better-auth doesn't type it
                   users={items}
                   waiting={waiting}
                   done={done}
@@ -52,7 +52,7 @@ export default function ServerUsersScreen() {
                   }}
                   onEndReached={() => {
                     if (!waiting && !done) {
-                      loadMoreAccounts();
+                      loadMoreUsers();
                     }
                   }}
                 />

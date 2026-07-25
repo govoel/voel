@@ -37,13 +37,16 @@ export const useSetActiveAccount = () => {
     mode: 'promiseExit',
   });
 
-  const setActiveAccountAndDismiss = async (
-    input: Parameters<typeof setActiveAccountMutation>[0],
-    onSuccess: () => void
-  ) => {
+  const setActiveAccountAndDismiss = async ({
+    input,
+    onSuccess,
+  }: {
+    input: Parameters<typeof setActiveAccountMutation>[0];
+    onSuccess: () => Promise<void>;
+  }) => {
     const result = await setActiveAccountMutation(input);
     if (Exit.isSuccess(result)) {
-      onSuccess();
+      await onSuccess();
     }
   };
 

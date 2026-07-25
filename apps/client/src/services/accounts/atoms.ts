@@ -2,7 +2,6 @@ import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/registry.ts';
@@ -12,9 +11,7 @@ export class ListAccountsNoAuthClientError extends Schema.TaggedErrorClass<
   { readonly brand: unique symbol }
 >()('voel/app/accounts/server/accounts/ListAccountsNoAuthClientError', {}) {}
 
-export const makeAccountsAtoms = (
-  runtime: Atom.AtomRuntime<AccountManager | CurrentAuthClient | MainDatabase>
-) => {
+export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | MainDatabase>) => {
   const accountsAtom = runtime.atom(
     Effect.service(MainDatabase).pipe(
       Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll())),
@@ -28,47 +25,6 @@ export const makeAccountsAtoms = (
       Stream.unwrap
     )
   );
-
-  const activeAccountServerUrlAtom = activeAccountAtom.pipe(
-    Atom.mapResult((accounts) => accounts.pipe(Option.map(({ account }) => account.serverUrl)))
-  );
-
-  const activeAccountAuthClientAtom = activeAccountAtom.pipe(
-    Atom.mapResult((accounts) => accounts.pipe(Option.map(({ state }) => state.authClient)))
-  );
-
-  const listAccountsAtom = runtime
-    .pull(
-      Effect.fnUntraced(
-        function* (get) {
-          const authClient = yield* get.result(activeAccountAuthClientAtom);
-
-          if (Option.isNone(authClient)) {
-            return yield* new ListAccountsNoAuthClientError();
-          }
-
-          const currentAuthClient = yield* CurrentAuthClient;
-          return Stream.paginate(
-            0,
-            Effect.fnUntraced(function* (offset) {
-              const data = yield* currentAuthClient.listUsers({
-                query: {
-                  limit: 10,
-                  offset,
-                },
-              });
-
-              const nextOffset = offset + data.users.length;
-              const hasMore = data.users.length > 0 && nextOffset < data.total;
-
-              return [data.users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
-            })
-          );
-        },
-        (effect) => Stream.unwrap(effect)
-      )
-    )
-    .pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
 
   const activeAccountSessionAtom = runtime.atom((get) => {
     const activeAccount = get.streamResult(activeAccountAtom);
@@ -110,10 +66,11 @@ export const makeAccountsAtoms = (
 
   const activeUserProfileAtom = activeAccountSessionAtom.pipe(
     Atom.map((result) =>
-      // oxlint-disable-next-line unicorn/no-array-method-this-argument -- This is Effect's dual API, not Array.prototype.flatMap.
-      AsyncResult.flatMap(result, (activeAccountSession) =>
-        Option.match(activeAccountSession, {
-          onNone: () => AsyncResult.success(Option.none<ActiveUserProfile>()),
+      AsyncResult.flatMap(
+        // oxlint-disable-next-line unicorn/no-array-method-this-argument
+        result,
+        Option.match({
+          onNone: () => AsyncResult.success(Option.none()),
           onSome: (sessionState) => {
             if (sessionState.data === null) {
               return sessionState.isPending
@@ -187,10 +144,7 @@ export const makeAccountsAtoms = (
   return {
     accountsAtom,
     activeAccountAtom,
-    activeAccountServerUrlAtom,
-    activeAccountAuthClientAtom,
     activeUserProfileAtom,
-    listAccountsAtom,
     activeAccountSessionAtom,
     signInAccountAtom,
     accountsSheetAtom,
@@ -202,21 +156,10 @@ export const makeAccountsAtoms = (
 export const {
   accountsAtom,
   activeAccountAtom,
-  activeAccountServerUrlAtom,
-  activeAccountAuthClientAtom,
   activeUserProfileAtom,
-  listAccountsAtom,
   activeAccountSessionAtom,
   signInAccountAtom,
   accountsSheetAtom,
   setActiveAccountAtom,
   removeAccountAtom,
 } = makeAccountsAtoms(AppRuntime);
-
-export interface ActiveUserProfile {
-  readonly email: string;
-  readonly id: string;
-  readonly name: string;
-  readonly role: string;
-  readonly username: string;
-}

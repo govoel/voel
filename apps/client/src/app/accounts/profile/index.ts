@@ -1,29 +1,31 @@
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import { FormSubmitError, useAppForm } from '#src/components/form';
-import type { UserProfileEditorProps } from '#src/components/user-profile-editor/index.ts';
-import { UserProfileUpdate } from '#src/components/user-profile-editor/schema.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
-const updateActiveUserProfile = Effect.fnUntraced(function* (profile: UserProfileUpdate) {
-  const authClient = yield* CurrentAuthClient;
-  yield* authClient.updateUser(profile);
-});
+export class UserProfileUpdate extends Schema.Class<
+  UserProfileUpdate,
+  { readonly brand: unique symbol }
+>('voel/app/accounts/profile/UserProfileUpdate')({
+  name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
+  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+}) {}
 
 export const useUserProfileForm = ({
-  onProfileUpdated,
+  onSuccess,
   profile,
 }: {
-  readonly onProfileUpdated: () => void;
-  readonly profile: UserProfileEditorProps['profile'];
+  onSuccess: () => Promise<void>;
+  profile: typeof UserProfileUpdate.Encoded;
 }) => {
   const form = useAppForm({
     runtime: Runtime,
     schema: UserProfileUpdate,
     defaultValues: profile,
     onSubmit: Effect.fnUntraced(function* ({ value }) {
-      yield* updateActiveUserProfile(value).pipe(
+      yield* CurrentAuthClient.pipe(
+        Effect.flatMap((authClient) => authClient.updateUser(value)),
         Effect.catchTags({
           'voel/services/auth-client/current/NoCurrentAuthClientError': () =>
             new FormSubmitError({ message: 'No active user is available.' }),
@@ -33,7 +35,9 @@ export const useUserProfileForm = ({
             }),
         })
       );
-      onProfileUpdated();
+      yield* Effect.promise(async () => {
+        await onSuccess();
+      });
     }),
   });
 

@@ -9,18 +9,17 @@ import {
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/unstable/reactivity';
 import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { useUserProfileForm } from '#src/app/accounts/profile/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
-import { UserProfileEditor } from '#src/components/user-profile-editor/index.android.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 import { activeUserProfileAtom } from '#src/services/accounts/atoms.ts';
-import type { ActiveUserProfile } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -30,19 +29,61 @@ const ProfileList = ({ children }: PropsWithChildren) => (
   </LazyColumn>
 );
 
+const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProfileForm>[0]) => {
+  const form = useUserProfileForm({ onSuccess, profile });
+
+  return (
+    <form.AppForm>
+      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+        <Text variant="h3">Edit Profile</Text>
+        <form.AppField name="name">
+          {(field) => (
+            <field.TextField
+              label="Name"
+              platformProps={{
+                android: {
+                  modifiers: [fillMaxWidth()],
+                  keyboardOptions: { capitalization: 'words' },
+                },
+              }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="username">
+          {(field) => (
+            <field.TextField
+              label="Username"
+              platformProps={{
+                android: {
+                  modifiers: [fillMaxWidth()],
+                  keyboardOptions: {
+                    keyboardType: 'ascii',
+                    capitalization: 'none',
+                    autoCorrectEnabled: false,
+                  },
+                },
+              }}
+            />
+          )}
+        </form.AppField>
+        <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+          <Text>Save Changes</Text>
+        </form.SubmitButton>
+      </Column>
+    </form.AppForm>
+  );
+};
+
 const LoadedProfile = ({
-  email,
-  name,
-  role,
-  username,
-}: Pick<ActiveUserProfile, 'email' | 'name' | 'role' | 'username'>) => {
+  profile: { email, name, role, username },
+}: {
+  profile: Pick<
+    Option.Option.Value<Atom.Success<typeof activeUserProfileAtom>>,
+    'email' | 'name' | 'role' | 'username'
+  >;
+}) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const editProfileSheetRef = useRef<ModalBottomSheetRef>(null);
-
-  const dismissEditProfileSheet = async () => {
-    await editProfileSheetRef.current?.hide();
-    setIsEditingProfile(false);
-  };
 
   return (
     <>
@@ -103,8 +144,8 @@ const LoadedProfile = ({
             verticalArrangement={{ spacedBy: Spacing.two }}>
             <UserProfileEditor
               profile={{ name, username }}
-              onProfileUpdated={() => {
-                void dismissEditProfileSheet();
+              onSuccess={async () => {
+                await editProfileSheetRef.current?.hide();
               }}
             />
           </Column>
@@ -114,44 +155,37 @@ const LoadedProfile = ({
   );
 };
 
-const renderProfileState = (state: Atom.Type<typeof activeUserProfileAtom>) =>
-  AsyncResult.matchWithError(state, {
-    onInitial: () => (
-      <ProfileList>
-        <LoadingIndicator modifiers={[fillMaxWidth()]} />
-      </ProfileList>
-    ),
-    onError: () => (
-      <ProfileList>
-        <Text>Unable to load the user profile</Text>
-      </ProfileList>
-    ),
-    onDefect: () => (
-      <ProfileList>
-        <Text>Unable to load the user profile</Text>
-      </ProfileList>
-    ),
-    onSuccess: ({ value }) =>
-      Option.match(value, {
-        onNone: () => (
+export default function ProfileScreen() {
+  const state = useAtomValue(activeUserProfileAtom);
+
+  return (
+    <AndroidAccountsSheet>
+      {AsyncResult.matchWithError(state, {
+        onInitial: () => (
           <ProfileList>
-            <Text>No active user</Text>
+            <LoadingIndicator modifiers={[fillMaxWidth()]} />
           </ProfileList>
         ),
-        onSome: (profile) => (
-          <LoadedProfile
-            key={profile.id}
-            email={profile.email}
-            name={profile.name}
-            role={profile.role}
-            username={profile.username}
-          />
+        onError: () => (
+          <ProfileList>
+            <Text>Unable to load the user profile</Text>
+          </ProfileList>
         ),
-      }),
-  });
-
-export default function ProfileScreen() {
-  const profileState = useAtomValue(activeUserProfileAtom);
-
-  return <AndroidAccountsSheet>{renderProfileState(profileState)}</AndroidAccountsSheet>;
+        onDefect: () => (
+          <ProfileList>
+            <Text>Unable to load the user profile</Text>
+          </ProfileList>
+        ),
+        onSuccess: ({ value }) =>
+          Option.match(value, {
+            onNone: () => (
+              <ProfileList>
+                <Text>No active user</Text>
+              </ProfileList>
+            ),
+            onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
+          }),
+      })}
+    </AndroidAccountsSheet>
+  );
 }

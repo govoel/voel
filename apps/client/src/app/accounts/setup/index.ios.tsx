@@ -12,12 +12,16 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { Stack, router } from 'expo-router';
 
-import { useSetupServerForm } from '#src/app/accounts/setup/index.tsx';
+import { useSetupServerForm } from '#src/app/accounts/setup/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function SetupServerScreen() {
-  const form = useSetupServerForm({ onClose: router.back });
+  const form = useSetupServerForm({
+    onSuccess: async () => {
+      router.back();
+    },
+  });
 
   return (
     <>

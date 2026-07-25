@@ -3,7 +3,7 @@ import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
 
-import { UserProfileUpdate } from '#src/components/user-profile-editor/schema.ts';
+import { UserProfileUpdate } from '#src/app/accounts/profile/index.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
@@ -54,7 +54,7 @@ describe('AccountManager', () => {
     Effect.fnUntraced(
       function* () {
         const currentAuthClient = yield* CurrentAuthClient;
-        const error = yield* currentAuthClient.getCookie().pipe(Effect.flip);
+        const error = yield* currentAuthClient.getCookie.pipe(Effect.flip);
 
         expect(error).toEqual(new NoCurrentAuthClientError());
       },

@@ -6,7 +6,7 @@ import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc'
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { activeAccountServerUrlAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { CommonExpoLayers } from '#src/services/layers.ts';
 
@@ -14,7 +14,7 @@ const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
   AuthMiddleware,
   Effect.fnUntraced(function* ({ request, next }) {
     const currentAuthClient = yield* CurrentAuthClient;
-    const cookie = yield* currentAuthClient.getCookie().pipe(Effect.option);
+    const cookie = yield* currentAuthClient.getCookie.pipe(Effect.option);
 
     return yield* next({
       ...request,
@@ -33,16 +33,16 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
     Layer.effect(
       RpcClient.Protocol,
       Effect.gen(function* () {
-        const serverUrl = yield* get.result(activeAccountServerUrlAtom);
-        const client = (yield* HttpClient.HttpClient).pipe(
-          HttpClient.mapRequest(
-            HttpClientRequest.prependUrl(
-              Option.match(serverUrl, {
-                onNone: () => '/api/rpc',
-                onSome: (url) => `${url.toString()}/api/rpc`,
-              })
-            )
+        const serverUrl = yield* get.result(activeAccountAtom).pipe(
+          Effect.map(
+            Option.match({
+              onNone: () => '/api/rpc',
+              onSome: ({ account }) => `${account.serverUrl.toString()}/api/rpc`,
+            })
           )
+        );
+        const client = (yield* HttpClient.HttpClient).pipe(
+          HttpClient.mapRequest(HttpClientRequest.prependUrl(serverUrl))
         );
 
         return yield* RpcClient.makeProtocolHttp(client);

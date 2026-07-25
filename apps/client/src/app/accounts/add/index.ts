@@ -5,10 +5,9 @@ import { AccountManager } from '#src/services/accounts/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
-export class AddAccountSchema extends Schema.Class<
-  AddAccountSchema,
-  { readonly brand: unique symbol }
->('voel/app/accounts/AddAccountSchema')({
+class AddAccountSchema extends Schema.Class<AddAccountSchema, { readonly brand: unique symbol }>(
+  'voel/app/accounts/AddAccountSchema'
+)({
   serverUrl: Account.fields.serverUrl.check(
     Schema.makeFilter((s) => (URL.canParse(s) ? true : 'Server URL must be a valid URL'))
   ),
@@ -21,7 +20,7 @@ export class AddAccountSchema extends Schema.Class<
   ),
 }) {}
 
-export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void }) => {
+export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({
     runtime: Runtime,
     schema: AddAccountSchema,
@@ -44,7 +43,9 @@ export const useAddAccountForm = ({ onClose }: { readonly onClose: () => void })
       );
 
       form.reset();
-      onClose();
+      yield* Effect.promise(async () => {
+        await onSuccess();
+      });
     }),
   });
 

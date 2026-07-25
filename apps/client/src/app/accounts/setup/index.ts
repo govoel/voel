@@ -23,7 +23,7 @@ export class SetupServerAccountSchema extends Schema.Class<
   ),
 }) {}
 
-export const useSetupServerForm = ({ onClose }: { readonly onClose: () => void }) => {
+export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({
     runtime: Runtime,
     schema: SetupServerAccountSchema,
@@ -46,7 +46,9 @@ export const useSetupServerForm = ({ onClose }: { readonly onClose: () => void }
       );
 
       form.reset();
-      onClose();
+      yield* Effect.promise(async () => {
+        await onSuccess();
+      });
     }),
   });
 
