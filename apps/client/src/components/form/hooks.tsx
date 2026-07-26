@@ -1,49 +1,38 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import * as ScopedAtom from '@effect/atom-react/ScopedAtom';
+import { useAtomSet } from '@effect/atom-react';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
+  DeepKeys,
   FormOptions,
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import type { ManagedRuntime } from 'effect';
-import { Cause, Effect, Exit, Option, Schema, SchemaIssue } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
-import { useCallback, useContext, useMemo, useRef } from 'react';
+import { Cause, Exit, Option, Schema } from 'effect';
+import type { Atom } from 'effect/unstable/reactivity';
+import { useCallback, useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
-type ManagedRuntimeServices<TRuntime extends ManagedRuntime.ManagedRuntime<never, unknown>> =
-  ManagedRuntime.ManagedRuntime.Services<TRuntime>;
+export type FormMutationError<TFormData> =
+  | string
+  | {
+      readonly form?: string;
+      readonly fields: Partial<Record<DeepKeys<TFormData>, string>>;
+    };
 
-export type EffectSchemaForRuntime<
-  TRuntime extends ManagedRuntime.ManagedRuntime<never, unknown>,
-  TType,
-  TEncoded,
-  TDecodingServices extends ManagedRuntimeServices<TRuntime>,
-  TEncodingServices,
-> = Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>;
+export type FormFieldError = string | StandardSchemaV1Issue;
 
-export class FormSubmitError extends Schema.TaggedErrorClass<
-  FormSubmitError,
-  { readonly brand: unique symbol }
->()('voel/components/form/hooks/FormSubmitError', { message: Schema.String }) {}
+export const getFormFieldErrorMessage = (error: FormFieldError) =>
+  typeof error === 'string' ? error : error.message;
 
-const isFormSubmitError = Schema.is(FormSubmitError);
+interface StandardSchemaFormError {
+  readonly form: Record<string, StandardSchemaV1Issue[]>;
+  readonly fields: Record<string, StandardSchemaV1Issue[]>;
+}
 
-const formSubmitErrorAtom = ScopedAtom.make((atom: Atom.Writable<Option.Option<string>>) => atom);
-
-export const useFormSubmitError = () => {
-  const submitErrorAtom = useContext(formSubmitErrorAtom.Context);
-  const submitError = useAtomValue(submitErrorAtom);
-
-  return submitError;
-};
-
-const formatStandardSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
+type EffectSchemaFormError = string | Record<string, StandardSchemaV1Issue[]>;
 
 type StandardSchemaFieldContext<TData> = Omit<
   ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
@@ -57,12 +46,12 @@ type StandardSchemaFieldContext<TData> = Omit<
       ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state']['meta'],
       'errors'
     > & {
-      readonly errors: StandardSchemaV1Issue[];
+      readonly errors: FormFieldError[];
     };
   };
 };
 
-type StringErrorFormContext = Omit<
+type EffectSchemaFormContext = Omit<
   ReturnType<typeof tanStackFormHookContexts.useFormContext>,
   'state'
 > & {
@@ -70,7 +59,7 @@ type StringErrorFormContext = Omit<
     ReturnType<typeof tanStackFormHookContexts.useFormContext>['state'],
     'errors'
   > & {
-    readonly errors: string[];
+    readonly errors: EffectSchemaFormError[];
   };
 };
 
@@ -79,7 +68,7 @@ type StandardSchemaFormHookContexts = Omit<
   'useFieldContext' | 'useFormContext'
 > & {
   readonly useFieldContext: <TData>() => StandardSchemaFieldContext<TData>;
-  readonly useFormContext: () => StringErrorFormContext;
+  readonly useFormContext: () => EffectSchemaFormContext;
 };
 
 export const {
@@ -89,6 +78,16 @@ export const {
   useFormContext,
 }: StandardSchemaFormHookContexts = tanStackFormHookContexts;
 
+type EffectSchemaSubmitValidator<TEncoded> = (props: {
+  readonly value: TEncoded;
+  readonly formApi: AnyFormApi;
+  readonly signal: AbortSignal;
+}) =>
+  | FormMutationError<TEncoded>
+  | StandardSchemaFormError
+  | null
+  | Promise<FormMutationError<TEncoded> | StandardSchemaFormError | null>;
+
 type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOptions<
   TEncoded,
   undefined,
@@ -97,7 +96,7 @@ type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOpt
   undefined,
   undefined,
   undefined,
-  StandardSchemaV1<TEncoded, TType>,
+  EffectSchemaSubmitValidator<TEncoded>,
   undefined,
   undefined,
   undefined,
@@ -111,18 +110,35 @@ type EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> = Omit<
   readonly value: TType;
 };
 
+type EffectSchemaMutationSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta> =
+  EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> & {
+    readonly result: TSuccess;
+  };
+
+type EffectSchemaMutationFailureProps<TType, TEncoded, TFailure, TSubmitMeta> = Omit<
+  EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
+  'meta'
+> & {
+  readonly error: TFailure;
+  readonly meta?: TSubmitMeta;
+};
+
 type EffectSchemaFormOptions<
-  R,
   TType,
   TEncoded,
-  TDecodingServices extends R,
+  TSuccess,
+  TFailure,
   TEncodingServices,
   TSubmitMeta = never,
 > = Omit<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
-  readonly schema: Schema.Codec<TType, TEncoded, TDecodingServices, TEncodingServices>;
-  readonly onSubmit?: (
-    props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>
-  ) => Effect.Effect<unknown, FormSubmitError, R>;
+  readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
+  readonly mutation: Atom.AtomResultFn<TType, TSuccess, TFailure>;
+  readonly onSuccess?: (
+    props: EffectSchemaMutationSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta>
+  ) => void | Promise<void>;
+  readonly onFailure: (
+    props: EffectSchemaMutationFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
+  ) => FormMutationError<TEncoded>;
 };
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
@@ -146,6 +162,38 @@ const withoutFieldValidators = <
 >(
   form: TForm
 ): FormWithoutFieldValidators<TForm> => form;
+
+const standardSchemaFailureToFormError = (
+  issues: readonly StandardSchemaV1Issue[],
+  formValue: unknown
+): StandardSchemaFormError => {
+  const errors = new Map<string, StandardSchemaV1Issue[]>();
+
+  for (const issue of issues) {
+    let currentValue = formValue;
+    let path = '';
+
+    for (const [index, pathSegment] of (issue.path ?? []).entries()) {
+      const segment = typeof pathSegment === 'object' ? pathSegment.key : pathSegment;
+      const segmentAsNumber = Number(segment);
+
+      path +=
+        Array.isArray(currentValue) && !Number.isNaN(segmentAsNumber)
+          ? `[${segmentAsNumber}]`
+          : `${index > 0 ? '.' : ''}${String(segment)}`;
+
+      currentValue =
+        typeof currentValue === 'object' && currentValue !== null
+          ? Reflect.get(currentValue, segment)
+          : void 0;
+    }
+
+    errors.set(path, [...(errors.get(path) ?? []), issue]);
+  }
+
+  const errorRecord = Object.fromEntries(errors);
+  return { fields: errorRecord, form: errorRecord };
+};
 
 export const createEffectSchemaFormHook = <
   // TanStack's createFormHook preserves each component's actual props through an any-based
@@ -173,171 +221,167 @@ export const createEffectSchemaFormHook = <
     formContext: hookFormContext,
   });
 
-  // App forms render Standard Schema issues directly in field components. Accepting the
-  // Effect schema here, rather than arbitrary TanStack validators at each call site,
-  // keeps that error shape enforced and makes custom string/object validators a type error.
   const useAppForm = <
-    R,
-    E,
     TType,
     TEncoded,
-    TDecodingServices extends R = R,
+    TSuccess,
+    TFailure,
     TEncodingServices = never,
     TSubmitMeta = never,
   >({
-    onSubmit,
-    runtime,
+    mutation,
+    onFailure,
+    onSuccess,
     schema,
     ...props
   }: EffectSchemaFormOptions<
-    R,
     TType,
     TEncoded,
-    TDecodingServices,
+    TSuccess,
+    TFailure,
     TEncodingServices,
     TSubmitMeta
-  > & {
-    readonly runtime: ManagedRuntime.ManagedRuntime<R, E>;
-  }) => {
-    const parsedRef = useRef<Option.Option<TType>>(Option.none());
-    const submitErrorAtom = useMemo(() => Atom.make<Option.Option<string>>(Option.none()), []);
-    const setSubmitError = useAtomSet(submitErrorAtom);
-    // TanStack passes AbortSignals to async validators, but not to onSubmit. Keep a local
-    // generation counter so a reset or newer submit can make older submit results stale.
+  >) => {
+    type PendingSubmission =
+      | {
+          readonly _tag: 'Success';
+          readonly result: TSuccess;
+          readonly value: TType;
+        }
+      | {
+          readonly _tag: 'Defect';
+          readonly defect: unknown;
+        };
+
+    const runMutation = useAtomSet(mutation, { mode: 'promiseExit' });
+    const standardSchema = useMemo(() => Schema.toStandardSchemaV1(schema), [schema]);
+    const pendingSubmissionRef = useRef<PendingSubmission | null>(null);
     const submitAttemptRef = useRef(0);
+    const submitMetaRef = useRef(props.onSubmitMeta);
 
-    const submitHandler =
-      onSubmit === void 0
-        ? {}
-        : ({
-            onSubmit: async (submitProps) => {
-              const parsed = parsedRef.current;
-              const submitAttempt = submitAttemptRef.current + 1;
-              submitAttemptRef.current = submitAttempt;
-
-              setSubmitError(Option.none());
-
-              if (Option.isNone(parsed)) {
-                throw new Error('Unexpected submit without parsed data');
-              }
-
-              const submitExit = await runtime.runPromiseExit(
-                onSubmit({ ...submitProps, value: parsed.value })
-              );
-
-              // A reset or a later submit may have happened while the Effect was running. In
-              // that case this submit no longer owns the form-level error slot.
-              if (submitAttempt !== submitAttemptRef.current) {
-                return;
-              }
-
-              if (Exit.isSuccess(submitExit)) {
-                return;
-              }
-
-              const formSubmitError = Option.filter(
-                Exit.findErrorOption(submitExit),
-                isFormSubmitError
-              );
-
-              if (Option.isSome(formSubmitError)) {
-                setSubmitError(Option.some(formSubmitError.value.message));
-                return;
-              }
-
-              throw Cause.squash(submitExit.cause);
-            },
-          } satisfies Pick<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit'>);
-
-    const schemaDecodeUnknownEffect = Schema.decodeUnknownEffect(schema);
     const form = useTanStackAppForm({
       ...props,
-      ...submitHandler,
-      validators: {
-        onChangeAsync: {
-          '~standard': {
-            vendor: 'effect-voel',
-            version: 1,
-            validate: async (value) =>
-              runtime.runPromise(
-                schemaDecodeUnknownEffect(value, { errors: 'all' }).pipe(
-                  Effect.match({
-                    onFailure: (error) => formatStandardSchemaIssue(error.issue),
-                    onSuccess: (decodedValue) => ({ value: decodedValue }),
-                  })
-                )
-              ),
-          },
-        },
-        onSubmitAsync: {
-          '~standard': {
-            vendor: 'effect-voel',
-            version: 1,
-            validate: async (value) => {
-              setSubmitError(Option.none());
-              parsedRef.current = Option.none();
+      onSubmit: async (submitProps) => {
+        const pendingSubmission = pendingSubmissionRef.current;
+        pendingSubmissionRef.current = null;
 
-              return runtime.runPromise(
-                schemaDecodeUnknownEffect(value, { errors: 'all' }).pipe(
-                  Effect.match({
-                    onFailure: (error) => formatStandardSchemaIssue(error.issue),
-                    onSuccess: (decodedValue) => {
-                      parsedRef.current = Option.some(decodedValue);
-                      return { value: decodedValue };
-                    },
-                  })
-                )
-              );
-            },
-          },
+        if (pendingSubmission === null) {
+          return;
+        }
+
+        if (pendingSubmission._tag === 'Defect') {
+          throw pendingSubmission.defect;
+        }
+
+        await onSuccess?.({
+          ...submitProps,
+          result: pendingSubmission.result,
+          value: pendingSubmission.value,
+        });
+      },
+      validators: {
+        onChangeAsync: standardSchema,
+        onSubmitAsync: async ({ formApi, signal, value }) => {
+          const submitAttempt = submitAttemptRef.current + 1;
+          submitAttemptRef.current = submitAttempt;
+          pendingSubmissionRef.current = null;
+
+          const schemaResult = await standardSchema['~standard'].validate(value);
+          if (schemaResult.issues !== void 0) {
+            return standardSchemaFailureToFormError(schemaResult.issues, value);
+          }
+
+          if (signal.aborted || submitAttempt !== submitAttemptRef.current) {
+            return null;
+          }
+
+          const mutationExit = await runMutation(schemaResult.value);
+          // AbortSignal.aborted can change while the mutation is running.
+          // oxlint-disable-next-line typescript/no-unnecessary-condition
+          if (signal.aborted || submitAttempt !== submitAttemptRef.current) {
+            return null;
+          }
+
+          if (Exit.isSuccess(mutationExit)) {
+            pendingSubmissionRef.current = {
+              _tag: 'Success',
+              result: mutationExit.value,
+              value: schemaResult.value,
+            };
+            return null;
+          }
+
+          const error = Exit.findErrorOption(mutationExit);
+          if (Option.isSome(error)) {
+            const failureProps = {
+              error: error.value,
+              formApi,
+              value: schemaResult.value,
+            };
+
+            return onFailure(
+              submitMetaRef.current === void 0
+                ? failureProps
+                : { ...failureProps, meta: submitMetaRef.current }
+            );
+          }
+
+          pendingSubmissionRef.current = {
+            _tag: 'Defect',
+            defect: Cause.squash(mutationExit.cause),
+          };
+          return null;
         },
       },
     });
 
-    const resetForm = useMemo(() => {
+    const contextForm = useMemo(() => {
       const reset = form.reset.bind(form);
 
-      const resetWithSubmitError = ((...resetArgs: Parameters<typeof reset>) => {
-        // Reset clears visible submit state and invalidates any in-flight submit that might
-        // otherwise finish later and restore a stale FormSubmitError.
+      const handleSubmitWithMeta = (async (submitMeta?: TSubmitMeta) => {
+        submitMetaRef.current = submitMeta ?? props.onSubmitMeta;
+        await (submitMeta === void 0 ? form.handleSubmit() : form.handleSubmit(submitMeta));
+      }) satisfies typeof form.handleSubmit;
+
+      const resetWithMutation = ((...resetArgs: Parameters<typeof reset>) => {
         submitAttemptRef.current += 1;
-        parsedRef.current = Option.none();
-        setSubmitError(Option.none());
+        pendingSubmissionRef.current = null;
         reset(...resetArgs);
       }) satisfies typeof form.reset;
 
       return new Proxy(form, {
         get: (target, property, receiver) => {
+          if (property === 'handleSubmit') {
+            return handleSubmitWithMeta;
+          }
           if (property === 'reset') {
-            return resetWithSubmitError;
+            return resetWithMutation;
           }
 
           return Reflect.get(target, property, receiver);
         },
       });
-    }, [form, setSubmitError]);
+    }, [form, props.onSubmitMeta]);
 
-    const FormSubmitErrorAppForm = useCallback(
+    const EffectSchemaAppForm = useCallback(
       ({ children }: PropsWithChildren) => (
-        <formSubmitErrorAtom.Provider value={submitErrorAtom}>
-          <hookFormContext.Provider value={resetForm}>{children}</hookFormContext.Provider>
-        </formSubmitErrorAtom.Provider>
+        <hookFormContext.Provider value={contextForm}>{children}</hookFormContext.Provider>
       ),
-      [resetForm, submitErrorAtom]
+      [contextForm]
     );
 
     const wrappedForm = useMemo(
       () =>
-        new Proxy(resetForm, {
+        new Proxy(contextForm, {
           get: (target, property, receiver) => {
             if (property === 'AppForm') {
-              return FormSubmitErrorAppForm;
+              return EffectSchemaAppForm;
             }
 
             return Reflect.get(target, property, receiver);
           },
         }),
-      [FormSubmitErrorAppForm, resetForm]
+      [EffectSchemaAppForm, contextForm]
     );
 
     return withoutFieldValidators(wrappedForm);

@@ -1,8 +1,7 @@
-import { Effect, Schema } from 'effect';
+import { Match, Schema } from 'effect';
 
-import { FormSubmitError, useAppForm } from '#src/components/form';
-import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
-import { Runtime } from '#src/services/runtime.ts';
+import { useAppForm } from '#src/components/form';
+import { updateCurrentUserAtom } from '#src/services/accounts/atoms.ts';
 
 export class UserProfileUpdate extends Schema.Class<
   UserProfileUpdate,
@@ -20,25 +19,21 @@ export const useUserProfileForm = ({
   profile: typeof UserProfileUpdate.Encoded;
 }) => {
   const form = useAppForm({
-    runtime: Runtime,
     schema: UserProfileUpdate,
+    mutation: updateCurrentUserAtom,
     defaultValues: profile,
-    onSubmit: Effect.fnUntraced(function* ({ value }) {
-      yield* CurrentAuthClient.pipe(
-        Effect.flatMap((authClient) => authClient.updateUser(value)),
-        Effect.catchTags({
+    onFailure: ({ error }) =>
+      Match.value(error).pipe(
+        Match.tagsExhaustive({
           'voel/services/auth-client/current/NoCurrentAuthClientError': () =>
-            new FormSubmitError({ message: 'No active user is available.' }),
-          'voel/services/auth-client/current/CurrentAuthClientRequestError': (error) =>
-            new FormSubmitError({
-              message: error.original.message ?? 'Unable to update the profile. Try again.',
-            }),
+            'No active user is available.',
+          'voel/services/auth-client/current/CurrentAuthClientRequestError': (requestError) =>
+            requestError.original.message ?? 'Unable to update the profile. Try again.',
         })
-      );
-      yield* Effect.promise(async () => {
-        await onSuccess();
-      });
-    }),
+      ),
+    onSuccess: async () => {
+      await onSuccess();
+    },
   });
 
   return form;

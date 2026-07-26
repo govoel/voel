@@ -5,7 +5,11 @@ import { Array, Option } from 'effect';
 import { useRef } from 'react';
 import { PlatformColor } from 'react-native';
 
-import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
+import {
+  getFormFieldErrorMessage,
+  useFieldContext,
+  useFormContext,
+} from '#src/components/form/hooks.tsx';
 import type { TextFieldComponent } from '#src/components/form/text-field/index.ts';
 import { Text, iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
@@ -52,9 +56,9 @@ export const TextField = (({ label, placeholder, platformProps = {} }) => {
 
       {Option.match(errorMessage, {
         onNone: () => null,
-        onSome: ({ message }) => (
+        onSome: (error) => (
           <Label
-            title={message}
+            title={getFormFieldErrorMessage(error)}
             modifiers={[iosTextStyle('caption'), foregroundStyle(PlatformColor('systemRed'))]}
           />
         ),

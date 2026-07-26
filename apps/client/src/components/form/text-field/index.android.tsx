@@ -4,7 +4,11 @@ import { Array, Option } from 'effect';
 import { useRef } from 'react';
 import type { ComponentProps } from 'react';
 
-import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
+import {
+  getFormFieldErrorMessage,
+  useFieldContext,
+  useFormContext,
+} from '#src/components/form/hooks.tsx';
 import type { TextFieldComponent } from '#src/components/form/text-field/index.ts';
 import { Text } from '#src/components/text';
 
@@ -67,9 +71,9 @@ export const TextField = (({ label, placeholder, platformProps = {} }) => {
 
       {Option.match(errorMessage, {
         onNone: () => null,
-        onSome: ({ message }) => (
+        onSome: (error) => (
           <ComposeTextField.SupportingText>
-            <Text variant="caption">{message}</Text>
+            <Text variant="caption">{getFormFieldErrorMessage(error)}</Text>
           </ComposeTextField.SupportingText>
         ),
       })}
