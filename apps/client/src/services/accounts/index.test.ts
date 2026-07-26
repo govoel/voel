@@ -1,14 +1,14 @@
+import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
-import { hash128 } from 'react-native-xxhash';
+import { vi } from 'vitest';
 
-import { describe, expect, it } from '@repo/effect-react-native-harness';
-
-import { UserProfileUpdateInput } from '#src/app/accounts/profile/index.ts';
+import { UserProfileUpdate } from '#src/app/accounts/profile/model.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
+import { XxHash } from '#src/services/native.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
   makeAuthClient,
@@ -19,6 +19,20 @@ import {
   setupTestServerWithUsers,
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
+
+vi.mock('react-native', () => ({
+  AppState: { addEventListener: () => ({ remove: () => void 0 }) },
+  Platform: { OS: 'ios' },
+}));
+vi.mock('expo-constants', () => ({
+  default: { expoConfig: { scheme: 'voel' }, platform: { scheme: 'voel' } },
+}));
+vi.mock('expo-linking', () => ({
+  createURL: (path: string) => `voel://${path}`,
+}));
+vi.mock('expo-network', () => ({
+  addNetworkStateListener: () => ({ remove: () => void 0 }),
+}));
 
 const getAccounts = MainDatabase.pipe(
   Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll().orderBy('username')))
@@ -97,7 +111,7 @@ describe('AccountManager', () => {
   );
 
   class ParsedCookie extends Schema.Class<ParsedCookie, { readonly brand: unique symbol }>(
-    'voel/services/accounts/index.harness/ParsedCookie'
+    'voel/services/accounts/index.test/ParsedCookie'
   )({
     'auth.session_token': Schema.Struct({ value: Schema.String }),
   }) {
@@ -126,9 +140,11 @@ describe('AccountManager', () => {
 
           const persistedAccount = Option.getOrThrow(yield* manager.state).account;
           const storage = yield* AuthClientStorage;
-          const storedCookie = yield* storage.getItem(
-            `${hash128(`voel::auth::${serverUrl}::${persistedAccount.authStorageId}`)}_cookie`
+          const xxHash = yield* XxHash;
+          const storagePrefix = yield* xxHash.hash128(
+            `voel::auth::${serverUrl}::${persistedAccount.authStorageId}`
           );
+          const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
 
           expect(storedCookie.valueOrUndefined).toContain('auth.session_token');
 
@@ -277,9 +293,11 @@ describe('AccountManager', () => {
           ]);
 
           const storage = yield* AuthClientStorage;
-          const storedCookie = yield* storage.getItem(
-            `${hash128(`voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`)}_cookie`
+          const xxHash = yield* XxHash;
+          const storagePrefix = yield* xxHash.hash128(
+            `voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`
           );
+          const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
           const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
             storedCookie.valueOrUndefined
           );
@@ -322,7 +340,7 @@ describe('AccountManager', () => {
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
           yield* currentAuthClient.updateUser(
-            new UserProfileUpdateInput({
+            new UserProfileUpdate({
               name: 'Updated Admin',
               username: updatedUsername,
             })

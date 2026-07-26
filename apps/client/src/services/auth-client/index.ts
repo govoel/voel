@@ -1,8 +1,9 @@
 import { expoClient } from '@better-auth/expo/client';
 import { Duration, Effect, Schema } from 'effect';
-import { hash128 } from 'react-native-xxhash';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
+
+import { XxHash } from '#src/services/native.ts';
 
 export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass<
   BetterAuthClientInitializationError,
@@ -23,22 +24,27 @@ export const createVoelAuthClient = ({
   readonly authStorageId: string;
   readonly storage: Parameters<typeof expoClient>[0]['storage'];
 }) =>
-  Effect.try({
-    try: () =>
-      createAuthClient({
-        baseURL: serverUrl,
-        plugins: [
-          expoClient({
-            storage,
-            storagePrefix: hash128(`voel::auth::${serverUrl}::${authStorageId}`),
-            cookiePrefix: 'auth',
-          }),
-        ],
-        sessionOptions: {
-          refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
-        },
-      }),
-    catch: (error) => new BetterAuthClientInitializationError({ error }),
+  Effect.gen(function* () {
+    const xxHash = yield* XxHash;
+    const storagePrefix = yield* xxHash.hash128(`voel::auth::${serverUrl}::${authStorageId}`);
+
+    return yield* Effect.try({
+      try: () =>
+        createAuthClient({
+          baseURL: serverUrl,
+          plugins: [
+            expoClient({
+              storage,
+              storagePrefix,
+              cookiePrefix: 'auth',
+            }),
+          ],
+          sessionOptions: {
+            refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
+          },
+        }),
+      catch: (error) => new BetterAuthClientInitializationError({ error }),
+    });
   });
 
 export type VoelAuthClient = Effect.Success<ReturnType<typeof createVoelAuthClient>>;

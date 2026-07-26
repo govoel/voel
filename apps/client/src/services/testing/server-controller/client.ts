@@ -1,42 +1,58 @@
-import { Context, Effect, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
-import { Platform } from 'react-native';
+import { layer as BunChildProcessSpawnerLayer } from '@effect/platform-bun/BunChildProcessSpawner';
+import { layer as BunFileSystemLayer } from '@effect/platform-bun/BunFileSystem';
+import { layer as BunPathLayer } from '@effect/platform-bun/BunPath';
+import { Context, Effect, Layer, Schedule } from 'effect';
+import { TestClock } from 'effect/testing';
+import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
+import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
-import { TestServerControllerApi } from '#src/services/testing/server-controller/spec.ts';
+const serverDirectory = new URL('../../../../../server/', import.meta.url).pathname;
 
 export class TestServerControllerClient extends Context.Service<TestServerControllerClient>()(
   'voel/services/testing/server-controller/client/TestServerControllerClient',
   {
     make: Effect.gen(function* () {
-      const client = yield* RpcClient.make(TestServerControllerApi);
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const httpClient = yield* HttpClient.HttpClient;
 
       return {
-        start: (args: Parameters<(typeof client)['start']>['0']) =>
-          Effect.acquireRelease(
-            client
-              .start(args)
-              .pipe(
-                Effect.as(
-                  Platform.OS === 'ios'
-                    ? `http://localhost:${args.port}`
-                    : `http://10.0.2.2:${args.port}`
-                )
-              ),
-            () => client.stop(args).pipe(Effect.catch(() => Effect.void))
-          ),
-        stop: client.stop,
+        start: Effect.fnUntraced(function* ({ port }: { readonly port: number }) {
+          yield* Effect.acquireRelease(
+            spawner.spawn(
+              ChildProcess.make('bun', ['run', 'src/index.ts'], {
+                cwd: serverDirectory,
+                env: {
+                  AUTH_SECRET: 'test',
+                  DB_FILENAME: ':memory:',
+                  PORT: port.toString(),
+                },
+                extendEnv: true,
+                stdout: 'ignore',
+                stderr: 'ignore',
+              })
+            ),
+            (server) => server.kill().pipe(Effect.catch(() => Effect.void))
+          );
+
+          const serverUrl = `http://localhost:${port}`;
+          yield* httpClient.get(`${serverUrl}/api/auth/get-session`).pipe(
+            Effect.retry({
+              schedule: Schedule.max([Schedule.exponential('50 millis'), Schedule.recurs(50)]),
+            }),
+            TestClock.withLive
+          );
+
+          return serverUrl;
+        }),
       };
     }),
   }
 ) {
+  private static readonly PlatformLayer = BunChildProcessSpawnerLayer.pipe(
+    Layer.provideMerge(Layer.mergeAll(BunFileSystemLayer, BunPathLayer))
+  );
+
   public static readonly layer = Layer.effect(this, this.make).pipe(
-    Layer.provideMerge(
-      RpcClient.layerProtocolHttp({
-        url:
-          Platform.OS === 'ios' ? 'http://localhost:6000/api/rpc' : 'http://10.0.2.2:6000/api/rpc',
-      })
-    ),
-    Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerJson, FetchHttpClient.layer))
+    Layer.provideMerge(Layer.mergeAll(this.PlatformLayer, FetchHttpClient.layer))
   );
 }

@@ -1,8 +1,10 @@
+import BunSqliteDatabase from 'bun:sqlite';
+
+import { vi } from '@effect/vitest';
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
-import { uuid } from 'expo-modules-core';
 
-import { spyOn } from '@repo/effect-react-native-harness';
+import { BunSqliteDialect } from '@repo/effect-kysely/dialect.ts';
 
 import type { AccountManager } from '#src/services/accounts/index.ts';
 import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
@@ -11,17 +13,28 @@ import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { CommonGlobalLayers } from '#src/services/layers.ts';
+import { UuidGenerator, XxHash } from '#src/services/native.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
+
+const makeMainDatabaseTest = () =>
+  Layer.effect(
+    MainDatabase,
+    MainDatabase.make({
+      dialect: new BunSqliteDialect({ database: new BunSqliteDatabase(':memory:') }),
+    })
+  );
 
 export const makeClientTestLayers = () =>
   CommonGlobalLayers.pipe(
+    Layer.provideMerge(makeMainDatabaseTest()),
     Layer.provideMerge(
-      AppConfig.pipe(
-        Effect.map((config) => MainDatabase.layer({ filename: config.mainDb.filename })),
-        Layer.unwrap
+      Layer.mergeAll(
+        AuthClientStorage.layerTest,
+        UuidGenerator.layerTest,
+        XxHash.layerTest,
+        AppConfig.layerTest()
       )
-    ),
-    Layer.provideMerge(Layer.mergeAll(AuthClientStorage.layerTest, AppConfig.layerTest()))
+    )
   );
 
 export const makeServerUrl = Effect.fnUntraced(function* () {
@@ -57,11 +70,16 @@ export const makeAuthClient = ({
   Option.Option.Value<Effect.Success<(typeof AccountManager.Service)['state']>>['account'],
   'serverUrl'
 >) =>
-  createVoelAuthClient({
-    serverUrl,
-    authStorageId: uuid.v4(),
-    storage: makeAuthClientStorage(),
-  });
+  UuidGenerator.pipe(
+    Effect.flatMap((uuidGenerator) => uuidGenerator.v4),
+    Effect.flatMap((authStorageId) =>
+      createVoelAuthClient({
+        serverUrl,
+        authStorageId,
+        storage: makeAuthClientStorage(),
+      })
+    )
+  );
 
 interface TestServer<UserCount extends number> {
   readonly adminUsername: TestAccount['username'];
@@ -158,8 +176,9 @@ export const makeAuthClientWithSpy = Effect.fnUntraced(function* ({
   let subscribeCount = 0;
   let unsubscribeCount = 0;
 
-  const subscribeSpy = spyOn(authClient.useSession, 'subscribe').mockImplementation(
-    (subscriber) => {
+  const subscribeSpy = vi
+    .spyOn(authClient.useSession, 'subscribe')
+    .mockImplementation((subscriber) => {
       subscribeCount += 1;
 
       const unsubscribe = originalSubscribe(subscriber);
@@ -169,8 +188,7 @@ export const makeAuthClientWithSpy = Effect.fnUntraced(function* ({
 
         unsubscribe();
       };
-    }
-  );
+    });
 
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {

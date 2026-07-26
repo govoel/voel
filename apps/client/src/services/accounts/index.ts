@@ -12,7 +12,6 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
-import { uuid } from 'expo-modules-core';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
@@ -25,6 +24,7 @@ import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
+import { UuidGenerator, XxHash } from '#src/services/native.ts';
 
 export class AccountSignInError extends Schema.TaggedErrorClass<
   AccountSignInError,
@@ -59,6 +59,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
     make: Effect.gen(function* () {
       const db = yield* MainDatabase;
       const serviceScope = yield* Scope.Scope;
+      const uuidGenerator = yield* UuidGenerator;
+      const xxHash = yield* XxHash;
+      const makeAuthClient = (options: Parameters<typeof createVoelAuthClient>[0]) =>
+        createVoelAuthClient(options).pipe(Effect.provideService(XxHash, xxHash));
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -117,7 +121,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             const authClient = yield* Option.match(existingAuthClient, {
               onSome: Effect.succeed,
               onNone: () =>
-                createVoelAuthClient({
+                makeAuthClient({
                   serverUrl: activeAccount.serverUrl.toString(),
                   authStorageId: activeAccount.authStorageId,
                   storage: authClientStorage,
@@ -364,8 +368,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
         password: Redacted.Redacted;
       }) {
-        const authStorageId = Account.fields.authStorageId.make(uuid.v4());
-        const authClient = yield* createVoelAuthClient({
+        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+        const authClient = yield* makeAuthClient({
           serverUrl,
           authStorageId,
           storage: authClientStorage,
@@ -412,8 +416,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
         > & {
           password: Redacted.Redacted;
         }) {
-        const authStorageId = Account.fields.authStorageId.make(uuid.v4());
-        const authClient = yield* createVoelAuthClient({
+        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+        const authClient = yield* makeAuthClient({
           serverUrl,
           authStorageId,
           storage: authClientStorage,

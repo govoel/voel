@@ -1,9 +1,8 @@
-import { Context, Effect, Layer } from 'effect';
+import { Context, Effect } from 'effect';
 
 import { Kysely, ParseJSONResultsPlugin, makeFromKysely, sql } from '@repo/effect-kysely';
 import type { Dialect, EffectKysely } from '@repo/effect-kysely';
 
-import { OpSqliteDialect } from '#src/services/database/dialect.ts';
 import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts';
 import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
 
@@ -31,7 +30,4 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
         (db) => Effect.promise(async () => db.destroy())
       ),
   }
-) {
-  public static readonly layer = ({ filename }: { filename: string }) =>
-    Layer.effect(this, this.make({ dialect: new OpSqliteDialect({ filename }) }));
-}
+) {}

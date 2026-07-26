@@ -1,5 +1,4 @@
 import { Cache, Context, Effect, Layer, Option, Schema } from 'effect';
-import * as SecureStore from 'expo-secure-store';
 
 export class AuthClientStorageGetItemError extends Schema.TaggedErrorClass<
   AuthClientStorageGetItemError,
@@ -56,11 +55,6 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(
-    this,
-    this.make({ getItem: SecureStore.getItem, setItem: SecureStore.setItem })
-  );
-
   public static readonly layerTest = Layer.effect(
     this,
     Effect.sync(() => new Map<string, string>()).pipe(

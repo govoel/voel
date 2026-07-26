@@ -13,5 +13,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    hookTimeout: 120_000,
+    testTimeout: 120_000,
+    server: {
+      deps: {
+        external: ['react-native'],
+        inline: ['@better-auth/expo'],
+      },
+    },
   },
 });

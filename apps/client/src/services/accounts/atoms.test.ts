@@ -1,7 +1,7 @@
+import { describe, expect, it } from '@effect/vitest';
 import { Context, Deferred, Effect, Layer, Option, Redacted } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
-
-import { describe, expect, it, spyOn } from '@repo/effect-react-native-harness';
+import { vi } from 'vitest';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import {
@@ -11,11 +11,10 @@ import {
   activeAccountSessionAtom,
 } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { AppRuntime } from '#src/services/atom-runtime.ts';
 import { NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
-import type { CommonExpoLayers } from '#src/services/layers.ts';
-import { AppRuntime } from '#src/services/registry.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
   makeAuthClient,
@@ -27,8 +26,22 @@ import {
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
 
+vi.mock('react-native', () => ({
+  AppState: { addEventListener: () => ({ remove: () => void 0 }) },
+  Platform: { OS: 'ios' },
+}));
+vi.mock('expo-constants', () => ({
+  default: { expoConfig: { scheme: 'voel' }, platform: { scheme: 'voel' } },
+}));
+vi.mock('expo-linking', () => ({
+  createURL: (path: string) => `voel://${path}`,
+}));
+vi.mock('expo-network', () => ({
+  addNetworkStateListener: () => ({ remove: () => void 0 }),
+}));
+
 class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
-  'voel/services/accounts/atoms.harness/AtomTaskScheduler',
+  'voel/services/accounts/atoms.test/AtomTaskScheduler',
   {
     make: Effect.sync(() => {
       const scheduledTasks = new Set<() => void>();
@@ -83,7 +96,8 @@ class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
 
 const TestAccountsAtomsLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const services = yield* Effect.context<Layer.Success<typeof CommonExpoLayers>>();
+    const services =
+      yield* Effect.context<Layer.Success<ReturnType<typeof makeClientTestLayers>>>();
     const atomTaskScheduler = yield* AtomTaskScheduler;
     const registryLayer = AtomRegistry.layerOptions({
       initialValues: [Atom.initialValue(AppRuntime.layer, Layer.succeedContext(services))],
@@ -247,7 +261,7 @@ describe('accountsSheetAtom', () => {
             active: Account.fields.active.make(0),
           };
           yield* db.execute(db.insertInto('account').values(account));
-          const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+          const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
               throw new Error(`Unexpected request: ${requestUrl.toString()}`);
@@ -311,7 +325,7 @@ describe('accountsSheetAtom', () => {
           };
           yield* db.execute(db.insertInto('account').values(account));
           const getSessionResponse = yield* Deferred.make<Response, Error>();
-          const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+          const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
               throw new Error(`Unexpected request: ${requestUrl.toString()}`);

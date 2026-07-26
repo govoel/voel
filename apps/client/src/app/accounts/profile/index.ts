@@ -1,27 +1,22 @@
-import { Effect, Schema } from 'effect';
+import { Effect } from 'effect';
 
+import { UserProfileUpdate } from '#src/app/accounts/profile/model.ts';
 import { FormSubmitError, useAppForm } from '#src/components/form';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
-export class UserProfileUpdateInput extends Schema.Class<
-  UserProfileUpdateInput,
-  { readonly brand: unique symbol }
->('voel/app/accounts/profile/index/UserProfileUpdateInput')({
-  name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
-  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
-}) {}
+export { UserProfileUpdate } from '#src/app/accounts/profile/model.ts';
 
 export const useUserProfileForm = ({
   onSuccess,
   profile,
 }: {
   onSuccess: () => Promise<void>;
-  profile: typeof UserProfileUpdateInput.Encoded;
+  profile: typeof UserProfileUpdate.Encoded;
 }) => {
   const form = useAppForm({
     runtime: Runtime,
-    schema: UserProfileUpdateInput,
+    schema: UserProfileUpdate,
     defaultValues: profile,
     onSubmit: Effect.fnUntraced(function* ({ value }) {
       yield* CurrentAuthClient.pipe(

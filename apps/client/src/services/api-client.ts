@@ -8,7 +8,7 @@ import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
-import { CommonExpoLayers } from '#src/services/layers.ts';
+import { CommonExpoLayers } from '#src/services/layers.expo.ts';
 
 const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
   AuthMiddleware,
