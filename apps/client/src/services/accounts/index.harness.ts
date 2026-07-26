@@ -3,7 +3,9 @@ import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
 
+import { UserProfileUpdate } from '#src/app/accounts/profile/index.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
+import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -42,6 +44,19 @@ describe('AccountManager', () => {
     Effect.fnUntraced(
       function* () {
         expect(yield* AccountManager.use((am) => am.state)).toBe(Option.none());
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
+
+  it.effect(
+    'rejects current-auth-client operations without an active account',
+    Effect.fnUntraced(
+      function* () {
+        const currentAuthClient = yield* CurrentAuthClient;
+        const error = yield* currentAuthClient.getCookie.pipe(Effect.flip);
+
+        expect(error).toEqual(new NoCurrentAuthClientError());
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -220,6 +235,7 @@ describe('AccountManager', () => {
           const updatedUsername = yield* makeUsername('updated.admin');
           const profilePicture = 'https://voel.app/profile.png';
           const manager = yield* AccountManager;
+          const currentAuthClient = yield* CurrentAuthClient;
 
           yield* manager.setupServerWithAccount({
             serverUrl,
@@ -231,13 +247,10 @@ describe('AccountManager', () => {
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          const updateResult = yield* Effect.promise(async () =>
-            activeAccount.state.authClient.updateUser({
-              username: updatedUsername,
-              image: profilePicture,
-            })
-          );
-          expect(updateResult.error).toBeNull();
+          yield* currentAuthClient.updateUser({
+            username: updatedUsername,
+            image: profilePicture,
+          });
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
@@ -284,6 +297,47 @@ describe('AccountManager', () => {
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
           }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
+      'updates the active user profile',
+      Effect.fnUntraced(
+        function* () {
+          const serverUrl = yield* makeServerUrl();
+          const username = yield* makeUsername('test.admin');
+          const updatedUsername = yield* makeUsername('updated.admin');
+          const manager = yield* AccountManager;
+          const currentAuthClient = yield* CurrentAuthClient;
+
+          yield* manager.setupServerWithAccount({
+            serverUrl,
+            name: 'Test Admin',
+            email: `${username}@voel.app`,
+            username,
+            password: Redacted.make('ha!niceTry'),
+          });
+
+          const nextAccountChange = yield* forkNextAccountManagerChange(manager);
+          yield* currentAuthClient.updateUser(
+            new UserProfileUpdate({
+              name: 'Updated Admin',
+              username: updatedUsername,
+            })
+          );
+
+          const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
+          const synchronizedAccount = Option.getOrThrow(synchronizedState);
+          expect(synchronizedAccount.account.username).toBe(updatedUsername);
+          expect(synchronizedAccount.state.authClient.useSession.get().data?.user).toMatchObject({
+            name: 'Updated Admin',
+            username: updatedUsername,
+          });
+          expect(yield* getAccounts).toEqual(
+            expect.arrayContaining([expect.objectContaining({ username: updatedUsername })])
+          );
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

@@ -16,21 +16,15 @@ import { uuid } from 'expo-modules-core';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
+import {
+  BetterAuthOriginalError,
+  betterAuthOriginalErrorFromUnknown,
+} from '#src/services/auth-client/errors.ts';
 import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
-
-class BetterAuthOriginalError extends Schema.Class<
-  BetterAuthOriginalError,
-  { readonly brand: unique symbol }
->('voel/services/accounts/index/BetterAuthOriginalError')({
-  code: Schema.optional(Schema.String),
-  message: Schema.optional(Schema.String),
-  status: Schema.Number,
-  statusText: Schema.String,
-}) {}
 
 export class AccountSignInError extends Schema.TaggedErrorClass<
   AccountSignInError,
@@ -54,21 +48,6 @@ export class AccountNotFoundError extends Schema.TaggedErrorClass<
   serverUrl: Schema.String,
   userId: Schema.String,
 }) {}
-
-const originalAuthErrorFromUnknown = (error: unknown) =>
-  error instanceof Error
-    ? new BetterAuthOriginalError({
-        message: error.message,
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      })
-    : new BetterAuthOriginalError({
-        message: 'An unknown error occurred.',
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      });
 
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/index/AccountManager',
@@ -392,7 +371,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           try: async () =>
             authClient.signIn.username({ username, password: Redacted.value(password) }),
           catch: (error) =>
-            new AccountSignInError({ original: originalAuthErrorFromUnknown(error) }),
+            new AccountSignInError({ original: betterAuthOriginalErrorFromUnknown(error) }),
         });
 
         if (signInResult.error !== null) {
@@ -445,7 +424,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
               password: Redacted.value(password),
             }),
           catch: (error) =>
-            new AccountSignUpError({ original: originalAuthErrorFromUnknown(error) }),
+            new AccountSignUpError({ original: betterAuthOriginalErrorFromUnknown(error) }),
         });
 
         if (signUpResult.error !== null) {

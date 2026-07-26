@@ -1,23 +1,18 @@
 import { Column } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
-import { router } from 'expo-router';
 import { useRef } from 'react';
 
-import { useSetupServerForm } from '#src/app/accounts/setup/index.tsx';
+import { useSetupServerForm } from '#src/app/accounts/setup/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function SetupServerScreen() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
-  const closeSheet = async () => {
-    await sheetRef.current?.hide();
-    router.back();
-  };
   const form = useSetupServerForm({
-    onClose: () => {
-      void closeSheet();
+    onSuccess: async () => {
+      await sheetRef.current?.hide();
     },
   });
 

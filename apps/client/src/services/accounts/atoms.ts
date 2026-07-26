@@ -1,29 +1,10 @@
-import { Effect, Option, Queue, Schema, Stream } from 'effect';
-import { Atom, Reactivity } from 'effect/unstable/reactivity';
+import { Effect, Option, Queue, Stream } from 'effect';
+import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
+import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/registry.ts';
-
-class BetterAuthListUsersUnknownError extends Schema.TaggedErrorClass<
-  BetterAuthListUsersUnknownError,
-  { readonly brand: unique symbol }
->()('voel/app/accounts/server/accounts/BetterAuthListUsersUnknownError', {}) {}
-
-class BetterAuthListUsersKnownError extends Schema.TaggedErrorClass<
-  BetterAuthListUsersKnownError,
-  { readonly brand: unique symbol }
->()('voel/app/accounts/server/accounts/BetterAuthListUsersKnownError', {
-  code: Schema.optional(Schema.String),
-  message: Schema.optional(Schema.String),
-  status: Schema.Number,
-  statusText: Schema.String,
-}) {}
-
-export class ListAccountsNoAuthClientError extends Schema.TaggedErrorClass<
-  ListAccountsNoAuthClientError,
-  { readonly brand: unique symbol }
->()('voel/app/accounts/server/accounts/ListAccountsNoAuthClientError', {}) {}
 
 export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | MainDatabase>) => {
   const accountsAtom = runtime.atom(
@@ -39,54 +20,6 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
       Stream.unwrap
     )
   );
-
-  const activeAccountServerUrlAtom = activeAccountAtom.pipe(
-    Atom.mapResult((accounts) => accounts.pipe(Option.map(({ account }) => account.serverUrl)))
-  );
-
-  const activeAccountAuthClientAtom = activeAccountAtom.pipe(
-    Atom.mapResult((accounts) => accounts.pipe(Option.map(({ state }) => state.authClient)))
-  );
-
-  const listAccountsAtom = runtime
-    .pull(
-      Effect.fnUntraced(
-        function* (get) {
-          const authClient = yield* get.result(activeAccountAuthClientAtom);
-
-          if (Option.isNone(authClient)) {
-            return yield* new ListAccountsNoAuthClientError();
-          }
-
-          return Stream.paginate(
-            0,
-            Effect.fnUntraced(function* (offset) {
-              const { data, error } = yield* Effect.tryPromise({
-                try: async () =>
-                  authClient.value.admin.listUsers({
-                    query: {
-                      limit: 10,
-                      offset,
-                    },
-                  }),
-                catch: () => new BetterAuthListUsersUnknownError(),
-              });
-
-              if (error !== null) {
-                return yield* new BetterAuthListUsersKnownError(error);
-              }
-
-              const nextOffset = offset + data.users.length;
-              const hasMore = data.users.length > 0 && nextOffset < data.total;
-
-              return [data.users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
-            })
-          );
-        },
-        (effect) => Stream.unwrap(effect)
-      )
-    )
-    .pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
 
   const activeAccountSessionAtom = runtime.atom((get) => {
     const activeAccount = get.streamResult(activeAccountAtom);
@@ -125,6 +58,41 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
       })
     );
   });
+
+  const activeUserProfileAtom = activeAccountSessionAtom.pipe(
+    Atom.map((result) =>
+      AsyncResult.flatMap(
+        // oxlint-disable-next-line unicorn/no-array-method-this-argument
+        result,
+        Option.match({
+          onNone: () => AsyncResult.success(Option.none()),
+          onSome: (sessionState) => {
+            if (sessionState.data === null) {
+              return sessionState.isPending
+                ? AsyncResult.initial(true)
+                : AsyncResult.fail('ActiveUserProfileUnavailable' as const);
+            }
+
+            const { user } = sessionState.data;
+            if (user.username === null || user.username === void 0) {
+              return AsyncResult.fail('ActiveUserProfileUnavailable' as const);
+            }
+
+            return AsyncResult.success(
+              Option.some({
+                email: user.email,
+                id: user.id,
+                name: user.name,
+                role: AccountRole.formatFromNullishString(user.role),
+                username: user.username,
+              }),
+              { waiting: sessionState.isPending || sessionState.isRefetching }
+            );
+          },
+        })
+      )
+    )
+  );
 
   const signInAccountAtom = runtime.fn(
     (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>
@@ -171,9 +139,7 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
   return {
     accountsAtom,
     activeAccountAtom,
-    activeAccountServerUrlAtom,
-    activeAccountAuthClientAtom,
-    listAccountsAtom,
+    activeUserProfileAtom,
     activeAccountSessionAtom,
     signInAccountAtom,
     accountsSheetAtom,
@@ -185,9 +151,7 @@ export const makeAccountsAtoms = (runtime: Atom.AtomRuntime<AccountManager | Mai
 export const {
   accountsAtom,
   activeAccountAtom,
-  activeAccountServerUrlAtom,
-  activeAccountAuthClientAtom,
-  listAccountsAtom,
+  activeUserProfileAtom,
   activeAccountSessionAtom,
   signInAccountAtom,
   accountsSheetAtom,

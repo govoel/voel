@@ -24,7 +24,7 @@ import {
   accountsWithActiveAccount,
   activeAccountLiteral,
   useSetActiveAccount,
-} from '#src/app/accounts/index.tsx';
+} from '#src/app/accounts/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -62,11 +62,6 @@ export default function AccountsScreen() {
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
   const switchAccountSheetRef = useRef<ModalBottomSheetRef>(null);
-
-  const dismissSwitchAccountSheet = async () => {
-    await switchAccountSheetRef.current?.hide();
-    setIsSwitchAccountPresented(false);
-  };
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
@@ -150,7 +145,7 @@ export default function AccountsScreen() {
           <>
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Column verticalArrangement={{ spacedBy: 0 }}>
-                <Text variant="h4">Manage User</Text>
+                <Text variant="h4">Your Account</Text>
                 <Text variant="caption" color={colors.onSurfaceVariant}>
                   @{accounts.value.activeAccount.value.account.username}
                 </Text>
@@ -271,16 +266,16 @@ export default function AccountsScreen() {
                     selected={account.active === activeAccountLiteral}
                     enabled={!AsyncResult.isWaiting(setActiveAccount)}
                     onClick={() => {
-                      void setActiveAccountAndDismiss(
-                        {
+                      void setActiveAccountAndDismiss({
+                        input: {
                           serverUrl: account.serverUrl,
                           userId: account.userId,
                           authClient: Option.none(),
                         },
-                        () => {
-                          void dismissSwitchAccountSheet();
-                        }
-                      );
+                        onSuccess: async () => {
+                          await switchAccountSheetRef.current?.hide();
+                        },
+                      });
                     }}>
                     <SegmentedListItem.LeadingContent>
                       <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />

@@ -31,7 +31,7 @@ import {
   accountsWithActiveAccount,
   activeAccountLiteral,
   useSetActiveAccount,
-} from '#src/app/accounts/index.tsx';
+} from '#src/app/accounts/index.ts';
 import { Text } from '#src/components/text';
 import { iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
@@ -143,7 +143,7 @@ export default function AccountsScreen() {
                 <Section
                   header={
                     <VStack alignment="leading">
-                      <Text variant="h4">Manage User</Text>
+                      <Text variant="h4">Your Account</Text>
                       <Text
                         variant="caption"
                         modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
@@ -240,16 +240,16 @@ export default function AccountsScreen() {
                       ]}
                       key={`${account.serverUrl.toString()}-${account.userId}`}
                       onPress={() => {
-                        void setActiveAccountAndDismiss(
-                          {
+                        void setActiveAccountAndDismiss({
+                          input: {
                             serverUrl: account.serverUrl,
                             userId: account.userId,
                             authClient: Option.none(),
                           },
-                          () => {
+                          onSuccess: async () => {
                             setIsSwitchAccountPresented(false);
-                          }
-                        );
+                          },
+                        });
                       }}>
                       <HStack alignment="center" spacing={Spacing.two}>
                         <Icon

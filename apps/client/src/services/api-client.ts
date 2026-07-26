@@ -6,24 +6,22 @@ import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc'
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { activeAccountServerUrlAtom } from '#src/services/accounts/atoms.ts';
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { CommonExpoLayers } from '#src/services/layers.ts';
 
 const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
   AuthMiddleware,
   Effect.fnUntraced(function* ({ request, next }) {
-    const accountManager = yield* AccountManager;
-
-    const state = yield* accountManager.state;
-
-    if (Option.isNone(state)) {
-      return yield* next(request);
-    }
+    const currentAuthClient = yield* CurrentAuthClient;
+    const cookie = yield* currentAuthClient.getCookie.pipe(Effect.option);
 
     return yield* next({
       ...request,
-      headers: Headers.set(request.headers, 'cookie', state.value.state.authClient.getCookie()),
+      headers: Option.match(cookie, {
+        onNone: () => request.headers,
+        onSome: (value) => Headers.set(request.headers, 'cookie', value),
+      }),
     });
   })
 );
@@ -35,16 +33,16 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
     Layer.effect(
       RpcClient.Protocol,
       Effect.gen(function* () {
-        const serverUrl = yield* get.result(activeAccountServerUrlAtom);
-        const client = (yield* HttpClient.HttpClient).pipe(
-          HttpClient.mapRequest(
-            HttpClientRequest.prependUrl(
-              Option.match(serverUrl, {
-                onNone: () => '/api/rpc',
-                onSome: (url) => `${url.toString()}/api/rpc`,
-              })
-            )
+        const serverUrl = yield* get.result(activeAccountAtom).pipe(
+          Effect.map(
+            Option.match({
+              onNone: () => '/api/rpc',
+              onSome: ({ account }) => `${account.serverUrl.toString()}/api/rpc`,
+            })
           )
+        );
+        const client = (yield* HttpClient.HttpClient).pipe(
+          HttpClient.mapRequest(HttpClientRequest.prependUrl(serverUrl))
         );
 
         return yield* RpcClient.makeProtocolHttp(client);

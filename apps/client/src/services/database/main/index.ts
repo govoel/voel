@@ -10,7 +10,7 @@ import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
 export class ClientDatabaseMigrationError extends Schema.TaggedErrorClass<
   ClientDatabaseMigrationError,
   { readonly brand: unique symbol }
->()('voel/services/database/index/ClientDatabaseMigrationError', {}) {}
+>()('voel/services/database/main/index/ClientDatabaseMigrationError', {}) {}
 
 export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<MainDatabaseTables>>()(
   'voel/services/database/main/index/MainDatabase',

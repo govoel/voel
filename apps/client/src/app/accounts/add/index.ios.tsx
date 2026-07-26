@@ -11,12 +11,16 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { Stack, router } from 'expo-router';
 
-import { useAddAccountForm } from '#src/app/accounts/add/index.tsx';
+import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 export default function AddAccountScreen() {
-  const form = useAddAccountForm({ onClose: router.back });
+  const form = useAddAccountForm({
+    onSuccess: async () => {
+      router.back();
+    },
+  });
 
   return (
     <>

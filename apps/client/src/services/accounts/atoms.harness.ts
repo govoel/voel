@@ -3,8 +3,11 @@ import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import { describe, expect, it, spyOn } from '@repo/effect-react-native-harness';
 
-import { ListAccountsNoAuthClientError, makeAccountsAtoms } from '#src/services/accounts/atoms.ts';
+import { makeListUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { makeAccountsAtoms } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
+import type { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
@@ -66,16 +69,12 @@ const makeAtomTaskScheduler = () => {
 };
 
 const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
-  const services = yield* Effect.context<AccountManager | MainDatabase>();
+  const services = yield* Effect.context<AccountManager | CurrentAuthClient | MainDatabase>();
   const manager = Context.get(services, AccountManager);
   const runtime = Atom.runtime(Layer.succeedContext(services));
-  const {
-    accountsAtom,
-    accountsSheetAtom,
-    activeAccountAtom,
-    activeAccountSessionAtom,
-    listAccountsAtom,
-  } = makeAccountsAtoms(runtime);
+  const { accountsAtom, accountsSheetAtom, activeAccountAtom, activeAccountSessionAtom } =
+    makeAccountsAtoms(runtime);
+  const { listUsersAtom } = makeListUsersAtom(runtime);
   const atomTaskScheduler = makeAtomTaskScheduler();
   const registry = AtomRegistry.make({ scheduleTask: atomTaskScheduler.scheduleTask });
 
@@ -93,7 +92,7 @@ const makeTestAccountsAtoms = Effect.fnUntraced(function* () {
     activeAccountAtom,
     activeAccountSessionAtom,
     drainAtomTasks: atomTaskScheduler.drain,
-    listAccountsAtom,
+    listUsersAtom,
     manager,
     registry,
   };
@@ -427,15 +426,15 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
   );
 });
 
-it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
+it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   iit.effect(
-    'fails with ListAccountsNoAuthClientError without an active auth client',
+    'fails with NoCurrentAuthClientError without an active auth client',
     Effect.fnUntraced(
       function* () {
-        const { listAccountsAtom, registry } = yield* makeTestAccountsAtoms();
-        const error = yield* AtomRegistry.getResult(registry, listAccountsAtom).pipe(Effect.flip);
+        const { listUsersAtom, registry } = yield* makeTestAccountsAtoms();
+        const error = yield* AtomRegistry.getResult(registry, listUsersAtom).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(ListAccountsNoAuthClientError);
+        expect(error).toBeInstanceOf(NoCurrentAuthClientError);
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -445,31 +444,31 @@ it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
     'loads successive pages until all users are returned',
     Effect.fnUntraced(
       function* () {
-        const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
+        const { listUsersAtom, manager, registry } = yield* makeTestAccountsAtoms();
         const testServer = yield* setupTestServerWithUsers({ userCount: 12 });
         yield* manager.signInAccount({
           serverUrl: testServer.serverUrl,
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        registry.mount(listAccountsAtom);
+        registry.mount(listUsersAtom);
 
-        const firstPage = yield* AtomRegistry.getResult(registry, listAccountsAtom, {
+        const firstPage = yield* AtomRegistry.getResult(registry, listUsersAtom, {
           suspendOnWaiting: true,
         });
         expect(firstPage).toMatchObject({ done: false });
         expect(firstPage.items).toHaveLength(10);
 
-        registry.set(listAccountsAtom, void 0);
-        const allUsers = yield* AtomRegistry.getResult(registry, listAccountsAtom, {
+        registry.set(listUsersAtom, void 0);
+        const allUsers = yield* AtomRegistry.getResult(registry, listUsersAtom, {
           suspendOnWaiting: true,
         });
         expect(allUsers).toMatchObject({ done: false });
         expect(allUsers.items).toHaveLength(12);
 
-        registry.set(listAccountsAtom, void 0);
+        registry.set(listUsersAtom, void 0);
         expect(
-          yield* AtomRegistry.getResult(registry, listAccountsAtom, {
+          yield* AtomRegistry.getResult(registry, listUsersAtom, {
             suspendOnWaiting: true,
           })
         ).toMatchObject({ done: true, items: allUsers.items });
@@ -482,18 +481,17 @@ it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
     'loads users from the newly active server after switching accounts',
     Effect.fnUntraced(
       function* () {
-        const { listAccountsAtom, manager, registry } = yield* makeTestAccountsAtoms();
+        const { listUsersAtom, manager, registry } = yield* makeTestAccountsAtoms();
 
+        // registry.mount(listUsersAtom); -- TODO: comment back in
         const firstServer = yield* setupTestServerWithUsers({ userCount: 3 });
         yield* manager.signInAccount({
           serverUrl: firstServer.serverUrl,
           username: firstServer.adminUsername,
           password: firstServer.password,
         });
-        const firstResult = yield* AtomRegistry.getResult(registry, listAccountsAtom);
-        // @ts-expect-error - better-auth types don't show username is there, but it is in the response
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        const firstUsernames = firstResult.items.map((user) => user.username as string);
+        const firstResult = yield* AtomRegistry.getResult(registry, listUsersAtom);
+        const firstUsernames = firstResult.items.map((user) => user.username);
         expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           firstServer.usernames.sort((first, second) => first.localeCompare(second))
         );
@@ -504,10 +502,8 @@ it.layer(TestServerControllerClient.layer)('listAccountsAtom', (iit) => {
           username: secondServer.adminUsername,
           password: secondServer.password,
         });
-        const secondResult = yield* AtomRegistry.getResult(registry, listAccountsAtom);
-        // @ts-expect-error - better-auth types don't show username is there, but it is in the response
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        const secondUsernames = secondResult.items.map((user) => user.username as string);
+        const secondResult = yield* AtomRegistry.getResult(registry, listUsersAtom);
+        const secondUsernames = secondResult.items.map((user) => user.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
         );

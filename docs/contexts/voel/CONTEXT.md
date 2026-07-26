@@ -8,6 +8,14 @@ Voel is a self-hosted media application where users connect a client to one or m
 A switchable profile identified by one **Server URL** and one authenticated Better Auth user.
 _Avoid_: Tenant, profile
 
+**User**:
+An identity belonging to one Voel server that can authenticate and use that server.
+_Avoid_: Account
+
+**User Profile**:
+The mutable public attributes of a **User**, such as their name, username, and profile image.
+_Avoid_: Account profile
+
 **Server URL**:
 The base URL of a self-hosted Voel server that a client can connect to.
 _Avoid_: Instance URL, host
@@ -15,6 +23,8 @@ _Avoid_: Instance URL, host
 ## Relationships
 
 - An **Account** belongs to exactly one **Server URL**
+- An **Account** identifies exactly one **User** on its **Server URL**
+- A **User Profile** belongs to exactly one **User**
 - A **Server URL** can have zero or more **Accounts** on a client
 - A client has at most one active **Account** at a time
 
