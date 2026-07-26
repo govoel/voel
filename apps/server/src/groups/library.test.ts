@@ -3,10 +3,10 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option, Schema, SchemaIssue } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
-import { DatabaseNseError, DatabaseSqlError } from '@repo/effect-kysely';
+import { DatabaseNoSuchElementError, DatabaseSqlError } from '@repo/effect-kysely';
 import { Api } from '@repo/spec-api';
 import { Library, MediaType } from '@repo/spec-api/database/schema.js';
-import { AuthMiddleware, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
+import { AuthMiddleware, UnauthorizedError } from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlers } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
@@ -54,8 +54,8 @@ it.layer(
         .libraryDelete({ id: Library.fields.id.make(999_999) })
         .pipe(Effect.flip);
 
-      expect(upsertResult).toBeInstanceOf(Unauthorized);
-      expect(deleteResult).toBeInstanceOf(Unauthorized);
+      expect(upsertResult).toBeInstanceOf(UnauthorizedError);
+      expect(deleteResult).toBeInstanceOf(UnauthorizedError);
     })
   );
 
@@ -77,8 +77,8 @@ it.layer(
         .libraryDelete({ id: Library.fields.id.make(999_999) })
         .pipe(Effect.flip);
 
-      expect(upsertResult).toBeInstanceOf(Unauthorized);
-      expect(deleteResult).toBeInstanceOf(Unauthorized);
+      expect(upsertResult).toBeInstanceOf(UnauthorizedError);
+      expect(deleteResult).toBeInstanceOf(UnauthorizedError);
     })
   );
 
@@ -94,8 +94,8 @@ it.layer(
         .libraryList({ cursor: Option.none(), limit: 1 })
         .pipe(Effect.flip);
 
-      expect(getResult).toBeInstanceOf(Unauthorized);
-      expect(listResult).toBeInstanceOf(Unauthorized);
+      expect(getResult).toBeInstanceOf(UnauthorizedError);
+      expect(listResult).toBeInstanceOf(UnauthorizedError);
     })
   );
 
@@ -522,7 +522,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       yield* client.libraryDelete({ id: result1.id });
 
       const deletedResult = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
-      expect(DatabaseNseError.is(deletedResult)).toBe(true);
+      expect(DatabaseNoSuchElementError.is(deletedResult)).toBe(true);
 
       const result2 = yield* client
         .libraryUpsert({
@@ -714,7 +714,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryGet({ id: Library.fields.id.make(999_999) })
         .pipe(Effect.flip);
 
-      expect(DatabaseNseError.is(result)).toBe(true);
+      expect(DatabaseNoSuchElementError.is(result)).toBe(true);
     })
   );
 
@@ -734,7 +734,7 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
 
-      expect(DatabaseNseError.is(result2)).toBe(true);
+      expect(DatabaseNoSuchElementError.is(result2)).toBe(true);
     })
   );
 
@@ -761,7 +761,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(DatabaseNseError.is(result)).toBe(true);
+      expect(DatabaseNoSuchElementError.is(result)).toBe(true);
     })
   );
 

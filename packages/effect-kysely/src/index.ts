@@ -58,17 +58,17 @@ export type { MigrationProvider } from 'kysely/migration';
 export class DatabaseSqlError extends Schema.TaggedErrorClass<
   DatabaseSqlError,
   { readonly brand: unique symbol }
->()('@repo/effect-kysely/index/DatabaseSqlError', {
+>('@repo/effect-kysely/index/DatabaseSqlError')('DatabaseSqlError', {
   cause: Schema.Unknown,
   message: Schema.optional(Schema.String),
 }) {
   public static readonly is = Schema.is(this);
 }
 
-export class DatabaseNseError extends Schema.TaggedErrorClass<
-  DatabaseNseError,
+export class DatabaseNoSuchElementError extends Schema.TaggedErrorClass<
+  DatabaseNoSuchElementError,
   { readonly brand: unique symbol }
->()('@repo/effect-kysely/index/DatabaseNseError', {}) {
+>('@repo/effect-kysely/index/DatabaseNoSuchElementError')('DatabaseNoSuchElementError', {}) {
   public static readonly is = Schema.is(this);
 }
 
@@ -85,7 +85,7 @@ interface EffectExecutor {
   ) => Effect.Effect<QueryOutput<Q> | undefined, DatabaseSqlError>;
   executeTakeFirstOrError: <Q extends AnyQuery>(
     query: Q
-  ) => Effect.Effect<QueryOutput<Q>, DatabaseSqlError | DatabaseNseError>;
+  ) => Effect.Effect<QueryOutput<Q>, DatabaseSqlError | DatabaseNoSuchElementError>;
 }
 
 export interface EffectTransaction<DB>
@@ -229,7 +229,7 @@ const executeTakeFirstOrError =
   <Q extends AnyQuery>(query: Q) =>
     executeTakeFirstOption(client)(query).pipe(
       Effect.flatMap((result) =>
-        Effect.mapError(Effect.fromOption(result), () => new DatabaseNseError())
+        Effect.mapError(Effect.fromOption(result), () => new DatabaseNoSuchElementError())
       )
     );
 

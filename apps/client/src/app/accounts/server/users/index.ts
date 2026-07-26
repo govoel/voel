@@ -5,7 +5,7 @@ import { CurrentAuthClient } from '#src/services/auth-client/current';
 import { AppRuntime } from '#src/services/registry';
 
 export class ServerUser extends Schema.Class<ServerUser, { readonly brand: unique symbol }>(
-  'ServerUser'
+  'voel/app/accounts/server/users/index/ServerUser'
 )({
   id: Schema.String,
   username: Schema.String,

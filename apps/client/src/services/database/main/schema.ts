@@ -4,7 +4,7 @@ import { Model } from 'effect/unstable/schema';
 import type { TableFromModel } from '@repo/effect-kysely';
 
 export class AccountRole extends Schema.Class<AccountRole, { readonly brand: unique symbol }>(
-  'AccountRole'
+  'voel/services/database/main/schema/AccountRole'
 )({
   value: Schema.Literals(['admin', 'user', 'under18']),
 }) {
@@ -38,29 +38,35 @@ export class AccountRole extends Schema.Class<AccountRole, { readonly brand: uni
   );
 }
 
-export class Account extends Model.Class<Account>('voel/database/main/Account')({
+export class Account extends Model.Class<Account>('voel/services/database/main/schema/Account')({
   serverUrl: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/database/main/Account/serverUrl')),
+    select: Schema.String.pipe(
+      Schema.brand('voel/services/database/main/schema/Account/serverUrl')
+    ),
     insert: Schema.String,
     update: Schema.String,
   }),
   userId: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/database/main/Account/userId')),
+    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/userId')),
     insert: Schema.String,
     update: Schema.String,
   }),
   username: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/database/main/Account/username')),
+    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/username')),
     insert: Schema.String,
     update: Schema.String,
   }),
   authStorageId: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/database/main/Account/authStorageId')),
+    select: Schema.String.pipe(
+      Schema.brand('voel/services/database/main/schema/Account/authStorageId')
+    ),
     insert: Schema.String,
     update: Schema.String,
   }),
   role: Model.Field({
-    select: AccountRole.fields.value.pipe(Schema.brand('voel/database/main/Account/role')),
+    select: AccountRole.fields.value.pipe(
+      Schema.brand('voel/services/database/main/schema/Account/role')
+    ),
     insert: AccountRole.fields.value,
     update: AccountRole.fields.value,
   }),
@@ -70,7 +76,9 @@ export class Account extends Model.Class<Account>('voel/database/main/Account')(
     update: Schema.NullOr(Schema.String),
   }),
   active: Model.Field({
-    select: Schema.Literals([0, 1]).pipe(Schema.brand('voel/database/main/Account/active')),
+    select: Schema.Literals([0, 1]).pipe(
+      Schema.brand('voel/services/database/main/schema/Account/active')
+    ),
     insert: Schema.Literals([0, 1]),
     update: Schema.Literals([0, 1]),
   }),

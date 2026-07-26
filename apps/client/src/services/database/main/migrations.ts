@@ -11,10 +11,10 @@ export const createMigrationProvider = (): MigrationProvider => ({
   }),
 });
 
-class ClientMigrationError extends Schema.TaggedErrorClass<
-  ClientMigrationError,
+class DatabaseMigrationError extends Schema.TaggedErrorClass<
+  DatabaseMigrationError,
   { readonly brand: unique symbol }
->()('voel/services/database/main/migrations/ClientMigrationError', {}) {}
+>('voel/services/database/main/migrations/DatabaseMigrationError')('DatabaseMigrationError', {}) {}
 
 export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { db: Kysely<DB> }) {
   const provider = createMigrationProvider();
@@ -23,7 +23,7 @@ export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { 
   const { error, results } = yield* Effect.promise(async () => migrator.migrateToLatest());
 
   if (error !== void 0) {
-    return yield* new ClientMigrationError();
+    return yield* new DatabaseMigrationError();
   }
 
   return results;

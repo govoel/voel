@@ -7,7 +7,9 @@ import { LibraryPath } from '@repo/spec-api/database/schema.ts';
 
 import { Database } from '#src/services/database/index.ts';
 
-class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>('LibraryAbsolutePath')({
+class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
+  '@repo/server/groups/library/LibraryAbsolutePath'
+)({
   absolutePath: Schema.String.pipe(
     Schema.decodeTo(LibraryPath.fields.absolutePath, {
       decode: SchemaGetter.transformOrFail(

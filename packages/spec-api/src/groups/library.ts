@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 
-import { DatabaseNseError, DatabaseSqlError } from '@repo/effect-kysely';
+import { DatabaseNoSuchElementError, DatabaseSqlError } from '@repo/effect-kysely';
 
 import { Library, LibraryPath } from '#src/database/schema.ts';
 import { makeCursorPaginated } from '#src/groups/utils.ts';
@@ -37,7 +37,7 @@ export const library = [
         })
       ),
     }),
-    error: Schema.Union([DatabaseSqlError, DatabaseNseError], { mode: 'oneOf' }),
+    error: Schema.Union([DatabaseSqlError, DatabaseNoSuchElementError], { mode: 'oneOf' }),
   }),
 
   Rpc.make('libraryUpsert', {
@@ -53,7 +53,7 @@ export const library = [
     }),
     success: Schema.Struct({ id: Library.fields.id }),
     error: Schema.Union(
-      [DatabaseSqlError, DatabaseNseError, Schema.instanceOf(Schema.SchemaError)],
+      [DatabaseSqlError, DatabaseNoSuchElementError, Schema.instanceOf(Schema.SchemaError)],
       { mode: 'oneOf' }
     ),
   }).middleware(AdminMiddleware),

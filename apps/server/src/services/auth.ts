@@ -6,7 +6,7 @@ import {
   AdminMiddleware,
   AuthMiddleware,
   CurrentSession,
-  Unauthorized,
+  UnauthorizedError,
 } from '@repo/spec-api/middlewares/auth.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
@@ -70,11 +70,11 @@ export const AuthMiddlewareLive = Layer.effect(
       Effect.fnUntraced(function* (httpEffect, { headers }) {
         const session = yield* Effect.tryPromise({
           try: async () => auth.api.getSession({ headers }),
-          catch: () => new Unauthorized({}),
+          catch: () => new UnauthorizedError({}),
         });
 
         if (session === null) {
-          return yield* new Unauthorized({});
+          return yield* new UnauthorizedError({});
         }
 
         return yield* Effect.provideService(httpEffect, CurrentSession, session);
@@ -90,7 +90,7 @@ export const AdminMiddlewareLive = Layer.succeed(
       const session = yield* CurrentSession;
 
       if (!('role' in session.user) || session.user.role !== 'admin') {
-        return yield* new Unauthorized({});
+        return yield* new UnauthorizedError({});
       }
 
       return yield* effect;
