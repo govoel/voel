@@ -2,22 +2,25 @@ import { Context, Effect, Layer, Option, Schema } from 'effect';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import {
-  BetterAuthOriginalError,
-  betterAuthOriginalErrorFromUnknown,
+  BetterAuthErrorDetails,
+  betterAuthErrorDetailsFromUnknown,
 } from '#src/services/auth-client/errors.ts';
 import type { VoelAuthClient } from '#src/services/auth-client/index.ts';
 
 export class NoCurrentAuthClientError extends Schema.TaggedErrorClass<
   NoCurrentAuthClientError,
   { readonly brand: unique symbol }
->()('voel/services/auth-client/current/NoCurrentAuthClientError', {}) {}
+>('voel/services/auth-client/current/NoCurrentAuthClientError')('NoCurrentAuthClientError', {}) {}
 
 class CurrentAuthClientRequestError extends Schema.TaggedErrorClass<
   CurrentAuthClientRequestError,
   { readonly brand: unique symbol }
->()('voel/services/auth-client/current/CurrentAuthClientRequestError', {
-  original: BetterAuthOriginalError,
-}) {}
+>('voel/services/auth-client/current/CurrentAuthClientRequestError')(
+  'CurrentAuthClientRequestError',
+  {
+    details: BetterAuthErrorDetails,
+  }
+) {}
 
 export class CurrentAuthClient extends Context.Service<CurrentAuthClient>()(
   'voel/services/auth-client/current/CurrentAuthClient',
@@ -46,13 +49,13 @@ export class CurrentAuthClient extends Context.Service<CurrentAuthClient>()(
               try: async () => authClient.admin.listUsers(input),
               catch: (error) =>
                 new CurrentAuthClientRequestError({
-                  original: betterAuthOriginalErrorFromUnknown(error),
+                  details: betterAuthErrorDetailsFromUnknown(error),
                 }),
             });
 
             if (result.error !== null) {
               return yield* new CurrentAuthClientRequestError({
-                original: new BetterAuthOriginalError(result.error),
+                details: new BetterAuthErrorDetails(result.error),
               });
             }
 
@@ -68,13 +71,13 @@ export class CurrentAuthClient extends Context.Service<CurrentAuthClient>()(
             try: async () => authClient.updateUser(input),
             catch: (error) =>
               new CurrentAuthClientRequestError({
-                original: betterAuthOriginalErrorFromUnknown(error),
+                details: betterAuthErrorDetailsFromUnknown(error),
               }),
           });
 
           if (result.error !== null) {
             return yield* new CurrentAuthClientRequestError({
-              original: new BetterAuthOriginalError(result.error),
+              details: new BetterAuthErrorDetails(result.error),
             });
           }
 

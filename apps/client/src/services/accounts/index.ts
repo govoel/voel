@@ -17,8 +17,8 @@ import { uuid } from 'expo-modules-core';
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
 import {
-  BetterAuthOriginalError,
-  betterAuthOriginalErrorFromUnknown,
+  BetterAuthErrorDetails,
+  betterAuthErrorDetailsFromUnknown,
 } from '#src/services/auth-client/errors.ts';
 import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
@@ -29,22 +29,26 @@ import type { AccountTable } from '#src/services/database/main/schema.ts';
 export class AccountSignInError extends Schema.TaggedErrorClass<
   AccountSignInError,
   { readonly brand: unique symbol }
->()('voel/services/accounts/index/AccountSignInError', { original: BetterAuthOriginalError }) {}
+>('voel/services/accounts/index/AccountSignInError')('AccountSignInError', {
+  details: BetterAuthErrorDetails,
+}) {}
 
 export class AccountSignUpError extends Schema.TaggedErrorClass<
   AccountSignUpError,
   { readonly brand: unique symbol }
->()('voel/services/accounts/index/AccountSignUpError', { original: BetterAuthOriginalError }) {}
+>('voel/services/accounts/index/AccountSignUpError')('AccountSignUpError', {
+  details: BetterAuthErrorDetails,
+}) {}
 
 export class AccountDatabaseError extends Schema.TaggedErrorClass<
   AccountDatabaseError,
   { readonly brand: unique symbol }
->()('voel/services/accounts/index/AccountDatabaseError', {}) {}
+>('voel/services/accounts/index/AccountDatabaseError')('AccountDatabaseError', {}) {}
 
 export class AccountNotFoundError extends Schema.TaggedErrorClass<
   AccountNotFoundError,
   { readonly brand: unique symbol }
->()('voel/services/accounts/index/AccountNotFoundError', {
+>('voel/services/accounts/index/AccountNotFoundError')('AccountNotFoundError', {
   serverUrl: Schema.String,
   userId: Schema.String,
 }) {}
@@ -371,12 +375,12 @@ export class AccountManager extends Context.Service<AccountManager>()(
           try: async () =>
             authClient.signIn.username({ username, password: Redacted.value(password) }),
           catch: (error) =>
-            new AccountSignInError({ original: betterAuthOriginalErrorFromUnknown(error) }),
+            new AccountSignInError({ details: betterAuthErrorDetailsFromUnknown(error) }),
         });
 
         if (signInResult.error !== null) {
           return yield* new AccountSignInError({
-            original: new BetterAuthOriginalError(signInResult.error),
+            details: new BetterAuthErrorDetails(signInResult.error),
           });
         }
 
@@ -424,12 +428,12 @@ export class AccountManager extends Context.Service<AccountManager>()(
               password: Redacted.value(password),
             }),
           catch: (error) =>
-            new AccountSignUpError({ original: betterAuthOriginalErrorFromUnknown(error) }),
+            new AccountSignUpError({ details: betterAuthErrorDetailsFromUnknown(error) }),
         });
 
         if (signUpResult.error !== null) {
           return yield* new AccountSignUpError({
-            original: new BetterAuthOriginalError(signUpResult.error),
+            details: new BetterAuthErrorDetails(signUpResult.error),
           });
         }
 

@@ -4,12 +4,18 @@ import * as SecureStore from 'expo-secure-store';
 export class AuthClientStorageGetItemError extends Schema.TaggedErrorClass<
   AuthClientStorageGetItemError,
   { readonly brand: unique symbol }
->()('voel/services/auth-client/storage/AuthClientStorageGetItemError', { key: Schema.String }) {}
+>('voel/services/auth-client/storage/AuthClientStorageGetItemError')(
+  'AuthClientStorageGetItemError',
+  { key: Schema.String }
+) {}
 
 export class AuthClientStorageSetItemError extends Schema.TaggedErrorClass<
   AuthClientStorageSetItemError,
   { readonly brand: unique symbol }
->()('voel/services/auth-client/storage/AuthClientStorageSetItemError', { key: Schema.String }) {}
+>('voel/services/auth-client/storage/AuthClientStorageSetItemError')(
+  'AuthClientStorageSetItemError',
+  { key: Schema.String }
+) {}
 
 export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
   'voel/services/auth-client/storage/AuthClientStorage',

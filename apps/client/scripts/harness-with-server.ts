@@ -8,7 +8,9 @@ import { TestServerControllerServerLive } from '#src/services/testing/server-con
 class HarnessFailure extends Schema.TaggedErrorClass<
   HarnessFailure,
   { readonly brand: unique symbol }
->()('voel/scripts/harness-with-server/HarnessFailure', { exitCode: Schema.Number }) {
+>('voel/scripts/harness-with-server/HarnessFailure')('HarnessFailure', {
+  exitCode: Schema.Number,
+}) {
   public override get [Runtime.errorExitCode](): number {
     return this.exitCode;
   }

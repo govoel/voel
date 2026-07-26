@@ -17,10 +17,13 @@ export const createMigrationProvider = (): MigrationProvider => ({
   }),
 });
 
-class MigrationError extends Schema.TaggedErrorClass<
-  MigrationError,
+class DatabaseMigrationError extends Schema.TaggedErrorClass<
+  DatabaseMigrationError,
   { readonly brand: unique symbol }
->()('@repo/server/services/database/migrations/MigrationError', {}) {}
+>('@repo/server/services/database/migrations/DatabaseMigrationError')(
+  'DatabaseMigrationError',
+  {}
+) {}
 
 export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { db: Kysely<DB> }) {
   const provider = createMigrationProvider();
@@ -29,7 +32,7 @@ export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { 
   const { error, results } = yield* Effect.promise(async () => migrator.migrateToLatest());
 
   if (error !== void 0) {
-    return yield* new MigrationError();
+    return yield* new DatabaseMigrationError();
   }
 
   return results;
