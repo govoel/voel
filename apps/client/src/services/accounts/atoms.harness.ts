@@ -483,6 +483,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
       function* () {
         const { listUsersAtom, manager, registry } = yield* makeTestAccountsAtoms();
 
+        registry.mount(listUsersAtom);
         const firstServer = yield* setupTestServerWithUsers({ userCount: 3 });
         yield* manager.signInAccount({
           serverUrl: firstServer.serverUrl,

@@ -4,15 +4,15 @@ import { Atom } from 'effect/unstable/reactivity';
 import { CurrentAuthClient } from '#src/services/auth-client/current';
 import { AppRuntime } from '#src/services/registry';
 
-export class ServerUser extends Schema.TaggedClass<ServerUser>()('ServerUser', {
+export class ServerUser extends Schema.Class<ServerUser, { readonly brand: unique symbol }>(
+  'ServerUser'
+)({
   id: Schema.String,
   username: Schema.String,
 }) {
-  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(ServerUser);
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 
-  public static readonly decodeUnknownArrayEffect = Schema.decodeUnknownEffect(
-    Schema.Array(ServerUser)
-  );
+  public static readonly decodeUnknownArrayEffect = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
 export const makeListUsersAtom = (runtime: Atom.AtomRuntime<CurrentAuthClient>) => ({
