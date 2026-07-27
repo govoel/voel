@@ -1,9 +1,8 @@
-import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
+import { Match, Redacted, Schema, SchemaGetter } from 'effect';
 
-import { FormSubmitError, useAppForm } from '#src/components/form';
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { useAppForm } from '#src/components/form';
+import { signInAccountAtom } from '#src/services/accounts/atoms.ts';
 import { Account } from '#src/services/database/main/schema.ts';
-import { Runtime } from '#src/services/runtime.ts';
 
 class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: unique symbol }>(
   'voel/app/accounts/add/index/AddAccountInput'
@@ -22,31 +21,24 @@ class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: un
 
 export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({
-    runtime: Runtime,
     schema: AddAccountInput,
+    mutation: signInAccountAtom,
     defaultValues: { serverUrl: '', username: '', password: '' },
-    onSubmit: Effect.fnUntraced(function* ({ value }) {
-      const accountManager = yield* AccountManager;
-      yield* accountManager.signInAccount(value).pipe(
-        Effect.catchTags({
+    onFailure: ({ error }) =>
+      Match.value(error).pipe(
+        Match.tagsExhaustive({
           BetterAuthClientInitializationError: () =>
-            new FormSubmitError({ message: 'Unexpected error during authentication. Try again.' }),
+            'Unexpected error during authentication. Try again.',
           AccountSignInError: (signInError) =>
-            new FormSubmitError({
-              message:
-                signInError.details.message ??
-                'Failed to sign in. Check your credentials and try again.',
-            }),
-          AccountDatabaseError: () =>
-            new FormSubmitError({ message: 'A database error occurred. Try again.' }),
+            signInError.details.message ??
+            'Failed to sign in. Check your credentials and try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
-      );
-
-      form.reset();
-      yield* Effect.promise(async () => {
-        await onSuccess();
-      });
-    }),
+      ),
+    onSuccess: async ({ formApi }) => {
+      formApi.reset();
+      await onSuccess();
+    },
   });
 
   return form;

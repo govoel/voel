@@ -3,6 +3,7 @@ import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { AppRuntime } from '#src/services/atom-runtime.ts';
+import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 
@@ -102,6 +103,16 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
 export const signInAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.signInAccount(input)))
+);
+
+export const setupServerWithAccountAtom = AppRuntime.fn(
+  (input: Parameters<typeof AccountManager.Service.setupServerWithAccount>[0]) =>
+    AccountManager.pipe(Effect.flatMap((manager) => manager.setupServerWithAccount(input)))
+);
+
+export const updateCurrentUserAtom = AppRuntime.fn(
+  (input: Parameters<typeof CurrentAuthClient.Service.updateUser>[0]) =>
+    CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.updateUser(input)))
 );
 
 export const accountsSheetAtom = AppRuntime.atom(
