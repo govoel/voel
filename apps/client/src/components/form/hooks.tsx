@@ -27,11 +27,6 @@ export type FormFieldError = string | StandardSchemaV1Issue;
 export const getFormFieldErrorMessage = (error: FormFieldError) =>
   typeof error === 'string' ? error : error.message;
 
-interface StandardSchemaFormError {
-  readonly form: Record<string, StandardSchemaV1Issue[]>;
-  readonly fields: Record<string, StandardSchemaV1Issue[]>;
-}
-
 type StandardSchemaFieldContext<TData> = Omit<
   ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
   'state'
@@ -73,11 +68,11 @@ type EffectSchemaSubmitValidator<TEncoded> = (props: {
   readonly value: TEncoded;
   readonly formApi: AnyFormApi;
   readonly signal: AbortSignal;
-}) =>
-  | FormMutationError<TEncoded>
-  | StandardSchemaFormError
-  | null
-  | Promise<FormMutationError<TEncoded> | StandardSchemaFormError | null>;
+}) => FormMutationError<TEncoded> | null | Promise<FormMutationError<TEncoded> | null>;
+
+// Mutation failures are stored in TanStack's onSubmit error slot. Returning null
+// clears the previous failure so the form can be submitted again without a field change.
+const clearMutationErrorValidator = () => null;
 
 type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOptions<
   TEncoded,
@@ -154,38 +149,6 @@ const withoutFieldValidators = <
   form: TForm
 ): FormWithoutFieldValidators<TForm> => form;
 
-const standardSchemaFailureToFormError = (
-  issues: readonly StandardSchemaV1Issue[],
-  formValue: unknown
-): StandardSchemaFormError => {
-  const errors = new Map<string, StandardSchemaV1Issue[]>();
-
-  for (const issue of issues) {
-    let currentValue = formValue;
-    let path = '';
-
-    for (const [index, pathSegment] of (issue.path ?? []).entries()) {
-      const segment = typeof pathSegment === 'object' ? pathSegment.key : pathSegment;
-      const segmentAsNumber = Number(segment);
-
-      path +=
-        Array.isArray(currentValue) && !Number.isNaN(segmentAsNumber)
-          ? `[${segmentAsNumber}]`
-          : `${index > 0 ? '.' : ''}${String(segment)}`;
-
-      currentValue =
-        typeof currentValue === 'object' && currentValue !== null
-          ? Reflect.get(currentValue, segment)
-          : void 0;
-    }
-
-    errors.set(path, [...(errors.get(path) ?? []), issue]);
-  }
-
-  const errorRecord = Object.fromEntries(errors);
-  return { fields: errorRecord, form: errorRecord };
-};
-
 export const createEffectSchemaFormHook = <
   // TanStack's createFormHook preserves each component's actual props through an any-based
   // component map constraint. Keeping that shape here avoids collapsing AppField components
@@ -235,33 +198,44 @@ export const createEffectSchemaFormHook = <
   >) => {
     const runMutation = useAtomSet(mutation, { mode: 'promiseExit' });
     const standardSchema = useMemo(() => Schema.toStandardSchemaV1(schema), [schema]);
-    const parsedRef = useRef<Option.Option<TType>>(Option.none());
     const submitAttemptRef = useRef(0);
 
     const form = useTanStackAppForm({
       ...props,
       onSubmit: async (submitProps) => {
-        const parsed = parsedRef.current;
         const submitAttempt = submitAttemptRef.current + 1;
         submitAttemptRef.current = submitAttempt;
 
-        if (Option.isNone(parsed)) {
-          throw new Error('Unexpected submit without parsed data');
+        const schemaResult = await standardSchema['~standard'].validate(submitProps.value);
+        if (schemaResult.issues !== void 0) {
+          throw new Error('Unexpected invalid data during submit');
         }
 
-        const mutationExit = await runMutation(parsed.value);
+        if (submitAttempt !== submitAttemptRef.current) {
+          return;
+        }
+
+        const mutationExit = await runMutation(schemaResult.value);
         if (submitAttempt !== submitAttemptRef.current) {
           return;
         }
 
         if (Exit.isSuccess(mutationExit)) {
-          await onSuccess?.({ ...submitProps, result: mutationExit.value, value: parsed.value });
+          await onSuccess?.({
+            ...submitProps,
+            result: mutationExit.value,
+            value: schemaResult.value,
+          });
           return;
         }
 
         const error = Exit.findErrorOption(mutationExit);
         if (Option.isSome(error)) {
-          const formError = onFailure({ ...submitProps, error: error.value, value: parsed.value });
+          const formError = onFailure({
+            ...submitProps,
+            error: error.value,
+            value: schemaResult.value,
+          });
           submitProps.formApi.setErrorMap({ onSubmit: formError });
           return;
         }
@@ -270,23 +244,7 @@ export const createEffectSchemaFormHook = <
       },
       validators: {
         onChangeAsync: standardSchema,
-        onSubmitAsync: async ({ signal, value }) => {
-          const submitAttempt = submitAttemptRef.current + 1;
-          submitAttemptRef.current = submitAttempt;
-          parsedRef.current = Option.none();
-
-          const schemaResult = await standardSchema['~standard'].validate(value);
-          if (schemaResult.issues !== void 0) {
-            return standardSchemaFailureToFormError(schemaResult.issues, value);
-          }
-
-          if (signal.aborted || submitAttempt !== submitAttemptRef.current) {
-            return null;
-          }
-
-          parsedRef.current = Option.some(schemaResult.value);
-          return null;
-        },
+        onSubmitAsync: clearMutationErrorValidator,
       },
     });
 
@@ -295,7 +253,6 @@ export const createEffectSchemaFormHook = <
 
       const resetWithMutation = ((...resetArgs: Parameters<typeof reset>) => {
         submitAttemptRef.current += 1;
-        parsedRef.current = Option.none();
         reset(...resetArgs);
       }) satisfies typeof form.reset;
 
