@@ -9,17 +9,17 @@ import {
   padding,
 } from '@expo/ui/swift-ui/modifiers';
 import { useSelector } from '@tanstack/react-form';
-import { Array, Option } from 'effect';
+import { Array, Option, Predicate } from 'effect';
 import { PlatformColor } from 'react-native';
 
-import { useFormContext, useFormSubmitError } from '#src/components/form/hooks.tsx';
+import { useFormContext } from '#src/components/form/hooks.tsx';
+import { canSubmitOrRetry } from '#src/components/form/submit-button/index.ts';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 const SubmitErrorMessage = ({ formErrorMessages }: { readonly formErrorMessages: string[] }) => {
-  const submitError = useFormSubmitError();
-  const errorMessage = Option.firstSomeOf([submitError, Array.head(formErrorMessages)]);
+  const errorMessage = Array.head(formErrorMessages);
 
   return Option.match(errorMessage, {
     onNone: () => null,
@@ -43,12 +43,14 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const form = useFormContext();
-  const [canSubmit, isSubmitting, formErrorMessages] = useSelector(
+  const [canSubmitOrRetryMutation, isSubmitting, formErrorMessages] = useSelector(
     form.store,
     (state): readonly [boolean, boolean, string[]] => [
-      state.canSubmit,
+      canSubmitOrRetry(state),
       state.isSubmitting,
-      state.errors.filter((error) => typeof error === 'string' && error.length > 0),
+      state.errors.filter(
+        (error): error is string => Predicate.isString(error) && error.length > 0
+      ),
     ]
   );
 
@@ -60,7 +62,7 @@ export const SubmitButton = (({
         {...('ios' in platformProps ? platformProps.ios : {})}
         modifiers={[
           ...('ios' in platformProps ? (platformProps.ios.modifiers ?? []) : []),
-          disabledModifier(!canSubmit || isSubmitting || disabled),
+          disabledModifier(!canSubmitOrRetryMutation || isSubmitting || disabled),
           animation(Animation.default, isSubmitting),
         ]}
         onPress={() => {
