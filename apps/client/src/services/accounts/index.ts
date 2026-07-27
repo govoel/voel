@@ -5,6 +5,7 @@ import {
   Layer,
   Option,
   Queue,
+  Random,
   Redacted,
   Schema,
   Scope,
@@ -19,12 +20,31 @@ import {
   BetterAuthErrorDetails,
   betterAuthErrorDetailsFromUnknown,
 } from '#src/services/auth-client/errors.ts';
-import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
-import { UuidGenerator, XxHash } from '#src/services/native.ts';
+
+export class UuidGenerator extends Context.Service<
+  UuidGenerator,
+  { readonly v4: Effect.Effect<string> }
+>()('voel/services/accounts/index/UuidGenerator') {
+  public static readonly layer = Layer.unwrap(
+    Effect.gen(function* () {
+      const { uuid } = yield* Effect.promise(async () => import('expo-modules-core'));
+      return Layer.succeed(UuidGenerator, {
+        v4: Effect.sync(() => uuid.v4()),
+      });
+    })
+  );
+
+  public static readonly layerTest = Layer.succeed(this, {
+    v4: Effect.all([Random.nextInt, Random.nextInt]).pipe(
+      Effect.map(([left, right]) => `test-${Math.abs(left)}-${Math.abs(right)}`)
+    ),
+  });
+}
 
 export class AccountSignInError extends Schema.TaggedErrorClass<
   AccountSignInError,
@@ -414,7 +434,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           >['0'],
           'name' | 'email'
         > & {
-        password: Redacted.Redacted;
+          password: Redacted.Redacted;
         }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
         const authClient = yield* createVoelAuthClient({

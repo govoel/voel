@@ -5,10 +5,10 @@ import { vi } from 'vitest';
 import { UserProfileUpdateInput } from '#src/services/accounts/atoms.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
+import { XxHash } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
-import { XxHash } from '#src/services/native.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
   makeAuthClient,

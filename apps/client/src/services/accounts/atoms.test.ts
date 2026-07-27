@@ -11,10 +11,10 @@ import {
   activeAccountSessionAtom,
 } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { AppRuntime } from '#src/services/atom-runtime.ts';
 import { NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
+import { AppRuntime } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
   makeAuthClient,

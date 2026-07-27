@@ -1,9 +1,25 @@
 import { expoClient } from '@better-auth/expo/client';
-import { Duration, Effect, Schema } from 'effect';
+import { Context, Duration, Effect, Layer, Schema } from 'effect';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import type { XxHash } from '#src/services/native.ts';
+export class XxHash extends Context.Service<
+  XxHash,
+  { readonly hash128: (input: string) => Effect.Effect<string> }
+>()('voel/services/auth-client/index/XxHash') {
+  public static readonly layer = Layer.unwrap(
+    Effect.gen(function* () {
+      const { hash128 } = yield* Effect.promise(async () => import('react-native-xxhash'));
+      return Layer.succeed(XxHash, {
+        hash128: (input) => Effect.sync(() => hash128(input)),
+      });
+    })
+  );
+
+  public static readonly layerTest = Layer.succeed(this, {
+    hash128: (input) => Effect.succeed(`test-${input.replaceAll(':', '-')}`),
+  });
+}
 
 export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass<
   BetterAuthClientInitializationError,

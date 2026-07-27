@@ -2,10 +2,10 @@ import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { AppRuntime } from '#src/services/atom-runtime.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
+import { AppRuntime } from '#src/services/runtime.ts';
 
 export class UserProfileUpdateInput extends Schema.Class<
   UserProfileUpdateInput,

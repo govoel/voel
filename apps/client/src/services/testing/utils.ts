@@ -2,14 +2,14 @@ import { vi } from '@effect/vitest';
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
 
+import { UuidGenerator } from '#src/services/accounts/index.ts';
 import type { AccountManager } from '#src/services/accounts/index.ts';
-import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { CommonGlobalLayers } from '#src/services/layers.ts';
-import { UuidGenerator, XxHash } from '#src/services/native.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
 export const makeClientTestLayers = () =>
