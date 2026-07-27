@@ -209,6 +209,7 @@ describe('createEffectSchemaFormHook', () => {
 
       return (
         <form.AppForm>
+          <form.AppField name="name">{(field) => <field.EmptyComponent />}</form.AppField>
           <Pressable role="button" onPress={() => void form.handleSubmit()}>
             <Text>Submit</Text>
           </Pressable>
@@ -222,6 +223,40 @@ describe('createEffectSchemaFormHook', () => {
 
     expect(await screen.findByTestId('form-error')).toHaveTextContent('Invalid account');
     expect(screen.getByTestId('field-error')).toHaveTextContent('Name is already taken');
+  });
+
+  it('passes per-submit metadata to onFailure', async () => {
+    const mutation = runtime.fn((_value: typeof schema.Type) =>
+      Effect.fail(new TestSubmitError({ message: 'failed' }))
+    );
+    const onFailure = vi.fn(() => 'failed');
+
+    const TestForm = () => {
+      const form = useAppForm({
+        defaultValues: { name: 'ok' },
+        mutation,
+        onSubmitMeta: { source: 'default' },
+        schema,
+        onFailure,
+      });
+
+      return (
+        <form.AppForm>
+          <Pressable role="button" onPress={() => void form.handleSubmit({ source: 'button' })}>
+            <Text>Submit</Text>
+          </Pressable>
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(onFailure).toHaveBeenCalledWith(
+        expect.objectContaining({ meta: { source: 'button' }, value: { name: 'ok' } })
+      );
+    });
   });
 
   it('passes the decoded value and mutation result to onSuccess', async () => {
