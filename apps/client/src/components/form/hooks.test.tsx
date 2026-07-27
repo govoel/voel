@@ -14,6 +14,7 @@ import {
   getFormFieldErrorMessage,
   useFormContext,
 } from '#src/components/form/hooks.tsx';
+import { canSubmitOrRetry } from '#src/components/form/submit-button/index.ts';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
 
@@ -61,6 +62,27 @@ const ErrorProbe = () => {
     <>
       <Text testID="form-error">{formError ?? 'No form error'}</Text>
       <Text testID="field-error">{fieldError ?? 'No field error'}</Text>
+    </>
+  );
+};
+
+const RetrySubmitButton = () => {
+  const form = useFormContext();
+  const [canSubmit, canSubmitWithoutRetry] = useSelector(
+    form.store,
+    (state): readonly [boolean, boolean] => [canSubmitOrRetry(state), state.canSubmit]
+  );
+
+  return (
+    <>
+      <Pressable
+        accessibilityState={{ disabled: !canSubmit }}
+        disabled={!canSubmit}
+        role="button"
+        onPress={() => void form.handleSubmit()}>
+        <Text>Submit</Text>
+      </Pressable>
+      <Text testID="can-submit">{String(canSubmitWithoutRetry)}</Text>
     </>
   );
 };
@@ -135,6 +157,53 @@ describe('createEffectSchemaFormHook', () => {
 
     expect(await screen.findByTestId('form-error')).toHaveTextContent('Invalid account');
     expect(screen.getByTestId('field-error')).toHaveTextContent('Name is already taken');
+  });
+
+  it('can retry after a failed submission and then submit successfully', async () => {
+    let mutationAttempts = 0;
+    const mutation = runtime.fn((_value: typeof schema.Type) => {
+      mutationAttempts += 1;
+
+      return mutationAttempts === 1
+        ? Effect.fail(new TestSubmitError({ message: 'failed' }))
+        : Effect.succeed('saved');
+    });
+    const onSuccess = vi.fn();
+
+    const TestForm = () => {
+      const form = useAppForm({
+        defaultValues: { name: 'ok' },
+        mutation,
+        schema,
+        onFailure: ({ error }) => error.message,
+        onSuccess,
+      });
+
+      return (
+        <form.AppForm>
+          <RetrySubmitButton />
+          <ErrorProbe />
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    const user = makeUser();
+    const submitButton = screen.getByRole('button', { name: 'Submit' });
+
+    await user.press(submitButton);
+
+    expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
+    expect(screen.getByTestId('can-submit')).toHaveTextContent('false');
+    expect(submitButton).toBeEnabled();
+
+    await user.press(submitButton);
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledOnce();
+    });
+    expect(mutationAttempts).toBe(2);
+    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
   it('passes per-submit metadata to onFailure', async () => {
