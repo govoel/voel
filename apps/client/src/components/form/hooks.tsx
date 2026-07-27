@@ -10,8 +10,8 @@ import type {
 } from '@tanstack/react-form';
 import { Cause, Exit, Option, Schema } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
-import { useCallback, useMemo, useRef } from 'react';
-import type { ComponentProps, ComponentType, Context, PropsWithChildren } from 'react';
+import { useMemo } from 'react';
+import type { ComponentProps, ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
@@ -198,27 +198,16 @@ export const createEffectSchemaFormHook = <
   >) => {
     const runMutation = useAtomSet(mutation, { mode: 'promiseExit' });
     const standardSchema = useMemo(() => Schema.toStandardSchemaV1(schema), [schema]);
-    const submitAttemptRef = useRef(0);
 
     const form = useTanStackAppForm({
       ...props,
       onSubmit: async (submitProps) => {
-        const submitAttempt = submitAttemptRef.current + 1;
-        submitAttemptRef.current = submitAttempt;
-
         const schemaResult = await standardSchema['~standard'].validate(submitProps.value);
         if (schemaResult.issues !== void 0) {
           throw new Error('Unexpected invalid data during submit');
         }
 
-        if (submitAttempt !== submitAttemptRef.current) {
-          return;
-        }
-
         const mutationExit = await runMutation(schemaResult.value);
-        if (submitAttempt !== submitAttemptRef.current) {
-          return;
-        }
 
         if (Exit.isSuccess(mutationExit)) {
           await onSuccess?.({
@@ -248,47 +237,7 @@ export const createEffectSchemaFormHook = <
       },
     });
 
-    const contextForm = useMemo(() => {
-      const reset = form.reset.bind(form);
-
-      const resetWithMutation = ((...resetArgs: Parameters<typeof reset>) => {
-        submitAttemptRef.current += 1;
-        reset(...resetArgs);
-      }) satisfies typeof form.reset;
-
-      return new Proxy(form, {
-        get: (target, property, receiver) => {
-          if (property === 'reset') {
-            return resetWithMutation;
-          }
-
-          return Reflect.get(target, property, receiver);
-        },
-      });
-    }, [form]);
-
-    const EffectSchemaAppForm = useCallback(
-      ({ children }: PropsWithChildren) => (
-        <hookFormContext.Provider value={contextForm}>{children}</hookFormContext.Provider>
-      ),
-      [contextForm]
-    );
-
-    const wrappedForm = useMemo(
-      () =>
-        new Proxy(contextForm, {
-          get: (target, property, receiver) => {
-            if (property === 'AppForm') {
-              return EffectSchemaAppForm;
-            }
-
-            return Reflect.get(target, property, receiver);
-          },
-        }),
-      [EffectSchemaAppForm, contextForm]
-    );
-
-    return withoutFieldValidators(wrappedForm);
+    return withoutFieldValidators(form);
   };
 
   return { ...formHook, useAppForm };

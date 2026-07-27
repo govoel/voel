@@ -1,6 +1,6 @@
 import { useSelector } from '@tanstack/react-form';
-import { act, render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect, Layer, Schema } from 'effect';
+import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { Effect, Layer, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
@@ -30,26 +30,6 @@ const { useAppForm } = createEffectSchemaFormHook({
   formComponents: { EmptyComponent },
   formContext,
 });
-
-const submitFailureAfter = (deferred: Deferred.Deferred<null>, message: string) =>
-  Deferred.await(deferred).pipe(
-    Effect.flatMap(() => Effect.fail(new TestSubmitError({ message })))
-  );
-
-const makeSubmitResult = (message: string) => ({
-  deferred: Effect.runSync(Deferred.make<null>()),
-  message,
-});
-
-const completeSubmit = async (
-  result: ReturnType<typeof makeSubmitResult>,
-  submit: Promise<unknown>
-) => {
-  await act(async () => {
-    Effect.runSync(Deferred.succeed(result.deferred, null));
-    await submit;
-  });
-};
 
 const makeUser = () =>
   userEvent.setup({
@@ -83,74 +63,6 @@ const ErrorProbe = () => {
       <Text testID="field-error">{fieldError ?? 'No field error'}</Text>
     </>
   );
-};
-
-const renderSubmitRaceForm = async (
-  submitResults: readonly ReturnType<typeof makeSubmitResult>[]
-) => {
-  const submits: Promise<unknown>[] = [];
-  let submitIndex = 0;
-  const mutation = runtime.fn((_value: typeof schema.Type) => {
-    const result = submitResults[submitIndex];
-    submitIndex += 1;
-
-    if (result === void 0) {
-      return Effect.die(new Error('Unexpected submit'));
-    }
-
-    return submitFailureAfter(result.deferred, result.message);
-  });
-
-  const TestForm = () => {
-    const form = useAppForm({
-      defaultValues: { name: 'ok' },
-      mutation,
-      schema,
-      onFailure: ({ error }) => error.message,
-    });
-
-    return (
-      <form.AppForm>
-        <Pressable
-          role="button"
-          onPress={() => {
-            submits.push(form.handleSubmit());
-          }}>
-          <Text>Submit</Text>
-        </Pressable>
-        <Pressable
-          role="button"
-          onPress={() => {
-            form.reset();
-          }}>
-          <Text>Reset</Text>
-        </Pressable>
-        <ErrorProbe />
-      </form.AppForm>
-    );
-  };
-
-  await render(<TestForm />);
-
-  return {
-    resetButton: () => screen.getByRole('button', { name: 'Reset' }),
-    submitAt: async (index: number) => {
-      const submit = submits[index];
-
-      if (submit === void 0) {
-        throw new Error(`Missing submit at index ${index}`);
-      }
-
-      return submit;
-    },
-    submitButton: () => screen.getByRole('button', { name: 'Submit' }),
-    user: makeUser(),
-    waitForSubmitCount: async (count: number) => {
-      await waitFor(() => {
-        expect(submitIndex).toBe(count);
-      });
-    },
-  };
 };
 
 describe('createEffectSchemaFormHook', () => {
@@ -328,41 +240,5 @@ describe('createEffectSchemaFormHook', () => {
 
     expect(onRejected).toHaveBeenCalledWith(defect);
     expect(onFailure).not.toHaveBeenCalled();
-  });
-
-  it('does not restore a stale submit error after reset', async () => {
-    const staleResult = makeSubmitResult('stale submit error');
-    const form = await renderSubmitRaceForm([staleResult]);
-
-    await form.user.press(form.submitButton());
-    await form.waitForSubmitCount(1);
-
-    await form.user.press(form.resetButton());
-
-    await completeSubmit(staleResult, form.submitAt(0));
-
-    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
-  });
-
-  it('keeps the newer submit error when an older reset submit resolves later', async () => {
-    const oldResult = makeSubmitResult('old submit error');
-    const newResult = makeSubmitResult('new submit error');
-    const form = await renderSubmitRaceForm([oldResult, newResult]);
-
-    await form.user.press(form.submitButton());
-    await form.waitForSubmitCount(1);
-
-    await form.user.press(form.resetButton());
-
-    await form.user.press(form.submitButton());
-    await form.waitForSubmitCount(2);
-
-    await completeSubmit(newResult, form.submitAt(1));
-
-    expect(await screen.findByTestId('form-error')).toHaveTextContent('new submit error');
-
-    await completeSubmit(oldResult, form.submitAt(0));
-
-    expect(screen.getByTestId('form-error')).toHaveTextContent('new submit error');
   });
 });
