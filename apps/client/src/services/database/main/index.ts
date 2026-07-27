@@ -1,8 +1,9 @@
-import { Context, Effect } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 
 import { Kysely, ParseJSONResultsPlugin, makeFromKysely, sql } from '@repo/effect-kysely';
 import type { Dialect, EffectKysely } from '@repo/effect-kysely';
 
+import { AppConfig } from '#src/services/config.ts';
 import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts';
 import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
 
@@ -30,4 +31,41 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
         (db) => Effect.promise(async () => db.destroy())
       ),
   }
-) {}
+) {
+  public static readonly layer = Layer.unwrap(
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      const { OpSqliteDialect } = yield* Effect.promise(
+        async () => import('#src/services/database/dialect.ts')
+      );
+
+      return Layer.effect(
+        MainDatabase,
+        MainDatabase.make({
+          dialect: new OpSqliteDialect({ filename: config.mainDb.filename }),
+        })
+      );
+    })
+  );
+
+  public static readonly layerTest = Layer.unwrap(
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      const { default: BunSqliteDatabase } = yield* Effect.promise(
+        async () => import('bun:sqlite')
+      );
+      const { BunSqliteDialect } = yield* Effect.promise(
+        async () => import('@repo/effect-kysely/dialect.ts')
+      );
+
+      return Layer.effect(
+        MainDatabase,
+        MainDatabase.make({
+          dialect: new BunSqliteDialect({
+            database: new BunSqliteDatabase(config.mainDb.filename),
+          }),
+        })
+      );
+    })
+  );
+}

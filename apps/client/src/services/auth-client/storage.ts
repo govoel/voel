@@ -55,6 +55,19 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
     }),
   }
 ) {
+  public static readonly layer = Layer.unwrap(
+    Effect.gen(function* () {
+      const SecureStore = yield* Effect.promise(async () => import('expo-secure-store'));
+      return Layer.effect(
+        AuthClientStorage,
+        AuthClientStorage.make({
+          getItem: SecureStore.getItem,
+          setItem: SecureStore.setItem,
+        })
+      );
+    })
+  );
+
   public static readonly layerTest = Layer.effect(
     this,
     Effect.sync(() => new Map<string, string>()).pipe(

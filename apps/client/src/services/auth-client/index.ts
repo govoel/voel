@@ -3,7 +3,7 @@ import { Duration, Effect, Schema } from 'effect';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import { XxHash } from '#src/services/native.ts';
+import type { XxHash } from '#src/services/native.ts';
 
 export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass<
   BetterAuthClientInitializationError,
@@ -19,13 +19,14 @@ export const createVoelAuthClient = ({
   serverUrl,
   authStorageId,
   storage,
+  xxHash,
 }: {
   readonly serverUrl: NonNullable<Parameters<typeof createAuthClient>[0]['baseURL']>;
   readonly authStorageId: string;
   readonly storage: Parameters<typeof expoClient>[0]['storage'];
+  readonly xxHash: XxHash['Service'];
 }) =>
   Effect.gen(function* () {
-    const xxHash = yield* XxHash;
     const storagePrefix = yield* xxHash.hash128(`voel::auth::${serverUrl}::${authStorageId}`);
 
     return yield* Effect.try({

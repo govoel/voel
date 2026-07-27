@@ -61,8 +61,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
-      const makeAuthClient = (options: Parameters<typeof createVoelAuthClient>[0]) =>
-        createVoelAuthClient(options).pipe(Effect.provideService(XxHash, xxHash));
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -121,10 +119,11 @@ export class AccountManager extends Context.Service<AccountManager>()(
             const authClient = yield* Option.match(existingAuthClient, {
               onSome: Effect.succeed,
               onNone: () =>
-                makeAuthClient({
+                createVoelAuthClient({
                   serverUrl: activeAccount.serverUrl.toString(),
                   authStorageId: activeAccount.authStorageId,
                   storage: authClientStorage,
+                  xxHash,
                 }),
             });
 
@@ -369,10 +368,11 @@ export class AccountManager extends Context.Service<AccountManager>()(
         password: Redacted.Redacted;
       }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* makeAuthClient({
+        const authClient = yield* createVoelAuthClient({
           serverUrl,
           authStorageId,
           storage: authClientStorage,
+          xxHash,
         });
 
         const signInResult = yield* Effect.tryPromise({
@@ -414,13 +414,14 @@ export class AccountManager extends Context.Service<AccountManager>()(
           >['0'],
           'name' | 'email'
         > & {
-          password: Redacted.Redacted;
+        password: Redacted.Redacted;
         }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* makeAuthClient({
+        const authClient = yield* createVoelAuthClient({
           serverUrl,
           authStorageId,
           storage: authClientStorage,
+          xxHash,
         });
 
         const signUpResult = yield* Effect.tryPromise({

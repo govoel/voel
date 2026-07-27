@@ -8,7 +8,7 @@ import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
-import { CommonExpoLayers } from '#src/services/layers.expo.ts';
+import { CommonClientLayers } from '#src/services/layers.ts';
 
 const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
   AuthMiddleware,
@@ -49,6 +49,6 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
       })
     ).pipe(
       Layer.provideMerge(Layer.mergeAll(AuthMiddlewareClientLive, RpcSerialization.layerMsgPack)),
-      Layer.provide(CommonExpoLayers)
+      Layer.provide(CommonClientLayers)
     ),
 }) {}

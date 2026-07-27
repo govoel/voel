@@ -1,10 +1,6 @@
-import BunSqliteDatabase from 'bun:sqlite';
-
 import { vi } from '@effect/vitest';
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
-
-import { BunSqliteDialect } from '@repo/effect-kysely/dialect.ts';
 
 import type { AccountManager } from '#src/services/accounts/index.ts';
 import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
@@ -16,17 +12,9 @@ import { CommonGlobalLayers } from '#src/services/layers.ts';
 import { UuidGenerator, XxHash } from '#src/services/native.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
-const makeMainDatabaseTest = () =>
-  Layer.effect(
-    MainDatabase,
-    MainDatabase.make({
-      dialect: new BunSqliteDialect({ database: new BunSqliteDatabase(':memory:') }),
-    })
-  );
-
 export const makeClientTestLayers = () =>
   CommonGlobalLayers.pipe(
-    Layer.provideMerge(makeMainDatabaseTest()),
+    Layer.provideMerge(MainDatabase.layerTest),
     Layer.provideMerge(
       Layer.mergeAll(
         AuthClientStorage.layerTest,
@@ -70,16 +58,18 @@ export const makeAuthClient = ({
   Option.Option.Value<Effect.Success<(typeof AccountManager.Service)['state']>>['account'],
   'serverUrl'
 >) =>
-  UuidGenerator.pipe(
-    Effect.flatMap((uuidGenerator) => uuidGenerator.v4),
-    Effect.flatMap((authStorageId) =>
-      createVoelAuthClient({
-        serverUrl,
-        authStorageId,
-        storage: makeAuthClientStorage(),
-      })
-    )
-  );
+  Effect.gen(function* () {
+    const uuidGenerator = yield* UuidGenerator;
+    const xxHash = yield* XxHash;
+    const authStorageId = yield* uuidGenerator.v4;
+
+    return yield* createVoelAuthClient({
+      serverUrl,
+      authStorageId,
+      storage: makeAuthClientStorage(),
+      xxHash,
+    });
+  });
 
 interface TestServer<UserCount extends number> {
   readonly adminUsername: TestAccount['username'];

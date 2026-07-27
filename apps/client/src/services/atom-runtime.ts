@@ -1,11 +1,5 @@
-import { Effect, Layer } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-const CommonExpoLayers = Layer.unwrap(
-  Effect.promise(async () => {
-    const layers = await import('#src/services/layers.expo.ts');
-    return layers.CommonExpoLayers;
-  })
-);
+import { CommonClientLayers } from '#src/services/layers.ts';
 
-export const AppRuntime = Atom.runtime(CommonExpoLayers);
+export const AppRuntime = Atom.runtime(CommonClientLayers);
