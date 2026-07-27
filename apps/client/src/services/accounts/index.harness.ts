@@ -3,7 +3,7 @@ import { hash128 } from 'react-native-xxhash';
 
 import { describe, expect, it } from '@repo/effect-react-native-harness';
 
-import { UserProfileUpdate } from '#src/app/accounts/profile/index.ts';
+import { UserProfileUpdateInput } from '#src/app/accounts/profile/index.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
@@ -97,7 +97,7 @@ describe('AccountManager', () => {
   );
 
   class ParsedCookie extends Schema.Class<ParsedCookie, { readonly brand: unique symbol }>(
-    'ParsedCookie'
+    'voel/services/accounts/index.harness/ParsedCookie'
   )({
     'auth.session_token': Schema.Struct({ value: Schema.String }),
   }) {
@@ -322,7 +322,7 @@ describe('AccountManager', () => {
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
           yield* currentAuthClient.updateUser(
-            new UserProfileUpdate({
+            new UserProfileUpdateInput({
               name: 'Updated Admin',
               username: updatedUsername,
             })

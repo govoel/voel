@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 
 import { Kysely, ParseJSONResultsPlugin, makeFromKysely, sql } from '@repo/effect-kysely';
 import type { Dialect, EffectKysely } from '@repo/effect-kysely';
@@ -6,11 +6,6 @@ import type { Dialect, EffectKysely } from '@repo/effect-kysely';
 import { OpSqliteDialect } from '#src/services/database/dialect.ts';
 import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts';
 import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
-
-export class ClientDatabaseMigrationError extends Schema.TaggedErrorClass<
-  ClientDatabaseMigrationError,
-  { readonly brand: unique symbol }
->()('voel/services/database/main/index/ClientDatabaseMigrationError', {}) {}
 
 export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<MainDatabaseTables>>()(
   'voel/services/database/main/index/MainDatabase',

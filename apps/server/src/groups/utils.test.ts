@@ -4,7 +4,11 @@ import { Effect, Layer, Option } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
 
 import { sql } from '@repo/effect-kysely';
-import { AuthMiddleware, CurrentSession, Unauthorized } from '@repo/spec-api/middlewares/auth.ts';
+import {
+  AuthMiddleware,
+  CurrentSession,
+  UnauthorizedError,
+} from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlers } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
@@ -157,11 +161,11 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
 
                   const session = yield* Effect.tryPromise({
                     try: async () => auth.api.getSession({ headers }),
-                    catch: () => new Unauthorized({}),
+                    catch: () => new UnauthorizedError({}),
                   });
 
                   if (session === null) {
-                    return yield* new Unauthorized({});
+                    return yield* new UnauthorizedError({});
                   }
 
                   return yield* Effect.provideService(httpEffect, CurrentSession, session);

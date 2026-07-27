@@ -4,8 +4,8 @@ import { useAppForm } from '#src/components/form';
 import { signInAccountAtom } from '#src/services/accounts/atoms.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 
-class AddAccountSchema extends Schema.Class<AddAccountSchema, { readonly brand: unique symbol }>(
-  'voel/app/accounts/AddAccountSchema'
+class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: unique symbol }>(
+  'voel/app/accounts/add/index/AddAccountInput'
 )({
   serverUrl: Account.fields.serverUrl.check(
     Schema.makeFilter((s) => (URL.canParse(s) ? true : 'Server URL must be a valid URL'))
@@ -21,19 +21,18 @@ class AddAccountSchema extends Schema.Class<AddAccountSchema, { readonly brand: 
 
 export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({
-    schema: AddAccountSchema,
+    schema: AddAccountInput,
     mutation: signInAccountAtom,
     defaultValues: { serverUrl: '', username: '', password: '' },
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
-          'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
+          BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
-          'voel/services/accounts/index/AccountSignInError': (signInError) =>
-            signInError.original.message ??
+          AccountSignInError: (signInError) =>
+            signInError.details.message ??
             'Failed to sign in. Check your credentials and try again.',
-          'voel/services/accounts/index/AccountDatabaseError': () =>
-            'A database error occurred. Try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),
     onSuccess: async ({ formApi }) => {

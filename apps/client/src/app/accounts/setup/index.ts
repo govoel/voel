@@ -4,10 +4,10 @@ import { useAppForm } from '#src/components/form';
 import { setupServerWithAccountAtom } from '#src/services/accounts/atoms.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 
-export class SetupServerAccountSchema extends Schema.Class<
-  SetupServerAccountSchema,
+export class SetupServerAccountInput extends Schema.Class<
+  SetupServerAccountInput,
   { readonly brand: unique symbol }
->('voel/app/accounts/SetupServerAccountSchema')({
+>('voel/app/accounts/setup/index/SetupServerAccountInput')({
   serverUrl: Account.fields.serverUrl.check(
     Schema.makeFilter((s) => (URL.canParse(s) ? true : 'Server URL must be a valid URL'))
   ),
@@ -24,19 +24,18 @@ export class SetupServerAccountSchema extends Schema.Class<
 
 export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({
-    schema: SetupServerAccountSchema,
+    schema: SetupServerAccountInput,
     mutation: setupServerWithAccountAtom,
     defaultValues: { serverUrl: '', name: '', email: '', username: '', password: '' },
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
-          'voel/services/auth-client/index/BetterAuthClientInitializationError': () =>
+          BetterAuthClientInitializationError: () =>
             'Unexpected error during account setup. Try again.',
-          'voel/services/accounts/index/AccountSignUpError': (signUpError) =>
-            signUpError.original.message ??
+          AccountSignUpError: (signUpError) =>
+            signUpError.details.message ??
             'Failed to create the account. Check the server and try again.',
-          'voel/services/accounts/index/AccountDatabaseError': () =>
-            'A database error occurred. Try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),
     onSuccess: async ({ formApi }) => {
