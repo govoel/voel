@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { vi } from 'vitest';
 
-import { UserProfileUpdate } from '#src/app/accounts/profile/model.ts';
+import { UserProfileUpdateInput } from '#src/app/accounts/profile/model.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
@@ -340,7 +340,7 @@ describe('AccountManager', () => {
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
           yield* currentAuthClient.updateUser(
-            new UserProfileUpdate({
+            new UserProfileUpdateInput({
               name: 'Updated Admin',
               username: updatedUsername,
             })
