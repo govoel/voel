@@ -52,24 +52,23 @@ export const makeUsername = (prefix = 'test.user') =>
     Effect.map((suffix) => Account.fields.username.make(`${prefix}.${Math.abs(suffix)}`))
   );
 
-export const makeAuthClient = ({
+export const makeAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
 }: Pick<
   Option.Option.Value<Effect.Success<(typeof AccountManager.Service)['state']>>['account'],
   'serverUrl'
->) =>
-  Effect.gen(function* () {
-    const uuidGenerator = yield* UuidGenerator;
-    const xxHash = yield* XxHash;
-    const authStorageId = yield* uuidGenerator.v4;
+>) {
+  const uuidGenerator = yield* UuidGenerator;
+  const xxHash = yield* XxHash;
+  const authStorageId = yield* uuidGenerator.v4;
 
-    return yield* createVoelAuthClient({
-      serverUrl,
-      authStorageId,
-      storage: makeAuthClientStorage(),
-      xxHash,
-    });
+  return yield* createVoelAuthClient({
+    serverUrl,
+    authStorageId,
+    storage: makeAuthClientStorage(),
+    xxHash,
   });
+});
 
 interface TestServer<UserCount extends number> {
   readonly adminUsername: TestAccount['username'];

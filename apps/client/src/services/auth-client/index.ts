@@ -31,7 +31,7 @@ export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass
   }
 ) {}
 
-export const createVoelAuthClient = ({
+export const createVoelAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
   authStorageId,
   storage,
@@ -41,27 +41,26 @@ export const createVoelAuthClient = ({
   readonly authStorageId: string;
   readonly storage: Parameters<typeof expoClient>[0]['storage'];
   readonly xxHash: XxHash['Service'];
-}) =>
-  Effect.gen(function* () {
-    const storagePrefix = yield* xxHash.hash128(`voel::auth::${serverUrl}::${authStorageId}`);
+}) {
+  const storagePrefix = yield* xxHash.hash128(`voel::auth::${serverUrl}::${authStorageId}`);
 
-    return yield* Effect.try({
-      try: () =>
-        createAuthClient({
-          baseURL: serverUrl,
-          plugins: [
-            expoClient({
-              storage,
-              storagePrefix,
-              cookiePrefix: 'auth',
-            }),
-          ],
-          sessionOptions: {
-            refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
-          },
-        }),
-      catch: (error) => new BetterAuthClientInitializationError({ error }),
-    });
+  return yield* Effect.try({
+    try: () =>
+      createAuthClient({
+        baseURL: serverUrl,
+        plugins: [
+          expoClient({
+            storage,
+            storagePrefix,
+            cookiePrefix: 'auth',
+          }),
+        ],
+        sessionOptions: {
+          refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
+        },
+      }),
+    catch: (error) => new BetterAuthClientInitializationError({ error }),
   });
+});
 
 export type VoelAuthClient = Effect.Success<ReturnType<typeof createVoelAuthClient>>;
