@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { vi } from 'vitest';
 
-import { UserProfileUpdateInput } from '#src/app/accounts/profile/model.ts';
+import { UserProfileUpdateInput } from '#src/services/accounts/atoms.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';

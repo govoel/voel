@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 
-import { UserProfileUpdateInput } from '#src/app/accounts/profile/model.ts';
 import { FormSubmitError, useAppForm } from '#src/components/form';
+import { UserProfileUpdateInput } from '#src/services/accounts/atoms.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { Runtime } from '#src/services/runtime.ts';
 
