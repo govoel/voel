@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "effect": "4.0.0-beta.97",
-    "kysely": "0.29.3"
+    "kysely": "0.29.4"
   },
   "devDependencies": {
     "@effect/language-service": "0.86.6",
