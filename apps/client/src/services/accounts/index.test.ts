@@ -1,6 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
-import { vi } from 'vitest';
 
 import { UserProfileUpdateInput } from '#src/services/accounts/atoms.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
@@ -19,20 +18,6 @@ import {
   setupTestServerWithUsers,
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
-
-vi.mock('react-native', () => ({
-  AppState: { addEventListener: () => ({ remove: () => void 0 }) },
-  Platform: { OS: 'ios' },
-}));
-vi.mock('expo-constants', () => ({
-  default: { expoConfig: { scheme: 'voel' }, platform: { scheme: 'voel' } },
-}));
-vi.mock('expo-linking', () => ({
-  createURL: (path: string) => `voel://${path}`,
-}));
-vi.mock('expo-network', () => ({
-  addNetworkStateListener: () => ({ remove: () => void 0 }),
-}));
 
 const getAccounts = MainDatabase.pipe(
   Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll().orderBy('username')))

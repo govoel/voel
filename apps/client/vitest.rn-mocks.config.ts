@@ -14,6 +14,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     hookTimeout: 120_000,
+    setupFiles: ['./vitest.rn-mocks.setup.ts'],
     testTimeout: 120_000,
     server: {
       deps: {
