@@ -23,7 +23,7 @@
         "@babel/runtime": "7.29.7",
         "@better-auth/expo": "1.6.23",
         "@effect/atom-react": "4.0.0-beta.97",
-        "@expo-google-fonts/google-sans": "0.4.0",
+        "@expo-google-fonts/google-sans": "0.4.2",
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~57.0.4",
         "@op-engineering/op-sqlite": "17.1.2",
@@ -462,7 +462,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.2", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A=="],
 
-    "@expo-google-fonts/google-sans": ["@expo-google-fonts/google-sans@0.4.0", "", {}, "sha512-jKlPbtTbYSW0bn9uSuAT6bVPHCmAiWfF+hdvZMYfXXGqlnDB3b7JPoGwaUxa2RB/RxCwaGM3W7zinDGY9WAsGA=="],
+    "@expo-google-fonts/google-sans": ["@expo-google-fonts/google-sans@0.4.2", "", {}, "sha512-w+GG24RDAVlOY9nBPRaZTmLmYZl3gyhvg5b+LAmj8IKYPBfiNudvm2ZKHCTyICtvCMfdUZMixwM8EM0tKOmUYQ=="],
 
     "@expo-google-fonts/material-symbols": ["@expo-google-fonts/material-symbols@0.4.38", "", {}, "sha512-IJkBtN1o8u9BW5fvSii1MyHPQ7Q0HxbWcVBvOrOzgMLpVtZw7R2w94wBTVR7kZwv3w1JNTESMmLA5Sqn1+Z36A=="],
 

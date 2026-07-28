@@ -18,7 +18,7 @@
     "@babel/runtime": "7.29.7",
     "@better-auth/expo": "1.6.23",
     "@effect/atom-react": "4.0.0-beta.97",
-    "@expo-google-fonts/google-sans": "0.4.0",
+    "@expo-google-fonts/google-sans": "0.4.2",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~57.0.4",
     "@op-engineering/op-sqlite": "17.1.2",
