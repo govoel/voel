@@ -14,7 +14,7 @@
     "ios:prod": "RELEASE_CHANNEL=prod expo run:ios"
   },
   "dependencies": {
-    "@better-auth/expo": "1.6.23",
+    "@better-auth/expo": "1.6.25",
     "@effect/atom-react": "4.0.0-beta.102",
     "@expo-google-fonts/google-sans": "0.4.2",
     "@expo/material-symbols": "0.1.1",
@@ -24,7 +24,7 @@
     "@repo/effect-kysely": "workspace:*",
     "@repo/spec-api": "workspace:*",
     "@tanstack/react-form": "1.33.2",
-    "better-auth": "1.6.23",
+    "better-auth": "1.6.25",
     "effect": "4.0.0-beta.102",
     "expo": "~57.0.8",
     "expo-build-properties": "~57.0.7",
