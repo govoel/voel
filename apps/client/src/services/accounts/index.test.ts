@@ -1,7 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 
-import { UserProfileUpdateInput } from '#src/services/accounts/atoms.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { XxHash } from '#src/services/auth-client/index.ts';
@@ -324,12 +323,10 @@ describe('AccountManager', () => {
           });
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          yield* currentAuthClient.updateUser(
-            new UserProfileUpdateInput({
-              name: 'Updated Admin',
-              username: updatedUsername,
-            })
-          );
+          yield* currentAuthClient.updateUser({
+            name: 'Updated Admin',
+            username: updatedUsername,
+          });
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState);

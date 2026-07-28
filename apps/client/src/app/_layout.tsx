@@ -3,8 +3,8 @@ import { Host, ProgressView } from '@expo/ui/swift-ui';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter.tsx';
-import { accountsSheetAtom } from '#src/services/accounts/atoms.ts';
+import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';
+import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { AppRegistry } from '#src/services/registry.ts';
 
 export const SuspenseFallback = () => (

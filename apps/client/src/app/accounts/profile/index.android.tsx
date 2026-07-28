@@ -14,12 +14,11 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeUserProfileAtom } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn

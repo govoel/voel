@@ -1,7 +1,59 @@
-import { Match } from 'effect';
+import { Effect, Match, Option, Schema } from 'effect';
+import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
-import { UserProfileUpdateInput, updateCurrentUserAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
+import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
+import { AccountRole } from '#src/services/database/main/schema.ts';
+import { AppRuntime } from '#src/services/runtime.ts';
+
+export class UserProfileUpdateInput extends Schema.Class<
+  UserProfileUpdateInput,
+  { readonly brand: unique symbol }
+>('voel/app/accounts/profile/index/UserProfileUpdateInput')({
+  name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
+  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+}) {}
+
+export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
+  Atom.map((result) =>
+    AsyncResult.flatMap(
+      // oxlint-disable-next-line unicorn/no-array-method-this-argument
+      result,
+      Option.match({
+        onNone: () => AsyncResult.success(Option.none()),
+        onSome: (sessionState) => {
+          if (sessionState.data === null) {
+            return sessionState.isPending
+              ? AsyncResult.initial(true)
+              : AsyncResult.fail('ActiveUserProfileUnavailable' as const);
+          }
+
+          const { user } = sessionState.data;
+          if (user.username === null || user.username === void 0) {
+            return AsyncResult.fail('ActiveUserProfileUnavailable' as const);
+          }
+
+          return AsyncResult.success(
+            Option.some({
+              email: user.email,
+              id: user.id,
+              name: user.name,
+              role: AccountRole.formatFromNullishString(user.role),
+              username: user.username,
+            }),
+            { waiting: sessionState.isPending || sessionState.isRefetching }
+          );
+        },
+      })
+    )
+  )
+);
+
+const updateCurrentUserAtom = AppRuntime.fn(
+  (input: Parameters<typeof CurrentAuthClient.Service.updateUser>[0]) =>
+    CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.updateUser(input)))
+);
 
 export const useUserProfileForm = ({
   onSuccess,
