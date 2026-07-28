@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomSuspense, useAtomValue } from '@effect/atom-react';
+import { useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
@@ -23,7 +23,7 @@ import { useRef, useState } from 'react';
 import {
   accountsWithActiveAccount,
   activeAccountLiteral,
-  removeAccountAtom,
+  useRemoveAccountForm,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
 import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
@@ -58,6 +58,52 @@ const StackNavigationRow = ({
   </SegmentedListItem>
 );
 
+const RemoveAccountConfirmation = ({
+  account,
+  onDismiss,
+}: {
+  readonly account: {
+    readonly serverUrl: string;
+    readonly userId: string;
+    readonly username: string;
+  };
+  readonly onDismiss: () => void;
+}) => {
+  const colors = useMaterialColors({ seedColor: '#00AAFF' });
+  const form = useRemoveAccountForm({
+    defaultValues: { serverUrl: account.serverUrl, userId: account.userId },
+    onSuccess: async () => {
+      onDismiss();
+    },
+  });
+
+  return (
+    <form.AppForm>
+      <AlertDialog onDismissRequest={onDismiss}>
+        <AlertDialog.Title>
+          <Text>Remove account from this device?</Text>
+        </AlertDialog.Title>
+        <AlertDialog.Text>
+          <Text>
+            This will sign you out and remove all data associated with @{account.username} on{' '}
+            {account.serverUrl} from this device.
+          </Text>
+        </AlertDialog.Text>
+        <AlertDialog.ConfirmButton>
+          <form.SubmitButton>
+            <Text color={colors.error}>Remove</Text>
+          </form.SubmitButton>
+        </AlertDialog.ConfirmButton>
+        <AlertDialog.DismissButton>
+          <TextButton onClick={onDismiss}>
+            <Text>Cancel</Text>
+          </TextButton>
+        </AlertDialog.DismissButton>
+      </AlertDialog>
+    </form.AppForm>
+  );
+};
+
 export default function AccountsScreen() {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
 
@@ -68,7 +114,6 @@ export default function AccountsScreen() {
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   const [isRemoveConfirmationPresented, setIsRemoveConfirmationPresented] = useState(false);
-  const removeAccountMutation = useAtomSet(removeAccountAtom);
 
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
@@ -202,47 +247,12 @@ export default function AccountsScreen() {
             </Column>
 
             {isRemoveConfirmationPresented ? (
-              <AlertDialog
-                onDismissRequest={() => {
+              <RemoveAccountConfirmation
+                account={accounts.value.activeAccount.value.account}
+                onDismiss={() => {
                   setIsRemoveConfirmationPresented(false);
-                }}>
-                <AlertDialog.Title>
-                  <Text>Remove account from this device?</Text>
-                </AlertDialog.Title>
-                <AlertDialog.Text>
-                  <Text>
-                    This will sign you out and remove all data associated with @
-                    {accounts.value.activeAccount.value.account.username} on{' '}
-                    {accounts.value.activeAccount.value.account.serverUrl.toString()} from this
-                    device.
-                  </Text>
-                </AlertDialog.Text>
-                <AlertDialog.ConfirmButton>
-                  <TextButton
-                    onClick={() => {
-                      if (
-                        AsyncResult.isSuccess(accounts) &&
-                        Option.isSome(accounts.value.activeAccount)
-                      ) {
-                        removeAccountMutation({
-                          serverUrl: accounts.value.activeAccount.value.account.serverUrl,
-                          userId: accounts.value.activeAccount.value.account.userId,
-                        });
-                      }
-                      setIsRemoveConfirmationPresented(false);
-                    }}>
-                    <Text color={colors.error}>Remove</Text>
-                  </TextButton>
-                </AlertDialog.ConfirmButton>
-                <AlertDialog.DismissButton>
-                  <TextButton
-                    onClick={() => {
-                      setIsRemoveConfirmationPresented(false);
-                    }}>
-                    <Text>Cancel</Text>
-                  </TextButton>
-                </AlertDialog.DismissButton>
-              </AlertDialog>
+                }}
+              />
             ) : null}
           </>
         ) : null}

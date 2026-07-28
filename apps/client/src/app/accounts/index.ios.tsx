@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import { Host, Icon } from '@expo/ui';
 import {
   Alert,
@@ -30,7 +30,7 @@ import { useState } from 'react';
 import {
   accountsWithActiveAccount,
   activeAccountLiteral,
-  removeAccountAtom,
+  useRemoveAccountForm,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
 import { Text } from '#src/components/text';
@@ -57,6 +57,59 @@ const StackNavigationRow = ({ title, href }: { readonly title: string; readonly 
   </Button>
 );
 
+const RemoveAccountAlert = ({
+  account,
+  isPresented,
+  onIsPresentedChange,
+}: {
+  readonly account: {
+    readonly serverUrl: string;
+    readonly userId: string;
+    readonly username: string;
+  };
+  readonly isPresented: boolean;
+  readonly onIsPresentedChange: (isPresented: boolean) => void;
+}) => {
+  const form = useRemoveAccountForm({
+    defaultValues: { serverUrl: account.serverUrl, userId: account.userId },
+    onSuccess: async () => {
+      onIsPresentedChange(false);
+    },
+  });
+
+  return (
+    <form.AppForm>
+      <Alert
+        title="Remove account from this device?"
+        isPresented={isPresented}
+        onIsPresentedChange={onIsPresentedChange}>
+        <Alert.Trigger>
+          <Button
+            label="Remove account from this device"
+            role="destructive"
+            onPress={() => {
+              form.reset();
+              onIsPresentedChange(true);
+            }}
+          />
+        </Alert.Trigger>
+        <Alert.Actions>
+          <form.SubmitButton platformProps={{ ios: { role: 'destructive' } }}>
+            <Text>Remove</Text>
+          </form.SubmitButton>
+          <Button label="Cancel" role="cancel" />
+        </Alert.Actions>
+        <Alert.Message>
+          <Text>
+            This will sign you out and remove all data associated with @{account.username} on{' '}
+            {account.serverUrl} from this device.
+          </Text>
+        </Alert.Message>
+      </Alert>
+    </form.AppForm>
+  );
+};
+
 export default function AccountsScreen() {
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
@@ -65,7 +118,6 @@ export default function AccountsScreen() {
 
   const [isRemoveAccountConfirmationPresented, setIsRemoveAccountConfirmationPresented] =
     useState(false);
-  const removeAccountMutation = useAtomSet(removeAccountAtom);
 
   return (
     <>
@@ -154,47 +206,12 @@ export default function AccountsScreen() {
                   <StackNavigationRow title="Profile" href="/accounts/profile" />
                   <StackNavigationRow title="Settings" href="/accounts/settings" />
 
-                  <Alert
-                    title="Remove account from this device?"
+                  <RemoveAccountAlert
+                    key={`${accounts.value.activeAccount.value.account.serverUrl}-${accounts.value.activeAccount.value.account.userId}`}
+                    account={accounts.value.activeAccount.value.account}
                     isPresented={isRemoveAccountConfirmationPresented}
-                    onIsPresentedChange={setIsRemoveAccountConfirmationPresented}>
-                    <Alert.Trigger>
-                      <Button
-                        label="Remove account from this device"
-                        role="destructive"
-                        onPress={() => {
-                          setIsRemoveAccountConfirmationPresented(true);
-                        }}
-                      />
-                    </Alert.Trigger>
-                    <Alert.Actions>
-                      <Button
-                        label="Remove"
-                        role="destructive"
-                        onPress={() => {
-                          if (
-                            AsyncResult.isSuccess(accounts) &&
-                            Option.isSome(accounts.value.activeAccount)
-                          ) {
-                            removeAccountMutation({
-                              serverUrl: accounts.value.activeAccount.value.account.serverUrl,
-                              userId: accounts.value.activeAccount.value.account.userId,
-                            });
-                          }
-                          setIsRemoveAccountConfirmationPresented(false);
-                        }}
-                      />
-                      <Button label="Cancel" role="cancel" />
-                    </Alert.Actions>
-                    <Alert.Message>
-                      <Text>
-                        This will sign you out and remove all data associated with @
-                        {accounts.value.activeAccount.value.account.username} on{' '}
-                        {accounts.value.activeAccount.value.account.serverUrl.toString()} from this
-                        device.
-                      </Text>
-                    </Alert.Message>
-                  </Alert>
+                    onIsPresentedChange={setIsRemoveAccountConfirmationPresented}
+                  />
                 </Section>
 
                 <Section

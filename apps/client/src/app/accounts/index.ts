@@ -1,6 +1,7 @@
 import { useAtom } from '@effect/atom-react';
-import { Effect, Exit, Option } from 'effect';
+import { Effect, Exit, Match, Option, Schema } from 'effect';
 
+import { useAppForm } from '#src/components/form';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -15,6 +16,44 @@ export const removeAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.removeAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(input)))
 );
+
+class RemoveAccountInput extends Schema.Class<
+  RemoveAccountInput,
+  { readonly brand: unique symbol }
+>('voel/app/accounts/index/RemoveAccountInput')({
+  serverUrl: Account.fields.serverUrl,
+  userId: Account.fields.userId,
+}) {}
+
+export const useRemoveAccountForm = ({
+  defaultValues,
+  onSuccess,
+}: {
+  readonly defaultValues: typeof RemoveAccountInput.Encoded;
+  readonly onSuccess: () => Promise<void>;
+}) => {
+  const form = useAppForm({
+    schema: RemoveAccountInput,
+    mutation: removeAccountAtom,
+    defaultValues,
+    onFailure: ({ error }) =>
+      Match.value(error).pipe(
+        Match.tagsExhaustive({
+          BetterAuthClientInitializationError: () =>
+            'Unexpected error while removing the account. Try again.',
+          AccountSignOutError: (signOutError) =>
+            signOutError.details.message ?? 'Failed to sign out. Try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
+        })
+      ),
+    onSuccess: async ({ formApi }) => {
+      formApi.reset();
+      await onSuccess();
+    },
+  });
+
+  return form;
+};
 
 export const accountsWithActiveAccount = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {

@@ -365,13 +365,15 @@ export class AccountManager extends Context.Service<AccountManager>()(
         SubscriptionRef.modifyEffect(
           stateRef,
           Effect.fnUntraced(function* (state) {
-            const account = yield* db.executeTakeFirstOption(
-              db
-                .selectFrom('account')
-                .selectAll()
-                .where('serverUrl', '=', serverUrl)
-                .where('userId', '=', userId)
-            );
+            const account = yield* db
+              .executeTakeFirstOption(
+                db
+                  .selectFrom('account')
+                  .selectAll()
+                  .where('serverUrl', '=', serverUrl)
+                  .where('userId', '=', userId)
+              )
+              .pipe(Effect.mapError(() => new AccountDatabaseError()));
             if (Option.isNone(account)) {
               return [void 0, state] as const;
             }
@@ -410,7 +412,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   .where('serverUrl', '=', serverUrl)
                   .where('userId', '=', userId)
               )
-              .pipe(Reactivity.mutation(['account']));
+              .pipe(
+                Reactivity.mutation(['account']),
+                Effect.mapError(() => new AccountDatabaseError())
+              );
 
             if (Option.isSome(activeAccountState)) {
               yield* Scope.close(activeAccountState.value.state.scope, Exit.void);
