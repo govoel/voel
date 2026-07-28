@@ -2,7 +2,7 @@ import { Effect, Option, Schema, Stream } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { CurrentAuthClient } from '#src/services/auth-client/current';
-import { AppRuntime } from '#src/services/registry';
+import { AppRuntime } from '#src/services/runtime.ts';
 
 export class ServerUser extends Schema.Class<ServerUser, { readonly brand: unique symbol }>(
   'voel/app/accounts/server/users/index/ServerUser'

@@ -1,11 +1,10 @@
+import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
-import { hash128 } from 'react-native-xxhash';
 
-import { describe, expect, it } from '@repo/effect-react-native-harness';
-
-import { UserProfileUpdateInput } from '#src/app/accounts/profile/index.ts';
+import { UserProfileUpdateInput } from '#src/services/accounts/atoms.ts';
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
+import { XxHash } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -97,7 +96,7 @@ describe('AccountManager', () => {
   );
 
   class ParsedCookie extends Schema.Class<ParsedCookie, { readonly brand: unique symbol }>(
-    'voel/services/accounts/index.harness/ParsedCookie'
+    'voel/services/accounts/index.test/ParsedCookie'
   )({
     'auth.session_token': Schema.Struct({ value: Schema.String }),
   }) {
@@ -106,7 +105,7 @@ describe('AccountManager', () => {
     );
   }
 
-  it.layer(TestServerControllerClient.layer)('authentication', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('authentication', (iit) => {
     iit.effect(
       'persists auth cookies through AuthClientStorage',
       Effect.fnUntraced(
@@ -126,9 +125,11 @@ describe('AccountManager', () => {
 
           const persistedAccount = Option.getOrThrow(yield* manager.state).account;
           const storage = yield* AuthClientStorage;
-          const storedCookie = yield* storage.getItem(
-            `${hash128(`voel::auth::${serverUrl}::${persistedAccount.authStorageId}`)}_cookie`
+          const xxHash = yield* XxHash;
+          const storagePrefix = yield* xxHash.hash128(
+            `voel::auth::${serverUrl}::${persistedAccount.authStorageId}`
           );
+          const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
 
           expect(storedCookie.valueOrUndefined).toContain('auth.session_token');
 
@@ -277,9 +278,11 @@ describe('AccountManager', () => {
           ]);
 
           const storage = yield* AuthClientStorage;
-          const storedCookie = yield* storage.getItem(
-            `${hash128(`voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`)}_cookie`
+          const xxHash = yield* XxHash;
+          const storagePrefix = yield* xxHash.hash128(
+            `voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`
           );
+          const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
           const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
             storedCookie.valueOrUndefined
           );
@@ -410,7 +413,7 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layer)('setActiveAccount', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('setActiveAccount', (iit) => {
     iit.effect(
       'fails when the account does not exist',
       Effect.fnUntraced(
@@ -643,7 +646,7 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layer)('removeAccount', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('removeAccount', (iit) => {
     iit.effect(
       'leaves active state unchanged when removing an inactive account',
       Effect.fnUntraced(

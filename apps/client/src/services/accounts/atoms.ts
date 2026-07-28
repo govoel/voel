@@ -1,11 +1,19 @@
-import { Effect, Option, Queue, Stream } from 'effect';
+import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
-import { AppRuntime } from '#src/services/registry.ts';
+import { AppRuntime } from '#src/services/runtime.ts';
+
+export class UserProfileUpdateInput extends Schema.Class<
+  UserProfileUpdateInput,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/atoms/UserProfileUpdateInput')({
+  name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
+  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
+}) {}
 
 export const accountsAtom = AppRuntime.atom(
   Effect.service(MainDatabase).pipe(

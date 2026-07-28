@@ -7,7 +7,7 @@ import {
   setActiveAccountAtom,
 } from '#src/services/accounts/atoms.ts';
 import { Account } from '#src/services/database/main/schema.ts';
-import { AppRuntime } from '#src/services/registry.ts';
+import { AppRuntime } from '#src/services/runtime.ts';
 
 export const accountsWithActiveAccount = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {

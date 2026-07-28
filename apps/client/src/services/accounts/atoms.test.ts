@@ -1,7 +1,7 @@
+import { describe, expect, it } from '@effect/vitest';
 import { Context, Deferred, Effect, Layer, Option, Redacted } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
-
-import { describe, expect, it, spyOn } from '@repo/effect-react-native-harness';
+import { vi } from 'vitest';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import {
@@ -14,8 +14,7 @@ import { AccountManager } from '#src/services/accounts/index.ts';
 import { NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
-import type { CommonExpoLayers } from '#src/services/layers.ts';
-import { AppRuntime } from '#src/services/registry.ts';
+import { AppRuntime } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
   makeAuthClient,
@@ -28,7 +27,7 @@ import {
 } from '#src/services/testing/utils.ts';
 
 class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
-  'voel/services/accounts/atoms.harness/AtomTaskScheduler',
+  'voel/services/accounts/atoms.test/AtomTaskScheduler',
   {
     make: Effect.sync(() => {
       const scheduledTasks = new Set<() => void>();
@@ -83,7 +82,8 @@ class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
 
 const TestAccountsAtomsLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const services = yield* Effect.context<Layer.Success<typeof CommonExpoLayers>>();
+    const services =
+      yield* Effect.context<Layer.Success<ReturnType<typeof makeClientTestLayers>>>();
     const atomTaskScheduler = yield* AtomTaskScheduler;
     const registryLayer = AtomRegistry.layerOptions({
       initialValues: [Atom.initialValue(AppRuntime.layer, Layer.succeedContext(services))],
@@ -121,7 +121,7 @@ const waitForSessionRequest = (authClient: AuthClient) =>
     return Effect.sync(unsubscribe);
   });
 
-it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('accountsAtom', (iit) => {
   iit.effect(
     'reacts to account table mutations',
     Effect.fnUntraced(
@@ -193,7 +193,7 @@ describe('accountsSheetAtom', () => {
     )
   );
 
-  it.layer(TestServerControllerClient.layer)('with persisted accounts', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('with persisted accounts', (iit) => {
     iit.effect(
       'requires account selection and cannot be dismissed when no account is active',
       Effect.fnUntraced(
@@ -247,7 +247,7 @@ describe('accountsSheetAtom', () => {
             active: Account.fields.active.make(0),
           };
           yield* db.execute(db.insertInto('account').values(account));
-          const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+          const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
               throw new Error(`Unexpected request: ${requestUrl.toString()}`);
@@ -311,7 +311,7 @@ describe('accountsSheetAtom', () => {
           };
           yield* db.execute(db.insertInto('account').values(account));
           const getSessionResponse = yield* Deferred.make<Response, Error>();
-          const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+          const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
               throw new Error(`Unexpected request: ${requestUrl.toString()}`);
@@ -352,7 +352,7 @@ describe('accountsSheetAtom', () => {
   });
 });
 
-it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessions', (iit) => {
   iit.effect(
     'stays idle and dismissable when the session is valid',
     Effect.fnUntraced(
@@ -427,7 +427,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
   );
 });
 
-it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('listUsersAtom', (iit) => {
   iit.effect(
     'fails with NoCurrentAuthClientError without an active auth client',
     Effect.fnUntraced(
@@ -512,7 +512,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   );
 });
 
-it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('activeAccountAtom', (iit) => {
   iit.effect(
     'reflects an account created by AccountManager',
     Effect.fnUntraced(
@@ -553,7 +553,7 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
   );
 });
 
-it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('activeAccountSessionAtom', (iit) => {
   iit.effect(
     'subscribes to authClient.useSession and unsubscribes on account change',
     Effect.fnUntraced(function* () {
