@@ -88,7 +88,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
-      const authClientStorageService = yield* AuthClientStorage;
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -403,17 +402,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
                 details: new BetterAuthErrorDetails(signOutResult.error),
               });
             }
-
-            const storagePrefix = yield* xxHash.hash128(
-              `voel::auth::${account.value.serverUrl}::${account.value.authStorageId}`
-            );
-            yield* Effect.all(
-              [
-                authClientStorageService.removeItem(`${storagePrefix}_cookie`),
-                authClientStorageService.removeItem(`${storagePrefix}_session_data`),
-              ],
-              { discard: true }
-            );
 
             yield* db
               .execute(

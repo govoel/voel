@@ -645,7 +645,7 @@ describe('AccountManager', () => {
 
   it.layer(TestServerControllerClient.layerNoDeps)('removeAccount', (iit) => {
     iit.effect(
-      'revokes the Better Auth session and removes its secure storage',
+      'revokes the Better Auth session and clears its secure storage',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
@@ -687,8 +687,10 @@ describe('AccountManager', () => {
             userId: account.userId,
           });
 
-          expect(Option.isNone(yield* storage.getItem(`${storagePrefix}_cookie`))).toBe(true);
-          expect(Option.isNone(yield* storage.getItem(`${storagePrefix}_session_data`))).toBe(true);
+          expect(yield* storage.getItem(`${storagePrefix}_cookie`)).toEqual(Option.some('{}'));
+          expect(yield* storage.getItem(`${storagePrefix}_session_data`)).toEqual(
+            Option.some('{}')
+          );
           const sessionAfterRemoval = yield* Effect.promise(async () =>
             verificationAuthClient.getSession({ query: { disableCookieCache: true } })
           );
