@@ -58,6 +58,14 @@
     "oxc/no-rest-spread-properties": "off",
     "oxc/no-map-spread": "off",
 
+    "react/function-component-definition": [
+      "error",
+      {
+        "namedComponents": ["arrow-function", "function-declaration"],
+        "unnamedComponents": "arrow-function"
+      }
+    ],
+
     "typescript/explicit-function-return-type": "off",
     "typescript/explicit-module-boundary-types": "off",
     "typescript/require-await": "off",
