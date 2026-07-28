@@ -1,13 +1,17 @@
 import { useAtomValue } from '@effect/atom-react';
 import {
+  Alert,
   BottomSheet,
   Button,
   Group,
+  HStack,
   Host,
   LabeledContent,
   List,
   ProgressView,
   Section,
+  Spacer,
+  Toggle,
   VStack,
   ZStack,
 } from '@expo/ui/swift-ui';
@@ -15,6 +19,7 @@ import {
   autocorrectionDisabled,
   buttonStyle,
   containerRelativeFrame,
+  disabled,
   foregroundStyle,
   frame,
   headerProminence,
@@ -22,6 +27,7 @@ import {
   padding,
   textContentType,
   textInputAutocapitalization,
+  tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
@@ -30,7 +36,15 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import {
+  activeUserProfileAtom,
+  activeUserSessionsAtom,
+  getUserSessionDetails,
+  getUserSessionTitle,
+  usePasswordResetForm,
+  useUserProfileForm,
+  useUserSessionActions,
+} from '#src/app/accounts/profile/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
@@ -94,6 +108,183 @@ const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProf
   );
 };
 
+const PasswordResetEditor = ({ onSuccess }: Parameters<typeof usePasswordResetForm>[0]) => {
+  const form = usePasswordResetForm({ onSuccess });
+
+  return (
+    <form.AppForm>
+      <ZStack alignment="bottom">
+        <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
+          <Section
+            header={
+              <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
+                Reset Password
+              </Text>
+            }>
+            <form.AppField name="currentPassword">
+              {(field) => (
+                <field.SecureField
+                  label="Current Password"
+                  platformProps={{ ios: { modifiers: [textContentType('password')] } }}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="newPassword">
+              {(field) => (
+                <field.SecureField
+                  label="New Password"
+                  platformProps={{ ios: { modifiers: [textContentType('newPassword')] } }}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="confirmPassword">
+              {(field) => (
+                <field.SecureField
+                  label="Confirm New Password"
+                  platformProps={{ ios: { modifiers: [textContentType('newPassword')] } }}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="revokeOtherSessions">
+              {(field) => (
+                <Toggle isOn={field.state.value === true} onIsOnChange={field.handleChange}>
+                  <Text>Sign out of other sessions</Text>
+                  <Text variant="caption">Keep only this device signed in</Text>
+                </Toggle>
+              )}
+            </form.AppField>
+          </Section>
+        </List>
+        <VStack
+          spacing={Spacing.two}
+          modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
+          <form.SubmitButton
+            platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
+            containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
+            <Text>Reset Password</Text>
+          </form.SubmitButton>
+        </VStack>
+      </ZStack>
+    </form.AppForm>
+  );
+};
+
+const UserSessionsSection = () => {
+  const sessionsState = useAtomValue(activeUserSessionsAtom);
+  const sessionActions = useUserSessionActions();
+  const [sessionTokenToRevoke, setSessionTokenToRevoke] = useState<string | null>(null);
+  const [isRevokeAllPresented, setIsRevokeAllPresented] = useState(false);
+
+  return (
+    <Section title="Active Sessions">
+      {AsyncResult.matchWithError(sessionsState, {
+        onInitial: () => (
+          <ProgressView
+            modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+          />
+        ),
+        onError: () => <Text>Unable to load active sessions</Text>,
+        onDefect: () => <Text>Unable to load active sessions</Text>,
+        onSuccess: ({ value }) =>
+          Option.match(value, {
+            onNone: () => <Text>No active user</Text>,
+            onSome: ({ currentSessionToken, sessions }) => (
+              <>
+                {sessions.length === 0 ? <Text>No active sessions</Text> : null}
+                {sessions.map((session) => (
+                  <Alert
+                    title="Sign out this session?"
+                    key={session.token}
+                    isPresented={sessionTokenToRevoke === session.token}
+                    onIsPresentedChange={(isPresented) => {
+                      if (!isPresented && sessionTokenToRevoke === session.token) {
+                        setSessionTokenToRevoke(null);
+                      }
+                    }}>
+                    <Alert.Trigger>
+                      <Button
+                        modifiers={[tint('primary'), disabled(sessionActions.isWaiting)]}
+                        onPress={() => {
+                          setSessionTokenToRevoke(session.token);
+                        }}>
+                        <HStack alignment="center" spacing={Spacing.two}>
+                          <VStack alignment="leading" spacing={Spacing.one}>
+                            <Text>{getUserSessionTitle(session, currentSessionToken)}</Text>
+                            <Text
+                              variant="caption"
+                              modifiers={[
+                                foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                              ]}>
+                              {getUserSessionDetails(session)}
+                            </Text>
+                          </VStack>
+                          <Spacer />
+                          <Text modifiers={[foregroundStyle('red')]}>Sign Out</Text>
+                        </HStack>
+                      </Button>
+                    </Alert.Trigger>
+                    <Alert.Actions>
+                      <Button
+                        label="Sign Out"
+                        role="destructive"
+                        onPress={() => {
+                          void sessionActions.revokeSession(session.token);
+                          setSessionTokenToRevoke(null);
+                        }}
+                      />
+                      <Button label="Cancel" role="cancel" />
+                    </Alert.Actions>
+                    <Alert.Message>
+                      <Text>
+                        {session.token === currentSessionToken
+                          ? 'You will be signed out on this device.'
+                          : 'This device will no longer have access to your account.'}
+                      </Text>
+                    </Alert.Message>
+                  </Alert>
+                ))}
+              </>
+            ),
+          }),
+      })}
+
+      <Alert
+        title="Sign out of all sessions?"
+        isPresented={isRevokeAllPresented}
+        onIsPresentedChange={setIsRevokeAllPresented}>
+        <Alert.Trigger>
+          <Button
+            label="Sign Out of All Sessions"
+            role="destructive"
+            modifiers={[disabled(sessionActions.isWaiting)]}
+            onPress={() => {
+              setIsRevokeAllPresented(true);
+            }}
+          />
+        </Alert.Trigger>
+        <Alert.Actions>
+          <Button
+            label="Sign Out All"
+            role="destructive"
+            onPress={() => {
+              void sessionActions.revokeAllSessions();
+              setIsRevokeAllPresented(false);
+            }}
+          />
+          <Button label="Cancel" role="cancel" />
+        </Alert.Actions>
+        <Alert.Message>
+          <Text>You will be signed out on this device and every other device.</Text>
+        </Alert.Message>
+      </Alert>
+
+      {sessionActions.hasError ? (
+        <Text modifiers={[foregroundStyle('red')]}>Unable to sign out. Try again.</Text>
+      ) : null}
+    </Section>
+  );
+};
+
 const LoadedProfile = ({
   profile: { email, name, role, username },
 }: {
@@ -103,6 +294,7 @@ const LoadedProfile = ({
   >;
 }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   return (
     <>
@@ -154,6 +346,16 @@ const LoadedProfile = ({
               </Text>
             </LabeledContent>
           </Section>
+          <UserSessionsSection />
+          <Section title="Password">
+            <Button
+              modifiers={[tint('primary')]}
+              label="Reset Password"
+              onPress={() => {
+                setIsResettingPassword(true);
+              }}
+            />
+          </Section>
         </ProfileList>
 
         <VStack modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
@@ -174,6 +376,20 @@ const LoadedProfile = ({
             profile={{ name, username }}
             onSuccess={async () => {
               setIsEditingProfile(false);
+            }}
+          />
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        isPresented={isResettingPassword}
+        onIsPresentedChange={(isPresented) => {
+          setIsResettingPassword(isPresented);
+        }}>
+        {isResettingPassword ? (
+          <PasswordResetEditor
+            onSuccess={async () => {
+              setIsResettingPassword(false);
             }}
           />
         ) : null}

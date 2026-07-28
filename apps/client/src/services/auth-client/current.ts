@@ -12,7 +12,7 @@ export class NoCurrentAuthClientError extends Schema.TaggedErrorClass<
   { readonly brand: unique symbol }
 >('voel/services/auth-client/current/NoCurrentAuthClientError')('NoCurrentAuthClientError', {}) {}
 
-class CurrentAuthClientRequestError extends Schema.TaggedErrorClass<
+export class CurrentAuthClientRequestError extends Schema.TaggedErrorClass<
   CurrentAuthClientRequestError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/current/CurrentAuthClientRequestError')(
@@ -39,6 +39,86 @@ export class CurrentAuthClient extends Context.Service<CurrentAuthClient>()(
 
       return {
         getCookie: getCurrentAuthClient.pipe(Effect.map((authClient) => authClient.getCookie())),
+
+        listSessions: Effect.fnUntraced(function* () {
+          const authClient = yield* getCurrentAuthClient;
+          const result = yield* Effect.tryPromise({
+            try: async () => authClient.listSessions(),
+            catch: (error) =>
+              new CurrentAuthClientRequestError({
+                details: betterAuthErrorDetailsFromUnknown(error),
+              }),
+          });
+
+          if (result.error !== null) {
+            return yield* new CurrentAuthClientRequestError({
+              details: new BetterAuthErrorDetails(result.error),
+            });
+          }
+
+          return result.data;
+        }),
+
+        revokeSession: Effect.fnUntraced(function* (
+          input: Parameters<VoelAuthClient['revokeSession']>[0]
+        ) {
+          const authClient = yield* getCurrentAuthClient;
+          const result = yield* Effect.tryPromise({
+            try: async () => authClient.revokeSession(input),
+            catch: (error) =>
+              new CurrentAuthClientRequestError({
+                details: betterAuthErrorDetailsFromUnknown(error),
+              }),
+          });
+
+          if (result.error !== null) {
+            return yield* new CurrentAuthClientRequestError({
+              details: new BetterAuthErrorDetails(result.error),
+            });
+          }
+
+          return result.data;
+        }),
+
+        revokeSessions: Effect.fnUntraced(function* () {
+          const authClient = yield* getCurrentAuthClient;
+          const result = yield* Effect.tryPromise({
+            try: async () => authClient.revokeSessions(),
+            catch: (error) =>
+              new CurrentAuthClientRequestError({
+                details: betterAuthErrorDetailsFromUnknown(error),
+              }),
+          });
+
+          if (result.error !== null) {
+            return yield* new CurrentAuthClientRequestError({
+              details: new BetterAuthErrorDetails(result.error),
+            });
+          }
+
+          return result.data;
+        }),
+
+        changePassword: Effect.fnUntraced(function* (
+          input: Parameters<VoelAuthClient['changePassword']>[0]
+        ) {
+          const authClient = yield* getCurrentAuthClient;
+          const result = yield* Effect.tryPromise({
+            try: async () => authClient.changePassword(input),
+            catch: (error) =>
+              new CurrentAuthClientRequestError({
+                details: betterAuthErrorDetailsFromUnknown(error),
+              }),
+          });
+
+          if (result.error !== null) {
+            return yield* new CurrentAuthClientRequestError({
+              details: new BetterAuthErrorDetails(result.error),
+            });
+          }
+
+          return result.data;
+        }),
 
         admin: {
           listUsers: Effect.fnUntraced(function* (

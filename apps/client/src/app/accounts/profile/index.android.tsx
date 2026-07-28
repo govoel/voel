@@ -1,20 +1,34 @@
 import { useAtomValue } from '@effect/atom-react';
 import {
+  AlertDialog,
   Button,
   Column,
   LazyColumn,
   LoadingIndicator,
   ModalBottomSheet,
+  Row,
+  Switch,
+  TextButton,
+  useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, padding, weight } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import {
+  activeUserProfileAtom,
+  activeUserSessionsAtom,
+  getUserSessionDetails,
+  getUserSessionTitle,
+  usePasswordResetForm,
+  useUserProfileForm,
+  useUserSessionActions,
+} from '#src/app/accounts/profile/index.ts';
+import type { UserSession } from '#src/app/accounts/profile/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -73,6 +87,59 @@ const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProf
   );
 };
 
+const PasswordResetEditor = ({ onSuccess }: Parameters<typeof usePasswordResetForm>[0]) => {
+  const form = usePasswordResetForm({ onSuccess });
+
+  return (
+    <form.AppForm>
+      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+        <Text variant="h3">Reset Password</Text>
+        <form.AppField name="currentPassword">
+          {(field) => (
+            <field.SecureField
+              label="Current Password"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="newPassword">
+          {(field) => (
+            <field.SecureField
+              label="New Password"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="confirmPassword">
+          {(field) => (
+            <field.SecureField
+              label="Confirm New Password"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="revokeOtherSessions">
+          {(field) => (
+            <Row
+              modifiers={[fillMaxWidth()]}
+              verticalAlignment="center"
+              horizontalArrangement="spaceBetween">
+              <Column modifiers={[weight(1)]}>
+                <Text>Sign out of other sessions</Text>
+                <Text variant="caption">Keep only this device signed in</Text>
+              </Column>
+              <Switch value={field.state.value === true} onCheckedChange={field.handleChange} />
+            </Row>
+          )}
+        </form.AppField>
+        <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+          <Text>Reset Password</Text>
+        </form.SubmitButton>
+      </Column>
+    </form.AppForm>
+  );
+};
+
 const LoadedProfile = ({
   profile: { email, name, role, username },
 }: {
@@ -83,6 +150,13 @@ const LoadedProfile = ({
 }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const editProfileSheetRef = useRef<ModalBottomSheetRef>(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const resetPasswordSheetRef = useRef<ModalBottomSheetRef>(null);
+  const [sessionToRevoke, setSessionToRevoke] = useState<UserSession | null>(null);
+  const [isRevokeAllPresented, setIsRevokeAllPresented] = useState(false);
+  const sessionsState = useAtomValue(activeUserSessionsAtom);
+  const sessionActions = useUserSessionActions();
+  const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
     <>
@@ -129,6 +203,66 @@ const LoadedProfile = ({
           }}>
           <Text>Edit Profile</Text>
         </Button>
+
+        <Text variant="h4">Active Sessions</Text>
+        {AsyncResult.matchWithError(sessionsState, {
+          onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
+          onError: () => <Text>Unable to load active sessions</Text>,
+          onDefect: () => <Text>Unable to load active sessions</Text>,
+          onSuccess: ({ value }) =>
+            Option.match(value, {
+              onNone: () => <Text>No active user</Text>,
+              onSome: ({ currentSessionToken, sessions }) => (
+                <SegmentedList>
+                  {sessions.map((session, index) => (
+                    <SegmentedListItem
+                      key={session.token}
+                      index={index}
+                      count={sessions.length + 1}
+                      enabled={!sessionActions.isWaiting}
+                      onClick={() => {
+                        setSessionToRevoke(session);
+                      }}>
+                      <SegmentedListItem.HeadlineContent>
+                        <Text>{getUserSessionTitle(session, currentSessionToken)}</Text>
+                      </SegmentedListItem.HeadlineContent>
+                      <SegmentedListItem.SupportingContent>
+                        <Text variant="caption" color={colors.onSurfaceVariant}>
+                          {getUserSessionDetails(session)}
+                        </Text>
+                      </SegmentedListItem.SupportingContent>
+                      <SegmentedListItem.TrailingContent>
+                        <Text color={colors.error}>Sign Out</Text>
+                      </SegmentedListItem.TrailingContent>
+                    </SegmentedListItem>
+                  ))}
+                  <SegmentedListItem
+                    index={sessions.length}
+                    count={sessions.length + 1}
+                    enabled={!sessionActions.isWaiting}
+                    onClick={() => {
+                      setIsRevokeAllPresented(true);
+                    }}>
+                    <SegmentedListItem.HeadlineContent>
+                      <Text color={colors.error}>Sign Out of All Sessions</Text>
+                    </SegmentedListItem.HeadlineContent>
+                  </SegmentedListItem>
+                </SegmentedList>
+              ),
+            }),
+        })}
+        {sessionActions.hasError ? (
+          <Text color={colors.error}>Unable to sign out. Try again.</Text>
+        ) : null}
+
+        <Text variant="h4">Password</Text>
+        <Button
+          modifiers={[fillMaxWidth()]}
+          onClick={() => {
+            setIsResettingPassword(true);
+          }}>
+          <Text>Reset Password</Text>
+        </Button>
       </ProfileList>
 
       {isEditingProfile ? (
@@ -149,6 +283,87 @@ const LoadedProfile = ({
             />
           </Column>
         </ModalBottomSheet>
+      ) : null}
+
+      {isResettingPassword ? (
+        <ModalBottomSheet
+          ref={resetPasswordSheetRef}
+          skipPartiallyExpanded
+          onDismissRequest={() => {
+            setIsResettingPassword(false);
+          }}>
+          <Column
+            modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
+            verticalArrangement={{ spacedBy: Spacing.two }}>
+            <PasswordResetEditor
+              onSuccess={async () => {
+                await resetPasswordSheetRef.current?.hide();
+              }}
+            />
+          </Column>
+        </ModalBottomSheet>
+      ) : null}
+
+      {sessionToRevoke === null ? null : (
+        <AlertDialog
+          onDismissRequest={() => {
+            setSessionToRevoke(null);
+          }}>
+          <AlertDialog.Title>
+            <Text>Sign out this session?</Text>
+          </AlertDialog.Title>
+          <AlertDialog.Text>
+            <Text>This device will no longer have access to your account.</Text>
+          </AlertDialog.Text>
+          <AlertDialog.ConfirmButton>
+            <TextButton
+              onClick={() => {
+                void sessionActions.revokeSession(sessionToRevoke.token);
+                setSessionToRevoke(null);
+              }}>
+              <Text color={colors.error}>Sign Out</Text>
+            </TextButton>
+          </AlertDialog.ConfirmButton>
+          <AlertDialog.DismissButton>
+            <TextButton
+              onClick={() => {
+                setSessionToRevoke(null);
+              }}>
+              <Text>Cancel</Text>
+            </TextButton>
+          </AlertDialog.DismissButton>
+        </AlertDialog>
+      )}
+
+      {isRevokeAllPresented ? (
+        <AlertDialog
+          onDismissRequest={() => {
+            setIsRevokeAllPresented(false);
+          }}>
+          <AlertDialog.Title>
+            <Text>Sign out of all sessions?</Text>
+          </AlertDialog.Title>
+          <AlertDialog.Text>
+            <Text>You will be signed out on this device and every other device.</Text>
+          </AlertDialog.Text>
+          <AlertDialog.ConfirmButton>
+            <TextButton
+              onClick={() => {
+                void sessionActions.revokeAllSessions();
+                setIsRevokeAllPresented(false);
+              }}>
+              <Text color={colors.error}>Sign Out All</Text>
+            </TextButton>
+          </AlertDialog.ConfirmButton>
+          <AlertDialog.DismissButton>
+            <TextButton
+              onClick={() => {
+                setIsRevokeAllPresented(false);
+              }}>
+              <Text>Cancel</Text>
+            </TextButton>
+          </AlertDialog.DismissButton>
+        </AlertDialog>
       ) : null}
     </>
   );
