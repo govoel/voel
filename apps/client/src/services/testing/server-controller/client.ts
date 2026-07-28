@@ -1,6 +1,4 @@
-import { layer as BunChildProcessSpawnerLayer } from '@effect/platform-bun/BunChildProcessSpawner';
-import { layer as BunFileSystemLayer } from '@effect/platform-bun/BunFileSystem';
-import { layer as BunPathLayer } from '@effect/platform-bun/BunPath';
+import { BunServices } from '@effect/platform-bun';
 import { Context, Effect, Layer, Schedule } from 'effect';
 import { TestClock } from 'effect/testing';
 import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
@@ -48,11 +46,9 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
     }),
   }
 ) {
-  private static readonly PlatformLayer = BunChildProcessSpawnerLayer.pipe(
-    Layer.provideMerge(Layer.mergeAll(BunFileSystemLayer, BunPathLayer))
-  );
+  public static readonly layer = Layer.effect(this, this.make);
 
-  public static readonly layer = Layer.effect(this, this.make).pipe(
-    Layer.provideMerge(Layer.mergeAll(this.PlatformLayer, FetchHttpClient.layer))
+  public static readonly layerNoDeps = this.layer.pipe(
+    Layer.provideMerge(Layer.mergeAll(BunServices.layer, FetchHttpClient.layer))
   );
 }

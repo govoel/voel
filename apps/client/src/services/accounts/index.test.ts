@@ -120,7 +120,7 @@ describe('AccountManager', () => {
     );
   }
 
-  it.layer(TestServerControllerClient.layer)('authentication', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('authentication', (iit) => {
     iit.effect(
       'persists auth cookies through AuthClientStorage',
       Effect.fnUntraced(
@@ -428,7 +428,7 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layer)('setActiveAccount', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('setActiveAccount', (iit) => {
     iit.effect(
       'fails when the account does not exist',
       Effect.fnUntraced(
@@ -661,7 +661,7 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layer)('removeAccount', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('removeAccount', (iit) => {
     iit.effect(
       'leaves active state unchanged when removing an inactive account',
       Effect.fnUntraced(

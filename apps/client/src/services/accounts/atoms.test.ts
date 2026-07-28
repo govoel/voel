@@ -135,7 +135,7 @@ const waitForSessionRequest = (authClient: AuthClient) =>
     return Effect.sync(unsubscribe);
   });
 
-it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('accountsAtom', (iit) => {
   iit.effect(
     'reacts to account table mutations',
     Effect.fnUntraced(
@@ -207,7 +207,7 @@ describe('accountsSheetAtom', () => {
     )
   );
 
-  it.layer(TestServerControllerClient.layer)('with persisted accounts', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('with persisted accounts', (iit) => {
     iit.effect(
       'requires account selection and cannot be dismissed when no account is active',
       Effect.fnUntraced(
@@ -366,7 +366,7 @@ describe('accountsSheetAtom', () => {
   });
 });
 
-it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessions', (iit) => {
   iit.effect(
     'stays idle and dismissable when the session is valid',
     Effect.fnUntraced(
@@ -441,7 +441,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
   );
 });
 
-it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('listUsersAtom', (iit) => {
   iit.effect(
     'fails with NoCurrentAuthClientError without an active auth client',
     Effect.fnUntraced(
@@ -526,7 +526,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   );
 });
 
-it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('activeAccountAtom', (iit) => {
   iit.effect(
     'reflects an account created by AccountManager',
     Effect.fnUntraced(
@@ -567,7 +567,7 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
   );
 });
 
-it.layer(TestServerControllerClient.layer)('activeAccountSessionAtom', (iit) => {
+it.layer(TestServerControllerClient.layerNoDeps)('activeAccountSessionAtom', (iit) => {
   iit.effect(
     'subscribes to authClient.useSession and unsubscribes on account change',
     Effect.fnUntraced(function* () {
