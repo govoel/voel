@@ -82,8 +82,8 @@ export class Account extends Model.Class<Account>('voel/services/database/main/s
     insert: Schema.Literals([0, 1]),
     update: Schema.Literals([0, 1]),
   }),
-  createdAt: Model.Field({ select: Schema.Int }),
-  updatedAt: Model.Field({ select: Schema.Int }),
+  createdAt: Model.Field({ select: Schema.Natural }),
+  updatedAt: Model.Field({ select: Schema.Natural }),
 }) {}
 
 export type AccountTable = TableFromModel<typeof Account>;

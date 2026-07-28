@@ -32,9 +32,9 @@ export class UuidGenerator extends Context.Service<
 >()('voel/services/accounts/index/UuidGenerator') {
   public static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
-      const { uuid } = yield* Effect.promise(async () => import('expo-modules-core'));
+      const { randomUUID } = yield* Effect.promise(async () => import('expo-crypto'));
       return Layer.succeed(UuidGenerator, {
-        v4: Effect.sync(() => uuid.v4()),
+        v4: Effect.sync(() => randomUUID()),
       });
     })
   );
