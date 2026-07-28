@@ -7,14 +7,14 @@ import type { AccountManager } from '#src/services/accounts/index.ts';
 import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { AppConfig } from '#src/services/config.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
+import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
 import { CommonGlobalLayers } from '#src/services/layers.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
 export const makeClientTestLayers = () =>
   CommonGlobalLayers.pipe(
-    Layer.provideMerge(MainDatabase.layerTest),
+    Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
       Layer.mergeAll(
         AuthClientStorage.layerTest,

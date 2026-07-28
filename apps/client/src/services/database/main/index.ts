@@ -47,25 +47,4 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
       );
     })
   );
-
-  public static readonly layerTest = Layer.unwrap(
-    Effect.gen(function* () {
-      const config = yield* AppConfig;
-      const { default: BunSqliteDatabase } = yield* Effect.promise(
-        async () => import('bun:sqlite')
-      );
-      const { BunSqliteDialect } = yield* Effect.promise(
-        async () => import('@repo/effect-kysely/dialect.ts')
-      );
-
-      return Layer.effect(
-        MainDatabase,
-        MainDatabase.make({
-          dialect: new BunSqliteDialect({
-            database: new BunSqliteDatabase(config.mainDb.filename),
-          }),
-        })
-      );
-    })
-  );
 }
