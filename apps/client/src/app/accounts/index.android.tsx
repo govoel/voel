@@ -90,7 +90,7 @@ const RemoveAccountConfirmation = ({
           </Text>
         </AlertDialog.Text>
         <AlertDialog.ConfirmButton>
-          <form.SubmitButton>
+          <form.SubmitButton platformProps={{ android: { variant: 'text' } }}>
             <Text color={colors.error}>Remove</Text>
           </form.SubmitButton>
         </AlertDialog.ConfirmButton>

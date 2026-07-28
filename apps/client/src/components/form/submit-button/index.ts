@@ -32,7 +32,11 @@ export type SubmitButtonComponent = ComponentType<{
   disabled?: boolean;
   platformProps?:
     | { ios: Omit<SwiftButtonProps, 'children'> }
-    | { android: Omit<ComposeButtonProps, 'children' | 'enabled'> };
+    | {
+        android: Omit<ComposeButtonProps, 'children' | 'enabled'> & {
+          variant?: 'default' | 'text';
+        };
+      };
   containerModifiers?:
     | { ios: NonNullable<HStackProps['modifiers']> }
     | { android: NonNullable<RowProps['modifiers']> };

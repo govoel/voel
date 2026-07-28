@@ -5,6 +5,7 @@ import {
   ExitTransition,
   LoadingIndicator,
   Row,
+  TextButton,
   useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import { padding, size } from '@expo/ui/jetpack-compose/modifiers';
@@ -39,7 +40,7 @@ const SubmitErrorMessage = ({
 export const SubmitButton = (({
   children,
   disabled = false,
-  platformProps = {},
+  platformProps = { android: { variant: 'default' } },
   containerModifiers = {},
 }) => {
   const form = useFormContext();
@@ -55,6 +56,8 @@ export const SubmitButton = (({
   );
 
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
+  const ButtonComponent =
+    'android' in platformProps && platformProps.android.variant === 'text' ? TextButton : Button;
 
   return (
     <>
@@ -63,7 +66,7 @@ export const SubmitButton = (({
       </Row>
 
       <Row>
-        <Button
+        <ButtonComponent
           {...('android' in platformProps ? platformProps.android : {})}
           enabled={canSubmitOrRetryMutation && !isSubmitting && !disabled}
           onClick={() => {
@@ -83,7 +86,7 @@ export const SubmitButton = (({
 
             {children}
           </Row>
-        </Button>
+        </ButtonComponent>
       </Row>
     </>
   );
