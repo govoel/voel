@@ -1,13 +1,20 @@
 import { useAtom } from '@effect/atom-react';
 import { Effect, Exit, Option } from 'effect';
 
-import {
-  accountsAtom,
-  activeAccountAtom,
-  setActiveAccountAtom,
-} from '#src/services/accounts/atoms.ts';
+import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager } from '#src/services/accounts/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
+
+export const setActiveAccountAtom = AppRuntime.fn(
+  (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
+    AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
+);
+
+export const removeAccountAtom = AppRuntime.fn(
+  (input: Parameters<typeof AccountManager.Service.removeAccount>[0]) =>
+    AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(input)))
+);
 
 export const accountsWithActiveAccount = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {

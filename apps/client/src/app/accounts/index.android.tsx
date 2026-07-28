@@ -23,13 +23,14 @@ import { useRef, useState } from 'react';
 import {
   accountsWithActiveAccount,
   activeAccountLiteral,
+  removeAccountAtom,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
+import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { accountsSheetAtom, removeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const StackNavigationRow = ({
   index,

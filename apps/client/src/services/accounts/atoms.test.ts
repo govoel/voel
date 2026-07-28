@@ -4,9 +4,9 @@ import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { vi } from 'vitest';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import {
   accountsAtom,
-  accountsSheetAtom,
   activeAccountAtom,
   activeAccountSessionAtom,
 } from '#src/services/accounts/atoms.ts';

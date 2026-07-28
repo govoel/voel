@@ -30,12 +30,12 @@ import { useState } from 'react';
 import {
   accountsWithActiveAccount,
   activeAccountLiteral,
+  removeAccountAtom,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
 import { Text } from '#src/components/text';
 import { iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
-import { removeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => (
   <Button

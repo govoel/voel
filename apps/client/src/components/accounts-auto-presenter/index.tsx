@@ -3,7 +3,7 @@ import { Option } from 'effect';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
-import { accountsSheetAtom } from '#src/services/accounts/atoms.ts';
+import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 
 export const AccountsAutoPresenter = () => {
   const router = useRouter();

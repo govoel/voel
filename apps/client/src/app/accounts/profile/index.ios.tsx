@@ -30,10 +30,9 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeUserProfileAtom } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
