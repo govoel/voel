@@ -60,6 +60,13 @@ export class AccountSignUpError extends Schema.TaggedErrorClass<
   details: BetterAuthErrorDetails,
 }) {}
 
+export class AccountSignOutError extends Schema.TaggedErrorClass<
+  AccountSignOutError,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/index/AccountSignOutError')('AccountSignOutError', {
+  details: BetterAuthErrorDetails,
+}) {}
+
 export class AccountDatabaseError extends Schema.TaggedErrorClass<
   AccountDatabaseError,
   { readonly brand: unique symbol }
@@ -81,6 +88,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
+      const authClientStorageService = yield* AuthClientStorage;
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -358,6 +366,55 @@ export class AccountManager extends Context.Service<AccountManager>()(
         SubscriptionRef.modifyEffect(
           stateRef,
           Effect.fnUntraced(function* (state) {
+            const account = yield* db.executeTakeFirstOption(
+              db
+                .selectFrom('account')
+                .selectAll()
+                .where('serverUrl', '=', serverUrl)
+                .where('userId', '=', userId)
+            );
+            if (Option.isNone(account)) {
+              return [void 0, state] as const;
+            }
+
+            const activeAccountState =
+              Option.isSome(state) &&
+              state.value.account.serverUrl === serverUrl &&
+              state.value.account.userId === userId
+                ? state
+                : Option.none();
+            const authClient = Option.isSome(activeAccountState)
+              ? activeAccountState.value.state.authClient
+              : yield* createVoelAuthClient({
+                  serverUrl: account.value.serverUrl,
+                  authStorageId: account.value.authStorageId,
+                  storage: authClientStorage,
+                  xxHash,
+                });
+            const signOutResult = yield* Effect.tryPromise({
+              try: async () => authClient.signOut(),
+              catch: (error) =>
+                new AccountSignOutError({
+                  details: betterAuthErrorDetailsFromUnknown(error),
+                }),
+            });
+            if (signOutResult.error !== null) {
+              return yield* new AccountSignOutError({
+                details: new BetterAuthErrorDetails(signOutResult.error),
+              });
+            }
+
+            const storagePrefix = yield* xxHash.hash128(
+              `voel::auth::${account.value.serverUrl}::${account.value.authStorageId}`
+            );
+            yield* Effect.all(
+              [
+                authClientStorageService.removeItem(`${storagePrefix}_cookie`),
+                authClientStorageService.removeItem(`${storagePrefix}_session_data`),
+              ],
+              { discard: true }
+            );
+
             yield* db
               .execute(
                 db
@@ -367,12 +424,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
               )
               .pipe(Reactivity.mutation(['account']));
 
-            if (
-              Option.isSome(state) &&
-              state.value.account.serverUrl === serverUrl &&
-              state.value.account.userId === userId
-            ) {
-              yield* Scope.close(state.value.state.scope, Exit.void);
+            if (Option.isSome(activeAccountState)) {
+              yield* Scope.close(activeAccountState.value.state.scope, Exit.void);
               return [void 0, Option.none()] as const;
             }
 

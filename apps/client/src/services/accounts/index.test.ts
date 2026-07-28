@@ -3,7 +3,7 @@ import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
-import { XxHash } from '#src/services/auth-client/index.ts';
+import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -644,6 +644,62 @@ describe('AccountManager', () => {
   });
 
   it.layer(TestServerControllerClient.layerNoDeps)('removeAccount', (iit) => {
+    iit.effect(
+      'revokes the Better Auth session and removes its secure storage',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          const [account] = yield* signInTestServerUsers(manager, testServer);
+          const storage = yield* AuthClientStorage;
+          const xxHash = yield* XxHash;
+          const storagePrefix = yield* xxHash.hash128(
+            `voel::auth::${testServer.serverUrl}::${account.authStorageId}`
+          );
+          const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
+          expect(Option.isSome(storedCookie)).toBe(true);
+
+          const verificationAuthStorageId = 'removed-account-session-verification';
+          const verificationStoragePrefix = yield* xxHash.hash128(
+            `voel::auth::${testServer.serverUrl}::${verificationAuthStorageId}`
+          );
+          const verificationStorage = new Map([
+            [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
+          ]);
+          const verificationAuthClient = yield* createVoelAuthClient({
+            serverUrl: testServer.serverUrl,
+            authStorageId: verificationAuthStorageId,
+            storage: {
+              getItem: (key) => verificationStorage.get(key) ?? null,
+              setItem: (key, value) => {
+                verificationStorage.set(key, value);
+              },
+            },
+            xxHash,
+          });
+          const sessionBeforeRemoval = yield* Effect.promise(async () =>
+            verificationAuthClient.getSession({ query: { disableCookieCache: true } })
+          );
+          expect(sessionBeforeRemoval.data?.user.id).toBe(account.userId);
+
+          yield* manager.removeAccount({
+            serverUrl: testServer.serverUrl,
+            userId: account.userId,
+          });
+
+          expect(Option.isNone(yield* storage.getItem(`${storagePrefix}_cookie`))).toBe(true);
+          expect(Option.isNone(yield* storage.getItem(`${storagePrefix}_session_data`))).toBe(true);
+          const sessionAfterRemoval = yield* Effect.promise(async () =>
+            verificationAuthClient.getSession({ query: { disableCookieCache: true } })
+          );
+          expect(sessionAfterRemoval).toMatchObject({ data: null, error: null });
+          expect(yield* getAccounts).toEqual([]);
+          expect(yield* manager.state).toBe(Option.none());
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
     iit.effect(
       'leaves active state unchanged when removing an inactive account',
       Effect.fnUntraced(

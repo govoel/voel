@@ -16,14 +16,24 @@ export class AuthClientStorageSetItemError extends Schema.TaggedErrorClass<
   { key: Schema.String }
 ) {}
 
+export class AuthClientStorageRemoveItemError extends Schema.TaggedErrorClass<
+  AuthClientStorageRemoveItemError,
+  { readonly brand: unique symbol }
+>('voel/services/auth-client/storage/AuthClientStorageRemoveItemError')(
+  'AuthClientStorageRemoveItemError',
+  { key: Schema.String }
+) {}
+
 export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
   'voel/services/auth-client/storage/AuthClientStorage',
   {
     make: Effect.fnUntraced(function* ({
       getItem,
+      removeItem,
       setItem,
     }: {
       getItem: (key: string) => string | null;
+      removeItem: (key: string) => void | PromiseLike<void>;
       setItem: (key: string, value: string) => void;
     }) {
       const cache = yield* Cache.make<string, Option.Option<string>, AuthClientStorageGetItemError>(
@@ -40,6 +50,14 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
       return {
         getItem: Effect.fnUntraced(function* (key: string) {
           return yield* Cache.get(cache, key);
+        }),
+
+        removeItem: Effect.fnUntraced(function* (key: string) {
+          yield* Effect.tryPromise({
+            try: async () => removeItem(key),
+            catch: () => new AuthClientStorageRemoveItemError({ key }),
+          });
+          yield* Cache.set(cache, key, Option.none());
         }),
 
         setItem: Effect.fnUntraced(function* (key: string, value: string) {
@@ -62,6 +80,7 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
         AuthClientStorage,
         AuthClientStorage.make({
           getItem: SecureStore.getItem,
+          removeItem: SecureStore.deleteItemAsync,
           setItem: SecureStore.setItem,
         })
       );
@@ -74,6 +93,9 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
       Effect.flatMap((items) =>
         this.make({
           getItem: (key) => items.get(key) ?? null,
+          removeItem: (key) => {
+            items.delete(key);
+          },
           setItem: (key, value) => {
             items.set(key, value);
           },
