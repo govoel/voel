@@ -11,14 +11,17 @@
 import * as Arr from "../../Array.ts"
 import type { NonEmptyArray } from "../../Array.ts"
 import * as Context from "../../Context.ts"
+import * as Equal from "../../Equal.ts"
 import { constFalse } from "../../Function.ts"
+import * as InternalRecord from "../../internal/record.ts"
+import * as InternalToJsonSchemaDocument from "../../internal/schema/toJsonSchemaDocument.ts"
+import * as InternalToRepresentation from "../../internal/schema/toRepresentation.ts"
 import * as JsonPatch from "../../JsonPatch.ts"
 import { escapeToken } from "../../JsonPointer.ts"
 import * as JsonSchema from "../../JsonSchema.ts"
 import * as Option from "../../Option.ts"
 import * as Schema from "../../Schema.ts"
 import * as SchemaAST from "../../SchemaAST.ts"
-import * as SchemaRepresentation from "../../SchemaRepresentation.ts"
 import * as HttpMethod from "../http/HttpMethod.ts"
 import * as HttpApi from "./HttpApi.ts"
 import * as HttpApiEndpoint from "./HttpApiEndpoint.ts"
@@ -208,7 +211,18 @@ export const annotations: (
   transform: Transform
 })
 
-const apiCache = new WeakMap<HttpApi.Any, OpenAPISpec>()
+const apiCache = new WeakMap<HttpApi.Constraint, OpenAPISpec>()
+
+type CompileSchemas = (
+  asts: readonly [SchemaAST.AST, ...Array<SchemaAST.AST>]
+) => JsonSchema.MultiDocument<"openapi-3.1">
+
+const compileSchemas: CompileSchemas = (asts) =>
+  JsonSchema.toMultiDocumentOpenApi3_1(
+    InternalToJsonSchemaDocument.toJsonSchemaMultiDocument(
+      InternalToRepresentation.toRepresentations(Arr.map(asts, Schema.toCodecJsonAST))
+    )
+  )
 
 /**
  * This function checks if a given tag exists within the provided context. If
@@ -246,10 +260,18 @@ function processAnnotation<Services, S, I>(
  * @category constructors
  * @since 4.0.0
  */
-export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
+export function fromApi<Id extends string, Groups extends HttpApiGroup.Constraint>(
   api: HttpApi.HttpApi<Id, Groups>
 ): OpenAPISpec {
-  const cached = apiCache.get(api)
+  return fromApiWith(api, apiCache, compileSchemas)
+}
+
+function fromApiWith<Id extends string, Groups extends HttpApiGroup.Constraint>(
+  api: HttpApi.HttpApi<Id, Groups>,
+  cache: WeakMap<HttpApi.Constraint, OpenAPISpec>,
+  compileSchemas: CompileSchemas
+): OpenAPISpec {
+  const cached = cache.get(api)
   if (cached !== undefined) {
     return cached
   }
@@ -279,6 +301,8 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
       readonly path: ReadonlyArray<string>
     }
   > = []
+  const pathOperations = new Set<string>()
+  const operationIds = new Set<string>()
 
   processAnnotation(api.annotations, Title, (title) => {
     spec.info.title = title
@@ -314,7 +338,10 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
         tag.externalDocs = externalDocs
       })
       processAnnotation(group.annotations, Override, (override) => {
-        Object.assign(tag, override)
+        // OpenAPI documents are JSON, so symbol keys are intentionally ignored.
+        for (const [key, value] of Object.entries(override)) {
+          InternalRecord.assignProperty(tag as any, key, value)
+        }
       })
       processAnnotation(group.annotations, Transform, (transformFn) => {
         tag = transformFn(tag) as OpenAPISpecTag
@@ -331,7 +358,7 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
         operationId: Context.getOrElse(
           endpoint.annotations,
           Identifier,
-          () => group.topLevel ? endpoint.name : `${group.identifier}.${endpoint.name}`
+          () => group.topLevel ? endpoint.identifier : `${group.identifier}.${endpoint.identifier}`
         ),
         parameters: [],
         security: [],
@@ -341,37 +368,12 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
       const path = endpoint.path.replace(/:(\w+)\??/g, "{$1}")
       const method = endpoint.method.toLowerCase() as OpenAPISpecMethodName
 
-      function processRequestBodies(payloadMap: HttpApiEndpoint.PayloadMap) {
-        if (payloadMap.size > 0) {
-          const c: OpenApiSpecContent = {}
-          let hasContent = false
-          payloadMap.forEach(({ encoding, schemas }, contentType) => {
-            const filtered = schemas.filter((s) => !HttpApiSchema.isNoContent(s.ast))
-            if (filtered.length === 0) return
-            hasContent = true
-            const asts = filtered.map(SchemaAST.getAST)
-            const ast = asts.length === 1 ? asts[0] : new SchemaAST.Union(asts, "anyOf")
-            pathOps.push({
-              _tag: "schema",
-              ast: toEncodingAST(ast, encoding._tag),
-              path: ["paths", path, method, "requestBody", "content", contentType, "schema"]
-            })
-            c[contentType] = {
-              schema: {}
-            }
-          })
-          if (hasContent) {
-            op.requestBody = { content: c, required: true }
-          }
-        }
-      }
-
       function processResponseBodies(bodies: ResponseBodies, defaultDescription: () => string) {
         for (const [status, { content, descriptions, streamContent }] of bodies) {
           const description = descriptions.size > 0 ? Array.from(descriptions).join(" | ") : defaultDescription()
-          op.responses[status] = {
+          InternalRecord.assignProperty(op.responses, status, {
             description
-          }
+          })
           if (content !== undefined) {
             content.forEach((map, encoding) => {
               map.forEach((schemas, contentType) => {
@@ -384,9 +386,9 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
                   path: ["paths", path, method, "responses", String(status), "content", contentType, "schema"]
                 })
                 op.responses[status].content ??= {}
-                op.responses[status].content[contentType] = {
+                InternalRecord.assignProperty(op.responses[status].content, contentType, {
                   schema: {}
-                }
+                })
               })
             })
           }
@@ -429,7 +431,7 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
                     "errorSchema"
                   ]
                 })
-                op.responses[status].content[contentType] = {
+                InternalRecord.assignProperty(op.responses[status].content, contentType, {
                   schema: {},
                   "x-effect-stream": {
                     encoding: "sse",
@@ -437,9 +439,9 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
                     errorSchema: {},
                     failureEvent: reservedStreamFailureEvent
                   }
-                }
+                })
               } else {
-                op.responses[status].content[contentType] = {
+                InternalRecord.assignProperty(op.responses[status].content, contentType, {
                   schema: {
                     type: "string",
                     format: "binary"
@@ -447,7 +449,7 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
                   "x-effect-stream": {
                     encoding: "uint8array"
                   }
-                }
+                })
               }
             })
           }
@@ -502,15 +504,53 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
         name: string,
         security: HttpApiSecurity
       ) {
-        if (spec.components.securitySchemes[name] !== undefined) {
+        const scheme = makeSecurityScheme(security)
+        if (!Object.hasOwn(spec.components.securitySchemes, name)) {
+          InternalRecord.assignProperty(spec.components.securitySchemes, name, scheme)
           return
         }
-        spec.components.securitySchemes[name] = makeSecurityScheme(security)
+        if (
+          !Equal.equals(
+            securitySchemeForComparison(spec.components.securitySchemes[name]),
+            securitySchemeForComparison(scheme)
+          )
+        ) {
+          throw new globalThis.Error(`Conflicting OpenAPI security scheme: ${name}`)
+        }
       }
 
       const hasBody = HttpMethod.hasBody(endpoint.method)
       if (hasBody) {
-        processRequestBodies(endpoint.payload)
+        const schemasByContentType = new Map<string, {
+          readonly encoding: HttpApiSchema.PayloadEncoding
+          readonly schemas: Array<Schema.Top>
+        }>()
+        for (const schema of HttpApiEndpoint.getPayloadSchemas(endpoint)) {
+          if (HttpApiSchema.isNoContent(schema.ast)) continue
+          const encoding = HttpApiSchema.getPayloadEncoding(schema.ast, endpoint.method)
+          const existing = schemasByContentType.get(encoding.contentType)
+          if (existing === undefined) {
+            schemasByContentType.set(encoding.contentType, { encoding, schemas: [schema] })
+          } else {
+            existing.schemas.push(schema)
+          }
+        }
+        if (schemasByContentType.size > 0) {
+          const content: OpenApiSpecContent = {}
+          for (const [contentType, { encoding, schemas }] of schemasByContentType) {
+            const asts = schemas.map(SchemaAST.getAST)
+            const ast = asts.length === 1 ? asts[0] : new SchemaAST.Union(asts, "anyOf")
+            pathOps.push({
+              _tag: "schema",
+              ast: toEncodingAST(ast, encoding._tag),
+              path: ["paths", path, method, "requestBody", "content", contentType, "schema"]
+            })
+            InternalRecord.assignProperty(content, contentType, {
+              schema: {}
+            })
+          }
+          op.requestBody = { content, required: true }
+        }
       }
 
       processParameters(endpoint.params, "path")
@@ -534,17 +574,31 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
         () => "Error"
       )
 
-      if (!spec.paths[path]) {
-        spec.paths[path] = {}
-      }
-
       processAnnotation(endpoint.annotations, Override, (override) => {
-        Object.assign(op, override)
+        // OpenAPI documents are JSON, so symbol keys are intentionally ignored.
+        for (const [key, value] of Object.entries(override)) {
+          InternalRecord.assignProperty(op as any, key, value)
+        }
       })
       processAnnotation(endpoint.annotations, Transform, (transformFn) => {
         op = transformFn(op) as OpenAPISpecOperation
       })
 
+      const pathOperation = `${method} ${path.replace(/\{[^}]+\}/g, "{}")}`
+      if (pathOperations.has(pathOperation)) {
+        throw new globalThis.Error(`Duplicate OpenAPI operation for ${endpoint.method} ${path}`)
+      }
+      const operationId = op.operationId
+      if (operationId !== undefined) {
+        if (operationIds.has(operationId)) {
+          throw new globalThis.Error(`Duplicate OpenAPI operationId: ${operationId}`)
+        }
+        operationIds.add(operationId)
+      }
+      pathOperations.add(pathOperation)
+      if (!Object.hasOwn(spec.paths, path)) {
+        InternalRecord.assignProperty(spec.paths, path, {})
+      }
       spec.paths[path][method] = op
     }
   })
@@ -553,10 +607,10 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
     componentSchemas.forEach((componentSchema) => {
       const identifier = SchemaAST.resolveIdentifier(componentSchema.ast)
       if (identifier !== undefined) {
-        if (identifier in spec.components.schemas) {
+        if (Object.hasOwn(spec.components.schemas, identifier)) {
           throw new globalThis.Error(`Duplicate component schema identifier: ${identifier}`)
         }
-        spec.components.schemas[identifier] = {}
+        InternalRecord.assignProperty(spec.components.schemas, identifier, {})
         pathOps.push({
           _tag: "schema",
           ast: componentSchema.ast,
@@ -571,12 +625,7 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
   }
 
   if (Arr.isArrayNonEmpty(pathOps)) {
-    const multiDocument = SchemaRepresentation.fromASTs(
-      Arr.map(pathOps, (op) => op.ast)
-    )
-    const jsonSchemaMultiDocument = JsonSchema.toMultiDocumentOpenApi3_1(
-      SchemaRepresentation.toJsonSchemaMultiDocument(multiDocument)
-    )
+    const jsonSchemaMultiDocument = compileSchemas(Arr.map(pathOps, (op) => op.ast))
     const patchOps: Array<JsonPatch.JsonPatchOperation> = pathOps.map((op, i) => {
       const oppath = escapePath(op.path)
       const value = jsonSchemaMultiDocument.schemas[i]
@@ -605,13 +654,16 @@ export function fromApi<Id extends string, Groups extends HttpApiGroup.Any>(
   })
 
   processAnnotation(api.annotations, Override, (override) => {
-    Object.assign(spec, override)
+    // OpenAPI documents are JSON, so symbol keys are intentionally ignored.
+    for (const [key, value] of Object.entries(override)) {
+      InternalRecord.assignProperty(spec as any, key, value)
+    }
   })
   processAnnotation(api.annotations, Transform, (transformFn) => {
     spec = transformFn(spec) as OpenAPISpec
   })
 
-  apiCache.set(api, spec)
+  cache.set(api, spec)
 
   return spec
 }
@@ -627,7 +679,7 @@ type ResponseBodies = Map<
 
 const reservedStreamFailureEvent = "effect/httpapi/stream/failure"
 
-function extractSuccessResponseBodies(endpoint: HttpApiEndpoint.AnyWithProps): ResponseBodies {
+function extractSuccessResponseBodies(endpoint: HttpApiEndpoint.Top): ResponseBodies {
   return extractResponseBodies(
     HttpApiEndpoint.getSuccessSchemas(endpoint),
     HttpApiSchema.getStatusSuccess,
@@ -765,7 +817,7 @@ function toEncodingAST(ast: SchemaAST.AST, _tag: HttpApiSchema.Encoding["_tag"])
 function persistedFileToBinaryEncoding(ast: SchemaAST.AST): SchemaAST.AST {
   if (
     SchemaAST.isDeclaration(ast) &&
-    ((ast.annotations as (Schema.Annotations.Declaration<unknown, readonly []> | undefined))?.typeConstructor?._tag ===
+    ((ast.annotations as (Schema.Annotations.Declaration<unknown, readonly []> | undefined))?.representation?.id ===
       "effect/http/PersistedFile")
   ) {
     return Uint8ArrayEncoding.ast
@@ -812,6 +864,16 @@ const makeSecurityScheme = (security: HttpApiSecurity): OpenAPISecurityScheme =>
       }
     }
   }
+}
+
+const securitySchemeForComparison = (scheme: OpenAPISecurityScheme): OpenAPISecurityScheme => {
+  if (scheme.type === "http") {
+    return { ...scheme, scheme: scheme.scheme.toLowerCase() }
+  }
+  if (scheme.in === "header") {
+    return { ...scheme, name: scheme.name.toLowerCase() }
+  }
+  return scheme
 }
 
 /**

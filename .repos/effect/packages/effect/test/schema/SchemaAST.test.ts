@@ -1,4 +1,5 @@
 import { Schema, SchemaAST, SchemaGetter, SchemaTransformation } from "effect"
+import { runInNewContext } from "node:vm"
 import { describe, it } from "vitest"
 import { deepStrictEqual, doesNotThrow, strictEqual, throws } from "../utils/assert.ts"
 
@@ -18,12 +19,40 @@ describe("SchemaAST", () => {
     strictEqual(SchemaAST.isJson(Symbol.for("symbol")), false)
     strictEqual(SchemaAST.isJson([]), true)
     strictEqual(SchemaAST.isJson([1]), true)
+    strictEqual(SchemaAST.isJson(new Array(1)), false)
     strictEqual(SchemaAST.isJson([1, undefined]), false)
     strictEqual(SchemaAST.isJson([1, 1n]), false)
+    let getterCalls = 0
+    const arrayWithGetter = [0]
+    Object.defineProperty(arrayWithGetter, "0", {
+      enumerable: true,
+      get() {
+        getterCalls++
+        return 1
+      }
+    })
+    strictEqual(SchemaAST.isJson(arrayWithGetter), true)
+    strictEqual(getterCalls, 1)
     strictEqual(SchemaAST.isJson({}), true)
     strictEqual(SchemaAST.isJson({ a: 1 }), true)
     strictEqual(SchemaAST.isJson({ a: undefined }), false)
     strictEqual(SchemaAST.isJson({ a: 1, b: 1n }), false)
+    strictEqual(SchemaAST.isJson(new Map([["a", 1]])), false)
+    strictEqual(SchemaAST.isJson(new Set([1])), false)
+    strictEqual(SchemaAST.isJson(new Date(0)), false)
+    strictEqual(SchemaAST.isJson(/a/), false)
+    strictEqual(SchemaAST.isJson(new Uint8Array([1])), false)
+    class A {
+      readonly a = 1
+    }
+    strictEqual(SchemaAST.isJson(new A()), false)
+    const nullPrototype: Record<string, unknown> = Object.create(null)
+    nullPrototype.a = { b: [1, true, null] }
+    strictEqual(SchemaAST.isJson(nullPrototype), true)
+    const crossRealmRecord: unknown = runInNewContext("({ a: [1, true, null] })")
+    strictEqual(SchemaAST.isJson(crossRealmRecord), true)
+    const crossRealmClass: unknown = runInNewContext("new (class A { a = 1 })()")
+    strictEqual(SchemaAST.isJson(crossRealmClass), false)
     // nested
     strictEqual(SchemaAST.isJson({ a: { b: 1 } }), true)
     strictEqual(SchemaAST.isJson({ a: [1, { b: "c" }] }), true)
@@ -41,6 +70,22 @@ describe("SchemaAST", () => {
     strictEqual(SchemaAST.isJson(deeper), true)
   })
 
+  it("isJson is stack safe", () => {
+    let valid: unknown = null
+    let invalid: unknown = undefined
+    for (let i = 0; i < 25_000; i++) {
+      valid = [valid]
+      invalid = [invalid]
+    }
+    strictEqual(SchemaAST.isJson(valid), true)
+    strictEqual(SchemaAST.isJson(invalid), false)
+  })
+
+  it("Schema.toCodecJson rejects non-JSON objects", () => {
+    const encode = Schema.encodeUnknownExit(Schema.toCodecJson(Schema.Unknown))
+    strictEqual(encode(new Map([["a", 1]]))._tag, "Failure")
+  })
+
   it("isStringTree", () => {
     strictEqual(SchemaAST.isStringTree(undefined), true)
     strictEqual(SchemaAST.isStringTree("string"), true)
@@ -54,18 +99,44 @@ describe("SchemaAST", () => {
     strictEqual(SchemaAST.isStringTree(["a"]), true)
     strictEqual(SchemaAST.isStringTree(["a", undefined]), true)
     strictEqual(SchemaAST.isStringTree(["a", 1]), false)
+    strictEqual(SchemaAST.isStringTree(new Array(1)), true)
+    const sparseWithInheritedValue = new Array(1)
+    const arrayPrototype = Object.create(Array.prototype)
+    arrayPrototype[0] = 1
+    Object.setPrototypeOf(sparseWithInheritedValue, arrayPrototype)
+    strictEqual(SchemaAST.isStringTree(sparseWithInheritedValue), false)
     strictEqual(SchemaAST.isStringTree({}), true)
     strictEqual(SchemaAST.isStringTree({ a: "b" }), true)
     strictEqual(SchemaAST.isStringTree({ a: undefined }), true)
     strictEqual(SchemaAST.isStringTree({ a: "b", c: 1 }), false)
+    strictEqual(SchemaAST.isStringTree(new Map([["a", "b"]])), false)
+    strictEqual(SchemaAST.isStringTree(new Date(0)), false)
+    class A {
+      readonly a = "a"
+    }
+    strictEqual(SchemaAST.isStringTree(new A()), false)
     // nested
     strictEqual(SchemaAST.isStringTree({ a: { b: "c" } }), true)
     strictEqual(SchemaAST.isStringTree({ a: ["b", { c: "d" }] }), true)
     strictEqual(SchemaAST.isStringTree({ a: { b: 1 } }), false)
+    // DAG
+    const shared = { value: "a" }
+    strictEqual(SchemaAST.isStringTree({ left: shared, right: shared }), true)
     // circular reference
     const circular: Record<string, unknown> = {}
     circular.self = circular
     strictEqual(SchemaAST.isStringTree(circular), false)
+  })
+
+  it("isStringTree is stack safe", () => {
+    let valid: unknown = "value"
+    let invalid: unknown = 1
+    for (let i = 0; i < 25_000; i++) {
+      valid = { value: valid }
+      invalid = { value: invalid }
+    }
+    strictEqual(SchemaAST.isStringTree(valid), true)
+    strictEqual(SchemaAST.isStringTree(invalid), false)
   })
 
   describe("toType", () => {
@@ -95,6 +166,48 @@ describe("SchemaAST", () => {
       strictEqual(SchemaAST.isObjects(ast), true)
       strictEqual(ast.checks, undefined)
       strictEqual(ast.encodingChecks, undefined)
+    })
+
+    it("preserves structural checks when contained type shape changes", () => {
+      const check = Schema.isMinProperties(1)
+      const schema = Schema.Struct({ a: Schema.NumberFromString }).check(check)
+
+      const ast = SchemaAST.toEncoded(schema.ast)
+
+      strictEqual(SchemaAST.isObjects(ast), true)
+      strictEqual(ast.checks?.[0], check)
+    })
+
+    it("preserves structural checks when contained element shape changes", () => {
+      const check = Schema.isMinLength(1)
+      const schema = Schema.Array(Schema.NumberFromString).check(check)
+
+      const ast = SchemaAST.toEncoded(schema.ast)
+
+      strictEqual(SchemaAST.isArrays(ast), true)
+      strictEqual(ast.checks?.[0], check)
+    })
+
+    it("preserves structural checks when a declaration type parameter shape changes", () => {
+      const check = Schema.isMinSize(1)
+      const schema = Schema.ReadonlySet(Schema.NumberFromString).check(check)
+
+      const ast = SchemaAST.toEncoded(schema.ast)
+
+      strictEqual(SchemaAST.isDeclaration(ast), true)
+      strictEqual(ast.checks?.[0], check)
+    })
+
+    it("preserves only the structural members of a mixed filter group", () => {
+      const structural = Schema.isMinProperties(1)
+      const group = structural.and(Schema.makeFilter<object>(() => true))
+      const schema = Schema.Struct({ a: Schema.NumberFromString }).check(group)
+
+      const ast = SchemaAST.toEncoded(schema.ast)
+
+      strictEqual(SchemaAST.isObjects(ast), true)
+      strictEqual(ast.checks?.length, 1)
+      strictEqual(ast.checks?.[0], structural)
     })
   })
 
@@ -253,6 +366,22 @@ describe("SchemaAST", () => {
       deepStrictEqual(SchemaAST.getCandidates(1, ast.types), [])
     })
 
+    it("should collect matches from different sentinel keys without duplicates", () => {
+      const schema = Schema.Union([
+        Schema.Struct({
+          kind: Schema.Literal("a"),
+          status: Schema.Literal("ready"),
+          value: Schema.String
+        }),
+        Schema.Struct({ status: Schema.Literal("ready"), value: Schema.String })
+      ])
+      const ast = schema.ast
+      deepStrictEqual(
+        SchemaAST.getCandidates({ kind: "a", status: "ready", value: "value" }, ast.types),
+        [ast.types[0], ast.types[1]]
+      )
+    })
+
     it("should handle tagged tuples", () => {
       const schema = Schema.Union([
         Schema.Tuple([Schema.Literal("a"), Schema.String]),
@@ -322,7 +451,7 @@ describe("SchemaAST", () => {
     })
 
     it("Number", () => {
-      const input = { "1": 1, "1.5": 2, "-2": 3, a: 4, NaN: 5 }
+      const input = { "1": 1, "1.5": 2, "-2": 3, a: 4, NaN: 5, x1: 6, "1x": 7 }
       deepStrictEqual(SchemaAST.getIndexSignatureKeys(input, Schema.Number.ast, SchemaAST.defaultParseOptions), [
         "1",
         "1.5",
