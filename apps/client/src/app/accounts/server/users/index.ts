@@ -1,6 +1,7 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
+import { appStateFocusSignalAtom } from '#src/services/app-state.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -39,4 +40,11 @@ export const listUsersAtom = AppRuntime.pull(
     },
     (effect) => Stream.unwrap(effect)
   )
-).pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
+).pipe(
+  Atom.swr({
+    staleTime: 10_000,
+    revalidateOnMount: true,
+    revalidateOnFocus: true,
+    focusSignal: appStateFocusSignalAtom,
+  })
+);

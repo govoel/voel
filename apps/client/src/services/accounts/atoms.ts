@@ -1,5 +1,5 @@
-import { Effect, Option, Queue, Stream } from 'effect';
-import { Reactivity } from 'effect/unstable/reactivity';
+import { Effect, Equal, Option, Queue, Stream } from 'effect';
+import { Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
@@ -10,7 +10,7 @@ export const accountsAtom = AppRuntime.atom(
     Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll())),
     Reactivity.stream(['account'])
   )
-);
+).pipe(Atom.withEquality(Equal.equals));
 
 export const activeAccountAtom = AppRuntime.atom(
   AccountManager.pipe(

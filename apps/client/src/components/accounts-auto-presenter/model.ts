@@ -1,4 +1,5 @@
-import { Effect, Option } from 'effect';
+import { Effect, Equal, Option } from 'effect';
+import { Atom } from 'effect/unstable/reactivity';
 
 import {
   accountsAtom,
@@ -32,4 +33,4 @@ export const accountsSheetAtom = AppRuntime.atom(
 
     return { mode: 'IDLE', dismissable: true } as const;
   })
-);
+).pipe(Atom.withEquality(Equal.equals));
