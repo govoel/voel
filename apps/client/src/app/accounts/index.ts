@@ -12,35 +12,21 @@ export const setActiveAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
 );
 
-export const removeAccountAtom = AppRuntime.fn(
-  (input: Parameters<typeof AccountManager.Service.removeAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(input)))
+export const removeAccountAtom = AppRuntime.fn(() =>
+  AccountManager.pipe(Effect.flatMap((manager) => manager.removeActiveAccount))
 );
 
-class RemoveAccountInput extends Schema.Class<
-  RemoveAccountInput,
-  { readonly brand: unique symbol }
->('voel/app/accounts/index/RemoveAccountInput')({
-  serverUrl: Account.fields.serverUrl,
-  userId: Account.fields.userId,
-}) {}
-
 export const useRemoveAccountForm = ({
-  defaultValues,
   onSuccess,
 }: {
-  readonly defaultValues: typeof RemoveAccountInput.Encoded;
   readonly onSuccess: () => Promise<void>;
 }) => {
   const form = useAppForm({
-    schema: RemoveAccountInput,
+    schema: Schema.Void,
     mutation: removeAccountAtom,
-    defaultValues,
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
-          BetterAuthClientInitializationError: () =>
-            'Unexpected error while removing the account. Try again.',
           AccountSignOutError: (signOutError) =>
             signOutError.details.message ?? 'Failed to sign out. Try again.',
           AccountDatabaseError: () => 'A database error occurred. Try again.',

@@ -358,73 +358,42 @@ export class AccountManager extends Context.Service<AccountManager>()(
         });
       });
 
-      const removeAccount = ({
-        serverUrl,
-        userId,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId'>) =>
-        SubscriptionRef.modifyEffect(
-          stateRef,
-          Effect.fnUntraced(function* (state) {
-            const account = yield* db
-              .executeTakeFirstOption(
-                db
-                  .selectFrom('account')
-                  .selectAll()
-                  .where('serverUrl', '=', serverUrl)
-                  .where('userId', '=', userId)
-              )
-              .pipe(Effect.mapError(() => new AccountDatabaseError()));
-            if (Option.isNone(account)) {
-              return [void 0, state] as const;
-            }
-
-            const activeAccountState =
-              Option.isSome(state) &&
-              state.value.account.serverUrl === serverUrl &&
-              state.value.account.userId === userId
-                ? state
-                : Option.none();
-            const authClient = Option.isSome(activeAccountState)
-              ? activeAccountState.value.state.authClient
-              : yield* createVoelAuthClient({
-                  serverUrl: account.value.serverUrl,
-                  authStorageId: account.value.authStorageId,
-                  storage: authClientStorage,
-                  xxHash,
-                });
-            const signOutResult = yield* Effect.tryPromise({
-              try: async () => authClient.signOut(),
-              catch: (error) =>
-                new AccountSignOutError({
-                  details: betterAuthErrorDetailsFromUnknown(error),
-                }),
-            });
-            if (signOutResult.error !== null) {
-              return yield* new AccountSignOutError({
-                details: new BetterAuthErrorDetails(signOutResult.error),
-              });
-            }
-
-            yield* db
-              .execute(
-                db
-                  .deleteFrom('account')
-                  .where('serverUrl', '=', serverUrl)
-                  .where('userId', '=', userId)
-              )
-              .pipe(
-                Reactivity.mutation(['account']),
-                Effect.mapError(() => new AccountDatabaseError())
-              );
-
-            if (Option.isSome(activeAccountState)) {
-              yield* Scope.close(activeAccountState.value.state.scope, Exit.void);
-              return [void 0, Option.none()] as const;
-            }
-
+      const removeActiveAccount = SubscriptionRef.modifyEffect(
+        stateRef,
+        Effect.fnUntraced(function* (state) {
+          if (Option.isNone(state)) {
             return [void 0, state] as const;
-          })
-        );
+          }
+
+          const signOutResult = yield* Effect.tryPromise({
+            try: async () => state.value.state.authClient.signOut(),
+            catch: (error) =>
+              new AccountSignOutError({
+                details: betterAuthErrorDetailsFromUnknown(error),
+              }),
+          });
+          if (signOutResult.error !== null) {
+            return yield* new AccountSignOutError({
+              details: new BetterAuthErrorDetails(signOutResult.error),
+            });
+          }
+
+          yield* db
+            .execute(
+              db
+                .deleteFrom('account')
+                .where('serverUrl', '=', state.value.account.serverUrl)
+                .where('userId', '=', state.value.account.userId)
+            )
+            .pipe(
+              Reactivity.mutation(['account']),
+              Effect.mapError(() => new AccountDatabaseError())
+            );
+
+          yield* Scope.close(state.value.state.scope, Exit.void);
+          return [void 0, Option.none()] as const;
+        })
+      );
 
       const signInAccount = Effect.fnUntraced(function* ({
         serverUrl,
@@ -525,7 +494,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         changes: SubscriptionRef.changes(stateRef),
         state: SubscriptionRef.get(stateRef),
         setActiveAccount,
-        removeAccount,
+        removeActiveAccount,
         signInAccount,
         setupServerWithAccount,
       };

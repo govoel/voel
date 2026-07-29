@@ -58,7 +58,7 @@ const StackNavigationRow = ({
   </SegmentedListItem>
 );
 
-const RemoveAccountConfirmation = ({
+const RemoveAccountForm = ({
   account,
   onDismiss,
 }: {
@@ -71,7 +71,6 @@ const RemoveAccountConfirmation = ({
 }) => {
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
   const form = useRemoveAccountForm({
-    defaultValues: { serverUrl: account.serverUrl, userId: account.userId },
     onSuccess: async () => {
       onDismiss();
     },
@@ -113,7 +112,7 @@ export default function AccountsScreen() {
   const accounts = useAtomValue(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
-  const [isRemoveConfirmationPresented, setIsRemoveConfirmationPresented] = useState(false);
+  const [isRemoveAccountFormPresented, setIsRemoveAccountFormPresented] = useState(false);
 
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
@@ -208,7 +207,7 @@ export default function AccountsScreen() {
                   index={2}
                   count={3}
                   onClick={() => {
-                    setIsRemoveConfirmationPresented(true);
+                    setIsRemoveAccountFormPresented(true);
                   }}>
                   <SegmentedListItem.HeadlineContent>
                     <Text color={colors.error}>Remove account from this device</Text>
@@ -246,11 +245,11 @@ export default function AccountsScreen() {
               </SegmentedList>
             </Column>
 
-            {isRemoveConfirmationPresented ? (
-              <RemoveAccountConfirmation
+            {isRemoveAccountFormPresented ? (
+              <RemoveAccountForm
                 account={accounts.value.activeAccount.value.account}
                 onDismiss={() => {
-                  setIsRemoveConfirmationPresented(false);
+                  setIsRemoveAccountFormPresented(false);
                 }}
               />
             ) : null}
