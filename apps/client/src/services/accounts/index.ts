@@ -387,10 +387,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
               authStorageId: state.value.account.authStorageId,
             })
           );
-          yield* Effect.all([
-            authClientStorageService.removeItem(`${storagePrefix}_cookie`),
-            authClientStorageService.removeItem(`${storagePrefix}_session_data`),
-          ]);
+          yield* Effect.all(
+            [
+              authClientStorageService.removeItem(`${storagePrefix}_cookie`),
+              authClientStorageService.removeItem(`${storagePrefix}_session_data`),
+            ],
+            { concurrency: 'unbounded' }
+          );
 
           yield* db
             .execute(
