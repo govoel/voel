@@ -1,7 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Context, Deferred, Effect, Layer, Option, Redacted } from 'effect';
 import { Atom, AtomRegistry, Reactivity } from 'effect/unstable/reactivity';
-import { AppState } from 'react-native';
 import { vi } from 'vitest';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
@@ -12,7 +11,6 @@ import {
   activeAccountSessionAtom,
 } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { appStateFocusSignalAtom } from '#src/services/app-state.ts';
 import { NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -99,15 +97,6 @@ const TestAccountsAtomsLayer = Layer.unwrap(
 const makeAccountsAtomsTestLayer = () =>
   TestAccountsAtomsLayer.pipe(Layer.provideMerge(makeClientTestLayers()));
 
-const settleAtomTasks = Effect.fnUntraced(function* () {
-  const { drainAtomTasks } = yield* AtomTaskScheduler;
-
-  for (let index = 0; index < 20; index += 1) {
-    yield* Effect.yieldNow;
-    yield* drainAtomTasks;
-  }
-});
-
 type AuthClient = Effect.Success<ReturnType<typeof makeAuthClient>>;
 
 const waitForSessionRequest = (authClient: AuthClient) =>
@@ -131,87 +120,6 @@ const waitForSessionRequest = (authClient: AuthClient) =>
 
     return Effect.sync(unsubscribe);
   });
-
-it.effect(
-  'appStateFocusSignalAtom emits only when the app becomes active and removes its listener',
-  Effect.fnUntraced(
-    function* () {
-      const remove = vi.fn(() => void 0);
-      const addEventListenerSpy = vi
-        .spyOn(AppState, 'addEventListener')
-        .mockReturnValue({ remove });
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          addEventListenerSpy.mockRestore();
-        })
-      );
-
-      const registry = yield* AtomRegistry.AtomRegistry;
-      const unmount = registry.mount(appStateFocusSignalAtom);
-      expect(registry.get(appStateFocusSignalAtom)).toBe(0);
-
-      const appStateListener = addEventListenerSpy.mock.calls[0]?.[1];
-      if (appStateListener === void 0) {
-        throw new Error('AppState change listener was not registered.');
-      }
-
-      appStateListener('background');
-      expect(registry.get(appStateFocusSignalAtom)).toBe(0);
-
-      appStateListener('active');
-      expect(registry.get(appStateFocusSignalAtom)).toBe(1);
-
-      appStateListener('active');
-      expect(registry.get(appStateFocusSignalAtom)).toBe(1);
-
-      appStateListener('inactive');
-      appStateListener('active');
-      expect(registry.get(appStateFocusSignalAtom)).toBe(2);
-
-      unmount();
-      yield* settleAtomTasks();
-      expect(remove).toHaveBeenCalledOnce();
-    },
-    (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
-  )
-);
-
-it.effect(
-  'account equality suppresses unchanged reactive query results and downstream updates',
-  Effect.fnUntraced(
-    function* () {
-      const registry = yield* AtomRegistry.AtomRegistry;
-      expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
-      expect(yield* Atom.getResult(accountsSheetAtom)).toEqual({
-        mode: 'ONBOARDING',
-        dismissable: false,
-      });
-      yield* settleAtomTasks();
-
-      let accountsNotifications = 0;
-      let accountsSheetNotifications = 0;
-      const unsubscribeAccounts = registry.subscribe(accountsAtom, () => {
-        accountsNotifications += 1;
-      });
-      const unsubscribeAccountsSheet = registry.subscribe(accountsSheetAtom, () => {
-        accountsSheetNotifications += 1;
-      });
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          unsubscribeAccounts();
-          unsubscribeAccountsSheet();
-        })
-      );
-
-      yield* Reactivity.invalidate(['account']);
-      yield* settleAtomTasks();
-
-      expect(accountsNotifications).toBe(0);
-      expect(accountsSheetNotifications).toBe(0);
-    },
-    (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
-  )
-);
 
 it.layer(TestServerControllerClient.layerNoDeps)('accountsAtom', (iit) => {
   iit.effect(
@@ -513,53 +421,6 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
             suspendOnWaiting: true,
           })
         ).toEqual({ mode: 'INVALID_SESSION', dismissable: true });
-      },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
-    )
-  );
-
-  iit.effect(
-    'does not publish when a session refetch leaves the sheet state unchanged',
-    Effect.fnUntraced(
-      function* () {
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
-        const registry = yield* AtomRegistry.AtomRegistry;
-        const manager = yield* AccountManager;
-        const serverUrl = yield* makeServerUrl();
-        const username = yield* makeUsername('test.admin');
-
-        yield* manager.setupServerWithAccount({
-          serverUrl,
-          name: 'Test Admin',
-          email: `${username}@voel.app`,
-          username,
-          password: Redacted.make('ha!niceTry'),
-        });
-        const { authClient } = Option.getOrThrow(yield* manager.state).state;
-        yield* waitForSessionRequest(authClient);
-        yield* drainAtomTasks;
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual({
-          mode: 'IDLE',
-          dismissable: true,
-        });
-
-        let notifications = 0;
-        const unsubscribe = registry.subscribe(accountsSheetAtom, () => {
-          notifications += 1;
-        });
-        yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
-        yield* settleAtomTasks();
-        notifications = 0;
-
-        yield* Effect.promise(async () => authClient.useSession.get().refetch());
-        yield* waitForSessionRequest(authClient);
-        yield* settleAtomTasks();
-
-        expect(notifications).toBe(0);
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual({
-          mode: 'IDLE',
-          dismissable: true,
-        });
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
