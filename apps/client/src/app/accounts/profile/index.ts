@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from '@effect/atom-react';
-import { DateTime, Effect, Exit, Match, Option, Redacted, Schema, SchemaGetter } from 'effect';
+import { DateTime, Effect, Exit, Match, Option, Redacted, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
@@ -139,38 +139,18 @@ export const useUserSessionActions = () => {
   };
 };
 
-const requiredPassword = Schema.String.check(
-  Schema.isNonEmpty({ message: 'Password is required' })
-).pipe(
-  Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
-    decode: SchemaGetter.transform((password) => Redacted.make(password)),
-    encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
-  })
-);
-
-const newPasswordSchema = Schema.String.check(
-  Schema.isNonEmpty({ message: 'New password is required' }),
-  Schema.isMinLength(8, { message: 'Password must be at least 8 characters' }),
-  Schema.isMaxLength(128, { message: 'Password must be at most 128 characters' })
-).pipe(
-  Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
-    decode: SchemaGetter.transform((password) => Redacted.make(password)),
-    encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
-  })
-);
-
 export class PasswordResetInput extends Schema.Class<
   PasswordResetInput,
   { readonly brand: unique symbol }
 >('voel/app/accounts/profile/index/PasswordResetInput')(
   Schema.Struct({
-    currentPassword: requiredPassword,
-    newPassword: newPasswordSchema,
-    confirmPassword: requiredPassword,
+    currentPassword: Schema.RedactedFromValue(Schema.String, { disallowEncode: true }),
+    newPassword: Schema.RedactedFromValue(Schema.String, { disallowEncode: true }),
+    confirmPassword: Schema.RedactedFromValue(Schema.String, { disallowEncode: true }),
     revokeOtherSessions: Schema.Boolean,
   }).check(
-    Schema.makeFilter(({ confirmPassword, newPassword: nextPassword }) =>
-      Redacted.value(confirmPassword) === Redacted.value(nextPassword)
+    Schema.makeFilter(({ confirmPassword, newPassword }) =>
+      Redacted.value(confirmPassword) === Redacted.value(newPassword)
         ? true
         : { path: ['confirmPassword'], issue: 'Passwords do not match' }
     )
