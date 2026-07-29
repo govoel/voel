@@ -1,8 +1,8 @@
 import { Effect, Option, Schema, Stream } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
 
 import { CurrentAuthClient } from '#src/services/auth-client/current';
 import { AppRuntime } from '#src/services/runtime.ts';
+import { swr } from '#src/services/swr.ts';
 
 export class ServerUser extends Schema.Class<ServerUser, { readonly brand: unique symbol }>(
   'voel/app/accounts/server/users/index/ServerUser'
@@ -39,4 +39,4 @@ export const listUsersAtom = AppRuntime.pull(
     },
     (effect) => Stream.unwrap(effect)
   )
-).pipe(Atom.swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
+).pipe(swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
