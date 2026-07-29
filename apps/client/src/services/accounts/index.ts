@@ -20,7 +20,11 @@ import {
   BetterAuthErrorDetails,
   betterAuthErrorDetailsFromUnknown,
 } from '#src/services/auth-client/errors.ts';
-import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import {
+  XxHash,
+  createVoelAuthClient,
+  makeAuthStorageKey,
+} from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
@@ -60,6 +64,13 @@ export class AccountSignUpError extends Schema.TaggedErrorClass<
   details: BetterAuthErrorDetails,
 }) {}
 
+export class AccountSignOutError extends Schema.TaggedErrorClass<
+  AccountSignOutError,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/index/AccountSignOutError')('AccountSignOutError', {
+  details: BetterAuthErrorDetails,
+}) {}
+
 export class AccountDatabaseError extends Schema.TaggedErrorClass<
   AccountDatabaseError,
   { readonly brand: unique symbol }
@@ -81,6 +92,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
+      const authClientStorageService = yield* AuthClientStorage;
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -351,34 +363,54 @@ export class AccountManager extends Context.Service<AccountManager>()(
         });
       });
 
-      const removeAccount = ({
-        serverUrl,
-        userId,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId'>) =>
-        SubscriptionRef.modifyEffect(
-          stateRef,
-          Effect.fnUntraced(function* (state) {
-            yield* db
-              .execute(
-                db
-                  .deleteFrom('account')
-                  .where('serverUrl', '=', serverUrl)
-                  .where('userId', '=', userId)
-              )
-              .pipe(Reactivity.mutation(['account']));
-
-            if (
-              Option.isSome(state) &&
-              state.value.account.serverUrl === serverUrl &&
-              state.value.account.userId === userId
-            ) {
-              yield* Scope.close(state.value.state.scope, Exit.void);
-              return [void 0, Option.none()] as const;
-            }
-
+      const removeActiveAccount = SubscriptionRef.modifyEffect(
+        stateRef,
+        Effect.fnUntraced(function* (state) {
+          if (Option.isNone(state)) {
             return [void 0, state] as const;
-          })
-        );
+          }
+
+          // we ignore errors here because the server may be offline
+          // which causes better-auth to throw
+          yield* Effect.tryPromise({
+            try: async () => state.value.state.authClient.signOut(),
+            catch: (error) =>
+              new AccountSignOutError({
+                details: betterAuthErrorDetailsFromUnknown(error),
+              }),
+          }).pipe(Effect.ignore);
+
+          // mimick better-auth and remove the auth storage items for this account
+          const storagePrefix = yield* xxHash.hash128(
+            makeAuthStorageKey({
+              serverUrl: state.value.account.serverUrl,
+              authStorageId: state.value.account.authStorageId,
+            })
+          );
+          yield* Effect.all(
+            [
+              authClientStorageService.removeItem(`${storagePrefix}_cookie`),
+              authClientStorageService.removeItem(`${storagePrefix}_session_data`),
+            ],
+            { concurrency: 'unbounded' }
+          );
+
+          yield* db
+            .execute(
+              db
+                .deleteFrom('account')
+                .where('serverUrl', '=', state.value.account.serverUrl)
+                .where('userId', '=', state.value.account.userId)
+            )
+            .pipe(
+              Reactivity.mutation(['account']),
+              Effect.mapError(() => new AccountDatabaseError())
+            );
+
+          yield* Scope.close(state.value.state.scope, Exit.void);
+          return [void 0, Option.none()] as const;
+        })
+      );
 
       const signInAccount = Effect.fnUntraced(function* ({
         serverUrl,
@@ -479,7 +511,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         changes: SubscriptionRef.changes(stateRef),
         state: SubscriptionRef.get(stateRef),
         setActiveAccount,
-        removeAccount,
+        removeActiveAccount,
         signInAccount,
         setupServerWithAccount,
       };

@@ -1,6 +1,7 @@
 import { useAtom } from '@effect/atom-react';
-import { Effect, Exit, Option } from 'effect';
+import { Effect, Exit, Match, Option, Schema } from 'effect';
 
+import { useAppForm } from '#src/components/form';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -11,10 +12,33 @@ export const setActiveAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
 );
 
-export const removeAccountAtom = AppRuntime.fn(
-  (input: Parameters<typeof AccountManager.Service.removeAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(input)))
+export const removeAccountAtom = AppRuntime.fn(() =>
+  AccountManager.pipe(Effect.flatMap((manager) => manager.removeActiveAccount))
 );
+
+export const useRemoveAccountForm = ({
+  onSuccess,
+}: {
+  readonly onSuccess: () => Promise<void>;
+}) => {
+  const form = useAppForm({
+    schema: Schema.Void,
+    mutation: removeAccountAtom,
+    onFailure: ({ error }) =>
+      Match.value(error).pipe(
+        Match.tagsExhaustive({
+          AuthClientStorageRemoveItemError: () => 'Failed to clear account storage. Try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
+        })
+      ),
+    onSuccess: async ({ formApi }) => {
+      formApi.reset();
+      await onSuccess();
+    },
+  });
+
+  return form;
+};
 
 export const accountsWithActiveAccount = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {

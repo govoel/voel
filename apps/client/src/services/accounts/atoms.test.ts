@@ -141,10 +141,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsAtom', (iit) => {
           },
         ]);
 
-        yield* manager.removeAccount({
-          serverUrl: testServer.serverUrl,
-          userId: account.userId,
-        });
+        yield* manager.removeActiveAccount;
 
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);

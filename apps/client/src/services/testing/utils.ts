@@ -12,12 +12,12 @@ import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
 import { CommonGlobalLayers } from '#src/services/layers.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
-export const makeClientTestLayers = () =>
+export const makeClientTestLayers = (authClientStorageMap = new Map<string, string>()) =>
   CommonGlobalLayers.pipe(
     Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
       Layer.mergeAll(
-        AuthClientStorage.layerTest,
+        AuthClientStorage.layerTest(authClientStorageMap),
         UuidGenerator.layerTest,
         XxHash.layerTest,
         AppConfig.layerTest()

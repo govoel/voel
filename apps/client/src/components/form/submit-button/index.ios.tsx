@@ -3,6 +3,7 @@ import {
   Animation,
   animation,
   disabled as disabledModifier,
+  fixedSize,
   foregroundStyle,
   hidden as hiddenModifier,
   multilineTextAlignment,
@@ -28,6 +29,7 @@ const SubmitErrorMessage = ({ formErrorMessages }: { readonly formErrorMessages:
         modifiers={[
           foregroundStyle(PlatformColor('systemRed')),
           multilineTextAlignment('center'),
+          fixedSize({ horizontal: false, vertical: true }),
           padding({ bottom: Spacing.one }),
         ]}>
         {message}
@@ -53,7 +55,6 @@ export const SubmitButton = (({
       ),
     ]
   );
-
   return (
     <>
       <SubmitErrorMessage formErrorMessages={formErrorMessages} />
@@ -63,7 +64,6 @@ export const SubmitButton = (({
         modifiers={[
           ...('ios' in platformProps ? (platformProps.ios.modifiers ?? []) : []),
           disabledModifier(!canSubmitOrRetryMutation || isSubmitting || disabled),
-          animation(Animation.default, isSubmitting),
         ]}
         onPress={() => {
           void form.handleSubmit();
@@ -71,7 +71,12 @@ export const SubmitButton = (({
         <HStack
           alignment="center"
           spacing={Spacing.one}
-          {...('ios' in containerModifiers ? { modifiers: containerModifiers.ios } : {})}>
+          modifiers={[
+            ...('ios' in containerModifiers ? containerModifiers.ios : []),
+            ...('ios' in platformProps && platformProps.ios.disableAnimation === true
+              ? []
+              : [animation(Animation.default, isSubmitting)]),
+          ]}>
           {isSubmitting ? <ProgressView modifiers={[hiddenModifier(!isSubmitting)]} /> : null}
 
           {children}

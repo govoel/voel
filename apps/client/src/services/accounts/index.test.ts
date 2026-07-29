@@ -3,7 +3,7 @@ import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
-import { XxHash } from '#src/services/auth-client/index.ts';
+import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -643,45 +643,58 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layerNoDeps)('removeAccount', (iit) => {
+  it.layer(TestServerControllerClient.layerNoDeps)('removeActiveAccount', (iit) => {
+    const storageItems = new Map<string, string>();
+
     iit.effect(
-      'leaves active state unchanged when removing an inactive account',
+      'revokes the Better Auth session and clears its secure storage',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
-          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
-          const [inactiveAccount, activeAccount] = yield* signInTestServerUsers(
-            manager,
-            testServer
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          const [account] = yield* signInTestServerUsers(manager, testServer);
+          const storage = yield* AuthClientStorage;
+          const xxHash = yield* XxHash;
+          const storagePrefix = yield* xxHash.hash128(
+            `voel::auth::${testServer.serverUrl}::${account.authStorageId}`
           );
-          const activeUsername = activeAccount.username;
-          const client = yield* makeAuthClientWithSpy({
-            serverUrl: testServer.serverUrl,
-          });
+          const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
+          expect(Option.isSome(storedCookie)).toBe(true);
 
-          yield* manager.setActiveAccount({
-            serverUrl: testServer.serverUrl,
-            userId: activeAccount.userId,
-            authClient: Option.some(client.authClient),
-          });
-
-          const before = yield* manager.state;
-          yield* manager.removeAccount({
-            serverUrl: testServer.serverUrl,
-            userId: inactiveAccount.userId,
-          });
-
-          expect(yield* manager.state).toBe(before);
-          expect(client.unsubscribeCount).toBe(0);
-          expect(yield* getAccounts).toMatchObject([
-            {
-              serverUrl: testServer.serverUrl,
-              username: activeUsername,
-              active: 1,
-            },
+          const verificationAuthStorageId = 'removed-account-session-verification';
+          const verificationStoragePrefix = yield* xxHash.hash128(
+            `voel::auth::${testServer.serverUrl}::${verificationAuthStorageId}`
+          );
+          const verificationStorage = new Map([
+            [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
           ]);
+          const verificationAuthClient = yield* createVoelAuthClient({
+            serverUrl: testServer.serverUrl,
+            authStorageId: verificationAuthStorageId,
+            storage: {
+              getItem: (key) => verificationStorage.get(key) ?? null,
+              setItem: (key, value) => {
+                verificationStorage.set(key, value);
+              },
+            },
+            xxHash,
+          });
+          const sessionBeforeRemoval = yield* Effect.promise(async () =>
+            verificationAuthClient.getSession({ query: { disableCookieCache: true } })
+          );
+          expect(sessionBeforeRemoval.data?.user.id).toBe(account.userId);
+
+          yield* manager.removeActiveAccount;
+
+          expect(storageItems.size).toEqual(0);
+          const sessionAfterRemoval = yield* Effect.promise(async () =>
+            verificationAuthClient.getSession({ query: { disableCookieCache: true } })
+          );
+          expect(sessionAfterRemoval).toMatchObject({ data: null, error: null });
+          expect(yield* getAccounts).toEqual([]);
+          expect(yield* manager.state).toBe(Option.none());
         },
-        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers(storageItems)))
       )
     );
 
@@ -701,50 +714,11 @@ describe('AccountManager', () => {
             userId: account.userId,
             authClient: Option.some(client.authClient),
           });
-          yield* manager.removeAccount({
-            serverUrl: testServer.serverUrl,
-            userId: account.userId,
-          });
+          yield* manager.removeActiveAccount;
 
           expect(yield* manager.state).toBe(Option.none());
           expect(client.unsubscribeCount).toBe(1);
           expect(yield* getAccounts).toEqual([]);
-        },
-        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-      )
-    );
-
-    iit.effect(
-      'does nothing when the account does not exist',
-      Effect.fnUntraced(
-        function* () {
-          const manager = yield* AccountManager;
-          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
-          const [account] = yield* signInTestServerUsers(manager, testServer);
-          const client = yield* makeAuthClientWithSpy({
-            serverUrl: testServer.serverUrl,
-          });
-
-          yield* manager.setActiveAccount({
-            serverUrl: testServer.serverUrl,
-            userId: account.userId,
-            authClient: Option.some(client.authClient),
-          });
-          const before = yield* manager.state;
-          yield* manager.removeAccount({
-            serverUrl: testServer.serverUrl,
-            userId: Account.fields.userId.make('missing'),
-          });
-
-          expect(yield* manager.state).toBe(before);
-          expect(client.unsubscribeCount).toBe(0);
-          expect(yield* getAccounts).toMatchObject([
-            {
-              serverUrl: testServer.serverUrl,
-              username: account.username,
-              active: 1,
-            },
-          ]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

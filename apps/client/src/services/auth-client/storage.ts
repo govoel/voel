@@ -16,15 +16,25 @@ export class AuthClientStorageSetItemError extends Schema.TaggedErrorClass<
   { key: Schema.String }
 ) {}
 
+export class AuthClientStorageRemoveItemError extends Schema.TaggedErrorClass<
+  AuthClientStorageRemoveItemError,
+  { readonly brand: unique symbol }
+>('voel/services/auth-client/storage/AuthClientStorageRemoveItemError')(
+  'AuthClientStorageRemoveItemError',
+  { key: Schema.String }
+) {}
+
 export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
   'voel/services/auth-client/storage/AuthClientStorage',
   {
     make: Effect.fnUntraced(function* ({
       getItem,
       setItem,
+      removeItem,
     }: {
       getItem: (key: string) => string | null;
       setItem: (key: string, value: string) => void;
+      removeItem: (key: string) => Promise<void>;
     }) {
       const cache = yield* Cache.make<string, Option.Option<string>, AuthClientStorageGetItemError>(
         {
@@ -51,6 +61,16 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
           });
           yield* Cache.set(cache, key, Option.some(value));
         }),
+
+        removeItem: Effect.fnUntraced(function* (key: string) {
+          yield* Effect.tryPromise({
+            try: async () => {
+              await removeItem(key);
+            },
+            catch: () => new AuthClientStorageRemoveItemError({ key }),
+          });
+          yield* Cache.set(cache, key, Option.none());
+        }),
       };
     }),
   }
@@ -63,22 +83,23 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
         AuthClientStorage.make({
           getItem: SecureStore.getItem,
           setItem: SecureStore.setItem,
+          removeItem: SecureStore.deleteItemAsync,
         })
       );
     })
   );
 
-  public static readonly layerTest = Layer.effect(
-    this,
-    Effect.sync(() => new Map<string, string>()).pipe(
-      Effect.flatMap((items) =>
-        this.make({
-          getItem: (key) => items.get(key) ?? null,
-          setItem: (key, value) => {
-            items.set(key, value);
-          },
-        })
-      )
-    )
-  );
+  public static readonly layerTest = (items: Map<string, string>) =>
+    Layer.effect(
+      this,
+      this.make({
+        getItem: (key) => items.get(key) ?? null,
+        setItem: (key, value) => {
+          items.set(key, value);
+        },
+        removeItem: async (key) => {
+          items.delete(key);
+        },
+      })
+    );
 }
