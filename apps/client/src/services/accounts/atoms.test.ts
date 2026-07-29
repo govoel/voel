@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Context, Deferred, Effect, Layer, Option, Redacted } from 'effect';
-import { Atom, AtomRegistry, Reactivity } from 'effect/unstable/reactivity';
+import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { vi } from 'vitest';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
