@@ -27,9 +27,8 @@ export const useRemoveAccountForm = ({
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
-          AccountSignOutError: (signOutError) =>
-            signOutError.details.message ?? 'Failed to sign out. Try again.',
-          AccountDatabaseError: () => 'A database error occurred. Try again.',
+          AuthClientStorageRemoveItemError: () => 'Failed to clear account storage. Try again.',
+          DatabaseSqlError: () => 'A database error occurred. Try again.',
         })
       ),
     onSuccess: async ({ formApi }) => {

@@ -3,6 +3,14 @@ import { Context, Duration, Effect, Layer, Schema } from 'effect';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
+export const makeAuthStorageKey = ({
+  serverUrl,
+  authStorageId,
+}: {
+  readonly serverUrl: string;
+  readonly authStorageId: string;
+}) => `voel::auth::${serverUrl}::${authStorageId}`;
+
 export class XxHash extends Context.Service<
   XxHash,
   { readonly hash128: (input: string) => Effect.Effect<string> }
@@ -42,7 +50,7 @@ export const createVoelAuthClient = Effect.fnUntraced(function* ({
   readonly storage: Parameters<typeof expoClient>[0]['storage'];
   readonly xxHash: XxHash['Service'];
 }) {
-  const storagePrefix = yield* xxHash.hash128(`voel::auth::${serverUrl}::${authStorageId}`);
+  const storagePrefix = yield* xxHash.hash128(makeAuthStorageKey({ serverUrl, authStorageId }));
 
   return yield* Effect.try({
     try: () =>

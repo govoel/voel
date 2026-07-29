@@ -20,7 +20,11 @@ import {
   BetterAuthErrorDetails,
   betterAuthErrorDetailsFromUnknown,
 } from '#src/services/auth-client/errors.ts';
-import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import {
+  XxHash,
+  createVoelAuthClient,
+  makeAuthStorageKey,
+} from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
@@ -67,11 +71,6 @@ export class AccountSignOutError extends Schema.TaggedErrorClass<
   details: BetterAuthErrorDetails,
 }) {}
 
-export class AccountDatabaseError extends Schema.TaggedErrorClass<
-  AccountDatabaseError,
-  { readonly brand: unique symbol }
->('voel/services/accounts/index/AccountDatabaseError')('AccountDatabaseError', {}) {}
-
 export class AccountNotFoundError extends Schema.TaggedErrorClass<
   AccountNotFoundError,
   { readonly brand: unique symbol }
@@ -88,6 +87,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
+      const authClientStorageService = yield* AuthClientStorage;
 
       const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
         Effect.map(Effect.runSyncWith)
@@ -347,10 +347,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
               return persistedAccount;
             })
           )
-          .pipe(
-            Reactivity.mutation(['account']),
-            Effect.mapError(() => new AccountDatabaseError())
-          );
+          .pipe(Reactivity.mutation(['account']));
 
         return yield* initializeActiveAccountState({
           activeAccount,
@@ -365,18 +362,27 @@ export class AccountManager extends Context.Service<AccountManager>()(
             return [void 0, state] as const;
           }
 
-          const signOutResult = yield* Effect.tryPromise({
+          // we ignore errors here because the server may be offline
+          // which causes better-auth to throw
+          yield* Effect.tryPromise({
             try: async () => state.value.state.authClient.signOut(),
             catch: (error) =>
               new AccountSignOutError({
                 details: betterAuthErrorDetailsFromUnknown(error),
               }),
-          });
-          if (signOutResult.error !== null) {
-            return yield* new AccountSignOutError({
-              details: new BetterAuthErrorDetails(signOutResult.error),
-            });
-          }
+          }).pipe(Effect.ignore);
+
+          // mimick better-auth and remove the auth storage items for this account
+          const storagePrefix = yield* xxHash.hash128(
+            makeAuthStorageKey({
+              serverUrl: state.value.account.serverUrl,
+              authStorageId: state.value.account.authStorageId,
+            })
+          );
+          yield* Effect.all([
+            authClientStorageService.removeItem(`${storagePrefix}_cookie`),
+            authClientStorageService.removeItem(`${storagePrefix}_session_data`),
+          ]);
 
           yield* db
             .execute(
@@ -385,10 +391,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                 .where('serverUrl', '=', state.value.account.serverUrl)
                 .where('userId', '=', state.value.account.userId)
             )
-            .pipe(
-              Reactivity.mutation(['account']),
-              Effect.mapError(() => new AccountDatabaseError())
-            );
+            .pipe(Reactivity.mutation(['account']));
 
           yield* Scope.close(state.value.state.scope, Exit.void);
           return [void 0, Option.none()] as const;

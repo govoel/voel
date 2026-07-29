@@ -167,11 +167,7 @@ const LoadedProfile = ({
         </VStack>
       </ZStack>
 
-      <BottomSheet
-        isPresented={isEditingProfile}
-        onIsPresentedChange={(isPresented) => {
-          setIsEditingProfile(isPresented);
-        }}>
+      <BottomSheet isPresented={isEditingProfile} onIsPresentedChange={setIsEditingProfile}>
         {/* Unmount the editor when dismissed so each presentation starts with fresh form state. */}
         {isEditingProfile ? (
           <UserProfileEditor

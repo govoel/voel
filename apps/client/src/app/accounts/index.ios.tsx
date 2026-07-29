@@ -92,7 +92,13 @@ const RemoveAccountForm = ({
           {account.serverUrl} from this device.
         </Text>
         <form.SubmitButton
-          platformProps={{ ios: { role: 'destructive', modifiers: [buttonStyle('bordered')] } }}
+          platformProps={{
+            ios: {
+              disableAnimation: true,
+              role: 'destructive',
+              modifiers: [buttonStyle('bordered')],
+            },
+          }}
           containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
           <Text>Remove</Text>
         </form.SubmitButton>
