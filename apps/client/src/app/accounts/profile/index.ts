@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from '@effect/atom-react';
-import { DateTime, Effect, Exit, Match, Option, Redacted, Schema } from 'effect';
+import { DateTime, Effect, Equal, Exit, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
@@ -143,6 +143,7 @@ export class PasswordResetInput extends Schema.Class<
   PasswordResetInput,
   { readonly brand: unique symbol }
 >('voel/app/accounts/profile/index/PasswordResetInput')(
+  // Better Auth owns password policy validation; this schema only redacts values and checks they match.
   Schema.Struct({
     currentPassword: Schema.RedactedFromValue(Schema.String, { disallowEncode: true }),
     newPassword: Schema.RedactedFromValue(Schema.String, { disallowEncode: true }),
@@ -150,7 +151,7 @@ export class PasswordResetInput extends Schema.Class<
     revokeOtherSessions: Schema.Boolean,
   }).check(
     Schema.makeFilter(({ confirmPassword, newPassword }) =>
-      Redacted.value(confirmPassword) === Redacted.value(newPassword)
+      Equal.equals(confirmPassword, newPassword)
         ? true
         : { path: ['confirmPassword'], issue: 'Passwords do not match' }
     )
@@ -158,15 +159,7 @@ export class PasswordResetInput extends Schema.Class<
 ) {}
 
 const resetCurrentUserPasswordAtom = AppRuntime.fn((input: PasswordResetInput) =>
-  CurrentAuthClient.pipe(
-    Effect.flatMap((authClient) =>
-      authClient.changePassword({
-        currentPassword: Redacted.value(input.currentPassword),
-        newPassword: Redacted.value(input.newPassword),
-        revokeOtherSessions: input.revokeOtherSessions,
-      })
-    )
-  )
+  CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.changePassword(input)))
 );
 
 const updateCurrentUserAtom = AppRuntime.fn(

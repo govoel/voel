@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema } from 'effect';
+import { Context, Effect, Layer, Option, Redacted, Schema } from 'effect';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
 import {
@@ -100,11 +100,19 @@ export class CurrentAuthClient extends Context.Service<CurrentAuthClient>()(
         }),
 
         changePassword: Effect.fnUntraced(function* (
-          input: Parameters<VoelAuthClient['changePassword']>[0]
+          input: Pick<Parameters<VoelAuthClient['changePassword']>[0], 'revokeOtherSessions'> & {
+            readonly currentPassword: Redacted.Redacted;
+            readonly newPassword: Redacted.Redacted;
+          }
         ) {
           const authClient = yield* getCurrentAuthClient;
           const result = yield* Effect.tryPromise({
-            try: async () => authClient.changePassword(input),
+            try: async () =>
+              authClient.changePassword({
+                currentPassword: Redacted.value(input.currentPassword),
+                newPassword: Redacted.value(input.newPassword),
+                revokeOtherSessions: input.revokeOtherSessions,
+              }),
             catch: (error) =>
               new CurrentAuthClientRequestError({
                 details: betterAuthErrorDetailsFromUnknown(error),
