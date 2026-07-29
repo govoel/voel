@@ -1,6 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
 import {
-  Alert,
   BottomSheet,
   Button,
   Group,
@@ -20,6 +19,7 @@ import {
   buttonStyle,
   containerRelativeFrame,
   disabled,
+  fixedSize,
   foregroundStyle,
   frame,
   headerProminence,
@@ -169,11 +169,17 @@ const PasswordResetEditor = ({ onSuccess }: Parameters<typeof usePasswordResetFo
   );
 };
 
-const UserSessionsSection = () => {
+type SessionRevocation =
+  | { readonly type: 'all' }
+  | { readonly type: 'single'; readonly currentSessionToken: string; readonly token: string };
+
+const UserSessionsSection = ({
+  onRequestRevoke,
+}: {
+  readonly onRequestRevoke: (revocation: SessionRevocation) => void;
+}) => {
   const sessionsState = useAtomValue(activeUserSessionsAtom);
   const sessionActions = useUserSessionActions();
-  const [sessionTokenToRevoke, setSessionTokenToRevoke] = useState<string | null>(null);
-  const [isRevokeAllPresented, setIsRevokeAllPresented] = useState(false);
 
   return (
     <Section title="Active Sessions">
@@ -192,96 +198,107 @@ const UserSessionsSection = () => {
               <>
                 {sessions.length === 0 ? <Text>No active sessions</Text> : null}
                 {sessions.map((session) => (
-                  <Alert
-                    title="Sign out this session?"
+                  <Button
+                    modifiers={[tint('primary'), disabled(sessionActions.isWaiting)]}
                     key={session.token}
-                    isPresented={sessionTokenToRevoke === session.token}
-                    onIsPresentedChange={(isPresented) => {
-                      if (!isPresented && sessionTokenToRevoke === session.token) {
-                        setSessionTokenToRevoke(null);
-                      }
+                    onPress={() => {
+                      onRequestRevoke({
+                        type: 'single',
+                        currentSessionToken,
+                        token: session.token,
+                      });
                     }}>
-                    <Alert.Trigger>
-                      <Button
-                        modifiers={[tint('primary'), disabled(sessionActions.isWaiting)]}
-                        onPress={() => {
-                          setSessionTokenToRevoke(session.token);
-                        }}>
-                        <HStack alignment="center" spacing={Spacing.two}>
-                          <VStack alignment="leading" spacing={Spacing.one}>
-                            <Text>{getUserSessionTitle(session, currentSessionToken)}</Text>
-                            <Text
-                              variant="caption"
-                              modifiers={[
-                                foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                              ]}>
-                              {getUserSessionDetails(session)}
-                            </Text>
-                          </VStack>
-                          <Spacer />
-                          <Text modifiers={[foregroundStyle('red')]}>Sign Out</Text>
-                        </HStack>
-                      </Button>
-                    </Alert.Trigger>
-                    <Alert.Actions>
-                      <Button
-                        label="Sign Out"
-                        role="destructive"
-                        onPress={() => {
-                          void sessionActions.revokeSession(session.token);
-                          setSessionTokenToRevoke(null);
-                        }}
-                      />
-                      <Button label="Cancel" role="cancel" />
-                    </Alert.Actions>
-                    <Alert.Message>
-                      <Text>
-                        {session.token === currentSessionToken
-                          ? 'You will be signed out on this device.'
-                          : 'This device will no longer have access to your account.'}
-                      </Text>
-                    </Alert.Message>
-                  </Alert>
+                    <HStack alignment="center" spacing={Spacing.two}>
+                      <VStack alignment="leading" spacing={Spacing.one}>
+                        <Text>{getUserSessionTitle(session, currentSessionToken)}</Text>
+                        <Text
+                          variant="caption"
+                          modifiers={[
+                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                          ]}>
+                          {getUserSessionDetails(session)}
+                        </Text>
+                      </VStack>
+                      <Spacer />
+                      <Text modifiers={[foregroundStyle('red')]}>Sign Out</Text>
+                    </HStack>
+                  </Button>
                 ))}
               </>
             ),
           }),
       })}
 
-      <Alert
-        title="Sign out of all sessions?"
-        isPresented={isRevokeAllPresented}
-        onIsPresentedChange={setIsRevokeAllPresented}>
-        <Alert.Trigger>
-          <Button
-            label="Sign Out of All Sessions"
-            role="destructive"
-            modifiers={[disabled(sessionActions.isWaiting)]}
-            onPress={() => {
-              setIsRevokeAllPresented(true);
-            }}
-          />
-        </Alert.Trigger>
-        <Alert.Actions>
-          <Button
-            label="Sign Out All"
-            role="destructive"
-            onPress={() => {
-              void sessionActions.revokeAllSessions();
-              setIsRevokeAllPresented(false);
-            }}
-          />
-          <Button label="Cancel" role="cancel" />
-        </Alert.Actions>
-        <Alert.Message>
-          <Text>You will be signed out on this device and every other device.</Text>
-        </Alert.Message>
-      </Alert>
+      <Button
+        label="Sign Out of All Sessions"
+        role="destructive"
+        modifiers={[disabled(sessionActions.isWaiting)]}
+        onPress={() => {
+          onRequestRevoke({ type: 'all' });
+        }}
+      />
 
       {sessionActions.hasError ? (
         <Text modifiers={[foregroundStyle('red')]}>Unable to sign out. Try again.</Text>
       ) : null}
     </Section>
+  );
+};
+
+const SessionRevocationSheet = ({
+  revocation,
+  onDismiss,
+}: {
+  readonly revocation: SessionRevocation;
+  readonly onDismiss: () => void;
+}) => {
+  const sessionActions = useUserSessionActions();
+  const isCurrentSession =
+    revocation.type === 'single' && revocation.token === revocation.currentSessionToken;
+  const description = (() => {
+    if (revocation.type === 'all') {
+      return 'You will be signed out on this device and every other device.';
+    }
+    if (isCurrentSession) {
+      return 'You will be signed out on this device.';
+    }
+    return 'This device will no longer have access to your account.';
+  })();
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={Spacing.two}
+      modifiers={[padding({ horizontal: Spacing.three, top: Spacing.four })]}>
+      <Text variant="h3">
+        {revocation.type === 'all' ? 'Sign out of all sessions?' : 'Sign out this session?'}
+      </Text>
+      <Text
+        modifiers={[
+          fixedSize({ horizontal: false, vertical: true }),
+          foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+        ]}>
+        {description}
+      </Text>
+      <Button
+        role="destructive"
+        modifiers={[buttonStyle('bordered'), disabled(sessionActions.isWaiting)]}
+        onPress={() => {
+          if (revocation.type === 'all') {
+            void sessionActions.revokeAllSessions();
+          } else {
+            void sessionActions.revokeSession(revocation.token);
+          }
+          onDismiss();
+        }}>
+        <Text modifiers={[frame({ maxWidth: Infinity })]}>
+          {revocation.type === 'all' ? 'Sign Out All' : 'Sign Out'}
+        </Text>
+      </Button>
+      <Button role="cancel" modifiers={[buttonStyle('bordered')]} onPress={onDismiss}>
+        <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
+      </Button>
+    </VStack>
   );
 };
 
@@ -295,6 +312,7 @@ const LoadedProfile = ({
 }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [sessionRevocation, setSessionRevocation] = useState<SessionRevocation | null>(null);
 
   return (
     <>
@@ -346,7 +364,7 @@ const LoadedProfile = ({
               </Text>
             </LabeledContent>
           </Section>
-          <UserSessionsSection />
+          <UserSessionsSection onRequestRevoke={setSessionRevocation} />
           <Section title="Password">
             <Button
               modifiers={[tint('primary')]}
@@ -393,6 +411,24 @@ const LoadedProfile = ({
             }}
           />
         ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        fitToContents
+        isPresented={sessionRevocation !== null}
+        onIsPresentedChange={(isPresented) => {
+          if (!isPresented) {
+            setSessionRevocation(null);
+          }
+        }}>
+        {sessionRevocation === null ? null : (
+          <SessionRevocationSheet
+            revocation={sessionRevocation}
+            onDismiss={() => {
+              setSessionRevocation(null);
+            }}
+          />
+        )}
       </BottomSheet>
     </>
   );
