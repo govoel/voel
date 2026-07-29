@@ -71,6 +71,11 @@ export class AccountSignOutError extends Schema.TaggedErrorClass<
   details: BetterAuthErrorDetails,
 }) {}
 
+export class AccountDatabaseError extends Schema.TaggedErrorClass<
+  AccountDatabaseError,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/index/AccountDatabaseError')('AccountDatabaseError', {}) {}
+
 export class AccountNotFoundError extends Schema.TaggedErrorClass<
   AccountNotFoundError,
   { readonly brand: unique symbol }
@@ -347,7 +352,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
               return persistedAccount;
             })
           )
-          .pipe(Reactivity.mutation(['account']));
+          .pipe(
+            Reactivity.mutation(['account']),
+            Effect.mapError(() => new AccountDatabaseError())
+          );
 
         return yield* initializeActiveAccountState({
           activeAccount,
@@ -391,7 +399,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
                 .where('serverUrl', '=', state.value.account.serverUrl)
                 .where('userId', '=', state.value.account.userId)
             )
-            .pipe(Reactivity.mutation(['account']));
+            .pipe(
+              Reactivity.mutation(['account']),
+              Effect.mapError(() => new AccountDatabaseError())
+            );
 
           yield* Scope.close(state.value.state.scope, Exit.void);
           return [void 0, Option.none()] as const;

@@ -28,7 +28,7 @@ export const useRemoveAccountForm = ({
       Match.value(error).pipe(
         Match.tagsExhaustive({
           AuthClientStorageRemoveItemError: () => 'Failed to clear account storage. Try again.',
-          DatabaseSqlError: () => 'A database error occurred. Try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),
     onSuccess: async ({ formApi }) => {

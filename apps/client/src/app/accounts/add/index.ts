@@ -38,8 +38,7 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
           AccountSignInError: (signInError) =>
             signInError.details.message ??
             'Failed to sign in. Check your credentials and try again.',
-          DatabaseSqlError: () => 'A database error occurred. Try again.',
-          DatabaseNoSuchElementError: () => 'A database error occurred. Try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),
     onSuccess: async ({ formApi }) => {

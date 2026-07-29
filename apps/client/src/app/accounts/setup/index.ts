@@ -41,8 +41,7 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
           AccountSignUpError: (signUpError) =>
             signUpError.details.message ??
             'Failed to create the account. Check the server and try again.',
-          DatabaseSqlError: () => 'A database error occurred. Try again.',
-          DatabaseNoSuchElementError: () => 'A database error occurred. Try again.',
+          AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),
     onSuccess: async ({ formApi }) => {
