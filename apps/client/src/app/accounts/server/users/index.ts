@@ -39,10 +39,4 @@ export const listUsersAtom = AppRuntime.pull(
     },
     (effect) => Stream.unwrap(effect)
   )
-).pipe(
-  swr({
-    staleTime: 10_000,
-    revalidateOnMount: true,
-    revalidateOnFocus: true,
-  })
-);
+).pipe(swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
