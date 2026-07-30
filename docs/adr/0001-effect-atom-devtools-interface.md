@@ -31,6 +31,12 @@ instrumenting atom reads:
   refresh behavior.
 - `AsyncResult.isAsyncResult` exposes `Initial`, `Success`, `Failure`, and
   `waiting` without atom-specific configuration.
+- `Atom.make` turns synchronous reads, Effects, and Streams into atom read
+  programs. Effect- and Stream-backed atoms expose their state as an
+  `AsyncResult` and register their scopes and interruption finalizers with the
+  supplied `AtomContext`.
+- `AtomRuntime.atom` does the same while providing the `Context` built from its
+  Layer, which is how an atom read can use application services.
 
 These APIs are in
 `.repos/effect/packages/effect/src/unstable/reactivity/AtomRegistry.ts` and
@@ -56,9 +62,10 @@ command surface is `Effect`.
 
 ### Predefined state API
 
-Predefined states contain the atom's complete read value. For an asynchronous
-atom this means an `AsyncResult`, so loading, refreshing, success, and failure are
-ordinary fixture values.
+Each predefined state supplies an alternate atom read program. Its source atom
+must have a complete read type assignable to the decorated atom's read type. For
+an asynchronous atom this means both atoms read an `AsyncResult`, including its
+success and failure types.
 
 ```ts
 import type { Atom, AtomRegistry } from 'effect/unstable/reactivity';
@@ -69,7 +76,7 @@ export interface PredefinedState<A> {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
-  readonly value: () => A;
+  readonly source: Atom.Atom<A>;
 }
 
 export interface HasPredefinedStates<A> {
@@ -80,6 +87,8 @@ export interface HasPredefinedStates<A> {
     /** Internal implementation detail used by the core commands. */
     readonly clear: (registry: AtomRegistry.AtomRegistry) => void;
     readonly active: (registry: AtomRegistry.AtomRegistry) => string | undefined;
+    /** Internal implementation detail used to restart the selected read. */
+    readonly refresh: (registry: AtomRegistry.AtomRegistry) => void;
   };
 }
 
@@ -90,7 +99,7 @@ export const hasPredefinedStates: <A>(
 export interface WithStates {
   <T extends Atom.Atom<any>>(
     atom: T,
-    states: () => ReadonlyArray<PredefinedState<Atom.Type<T>>>
+    states: () => ReadonlyArray<PredefinedState<NoInfer<Atom.Type<T>>>>
   ): T;
 }
 
@@ -109,29 +118,56 @@ When enabled, `withStates` returns an atom with symbol metadata, in the same
 style as `Atom.serializable` and `Atom.withLabel`. This is not registration; the
 registry remains the only source of discovered atoms.
 
-The enabled atom is a shallow wrapper backed by a private
-`Atom.Writable<Option<ActiveState<A>>>`:
+The enabled atom is a shallow wrapper backed by a private writable control atom
+containing the selected state and a revision:
 
 - with no active state, its `read` calls the original `read` with the same
   `AtomContext`;
-- with an active state, its `read` returns the fixture value and stops reading
-  the original dependencies;
+- with an active state, its `read` calls `state.source.read` with that same
+  `AtomContext` and stops reading the original dependencies;
 - writes still run the original atom's `write` function;
 - activating or clearing a state writes the private override atom, naturally
-  invalidating the public atom and all of its dependents.
+  invalidating the public atom and all of its dependents;
+- refreshing an active state increments the private revision, restarting the
+  selected source read.
+
+The state collection thunk is evaluated at most once by an enabled decorated
+atom and its result is cached. This gives inline source atoms stable identities.
+Constructing the sources does not run them; only the selected source's `read`
+program executes.
 
 When disabled, the configured function is an identity operation equivalent to:
 
 ```ts
 const withStates = <T extends Atom.Atom<any>>(
   atom: T,
-  _states: () => ReadonlyArray<PredefinedState<Atom.Type<T>>>
+  _states: () => ReadonlyArray<PredefinedState<NoInfer<Atom.Type<T>>>>
 ): T => atom;
 ```
 
-This uses only public Atom behavior. It also ensures that an in-flight Effect or
-Stream owned by the original read is finalized when an override becomes active,
-so it cannot race and replace the fixture value.
+This uses only public Atom behavior. The selected source read shares the public
+wrapper's lifetime instead of being mounted as a separate registry node. As a
+result, activating, switching, clearing, or refreshing a state finalizes the
+previous read's Effect or Stream before starting the next read. The source atom
+itself is not separately discovered by the devtool, although the dependencies
+read by its program are normal registry dependencies.
+
+Only the source atom's `read` program is embedded. Its own label, equality,
+laziness, keep-alive, refresh, and writable metadata do not replace the public
+wrapper's behavior. This makes the source an implementation of one alternate
+read rather than a second public atom.
+
+`NoInfer` anchors the expected state type to the decorated atom. A source with
+an incompatible success value or failure type is therefore rejected instead of
+widening the target type. Narrower source types remain valid.
+
+The devtool cannot infer an `AtomRuntime` from the decorated atom because an
+`Atom<A>` does not retain its Effect service environment. A state that needs
+services must therefore be constructed explicitly with the appropriate runtime,
+for example `AppRuntime.atom(effect)`. This also lets the runtime reject an
+Effect requiring unavailable services and includes Layer construction errors in
+the source atom's read type. Accepting a bare serviceful Effect here would require
+the devtool to guess a runtime and is deliberately unsupported.
 
 `withStates` should be the last structural atom combinator. Metadata-only native
 combinators such as `Atom.withLabel` and `Atom.withEquality` copy symbol metadata,
@@ -141,35 +177,55 @@ have its own states.
 Example:
 
 ```ts
-import { Cause } from 'effect';
+import { Cause, Effect } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
+import { AccountFixtures } from './AccountFixtures';
+import { AppRuntime } from './AppRuntime';
 import { withStates } from './devtools';
+import { loadAccounts } from './loadAccounts';
 
 const accountsBase = AppRuntime.atom(loadAccounts).pipe(Atom.withLabel('Accounts'));
 
-export const accountsAtom = AtomDevTools.withStates(accountsBase, () => [
+export const accountsAtom = withStates(accountsBase, () => [
   {
     id: 'loading',
     label: 'Loading',
-    value: () => AsyncResult.initial(true),
+    source: Atom.make(() => AsyncResult.initial(true)),
   },
   {
     id: 'empty',
     label: 'Empty',
-    value: () => AsyncResult.success([]),
+    source: Atom.make(() => AsyncResult.success([])),
   },
   {
     id: 'failure',
     label: 'Failure',
-    value: () => AsyncResult.failure(Cause.die(new Error('Fixture failure'))),
+    source: Atom.make(() => AsyncResult.failure(Cause.die(new Error('Fixture failure')))),
+  },
+  {
+    id: 'from-service',
+    label: 'From fixture service',
+    source: AppRuntime.atom(
+      Effect.gen(function* () {
+        const fixtures = yield* AccountFixtures;
+        return yield* fixtures.accounts;
+      })
+    ),
   },
 ]);
 ```
 
-Fixture factories are synchronous and lazy. Selecting a state evaluates the
-factory inside `Effect.try`, so a bad fixture is reported to the UI rather than
-crashing an event handler. Effectful scenarios that modify several atoms are out
-of scope for the first interface and can be added later as a separate concept.
+Activation only selects a source; it does not execute or await it in the command.
+The registry evaluates the public atom normally. Effects therefore emit their
+usual `Initial` or waiting value followed by `Success` or `Failure`, while Streams
+can continue updating until the state is switched or cleared.
+
+Effect failures are atom values, not command failures. A synchronous throw from a
+source read remains a defect, matching regular Atom behavior; wrapping activation
+in `Effect.try` would be timing-dependent because a lazy atom may be evaluated
+later. Fallible fixtures should use the Effect error channel. Effectful scenarios
+that modify several atoms remain out of scope and can be added later as a
+separate concept.
 
 ### Production behavior
 
@@ -177,7 +233,7 @@ The application does not need conditional assignments for each atom. In
 production, the configured `withStates` returns the exact input atom. It does not
 create metadata, a wrapper, an override atom, a registry dependency, or a read
 check. The state collection thunk is accepted but never evaluated, so its array,
-records, and individual value factories are not constructed.
+records, and inline source atoms are not constructed.
 
 The remaining runtime cost is one shared configuration call, one identity call
 per decorated atom, and allocation of each state collection thunk. The package
@@ -252,12 +308,7 @@ export class StateNotFound extends Schema.TaggedErrorClass<StateNotFound>()('Sta
   stateId: Schema.String,
 }) {}
 
-export class StateEvaluationError extends Schema.TaggedErrorClass<StateEvaluationError>()(
-  'StateEvaluationError',
-  { atomId: Schema.String, stateId: Schema.String, cause: Schema.Defect() }
-) {}
-
-export type CommandError = AtomNotFound | StateNotFound | StateEvaluationError;
+export type CommandError = AtomNotFound | StateNotFound;
 
 export class AtomDevTools extends Context.Service<
   AtomDevTools,
@@ -360,8 +411,9 @@ runtime does not expose a schema for `W`.
 - No explicit atom registration API is introduced.
 - Atoms with states have one small private dependency and should only include
   fixture data in development builds.
-- Predefined values work for read-only, Effect-backed, Stream-backed, derived,
-  and writable atoms without using private registry methods.
+- Predefined state computations work for synchronous, Effect-backed,
+  service-backed, Stream-backed, derived, and writable atoms without using
+  private registry methods.
 - The devtool sees only atoms that participate in the inspected registry's
   runtime graph.
 - The core remains usable by a terminal, web, or remote UI without importing
