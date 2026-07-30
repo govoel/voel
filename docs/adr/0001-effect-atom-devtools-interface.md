@@ -109,6 +109,17 @@ export const hasPredefinedStates: <A>(
   atom: Atom.Atom<A>
 ) => atom is Atom.Atom<A> & HasPredefinedStates<A>;
 
+export const InternalAtomTypeId: unique symbol;
+
+export interface InternalAtom {
+  readonly [InternalAtomTypeId]: true;
+}
+
+/** Marks an implementation-detail atom that must not appear in devtool output. */
+export const markInternal: <T extends Atom.Atom<any>>(atom: T) => T & InternalAtom;
+
+export const isInternal: (atom: Atom.Atom<any>) => atom is Atom.Atom<any> & InternalAtom;
+
 export interface WithStates {
   <T extends Atom.Atom<any>>(
     atom: T,
@@ -132,7 +143,8 @@ style as `Atom.serializable` and `Atom.withLabel`. This is not registration; the
 registry remains the only source of discovered atoms.
 
 The enabled atom is a shallow wrapper backed by a private writable control atom
-containing the selected state and a revision:
+containing the selected state and a revision. The control atom is marked with
+`markInternal`:
 
 - with no active state, its `read` calls the original `read` with the same
   `AtomContext`;
@@ -146,6 +158,11 @@ containing the selected state and a revision:
   invalidating the public atom and all of its dependents;
 - refreshing an active state increments the private revision, restarting the
   selected source read.
+
+The control atom is still a real node in the registry graph: reading it is what
+makes writes naturally invalidate the public wrapper. The internal marker only
+hides that implementation-detail node from devtool output; it does not change
+Effect's registry or dependency behavior.
 
 This makes a predefined state a complete alternate implementation of a writable
 atom, rather than only an alternate read. Because the wrapper continues to
@@ -385,6 +402,18 @@ When its layer is acquired, the service will:
 Add events must be deduplicated by node/atom identity. Consumers cannot assume
 the registry invokes an addition hook exactly once.
 
+Nodes whose atoms satisfy `isInternal` are excluded when scanning existing
+nodes and ignored by node-added and node-removed handlers. They receive no
+devtool id and cannot be inspected or watched through the service. Internal
+nodes are also omitted from the dependency and dependent links of visible atom
+snapshots. This prevents the private predefined-state control atom from
+appearing as a tracked atom while retaining it as a normal registry dependency.
+
+`InternalAtomTypeId` is implemented with `Symbol.for` using a package-owned key
+so atoms marked by an adapter remain recognizable if the package is duplicated
+in a bundle. Callers should use `markInternal` rather than assigning the symbol
+directly, and should apply it after structural atom combinators.
+
 A serializable atom gets `serializable:<key>` as its id. Other atoms receive a
 stable `runtime:<counter>` id from a service-local `WeakMap`. Labels are display
 names, not identities, because labels need not be unique.
@@ -415,8 +444,8 @@ The adapter is intentionally thin:
 - one UI atom consumes `AtomDevTools.catalog`;
 - an `Atom.family` consumes `AtomDevTools.watch(id)` for the selected row;
 - an `Atom.fn` executes `AtomDevTools.execute(command)`;
-- adapter-owned atoms are marked internal and filtered from the inspected
-  catalog, or are hosted in a separate UI registry.
+- adapter-owned atoms are marked with the core's `markInternal` function and
+  filtered from all devtool output, or are hosted in a separate UI registry.
 
 This keeps React hooks, navigation, sheets, and native controls out of the core.
 The first UI only needs an atom list, a detail/value preview, predefined-state
