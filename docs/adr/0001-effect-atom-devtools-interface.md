@@ -62,10 +62,11 @@ command surface is `Effect`.
 
 ### Predefined state API
 
-Each predefined state supplies an alternate atom read program. Its source atom
+Each predefined state supplies an alternate atom implementation. Its source atom
 must have a complete read type assignable to the decorated atom's read type. For
 an asynchronous atom this means both atoms read an `AsyncResult`, including its
-success and failure types.
+success and failure types. If the decorated atom is writable, every source must
+also be writable with a compatible write input.
 
 ```ts
 import type { Atom, AtomRegistry } from 'effect/unstable/reactivity';
@@ -78,6 +79,18 @@ export interface PredefinedState<A> {
   readonly description?: string;
   readonly source: Atom.Atom<A>;
 }
+
+export interface PredefinedWritableState<R, W> {
+  readonly id: string;
+  readonly label: string;
+  readonly description?: string;
+  readonly source: Atom.Writable<R, W>;
+}
+
+export type PredefinedStateFor<T extends Atom.Atom<any>> =
+  T extends Atom.Writable<infer R, infer W>
+    ? PredefinedWritableState<NoInfer<R>, NoInfer<W>>
+    : PredefinedState<NoInfer<Atom.Type<T>>>;
 
 export interface HasPredefinedStates<A> {
   readonly [StatesTypeId]: {
@@ -99,7 +112,7 @@ export const hasPredefinedStates: <A>(
 export interface WithStates {
   <T extends Atom.Atom<any>>(
     atom: T,
-    states: () => ReadonlyArray<PredefinedState<NoInfer<Atom.Type<T>>>>
+    states: () => ReadonlyArray<PredefinedStateFor<NoInfer<T>>>
   ): T;
 }
 
@@ -125,23 +138,43 @@ containing the selected state and a revision:
   `AtomContext`;
 - with an active state, its `read` calls `state.source.read` with that same
   `AtomContext` and stops reading the original dependencies;
-- writes still run the original atom's `write` function;
+- with no active state, a write calls the original atom's `write` with the
+  public wrapper's `WriteContext`;
+- with an active state, a write calls the selected source atom's `write` with
+  that same `WriteContext` and leaves the state active;
 - activating or clearing a state writes the private override atom, naturally
   invalidating the public atom and all of its dependents;
 - refreshing an active state increments the private revision, restarting the
   selected source read.
 
+This makes a predefined state a complete alternate implementation of a writable
+atom, rather than only an alternate read. Because the wrapper continues to
+expose the decorated atom's write input `W`, every state source for a writable
+atom must also be `Atom.Writable<R, W>`. A read-only source, or a writable source
+that cannot accept `W`, is rejected at compile time. Read-only decorated atoms
+continue to accept read-only or writable sources because no writes can reach
+them.
+
+The source writer is embedded in the public wrapper in the same way as its read
+program; the source is not mounted as a separate registry node. Consequently,
+`WriteContext.setSelf` updates the public wrapper's current value,
+`WriteContext.set` can update scenario dependencies, and
+`WriteContext.refreshSelf` restarts the selected source read. Clearing the state
+later switches back to the original read and write programs. A state that should
+ignore a write must model that deliberately in its writable source rather than
+silently sending the write to the original atom.
+
 The state collection thunk is evaluated at most once by an enabled decorated
 atom and its result is cached. This gives inline source atoms stable identities.
-Constructing the sources does not run them; only the selected source's `read`
-program executes.
+Constructing the sources does not run them; only the selected source's `read`,
+and its `write` when the public atom is written, execute.
 
 When disabled, the configured function is an identity operation equivalent to:
 
 ```ts
 const withStates = <T extends Atom.Atom<any>>(
   atom: T,
-  _states: () => ReadonlyArray<PredefinedState<NoInfer<Atom.Type<T>>>>
+  _states: () => ReadonlyArray<PredefinedStateFor<NoInfer<T>>>
 ): T => atom;
 ```
 
@@ -152,14 +185,16 @@ previous read's Effect or Stream before starting the next read. The source atom
 itself is not separately discovered by the devtool, although the dependencies
 read by its program are normal registry dependencies.
 
-Only the source atom's `read` program is embedded. Its own label, equality,
-laziness, keep-alive, refresh, and writable metadata do not replace the public
-wrapper's behavior. This makes the source an implementation of one alternate
-read rather than a second public atom.
+Only the source atom's `read` and, when applicable, `write` programs are
+embedded. Its own label, equality, laziness, keep-alive, refresh, and writable
+metadata do not replace the public wrapper's metadata or lifecycle behavior.
+This makes the source an alternate implementation rather than a second public
+atom.
 
 `NoInfer` anchors the expected state type to the decorated atom. A source with
 an incompatible success value or failure type is therefore rejected instead of
-widening the target type. Narrower source types remain valid.
+widening the target type. For a writable atom, an incompatible write input is
+also rejected. Narrower read types remain valid.
 
 The devtool cannot infer an `AtomRuntime` from the decorated atom because an
 `Atom<A>` does not retain its Effect service environment. A state that needs
@@ -414,6 +449,9 @@ runtime does not expose a schema for `W`.
 - Predefined state computations work for synchronous, Effect-backed,
   service-backed, Stream-backed, derived, and writable atoms without using
   private registry methods.
+- Writing a decorated writable atom uses the active source's writer, so a
+  writable predefined state can model an interactive scenario without mutating
+  the original implementation.
 - The devtool sees only atoms that participate in the inspected registry's
   runtime graph.
 - The core remains usable by a terminal, web, or remote UI without importing
