@@ -20,6 +20,8 @@
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~57.0.7",
     "@op-engineering/op-sqlite": "17.1.3",
+    "@repo/atom-devtools-core": "workspace:*",
+    "@repo/atom-devtools-rn": "workspace:*",
     "@repo/auth-api": "workspace:*",
     "@repo/effect-kysely": "workspace:*",
     "@repo/spec-api": "workspace:*",

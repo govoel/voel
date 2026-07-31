@@ -1,20 +1,22 @@
 import { useAtom } from '@effect/atom-react';
-import { Effect, Exit, Match, Option, Schema } from 'effect';
+import { Cause, Effect, Exit, Match, Option, Schema } from 'effect';
+import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { withStates } from '#src/services/atom-devtools.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export const setActiveAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
-);
+).pipe(Atom.withLabel('Set active account'));
 
 export const removeAccountAtom = AppRuntime.fn(() =>
   AccountManager.pipe(Effect.flatMap((manager) => manager.removeActiveAccount))
-);
+).pipe(Atom.withLabel('Remove active account'));
 
 export const useRemoveAccountForm = ({
   onSuccess,
@@ -59,6 +61,27 @@ export const accountsWithActiveAccount = AppRuntime.atom(
 
     return { accounts, activeAccount };
   })
+).pipe(
+  withStates(() => [
+    {
+      id: 'loading',
+      label: 'Loading',
+      source: Atom.make(() => AsyncResult.initial(true)),
+    },
+    {
+      id: 'empty',
+      label: 'No accounts',
+      source: Atom.make(() => AsyncResult.success({ accounts: [], activeAccount: Option.none() })),
+    },
+    {
+      id: 'failure',
+      label: 'Failed to load accounts',
+      source: Atom.make(() =>
+        AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts screen failure')))
+      ),
+    },
+  ]),
+  Atom.withLabel('Accounts with active account')
 );
 
 export const activeAccountLiteral = Account.fields.active.make(1);

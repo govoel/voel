@@ -1,10 +1,12 @@
 import { RegistryContext, useAtomSuspense } from '@effect/atom-react';
 import { Host, ProgressView } from '@expo/ui/swift-ui';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useIsFocused } from 'expo-router';
+import type { ReactNode } from 'react';
+import { StyleSheet, View, useColorScheme } from 'react-native';
 
 import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';
 import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
+import { AppAtomDevTools } from '#src/components/atom-devtools/index.ios.tsx';
 import { AppRegistry } from '#src/services/registry.ts';
 
 export const SuspenseFallback = () => (
@@ -13,11 +15,26 @@ export const SuspenseFallback = () => (
   </Host>
 );
 
+const FocusedScreenLayout = ({ children }: { readonly children: ReactNode }) => {
+  const isFocused = useIsFocused();
+
+  return (
+    <View style={styles.screen}>
+      {children}
+      {isFocused ? <AppAtomDevTools /> : null}
+    </View>
+  );
+};
+
+const rootScreenLayout = ({ children }: { readonly children: ReactNode }) => (
+  <FocusedScreenLayout>{children}</FocusedScreenLayout>
+);
+
 const AppStack = () => {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenLayout={rootScreenLayout} screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="accounts"
@@ -43,3 +60,9 @@ export default function TabLayout() {
     </RegistryContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+});

@@ -33,7 +33,7 @@ const swrFocusSignalAtom = Atom.make(
     )
   ),
   { initialValue: 0 }
-);
+).pipe(Atom.withLabel('SWR focus signal'));
 
 export const swr = (options: Omit<Parameters<typeof Atom.swr>[1], 'focusSignal'>) =>
   Atom.swr({

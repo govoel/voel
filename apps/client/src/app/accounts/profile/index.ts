@@ -3,6 +3,7 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
 import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
+import { withStates } from '#src/services/atom-devtools.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -47,13 +48,46 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
         },
       })
     )
-  )
+  ),
+  withStates(() => [
+    {
+      id: 'loading',
+      label: 'Loading',
+      source: Atom.make(() => AsyncResult.initial(true)),
+    },
+    {
+      id: 'no-active-user',
+      label: 'No active user',
+      source: Atom.make(() => AsyncResult.success(Option.none())),
+    },
+    {
+      id: 'loaded',
+      label: 'Loaded profile',
+      source: Atom.make(() =>
+        AsyncResult.success(
+          Option.some({
+            email: 'reader@example.com',
+            id: 'predefined-user',
+            name: 'Alex Reader',
+            role: 'Admin' as const,
+            username: 'alex',
+          })
+        )
+      ),
+    },
+    {
+      id: 'unavailable',
+      label: 'Unavailable profile',
+      source: Atom.make(() => AsyncResult.fail('ActiveUserProfileUnavailable' as const)),
+    },
+  ]),
+  Atom.withLabel('Active user profile')
 );
 
 const updateCurrentUserAtom = AppRuntime.fn(
   (input: Parameters<typeof CurrentAuthClient.Service.updateUser>[0]) =>
     CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.updateUser(input)))
-);
+).pipe(Atom.withLabel('Update current user'));
 
 export const useUserProfileForm = ({
   onSuccess,
