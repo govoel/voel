@@ -78,7 +78,11 @@ const makeUpdateQueue = Effect.fnUntraced(function* (sourceTap: SourceTap<Kysely
   }
 
   yield* sourceTap.updates.pipe(
-    Stream.map((payload) => ({ table: payload.table, rows: payload.rows })),
+    Stream.map((payload) =>
+      payload._tag === 'SourceTapFullSync'
+        ? { table: payload.table, fullSync: true }
+        : { table: payload.table, rows: payload.rows }
+    ),
     Stream.runForEach((payload) => Queue.offer(queue, payload)),
     Effect.forkScoped
   );
@@ -442,6 +446,51 @@ describe('SourceTap', () => {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.selectFrom('users3').select(['uuid as uuidz', 'username as userz']),
           execute: [{ uuidz: 'three', userz: 'update3' }],
+        },
+      ],
+    ],
+    [
+      'DELETE requires a full sync',
+      { trackTables: new Set(['users'] as const) },
+      [
+        {
+          query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
+            db.insertInto('users').values([
+              { id: 1, name: 'delete-with-returning' },
+              { id: 2, name: 'delete-without-returning' },
+            ]),
+          execute: [{ insertId: 2n, numInsertedOrUpdatedRows: 2n }],
+          updates: [
+            {
+              table: 'users',
+              rows: [
+                { id: 1, name: 'delete-with-returning' },
+                { id: 2, name: 'delete-without-returning' },
+              ],
+            },
+          ],
+        },
+        {
+          query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
+            db.deleteFrom('users').where('id', '=', 999),
+          execute: [{ numDeletedRows: 0n }],
+        },
+        {
+          query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
+            db.deleteFrom('users').where('id', '=', 1).returning(['id', 'name as deletedName']),
+          execute: [{ id: 1, deletedName: 'delete-with-returning' }],
+          updates: [{ table: 'users', fullSync: true }],
+        },
+        {
+          query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
+            db.deleteFrom('users').where('id', '=', 2),
+          execute: [{ numDeletedRows: 1n }],
+          updates: [{ table: 'users', fullSync: true }],
+        },
+        {
+          query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
+            db.selectFrom('users').selectAll(),
+          execute: [],
         },
       ],
     ],

@@ -3,6 +3,7 @@ import { Data, Effect, PubSub, Stream } from 'effect';
 import {
   AliasNode,
   ColumnNode,
+  DeleteQueryNode,
   IdentifierNode,
   InsertQueryNode,
   OperationNodeTransformer,
@@ -30,7 +31,7 @@ type SourceTapQueryId =
 
 interface SourceTapQueryState<TableName extends string = string> {
   table: TableName;
-  queryType: 'insert' | 'update';
+  queryType: 'delete' | 'insert' | 'update';
   originalReturning: Set<string>;
   originalReturningAlias: Set<string>;
 }
@@ -43,13 +44,26 @@ export class SourceTapUpdate<DB, Table extends keyof DB = keyof DB> extends Data
   readonly rows: readonly Selectable<DB[Table]>[];
 }> {}
 
+/**
+ * Indicates that an incremental update can no longer bring a client up to date.
+ *
+ * A delete can also remove rows through foreign-key cascades or triggers, which
+ * are not visible to a Kysely plugin. Consumers must therefore discard their
+ * local snapshot and perform a full sync when they receive this event.
+ */
+export class SourceTapFullSync extends Data.TaggedClass('SourceTapFullSync')<{
+  readonly table: string;
+}> {}
+
+export type SourceTapEvent<DB> = SourceTapUpdate<DB> | SourceTapFullSync;
+
 export class SourceTap<DB> implements KyselyPlugin {
-  public readonly updates: Stream.Stream<SourceTapUpdate<DB>>;
+  public readonly updates: Stream.Stream<SourceTapEvent<DB>>;
 
   #inTransaction: boolean;
-  #transactionEvents: SourceTapUpdate<DB>[];
+  #transactionEvents: SourceTapEvent<DB>[];
 
-  readonly #pubsub: PubSub.PubSub<SourceTapUpdate<DB>>;
+  readonly #pubsub: PubSub.PubSub<SourceTapEvent<DB>>;
   readonly #trackTables: ReadonlySet<keyof DB>;
 
   readonly #transformer: SourceTapTransformer<Extract<keyof DB, string>>;
@@ -59,7 +73,7 @@ export class SourceTap<DB> implements KyselyPlugin {
   public static make = Effect.fnUntraced(function* <Database>(opts: {
     trackTables: ReadonlySet<keyof Database>;
   }) {
-    const pubsub = yield* PubSub.unbounded<SourceTapUpdate<Database>>();
+    const pubsub = yield* PubSub.unbounded<SourceTapEvent<Database>>();
 
     yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
 
@@ -68,7 +82,7 @@ export class SourceTap<DB> implements KyselyPlugin {
 
   private constructor(
     opts: { trackTables: ReadonlySet<keyof DB> },
-    pubsub: PubSub.PubSub<SourceTapUpdate<DB>>
+    pubsub: PubSub.PubSub<SourceTapEvent<DB>>
   ) {
     this.#pubsub = pubsub;
     this.#trackTables = opts.trackTables;
@@ -91,7 +105,7 @@ export class SourceTap<DB> implements KyselyPlugin {
   private setUpQuery(
     queryId: SourceTapQueryId,
     tableName: Extract<keyof DB, string>,
-    queryType: 'insert' | 'update'
+    queryType: 'delete' | 'insert' | 'update'
   ) {
     this.#queryState.set(queryId, {
       table: tableName,
@@ -121,6 +135,18 @@ export class SourceTap<DB> implements KyselyPlugin {
           `SourceTap transformQuery has an unhandled UpdateQueryNode type: ${args.node.table.kind}`
         );
       }
+    } else if (DeleteQueryNode.is(args.node)) {
+      const [from] = args.node.from.froms;
+      const table =
+        from !== void 0 && AliasNode.is(from) && TableNode.is(from.node) ? from.node : from;
+
+      if (
+        table !== void 0 &&
+        TableNode.is(table) &&
+        this.isTrackedTable(table.table.identifier.name)
+      ) {
+        this.setUpQuery(args.queryId, table.table.identifier.name, 'delete');
+      }
     }
     return args.node;
   }
@@ -133,6 +159,21 @@ export class SourceTap<DB> implements KyselyPlugin {
     const queryState = this.#queryState.get(args.queryId);
 
     if (queryState !== void 0) {
+      if (queryState.queryType === 'delete') {
+        const numAffectedRows = args.result.numAffectedRows ?? BigInt(args.result.rows.length);
+
+        if (numAffectedRows > 0n) {
+          this.publish(
+            new SourceTapFullSync({
+              table: queryState.table,
+            })
+          );
+        }
+
+        this.cleanUpQuery(args.queryId);
+        return args.result;
+      }
+
       let listenerRows: QueryResult<UnknownRow>['rows'] = [];
 
       if (queryState.originalReturningAlias.size > 0) {
@@ -155,26 +196,14 @@ export class SourceTap<DB> implements KyselyPlugin {
       }
 
       if (listenerRows.length > 0) {
-        if (this.#inTransaction) {
-          this.#transactionEvents.push(
-            new SourceTapUpdate<DB>({
-              operation: queryState.queryType,
-              table: queryState.table,
-              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-              rows: listenerRows as Selectable<DB[keyof DB]>[],
-            })
-          );
-        } else {
-          PubSub.publishUnsafe(
-            this.#pubsub,
-            new SourceTapUpdate<DB>({
-              operation: queryState.queryType,
-              table: queryState.table,
-              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-              rows: listenerRows as Selectable<DB[keyof DB]>[],
-            })
-          );
-        }
+        this.publish(
+          new SourceTapUpdate<DB>({
+            operation: queryState.queryType,
+            table: queryState.table,
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+            rows: listenerRows as Selectable<DB[keyof DB]>[],
+          })
+        );
       }
 
       // oxlint-disable-next-line eslint/no-useless-assignment
@@ -228,6 +257,14 @@ export class SourceTap<DB> implements KyselyPlugin {
     this.cleanUpQuery(args.queryId);
 
     return args.result;
+  }
+
+  private publish(event: SourceTapEvent<DB>) {
+    if (this.#inTransaction) {
+      this.#transactionEvents.push(event);
+    } else {
+      PubSub.publishUnsafe(this.#pubsub, event);
+    }
   }
 
   public beginTransaction() {

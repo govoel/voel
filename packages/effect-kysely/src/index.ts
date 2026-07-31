@@ -17,6 +17,7 @@ export {
   AliasNode,
   ColumnNode,
   CompiledQuery,
+  DeleteQueryNode,
   IdentifierNode,
   InsertQueryNode,
   Kysely,
