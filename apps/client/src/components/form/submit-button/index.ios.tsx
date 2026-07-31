@@ -13,8 +13,7 @@ import { useSelector } from '@tanstack/react-form';
 import { Array, Option, Predicate } from 'effect';
 import { PlatformColor } from 'react-native';
 
-import { useFormContext } from '#src/components/form/hooks.tsx';
-import { canSubmitOrRetry } from '#src/components/form/submit-button/index.ts';
+import { useFormContext, useFormMutationError } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
@@ -45,16 +44,21 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const form = useFormContext();
-  const [canSubmitOrRetryMutation, isSubmitting, formErrorMessages] = useSelector(
+  const mutationError = useFormMutationError();
+  const [canSubmit, isSubmitting, validationErrorMessages] = useSelector(
     form.store,
     (state): readonly [boolean, boolean, string[]] => [
-      canSubmitOrRetry(state),
+      state.canSubmit,
       state.isSubmitting,
       state.errors.filter(
         (error): error is string => Predicate.isString(error) && error.length > 0
       ),
     ]
   );
+  const formErrorMessages =
+    mutationError.form === void 0
+      ? validationErrorMessages
+      : [mutationError.form, ...validationErrorMessages];
   return (
     <>
       <SubmitErrorMessage formErrorMessages={formErrorMessages} />
@@ -63,7 +67,7 @@ export const SubmitButton = (({
         {...('ios' in platformProps ? platformProps.ios : {})}
         modifiers={[
           ...('ios' in platformProps ? (platformProps.ios.modifiers ?? []) : []),
-          disabledModifier(!canSubmitOrRetryMutation || isSubmitting || disabled),
+          disabledModifier(!canSubmit || isSubmitting || disabled),
         ]}
         onPress={() => {
           void form.handleSubmit();
