@@ -64,7 +64,7 @@ describe('makeWithStates', () => {
     expect(registry.get(atom)).toBe(1);
   });
 
-  it('retains a state activated before the decorated atom is initialized', () => {
+  it('clears an active state when the decorated atom becomes inactive', () => {
     const scheduled = new Set<() => void>();
     const registry = AtomRegistry.make({
       scheduleTask: (task) => {
@@ -77,7 +77,8 @@ describe('makeWithStates', () => {
     const atom = makeWithStates({ enabled: true })(Atom.make('normal'), () => [
       { id: 'alternate', label: 'Alternate', source: Atom.make('alternate') },
     ]);
-    const cancel = registry.subscribe(atom, () => void 0);
+
+    expect(registry.get(atom)).toBe('normal');
 
     expect(hasPredefinedStates(atom)).toBe(true);
     if (!hasPredefinedStates(atom)) {
@@ -86,13 +87,14 @@ describe('makeWithStates', () => {
 
     const state = Option.getOrThrow(Option.fromNullishOr(atom[StatesTypeId].states()[0]));
     atom[StatesTypeId].activate(registry, state);
+    expect(registry.get(atom)).toBe('alternate');
+
     for (const task of scheduled) {
       task();
     }
 
-    expect(registry.get(atom)).toBe('alternate');
+    expect(registry.get(atom)).toBe('normal');
 
-    cancel();
     registry.dispose();
   });
 

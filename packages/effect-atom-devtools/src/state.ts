@@ -73,12 +73,10 @@ function decorate<A, T extends Atom.Atom<A>>(
   let stateCache: readonly PredefinedStateFor<T>[] | undefined = void 0;
   const states = (): readonly PredefinedStateFor<T>[] => (stateCache ??= stateThunk());
 
-  // Activation can happen before the public atom's first read establishes its
-  // dependency on this control, so the selected state must survive inactivity.
   const control = markInternal(
     Atom.make<{ state: Option.Option<PredefinedStateFor<T>> }>({
       state: Option.none(),
-    }).pipe(Atom.keepAlive)
+    })
   );
 
   const read = (context: Atom.AtomContext): A => {
