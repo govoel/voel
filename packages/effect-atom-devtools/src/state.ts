@@ -1,4 +1,4 @@
-import { Option } from 'effect';
+import { Function, Option } from 'effect';
 import type { NoInfer } from 'effect/Types';
 import { Atom } from 'effect/unstable/reactivity';
 import type { AtomRegistry } from 'effect/unstable/reactivity';
@@ -61,6 +61,11 @@ export const markInternal = <T extends AnyAtom>(atom: T): T & InternalAtom =>
 
 export const isInternal = (atom: AnyAtom): atom is AnyAtom & InternalAtom =>
   InternalAtomTypeId in atom;
+
+export interface WithStates {
+  <T extends AnyAtom>(states: () => readonly PredefinedStateFor<NoInfer<T>>[]): (atom: T) => T;
+  <T extends AnyAtom>(atom: T, states: () => readonly PredefinedStateFor<NoInfer<T>>[]): T;
+}
 
 function decorate<A, T extends Atom.Atom<A>>(
   atom: T,
@@ -135,12 +140,14 @@ function decorate<A, T extends Atom.Atom<A>>(
   return copyWithMetadata(atom, { read, write, [StatesTypeId]: metadata });
 }
 
-export const makeWithStates =
-  (options: { readonly enabled: boolean }) =>
-  <T extends AnyAtom>(atom: T, states: () => readonly PredefinedStateFor<NoInfer<T>>[]): T => {
-    if (!options.enabled) {
-      return atom;
-    }
+export const makeWithStates = (options: { readonly enabled: boolean }): WithStates =>
+  Function.dual(
+    2,
+    <T extends AnyAtom>(atom: T, states: () => readonly PredefinedStateFor<NoInfer<T>>[]): T => {
+      if (!options.enabled) {
+        return atom;
+      }
 
-    return decorate(atom, () => states());
-  };
+      return decorate(atom, () => states());
+    }
+  );

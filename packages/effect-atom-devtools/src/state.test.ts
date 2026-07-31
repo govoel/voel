@@ -26,6 +26,19 @@ describe('makeWithStates', () => {
     expect(hasPredefinedStates(result)).toBe(false);
   });
 
+  it('can be used in a pipe', () => {
+    const alternate = Atom.make(2);
+    const atom = Atom.make(1).pipe(
+      makeWithStates({ enabled: true })(() => [
+        { id: 'alternate', label: 'Alternate', source: alternate },
+      ])
+    );
+    const writable: Atom.Writable<number, number> = atom;
+    void writable;
+
+    expect(hasPredefinedStates(atom)).toBe(true);
+  });
+
   it('caches states and switches read and write programs', () => {
     const registry = AtomRegistry.make();
     const original = Atom.make(1);
