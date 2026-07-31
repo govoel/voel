@@ -1,7 +1,13 @@
-import { Effect, Equal, Option, Queue, Stream } from 'effect';
+import { Effect, Equal, Layer, Option, Queue, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
+import {
+  AuthClient,
+  AuthClientMap,
+  NoCurrentAuthClientError,
+  authClientKey,
+} from '#src/services/auth-client/service.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -18,6 +24,24 @@ export const activeAccountAtom = AppRuntime.atom(
     Stream.unwrap
   )
 );
+
+export const activeAuthClientLayer = <E>(
+  activeAccount: Effect.Effect<
+    Option.Option<{ readonly account: Parameters<typeof authClientKey>[0] }>,
+    E
+  >
+): Layer.Layer<AuthClient, never, AuthClientMap> =>
+  Layer.unwrap(
+    activeAccount.pipe(
+      Effect.catchCause(() => Effect.never),
+      Effect.map(
+        Option.match({
+          onNone: () => AuthClient.layer(Effect.fail(new NoCurrentAuthClientError())),
+          onSome: ({ account }) => AuthClientMap.get(authClientKey(account)),
+        })
+      )
+    )
+  );
 
 export const activeAccountSessionAtom = AppRuntime.atom((get) => {
   const activeAccount = get.streamResult(activeAccountAtom);

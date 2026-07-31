@@ -11,7 +11,7 @@ import {
   activeAccountSessionAtom,
 } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
+import { NoCurrentAuthClientError } from '#src/services/auth-client/service.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -478,15 +478,17 @@ it.layer(TestServerControllerClient.layerNoDeps)('listUsersAtom', (iit) => {
     'loads users from the newly active server after switching accounts',
     Effect.fnUntraced(
       function* () {
+        const { drainAtomTasks } = yield* AtomTaskScheduler;
         const manager = yield* AccountManager;
-        // yield* Atom.mount(listUsersAtom); -- TODO: comment back in
+        yield* Atom.mount(listUsersAtom);
         const firstServer = yield* setupTestServerWithUsers({ userCount: 3 });
         yield* manager.signInAccount({
           serverUrl: firstServer.serverUrl,
           username: firstServer.adminUsername,
           password: firstServer.password,
         });
-        const firstResult = yield* Atom.getResult(listUsersAtom);
+        yield* drainAtomTasks;
+        const firstResult = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         const firstUsernames = firstResult.items.map((user) => user.username);
         expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           firstServer.usernames.sort((first, second) => first.localeCompare(second))
@@ -498,7 +500,8 @@ it.layer(TestServerControllerClient.layerNoDeps)('listUsersAtom', (iit) => {
           username: secondServer.adminUsername,
           password: secondServer.password,
         });
-        const secondResult = yield* Atom.getResult(listUsersAtom);
+        yield* drainAtomTasks;
+        const secondResult = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         const secondUsernames = secondResult.items.map((user) => user.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
