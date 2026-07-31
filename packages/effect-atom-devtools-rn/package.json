@@ -4,16 +4,24 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./android": "./src/atom-dev-tools.tsx",
+    "./ios": "./src/atom-dev-tools.ios.tsx"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {
     "@effect/atom-react": "4.0.0-beta.102",
+    "@expo/material-symbols": "0.1.1",
+    "@expo/ui": "~57.0.7",
     "@repo/atom-devtools-core": "workspace:*",
     "effect": "4.0.0-beta.102",
     "react": "19.2.3",
     "react-native": "0.86.0"
   },
   "devDependencies": {
+    "@effect/language-service": "0.87.1",
     "@repo/tsconfig": "workspace:*",
     "@types/react": "~19.2.2",
     "bun-types": "1.3.14",

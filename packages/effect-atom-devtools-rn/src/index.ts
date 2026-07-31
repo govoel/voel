@@ -1,3 +1,2 @@
-// The React Native adapter will be implemented after the core package.
-// oxlint-disable-next-line unicorn/require-module-specifiers
-export {};
+export { AtomDevTools } from './atom-dev-tools.tsx';
+export type { AtomDevToolsProps } from './use-atom-dev-tools.ts';
