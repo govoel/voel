@@ -71,6 +71,36 @@ describe('AtomDevTools', () => {
     expect(registry.onNodeAdded).toBe(previous);
   });
 
+  it('does not overwrite registry callbacks installed after acquisition', async () => {
+    const registry = AtomRegistry.make();
+    let added = 0;
+    let removed = 0;
+    const newerOnNodeAdded = (_node: AtomRegistry.Node<unknown>): void => {
+      added += 1;
+    };
+    const newerOnNodeRemoved = (_node: AtomRegistry.Node<unknown>): void => {
+      removed += 1;
+    };
+
+    await runWithService(
+      registry,
+      Effect.gen(function* () {
+        yield* AtomDevTools;
+        registry.onNodeAdded = newerOnNodeAdded;
+        registry.onNodeRemoved = newerOnNodeRemoved;
+      })
+    );
+
+    expect(registry.onNodeAdded).toBe(newerOnNodeAdded);
+    expect(registry.onNodeRemoved).toBe(newerOnNodeRemoved);
+
+    const atom = Atom.make(1);
+    registry.get(atom);
+    registry.reset();
+    expect(added).toBe(1);
+    expect(removed).toBe(1);
+  });
+
   it('folds typed catalog additions and removals after the initial snapshot', async () => {
     const registry = AtomRegistry.make();
 

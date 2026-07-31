@@ -64,6 +64,38 @@ describe('makeWithStates', () => {
     expect(registry.get(atom)).toBe(1);
   });
 
+  it('retains a state activated before the decorated atom is initialized', () => {
+    const scheduled = new Set<() => void>();
+    const registry = AtomRegistry.make({
+      scheduleTask: (task) => {
+        scheduled.add(task);
+        return () => {
+          scheduled.delete(task);
+        };
+      },
+    });
+    const atom = makeWithStates({ enabled: true })(Atom.make('normal'), () => [
+      { id: 'alternate', label: 'Alternate', source: Atom.make('alternate') },
+    ]);
+    const cancel = registry.subscribe(atom, () => void 0);
+
+    expect(hasPredefinedStates(atom)).toBe(true);
+    if (!hasPredefinedStates(atom)) {
+      return;
+    }
+
+    const state = Option.getOrThrow(Option.fromNullishOr(atom[StatesTypeId].states()[0]));
+    atom[StatesTypeId].activate(registry, state);
+    for (const task of scheduled) {
+      task();
+    }
+
+    expect(registry.get(atom)).toBe('alternate');
+
+    cancel();
+    registry.dispose();
+  });
+
   it.effect('finalizes an active source before starting the next source', () =>
     Effect.gen(function* () {
       const registry = AtomRegistry.make();

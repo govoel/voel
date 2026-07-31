@@ -200,18 +200,22 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
 
     const previousOnNodeAdded = registry.onNodeAdded;
     const previousOnNodeRemoved = registry.onNodeRemoved;
+    let handleNodeAdded: ((node: AtomRegistry.Node<unknown>) => void) | undefined = (node) => {
+      addNode(node, true);
+    };
+    let handleNodeRemoved: ((node: AtomRegistry.Node<unknown>) => void) | undefined = removeNode;
     const onNodeAdded = (node: AtomRegistry.Node<unknown>) => {
       try {
         previousOnNodeAdded?.(node);
       } finally {
-        addNode(node, true);
+        handleNodeAdded?.(node);
       }
     };
     const onNodeRemoved = (node: AtomRegistry.Node<unknown>) => {
       try {
         previousOnNodeRemoved?.(node);
       } finally {
-        removeNode(node);
+        handleNodeRemoved?.(node);
       }
     };
     registry.onNodeAdded = onNodeAdded;
@@ -219,8 +223,14 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
 
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
-        registry.onNodeAdded = previousOnNodeAdded;
-        registry.onNodeRemoved = previousOnNodeRemoved;
+        handleNodeAdded = void 0;
+        handleNodeRemoved = void 0;
+        if (registry.onNodeAdded === onNodeAdded) {
+          registry.onNodeAdded = previousOnNodeAdded;
+        }
+        if (registry.onNodeRemoved === onNodeRemoved) {
+          registry.onNodeRemoved = previousOnNodeRemoved;
+        }
       }).pipe(Effect.andThen(PubSub.shutdown(catalogSnapshots)))
     );
 
