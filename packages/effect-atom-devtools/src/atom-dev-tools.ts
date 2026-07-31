@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Match, PubSub, Queue, Schema, Stream } from 'effect';
+import { Cause, Context, Effect, Layer, Match, PubSub, Queue, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
-import { StatesTypeId, hasPredefinedStates, isInternal } from '#src/state.ts';
+import { StatesTypeId, hasPredefinedStates, isInternal, markInternal } from '#src/state.ts';
 
 const TypeId = '@repo/atom-devtools-core/AtomDevTools' as const;
 
@@ -86,35 +86,24 @@ export class StateNotFound extends Schema.TaggedErrorClass<
 
 interface TrackedNode {
   readonly node: AtomRegistry.Node<unknown>;
-  devtoolListenerCount: number;
+  readonly observation: Atom.Atom<NodeObservation>;
+  readonly watchers: Set<SnapshotWatcher>;
 }
 
-class CatalogAdded extends Schema.TaggedClass<CatalogAdded, { readonly brand: unique symbol }>(
-  `${TypeId}/CatalogEvent/Added`
-)('Added', { summary: AtomSummary }) {}
+interface SnapshotWatcher {
+  readonly fail: (error: AtomNotFound) => void;
+}
 
-class CatalogRemoved extends Schema.TaggedClass<CatalogRemoved, { readonly brand: unique symbol }>(
-  `${TypeId}/CatalogEvent/Removed`
-)('Removed', { id: AtomId }) {}
-
-const updateCatalog = (
-  state: ReadonlyMap<AtomId, AtomSummary>,
-  event: CatalogAdded | CatalogRemoved
-) => {
-  const next = new Map(state);
-  if (event._tag === 'Added') {
-    next.set(event.summary.id, event.summary);
-  } else {
-    next.delete(event.id);
-  }
-  return next;
-};
+interface NodeObservation {
+  readonly value: unknown;
+  readonly activeStateId: string | undefined;
+}
 
 export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
   make: Effect.gen(function* () {
     const registry = yield* AtomRegistry.AtomRegistry;
 
-    const catalogEvents = yield* PubSub.unbounded<CatalogAdded | CatalogRemoved>();
+    const catalogSnapshots = yield* PubSub.unbounded<readonly AtomSummary[]>({ replay: 1 });
     const nodesById = new Map<AtomId, TrackedNode>();
     const runtimeIdsByAtom = new WeakMap<Atom.Atom<unknown>, AtomId>();
 
@@ -142,6 +131,32 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         writable: Atom.isWritable(node.atom),
       });
 
+    const publishCatalog = () => {
+      PubSub.publishUnsafe(
+        catalogSnapshots,
+        [...nodesById.values()].map(({ node }) => summary(node))
+      );
+    };
+
+    const observe = (node: AtomRegistry.Node<unknown>) => {
+      const { atom } = node;
+      return markInternal(
+        Atom.make(
+          (context): NodeObservation => ({
+            value: context(atom),
+            activeStateId: hasPredefinedStates(atom)
+              ? atom[StatesTypeId].activeInContext(context)
+              : void 0,
+          })
+        ).pipe(
+          Atom.withEquality<NodeObservation>(
+            (current, next) =>
+              atom.equals(current.value, next.value) && current.activeStateId === next.activeStateId
+          )
+        )
+      );
+    };
+
     const addNode = (node: AtomRegistry.Node<unknown>, publish: boolean) => {
       if (isInternal(node.atom)) {
         return;
@@ -150,9 +165,13 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
       if (nodesById.get(id)?.node === node) {
         return;
       }
-      nodesById.set(id, { node, devtoolListenerCount: 0 });
+      nodesById.set(id, {
+        node,
+        observation: observe(node),
+        watchers: new Set(),
+      });
       if (publish) {
-        PubSub.publishUnsafe(catalogEvents, new CatalogAdded({ summary: summary(node) }));
+        publishCatalog();
       }
     };
 
@@ -161,16 +180,23 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         return;
       }
       const id = atomId(node.atom);
-      if (nodesById.get(id)?.node !== node) {
+      const tracked = nodesById.get(id);
+      if (tracked === void 0 || tracked.node !== node) {
         return;
       }
       nodesById.delete(id);
-      PubSub.publishUnsafe(catalogEvents, new CatalogRemoved({ id }));
+      const error = new AtomNotFound({ id });
+      for (const watcher of tracked.watchers) {
+        watcher.fail(error);
+      }
+      tracked.watchers.clear();
+      publishCatalog();
     };
 
     for (const node of registry.getNodes().values()) {
       addNode(node, false);
     }
+    publishCatalog();
 
     const previousOnNodeAdded = registry.onNodeAdded;
     const previousOnNodeRemoved = registry.onNodeRemoved;
@@ -195,7 +221,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
       Effect.sync(() => {
         registry.onNodeAdded = previousOnNodeAdded;
         registry.onNodeRemoved = previousOnNodeRemoved;
-      }).pipe(Effect.andThen(PubSub.shutdown(catalogEvents)))
+      }).pipe(Effect.andThen(PubSub.shutdown(catalogSnapshots)))
     );
 
     const getNode = Effect.fnUntraced(function* (id: AtomId) {
@@ -212,7 +238,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         name: atomName(node.atom),
       });
 
-    const snapshot = ({ devtoolListenerCount, node }: TrackedNode) => {
+    const snapshot = ({ node }: TrackedNode) => {
       const { atom } = node;
       const { id, name, writable } = summary(node);
       return new AtomSnapshot({
@@ -224,7 +250,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         keepAlive: atom.keepAlive,
         lazy: atom.lazy,
         idleTTL: atom.idleTTL,
-        subscriberCount: Math.max(0, node.listeners.size - devtoolListenerCount),
+        subscriberCount: node.listeners.size,
         dependencies: [...node.parents].filter((parent) => !isInternal(parent.atom)).map(link),
         dependents: [...node.children].filter((child) => !isInternal(child.atom)).map(link),
         states: hasPredefinedStates(atom) ? atom[StatesTypeId].states() : [],
@@ -233,55 +259,40 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
     };
 
     return {
-      catalog: Stream.unwrap(
-        Effect.gen(function* () {
-          // Subscribe before taking the snapshot: additions and removals that
-          // happen after the snapshot are already queued for this subscriber.
-          const subscription = yield* PubSub.subscribe(catalogEvents);
-          const initial = new Map(
-            [...nodesById.entries()].map(([id, { node }]) => [id, summary(node)])
-          ) as ReadonlyMap<AtomId, AtomSummary>;
-          const updates = Stream.fromSubscription(subscription).pipe(
-            Stream.mapAccum(
-              () => initial,
-              (state, event) => {
-                const next = updateCatalog(state, event);
-                return [next, [[...next.values()]]];
-              }
-            )
-          );
-          return Stream.concat(Stream.succeed([...initial.values()]), updates);
-        })
-      ),
+      catalog: Stream.fromPubSub(catalogSnapshots),
       watch: (id: AtomId) =>
         Stream.unwrap(
           getNode(id).pipe(
             Effect.map((tracked) =>
-              Stream.callback<AtomSnapshot>((queue) =>
-                Effect.sync(() => {
-                  let watched = tracked;
-                  const cancel = registry.subscribe(tracked.node.atom, () => {
-                    Queue.offerUnsafe(queue, snapshot(watched));
-                  });
-                  // The node may have reached its idle-removal task between
-                  // resolving the id and starting this callback fiber. subscribe
-                  // recreates it in that case, so use the newly tracked node.
-                  watched = nodesById.get(id) ?? tracked;
-                  watched.devtoolListenerCount += 1;
-                  Queue.offerUnsafe(queue, snapshot(watched));
-                  return { cancel, tracked: watched };
-                }).pipe(
-                  Effect.tap(({ cancel, tracked: subscribed }) =>
-                    Effect.addFinalizer(() =>
-                      Effect.sync(() => {
-                        cancel();
-                        subscribed.devtoolListenerCount = Math.max(
-                          0,
-                          subscribed.devtoolListenerCount - 1
-                        );
-                      })
-                    )
-                  )
+              Stream.callback<AtomSnapshot, AtomNotFound>((queue) =>
+                Effect.acquireRelease(
+                  Effect.sync(() => {
+                    let watched = tracked;
+                    const watcher: SnapshotWatcher = {
+                      fail: (error) => {
+                        Queue.failCauseUnsafe(queue, Cause.fail(error));
+                      },
+                    };
+                    const cancel = registry.subscribe(
+                      tracked.observation,
+                      () => {
+                        watched = nodesById.get(id) ?? watched;
+                        Queue.offerUnsafe(queue, snapshot(watched));
+                      },
+                      { immediate: true }
+                    );
+                    // The node may have reached its idle-removal task between
+                    // resolving the id and subscribing. Reading the observation
+                    // recreates it before invoking the immediate listener.
+                    watched = nodesById.get(id) ?? watched;
+                    watched.watchers.add(watcher);
+                    return { cancel, watched, watcher };
+                  }),
+                  ({ cancel, watched, watcher }) =>
+                    Effect.sync(() => {
+                      watched.watchers.delete(watcher);
+                      cancel();
+                    })
                 )
               )
             )
@@ -319,7 +330,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
           const {
             node: { atom },
           } = yield* getNode(command.atomId);
-          if (hasPredefinedStates(atom)) {
+          if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
             atom[StatesTypeId].clear(registry);
           }
         }),

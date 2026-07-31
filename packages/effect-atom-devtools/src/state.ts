@@ -31,6 +31,7 @@ export interface HasPredefinedStates<T extends AnyAtom> {
     readonly activate: (registry: AtomRegistry.AtomRegistry, state: PredefinedStateFor<T>) => void;
     readonly clear: (registry: AtomRegistry.AtomRegistry) => void;
     readonly active: (registry: AtomRegistry.AtomRegistry) => string | undefined;
+    readonly activeInContext: (context: Atom.AtomContext) => string | undefined;
     readonly refresh: (registry: AtomRegistry.AtomRegistry) => void;
   };
 }
@@ -100,6 +101,11 @@ function decorate<A, T extends Atom.Atom<A>>(
     },
     active: (registry) =>
       registry.get(control).state.pipe(
+        Option.map((state) => state.id),
+        Option.getOrUndefined
+      ),
+    activeInContext: (context) =>
+      context(control).state.pipe(
         Option.map((state) => state.id),
         Option.getOrUndefined
       ),

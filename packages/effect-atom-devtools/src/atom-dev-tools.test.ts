@@ -222,4 +222,190 @@ describe('AtomDevTools', () => {
       })
     );
   });
+
+  it('emits state metadata changes when the selected state has an equal value', async () => {
+    const registry = AtomRegistry.make();
+    const atom = makeWithStates({ enabled: true })(
+      Atom.make('same').pipe(Atom.withLabel('Equal state'), Atom.keepAlive),
+      () => [{ id: 'equal', label: 'Equal', source: Atom.make('same') }]
+    );
+    registry.get(atom);
+
+    await runWithService(
+      registry,
+      Effect.gen(function* () {
+        const service = yield* AtomDevTools;
+        const catalog = yield* firstCatalog(service);
+        const atomId = firstAtomId(catalog);
+        const initialObserved = yield* Latch.make();
+        const stateObserved = yield* Latch.make();
+        const snapshots: (string | null)[] = [];
+        const snapshotsFiber = yield* service.watch(atomId).pipe(
+          Stream.tap(({ activeStateId }) =>
+            Effect.sync(() => {
+              snapshots.push(activeStateId ?? null);
+              if (activeStateId === void 0) {
+                initialObserved.openUnsafe();
+              } else {
+                stateObserved.openUnsafe();
+              }
+            })
+          ),
+          Stream.runDrain,
+          Effect.forkChild
+        );
+
+        yield* initialObserved.await;
+        yield* service.execute(new ActivateState({ atomId, stateId: 'equal' }));
+        yield* stateObserved.await;
+        yield* Effect.yieldNow;
+
+        expect(snapshots).toEqual([null, 'equal']);
+        yield* Fiber.interrupt(snapshotsFiber);
+      })
+    );
+  });
+
+  it('emits one command snapshot to each watcher', async () => {
+    const registry = AtomRegistry.make();
+    const atom = makeWithStates({ enabled: true })(
+      Atom.make('same').pipe(Atom.withLabel('Shared watch'), Atom.keepAlive),
+      () => [{ id: 'equal', label: 'Equal', source: Atom.make('same') }]
+    );
+    registry.get(atom);
+
+    await runWithService(
+      registry,
+      Effect.gen(function* () {
+        const service = yield* AtomDevTools;
+        const atomId = firstAtomId(yield* firstCatalog(service));
+        const firstReady = yield* Latch.make();
+        const secondReady = yield* Latch.make();
+        const collect = (ready: Latch.Latch) =>
+          service.watch(atomId).pipe(
+            Stream.tap(() => ready.open),
+            Stream.take(2),
+            Stream.runCollect,
+            Effect.forkChild
+          );
+        const firstFiber = yield* collect(firstReady);
+        const secondFiber = yield* collect(secondReady);
+
+        yield* Effect.all([firstReady.await, secondReady.await]);
+        yield* service.execute(new ActivateState({ atomId, stateId: 'equal' }));
+
+        const [first, second] = yield* Effect.all([
+          Fiber.join(firstFiber),
+          Fiber.join(secondFiber),
+        ]);
+        for (const snapshots of [first, second]) {
+          expect(snapshots.map(({ activeStateId }) => activeStateId ?? null)).toEqual([
+            null,
+            'equal',
+          ]);
+          expect(snapshots.map(({ subscriberCount }) => subscriberCount)).toEqual([0, 0]);
+        }
+      })
+    );
+  });
+
+  it('broadcasts value changes to each watcher', async () => {
+    const registry = AtomRegistry.make();
+    const atom = Atom.make(0).pipe(Atom.withLabel('Shared value'), Atom.keepAlive);
+    registry.get(atom);
+
+    await runWithService(
+      registry,
+      Effect.gen(function* () {
+        const service = yield* AtomDevTools;
+        const atomId = firstAtomId(yield* firstCatalog(service));
+        const firstReady = yield* Latch.make();
+        const secondReady = yield* Latch.make();
+        const collect = (ready: Latch.Latch) =>
+          service.watch(atomId).pipe(
+            Stream.tap(() => ready.open),
+            Stream.take(2),
+            Stream.runCollect,
+            Effect.forkChild
+          );
+        const firstFiber = yield* collect(firstReady);
+        const secondFiber = yield* collect(secondReady);
+
+        yield* Effect.all([firstReady.await, secondReady.await]);
+        registry.set(atom, 1);
+
+        const [first, second] = yield* Effect.all([
+          Fiber.join(firstFiber),
+          Fiber.join(secondFiber),
+        ]);
+        expect(first.map(({ value }) => value)).toEqual([0, 1]);
+        expect(second.map(({ value }) => value)).toEqual([0, 1]);
+      })
+    );
+  });
+
+  it('emits one initial snapshot for an uninitialized node', async () => {
+    const registry = AtomRegistry.make();
+    const atom = Atom.make(() => 1).pipe(Atom.withLabel('Uninitialized'));
+    const cancelExternal = registry.subscribe(atom, () => void 0);
+
+    await runWithService(
+      registry,
+      Effect.gen(function* () {
+        const service = yield* AtomDevTools;
+        const catalog = yield* firstCatalog(service);
+        const observed: unknown[] = [];
+        const initialObserved = yield* Latch.make();
+        const watchFiber = yield* service.watch(firstAtomId(catalog)).pipe(
+          Stream.tap(({ value }) =>
+            Effect.sync(() => {
+              observed.push(value);
+              initialObserved.openUnsafe();
+            })
+          ),
+          Stream.runDrain,
+          Effect.forkChild
+        );
+
+        yield* initialObserved.await;
+        yield* Effect.yieldNow;
+        expect(observed).toEqual([1]);
+        yield* Fiber.interrupt(watchFiber);
+      })
+    );
+
+    cancelExternal();
+  });
+
+  it('fails a watch when its node is removed and allows watching a replacement', async () => {
+    const registry = AtomRegistry.make();
+    const atom = Atom.make(1).pipe(Atom.withLabel('Resettable'), Atom.keepAlive);
+    registry.get(atom);
+
+    await runWithService(
+      registry,
+      Effect.gen(function* () {
+        const service = yield* AtomDevTools;
+        const catalog = yield* firstCatalog(service);
+        const atomId = firstAtomId(catalog);
+        const initialObserved = yield* Latch.make();
+        const failureFiber = yield* service.watch(atomId).pipe(
+          Stream.tap(() => initialObserved.open),
+          Stream.runDrain,
+          Effect.flip,
+          Effect.forkChild
+        );
+
+        yield* initialObserved.await;
+        registry.reset();
+
+        const failure = yield* Fiber.join(failureFiber);
+        expect(failure).toBeInstanceOf(AtomNotFound);
+
+        registry.get(atom);
+        const replacement = yield* firstSnapshot(service, atomId);
+        expect(replacement.value).toBe(1);
+      })
+    );
+  });
 });
