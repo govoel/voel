@@ -197,6 +197,7 @@ describe('AtomDevTools', () => {
 
         yield* service.execute(new ActivateState({ atomId, stateId: 'empty' }));
         expect(registry.get(atom)).toBe('empty');
+        expect((yield* firstCatalog(service))[0]?.overridden).toBe(true);
         const active = yield* firstSnapshot(service, atomId);
         expect(active.value).toBe('empty');
         expect(active.activeStateId).toBe('empty');
@@ -205,6 +206,7 @@ describe('AtomDevTools', () => {
         yield* service.execute(new Refresh({ atomId }));
         yield* service.execute(new ClearAllStates());
         expect(registry.get(atom)).toBe('normal');
+        expect((yield* firstCatalog(service))[0]?.overridden).toBe(false);
         const cleared = yield* firstSnapshot(service, atomId);
         expect(cleared.value).toBe('normal');
         expect(cleared.activeStateId).toBeUndefined();

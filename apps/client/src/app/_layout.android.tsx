@@ -3,10 +3,10 @@ import { Host, LoadingIndicator, Surface, getMaterialColors } from '@expo/ui/jet
 import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router/react-navigation';
-import { StyleSheet, View, useColorScheme } from 'react-native';
+import { useColorScheme } from 'react-native';
 
 import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';
-import { AppAtomDevTools } from '#src/components/atom-devtools/index.android.tsx';
+import { AtomDevToolsIntegration } from '#src/components/atom-devtools/index.tsx';
 import { AppRegistry } from '#src/services/registry.ts';
 
 const loadingIndicatorScale = 0.25;
@@ -67,17 +67,8 @@ export default function TabLayout() {
         </Stack>
 
         <AccountsAutoPresenter />
-        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.devToolsOverlay]}>
-          <AppAtomDevTools />
-        </View>
+        <AtomDevToolsIntegration />
       </ThemeProvider>
     </RegistryContext.Provider>
   );
 }
-
-const styles = StyleSheet.create({
-  devToolsOverlay: {
-    zIndex: 1000,
-    elevation: 1000,
-  },
-});

@@ -14,6 +14,7 @@ export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: uni
   id: AtomId,
   name: Schema.String,
   writable: Schema.Boolean,
+  overridden: Schema.Boolean,
 }) {}
 
 export class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
@@ -129,6 +130,8 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         id: atomId(node.atom),
         name: atomName(node.atom),
         writable: Atom.isWritable(node.atom),
+        overridden:
+          hasPredefinedStates(node.atom) && node.atom[StatesTypeId].active(registry) !== void 0,
       });
 
     const publishCatalog = () => {
@@ -250,10 +253,11 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
 
     const snapshot = ({ node }: TrackedNode) => {
       const { atom } = node;
-      const { id, name, writable } = summary(node);
+      const { id, name, overridden, writable } = summary(node);
       return new AtomSnapshot({
         id,
         name,
+        overridden,
         writable,
         value: node.value(),
         source: atom.label?.[1],
@@ -324,6 +328,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
             return yield* new StateNotFound({ atomId: command.atomId, stateId: command.stateId });
           }
           atom[StatesTypeId].activate(registry, state);
+          publishCatalog();
           return void 0;
         }),
         ClearAllStates: Effect.fnUntraced(function* (_command: ClearAllStates) {
@@ -334,6 +339,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
                 atom[StatesTypeId].clear(registry);
               }
             }
+            publishCatalog();
           });
         }),
         ClearState: Effect.fnUntraced(function* (command: ClearState) {
@@ -342,6 +348,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
           } = yield* getNode(command.atomId);
           if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
             atom[StatesTypeId].clear(registry);
+            publishCatalog();
           }
         }),
         Refresh: Effect.fnUntraced(function* (command: Refresh) {

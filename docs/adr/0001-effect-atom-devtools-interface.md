@@ -122,6 +122,9 @@ export const isInternal: (atom: Atom.Atom<any>) => atom is Atom.Atom<any> & Inte
 
 export interface WithStates {
   <T extends Atom.Atom<any>>(
+    states: () => ReadonlyArray<PredefinedStateFor<NoInfer<T>>>
+  ): (atom: T) => T;
+  <T extends Atom.Atom<any>>(
     atom: T,
     states: () => ReadonlyArray<PredefinedStateFor<NoInfer<T>>>
   ): T;
@@ -311,6 +314,7 @@ export interface AtomSummary {
   readonly id: AtomId;
   readonly name: string;
   readonly writable: boolean;
+  readonly overridden: boolean;
   readonly serializableKey?: string;
   readonly nodeState: 'uninitialized' | 'stale' | 'valid';
   readonly stateCount: number;

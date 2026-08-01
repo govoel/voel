@@ -1,0 +1,4 @@
+@import 'tailwindcss';
+@import '@rozenite/ui/styles.css';
+
+@source "./**/*.{ts,tsx}";
