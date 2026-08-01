@@ -44,17 +44,23 @@ export function createDatabase<DB>({
   return Effect.acquireRelease(
     Effect.gen(function* () {
       const parseJsonResultsPlugin = new ParseJSONResultsPlugin();
-      const sourceTap = trackTables ? yield* SourceTap.make<DB>({ trackTables }) : void 0;
+      const database = new BunSqliteDatabase(filename);
+      const sourceTap = trackTables
+        ? yield* SourceTap.make<DB>({
+            database,
+            trackTables,
+          })
+        : void 0;
       const kysely = new Kysely<DB>({
         dialect:
           trackTables !== void 0
             ? new SourceTapDialect({
-                database: new BunSqliteDatabase(filename),
+                database,
                 onBeginTransaction: () => sourceTap?.beginTransaction(),
                 onCommitTransaction: () => sourceTap?.commitTransaction(),
                 onRollbackTransaction: () => sourceTap?.rollbackTransaction(),
               })
-            : new BunSqliteDialect({ database: new BunSqliteDatabase(filename) }),
+            : new BunSqliteDialect({ database }),
         plugins:
           sourceTap !== void 0 ? [sourceTap, parseJsonResultsPlugin] : [parseJsonResultsPlugin],
         ...(enableLogging === true

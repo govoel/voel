@@ -1,3 +1,12 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+// oxlint-disable-next-line import/no-nodejs-modules
+import { mkdtemp, rm } from 'node:fs/promises';
+// oxlint-disable-next-line import/no-nodejs-modules
+import { tmpdir } from 'node:os';
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+// oxlint-disable-next-line import/no-nodejs-modules
+import path from 'node:path';
+
 import { describe, expect, it } from '@effect/vitest';
 import { Context, Effect, Layer, Queue, Stream } from 'effect';
 
@@ -80,7 +89,7 @@ const makeUpdateQueue = Effect.fnUntraced(function* (sourceTap: SourceTap<Kysely
   yield* sourceTap.updates.pipe(
     Stream.map((payload) =>
       payload._tag === 'SourceTapFullSync'
-        ? { table: payload.table, fullSync: true }
+        ? { fullSync: true }
         : { table: payload.table, rows: payload.rows }
     ),
     Stream.runForEach((payload) => Queue.offer(queue, payload)),
@@ -124,6 +133,19 @@ const expectAllUpdates = Effect.fnUntraced(function* (
   queries: readonly { readonly updates?: readonly unknown[]; readonly [key: string]: unknown }[]
 ) {
   if (sourceTap !== void 0) {
+    const requiresFullSync = queries.some(
+      (entry) =>
+        entry.updates?.some(
+          (update) => typeof update === 'object' && update !== null && 'fullSync' in update
+        ) ?? false
+    );
+
+    if (requiresFullSync) {
+      yield* expectUpdates(queue, [{ fullSync: true }]);
+      yield* expectNoUpdates(queue);
+      return;
+    }
+
     for (const entry of queries) {
       if ('updates' in entry) {
         yield* expectUpdates(queue, entry.updates);
@@ -479,13 +501,13 @@ describe('SourceTap', () => {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.deleteFrom('users').where('id', '=', 1).returning(['id', 'name as deletedName']),
           execute: [{ id: 1, deletedName: 'delete-with-returning' }],
-          updates: [{ table: 'users', fullSync: true }],
+          updates: [{ fullSync: true }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
             db.deleteFrom('users').where('id', '=', 2),
           execute: [{ numDeletedRows: 1n }],
-          updates: [{ table: 'users', fullSync: true }],
+          updates: [{ fullSync: true }],
         },
         {
           query: (db: EffectKysely<KyselyDB> | EffectTransaction<KyselyDB>) =>
@@ -633,6 +655,83 @@ describe('SourceTap', () => {
           effect().pipe(Effect.provide(TestDatabase.layer({}))),
         ],
         { concurrency: 1 }
+      );
+    })
+  );
+
+  it.effect(
+    'invalidates a checkpoint when a client was offline during a delete',
+    Effect.fnUntraced(
+      function* () {
+        const { db, sourceTap } = yield* TestDatabase;
+        if (sourceTap === void 0) {
+          throw new Error('Expected SourceTap to be enabled');
+        }
+
+        const syncToken = sourceTap.getSyncToken();
+
+        yield* db.execute(db.insertInto('users').values({ name: 'offline-delete' }));
+        expect(sourceTap.isSyncTokenCurrent(syncToken)).toBe(true);
+
+        // There is deliberately no stream subscriber while this delete occurs.
+        yield* db.execute(db.deleteFrom('users').where('name', '=', 'offline-delete'));
+
+        expect(sourceTap.isSyncTokenCurrent(syncToken)).toBe(false);
+        expect(sourceTap.isSyncTokenCurrent(sourceTap.getSyncToken())).toBe(true);
+
+        const updates = yield* makeUpdateQueue(sourceTap);
+        yield* expectNoUpdates(updates);
+      },
+      (effect) =>
+        effect.pipe(
+          Effect.provide(TestDatabase.layer({ trackTables: new Set(['users'] as const) }))
+        )
+    )
+  );
+
+  it.effect(
+    'persists delete checkpoints across SourceTap restarts',
+    Effect.fnUntraced(function* () {
+      yield* Effect.acquireUseRelease(
+        Effect.promise(async () => mkdtemp(path.join(tmpdir(), 'source-tap-'))),
+        (directory) =>
+          Effect.gen(function* () {
+            const filename = path.join(directory, 'database.sqlite');
+            const { currentToken, staleToken } = yield* Effect.scoped(
+              Effect.gen(function* () {
+                const { db, sourceTap } = yield* createDatabase<KyselyDB>({
+                  filename,
+                  trackTables: new Set(['users'] as const),
+                });
+
+                yield* db.execute(sql`
+                  create table users (
+                    id integer primary key autoincrement not null,
+                    name text not null
+                  );
+                `);
+                yield* db.execute(db.insertInto('users').values({ name: 'persistent-delete' }));
+
+                const tokenBeforeDelete = sourceTap.getSyncToken();
+                yield* db.execute(db.deleteFrom('users').where('name', '=', 'persistent-delete'));
+
+                return { currentToken: sourceTap.getSyncToken(), staleToken: tokenBeforeDelete };
+              })
+            );
+
+            yield* Effect.scoped(
+              Effect.gen(function* () {
+                const { sourceTap } = yield* createDatabase<KyselyDB>({
+                  filename,
+                  trackTables: new Set(['users'] as const),
+                });
+
+                expect(sourceTap.getSyncToken()).toBe(currentToken);
+                expect(sourceTap.isSyncTokenCurrent(staleToken)).toBe(false);
+              })
+            );
+          }),
+        (directory) => Effect.promise(async () => rm(directory, { force: true, recursive: true }))
       );
     })
   );
