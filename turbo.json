@@ -17,6 +17,7 @@
     },
     "//#lint": {
       "cache": true,
+      "dependsOn": ["@repo/atom-devtools-plugin#build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"],
       "outputLogs": "errors-only"
     },
