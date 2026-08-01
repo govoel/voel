@@ -3,46 +3,12 @@ import type { AgentToolContract } from '@rozenite/agent-shared';
 
 import type { AtomSnapshotDto, AtomSummaryDto } from './transport.ts';
 
-export const ATOM_DEVTOOLS_PLUGIN_ID = '@repo/atom-devtools-plugin';
+export { ATOM_DEVTOOLS_PLUGIN_ID } from './constants.ts';
 
-export interface ListAtomsArgs {
-  readonly query?: string;
-  readonly writable?: boolean;
-  readonly overridden?: boolean;
-  readonly stateCapable?: boolean;
-  readonly cursor?: string;
-  readonly limit?: number;
-}
-
-export interface ListAtomsResult {
-  readonly items: readonly AtomSummaryDto[];
-  readonly total: number;
-  readonly nextCursor?: string;
-}
-
-export interface GetAtomArgs {
-  readonly atomId: string;
-}
-
-export interface GetAtomResult {
-  readonly atom: AtomSnapshotDto;
-}
-
-export interface ActivateStateArgs extends GetAtomArgs {
-  readonly stateId: string;
-}
-
-export type ClearStateArgs = GetAtomArgs;
-export type RefreshAtomArgs = GetAtomArgs;
-
-export interface AtomMutationResult {
+interface AtomMutationResult {
   readonly success: true;
   readonly atomId: string;
   readonly stateId?: string;
-}
-
-export interface ClearAllStatesResult {
-  readonly success: true;
 }
 
 const atomIdProperty = {
@@ -51,7 +17,21 @@ const atomIdProperty = {
 } as const;
 
 export const atomDevToolsToolDefinitions = {
-  listAtoms: defineAgentToolContract<ListAtomsArgs, ListAtomsResult>({
+  listAtoms: defineAgentToolContract<
+    {
+      readonly query?: string;
+      readonly writable?: boolean;
+      readonly overridden?: boolean;
+      readonly stateCapable?: boolean;
+      readonly cursor?: string;
+      readonly limit?: number;
+    },
+    {
+      readonly items: readonly AtomSummaryDto[];
+      readonly total: number;
+      readonly nextCursor?: string;
+    }
+  >({
     name: 'list-atoms',
     description:
       'List discovered Effect atoms. Filter by name or capabilities and paginate with the returned cursor.',
@@ -70,17 +50,22 @@ export const atomDevToolsToolDefinitions = {
       },
     },
   }),
-  getAtom: defineAgentToolContract<GetAtomArgs, GetAtomResult>({
-    name: 'get-atom',
-    description:
-      'Get an atom value, source, lifecycle metadata, subscribers, graph links, and predefined states.',
-    inputSchema: {
-      type: 'object',
-      properties: { atomId: atomIdProperty },
-      required: ['atomId'],
-    },
-  }),
-  activateState: defineAgentToolContract<ActivateStateArgs, AtomMutationResult>({
+  getAtom: defineAgentToolContract<{ readonly atomId: string }, { readonly atom: AtomSnapshotDto }>(
+    {
+      name: 'get-atom',
+      description:
+        'Get an atom value, source, lifecycle metadata, subscribers, graph links, and predefined states.',
+      inputSchema: {
+        type: 'object',
+        properties: { atomId: atomIdProperty },
+        required: ['atomId'],
+      },
+    }
+  ),
+  activateState: defineAgentToolContract<
+    { readonly atomId: string; readonly stateId: string },
+    AtomMutationResult
+  >({
     name: 'activate-state',
     description: 'Activate one predefined state on an atom.',
     inputSchema: {
@@ -92,7 +77,7 @@ export const atomDevToolsToolDefinitions = {
       required: ['atomId', 'stateId'],
     },
   }),
-  clearState: defineAgentToolContract<ClearStateArgs, AtomMutationResult>({
+  clearState: defineAgentToolContract<{ readonly atomId: string }, AtomMutationResult>({
     name: 'clear-state',
     description: 'Clear an atom state override and restore normal atom behavior.',
     inputSchema: {
@@ -101,12 +86,12 @@ export const atomDevToolsToolDefinitions = {
       required: ['atomId'],
     },
   }),
-  clearAllStates: defineAgentToolContract<undefined, ClearAllStatesResult>({
+  clearAllStates: defineAgentToolContract<undefined, { readonly success: true }>({
     name: 'clear-all-states',
     description: 'Clear every active atom state override in the app.',
     inputSchema: { type: 'object', properties: {} },
   }),
-  refreshAtom: defineAgentToolContract<RefreshAtomArgs, AtomMutationResult>({
+  refreshAtom: defineAgentToolContract<{ readonly atomId: string }, AtomMutationResult>({
     name: 'refresh-atom',
     description: 'Refresh an atom while preserving its active predefined state.',
     inputSchema: {

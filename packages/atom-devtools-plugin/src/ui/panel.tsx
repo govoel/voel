@@ -1,18 +1,16 @@
 import { useRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import {
-  Button,
-  Chip,
-  ConfirmDialog,
-  PluginHeader,
-  PluginTheme,
-  SearchField,
-  Surface,
-} from '@rozenite/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ATOM_DEVTOOLS_PLUGIN_ID } from '../shared/agent-tools.ts';
+import { ATOM_DEVTOOLS_PLUGIN_ID } from '../shared/constants.ts';
 import type { AtomDevToolsEventMap, Mutation } from '../shared/protocol.ts';
 import type { AtomLinkDto, AtomSnapshotDto, AtomSummaryDto } from '../shared/transport.ts';
+import { ConfirmDialog } from './components/confirm-dialog.tsx';
+import { PluginHeader } from './components/plugin-header.tsx';
+import { PluginTheme } from './components/plugin-theme.tsx';
+import { Badge } from './components/ui/badge.tsx';
+import { Button } from './components/ui/button.tsx';
+import { Card } from './components/ui/card.tsx';
+import { Input } from './components/ui/input.tsx';
 import './globals.css';
 
 let requestSequence = 0;
@@ -23,17 +21,25 @@ const nextRequestId = (): string => {
 
 type IndicatorColor = 'default' | 'success' | 'accent' | 'danger' | 'warning';
 
+const getIndicatorVariant = (
+  color: IndicatorColor
+): 'secondary' | 'success' | 'accent' | 'destructive' | 'warning' => {
+  if (color === 'default') {
+    return 'secondary';
+  }
+  if (color === 'danger') {
+    return 'destructive';
+  }
+  return color;
+};
+
 const Indicator = ({
   children,
   color = 'default',
 }: {
   children: string;
   color?: IndicatorColor;
-}) => (
-  <Chip color={color} size="sm" variant="soft">
-    {children}
-  </Chip>
-);
+}) => <Badge variant={getIndicatorVariant(color)}>{children}</Badge>;
 
 const AtomIndicators = ({ atom }: { readonly atom: AtomSummaryDto }) => (
   <div className="flex flex-wrap gap-1.5">
@@ -46,7 +52,7 @@ const AtomIndicators = ({ atom }: { readonly atom: AtomSummaryDto }) => (
 );
 
 const EmptyLinks = ({ label }: { readonly label: string }) => (
-  <span className="text-xs text-muted">No {label.toLocaleLowerCase()}</span>
+  <span className="text-xs text-muted-foreground">No {label.toLocaleLowerCase()}</span>
 );
 
 const AtomLinks = ({
@@ -59,7 +65,7 @@ const AtomLinks = ({
   readonly onSelect: (atomId: string) => void;
 }) => (
   <section className="space-y-2">
-    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</h3>
+    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
     {links.length === 0 ? <EmptyLinks label={label} /> : null}
     <div className="flex flex-wrap gap-2">
       {links.map((link) => (
@@ -67,7 +73,7 @@ const AtomLinks = ({
           key={link.id}
           size="sm"
           variant="secondary"
-          onPress={() => {
+          onClick={() => {
             onSelect(link.id);
           }}>
           {link.name}
@@ -79,35 +85,40 @@ const AtomLinks = ({
 
 const Metadata = ({ snapshot }: { readonly snapshot: AtomSnapshotDto }) => (
   <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-xs">
-    <dt className="text-muted">Stable ID</dt>
+    <dt className="text-muted-foreground">Stable ID</dt>
     <dd className="break-all font-mono text-foreground">{snapshot.id}</dd>
-    <dt className="text-muted">Source</dt>
+    <dt className="text-muted-foreground">Source</dt>
     <dd className="break-all font-mono text-foreground">{snapshot.source ?? 'Unknown'}</dd>
-    <dt className="text-muted">Subscribers</dt>
+    <dt className="text-muted-foreground">Subscribers</dt>
     <dd>{snapshot.subscriberCount}</dd>
-    <dt className="text-muted">Keep alive</dt>
+    <dt className="text-muted-foreground">Keep alive</dt>
     <dd>{snapshot.keepAlive ? 'Yes' : 'No'}</dd>
-    <dt className="text-muted">Lazy</dt>
+    <dt className="text-muted-foreground">Lazy</dt>
     <dd>{snapshot.lazy ? 'Yes' : 'No'}</dd>
-    <dt className="text-muted">Idle TTL</dt>
+    <dt className="text-muted-foreground">Idle TTL</dt>
     <dd>{snapshot.idleTTL === undefined ? 'Default' : `${snapshot.idleTTL} ms`}</dd>
   </dl>
 );
 
-interface DetailsProps {
+const AtomDetails = ({
+  snapshot,
+  pending,
+  error,
+  onBack,
+  onMutation,
+  onSelect,
+}: {
   readonly snapshot: AtomSnapshotDto;
   readonly pending: boolean;
   readonly error: string | undefined;
   readonly onBack: () => void;
   readonly onMutation: (mutation: Mutation) => void;
   readonly onSelect: (atomId: string) => void;
-}
-
-const AtomDetails = ({ snapshot, pending, error, onBack, onMutation, onSelect }: DetailsProps) => (
+}) => (
   <main className="min-h-0 flex-1 overflow-auto p-4">
     <div className="mx-auto flex max-w-5xl flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="secondary" onPress={onBack}>
+        <Button size="sm" variant="secondary" onClick={onBack}>
           Back
         </Button>
         <div className="min-w-0 flex-1">
@@ -115,9 +126,9 @@ const AtomDetails = ({ snapshot, pending, error, onBack, onMutation, onSelect }:
         </div>
         <AtomIndicators atom={snapshot} />
         <Button
-          isDisabled={pending}
+          disabled={pending}
           size="sm"
-          onPress={() => {
+          onClick={() => {
             onMutation({ type: 'refresh-atom', atomId: snapshot.id });
           }}>
           Refresh
@@ -125,33 +136,33 @@ const AtomDetails = ({ snapshot, pending, error, onBack, onMutation, onSelect }:
       </div>
 
       {error === undefined ? null : (
-        <Surface className="rounded-md border border-danger/60 p-3 text-sm text-danger">
+        <Card className="rounded-md border-destructive/60 p-3 text-sm text-destructive">
           {error}
-        </Surface>
+        </Card>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Surface className="rounded-lg border border-border p-4" variant="secondary">
+        <Card className="rounded-lg p-4">
           <h3 className="mb-3 text-sm font-semibold">Current value</h3>
           <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs">
-            {snapshot.valuePreview}
+            {snapshot.value}
           </pre>
-        </Surface>
-        <Surface className="rounded-lg border border-border p-4" variant="secondary">
+        </Card>
+        <Card className="rounded-lg p-4">
           <h3 className="mb-3 text-sm font-semibold">Lifecycle</h3>
           <Metadata snapshot={snapshot} />
-        </Surface>
+        </Card>
       </div>
 
-      <Surface className="rounded-lg border border-border p-4" variant="secondary">
+      <Card className="rounded-lg p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">Predefined states</h3>
           {snapshot.activeStateId === undefined ? null : (
             <Button
-              isDisabled={pending}
+              disabled={pending}
               size="sm"
-              variant="danger"
-              onPress={() => {
+              variant="destructive"
+              onClick={() => {
                 onMutation({ type: 'clear-state', atomId: snapshot.id });
               }}>
               Clear active state
@@ -159,7 +170,7 @@ const AtomDetails = ({ snapshot, pending, error, onBack, onMutation, onSelect }:
           )}
         </div>
         {snapshot.states.length === 0 ? (
-          <p className="text-xs text-muted">This atom has no predefined states.</p>
+          <p className="text-xs text-muted-foreground">This atom has no predefined states.</p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {snapshot.states.map((state) => {
@@ -167,7 +178,7 @@ const AtomDetails = ({ snapshot, pending, error, onBack, onMutation, onSelect }:
               return (
                 <button
                   key={state.id}
-                  className="rounded-md border border-border bg-surface p-3 text-left hover:border-accent disabled:opacity-50"
+                  className="rounded-md border bg-card p-3 text-left hover:border-accent disabled:opacity-50"
                   disabled={pending}
                   type="button"
                   onClick={() => {
@@ -182,23 +193,25 @@ const AtomDetails = ({ snapshot, pending, error, onBack, onMutation, onSelect }:
                     {active ? <Indicator color="success">Active</Indicator> : null}
                   </div>
                   {state.description === undefined ? null : (
-                    <p className="mt-1 text-xs text-muted">{state.description}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{state.description}</p>
                   )}
-                  <p className="mt-2 break-all font-mono text-[11px] text-muted">{state.id}</p>
+                  <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
+                    {state.id}
+                  </p>
                 </button>
               );
             })}
           </div>
         )}
-      </Surface>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Surface className="rounded-lg border border-border p-4" variant="secondary">
+        <Card className="rounded-lg p-4">
           <AtomLinks label="Dependencies" links={snapshot.dependencies} onSelect={onSelect} />
-        </Surface>
-        <Surface className="rounded-lg border border-border p-4" variant="secondary">
+        </Card>
+        <Card className="rounded-lg p-4">
           <AtomLinks label="Dependents" links={snapshot.dependents} onSelect={onSelect} />
-        </Surface>
+        </Card>
       </div>
     </div>
   </main>
@@ -356,13 +369,13 @@ export default function AtomDevToolsPanel() {
         subtitle={`${catalog.length} discovered atom${catalog.length === 1 ? '' : 's'}`}
         actions={
           <>
-            <Button size="sm" variant="secondary" onPress={requestInitialState}>
+            <Button size="sm" variant="secondary" onClick={requestInitialState}>
               Reload
             </Button>
             <Button
               size="sm"
-              variant="danger"
-              onPress={() => {
+              variant="destructive"
+              onClick={() => {
                 setConfirmClearAll(true);
               }}>
               Clear all states
@@ -387,22 +400,47 @@ export default function AtomDevToolsPanel() {
       ) : (
         <main className="min-h-0 flex-1 overflow-auto p-4">
           <div className="mx-auto max-w-5xl space-y-4">
-            <SearchField aria-label="Search atoms" value={search} onChange={setSearch}>
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Search atoms by name or ID…" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
+            <div className="relative">
+              <svg
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                fill="none"
+                viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+                <path d="m20 20-4-4" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+              </svg>
+              <Input
+                aria-label="Search atoms"
+                className="pl-9 pr-9"
+                placeholder="Search atoms by name or ID…"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                }}
+              />
+              {search.length > 0 ? (
+                <button
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 size-6 -translate-y-1/2 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                  }}>
+                  ×
+                </button>
+              ) : null}
+            </div>
 
             {error === undefined ? null : (
-              <Surface className="rounded-md border border-danger/60 p-3 text-sm text-danger">
+              <Card className="rounded-md border-destructive/60 p-3 text-sm text-destructive">
                 {error}
-              </Surface>
+              </Card>
             )}
-            {loading ? <p className="py-8 text-center text-sm text-muted">Loading atoms…</p> : null}
+            {loading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Loading atoms…</p>
+            ) : null}
             {!loading && filteredCatalog.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted">
+              <p className="py-8 text-center text-sm text-muted-foreground">
                 {catalog.length === 0
                   ? 'No atoms discovered. Atoms appear after the app uses them.'
                   : 'No atoms match this search.'}
@@ -412,14 +450,16 @@ export default function AtomDevToolsPanel() {
               {filteredCatalog.map((atom) => (
                 <button
                   key={atom.id}
-                  className="flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-4 text-left hover:border-accent sm:flex-row sm:items-center"
+                  className="flex w-full flex-col gap-3 rounded-lg border bg-card p-4 text-left hover:border-accent sm:flex-row sm:items-center"
                   type="button"
                   onClick={() => {
                     selectAtom(atom.id);
                   }}>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">{atom.name}</div>
-                    <div className="mt-1 truncate font-mono text-[11px] text-muted">{atom.id}</div>
+                    <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                      {atom.id}
+                    </div>
                   </div>
                   <AtomIndicators atom={atom} />
                 </button>
@@ -431,11 +471,13 @@ export default function AtomDevToolsPanel() {
 
       <ConfirmDialog
         confirmText="Clear all states"
-        isOpen={confirmClearAll}
+        open={confirmClearAll}
         message="This restores normal behavior for every atom with an active predefined state."
         title="Clear every forced state?"
-        onClose={() => {
-          setConfirmClearAll(false);
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmClearAll(false);
+          }
         }}
         onConfirm={() => {
           mutate({ type: 'clear-all-states' });

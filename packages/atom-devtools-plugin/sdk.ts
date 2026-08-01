@@ -1,23 +1,13 @@
 import { defineAgentToolDescriptors } from '@rozenite/agent-shared';
+import type { AgentToolDescriptor } from '@rozenite/agent-shared';
 
 import { ATOM_DEVTOOLS_PLUGIN_ID, atomDevToolsToolDefinitions } from './src/shared/agent-tools.ts';
 
-export { ATOM_DEVTOOLS_PLUGIN_ID, atomDevToolsToolDefinitions } from './src/shared/agent-tools.ts';
+type AtomDevToolsTools = {
+  readonly [K in keyof typeof atomDevToolsToolDefinitions]: AgentToolDescriptor;
+};
 
-export const atomDevToolsTools = defineAgentToolDescriptors(
+export const atomDevToolsTools: AtomDevToolsTools = defineAgentToolDescriptors(
   ATOM_DEVTOOLS_PLUGIN_ID,
   atomDevToolsToolDefinitions
 );
-
-export type {
-  ActivateStateArgs,
-  AtomMutationResult,
-  ClearAllStatesResult,
-  ClearStateArgs,
-  GetAtomArgs,
-  GetAtomResult,
-  ListAtomsArgs,
-  ListAtomsResult,
-  RefreshAtomArgs,
-} from './src/shared/agent-tools.ts';
-export type { AtomSnapshotDto, AtomSummaryDto, JsonValue } from './src/shared/transport.ts';

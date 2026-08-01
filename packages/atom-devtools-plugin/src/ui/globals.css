@@ -1,4 +1,90 @@
 @import 'tailwindcss';
-@import '@rozenite/ui/styles.css';
+
+@custom-variant dark (&:is(.dark *));
 
 @source "./**/*.{ts,tsx}";
+
+:root {
+  --background: oklch(0.985 0.002 285);
+  --foreground: oklch(0.18 0.006 285);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.006 285);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.006 285);
+  --primary: oklch(0.55 0.27 293);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.002 285);
+  --secondary-foreground: oklch(0.24 0.006 285);
+  --muted: oklch(0.94 0.002 285);
+  --muted-foreground: oklch(0.52 0.004 285);
+  --accent: oklch(0.94 0.025 293);
+  --accent-foreground: oklch(0.25 0.08 293);
+  --destructive: oklch(0.58 0.22 28);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.65 0.18 155);
+  --warning: oklch(0.72 0.16 77);
+  --border: oklch(0.89 0.002 285);
+  --input: oklch(0.89 0.002 285);
+  --ring: oklch(0.55 0.27 293);
+}
+
+.dark {
+  --background: oklch(0.12 0.002 285);
+  --foreground: oklch(0.98 0.002 285);
+  --card: oklch(0.21 0.003 285);
+  --card-foreground: oklch(0.98 0.002 285);
+  --popover: oklch(0.21 0.003 285);
+  --popover-foreground: oklch(0.98 0.002 285);
+  --primary: oklch(0.55 0.27 293);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.27 0.002 285);
+  --secondary-foreground: oklch(0.98 0.002 285);
+  --muted: oklch(0.27 0.002 285);
+  --muted-foreground: oklch(0.7 0.003 285);
+  --accent: oklch(0.3 0.06 293);
+  --accent-foreground: oklch(0.98 0.002 285);
+  --destructive: oklch(0.59 0.2 29);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.73 0.19 155);
+  --warning: oklch(0.82 0.14 81);
+  --border: oklch(0.28 0.002 285);
+  --input: oklch(0.28 0.002 285);
+  --ring: oklch(0.55 0.27 293);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    scrollbar-color: var(--muted-foreground) var(--background);
+    scrollbar-width: thin;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+}

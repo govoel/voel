@@ -17,17 +17,8 @@ export type Response<T> =
       readonly error: TransportError;
     };
 
-export interface RequestInitialStateEvent {
-  readonly requestId: string;
-}
-
-export interface InitialState {
+interface InitialState {
   readonly atoms: readonly AtomSummaryDto[];
-}
-
-export interface GetAtomEvent {
-  readonly requestId: string;
-  readonly atomId: string;
 }
 
 export type Mutation =
@@ -36,21 +27,12 @@ export type Mutation =
   | { readonly type: 'clear-all-states' }
   | { readonly type: 'refresh-atom'; readonly atomId: string };
 
-export interface MutationEvent {
-  readonly requestId: string;
-  readonly mutation: Mutation;
-}
-
-export interface MutationSuccess {
-  readonly mutation: Mutation;
-}
-
 export interface AtomDevToolsEventMap extends Record<string, unknown> {
-  readonly 'request-initial-state': RequestInitialStateEvent;
+  readonly 'request-initial-state': { readonly requestId: string };
   readonly 'initial-state-result': Response<InitialState>;
   readonly catalog: InitialState;
-  readonly 'get-atom': GetAtomEvent;
+  readonly 'get-atom': { readonly requestId: string; readonly atomId: string };
   readonly 'get-atom-result': Response<AtomSnapshotDto>;
-  readonly mutation: MutationEvent;
-  readonly 'mutation-result': Response<MutationSuccess>;
+  readonly mutation: { readonly requestId: string; readonly mutation: Mutation };
+  readonly 'mutation-result': Response<{ readonly mutation: Mutation }>;
 }

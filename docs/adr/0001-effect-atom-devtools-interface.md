@@ -332,7 +332,6 @@ export interface AsyncResultSnapshot {
 
 export interface AtomSnapshot extends AtomSummary {
   readonly value: unknown;
-  readonly valuePreview: string;
   readonly source?: string;
   readonly keepAlive: boolean;
   readonly lazy: boolean;
@@ -389,9 +388,9 @@ export class AtomDevTools extends Context.Service<
 }
 ```
 
-The concrete implementation will use `Inspectable.toStringUnknown` for
-`valuePreview` and retain the raw in-process value for richer future renderers.
-Preview length should be configurable and bounded.
+The transport adapter will use `Inspectable.toStringUnknown` for the snapshot
+`value`, while the core retains the raw in-process value for richer future
+renderers. Preview length should be configurable and bounded.
 
 ### Discovery and identity
 

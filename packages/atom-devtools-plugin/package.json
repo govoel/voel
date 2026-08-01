@@ -32,7 +32,6 @@
     "@rozenite/agent-bridge": "1.13.0",
     "@rozenite/agent-shared": "1.13.0",
     "@rozenite/plugin-bridge": "1.13.0",
-    "@rozenite/ui": "file:../../vendor/rozenite-ui-1.7.0.tgz",
     "effect": "4.0.0-beta.102",
     "react": "19.2.3",
     "react-dom": "19.2.3",
