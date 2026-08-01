@@ -156,9 +156,13 @@ class SourceTapSqliteConnection implements DatabaseConnection {
 
     // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
     const results = stmt.run(parameters as any);
+    // Bun reports all changes made by triggers in `results.changes`. SQLite's
+    // changes() function reports only rows changed by the top-level statement,
+    // which is what Kysely's mutation result represents.
+    const changes = this.#db.query<{ count: number }, []>('select changes() as count').get();
     return {
       insertId: BigInt(results.lastInsertRowid),
-      numAffectedRows: BigInt(results.changes),
+      numAffectedRows: BigInt(changes?.count ?? results.changes),
       rows: [],
     };
   }

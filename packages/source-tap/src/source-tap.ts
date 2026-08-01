@@ -1,3 +1,5 @@
+import type { Database as BunSqliteDatabase } from 'bun:sqlite';
+
 import { Data, Effect, PubSub, Stream } from 'effect';
 
 import {
@@ -24,6 +26,8 @@ import type {
   UnknownRow,
 } from '@repo/effect-kysely';
 
+import { SourceTapSyncState } from '#src/sync-state.ts';
+
 type SourceTapQueryId =
   PluginTransformQueryArgs['queryId'] extends PluginTransformResultArgs['queryId']
     ? PluginTransformQueryArgs['queryId']
@@ -31,7 +35,7 @@ type SourceTapQueryId =
 
 interface SourceTapQueryState<TableName extends string = string> {
   table: TableName;
-  queryType: 'delete' | 'insert' | 'update';
+  queryType: 'insert' | 'update';
   originalReturning: Set<string>;
   originalReturningAlias: Set<string>;
 }
@@ -52,7 +56,8 @@ export class SourceTapUpdate<DB, Table extends keyof DB = keyof DB> extends Data
  * local snapshot and perform a full sync when they receive this event.
  */
 export class SourceTapFullSync extends Data.TaggedClass('SourceTapFullSync')<{
-  readonly table: string;
+  /** The persistent sync token after the delete was committed. */
+  readonly syncToken: string;
 }> {}
 
 export type SourceTapEvent<DB> = SourceTapUpdate<DB> | SourceTapFullSync;
@@ -62,34 +67,50 @@ export class SourceTap<DB> implements KyselyPlugin {
 
   #inTransaction: boolean;
   #transactionEvents: SourceTapEvent<DB>[];
+  #transactionRequiresFullSync: boolean;
+
+  #committedSyncToken: string;
+  #observedSyncToken: string;
 
   readonly #pubsub: PubSub.PubSub<SourceTapEvent<DB>>;
   readonly #trackTables: ReadonlySet<keyof DB>;
+  readonly #syncState: SourceTapSyncState;
 
   readonly #transformer: SourceTapTransformer<Extract<keyof DB, string>>;
   readonly #transformerVars: Map<'currentQueryId', SourceTapQueryId>;
   readonly #queryState: WeakMap<SourceTapQueryId, SourceTapQueryState<Extract<keyof DB, string>>>;
 
-  public static make = Effect.fnUntraced(function* <Database>(opts: {
-    trackTables: ReadonlySet<keyof Database>;
+  public static make = Effect.fnUntraced(function* <DatabaseSchema>(opts: {
+    database: BunSqliteDatabase;
+    trackTables: ReadonlySet<keyof DatabaseSchema>;
   }) {
-    const pubsub = yield* PubSub.unbounded<SourceTapEvent<Database>>();
+    const pubsub = yield* PubSub.unbounded<SourceTapEvent<DatabaseSchema>>();
+    const syncState = new SourceTapSyncState(
+      opts.database,
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      opts.trackTables as ReadonlySet<string>
+    );
 
     yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
 
-    return new SourceTap(opts, pubsub);
+    return new SourceTap({ syncState, trackTables: opts.trackTables }, pubsub);
   });
 
   private constructor(
-    opts: { trackTables: ReadonlySet<keyof DB> },
+    opts: { syncState: SourceTapSyncState; trackTables: ReadonlySet<keyof DB> },
     pubsub: PubSub.PubSub<SourceTapEvent<DB>>
   ) {
     this.#pubsub = pubsub;
     this.#trackTables = opts.trackTables;
+    this.#syncState = opts.syncState;
     this.updates = Stream.fromPubSub(this.#pubsub);
 
     this.#inTransaction = false;
     this.#transactionEvents = [];
+    this.#transactionRequiresFullSync = false;
+
+    this.#committedSyncToken = this.#syncState.getSyncToken();
+    this.#observedSyncToken = this.#committedSyncToken;
 
     this.#queryState = new WeakMap();
 
@@ -105,7 +126,7 @@ export class SourceTap<DB> implements KyselyPlugin {
   private setUpQuery(
     queryId: SourceTapQueryId,
     tableName: Extract<keyof DB, string>,
-    queryType: 'delete' | 'insert' | 'update'
+    queryType: 'insert' | 'update'
   ) {
     this.#queryState.set(queryId, {
       table: tableName,
@@ -117,6 +138,17 @@ export class SourceTap<DB> implements KyselyPlugin {
   }
 
   public transformQuery(args: PluginTransformQueryArgs): RootOperationNode {
+    // Tables may be created by migrations after SourceTap itself is created.
+    if (
+      DeleteQueryNode.is(args.node) ||
+      InsertQueryNode.is(args.node) ||
+      UpdateQueryNode.is(args.node)
+    ) {
+      this.#syncState.ensureDeleteTriggers();
+    } else {
+      this.#syncState.installDeleteTriggers();
+    }
+
     if (
       InsertQueryNode.is(args.node) &&
       args.node.into &&
@@ -135,18 +167,6 @@ export class SourceTap<DB> implements KyselyPlugin {
           `SourceTap transformQuery has an unhandled UpdateQueryNode type: ${args.node.table.kind}`
         );
       }
-    } else if (DeleteQueryNode.is(args.node)) {
-      const [from] = args.node.from.froms;
-      const table =
-        from !== void 0 && AliasNode.is(from) && TableNode.is(from.node) ? from.node : from;
-
-      if (
-        table !== void 0 &&
-        TableNode.is(table) &&
-        this.isTrackedTable(table.table.identifier.name)
-      ) {
-        this.setUpQuery(args.queryId, table.table.identifier.name, 'delete');
-      }
     }
     return args.node;
   }
@@ -156,24 +176,11 @@ export class SourceTap<DB> implements KyselyPlugin {
   }
 
   public async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
+    this.detectDeletes();
+
     const queryState = this.#queryState.get(args.queryId);
 
     if (queryState !== void 0) {
-      if (queryState.queryType === 'delete') {
-        const numAffectedRows = args.result.numAffectedRows ?? BigInt(args.result.rows.length);
-
-        if (numAffectedRows > 0n) {
-          this.publish(
-            new SourceTapFullSync({
-              table: queryState.table,
-            })
-          );
-        }
-
-        this.cleanUpQuery(args.queryId);
-        return args.result;
-      }
-
       let listenerRows: QueryResult<UnknownRow>['rows'] = [];
 
       if (queryState.originalReturningAlias.size > 0) {
@@ -267,20 +274,69 @@ export class SourceTap<DB> implements KyselyPlugin {
     }
   }
 
+  private detectDeletes() {
+    const syncToken = this.#syncState.getSyncToken();
+
+    if (syncToken === this.#observedSyncToken) {
+      return;
+    }
+
+    this.#observedSyncToken = syncToken;
+
+    if (this.#inTransaction) {
+      this.#transactionRequiresFullSync = true;
+      return;
+    }
+
+    this.#committedSyncToken = syncToken;
+    PubSub.publishUnsafe(this.#pubsub, new SourceTapFullSync({ syncToken }));
+  }
+
+  /**
+   * Returns an opaque checkpoint for a client's local snapshot.
+   *
+   * Save this after a full sync. A client that was offline can pass it to
+   * `isSyncTokenCurrent` when reconnecting; a mismatch means that at least one
+   * tracked row was deleted and the client must perform another full sync.
+   */
+  public getSyncToken(): string {
+    return this.#committedSyncToken;
+  }
+
+  public isSyncTokenCurrent(syncToken: string): boolean {
+    return syncToken === this.#committedSyncToken;
+  }
+
   public beginTransaction() {
     this.#inTransaction = true;
+    this.#transactionRequiresFullSync = false;
   }
 
   public commitTransaction() {
-    this.#transactionEvents.forEach((transactionEvent) => {
-      PubSub.publishUnsafe(this.#pubsub, transactionEvent);
-    });
+    this.#committedSyncToken = this.#syncState.getSyncToken();
+    this.#observedSyncToken = this.#committedSyncToken;
+
+    if (this.#transactionRequiresFullSync) {
+      PubSub.publishUnsafe(
+        this.#pubsub,
+        new SourceTapFullSync({ syncToken: this.#committedSyncToken })
+      );
+    } else {
+      this.#transactionEvents.forEach((transactionEvent) => {
+        PubSub.publishUnsafe(this.#pubsub, transactionEvent);
+      });
+    }
+
     this.#transactionEvents = [];
+    this.#transactionRequiresFullSync = false;
     this.#inTransaction = false;
   }
 
   public rollbackTransaction() {
+    this.#committedSyncToken = this.#syncState.getSyncToken();
+    this.#observedSyncToken = this.#committedSyncToken;
     this.#transactionEvents = [];
+    this.#transactionRequiresFullSync = false;
     this.#inTransaction = false;
   }
 }
