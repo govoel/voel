@@ -63,7 +63,7 @@
         "@testing-library/react-native": "14.0.1",
         "@types/react": "~19.2.2",
         "@vitejs/plugin-react": "6.0.4",
-        "agent-device": "0.20.1",
+        "agent-device": "0.20.2",
         "bun-types": "1.3.14",
         "test-renderer": "1.2.0",
         "typescript": "6.0.3",
@@ -902,7 +902,7 @@
 
     "agent-cli-detector": ["agent-cli-detector@0.1.4", "", { "bin": { "agent-cli-detector": "dist/cli.js" } }, "sha512-qPgevFvpaQoBaRJVKzr8R7h1WPvV3DtbgRIQlne4le66KBzXx5hNBwo/+NTw67LgkKBlhCzksrdautpUdlls0Q=="],
 
-    "agent-device": ["agent-device@0.20.1", "", { "dependencies": { "@limrun/api": "^0.24.5", "yaml": "^2.9.0" }, "bin": { "agent-device": "bin/agent-device.mjs" } }, "sha512-qFOoEk3gbMQI8k0v+a5KZt37mqe+Kr1TIsds7ppJk3iDcomPcgvgIeAqjKxDaBiPAF13cjXUiF8pdeeHswLKEw=="],
+    "agent-device": ["agent-device@0.20.2", "", { "dependencies": { "@limrun/api": "^0.24.5", "yaml": "^2.9.0" }, "bin": { "agent-device": "bin/agent-device.mjs" } }, "sha512-vsXx3YsDLfOt3pEIU7OWPpUW4SOdGn1bLzMEgKrOiwGtfkYm4GV1s3YPwzrZrWOHwknbtLoH06lR/SJ+As0eag=="],
 
     "ajv": ["ajv@6.15.0", "", { "dependencies": { "fast-deep-equal": "^3.1.1", "fast-json-stable-stringify": "^2.0.0", "json-schema-traverse": "^0.4.1", "uri-js": "^4.2.2" } }, "sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw=="],
 
