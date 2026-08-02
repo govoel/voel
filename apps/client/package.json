@@ -4,16 +4,15 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "build:rozenite": "bun run --cwd ../../packages/atom-devtools-plugin build",
-    "check-types": "bun run build:rozenite && expo customize tsconfig.json && tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
+    "check-types": "expo customize tsconfig.json && tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
     "test": "vitest run --config vitest.rn.config.ts src/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts src/services/accounts",
-    "start": "bun run build:rozenite && RELEASE_CHANNEL=dev expo start",
-    "android:dev": "bun run build:rozenite && RELEASE_CHANNEL=dev expo run:android",
-    "android:preview": "bun run build:rozenite && RELEASE_CHANNEL=preview expo run:android",
-    "android:prod": "bun run build:rozenite && RELEASE_CHANNEL=prod expo run:android",
-    "ios:dev": "bun run build:rozenite && RELEASE_CHANNEL=dev expo run:ios",
-    "ios:preview": "bun run build:rozenite && RELEASE_CHANNEL=preview expo run:ios",
-    "ios:prod": "bun run build:rozenite && RELEASE_CHANNEL=prod expo run:ios"
+    "start": "bun turbo run build --filter=@repo/atom-devtools-plugin && RELEASE_CHANNEL=dev expo start",
+    "android:dev": "bun turbo run build --filter=@repo/atom-devtools-plugin && RELEASE_CHANNEL=dev expo run:android",
+    "android:preview": "bun turbo run build --filter=@repo/atom-devtools-plugin && RELEASE_CHANNEL=preview expo run:android",
+    "android:prod": "bun turbo run build --filter=@repo/atom-devtools-plugin && RELEASE_CHANNEL=prod expo run:android",
+    "ios:dev": "bun turbo run build --filter=@repo/atom-devtools-plugin && RELEASE_CHANNEL=dev expo run:ios",
+    "ios:preview": "bun turbo run build --filter=@repo/atom-devtools-plugin && RELEASE_CHANNEL=preview expo run:ios",
+    "ios:prod": "bun turbo run build --filter=@repo/atom-devtools-plugin && RELEASE_CHANNEL=prod expo run:ios"
   },
   "dependencies": {
     "@better-auth/expo": "1.6.23",

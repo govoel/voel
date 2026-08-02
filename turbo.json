@@ -33,7 +33,7 @@
     },
     "check-types": {
       "cache": true,
-      "dependsOn": ["^check-types"],
+      "dependsOn": ["^check-types", "@repo/atom-devtools-plugin#build"],
       "inputs": ["$TURBO_DEFAULT$"],
       "outputLogs": "errors-only"
     },
