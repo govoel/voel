@@ -1,36 +1,18 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
   "extends": ["../../.oxlintrc.json", "../../.oxlintrc.react.json"],
-  "rules": {
-    "eslint/no-undefined": "off",
-    "import/no-relative-parent-imports": "off",
-    "import/no-unassigned-import": "off",
-    "unicorn/filename-case": "off"
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "error",
+    "style": "error",
+    "restriction": "error",
+    "nursery": "error"
   },
-  "overrides": [
-    {
-      "files": ["react-native.ts"],
-      "rules": {
-        "eslint/init-declarations": "off",
-        "eslint/no-empty-function": "off",
-        "eslint/no-undef": "off",
-        "eslint/prefer-destructuring": "off",
-        "import/no-mutable-exports": "off",
-        "node/global-require": "off",
-        "typescript/consistent-type-imports": "off",
-        "typescript/no-require-imports": "off",
-        "typescript/no-unsafe-assignment": "off",
-        "typescript/no-unsafe-member-access": "off",
-        "typescript/no-var-requires": "off",
-        "unicorn/prefer-module": "off",
-        "unicorn/prefer-ternary": "off"
-      }
-    },
-    {
-      "files": ["src/css.d.ts"],
-      "rules": {
-        "import/unambiguous": "off"
-      }
-    }
-  ]
+  "env": {
+    "builtin": true,
+    "node": true
+  },
+  "overrides": [{ "files": ["./src/css.d.ts"], "rules": { "import/unambiguous": "off" } }]
 }

@@ -1,17 +1,18 @@
 import { useRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ATOM_DEVTOOLS_PLUGIN_ID } from '../shared/constants.ts';
-import type { AtomDevToolsEventMap, Mutation } from '../shared/protocol.ts';
-import type { AtomLinkDto, AtomSnapshotDto, AtomSummaryDto } from '../shared/transport.ts';
-import { ConfirmDialog } from './components/confirm-dialog.tsx';
-import { PluginHeader } from './components/plugin-header.tsx';
-import { PluginTheme } from './components/plugin-theme.tsx';
-import { Badge } from './components/ui/badge.tsx';
-import { Button } from './components/ui/button.tsx';
-import { Card } from './components/ui/card.tsx';
-import { Input } from './components/ui/input.tsx';
-import './globals.css';
+import { ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/constants.ts';
+import type { AtomDevToolsEventMap, Mutation } from '#src/shared/protocol.ts';
+import type { AtomLinkDto, AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
+import { ConfirmDialog } from '#src/ui/components/confirm-dialog.tsx';
+import { PluginHeader } from '#src/ui/components/plugin-header.tsx';
+import { PluginTheme } from '#src/ui/components/plugin-theme.tsx';
+import { Badge } from '#src/ui/components/ui/badge.tsx';
+import { Button } from '#src/ui/components/ui/button.tsx';
+import { Card } from '#src/ui/components/ui/card.tsx';
+import { Input } from '#src/ui/components/ui/input.tsx';
+// oxlint-disable-next-line import/no-unassigned-import
+import '#src/ui/globals.css';
 
 let requestSequence = 0;
 const nextRequestId = (): string => {
@@ -96,7 +97,7 @@ const Metadata = ({ snapshot }: { readonly snapshot: AtomSnapshotDto }) => (
     <dt className="text-muted-foreground">Lazy</dt>
     <dd>{snapshot.lazy ? 'Yes' : 'No'}</dd>
     <dt className="text-muted-foreground">Idle TTL</dt>
-    <dd>{snapshot.idleTTL === undefined ? 'Default' : `${snapshot.idleTTL} ms`}</dd>
+    <dd>{snapshot.idleTTL === void 0 ? 'Default' : `${snapshot.idleTTL} ms`}</dd>
   </dl>
 );
 
@@ -135,7 +136,7 @@ const AtomDetails = ({
         </Button>
       </div>
 
-      {error === undefined ? null : (
+      {error === void 0 ? null : (
         <Card className="rounded-md border-destructive/60 p-3 text-sm text-destructive">
           {error}
         </Card>
@@ -157,7 +158,7 @@ const AtomDetails = ({
       <Card className="rounded-lg p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">Predefined states</h3>
-          {snapshot.activeStateId === undefined ? null : (
+          {snapshot.activeStateId === void 0 ? null : (
             <Button
               disabled={pending}
               size="sm"
@@ -192,7 +193,7 @@ const AtomDetails = ({
                     <span className="text-sm font-medium">{state.label}</span>
                     {active ? <Indicator color="success">Active</Indicator> : null}
                   </div>
-                  {state.description === undefined ? null : (
+                  {state.description === void 0 ? null : (
                     <p className="mt-1 text-xs text-muted-foreground">{state.description}</p>
                   )}
                   <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
@@ -241,7 +242,7 @@ export default function AtomDevToolsPanel() {
       const requestId = nextRequestId();
       atomRequestIdRef.current = requestId;
       setLoading(true);
-      setError(undefined);
+      setError(void 0);
       client.send('get-atom', { requestId, atomId });
     },
     [client]
@@ -250,7 +251,7 @@ export default function AtomDevToolsPanel() {
   const selectAtom = useCallback(
     (atomId: string): void => {
       setSelectedId(atomId);
-      setSnapshot(undefined);
+      setSnapshot(void 0);
       requestAtom(atomId);
     },
     [requestAtom]
@@ -265,10 +266,10 @@ export default function AtomDevToolsPanel() {
   const applyCatalog = useCallback((atoms: readonly AtomSummaryDto[]): void => {
     setCatalog(atoms);
     const selected = selectedIdRef.current;
-    if (selected !== undefined && !atoms.some(({ id }) => id === selected)) {
-      selectedIdRef.current = undefined;
-      setSelectedId(undefined);
-      setSnapshot(undefined);
+    if (selected !== void 0 && !atoms.some(({ id }) => id === selected)) {
+      selectedIdRef.current = void 0;
+      setSelectedId(void 0);
+      setSnapshot(void 0);
     }
   }, []);
 
@@ -298,9 +299,9 @@ export default function AtomDevToolsPanel() {
       }
       if (response.status === 'success') {
         setSnapshot(response.data);
-        setError(undefined);
+        setError(void 0);
       } else {
-        setSnapshot(undefined);
+        setSnapshot(void 0);
         setError(response.error.message);
       }
       setLoading(false);
@@ -309,15 +310,15 @@ export default function AtomDevToolsPanel() {
       if (response.requestId !== pendingRequestIdRef.current) {
         return;
       }
-      pendingRequestIdRef.current = undefined;
-      setPendingRequestId(undefined);
+      pendingRequestIdRef.current = void 0;
+      setPendingRequestId(void 0);
       if (response.status === 'error') {
         setError(response.error.message);
         return;
       }
-      setError(undefined);
+      setError(void 0);
       requestInitialState();
-      if (selectedIdRef.current !== undefined) {
+      if (selectedIdRef.current !== void 0) {
         requestAtom(selectedIdRef.current);
       }
     });
@@ -325,7 +326,7 @@ export default function AtomDevToolsPanel() {
     // A new bridge client means the panel connected or reconnected. Never rely on
     // messages retained by a previous DevTools session.
     requestInitialState();
-    if (selectedIdRef.current !== undefined) {
+    if (selectedIdRef.current !== void 0) {
       requestAtom(selectedIdRef.current);
     }
 
@@ -350,13 +351,13 @@ export default function AtomDevToolsPanel() {
   }, [catalog, search]);
 
   const mutate = (mutation: Mutation): void => {
-    if (client === null || pendingRequestId !== undefined) {
+    if (client === null || pendingRequestId !== void 0) {
       return;
     }
     const requestId = nextRequestId();
     pendingRequestIdRef.current = requestId;
     setPendingRequestId(requestId);
-    setError(undefined);
+    setError(void 0);
     client.send('mutation', { requestId, mutation });
   };
 
@@ -384,15 +385,15 @@ export default function AtomDevToolsPanel() {
         }
       />
 
-      {selectedId !== undefined && snapshot !== undefined ? (
+      {selectedId !== void 0 && snapshot !== void 0 ? (
         <AtomDetails
           error={error}
-          pending={pendingRequestId !== undefined}
+          pending={pendingRequestId !== void 0}
           snapshot={snapshot}
           onBack={() => {
-            setSelectedId(undefined);
-            setSnapshot(undefined);
-            setError(undefined);
+            setSelectedId(void 0);
+            setSnapshot(void 0);
+            setError(void 0);
           }}
           onMutation={mutate}
           onSelect={selectAtom}
@@ -431,7 +432,7 @@ export default function AtomDevToolsPanel() {
               ) : null}
             </div>
 
-            {error === undefined ? null : (
+            {error === void 0 ? null : (
               <Card className="rounded-md border-destructive/60 p-3 text-sm text-destructive">
                 {error}
               </Card>

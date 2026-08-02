@@ -1,6 +1,6 @@
 import type { InputHTMLAttributes } from 'react';
 
-import { cn } from '../../lib/utils.ts';
+import { cn } from '#src/ui/lib/utils.ts';
 
 export const Input = ({
   className,

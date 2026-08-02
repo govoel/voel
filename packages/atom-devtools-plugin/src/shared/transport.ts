@@ -43,17 +43,17 @@ export const atomSummaryToDto = (atom: AtomSummary, stateCapable: boolean): Atom
 export const atomSnapshotToDto = (atom: AtomSnapshot): AtomSnapshotDto => ({
   ...atomSummaryToDto(atom, atom.states.length > 0),
   value: Inspectable.toStringUnknown(atom.value),
-  ...(atom.source === undefined ? {} : { source: atom.source }),
+  ...(atom.source === void 0 ? {} : { source: atom.source }),
   keepAlive: atom.keepAlive,
   lazy: atom.lazy,
-  ...(atom.idleTTL === undefined ? {} : { idleTTL: atom.idleTTL }),
+  ...(atom.idleTTL === void 0 ? {} : { idleTTL: atom.idleTTL }),
   subscriberCount: atom.subscriberCount,
   dependencies: atom.dependencies.map(({ id, name }) => ({ id, name })),
   dependents: atom.dependents.map(({ id, name }) => ({ id, name })),
   states: atom.states.map(({ description, id, label }) => ({
     id,
     label,
-    ...(description === undefined ? {} : { description }),
+    ...(description === void 0 ? {} : { description }),
   })),
-  ...(atom.activeStateId === undefined ? {} : { activeStateId: atom.activeStateId }),
+  ...(atom.activeStateId === void 0 ? {} : { activeStateId: atom.activeStateId }),
 });

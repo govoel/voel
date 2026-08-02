@@ -40,7 +40,8 @@ export default function TabLayout() {
         <AppStack />
 
         <AccountsAutoPresenter />
-        <AtomDevToolsIntegration />
+        {/* oxlint-disable-next-line eslint/no-undef */}
+        {__DEV__ ? <AtomDevToolsIntegration /> : null}
       </ThemeProvider>
     </RegistryContext.Provider>
   );

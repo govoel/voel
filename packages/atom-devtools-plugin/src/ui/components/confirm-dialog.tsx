@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Button } from './ui/button.tsx';
+import { Button } from '#src/ui/components/ui/button.tsx';
 
 export interface ConfirmDialogProps {
   open: boolean;

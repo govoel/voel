@@ -1,4 +1,4 @@
-import type { AtomSnapshotDto, AtomSummaryDto } from './transport.ts';
+import type { AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
 
 export interface TransportError {
   readonly code: 'atom-not-found' | 'state-not-found' | 'not-ready' | 'unknown';

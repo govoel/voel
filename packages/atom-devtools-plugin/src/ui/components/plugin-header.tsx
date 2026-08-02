@@ -1,8 +1,8 @@
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
-import { cn } from '../lib/utils.ts';
-import { usePluginTheme } from './plugin-theme.tsx';
-import { Button } from './ui/button.tsx';
+import { usePluginTheme } from '#src/ui/components/plugin-theme.tsx';
+import { Button } from '#src/ui/components/ui/button.tsx';
+import { cn } from '#src/ui/lib/utils.ts';
 
 type PluginHeaderProps = ComponentPropsWithoutRef<'header'> & {
   title: string;
@@ -66,11 +66,11 @@ export const PluginHeader = ({
     {...props}>
     <div className="flex min-h-10 min-w-0 flex-1 flex-col justify-center">
       <h1 className="truncate text-sm font-semibold">{title}</h1>
-      {subtitle !== undefined ? (
+      {subtitle !== void 0 ? (
         <p className="mt-1 truncate text-xs text-muted-foreground">{subtitle}</p>
       ) : null}
     </div>
-    {actions !== undefined && actions !== null ? (
+    {actions !== void 0 && actions !== null ? (
       <div className="flex min-w-0 shrink-0 items-center gap-2">{actions}</div>
     ) : null}
     <ThemeSwitcher />

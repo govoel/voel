@@ -1,7 +1,7 @@
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { cn } from '../lib/utils.ts';
+import { cn } from '#src/ui/lib/utils.ts';
 
 export type PluginThemeName = 'light' | 'dark' | 'system';
 
@@ -31,18 +31,18 @@ export const PluginTheme = ({
     const media =
       typeof globalThis.matchMedia === 'function'
         ? globalThis.matchMedia('(prefers-color-scheme: dark)')
-        : undefined;
+        : void 0;
     const update = () => {
-      if (media !== undefined) {
+      if (media !== void 0) {
         setSystemIsDark(media.matches);
       }
     };
-    if (media !== undefined) {
+    if (media !== void 0) {
       update();
       media.addEventListener('change', update);
     }
     return () => {
-      if (media !== undefined) {
+      if (media !== void 0) {
         media.removeEventListener('change', update);
       }
     };

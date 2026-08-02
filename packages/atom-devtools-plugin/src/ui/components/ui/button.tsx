@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-import { cn } from '../../lib/utils.ts';
+import { cn } from '#src/ui/lib/utils.ts';
 
 type ButtonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost';
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';

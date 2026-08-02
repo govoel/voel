@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 
-import { cn } from '../../lib/utils.ts';
+import { cn } from '#src/ui/lib/utils.ts';
 
 type BadgeVariant =
   | 'default'

@@ -1,9 +1,9 @@
 import { defineAgentToolContract } from '@rozenite/agent-shared';
 import type { AgentToolContract } from '@rozenite/agent-shared';
 
-import type { AtomSnapshotDto, AtomSummaryDto } from './transport.ts';
+import type { AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
 
-export { ATOM_DEVTOOLS_PLUGIN_ID } from './constants.ts';
+export { ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/constants.ts';
 
 interface AtomMutationResult {
   readonly success: true;

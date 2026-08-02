@@ -17,15 +17,15 @@ import {
 } from '@repo/atom-devtools-core';
 import type { AtomSummary } from '@repo/atom-devtools-core';
 
-import { ATOM_DEVTOOLS_PLUGIN_ID, atomDevToolsToolDefinitions } from '../shared/agent-tools.ts';
+import { ATOM_DEVTOOLS_PLUGIN_ID, atomDevToolsToolDefinitions } from '#src/shared/agent-tools.ts';
 import type {
   AtomDevToolsEventMap,
   Mutation,
   Response,
   TransportError,
-} from '../shared/protocol.ts';
-import { atomSnapshotToDto, atomSummaryToDto } from '../shared/transport.ts';
-import type { AtomSummaryDto } from '../shared/transport.ts';
+} from '#src/shared/protocol.ts';
+import { atomSnapshotToDto, atomSummaryToDto } from '#src/shared/transport.ts';
+import type { AtomSummaryDto } from '#src/shared/transport.ts';
 
 type Service = AtomDevTools['Service'];
 
@@ -154,7 +154,7 @@ const useCoreService = (): readonly [Service | undefined, readonly AtomSummaryDt
 };
 
 const useAgentTools = (service: Service | undefined, catalog: readonly AtomSummaryDto[]): void => {
-  const enabled = service !== undefined;
+  const enabled = service !== void 0;
 
   useRozenitePluginAgentTool({
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
@@ -165,19 +165,19 @@ const useAgentTools = (service: Service | undefined, catalog: readonly AtomSumma
       const filtered = catalog
         .filter(
           (atom) =>
-            (query === undefined ||
+            (query === void 0 ||
               atom.name.toLocaleLowerCase().includes(query) ||
               atom.id.toLocaleLowerCase().includes(query)) &&
-            (args.writable === undefined || atom.writable === args.writable) &&
-            (args.overridden === undefined || atom.overridden === args.overridden) &&
-            (args.stateCapable === undefined || atom.stateCapable === args.stateCapable)
+            (args.writable === void 0 || atom.writable === args.writable) &&
+            (args.overridden === void 0 || atom.overridden === args.overridden) &&
+            (args.stateCapable === void 0 || atom.stateCapable === args.stateCapable)
         )
         .sort((left, right) =>
           left.name === right.name
             ? left.id.localeCompare(right.id)
             : left.name.localeCompare(right.name)
         );
-      const offset = args.cursor === undefined ? 0 : Math.trunc(Number(args.cursor));
+      const offset = args.cursor === void 0 ? 0 : Math.trunc(Number(args.cursor));
       if (!Number.isSafeInteger(offset) || offset < 0) {
         throw new Error(`Invalid cursor "${args.cursor}". Start without a cursor.`);
       }
@@ -197,7 +197,7 @@ const useAgentTools = (service: Service | undefined, catalog: readonly AtomSumma
     tool: atomDevToolsToolDefinitions.getAtom,
     enabled,
     handler: async ({ atomId }) => {
-      if (service === undefined) {
+      if (service === void 0) {
         throw new Error('Atom DevTools is still starting. Retry the call.');
       }
       try {
@@ -214,7 +214,7 @@ const useAgentTools = (service: Service | undefined, catalog: readonly AtomSumma
     tool: atomDevToolsToolDefinitions.activateState,
     enabled,
     handler: async ({ atomId, stateId }) => {
-      if (service === undefined) {
+      if (service === void 0) {
         throw new Error('Atom DevTools is still starting. Retry the call.');
       }
       await runCommand(
@@ -229,7 +229,7 @@ const useAgentTools = (service: Service | undefined, catalog: readonly AtomSumma
     tool: atomDevToolsToolDefinitions.clearState,
     enabled,
     handler: async ({ atomId }) => {
-      if (service === undefined) {
+      if (service === void 0) {
         throw new Error('Atom DevTools is still starting. Retry the call.');
       }
       await runCommand(service.execute(new ClearState({ atomId: AtomId.make(atomId) })));
@@ -242,7 +242,7 @@ const useAgentTools = (service: Service | undefined, catalog: readonly AtomSumma
     tool: atomDevToolsToolDefinitions.clearAllStates,
     enabled,
     handler: async () => {
-      if (service === undefined) {
+      if (service === void 0) {
         throw new Error('Atom DevTools is still starting. Retry the call.');
       }
       await runCommand(service.execute(new ClearAllStates()));
@@ -255,7 +255,7 @@ const useAgentTools = (service: Service | undefined, catalog: readonly AtomSumma
     tool: atomDevToolsToolDefinitions.refreshAtom,
     enabled,
     handler: async ({ atomId }) => {
-      if (service === undefined) {
+      if (service === void 0) {
         throw new Error('Atom DevTools is still starting. Retry the call.');
       }
       await runCommand(service.execute(new Refresh({ atomId: AtomId.make(atomId) })));
@@ -300,7 +300,7 @@ export const useAtomDevToolsPlugin = (): void => {
     let stopSnapshotWatch = (): void => void 0;
     const atomSubscription = client.onMessage('get-atom', ({ atomId, requestId }) => {
       stopSnapshotWatch();
-      if (service === undefined) {
+      if (service === void 0) {
         client.send('get-atom-result', {
           requestId,
           status: 'error',
@@ -336,7 +336,7 @@ export const useAtomDevToolsPlugin = (): void => {
       };
     });
     const mutationSubscription = client.onMessage('mutation', ({ mutation, requestId }) => {
-      if (service === undefined) {
+      if (service === void 0) {
         client.send('mutation-result', {
           requestId,
           status: 'error',

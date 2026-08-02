@@ -6,6 +6,9 @@
   "main": "./dist/react-native/index.cjs",
   "module": "./dist/react-native/index.js",
   "types": "./dist/react-native/index.d.ts",
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "exports": {
     ".": {
       "types": "./dist/react-native/index.d.ts",
