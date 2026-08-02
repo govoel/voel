@@ -1,119 +1,51 @@
 import { RegistryContext } from '@effect/atom-react';
 import { useRozenitePluginAgentTool } from '@rozenite/agent-bridge';
 import { useRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect, Option, Schema, Stream } from 'effect';
+import { Effect, Stream } from 'effect';
+import type { Fiber } from 'effect';
 import { AtomRegistry } from 'effect/unstable/reactivity';
 import { useContext, useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 
 import {
   ActivateState,
   AtomDevTools,
   AtomId,
-  AtomNotFound,
   ClearAllStates,
   ClearState,
   Refresh,
-  StateNotFound,
 } from '@repo/atom-devtools-core';
-import type { AtomSummary } from '@repo/atom-devtools-core';
 
-import { ATOM_DEVTOOLS_PLUGIN_ID, atomDevToolsToolDefinitions } from '#src/shared/agent-tools.ts';
-import type {
-  AtomDevToolsEventMap,
-  Mutation,
-  Response,
-  TransportError,
-} from '#src/shared/protocol.ts';
-import { atomSnapshotToDto, atomSummaryToDto } from '#src/shared/transport.ts';
+import {
+  AtomDevToolsNotReady,
+  enrichCatalog,
+  executeMutation,
+  getSnapshot,
+  requireService,
+  runTool,
+  transportError,
+} from '#src/react-native/operations.ts';
+import type { AtomDevToolsService } from '#src/react-native/operations.ts';
+import {
+  ActivateStateArgs,
+  EmptyArgs,
+  GetAtomArgs,
+  ListAtomsArgs,
+  atomDevToolsToolDefinitions,
+} from '#src/shared/agent-tools.ts';
+import { subscribe } from '#src/shared/bridge.ts';
+import { ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/constants.ts';
+import { atomDevToolsEventSchemas } from '#src/shared/protocol.ts';
+import type { AtomDevToolsEventMap } from '#src/shared/protocol.ts';
+import { AtomSnapshotDto } from '#src/shared/transport.ts';
 import type { AtomSummaryDto } from '#src/shared/transport.ts';
 
-type Service = AtomDevTools['Service'];
-
-const getSnapshot = Effect.fn('AtomDevToolsPlugin.getSnapshot')(function* (
-  service: Service,
-  atomId: string
-) {
-  const id = AtomId.make(atomId);
-  const snapshot = yield* service.watch(id).pipe(Stream.runHead);
-  return yield* Option.match(snapshot, {
-    onNone: () => Effect.fail(new AtomNotFound({ id })),
-    onSome: Effect.succeed,
-  });
-});
-
-const enrichCatalog = Effect.fn('AtomDevToolsPlugin.enrichCatalog')(function* (
-  service: Service,
-  summaries: readonly AtomSummary[]
-) {
-  return yield* Effect.forEach(
-    summaries,
-    (summary) =>
-      getSnapshot(service, summary.id).pipe(
-        Effect.map((snapshot) => atomSummaryToDto(summary, snapshot.states.length > 0)),
-        Effect.catchTag('AtomNotFound', () => Effect.succeed(atomSummaryToDto(summary, false)))
-      ),
-    { concurrency: 'unbounded' }
-  );
-});
-
-const errorMessage = (error: unknown): string => {
-  if (Schema.is(AtomNotFound)(error)) {
-    return `Atom "${error.id}" was not found. Call list-atoms again to get current IDs.`;
-  }
-  if (Schema.is(StateNotFound)(error)) {
-    return `State "${error.stateId}" was not found on atom "${error.atomId}". Call get-atom to list available states.`;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-};
-
-const transportError = (error: unknown): TransportError => {
-  if (Schema.is(AtomNotFound)(error)) {
-    return { code: 'atom-not-found', message: errorMessage(error) };
-  }
-  if (Schema.is(StateNotFound)(error)) {
-    return { code: 'state-not-found', message: errorMessage(error) };
-  }
-  return { code: 'unknown', message: errorMessage(error) };
-};
-
-const runCommand = async (
-  command: Effect.Effect<void, AtomNotFound | StateNotFound>
-): Promise<void> => {
-  try {
-    await Effect.runPromise(command);
-  } catch (error) {
-    throw new Error(errorMessage(error), { cause: error });
-  }
-};
-
-const executeMutation = (service: Service, mutation: Mutation) => {
-  switch (mutation.type) {
-    case 'activate-state': {
-      return service.execute(
-        new ActivateState({ atomId: AtomId.make(mutation.atomId), stateId: mutation.stateId })
-      );
-    }
-    case 'clear-state': {
-      return service.execute(new ClearState({ atomId: AtomId.make(mutation.atomId) }));
-    }
-    case 'clear-all-states': {
-      return service.execute(new ClearAllStates());
-    }
-    case 'refresh-atom': {
-      return service.execute(new Refresh({ atomId: AtomId.make(mutation.atomId) }));
-    }
-    default: {
-      return Effect.die(new Error('Unknown Atom DevTools mutation.'));
-    }
-  }
-};
-
-const useCoreService = (): readonly [Service | undefined, readonly AtomSummaryDto[]] => {
+const useCoreService = (): readonly [
+  AtomDevToolsService | undefined,
+  readonly AtomSummaryDto[],
+] => {
   const registry = useContext(RegistryContext);
-  const [service, setService] = useState<Service>();
+  const [service, setService] = useState<AtomDevToolsService>();
   const [catalog, setCatalog] = useState<readonly AtomSummaryDto[]>([]);
 
   useEffect(() => {
@@ -131,9 +63,11 @@ const useCoreService = (): readonly [Service | undefined, readonly AtomSummaryDt
           Stream.runForEach((nextCatalog) =>
             Effect.gen(function* () {
               yield* Effect.yieldNow;
-              if (active) {
-                setCatalog(nextCatalog);
-              }
+              yield* Effect.sync(() => {
+                if (active) {
+                  setCatalog(nextCatalog);
+                }
+              });
             })
           )
         );
@@ -153,116 +87,209 @@ const useCoreService = (): readonly [Service | undefined, readonly AtomSummaryDt
   return [service, catalog];
 };
 
-const useAgentTools = (service: Service | undefined, catalog: readonly AtomSummaryDto[]): void => {
+const useAgentTools = (
+  service: AtomDevToolsService | undefined,
+  catalog: readonly AtomSummaryDto[]
+): void => {
   const enabled = service !== void 0;
 
   useRozenitePluginAgentTool({
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
     tool: atomDevToolsToolDefinitions.listAtoms,
     enabled,
-    handler: (args) => {
-      const query = args.query?.trim().toLocaleLowerCase();
-      const filtered = catalog
-        .filter(
-          (atom) =>
-            (query === void 0 ||
-              atom.name.toLocaleLowerCase().includes(query) ||
-              atom.id.toLocaleLowerCase().includes(query)) &&
-            (args.writable === void 0 || atom.writable === args.writable) &&
-            (args.overridden === void 0 || atom.overridden === args.overridden) &&
-            (args.stateCapable === void 0 || atom.stateCapable === args.stateCapable)
-        )
-        .sort((left, right) =>
-          left.name === right.name
-            ? left.id.localeCompare(right.id)
-            : left.name.localeCompare(right.name)
-        );
-      const offset = args.cursor === void 0 ? 0 : Math.trunc(Number(args.cursor));
-      if (!Number.isSafeInteger(offset) || offset < 0) {
-        throw new Error(`Invalid cursor "${args.cursor}". Start without a cursor.`);
-      }
-      const limit = Math.min(100, Math.max(1, args.limit ?? 50));
-      const items = filtered.slice(offset, offset + limit);
-      const nextOffset = offset + items.length;
-      return {
-        items,
-        total: filtered.length,
-        ...(nextOffset < filtered.length ? { nextCursor: String(nextOffset) } : {}),
-      };
-    },
+    handler: async (input) =>
+      runTool(ListAtomsArgs.decodeUnknownEffect, input, (args) =>
+        Effect.sync(() => {
+          const query = args.query?.trim().toLocaleLowerCase();
+          const filtered = catalog
+            .filter(
+              (atom) =>
+                (query === void 0 ||
+                  atom.name.toLocaleLowerCase().includes(query) ||
+                  atom.id.toLocaleLowerCase().includes(query)) &&
+                (args.writable === void 0 || atom.writable === args.writable) &&
+                (args.overridden === void 0 || atom.overridden === args.overridden) &&
+                (args.stateCapable === void 0 || atom.stateCapable === args.stateCapable)
+            )
+            .toSorted((left, right) =>
+              left.name === right.name
+                ? left.id.localeCompare(right.id)
+                : left.name.localeCompare(right.name)
+            );
+          const offset = args.cursor ?? 0;
+          const limit = args.limit ?? 50;
+          const items = filtered.slice(offset, offset + limit);
+          const nextOffset = offset + items.length;
+          return {
+            items,
+            total: filtered.length,
+            ...(nextOffset < filtered.length ? { nextCursor: String(nextOffset) } : {}),
+          };
+        })
+      ),
   });
 
   useRozenitePluginAgentTool({
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
     tool: atomDevToolsToolDefinitions.getAtom,
     enabled,
-    handler: async ({ atomId }) => {
-      if (service === void 0) {
-        throw new Error('Atom DevTools is still starting. Retry the call.');
-      }
-      try {
-        const atom = await Effect.runPromise(getSnapshot(service, atomId));
-        return { atom: atomSnapshotToDto(atom) };
-      } catch (error) {
-        throw new Error(errorMessage(error), { cause: error });
-      }
-    },
+    handler: async (input) =>
+      runTool(GetAtomArgs.decodeUnknownEffect, input, ({ atomId }) =>
+        requireService(service).pipe(
+          Effect.flatMap((ready) => getSnapshot(ready, atomId)),
+          Effect.map((atom) => ({ atom: AtomSnapshotDto.fromSnapshot(atom) }))
+        )
+      ),
   });
 
   useRozenitePluginAgentTool({
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
     tool: atomDevToolsToolDefinitions.activateState,
     enabled,
-    handler: async ({ atomId, stateId }) => {
-      if (service === void 0) {
-        throw new Error('Atom DevTools is still starting. Retry the call.');
-      }
-      await runCommand(
-        service.execute(new ActivateState({ atomId: AtomId.make(atomId), stateId }))
-      );
-      return { success: true, atomId, stateId };
-    },
+    handler: async (input) =>
+      runTool(ActivateStateArgs.decodeUnknownEffect, input, ({ atomId, stateId }) =>
+        requireService(service).pipe(
+          Effect.flatMap((ready) =>
+            ready.execute(new ActivateState({ atomId: AtomId.make(atomId), stateId }))
+          ),
+          Effect.as({ success: true as const, atomId, stateId })
+        )
+      ),
   });
 
   useRozenitePluginAgentTool({
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
     tool: atomDevToolsToolDefinitions.clearState,
     enabled,
-    handler: async ({ atomId }) => {
-      if (service === void 0) {
-        throw new Error('Atom DevTools is still starting. Retry the call.');
-      }
-      await runCommand(service.execute(new ClearState({ atomId: AtomId.make(atomId) })));
-      return { success: true, atomId };
-    },
+    handler: async (input) =>
+      runTool(GetAtomArgs.decodeUnknownEffect, input, ({ atomId }) =>
+        requireService(service).pipe(
+          Effect.flatMap((ready) => ready.execute(new ClearState({ atomId: AtomId.make(atomId) }))),
+          Effect.as({ success: true as const, atomId })
+        )
+      ),
   });
 
   useRozenitePluginAgentTool({
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
     tool: atomDevToolsToolDefinitions.clearAllStates,
     enabled,
-    handler: async () => {
-      if (service === void 0) {
-        throw new Error('Atom DevTools is still starting. Retry the call.');
-      }
-      await runCommand(service.execute(new ClearAllStates()));
-      return { success: true as const };
-    },
+    handler: async (input) =>
+      runTool(EmptyArgs.decodeUnknownEffect, input, () =>
+        requireService(service).pipe(
+          Effect.flatMap((ready) => ready.execute(new ClearAllStates())),
+          Effect.as({ success: true as const })
+        )
+      ),
   });
 
   useRozenitePluginAgentTool({
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
     tool: atomDevToolsToolDefinitions.refreshAtom,
     enabled,
-    handler: async ({ atomId }) => {
-      if (service === void 0) {
-        throw new Error('Atom DevTools is still starting. Retry the call.');
-      }
-      await runCommand(service.execute(new Refresh({ atomId: AtomId.make(atomId) })));
-      return { success: true, atomId };
-    },
+    handler: async (input) =>
+      runTool(GetAtomArgs.decodeUnknownEffect, input, ({ atomId }) =>
+        requireService(service).pipe(
+          Effect.flatMap((ready) => ready.execute(new Refresh({ atomId: AtomId.make(atomId) }))),
+          Effect.as({ success: true as const, atomId })
+        )
+      ),
   });
 };
+
+const connectBridge = Effect.fnUntraced(function* (
+  client: NonNullable<ReturnType<typeof useRozeniteDevToolsClient<AtomDevToolsEventMap>>>,
+  service: AtomDevToolsService | undefined,
+  catalog: RefObject<readonly AtomSummaryDto[]>
+) {
+  let snapshotFiber: Fiber.Fiber<void> | undefined = void 0;
+  const runFork = Effect.runForkWith(yield* Effect.context());
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => {
+      snapshotFiber?.interruptUnsafe();
+    })
+  );
+
+  yield* subscribe(client, {
+    event: 'request-initial-state',
+    schema: atomDevToolsEventSchemas['request-initial-state'],
+    handler: ({ requestId }) =>
+      Effect.sync(() => {
+        client.send('initial-state-result', {
+          requestId,
+          status: 'success',
+          data: { atoms: catalog.current },
+        });
+      }),
+  });
+
+  yield* subscribe(client, {
+    event: 'get-atom',
+    schema: atomDevToolsEventSchemas['get-atom'],
+    handler: ({ atomId, requestId }) =>
+      Effect.sync(() => {
+        snapshotFiber?.interruptUnsafe();
+        if (service === void 0) {
+          client.send('get-atom-result', {
+            requestId,
+            status: 'error',
+            error: transportError(new AtomDevToolsNotReady()),
+          });
+          return;
+        }
+
+        snapshotFiber = runFork(
+          service.watch(AtomId.make(atomId)).pipe(
+            Stream.runForEach((snapshot) =>
+              Effect.sync(() => {
+                client.send('get-atom-result', {
+                  requestId,
+                  status: 'success',
+                  data: AtomSnapshotDto.fromSnapshot(snapshot),
+                });
+              })
+            ),
+            Effect.catch((error) =>
+              Effect.sync(() => {
+                client.send('get-atom-result', {
+                  requestId,
+                  status: 'error',
+                  error: transportError(error),
+                });
+              })
+            )
+          )
+        );
+      }),
+  });
+
+  yield* subscribe(client, {
+    event: 'mutation',
+    schema: atomDevToolsEventSchemas.mutation,
+    handler: ({ mutation, requestId }) =>
+      requireService(service).pipe(
+        Effect.flatMap((ready) => executeMutation(ready, mutation)),
+        Effect.match({
+          onFailure: (error) => {
+            client.send('mutation-result', {
+              requestId,
+              status: 'error',
+              error: transportError(error),
+            });
+          },
+          onSuccess: () => {
+            client.send('mutation-result', {
+              requestId,
+              status: 'success',
+              data: {},
+            });
+          },
+        })
+      ),
+  });
+
+  return yield* Effect.never;
+});
 
 export const useAtomDevToolsPlugin = (): void => {
   const [service, catalog] = useCoreService();
@@ -278,95 +305,18 @@ export const useAtomDevToolsPlugin = (): void => {
   }, [catalog]);
 
   useEffect(() => {
-    if (client === null) {
-      return;
+    if (client !== null) {
+      client.send('catalog', { atoms: catalog });
     }
-    client.send('catalog', { atoms: catalog });
   }, [catalog, client]);
 
   useEffect(() => {
     if (client === null) {
       return () => void 0;
     }
-
-    const initialStateSubscription = client.onMessage('request-initial-state', ({ requestId }) => {
-      const response: Response<{ readonly atoms: readonly AtomSummaryDto[] }> = {
-        requestId,
-        status: 'success',
-        data: { atoms: catalogRef.current },
-      };
-      client.send('initial-state-result', response);
-    });
-    let stopSnapshotWatch = (): void => void 0;
-    const atomSubscription = client.onMessage('get-atom', ({ atomId, requestId }) => {
-      stopSnapshotWatch();
-      if (service === void 0) {
-        client.send('get-atom-result', {
-          requestId,
-          status: 'error',
-          error: { code: 'not-ready', message: 'Atom DevTools is still starting. Retry shortly.' },
-        });
-        return;
-      }
-      const id = AtomId.make(atomId);
-      const fiber = Effect.runFork(
-        service.watch(id).pipe(
-          Stream.runForEach((snapshot) =>
-            Effect.sync(() => {
-              client.send('get-atom-result', {
-                requestId,
-                status: 'success',
-                data: atomSnapshotToDto(snapshot),
-              });
-            })
-          ),
-          Effect.catchTag('AtomNotFound', (error) =>
-            Effect.sync(() => {
-              client.send('get-atom-result', {
-                requestId,
-                status: 'error',
-                error: transportError(error),
-              });
-            })
-          )
-        )
-      );
-      stopSnapshotWatch = () => {
-        fiber.interruptUnsafe();
-      };
-    });
-    const mutationSubscription = client.onMessage('mutation', ({ mutation, requestId }) => {
-      if (service === void 0) {
-        client.send('mutation-result', {
-          requestId,
-          status: 'error',
-          error: { code: 'not-ready', message: 'Atom DevTools is still starting. Retry shortly.' },
-        });
-        return;
-      }
-      void (async () => {
-        try {
-          await Effect.runPromise(executeMutation(service, mutation));
-          client.send('mutation-result', {
-            requestId,
-            status: 'success',
-            data: { mutation },
-          });
-        } catch (error) {
-          client.send('mutation-result', {
-            requestId,
-            status: 'error',
-            error: transportError(error),
-          });
-        }
-      })();
-    });
-
+    const fiber = Effect.runFork(connectBridge(client, service, catalogRef).pipe(Effect.scoped));
     return () => {
-      stopSnapshotWatch();
-      initialStateSubscription.remove();
-      atomSubscription.remove();
-      mutationSubscription.remove();
+      fiber.interruptUnsafe();
     };
   }, [client, service]);
 };

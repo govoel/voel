@@ -5,7 +5,7 @@ import { cn } from '#src/ui/lib/utils.ts';
 type ButtonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost';
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
-export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> & {
+type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
 };

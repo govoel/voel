@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { cn } from '#src/ui/lib/utils.ts';
 
-export type PluginThemeName = 'light' | 'dark' | 'system';
+type PluginThemeName = 'light' | 'dark' | 'system';
 
 interface PluginThemeContextValue {
   theme: PluginThemeName;
@@ -12,7 +12,7 @@ interface PluginThemeContextValue {
 
 const PluginThemeContext = createContext<PluginThemeContextValue | null>(null);
 
-export type PluginThemeProps = ComponentPropsWithoutRef<'div'> & {
+type PluginThemeProps = ComponentPropsWithoutRef<'div'> & {
   defaultTheme?: PluginThemeName;
   children?: ReactNode;
 };

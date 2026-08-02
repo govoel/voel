@@ -11,7 +11,7 @@ type BadgeVariant =
   | 'warning'
   | 'accent';
 
-export type BadgeProps = HTMLAttributes<HTMLDivElement> & {
+type BadgeProps = HTMLAttributes<HTMLDivElement> & {
   variant?: BadgeVariant;
 };
 

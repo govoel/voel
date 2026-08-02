@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { Button } from '#src/ui/components/ui/button.tsx';
 
-export interface ConfirmDialogProps {
+interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;

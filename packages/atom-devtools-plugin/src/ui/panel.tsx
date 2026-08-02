@@ -1,8 +1,12 @@
-import { useRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RegistryProvider, useAtom, useAtomValue } from '@effect/atom-react';
 
-import { ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/constants.ts';
-import type { AtomDevToolsEventMap, Mutation } from '#src/shared/protocol.ts';
+import {
+  ActivateStateMutation,
+  ClearAllStatesMutation,
+  ClearStateMutation,
+  RefreshAtomMutation,
+} from '#src/shared/protocol.ts';
+import type { Mutation } from '#src/shared/protocol.ts';
 import type { AtomLinkDto, AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
 import { ConfirmDialog } from '#src/ui/components/confirm-dialog.tsx';
 import { PluginHeader } from '#src/ui/components/plugin-header.tsx';
@@ -11,14 +15,10 @@ import { Badge } from '#src/ui/components/ui/badge.tsx';
 import { Button } from '#src/ui/components/ui/button.tsx';
 import { Card } from '#src/ui/components/ui/card.tsx';
 import { Input } from '#src/ui/components/ui/input.tsx';
+import { filteredCatalogAtom, panelStateAtom } from '#src/ui/model.ts';
+import { usePanelClient } from '#src/ui/use-panel-client.ts';
 // oxlint-disable-next-line import/no-unassigned-import
 import '#src/ui/globals.css';
-
-let requestSequence = 0;
-const nextRequestId = (): string => {
-  requestSequence += 1;
-  return `atom-devtools-${requestSequence}`;
-};
 
 type IndicatorColor = 'default' | 'success' | 'accent' | 'danger' | 'warning';
 
@@ -130,7 +130,7 @@ const AtomDetails = ({
           disabled={pending}
           size="sm"
           onClick={() => {
-            onMutation({ type: 'refresh-atom', atomId: snapshot.id });
+            onMutation(new RefreshAtomMutation({ atomId: snapshot.id }));
           }}>
           Refresh
         </Button>
@@ -164,7 +164,7 @@ const AtomDetails = ({
               size="sm"
               variant="destructive"
               onClick={() => {
-                onMutation({ type: 'clear-state', atomId: snapshot.id });
+                onMutation(new ClearStateMutation({ atomId: snapshot.id }));
               }}>
               Clear active state
             </Button>
@@ -183,11 +183,12 @@ const AtomDetails = ({
                   disabled={pending}
                   type="button"
                   onClick={() => {
-                    onMutation({
-                      type: 'activate-state',
-                      atomId: snapshot.id,
-                      stateId: state.id,
-                    });
+                    onMutation(
+                      new ActivateStateMutation({
+                        atomId: snapshot.id,
+                        stateId: state.id,
+                      })
+                    );
                   }}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium">{state.label}</span>
@@ -218,148 +219,20 @@ const AtomDetails = ({
   </main>
 );
 
-export default function AtomDevToolsPanel() {
-  const client = useRozeniteDevToolsClient<AtomDevToolsEventMap>({
-    pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
-  });
-  const [catalog, setCatalog] = useState<readonly AtomSummaryDto[]>([]);
-  const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string>();
-  const [snapshot, setSnapshot] = useState<AtomSnapshotDto>();
-  const [loading, setLoading] = useState(true);
-  const [pendingRequestId, setPendingRequestId] = useState<string>();
-  const [error, setError] = useState<string>();
-  const [confirmClearAll, setConfirmClearAll] = useState(false);
-  const selectedIdRef = useRef(selectedId);
-  const atomRequestIdRef = useRef<string | undefined>(void 0);
-  const pendingRequestIdRef = useRef<string | undefined>(void 0);
-
-  const requestAtom = useCallback(
-    (atomId: string): void => {
-      if (client === null) {
-        return;
-      }
-      const requestId = nextRequestId();
-      atomRequestIdRef.current = requestId;
-      setLoading(true);
-      setError(void 0);
-      client.send('get-atom', { requestId, atomId });
-    },
-    [client]
-  );
-
-  const selectAtom = useCallback(
-    (atomId: string): void => {
-      setSelectedId(atomId);
-      setSnapshot(void 0);
-      requestAtom(atomId);
-    },
-    [requestAtom]
-  );
-
-  const requestInitialState = useCallback((): void => {
-    if (client !== null) {
-      client.send('request-initial-state', { requestId: nextRequestId() });
-    }
-  }, [client]);
-
-  const applyCatalog = useCallback((atoms: readonly AtomSummaryDto[]): void => {
-    setCatalog(atoms);
-    const selected = selectedIdRef.current;
-    if (selected !== void 0 && !atoms.some(({ id }) => id === selected)) {
-      selectedIdRef.current = void 0;
-      setSelectedId(void 0);
-      setSnapshot(void 0);
-    }
-  }, []);
-
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (client === null) {
-      return () => void 0;
-    }
-
-    const initialSubscription = client.onMessage('initial-state-result', (response) => {
-      if (response.status === 'success') {
-        applyCatalog(response.data.atoms);
-      } else {
-        setError(response.error.message);
-      }
-      setLoading(false);
-    });
-    const catalogSubscription = client.onMessage('catalog', ({ atoms }) => {
-      applyCatalog(atoms);
-    });
-    const atomSubscription = client.onMessage('get-atom-result', (response) => {
-      if (response.requestId !== atomRequestIdRef.current) {
-        return;
-      }
-      if (response.status === 'success') {
-        setSnapshot(response.data);
-        setError(void 0);
-      } else {
-        setSnapshot(void 0);
-        setError(response.error.message);
-      }
-      setLoading(false);
-    });
-    const mutationSubscription = client.onMessage('mutation-result', (response) => {
-      if (response.requestId !== pendingRequestIdRef.current) {
-        return;
-      }
-      pendingRequestIdRef.current = void 0;
-      setPendingRequestId(void 0);
-      if (response.status === 'error') {
-        setError(response.error.message);
-        return;
-      }
-      setError(void 0);
-      requestInitialState();
-      if (selectedIdRef.current !== void 0) {
-        requestAtom(selectedIdRef.current);
-      }
-    });
-
-    // A new bridge client means the panel connected or reconnected. Never rely on
-    // messages retained by a previous DevTools session.
-    requestInitialState();
-    if (selectedIdRef.current !== void 0) {
-      requestAtom(selectedIdRef.current);
-    }
-
-    return () => {
-      initialSubscription.remove();
-      catalogSubscription.remove();
-      atomSubscription.remove();
-      mutationSubscription.remove();
-    };
-  }, [applyCatalog, client, requestAtom, requestInitialState]);
-
-  const filteredCatalog = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return catalog
-      .filter(
-        (atom) =>
-          query.length === 0 ||
-          atom.name.toLocaleLowerCase().includes(query) ||
-          atom.id.toLocaleLowerCase().includes(query)
-      )
-      .toSorted((left, right) => left.name.localeCompare(right.name));
-  }, [catalog, search]);
-
-  const mutate = (mutation: Mutation): void => {
-    if (client === null || pendingRequestId !== void 0) {
-      return;
-    }
-    const requestId = nextRequestId();
-    pendingRequestIdRef.current = requestId;
-    setPendingRequestId(requestId);
-    setError(void 0);
-    client.send('mutation', { requestId, mutation });
-  };
+const Panel = () => {
+  const [state, setState] = useAtom(panelStateAtom);
+  const filteredCatalog = useAtomValue(filteredCatalogAtom);
+  const { mutate, reload, selectAtom } = usePanelClient();
+  const {
+    catalog,
+    confirmClearAll,
+    error,
+    loading,
+    pendingRequestId,
+    search,
+    selectedId,
+    snapshot,
+  } = state;
 
   return (
     <PluginTheme
@@ -370,14 +243,14 @@ export default function AtomDevToolsPanel() {
         subtitle={`${catalog.length} discovered atom${catalog.length === 1 ? '' : 's'}`}
         actions={
           <>
-            <Button size="sm" variant="secondary" onClick={requestInitialState}>
+            <Button size="sm" variant="secondary" onClick={reload}>
               Reload
             </Button>
             <Button
               size="sm"
               variant="destructive"
               onClick={() => {
-                setConfirmClearAll(true);
+                setState((current) => ({ ...current, confirmClearAll: true }));
               }}>
               Clear all states
             </Button>
@@ -391,9 +264,13 @@ export default function AtomDevToolsPanel() {
           pending={pendingRequestId !== void 0}
           snapshot={snapshot}
           onBack={() => {
-            setSelectedId(void 0);
-            setSnapshot(void 0);
-            setError(void 0);
+            setState((current) => ({
+              ...current,
+              selectedId: void 0,
+              snapshot: void 0,
+              atomRequestId: void 0,
+              error: void 0,
+            }));
           }}
           onMutation={mutate}
           onSelect={selectAtom}
@@ -416,7 +293,8 @@ export default function AtomDevToolsPanel() {
                 placeholder="Search atoms by name or ID…"
                 value={search}
                 onChange={(event) => {
-                  setSearch(event.target.value);
+                  const nextSearch = event.target.value;
+                  setState((current) => ({ ...current, search: nextSearch }));
                 }}
               />
               {search.length > 0 ? (
@@ -425,7 +303,7 @@ export default function AtomDevToolsPanel() {
                   className="absolute right-2 top-1/2 size-6 -translate-y-1/2 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   type="button"
                   onClick={() => {
-                    setSearch('');
+                    setState((current) => ({ ...current, search: '' }));
                   }}>
                   ×
                 </button>
@@ -477,13 +355,21 @@ export default function AtomDevToolsPanel() {
         title="Clear every forced state?"
         onOpenChange={(open) => {
           if (!open) {
-            setConfirmClearAll(false);
+            setState((current) => ({ ...current, confirmClearAll: false }));
           }
         }}
         onConfirm={() => {
-          mutate({ type: 'clear-all-states' });
+          mutate(new ClearAllStatesMutation());
         }}
       />
     </PluginTheme>
+  );
+};
+
+export default function AtomDevToolsPanel() {
+  return (
+    <RegistryProvider>
+      <Panel />
+    </RegistryProvider>
   );
 }
