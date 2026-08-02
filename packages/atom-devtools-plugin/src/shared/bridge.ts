@@ -1,10 +1,12 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect, Schema } from 'effect';
-import type { Scope } from 'effect';
+import { Effect } from 'effect';
+import type { Schema, Scope } from 'effect';
 
-type EventMap = Record<string, unknown>;
+interface DecodeableSchema extends Schema.Decoder<unknown> {
+  readonly decodeUnknownEffect: (input: unknown) => Effect.Effect<this['Type'], Schema.SchemaError>;
+}
 
-export const subscribe = <Events extends EventMap, S extends Schema.Decoder<unknown>, E>(
+export const subscribe = <Events extends Record<string, unknown>, S extends DecodeableSchema, E>(
   client: RozeniteDevToolsClient<Events>,
   options: {
     readonly event: keyof Events;
@@ -16,7 +18,7 @@ export const subscribe = <Events extends EventMap, S extends Schema.Decoder<unkn
     Effect.sync(() =>
       client.onMessage(options.event, (payload) => {
         Effect.runFork(
-          Schema.decodeUnknownEffect(options.schema)(payload).pipe(
+          options.schema.decodeUnknownEffect(payload).pipe(
             Effect.flatMap(options.handler),
             Effect.catchCause((cause) =>
               Effect.logWarning(

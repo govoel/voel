@@ -11,8 +11,8 @@ export class TransportError extends Schema.Class<TransportError, { readonly bran
   message: Schema.String,
 }) {}
 
-const ResponseSchema = <S extends Schema.Top>(data: S) =>
-  Schema.Union([
+const ResponseSchema = <S extends Schema.Top>(data: S) => {
+  const schema = Schema.Union([
     Schema.Struct({
       requestId: Schema.String,
       status: Schema.Literal('success'),
@@ -24,6 +24,10 @@ const ResponseSchema = <S extends Schema.Top>(data: S) =>
       error: TransportError,
     }),
   ]);
+  return Object.assign(schema, {
+    decodeUnknownEffect: Schema.decodeUnknownEffect(schema),
+  } as const);
+};
 
 export class ActivateStateMutation extends Schema.TaggedClass<
   ActivateStateMutation,
@@ -64,7 +68,9 @@ class InitialState extends Schema.Class<InitialState, { readonly brand: unique s
   `${TypeId}/InitialState`
 )({
   atoms: Schema.Array(AtomSummaryDto),
-}) {}
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
 
 class EmptySuccess extends Schema.Class<EmptySuccess, { readonly brand: unique symbol }>(
   `${TypeId}/EmptySuccess`
@@ -75,21 +81,27 @@ class RequestInitialStateEvent extends Schema.Class<
   { readonly brand: unique symbol }
 >(`${TypeId}/RequestInitialStateEvent`)({
   requestId: Schema.String,
-}) {}
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
 
 class GetAtomEvent extends Schema.Class<GetAtomEvent, { readonly brand: unique symbol }>(
   `${TypeId}/GetAtomEvent`
 )({
   requestId: Schema.String,
   atomId: Schema.String,
-}) {}
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
 
 class MutationEvent extends Schema.Class<MutationEvent, { readonly brand: unique symbol }>(
   `${TypeId}/MutationEvent`
 )({
   requestId: Schema.String,
   mutation: Mutation,
-}) {}
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
 
 export const atomDevToolsEventSchemas = {
   'request-initial-state': RequestInitialStateEvent,
