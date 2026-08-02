@@ -81,13 +81,13 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
       source: Atom.make(() => AsyncResult.fail('ActiveUserProfileUnavailable' as const)),
     },
   ]),
-  Atom.withLabel('Active user profile')
+  Atom.withLabel('activeUserProfileAtom')
 );
 
 const updateCurrentUserAtom = AppRuntime.fn(
   (input: Parameters<typeof CurrentAuthClient.Service.updateUser>[0]) =>
     CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.updateUser(input)))
-).pipe(Atom.withLabel('Update current user'));
+).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
 export const useUserProfileForm = ({
   onSuccess,

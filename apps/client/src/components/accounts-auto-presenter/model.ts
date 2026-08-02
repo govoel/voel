@@ -64,5 +64,5 @@ export const accountsSheetAtom = AppRuntime.atom(
     },
   ]),
   Atom.withEquality(Equal.equals),
-  Atom.withLabel('Accounts sheet')
+  Atom.withLabel('accountsSheetAtom')
 );

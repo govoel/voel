@@ -52,7 +52,7 @@ export const accountsAtom = AppRuntime.atom(
     },
   ]),
   Atom.withEquality(Equal.equals),
-  Atom.withLabel('Accounts')
+  Atom.withLabel('accountsAtom')
 );
 
 export const activeAccountAtom = AppRuntime.atom(
@@ -80,7 +80,7 @@ export const activeAccountAtom = AppRuntime.atom(
       ),
     },
   ]),
-  Atom.withLabel('Active account')
+  Atom.withLabel('activeAccountAtom')
 );
 
 export const activeAccountSessionAtom = AppRuntime.atom((get) => {
@@ -139,5 +139,5 @@ export const activeAccountSessionAtom = AppRuntime.atom((get) => {
       ),
     },
   ]),
-  Atom.withLabel('Active account session')
+  Atom.withLabel('activeAccountSessionAtom')
 );

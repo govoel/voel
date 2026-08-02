@@ -87,5 +87,5 @@ export const listUsersAtom = AppRuntime.pull(
       },
     ];
   }),
-  Atom.withLabel('Server users')
+  Atom.withLabel('listUsersAtom')
 );

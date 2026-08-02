@@ -24,7 +24,7 @@ class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: un
 const signInAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.signInAccount(input)))
-).pipe(Atom.withLabel('Sign in account'));
+).pipe(Atom.withLabel('signInAccountAtom'));
 
 export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({

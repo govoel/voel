@@ -12,11 +12,11 @@ import { AppRuntime } from '#src/services/runtime.ts';
 export const setActiveAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
-).pipe(Atom.withLabel('Set active account'));
+).pipe(Atom.withLabel('setActiveAccountAtom'));
 
 export const removeAccountAtom = AppRuntime.fn(() =>
   AccountManager.pipe(Effect.flatMap((manager) => manager.removeActiveAccount))
-).pipe(Atom.withLabel('Remove active account'));
+).pipe(Atom.withLabel('removeAccountAtom'));
 
 export const useRemoveAccountForm = ({
   onSuccess,
@@ -81,7 +81,7 @@ export const accountsWithActiveAccount = AppRuntime.atom(
       ),
     },
   ]),
-  Atom.withLabel('Accounts with active account')
+  Atom.withLabel('accountsWithActiveAccount')
 );
 
 export const activeAccountLiteral = Account.fields.active.make(1);
