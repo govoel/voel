@@ -1,3 +1,4 @@
+// @effect-diagnostics effect/processEnv:off
 // oxlint-disable-next-line node/no-process-env
 const isDev = process.env.NODE_ENV !== 'production';
 // oxlint-disable-next-line typescript/no-unnecessary-condition
