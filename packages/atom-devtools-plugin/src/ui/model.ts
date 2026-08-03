@@ -19,7 +19,6 @@ interface Requests {
 
 export interface PanelView {
   readonly catalog: readonly (typeof AtomSummary.Encoded)[];
-  readonly confirmClearAll: boolean;
   readonly error: string | undefined;
   readonly loading: boolean;
   readonly mutationPending: boolean;
@@ -47,7 +46,6 @@ const mutationResultAtom = Atom.make<AsyncResult.AsyncResult<void, TransportErro
 const selectedIdAtom = Atom.make<string | undefined>(void 0);
 
 export const searchAtom = Atom.make('');
-export const confirmClearAllAtom = Atom.make(false);
 
 const nextRequestId = (registry: AtomRegistry.AtomRegistry): string => {
   const sequence = registry.get(requestSequenceAtom) + 1;
@@ -107,7 +105,6 @@ export const panelViewAtom = Atom.make((get): PanelView => {
   const snapshot = Option.getOrUndefined(AsyncResult.value(snapshotResult));
   return {
     catalog,
-    confirmClearAll: get(confirmClearAllAtom),
     error: errorOf(mutationResult) ?? errorOf(snapshotResult) ?? errorOf(catalogResult),
     loading:
       (catalogResult.waiting && catalog.length === 0) ||
@@ -183,7 +180,6 @@ export const mutateAtom = Atom.fn<Mutation>()(
       const requestId = nextRequestId(get.registry);
       get.registry.update(requestsAtom, (requests) => ({ ...requests, mutation: requestId }));
       get.registry.set(mutationResultAtom, AsyncResult.initial(true));
-      get.registry.set(confirmClearAllAtom, false);
       client.send(
         'mutation',
         encodePayload(atomDevToolsEventSchemas.mutation, { requestId, mutation })

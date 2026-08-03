@@ -9,19 +9,12 @@ import {
   RefreshAtomMutation,
 } from '#src/shared/protocol.ts';
 import type { Mutation } from '#src/shared/protocol.ts';
-import { ConfirmDialog } from '#src/ui/components/confirm-dialog.tsx';
 import { PluginHeader } from '#src/ui/components/plugin-header.tsx';
-import { PluginTheme } from '#src/ui/components/plugin-theme.tsx';
 import { Badge } from '#src/ui/components/ui/badge.tsx';
 import { Button } from '#src/ui/components/ui/button.tsx';
 import { Card } from '#src/ui/components/ui/card.tsx';
 import { Input } from '#src/ui/components/ui/input.tsx';
-import {
-  confirmClearAllAtom,
-  filteredCatalogAtom,
-  panelViewAtom,
-  searchAtom,
-} from '#src/ui/model.ts';
+import { filteredCatalogAtom, panelViewAtom, searchAtom } from '#src/ui/model.ts';
 import { usePanelClient } from '#src/ui/use-panel-client.ts';
 // oxlint-disable-next-line import/no-unassigned-import
 import '#src/ui/globals.css';
@@ -228,24 +221,12 @@ const AtomDetails = ({
 const Panel = () => {
   const state = useAtomValue(panelViewAtom);
   const [, setSearch] = useAtom(searchAtom);
-  const [, setConfirmClearAll] = useAtom(confirmClearAllAtom);
   const filteredCatalog = useAtomValue(filteredCatalogAtom);
   const { back, mutate, reload, selectAtom } = usePanelClient();
-  const {
-    catalog,
-    confirmClearAll,
-    error,
-    loading,
-    mutationPending,
-    search,
-    selectedId,
-    snapshot,
-  } = state;
+  const { catalog, error, loading, mutationPending, search, selectedId, snapshot } = state;
 
   return (
-    <PluginTheme
-      className="flex h-screen flex-col bg-background text-foreground"
-      defaultTheme="dark">
+    <div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
       <PluginHeader
         title="Atom DevTools"
         subtitle={`${catalog.length} discovered atom${catalog.length === 1 ? '' : 's'}`}
@@ -258,7 +239,7 @@ const Panel = () => {
               size="sm"
               variant="destructive"
               onClick={() => {
-                setConfirmClearAll(true);
+                mutate(new ClearAllStatesMutation());
               }}>
               Clear all states
             </Button>
@@ -346,22 +327,7 @@ const Panel = () => {
           </div>
         </main>
       )}
-
-      <ConfirmDialog
-        confirmText="Clear all states"
-        open={confirmClearAll}
-        message="This restores normal behavior for every atom with an active predefined state."
-        title="Clear every forced state?"
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirmClearAll(false);
-          }
-        }}
-        onConfirm={() => {
-          mutate(new ClearAllStatesMutation());
-        }}
-      />
-    </PluginTheme>
+    </div>
   );
 };
 
