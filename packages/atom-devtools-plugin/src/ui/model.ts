@@ -7,7 +7,7 @@ import type { AtomSnapshot, AtomSummary } from '@repo/atom-devtools-core';
 
 import { encodePayload, subscribe } from '#src/shared/bridge.ts';
 import { atomDevToolsEventSchemas } from '#src/shared/protocol.ts';
-import type { AtomDevToolsEventMap, Mutation, TransportError } from '#src/shared/protocol.ts';
+import type { AtomDevToolsEventMap, Mutation, ProtocolError } from '#src/shared/protocol.ts';
 
 type Client = RozeniteDevToolsClient<AtomDevToolsEventMap>;
 
@@ -35,12 +35,12 @@ const requestsAtom = Atom.make<Requests>({
 });
 const requestSequenceAtom = Atom.make(0);
 const catalogResultAtom = Atom.make<
-  AsyncResult.AsyncResult<readonly (typeof AtomSummary.Encoded)[], TransportError>
+  AsyncResult.AsyncResult<readonly (typeof AtomSummary.Encoded)[], ProtocolError>
 >(AsyncResult.initial(true));
 const snapshotResultAtom = Atom.make<
-  AsyncResult.AsyncResult<typeof AtomSnapshot.Encoded, TransportError>
+  AsyncResult.AsyncResult<typeof AtomSnapshot.Encoded, ProtocolError>
 >(AsyncResult.initial());
-const mutationResultAtom = Atom.make<AsyncResult.AsyncResult<void, TransportError>>(
+const mutationResultAtom = Atom.make<AsyncResult.AsyncResult<void, ProtocolError>>(
   AsyncResult.initial()
 );
 const selectedIdAtom = Atom.make<string | undefined>(void 0);
@@ -94,8 +94,28 @@ const replaceCatalog = (
   }
 };
 
-const errorOf = <A>(result: AsyncResult.AsyncResult<A, TransportError>): string | undefined =>
-  Option.getOrUndefined(Option.map(AsyncResult.error(result), ({ message }) => message));
+const errorMessage = (error: ProtocolError): string => {
+  switch (error._tag) {
+    case 'AtomNotFound': {
+      return `Atom "${error.id}" was not found. Call list-atoms again to get current IDs.`;
+    }
+    case 'StateNotFound': {
+      return `State "${error.stateId}" was not found on atom "${error.atomId}". Call get-atom to list available states.`;
+    }
+    case 'AtomDevToolsNotReady': {
+      return 'Atom DevTools is still starting. Retry shortly.';
+    }
+    case 'UnknownError': {
+      return error.message;
+    }
+    default: {
+      return 'Unknown Atom DevTools error.';
+    }
+  }
+};
+
+const errorOf = <A>(result: AsyncResult.AsyncResult<A, ProtocolError>): string | undefined =>
+  Option.getOrUndefined(Option.map(AsyncResult.error(result), errorMessage));
 
 export const panelViewAtom = Atom.make((get): PanelView => {
   const catalogResult = get(catalogResultAtom);

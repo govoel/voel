@@ -14,7 +14,7 @@ import {
   lookupSnapshotAtom,
   observeSnapshotAtom,
 } from '#src/react-native/model.ts';
-import { AtomDevToolsNotReady, runTool, transportError } from '#src/react-native/operations.ts';
+import { protocolError, runTool } from '#src/react-native/operations.ts';
 import {
   atomDevToolsToolDefinitions,
   decodeActivateStateArgs,
@@ -26,6 +26,7 @@ import { encodePayload, subscribe } from '#src/shared/bridge.ts';
 import { ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/constants.ts';
 import {
   ActivateStateMutation,
+  AtomDevToolsNotReady,
   ClearAllStatesMutation,
   ClearStateMutation,
   RefreshAtomMutation,
@@ -140,7 +141,7 @@ const sendCatalog = (
     encodePayload(atomDevToolsEventSchemas['initial-state-result'], {
       requestId,
       status: 'error',
-      error: transportError(error),
+      error: protocolError(error),
     })
   );
 };
@@ -174,7 +175,7 @@ const connectBridge = Effect.fn('AtomDevToolsBridge.connect')(function* (
             encodePayload(atomDevToolsEventSchemas['get-atom-result'], {
               requestId: observed.requestId,
               status: 'error',
-              error: transportError(Cause.squash(result.cause)),
+              error: protocolError(Cause.squash(result.cause)),
             })
           );
         }
@@ -222,7 +223,7 @@ const connectBridge = Effect.fn('AtomDevToolsBridge.connect')(function* (
               encodePayload(atomDevToolsEventSchemas['mutation-result'], {
                 requestId,
                 status: 'error',
-                error: transportError(error),
+                error: protocolError(error),
               })
             );
           },

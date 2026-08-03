@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { AtomSnapshot, AtomSummary } from '@repo/atom-devtools-core';
+import { AtomNotFound, AtomSnapshot, AtomSummary, StateNotFound } from '@repo/atom-devtools-core';
 
 const TypeId = '@repo/atom-devtools-plugin/Protocol' as const;
 
@@ -9,12 +9,24 @@ const RequestId = Schema.String.annotateKey({
 });
 const AtomId = Schema.String.annotateKey({ description: 'Stable atom identifier.' });
 
-export class TransportError extends Schema.Class<TransportError, { readonly brand: unique symbol }>(
-  `${TypeId}/TransportError`
-)({
-  code: Schema.Literals(['atom-not-found', 'state-not-found', 'not-ready', 'unknown']),
-  message: Schema.String,
-}) {}
+export class AtomDevToolsNotReady extends Schema.TaggedErrorClass<AtomDevToolsNotReady>(
+  `${TypeId}/AtomDevToolsNotReady`
+)('AtomDevToolsNotReady', {}) {}
+
+export class UnknownError extends Schema.TaggedErrorClass<UnknownError>(`${TypeId}/UnknownError`)(
+  'UnknownError',
+  {
+    message: Schema.String,
+  }
+) {}
+
+export const ProtocolError = Schema.Union([
+  AtomNotFound,
+  StateNotFound,
+  AtomDevToolsNotReady,
+  UnknownError,
+]);
+export type ProtocolError = typeof ProtocolError.Type;
 
 const ResponseSchema = <S extends Schema.Top>(data: S) =>
   Schema.Union([
@@ -26,7 +38,7 @@ const ResponseSchema = <S extends Schema.Top>(data: S) =>
     Schema.Struct({
       requestId: RequestId,
       status: Schema.Literal('error'),
-      error: TransportError,
+      error: ProtocolError,
     }),
   ]);
 

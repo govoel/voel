@@ -2,8 +2,6 @@ import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 
-const noop = (): void => void 0;
-
 export const subscribe = <
   Events extends Record<string, unknown>,
   S extends Schema.Decoder<unknown>,
@@ -31,7 +29,7 @@ export const subscribe = <
       Effect.sync(() =>
         client.onMessage(options.event, (payload) => {
           const run = Effect.runCallbackWith(context);
-          const active = { interrupt: noop };
+          const active = { interrupt: (): void => void 0 };
           const interrupt = (): void => {
             active.interrupt();
           };

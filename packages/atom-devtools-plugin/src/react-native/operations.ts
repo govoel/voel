@@ -2,12 +2,8 @@ import { Effect, Predicate, Schema } from 'effect';
 
 import { AtomNotFound, StateNotFound } from '@repo/atom-devtools-core';
 
-import { TransportError } from '#src/shared/protocol.ts';
-
-export class AtomDevToolsNotReady extends Schema.TaggedErrorClass<AtomDevToolsNotReady>()(
-  'AtomDevToolsNotReady',
-  {}
-) {}
+import { AtomDevToolsNotReady, UnknownError } from '#src/shared/protocol.ts';
+import type { ProtocolError } from '#src/shared/protocol.ts';
 
 export const errorMessage = (error: unknown): string => {
   if (Schema.is(AtomNotFound)(error)) {
@@ -25,17 +21,20 @@ export const errorMessage = (error: unknown): string => {
   return String(error);
 };
 
-export const transportError = (error: unknown): TransportError => {
+export const protocolError = (error: unknown): ProtocolError => {
   if (Schema.is(AtomNotFound)(error)) {
-    return new TransportError({ code: 'atom-not-found', message: errorMessage(error) });
+    return error;
   }
   if (Schema.is(StateNotFound)(error)) {
-    return new TransportError({ code: 'state-not-found', message: errorMessage(error) });
+    return error;
   }
   if (Schema.is(AtomDevToolsNotReady)(error)) {
-    return new TransportError({ code: 'not-ready', message: errorMessage(error) });
+    return error;
   }
-  return new TransportError({ code: 'unknown', message: errorMessage(error) });
+  if (Schema.is(UnknownError)(error)) {
+    return error;
+  }
+  return new UnknownError({ message: errorMessage(error) });
 };
 
 export const runTool = async <A, B, DecodeError>(
