@@ -1,12 +1,14 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect } from 'effect';
-import type { Schema, Scope } from 'effect';
+import { Effect, Schema } from 'effect';
+import type { Scope } from 'effect';
 
-interface DecodeableSchema extends Schema.Decoder<unknown> {
-  readonly decodeUnknownEffect: (input: unknown) => Effect.Effect<this['Type'], Schema.SchemaError>;
-}
+const noop = (): void => void 0;
 
-export const subscribe = <Events extends Record<string, unknown>, S extends DecodeableSchema, E>(
+export const subscribe = <
+  Events extends Record<string, unknown>,
+  S extends Schema.Decoder<unknown>,
+  E,
+>(
   client: RozeniteDevToolsClient<Events>,
   options: {
     readonly event: keyof Events;
@@ -14,20 +16,46 @@ export const subscribe = <Events extends Record<string, unknown>, S extends Deco
     readonly handler: (payload: S['Type']) => Effect.Effect<void, E>;
   }
 ): Effect.Effect<void, never, Scope.Scope> =>
-  Effect.acquireRelease(
-    Effect.sync(() =>
-      client.onMessage(options.event, (payload) => {
-        Effect.runFork(
-          options.schema.decodeUnknownEffect(payload).pipe(
-            Effect.flatMap(options.handler),
-            Effect.catchCause((cause) =>
-              Effect.logWarning(
-                `Ignored invalid Atom DevTools "${String(options.event)}" message.`
-              ).pipe(Effect.annotateLogs({ cause }))
-            )
-          )
-        );
+  Effect.gen(function* () {
+    const context = yield* Effect.context();
+    const interruptors = new Set<() => void>();
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        for (const interrupt of interruptors) {
+          interrupt();
+        }
+        interruptors.clear();
       })
-    ),
-    (subscription) => Effect.sync(subscription.remove)
-  ).pipe(Effect.asVoid);
+    );
+    yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        client.onMessage(options.event, (payload) => {
+          const run = Effect.runCallbackWith(context);
+          const active = { interrupt: noop };
+          const interrupt = (): void => {
+            active.interrupt();
+          };
+          interruptors.add(interrupt);
+          active.interrupt = run(
+            Schema.decodeUnknownEffect(options.schema)(payload).pipe(
+              Effect.flatMap(options.handler),
+              Effect.catchCause((cause) =>
+                Effect.logWarning(
+                  `Ignored invalid Atom DevTools "${String(options.event)}" message.`
+                ).pipe(Effect.annotateLogs({ cause }))
+              )
+            ),
+            {
+              onExit: () => {
+                interruptors.delete(interrupt);
+              },
+            }
+          );
+        })
+      ),
+      (subscription) =>
+        Effect.sync(() => {
+          subscription.remove();
+        })
+    );
+  }).pipe(Effect.asVoid);

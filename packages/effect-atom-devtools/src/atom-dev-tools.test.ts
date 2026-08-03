@@ -192,7 +192,7 @@ describe('AtomDevTools', () => {
         const service = yield* AtomDevTools;
         const catalog = yield* firstCatalog(service);
         expect(catalog).toHaveLength(1);
-        expect(catalog[0]).toMatchObject({ name: 'Scenario' });
+        expect(catalog[0]).toMatchObject({ name: 'Scenario', stateCapable: true });
         const atomId = firstAtomId(catalog);
 
         yield* service.execute(new ActivateState({ atomId, stateId: 'empty' }));

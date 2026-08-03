@@ -15,6 +15,7 @@ export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: uni
   name: Schema.String,
   writable: Schema.Boolean,
   overridden: Schema.Boolean,
+  stateCapable: Schema.Boolean,
 }) {}
 
 export class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
@@ -130,6 +131,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         id: atomId(node.atom),
         name: atomName(node.atom),
         writable: Atom.isWritable(node.atom),
+        stateCapable: hasPredefinedStates(node.atom) && node.atom[StatesTypeId].states().length > 0,
         overridden:
           hasPredefinedStates(node.atom) && node.atom[StatesTypeId].active(registry) !== void 0,
       });
@@ -253,11 +255,12 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
 
     const snapshot = ({ node }: TrackedNode) => {
       const { atom } = node;
-      const { id, name, overridden, writable } = summary(node);
+      const { id, name, overridden, stateCapable, writable } = summary(node);
       return new AtomSnapshot({
         id,
         name,
         overridden,
+        stateCapable,
         writable,
         value: node.value(),
         source: atom.label?.[1],

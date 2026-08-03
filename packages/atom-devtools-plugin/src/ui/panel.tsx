@@ -15,7 +15,12 @@ import { Badge } from '#src/ui/components/ui/badge.tsx';
 import { Button } from '#src/ui/components/ui/button.tsx';
 import { Card } from '#src/ui/components/ui/card.tsx';
 import { Input } from '#src/ui/components/ui/input.tsx';
-import { filteredCatalogAtom, panelStateAtom } from '#src/ui/model.ts';
+import {
+  confirmClearAllAtom,
+  filteredCatalogAtom,
+  panelViewAtom,
+  searchAtom,
+} from '#src/ui/model.ts';
 import { usePanelClient } from '#src/ui/use-panel-client.ts';
 // oxlint-disable-next-line import/no-unassigned-import
 import '#src/ui/globals.css';
@@ -220,15 +225,17 @@ const AtomDetails = ({
 );
 
 const Panel = () => {
-  const [state, setState] = useAtom(panelStateAtom);
+  const state = useAtomValue(panelViewAtom);
+  const [, setSearch] = useAtom(searchAtom);
+  const [, setConfirmClearAll] = useAtom(confirmClearAllAtom);
   const filteredCatalog = useAtomValue(filteredCatalogAtom);
-  const { mutate, reload, selectAtom } = usePanelClient();
+  const { back, mutate, reload, selectAtom } = usePanelClient();
   const {
     catalog,
     confirmClearAll,
     error,
     loading,
-    pendingRequestId,
+    mutationPending,
     search,
     selectedId,
     snapshot,
@@ -250,7 +257,7 @@ const Panel = () => {
               size="sm"
               variant="destructive"
               onClick={() => {
-                setState((current) => ({ ...current, confirmClearAll: true }));
+                setConfirmClearAll(true);
               }}>
               Clear all states
             </Button>
@@ -261,17 +268,9 @@ const Panel = () => {
       {selectedId !== void 0 && snapshot !== void 0 ? (
         <AtomDetails
           error={error}
-          pending={pendingRequestId !== void 0}
+          pending={mutationPending}
           snapshot={snapshot}
-          onBack={() => {
-            setState((current) => ({
-              ...current,
-              selectedId: void 0,
-              snapshot: void 0,
-              atomRequestId: void 0,
-              error: void 0,
-            }));
-          }}
+          onBack={back}
           onMutation={mutate}
           onSelect={selectAtom}
         />
@@ -293,8 +292,7 @@ const Panel = () => {
                 placeholder="Search atoms by name or ID…"
                 value={search}
                 onChange={(event) => {
-                  const nextSearch = event.target.value;
-                  setState((current) => ({ ...current, search: nextSearch }));
+                  setSearch(event.target.value);
                 }}
               />
               {search.length > 0 ? (
@@ -303,7 +301,7 @@ const Panel = () => {
                   className="absolute right-2 top-1/2 size-6 -translate-y-1/2 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   type="button"
                   onClick={() => {
-                    setState((current) => ({ ...current, search: '' }));
+                    setSearch('');
                   }}>
                   ×
                 </button>
@@ -355,7 +353,7 @@ const Panel = () => {
         title="Clear every forced state?"
         onOpenChange={(open) => {
           if (!open) {
-            setState((current) => ({ ...current, confirmClearAll: false }));
+            setConfirmClearAll(false);
           }
         }}
         onConfirm={() => {

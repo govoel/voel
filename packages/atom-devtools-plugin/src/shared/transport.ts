@@ -20,13 +20,13 @@ export class AtomSummaryDto extends Schema.Class<AtomSummaryDto, { readonly bran
   overridden: Schema.Boolean,
   stateCapable: Schema.Boolean,
 }) {
-  public static readonly fromSummary = (atom: AtomSummary, stateCapable: boolean): AtomSummaryDto =>
+  public static readonly fromSummary = (atom: AtomSummary): AtomSummaryDto =>
     new this({
       id: atom.id,
       name: atom.name,
       writable: atom.writable,
       overridden: atom.overridden,
-      stateCapable,
+      stateCapable: atom.stateCapable,
     });
 }
 
@@ -60,7 +60,7 @@ export class AtomSnapshotDto extends AtomSummaryDto.extend<
       name: atom.name,
       writable: atom.writable,
       overridden: atom.overridden,
-      stateCapable: atom.states.length > 0,
+      stateCapable: atom.stateCapable,
       value: Inspectable.toStringUnknown(atom.value),
       ...(atom.source === void 0 ? {} : { source: atom.source }),
       keepAlive: atom.keepAlive,

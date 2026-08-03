@@ -4,6 +4,11 @@ import { AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
 
 const TypeId = '@repo/atom-devtools-plugin/Protocol' as const;
 
+const RequestId = Schema.String.annotateKey({
+  description: 'Correlates a response with the request that produced it.',
+});
+const AtomId = Schema.String.annotateKey({ description: 'Stable atom identifier.' });
+
 export class TransportError extends Schema.Class<TransportError, { readonly brand: unique symbol }>(
   `${TypeId}/TransportError`
 )({
@@ -11,38 +16,32 @@ export class TransportError extends Schema.Class<TransportError, { readonly bran
   message: Schema.String,
 }) {}
 
-const ResponseSchema = <S extends Schema.Top>(data: S) => {
-  const schema = Schema.Union([
+const ResponseSchema = <S extends Schema.Top>(data: S) =>
+  Schema.Union([
     Schema.Struct({
-      requestId: Schema.String,
+      requestId: RequestId,
       status: Schema.Literal('success'),
       data,
     }),
     Schema.Struct({
-      requestId: Schema.String,
+      requestId: RequestId,
       status: Schema.Literal('error'),
       error: TransportError,
     }),
   ]);
-  return Object.assign(schema, {
-    decodeUnknownEffect: Schema.decodeUnknownEffect(schema),
-  } as const);
-};
 
 export class ActivateStateMutation extends Schema.TaggedClass<
   ActivateStateMutation,
   { readonly brand: unique symbol }
 >(`${TypeId}/ActivateStateMutation`)('ActivateState', {
-  atomId: Schema.String,
-  stateId: Schema.String,
+  atomId: AtomId,
+  stateId: Schema.String.annotateKey({ description: 'Predefined state identifier.' }),
 }) {}
 
 export class ClearStateMutation extends Schema.TaggedClass<
   ClearStateMutation,
   { readonly brand: unique symbol }
->(`${TypeId}/ClearStateMutation`)('ClearState', {
-  atomId: Schema.String,
-}) {}
+>(`${TypeId}/ClearStateMutation`)('ClearState', { atomId: AtomId }) {}
 
 export class ClearAllStatesMutation extends Schema.TaggedClass<
   ClearAllStatesMutation,
@@ -52,25 +51,19 @@ export class ClearAllStatesMutation extends Schema.TaggedClass<
 export class RefreshAtomMutation extends Schema.TaggedClass<
   RefreshAtomMutation,
   { readonly brand: unique symbol }
->(`${TypeId}/RefreshAtomMutation`)('RefreshAtom', {
-  atomId: Schema.String,
-}) {}
+>(`${TypeId}/RefreshAtomMutation`)('RefreshAtom', { atomId: AtomId }) {}
 
-const Mutation = Schema.Union([
+export const MutationSchema = Schema.Union([
   ActivateStateMutation,
   ClearStateMutation,
   ClearAllStatesMutation,
   RefreshAtomMutation,
 ]);
-export type Mutation = typeof Mutation.Type;
+export type Mutation = typeof MutationSchema.Type;
 
 class InitialState extends Schema.Class<InitialState, { readonly brand: unique symbol }>(
   `${TypeId}/InitialState`
-)({
-  atoms: Schema.Array(AtomSummaryDto),
-}) {
-  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
-}
+)({ atoms: Schema.Array(AtomSummaryDto) }) {}
 
 class EmptySuccess extends Schema.Class<EmptySuccess, { readonly brand: unique symbol }>(
   `${TypeId}/EmptySuccess`
@@ -79,29 +72,15 @@ class EmptySuccess extends Schema.Class<EmptySuccess, { readonly brand: unique s
 class RequestInitialStateEvent extends Schema.Class<
   RequestInitialStateEvent,
   { readonly brand: unique symbol }
->(`${TypeId}/RequestInitialStateEvent`)({
-  requestId: Schema.String,
-}) {
-  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
-}
+>(`${TypeId}/RequestInitialStateEvent`)({ requestId: RequestId }) {}
 
 class GetAtomEvent extends Schema.Class<GetAtomEvent, { readonly brand: unique symbol }>(
   `${TypeId}/GetAtomEvent`
-)({
-  requestId: Schema.String,
-  atomId: Schema.String,
-}) {
-  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
-}
+)({ requestId: RequestId, atomId: AtomId }) {}
 
 class MutationEvent extends Schema.Class<MutationEvent, { readonly brand: unique symbol }>(
   `${TypeId}/MutationEvent`
-)({
-  requestId: Schema.String,
-  mutation: Mutation,
-}) {
-  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
-}
+)({ requestId: RequestId, mutation: MutationSchema }) {}
 
 export const atomDevToolsEventSchemas = {
   'request-initial-state': RequestInitialStateEvent,
