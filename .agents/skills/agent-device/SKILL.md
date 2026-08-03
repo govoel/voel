@@ -9,22 +9,22 @@ disable-model-invocation: true
 Before your first agent-device command or plan, read the smallest version-matched CLI guide that fits the task:
 
 ```bash
-cd apps/client && bun agent-device help manual-qa   # scripted/manual QA, acceptance checks, checklist execution
-cd apps/client && bun agent-device help validate    # code/runtime validation, stale build or daemon risk
-cd apps/client && bun agent-device help dogfood     # exploratory app dogfooding and evidence collection
-cd apps/client && bun agent-device help workflow    # fallback reference for general app driving or mixed tasks
+bun agent-device help manual-qa   # scripted/manual QA, acceptance checks, checklist execution
+bun agent-device help validate    # code/runtime validation, stale build or daemon risk
+bun agent-device help dogfood     # exploratory app dogfooding and evidence collection
+bun agent-device help workflow    # fallback reference for general app driving or mixed tasks
 ```
 
 Read additional topics only when relevant:
 
 ```bash
-cd apps/client && bun agent-device help debugging
-cd apps/client && bun agent-device help react-native
-cd apps/client && bun agent-device help react-devtools
-cd apps/client && bun agent-device help cdp
-cd apps/client && bun agent-device help remote
-cd apps/client && bun agent-device help macos
-cd apps/client && bun agent-device help dogfood
+bun agent-device help debugging
+bun agent-device help react-native
+bun agent-device help react-devtools
+bun agent-device help cdp
+bun agent-device help remote
+bun agent-device help macos
+bun agent-device help dogfood
 ```
 
 Default loop: `open -> snapshot/-i -> get/is/find or press/fill/scroll/wait -> verify -> close`.
