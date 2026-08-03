@@ -9,7 +9,6 @@ import {
   RefreshAtomMutation,
 } from '#src/shared/protocol.ts';
 import type { Mutation } from '#src/shared/protocol.ts';
-import { PluginHeader } from '#src/ui/components/plugin-header.tsx';
 import { Badge } from '#src/ui/components/ui/badge.tsx';
 import { Button } from '#src/ui/components/ui/button.tsx';
 import { Card } from '#src/ui/components/ui/card.tsx';
@@ -227,25 +226,27 @@ const Panel = () => {
 
   return (
     <div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
-      <PluginHeader
-        title="Atom DevTools"
-        subtitle={`${catalog.length} discovered atom${catalog.length === 1 ? '' : 's'}`}
-        actions={
-          <>
-            <Button size="sm" variant="secondary" onClick={reload}>
-              Reload
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                mutate(new ClearAllStatesMutation());
-              }}>
-              Clear all states
-            </Button>
-          </>
-        }
-      />
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-3">
+        <div className="flex min-h-10 min-w-0 flex-1 flex-col justify-center">
+          <h1 className="truncate text-sm font-semibold">Atom DevTools</h1>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {catalog.length} discovered atom{catalog.length === 1 ? '' : 's'}
+          </p>
+        </div>
+        <div className="flex min-w-0 shrink-0 items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={reload}>
+            Reload
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              mutate(new ClearAllStatesMutation());
+            }}>
+            Clear all states
+          </Button>
+        </div>
+      </header>
 
       {selectedId !== void 0 && snapshot !== void 0 ? (
         <AtomDetails
