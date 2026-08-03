@@ -7,6 +7,7 @@ import {
   AtomDevTools,
   AtomId,
   AtomNotFound,
+  AtomSnapshot,
   ClearAllStates,
   Refresh,
   StateNotFound,
@@ -154,6 +155,10 @@ describe('AtomDevTools', () => {
         const snapshot = yield* firstSnapshot(service, derivedId);
         expect(snapshot.dependencies).toEqual([{ id: dependencyId, name: 'Dependency' }]);
         expect(snapshot.source).toBeTruthy();
+        const encodedSnapshot = yield* AtomSnapshot.encodeEffect(snapshot);
+        expect(encodedSnapshot.value).toBe(
+          '{\n  "value": "dependency",\n  "extra": "long text"\n}'
+        );
 
         const asyncSnapshot = yield* firstSnapshot(service, asyncId);
         expect(AsyncResult.isAsyncResult(asyncSnapshot.value)).toBe(true);

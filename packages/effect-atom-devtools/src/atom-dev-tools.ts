@@ -1,4 +1,16 @@
-import { Cause, Context, Effect, Layer, Match, PubSub, Queue, Schema, Stream } from 'effect';
+import {
+  Cause,
+  Context,
+  Effect,
+  Inspectable,
+  Layer,
+  Match,
+  PubSub,
+  Queue,
+  Schema,
+  SchemaTransformation,
+  Stream,
+} from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import { StatesTypeId, hasPredefinedStates, isInternal, markInternal } from '#src/state.ts';
@@ -16,7 +28,10 @@ export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: uni
   writable: Schema.Boolean,
   overridden: Schema.Boolean,
   stateCapable: Schema.Boolean,
-}) {}
+}) {
+  public static readonly encodeEffect = Schema.encodeEffect(this);
+  public static readonly toEncoded = Schema.toEncoded(this);
+}
 
 export class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
   `${TypeId}/AtomLink`
@@ -25,12 +40,22 @@ export class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique sy
   name: Schema.String,
 }) {}
 
+const InspectableValue = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.Unknown,
+    SchemaTransformation.transform<unknown, string>({
+      decode: (value): unknown => value,
+      encode: Inspectable.toStringUnknown,
+    })
+  )
+);
+
 export class AtomSnapshot extends AtomSummary.extend<
   AtomSnapshot,
   Record<never, never>,
   { readonly atomSnapshotBrand: unique symbol }
 >(`${TypeId}/AtomSnapshot`)({
-  value: Schema.Unknown,
+  value: InspectableValue,
   source: Schema.optional(Schema.String),
   keepAlive: Schema.Boolean,
   lazy: Schema.Boolean,
@@ -46,7 +71,10 @@ export class AtomSnapshot extends AtomSummary.extend<
     })
   ),
   activeStateId: Schema.optional(Schema.String),
-}) {}
+}) {
+  public static readonly encodeEffect = Schema.encodeEffect(this);
+  public static readonly toEncoded = Schema.toEncoded(this);
+}
 
 export class Refresh extends Schema.TaggedClass<Refresh, { readonly brand: unique symbol }>(
   `${TypeId}/Command/Refresh`

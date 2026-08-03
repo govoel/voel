@@ -5,6 +5,8 @@ import { Cause, Effect } from 'effect';
 import { AsyncResult, AtomRegistry } from 'effect/unstable/reactivity';
 import { useContext, useEffect } from 'react';
 
+import type { AtomSummary } from '@repo/atom-devtools-core';
+
 import {
   catalogAtom,
   executeMutationAtom,
@@ -20,7 +22,7 @@ import {
   decodeGetAtomArgs,
   decodeListAtomsArgs,
 } from '#src/shared/agent-tools.ts';
-import { subscribe } from '#src/shared/bridge.ts';
+import { encodePayload, subscribe } from '#src/shared/bridge.ts';
 import { ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/constants.ts';
 import {
   ActivateStateMutation,
@@ -30,7 +32,6 @@ import {
   atomDevToolsEventSchemas,
 } from '#src/shared/protocol.ts';
 import type { AtomDevToolsEventMap, Mutation } from '#src/shared/protocol.ts';
-import type { AtomSummaryDto } from '#src/shared/transport.ts';
 
 type Client = NonNullable<ReturnType<typeof useRozeniteDevToolsClient<AtomDevToolsEventMap>>>;
 
@@ -118,24 +119,30 @@ const useAgentTools = (): void => {
 const sendCatalog = (
   client: Client,
   requestId: string,
-  catalog: AsyncResult.AsyncResult<readonly AtomSummaryDto[], unknown>
+  catalog: AsyncResult.AsyncResult<readonly (typeof AtomSummary.Encoded)[], unknown>
 ): void => {
   if (AsyncResult.isSuccess(catalog)) {
-    client.send('initial-state-result', {
-      requestId,
-      status: 'success',
-      data: { atoms: catalog.value },
-    });
+    client.send(
+      'initial-state-result',
+      encodePayload(atomDevToolsEventSchemas['initial-state-result'], {
+        requestId,
+        status: 'success',
+        data: { atoms: catalog.value },
+      })
+    );
     return;
   }
   const error = AsyncResult.isFailure(catalog)
     ? Cause.squash(catalog.cause)
     : new AtomDevToolsNotReady();
-  client.send('initial-state-result', {
-    requestId,
-    status: 'error',
-    error: transportError(error),
-  });
+  client.send(
+    'initial-state-result',
+    encodePayload(atomDevToolsEventSchemas['initial-state-result'], {
+      requestId,
+      status: 'error',
+      error: transportError(error),
+    })
+  );
 };
 
 const connectBridge = Effect.fn('AtomDevToolsBridge.connect')(function* (
@@ -152,18 +159,24 @@ const connectBridge = Effect.fn('AtomDevToolsBridge.connect')(function* (
         }
         if (AsyncResult.isSuccess(result)) {
           if (result.value.id === observed.atomId) {
-            client.send('get-atom-result', {
-              requestId: observed.requestId,
-              status: 'success',
-              data: result.value,
-            });
+            client.send(
+              'get-atom-result',
+              encodePayload(atomDevToolsEventSchemas['get-atom-result'], {
+                requestId: observed.requestId,
+                status: 'success',
+                data: result.value,
+              })
+            );
           }
         } else if (AsyncResult.isFailure(result)) {
-          client.send('get-atom-result', {
-            requestId: observed.requestId,
-            status: 'error',
-            error: transportError(Cause.squash(result.cause)),
-          });
+          client.send(
+            'get-atom-result',
+            encodePayload(atomDevToolsEventSchemas['get-atom-result'], {
+              requestId: observed.requestId,
+              status: 'error',
+              error: transportError(Cause.squash(result.cause)),
+            })
+          );
         }
       })
     ),
@@ -204,14 +217,24 @@ const connectBridge = Effect.fn('AtomDevToolsBridge.connect')(function* (
         ),
         Effect.match({
           onFailure: (error) => {
-            client.send('mutation-result', {
-              requestId,
-              status: 'error',
-              error: transportError(error),
-            });
+            client.send(
+              'mutation-result',
+              encodePayload(atomDevToolsEventSchemas['mutation-result'], {
+                requestId,
+                status: 'error',
+                error: transportError(error),
+              })
+            );
           },
           onSuccess: () => {
-            client.send('mutation-result', { requestId, status: 'success', data: {} });
+            client.send(
+              'mutation-result',
+              encodePayload(atomDevToolsEventSchemas['mutation-result'], {
+                requestId,
+                status: 'success',
+                data: {},
+              })
+            );
           },
         })
       ),
@@ -233,7 +256,10 @@ export const useAtomDevToolsPlugin = (): void => {
 
   useEffect(() => {
     if (client !== null && AsyncResult.isSuccess(catalog)) {
-      client.send('catalog', { atoms: catalog.value });
+      client.send(
+        'catalog',
+        encodePayload(atomDevToolsEventSchemas.catalog, { atoms: catalog.value })
+      );
     }
   }, [catalog, client]);
 

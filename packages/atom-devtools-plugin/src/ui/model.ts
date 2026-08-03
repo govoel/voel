@@ -3,10 +3,11 @@ import { Effect, Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 import type { AtomRegistry } from 'effect/unstable/reactivity';
 
-import { subscribe } from '#src/shared/bridge.ts';
+import type { AtomSnapshot, AtomSummary } from '@repo/atom-devtools-core';
+
+import { encodePayload, subscribe } from '#src/shared/bridge.ts';
 import { atomDevToolsEventSchemas } from '#src/shared/protocol.ts';
 import type { AtomDevToolsEventMap, Mutation, TransportError } from '#src/shared/protocol.ts';
-import type { AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
 
 type Client = RozeniteDevToolsClient<AtomDevToolsEventMap>;
 
@@ -17,14 +18,14 @@ interface Requests {
 }
 
 export interface PanelView {
-  readonly catalog: readonly AtomSummaryDto[];
+  readonly catalog: readonly (typeof AtomSummary.Encoded)[];
   readonly confirmClearAll: boolean;
   readonly error: string | undefined;
   readonly loading: boolean;
   readonly mutationPending: boolean;
   readonly search: string;
   readonly selectedId: string | undefined;
-  readonly snapshot: AtomSnapshotDto | undefined;
+  readonly snapshot: typeof AtomSnapshot.Encoded | undefined;
 }
 
 const clientAtom = Atom.make<Client | undefined>(void 0);
@@ -35,11 +36,11 @@ const requestsAtom = Atom.make<Requests>({
 });
 const requestSequenceAtom = Atom.make(0);
 const catalogResultAtom = Atom.make<
-  AsyncResult.AsyncResult<readonly AtomSummaryDto[], TransportError>
+  AsyncResult.AsyncResult<readonly (typeof AtomSummary.Encoded)[], TransportError>
 >(AsyncResult.initial(true));
-const snapshotResultAtom = Atom.make<AsyncResult.AsyncResult<AtomSnapshotDto, TransportError>>(
-  AsyncResult.initial()
-);
+const snapshotResultAtom = Atom.make<
+  AsyncResult.AsyncResult<typeof AtomSnapshot.Encoded, TransportError>
+>(AsyncResult.initial());
 const mutationResultAtom = Atom.make<AsyncResult.AsyncResult<void, TransportError>>(
   AsyncResult.initial()
 );
@@ -58,7 +59,10 @@ const requestCatalog = (client: Client, registry: AtomRegistry.AtomRegistry): vo
   const requestId = nextRequestId(registry);
   registry.update(requestsAtom, (requests) => ({ ...requests, initial: requestId }));
   registry.update(catalogResultAtom, AsyncResult.waiting);
-  client.send('request-initial-state', { requestId });
+  client.send(
+    'request-initial-state',
+    encodePayload(atomDevToolsEventSchemas['request-initial-state'], { requestId })
+  );
 };
 
 const requestSnapshot = (options: {
@@ -73,12 +77,15 @@ const requestSnapshot = (options: {
   registry.update(snapshotResultAtom, (result) =>
     preservePrevious ? AsyncResult.waiting(result) : AsyncResult.initial(true)
   );
-  client.send('get-atom', { requestId, atomId });
+  client.send(
+    'get-atom',
+    encodePayload(atomDevToolsEventSchemas['get-atom'], { requestId, atomId })
+  );
 };
 
 const replaceCatalog = (
   registry: AtomRegistry.AtomRegistry,
-  catalog: readonly AtomSummaryDto[]
+  catalog: readonly (typeof AtomSummary.Encoded)[]
 ): void => {
   registry.set(catalogResultAtom, AsyncResult.success(catalog));
   const selectedId = registry.get(selectedIdAtom);
@@ -177,7 +184,10 @@ export const mutateAtom = Atom.fn<Mutation>()(
       get.registry.update(requestsAtom, (requests) => ({ ...requests, mutation: requestId }));
       get.registry.set(mutationResultAtom, AsyncResult.initial(true));
       get.registry.set(confirmClearAllAtom, false);
-      client.send('mutation', { requestId, mutation });
+      client.send(
+        'mutation',
+        encodePayload(atomDevToolsEventSchemas.mutation, { requestId, mutation })
+      );
     });
   })
 );

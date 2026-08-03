@@ -59,3 +59,8 @@ export const subscribe = <
         })
     );
   }).pipe(Effect.asVoid);
+
+export const encodePayload = <S extends Schema.ConstraintEncoder<unknown>>(
+  schema: S,
+  payload: S['Type']
+): S['Encoded'] => Schema.encodeSync(schema)(payload);

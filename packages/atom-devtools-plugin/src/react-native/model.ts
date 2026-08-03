@@ -6,6 +6,8 @@ import {
   AtomDevTools,
   AtomId,
   AtomNotFound,
+  AtomSnapshot,
+  AtomSummary,
   ClearAllStates,
   ClearState,
   Refresh,
@@ -14,14 +16,15 @@ import {
 
 import type { ListAtomsArgs } from '#src/shared/agent-tools.ts';
 import type { Mutation } from '#src/shared/protocol.ts';
-import { AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
 
 const runtime = markInternal(Atom.runtime(AtomDevTools.layer));
 
 export const catalogAtom = markInternal(
   runtime.atom(
     Stream.unwrap(AtomDevTools.pipe(Effect.map(({ catalog }) => catalog))).pipe(
-      Stream.map((summaries) => summaries.map((summary) => AtomSummaryDto.fromSummary(summary)))
+      Stream.mapEffect((summaries) =>
+        Effect.all(summaries.map((summary) => AtomSummary.encodeEffect(summary)))
+      )
     )
   )
 );
@@ -32,7 +35,7 @@ const snapshotEffect = Effect.fn('AtomDevToolsReactive.snapshot')(function* (ato
   const snapshot = yield* service.watch(id).pipe(Stream.runHead);
   return yield* Option.match(snapshot, {
     onNone: () => Effect.fail(new AtomNotFound({ id })),
-    onSome: (atom) => Effect.succeed(AtomSnapshotDto.fromSnapshot(atom)),
+    onSome: AtomSnapshot.encodeEffect,
   });
 });
 
@@ -42,7 +45,7 @@ export const observeSnapshotAtom = markInternal(
   runtime.fn<string>()((atomId) =>
     Stream.unwrap(
       AtomDevTools.pipe(Effect.map((service) => service.watch(AtomId.make(atomId))))
-    ).pipe(Stream.map((snapshot) => AtomSnapshotDto.fromSnapshot(snapshot)))
+    ).pipe(Stream.mapEffect((snapshot) => AtomSnapshot.encodeEffect(snapshot)))
   )
 );
 

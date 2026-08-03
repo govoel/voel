@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
+import { AtomSnapshot, AtomSummary } from '@repo/atom-devtools-core';
 
 const TypeId = '@repo/atom-devtools-plugin/Protocol' as const;
 
@@ -61,33 +61,18 @@ export const MutationSchema = Schema.Union([
 ]);
 export type Mutation = typeof MutationSchema.Type;
 
-class InitialState extends Schema.Class<InitialState, { readonly brand: unique symbol }>(
-  `${TypeId}/InitialState`
-)({ atoms: Schema.Array(AtomSummaryDto) }) {}
-
-class EmptySuccess extends Schema.Class<EmptySuccess, { readonly brand: unique symbol }>(
-  `${TypeId}/EmptySuccess`
-)({}) {}
-
-class RequestInitialStateEvent extends Schema.Class<
-  RequestInitialStateEvent,
-  { readonly brand: unique symbol }
->(`${TypeId}/RequestInitialStateEvent`)({ requestId: RequestId }) {}
-
-class GetAtomEvent extends Schema.Class<GetAtomEvent, { readonly brand: unique symbol }>(
-  `${TypeId}/GetAtomEvent`
-)({ requestId: RequestId, atomId: AtomId }) {}
-
-class MutationEvent extends Schema.Class<MutationEvent, { readonly brand: unique symbol }>(
-  `${TypeId}/MutationEvent`
-)({ requestId: RequestId, mutation: MutationSchema }) {}
+const InitialState = Schema.Struct({ atoms: Schema.Array(AtomSummary.toEncoded) });
+const EmptySuccess = Schema.Struct({});
+const RequestInitialStateEvent = Schema.Struct({ requestId: RequestId });
+const GetAtomEvent = Schema.Struct({ requestId: RequestId, atomId: AtomId });
+const MutationEvent = Schema.Struct({ requestId: RequestId, mutation: MutationSchema });
 
 export const atomDevToolsEventSchemas = {
   'request-initial-state': RequestInitialStateEvent,
   'initial-state-result': ResponseSchema(InitialState),
   catalog: InitialState,
   'get-atom': GetAtomEvent,
-  'get-atom-result': ResponseSchema(AtomSnapshotDto),
+  'get-atom-result': ResponseSchema(AtomSnapshot.toEncoded),
   mutation: MutationEvent,
   'mutation-result': ResponseSchema(EmptySuccess),
 } as const;

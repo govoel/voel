@@ -1,5 +1,7 @@
 import { RegistryProvider, useAtom, useAtomValue } from '@effect/atom-react';
 
+import type { AtomLink, AtomSnapshot, AtomSummary } from '@repo/atom-devtools-core';
+
 import {
   ActivateStateMutation,
   ClearAllStatesMutation,
@@ -7,7 +9,6 @@ import {
   RefreshAtomMutation,
 } from '#src/shared/protocol.ts';
 import type { Mutation } from '#src/shared/protocol.ts';
-import type { AtomLinkDto, AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
 import { ConfirmDialog } from '#src/ui/components/confirm-dialog.tsx';
 import { PluginHeader } from '#src/ui/components/plugin-header.tsx';
 import { PluginTheme } from '#src/ui/components/plugin-theme.tsx';
@@ -47,7 +48,7 @@ const Indicator = ({
   color?: IndicatorColor;
 }) => <Badge variant={getIndicatorVariant(color)}>{children}</Badge>;
 
-const AtomIndicators = ({ atom }: { readonly atom: AtomSummaryDto }) => (
+const AtomIndicators = ({ atom }: { readonly atom: typeof AtomSummary.Encoded }) => (
   <div className="flex flex-wrap gap-1.5">
     <Indicator color={atom.writable ? 'accent' : 'default'}>
       {atom.writable ? 'Writable' : 'Read-only'}
@@ -67,7 +68,7 @@ const AtomLinks = ({
   onSelect,
 }: {
   readonly label: string;
-  readonly links: readonly AtomLinkDto[];
+  readonly links: readonly (typeof AtomLink.Encoded)[];
   readonly onSelect: (atomId: string) => void;
 }) => (
   <section className="space-y-2">
@@ -89,7 +90,7 @@ const AtomLinks = ({
   </section>
 );
 
-const Metadata = ({ snapshot }: { readonly snapshot: AtomSnapshotDto }) => (
+const Metadata = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Encoded }) => (
   <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-xs">
     <dt className="text-muted-foreground">Stable ID</dt>
     <dd className="break-all font-mono text-foreground">{snapshot.id}</dd>
@@ -114,7 +115,7 @@ const AtomDetails = ({
   onMutation,
   onSelect,
 }: {
-  readonly snapshot: AtomSnapshotDto;
+  readonly snapshot: typeof AtomSnapshot.Encoded;
   readonly pending: boolean;
   readonly error: string | undefined;
   readonly onBack: () => void;

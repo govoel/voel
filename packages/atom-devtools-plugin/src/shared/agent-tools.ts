@@ -2,7 +2,7 @@ import { defineAgentToolContract } from '@rozenite/agent-shared';
 import type { AgentToolContract } from '@rozenite/agent-shared';
 import { Effect, Schema, SchemaTransformation } from 'effect';
 
-import type { AtomSnapshotDto, AtomSummaryDto } from '#src/shared/transport.ts';
+import type { AtomSnapshot, AtomSummary } from '@repo/atom-devtools-core';
 
 interface AtomMutationResult {
   readonly success: true;
@@ -67,7 +67,7 @@ export const atomDevToolsToolDefinitions = {
   listAtoms: defineAgentToolContract<
     typeof ListAtomsArgs.Encoded,
     {
-      readonly items: readonly AtomSummaryDto[];
+      readonly items: readonly (typeof AtomSummary.Encoded)[];
       readonly total: number;
       readonly nextCursor?: string;
     }
@@ -77,7 +77,10 @@ export const atomDevToolsToolDefinitions = {
       'List discovered Effect atoms. Filter by name or capabilities and paginate with the returned cursor.',
     inputSchema: agentInputSchema(ListAtomsArgs),
   }),
-  getAtom: defineAgentToolContract<typeof GetAtomArgs.Encoded, { readonly atom: AtomSnapshotDto }>({
+  getAtom: defineAgentToolContract<
+    typeof GetAtomArgs.Encoded,
+    { readonly atom: typeof AtomSnapshot.Encoded }
+  >({
     name: 'get-atom',
     description:
       'Get an atom value, source, lifecycle metadata, subscribers, graph links, and predefined states.',
