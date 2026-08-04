@@ -46,7 +46,6 @@ const AtomIndicators = ({ atom }: { readonly atom: typeof AtomSummary.Encoded })
       {atom.writable ? 'Writable' : 'Read-only'}
     </Indicator>
     {atom.overridden ? <Indicator color="warning">Overridden</Indicator> : null}
-    {atom.stateCapable ? <Indicator color="success">States</Indicator> : null}
   </div>
 );
 

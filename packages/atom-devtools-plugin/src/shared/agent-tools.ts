@@ -31,10 +31,6 @@ export const ListAtomsArgs = Schema.Struct({
   query: described(Schema.optionalKey(Schema.String), 'Case-insensitive name or ID search.'),
   writable: described(Schema.optionalKey(Schema.Boolean), 'Only atoms matching writability.'),
   overridden: described(Schema.optionalKey(Schema.Boolean), 'Only atoms matching override status.'),
-  stateCapable: described(
-    Schema.optionalKey(Schema.Boolean),
-    'Only atoms matching predefined-state capability.'
-  ),
   cursor: Schema.optionalKey(Cursor),
   limit: Limit,
 });

@@ -183,7 +183,7 @@ describe('AtomDevTools', () => {
     );
   });
 
-  it('hides predefined-state controls and executes state commands', async () => {
+  it('executes predefined-state commands', async () => {
     const registry = AtomRegistry.make();
     const atom = makeWithStates({ enabled: true })(
       Atom.make('normal').pipe(Atom.withLabel('Scenario'), Atom.keepAlive),
@@ -197,7 +197,7 @@ describe('AtomDevTools', () => {
         const service = yield* AtomDevTools;
         const catalog = yield* firstCatalog(service);
         expect(catalog).toHaveLength(1);
-        expect(catalog[0]).toMatchObject({ name: 'Scenario', stateCapable: true });
+        expect(catalog[0]?.name).toBe('Scenario');
         const atomId = firstAtomId(catalog);
 
         yield* service.execute(new ActivateState({ atomId, stateId: 'empty' }));

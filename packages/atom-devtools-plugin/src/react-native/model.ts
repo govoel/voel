@@ -78,8 +78,7 @@ export const listAtomsAtom = markInternal(
               atom.name.toLocaleLowerCase().includes(query) ||
               atom.id.toLocaleLowerCase().includes(query)) &&
             (args.writable === void 0 || atom.writable === args.writable) &&
-            (args.overridden === void 0 || atom.overridden === args.overridden) &&
-            (args.stateCapable === void 0 || atom.stateCapable === args.stateCapable)
+            (args.overridden === void 0 || atom.overridden === args.overridden)
         )
         .toSorted((left, right) =>
           left.name === right.name
