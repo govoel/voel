@@ -394,4 +394,13 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
   }),
 }) {
   public static readonly layer = Layer.effect(this, this.make);
+
+  public static readonly layerNoop = Layer.succeed(
+    this,
+    this.of({
+      catalog: Stream.succeed([]),
+      watch: (id) => Stream.fail(new AtomNotFound({ id })),
+      execute: (_command) => Effect.void,
+    })
+  );
 }

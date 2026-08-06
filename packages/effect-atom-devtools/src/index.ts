@@ -25,3 +25,27 @@ export type {
   PredefinedStateFor,
   PredefinedWritableState,
 } from '#src/state.ts';
+export {
+  AtomCatalog,
+  AtomDevToolsRpc,
+  AtomPage,
+  AtomSnapshotEncoded,
+  AtomSummaryEncoded,
+  ListAtomsPayload,
+} from '#src/rpc.ts';
+export type {
+  AtomDevToolsRpcClient,
+  AtomDevToolsRpcEventMap,
+  AtomPage as AtomPageType,
+  AtomSnapshotEncoded as AtomSnapshotEncodedType,
+  AtomSummaryEncoded as AtomSummaryEncodedType,
+  ListAtomsPayload as ListAtomsPayloadType,
+} from '#src/rpc.ts';
+export {
+  AtomDevToolsRpcHandlers,
+  layerAtomDevToolsRpcServer,
+  makeAtomDevToolsRpcHandlers,
+  makeAtomDevToolsRpcServerProtocol,
+  serveAtomDevToolsRpc,
+} from '#src/rpc-server.ts';
+export type { AtomDevToolsRpcServerTransport } from '#src/rpc-server.ts';
