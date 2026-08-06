@@ -25,7 +25,7 @@
     "eslint-plugin-turbo": "2.10.7",
     "opensrc": "0.7.3",
     "oxfmt": "0.61.0",
-    "oxlint": "1.76.0",
+    "oxlint": "1.77.0",
     "oxlint-tsgolint": "0.25.0",
     "turbo": "2.10.7"
   },
