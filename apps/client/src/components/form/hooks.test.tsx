@@ -12,11 +12,25 @@ import {
   fieldContext,
   formContext,
   getFormFieldErrorMessage,
+  useFieldContext,
   useFormContext,
+  useFormMutationError,
 } from '#src/components/form/hooks.tsx';
-import { canSubmitOrRetry } from '#src/components/form/submit-button/index.ts';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
+const ChangeFieldComponent = () => {
+  const field = useFieldContext<string>();
+
+  return (
+    <Pressable
+      role="button"
+      onPress={() => {
+        field.handleChange('changed');
+      }}>
+      <Text>Change field</Text>
+    </Pressable>
+  );
+};
 
 const runtime = Atom.runtime(Layer.empty);
 const schema = Schema.Struct({ name: Schema.String });
@@ -26,7 +40,7 @@ class TestSubmitError extends Schema.TaggedErrorClass<TestSubmitError>()('TestSu
 }) {}
 
 const { useAppForm } = createEffectSchemaFormHook({
-  fieldComponents: { EmptyComponent },
+  fieldComponents: { ChangeFieldComponent, EmptyComponent },
   fieldContext,
   formComponents: { EmptyComponent },
   formContext,
@@ -41,7 +55,8 @@ const makeUser = () =>
 
 const ErrorProbe = () => {
   const form = useFormContext();
-  const [formError, fieldError] = useSelector(
+  const mutationError = useFormMutationError();
+  const [validationFormError, validationFieldError] = useSelector(
     form.store,
     (state): readonly [string | null, string | null] => {
       const nextFormError = state.errors.find(
@@ -60,17 +75,21 @@ const ErrorProbe = () => {
 
   return (
     <>
-      <Text testID="form-error">{formError ?? 'No form error'}</Text>
-      <Text testID="field-error">{fieldError ?? 'No field error'}</Text>
+      <Text testID="form-error">
+        {mutationError.form ?? validationFormError ?? 'No form error'}
+      </Text>
+      <Text testID="field-error">
+        {mutationError.fields['name'] ?? validationFieldError ?? 'No field error'}
+      </Text>
     </>
   );
 };
 
 const RetrySubmitButton = () => {
   const form = useFormContext();
-  const [canSubmit, canSubmitWithoutRetry] = useSelector(
+  const [canSubmit, hasSubmitValidationError] = useSelector(
     form.store,
-    (state): readonly [boolean, boolean] => [canSubmitOrRetry(state), state.canSubmit]
+    (state): readonly [boolean, boolean] => [state.canSubmit, state.errorMap.onSubmit !== void 0]
   );
 
   return (
@@ -82,7 +101,8 @@ const RetrySubmitButton = () => {
         onPress={() => void form.handleSubmit()}>
         <Text>Submit</Text>
       </Pressable>
-      <Text testID="can-submit">{String(canSubmitWithoutRetry)}</Text>
+      <Text testID="can-submit">{String(canSubmit)}</Text>
+      <Text testID="has-submit-validation-error">{String(hasSubmitValidationError)}</Text>
     </>
   );
 };
@@ -96,7 +116,7 @@ describe('createEffectSchemaFormHook', () => {
     vi.useRealTimers();
   });
 
-  it('stores a string mutation failure as a native form error', async () => {
+  it('stores a string mutation failure without invalidating the form', async () => {
     const mutation = runtime.fn((_value: typeof schema.Type) =>
       Effect.fail(new TestSubmitError({ message: 'failed' }))
     );
@@ -114,6 +134,13 @@ describe('createEffectSchemaFormHook', () => {
           <Pressable role="button" onPress={() => void form.handleSubmit()}>
             <Text>Submit</Text>
           </Pressable>
+          <Pressable
+            role="button"
+            onPress={() => {
+              form.reset();
+            }}>
+            <Text>Reset</Text>
+          </Pressable>
           <ErrorProbe />
         </form.AppForm>
       );
@@ -123,9 +150,15 @@ describe('createEffectSchemaFormHook', () => {
     await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
 
     expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
+
+    await makeUser().press(screen.getByRole('button', { name: 'Reset' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+    });
   });
 
-  it('stores mapped mutation failures on the form and fields', async () => {
+  it('stores mapped mutation failures separately from validation errors', async () => {
     const mutation = runtime.fn((_value: typeof schema.Type) =>
       Effect.fail(new TestSubmitError({ message: 'failed' }))
     );
@@ -143,7 +176,7 @@ describe('createEffectSchemaFormHook', () => {
 
       return (
         <form.AppForm>
-          <form.AppField name="name">{(field) => <field.EmptyComponent />}</form.AppField>
+          <form.AppField name="name">{(field) => <field.ChangeFieldComponent />}</form.AppField>
           <Pressable role="button" onPress={() => void form.handleSubmit()}>
             <Text>Submit</Text>
           </Pressable>
@@ -157,6 +190,11 @@ describe('createEffectSchemaFormHook', () => {
 
     expect(await screen.findByTestId('form-error')).toHaveTextContent('Invalid account');
     expect(screen.getByTestId('field-error')).toHaveTextContent('Name is already taken');
+
+    await makeUser().press(screen.getByRole('button', { name: 'Change field' }));
+
+    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+    expect(screen.getByTestId('field-error')).toHaveTextContent('No field error');
   });
 
   it('can retry after a failed submission and then submit successfully', async () => {
@@ -194,7 +232,8 @@ describe('createEffectSchemaFormHook', () => {
     await user.press(submitButton);
 
     expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
-    expect(screen.getByTestId('can-submit')).toHaveTextContent('false');
+    expect(screen.getByTestId('can-submit')).toHaveTextContent('true');
+    expect(screen.getByTestId('has-submit-validation-error')).toHaveTextContent('false');
     expect(submitButton).toBeEnabled();
 
     await user.press(submitButton);

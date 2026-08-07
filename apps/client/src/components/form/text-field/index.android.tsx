@@ -8,6 +8,7 @@ import {
   getFormFieldErrorMessage,
   useFieldContext,
   useFormContext,
+  useFormMutationError,
 } from '#src/components/form/hooks.tsx';
 import type { TextFieldComponent } from '#src/components/form/text-field/index.ts';
 import { Text } from '#src/components/text';
@@ -22,9 +23,11 @@ const defaultTextStyle = {
 export const TextField = (({ label, placeholder, platformProps = {} }) => {
   const field = useFieldContext<string>();
   const form = useFormContext();
-  const errorMessage = field.state.meta.isTouched
+  const mutationError = useFormMutationError().fields[field.name];
+  const validationError = field.state.meta.isTouched
     ? Array.head(field.state.meta.errors)
     : Option.none();
+  const errorMessage = mutationError === void 0 ? validationError : Option.some(mutationError);
   const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
   const value = useNativeState(field.state.value);
   const hasFocusedRef = useRef(false);

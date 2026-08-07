@@ -9,6 +9,7 @@ import {
   getFormFieldErrorMessage,
   useFieldContext,
   useFormContext,
+  useFormMutationError,
 } from '#src/components/form/hooks.tsx';
 import type { SecureFieldComponent } from '#src/components/form/secure-field/index.ts';
 import { Text, iosTextStyle } from '#src/components/text/index.ios.tsx';
@@ -17,9 +18,11 @@ import { Spacing } from '#src/constants/theme.ts';
 export const SecureField = (({ label, placeholder, platformProps = {} }) => {
   const field = useFieldContext<string>();
   const form = useFormContext();
-  const errorMessage = field.state.meta.isTouched
+  const mutationError = useFormMutationError().fields[field.name];
+  const validationError = field.state.meta.isTouched
     ? Array.head(field.state.meta.errors)
     : Option.none();
+  const errorMessage = mutationError === void 0 ? validationError : Option.some(mutationError);
   const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
   const value = useNativeState(field.state.value);
   const hasFocusedRef = useRef(false);
