@@ -1,0 +1,42 @@
+{
+  "name": "@repo/effect-atom-devtools-rozenite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/react-native/index.cjs",
+  "module": "./dist/react-native/index.js",
+  "types": "./dist/react-native/index.d.ts",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/react-native/index.d.ts",
+      "import": "./dist/react-native/index.js",
+      "require": "./dist/react-native/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rozenite build",
+    "check-types": "tsc --noEmit",
+    "dev": "rozenite dev"
+  },
+  "dependencies": {
+    "@rozenite/plugin-bridge": "2.0.0"
+  },
+  "devDependencies": {
+    "@rozenite/vite-plugin": "2.0.0",
+    "@types/react": "~19.2.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "rozenite": "2.0.0",
+    "typescript": "6.0.3",
+    "vite": "7.3.1"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  }
+}
