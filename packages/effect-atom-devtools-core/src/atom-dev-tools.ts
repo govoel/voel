@@ -137,13 +137,25 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
       );
     };
 
+    const failWatchers = (id: AtomId, tracked: TrackedNode) => {
+      const error = new AtomNotFound({ id });
+      for (const watcher of tracked.watchers) {
+        watcher.fail(error);
+      }
+      tracked.watchers.clear();
+    };
+
     const addNode = (node: AtomRegistry.Node<unknown>, publish: boolean) => {
       if (isInternal(node.atom)) {
         return;
       }
       const id = atomId(node.atom);
-      if (nodesById.get(id)?.node === node) {
+      const existing = nodesById.get(id);
+      if (existing?.node === node) {
         return;
+      }
+      if (existing !== void 0) {
+        failWatchers(id, existing);
       }
       nodesById.set(id, {
         node,
@@ -165,11 +177,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         return;
       }
       nodesById.delete(id);
-      const error = new AtomNotFound({ id });
-      for (const watcher of tracked.watchers) {
-        watcher.fail(error);
-      }
-      tracked.watchers.clear();
+      failWatchers(id, tracked);
       publishCatalog();
     };
 

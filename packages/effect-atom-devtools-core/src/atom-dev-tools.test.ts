@@ -431,4 +431,42 @@ describe('AtomDevTools', () => {
       })
     );
   });
+
+  it('fails displaced watchers when a replacement is added before the old node is removed', async () => {
+    const registry = AtomRegistry.make();
+    const atom = Atom.make(1).pipe(Atom.withLabel('Replaceable'), Atom.keepAlive);
+    registry.get(atom);
+
+    await runWithService(
+      registry,
+      Effect.gen(function* () {
+        const service = yield* AtomDevTools;
+        const atomId = firstAtomId(yield* firstCatalog(service));
+        const oldNode = Option.getOrThrow(Option.fromNullishOr(registry.getNodes().get(atom)));
+        const initialObserved = yield* Latch.make();
+        const failureFiber = yield* service.watch(atomId).pipe(
+          Stream.tap(() => initialObserved.open),
+          Stream.runDrain,
+          Effect.flip,
+          Effect.forkChild
+        );
+
+        yield* initialObserved.await;
+
+        const delayedRemove = Option.getOrThrow(Option.fromNullishOr(registry.onNodeRemoved));
+        registry.onNodeRemoved = void 0;
+        registry.reset();
+        registry.onNodeRemoved = delayedRemove;
+
+        registry.get(atom);
+        delayedRemove(oldNode);
+
+        const failure = yield* Fiber.join(failureFiber);
+        expect(failure).toBeInstanceOf(AtomNotFound);
+
+        const replacement = yield* firstSnapshot(service, atomId);
+        expect(replacement.value).toBe('1');
+      })
+    );
+  });
 });
