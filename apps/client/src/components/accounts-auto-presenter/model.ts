@@ -6,7 +6,7 @@ import {
   activeAccountAtom,
   activeAccountSessionAtom,
 } from '#src/services/accounts/atoms.ts';
-import { withStates } from '#src/services/atom-devtools.ts';
+import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export const accountsSheetAtom = AppRuntime.atom(
@@ -35,7 +35,7 @@ export const accountsSheetAtom = AppRuntime.atom(
     return { mode: 'IDLE', dismissable: true } as const;
   })
 ).pipe(
-  withStates(() => [
+  withPredefinedStates(() => [
     {
       id: 'idle',
       label: 'Idle',

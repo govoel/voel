@@ -1,34 +1,39 @@
 import { Cause, Context, Effect, Inspectable, Layer, PubSub, Queue, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
-import { StatesTypeId, hasPredefinedStates, isInternal, markInternal } from '#src/state.ts';
+import {
+  PredefinedStatesTypeId,
+  hasPredefinedStates,
+  isInternalAtom,
+  markInternalAtom,
+} from '#src/predefined-states.ts';
 
-const TypeId = '@repo/effect-atom-devtools-core/AtomDevTools' as const;
+const AtomDevToolsTypeId = '@repo/effect-atom-devtools-core/AtomDevTools' as const;
 
-export const AtomId = Schema.String.pipe(Schema.brand(`${TypeId}/AtomId`));
+export const AtomId = Schema.String.pipe(Schema.brand(`${AtomDevToolsTypeId}/AtomId`));
 export type AtomId = typeof AtomId.Type;
 
 export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: unique symbol }>(
-  `${TypeId}/AtomSummary`
+  `${AtomDevToolsTypeId}/AtomSummary`
 )({
   id: AtomId,
   name: Schema.String,
   writable: Schema.Boolean,
-  overridden: Schema.Boolean,
+  hasActivePredefinedState: Schema.Boolean,
 }) {}
 
-export class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
-  `${TypeId}/AtomLink`
+class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
+  `${AtomDevToolsTypeId}/AtomLink`
 )({
   id: AtomId,
   name: Schema.String,
 }) {}
 
-export class AtomSnapshot extends AtomSummary.extend<
+class AtomSnapshot extends AtomSummary.extend<
   AtomSnapshot,
   Record<never, never>,
   { readonly atomSnapshotBrand: unique symbol }
->(`${TypeId}/AtomSnapshot`)({
+>(`${AtomDevToolsTypeId}/AtomSnapshot`)({
   value: Schema.String,
   source: Schema.optional(Schema.String),
   keepAlive: Schema.Boolean,
@@ -37,27 +42,27 @@ export class AtomSnapshot extends AtomSummary.extend<
   subscriberCount: Schema.Number,
   dependencies: Schema.Array(AtomLink),
   dependents: Schema.Array(AtomLink),
-  states: Schema.Array(
+  predefinedStates: Schema.Array(
     Schema.Struct({
       id: Schema.String,
       label: Schema.String,
       description: Schema.optional(Schema.String),
     })
   ),
-  activeStateId: Schema.optional(Schema.String),
+  activePredefinedStateId: Schema.optional(Schema.String),
 }) {}
 
 export class AtomNotFound extends Schema.TaggedErrorClass<
   AtomNotFound,
   { readonly brand: unique symbol }
->(`${TypeId}/AtomNotFound`)('AtomNotFound', {
+>(`${AtomDevToolsTypeId}/AtomNotFound`)('AtomNotFound', {
   id: AtomId,
 }) {}
 
-export class StateNotFound extends Schema.TaggedErrorClass<
-  StateNotFound,
+export class PredefinedStateNotFound extends Schema.TaggedErrorClass<
+  PredefinedStateNotFound,
   { readonly brand: unique symbol }
->(`${TypeId}/StateNotFound`)('StateNotFound', {
+>(`${AtomDevToolsTypeId}/PredefinedStateNotFound`)('PredefinedStateNotFound', {
   atomId: AtomId,
   stateId: Schema.String,
 }) {}
@@ -65,28 +70,24 @@ export class StateNotFound extends Schema.TaggedErrorClass<
 interface TrackedNode {
   readonly node: AtomRegistry.Node<unknown>;
   readonly observation: Atom.Atom<NodeObservation>;
-  readonly watchers: Set<SnapshotWatcher>;
-}
-
-interface SnapshotWatcher {
-  readonly fail: (error: AtomNotFound) => void;
+  readonly watchers: Set<{ readonly fail: (error: AtomNotFound) => void }>;
 }
 
 interface NodeObservation {
   readonly value: unknown;
-  readonly activeStateId: string | undefined;
+  readonly activePredefinedStateId: string | undefined;
 }
 
-export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
+export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTypeId, {
   make: Effect.gen(function* () {
     const registry = yield* AtomRegistry.AtomRegistry;
 
-    const catalogSnapshots = yield* PubSub.unbounded<readonly AtomSummary[]>({ replay: 1 });
-    const nodesById = new Map<AtomId, TrackedNode>();
+    const catalogPubSub = yield* PubSub.unbounded<readonly AtomSummary[]>({ replay: 1 });
+    const trackedNodesById = new Map<AtomId, TrackedNode>();
     const runtimeIdsByAtom = new WeakMap<Atom.Atom<unknown>, AtomId>();
 
     let nextRuntimeId = 0;
-    const atomId = (atom: Atom.Atom<unknown>) => {
+    const getAtomId = (atom: Atom.Atom<unknown>) => {
       if (Atom.isSerializable(atom)) {
         return AtomId.make(`serializable:${atom[Atom.SerializableTypeId].key}`);
       }
@@ -100,44 +101,46 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
       return id;
     };
 
-    const atomName = (atom: Atom.Atom<unknown>) => atom.label?.[0] ?? atomId(atom);
+    const getAtomName = (atom: Atom.Atom<unknown>) => atom.label?.[0] ?? getAtomId(atom);
 
-    const summary = (node: AtomRegistry.Node<unknown>) =>
+    const makeAtomSummary = (node: AtomRegistry.Node<unknown>) =>
       new AtomSummary({
-        id: atomId(node.atom),
-        name: atomName(node.atom),
+        id: getAtomId(node.atom),
+        name: getAtomName(node.atom),
         writable: Atom.isWritable(node.atom),
-        overridden:
-          hasPredefinedStates(node.atom) && node.atom[StatesTypeId].active(registry) !== void 0,
+        hasActivePredefinedState:
+          hasPredefinedStates(node.atom) &&
+          node.atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0,
       });
 
-    const publishCatalog = () => {
+    const publishCatalogSnapshot = () => {
       PubSub.publishUnsafe(
-        catalogSnapshots,
-        [...nodesById.values()].map(({ node }) => summary(node))
+        catalogPubSub,
+        [...trackedNodesById.values()].map(({ node }) => makeAtomSummary(node))
       );
     };
 
-    const observe = (node: AtomRegistry.Node<unknown>) => {
+    const makeObservationAtom = (node: AtomRegistry.Node<unknown>) => {
       const { atom } = node;
-      return markInternal(
+      return markInternalAtom(
         Atom.make(
-          (context): NodeObservation => ({
-            value: context(atom),
-            activeStateId: hasPredefinedStates(atom)
-              ? atom[StatesTypeId].activeInContext(context)
+          (get): NodeObservation => ({
+            value: get(atom),
+            activePredefinedStateId: hasPredefinedStates(atom)
+              ? atom[PredefinedStatesTypeId].readActiveStateId(get)
               : void 0,
           })
         ).pipe(
           Atom.withEquality<NodeObservation>(
             (current, next) =>
-              atom.equals(current.value, next.value) && current.activeStateId === next.activeStateId
+              atom.equals(current.value, next.value) &&
+              current.activePredefinedStateId === next.activePredefinedStateId
           )
         )
       );
     };
 
-    const failWatchers = (id: AtomId, tracked: TrackedNode) => {
+    const failSnapshotWatchers = (id: AtomId, tracked: TrackedNode) => {
       const error = new AtomNotFound({ id });
       for (const watcher of tracked.watchers) {
         watcher.fail(error);
@@ -145,53 +148,53 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
       tracked.watchers.clear();
     };
 
-    const addNode = (node: AtomRegistry.Node<unknown>, publish: boolean) => {
-      if (isInternal(node.atom)) {
+    const trackNode = (node: AtomRegistry.Node<unknown>, publish: boolean) => {
+      if (isInternalAtom(node.atom)) {
         return;
       }
-      const id = atomId(node.atom);
-      const existing = nodesById.get(id);
+      const id = getAtomId(node.atom);
+      const existing = trackedNodesById.get(id);
       if (existing?.node === node) {
         return;
       }
       if (existing !== void 0) {
-        failWatchers(id, existing);
+        failSnapshotWatchers(id, existing);
       }
-      nodesById.set(id, {
+      trackedNodesById.set(id, {
         node,
-        observation: observe(node),
+        observation: makeObservationAtom(node),
         watchers: new Set(),
       });
       if (publish) {
-        publishCatalog();
+        publishCatalogSnapshot();
       }
     };
 
-    const removeNode = (node: AtomRegistry.Node<unknown>) => {
-      if (isInternal(node.atom)) {
+    const untrackNode = (node: AtomRegistry.Node<unknown>) => {
+      if (isInternalAtom(node.atom)) {
         return;
       }
-      const id = atomId(node.atom);
-      const tracked = nodesById.get(id);
+      const id = getAtomId(node.atom);
+      const tracked = trackedNodesById.get(id);
       if (tracked === void 0 || tracked.node !== node) {
         return;
       }
-      nodesById.delete(id);
-      failWatchers(id, tracked);
-      publishCatalog();
+      trackedNodesById.delete(id);
+      failSnapshotWatchers(id, tracked);
+      publishCatalogSnapshot();
     };
 
     for (const node of registry.getNodes().values()) {
-      addNode(node, false);
+      trackNode(node, false);
     }
-    publishCatalog();
+    publishCatalogSnapshot();
 
     const previousOnNodeAdded = registry.onNodeAdded;
     const previousOnNodeRemoved = registry.onNodeRemoved;
     let handleNodeAdded: ((node: AtomRegistry.Node<unknown>) => void) | undefined = (node) => {
-      addNode(node, true);
+      trackNode(node, true);
     };
-    let handleNodeRemoved: ((node: AtomRegistry.Node<unknown>) => void) | undefined = removeNode;
+    let handleNodeRemoved: ((node: AtomRegistry.Node<unknown>) => void) | undefined = untrackNode;
     const onNodeAdded = (node: AtomRegistry.Node<unknown>) => {
       try {
         previousOnNodeAdded?.(node);
@@ -219,30 +222,30 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         if (registry.onNodeRemoved === onNodeRemoved) {
           registry.onNodeRemoved = previousOnNodeRemoved;
         }
-      }).pipe(Effect.andThen(PubSub.shutdown(catalogSnapshots)))
+      }).pipe(Effect.andThen(PubSub.shutdown(catalogPubSub)))
     );
 
-    const getNode = Effect.fnUntraced(function* (id: AtomId) {
-      const tracked = nodesById.get(id);
+    const getTrackedNode = Effect.fnUntraced(function* (id: AtomId) {
+      const tracked = trackedNodesById.get(id);
       if (tracked === void 0) {
         return yield* new AtomNotFound({ id });
       }
       return tracked;
     });
 
-    const link = (node: AtomRegistry.Node<unknown>) =>
+    const makeAtomLink = (node: AtomRegistry.Node<unknown>) =>
       new AtomLink({
-        id: atomId(node.atom),
-        name: atomName(node.atom),
+        id: getAtomId(node.atom),
+        name: getAtomName(node.atom),
       });
 
-    const snapshot = ({ node }: TrackedNode) => {
+    const makeAtomSnapshot = ({ node }: TrackedNode) => {
       const { atom } = node;
-      const { id, name, overridden, writable } = summary(node);
+      const { id, name, hasActivePredefinedState, writable } = makeAtomSummary(node);
       return new AtomSnapshot({
         id,
         name,
-        overridden,
+        hasActivePredefinedState,
         writable,
         value: Inspectable.toStringUnknown(node.value()),
         source: atom.label?.[1],
@@ -250,40 +253,46 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         lazy: atom.lazy,
         idleTTL: atom.idleTTL,
         subscriberCount: node.listeners.size,
-        dependencies: [...node.parents].filter((parent) => !isInternal(parent.atom)).map(link),
-        dependents: [...node.children].filter((child) => !isInternal(child.atom)).map(link),
-        states: hasPredefinedStates(atom) ? atom[StatesTypeId].states() : [],
-        activeStateId: hasPredefinedStates(atom) ? atom[StatesTypeId].active(registry) : void 0,
+        dependencies: [...node.parents]
+          .filter((parent) => !isInternalAtom(parent.atom))
+          .map(makeAtomLink),
+        dependents: [...node.children]
+          .filter((child) => !isInternalAtom(child.atom))
+          .map(makeAtomLink),
+        predefinedStates: hasPredefinedStates(atom) ? atom[PredefinedStatesTypeId].getStates() : [],
+        activePredefinedStateId: hasPredefinedStates(atom)
+          ? atom[PredefinedStatesTypeId].getActiveStateId(registry)
+          : void 0,
       });
     };
 
     return {
-      catalog: Stream.fromPubSub(catalogSnapshots),
+      catalog: Stream.fromPubSub(catalogPubSub),
       watch: (id: AtomId) =>
         Stream.unwrap(
-          getNode(id).pipe(
+          getTrackedNode(id).pipe(
             Effect.map((tracked) =>
               Stream.callback<AtomSnapshot, AtomNotFound>((queue) =>
                 Effect.acquireRelease(
                   Effect.sync(() => {
                     let watched = tracked;
-                    const watcher: SnapshotWatcher = {
-                      fail: (error) => {
+                    const watcher = {
+                      fail: (error: AtomNotFound) => {
                         Queue.failCauseUnsafe(queue, Cause.fail(error));
                       },
                     };
                     const cancel = registry.subscribe(
                       tracked.observation,
                       () => {
-                        watched = nodesById.get(id) ?? watched;
-                        Queue.offerUnsafe(queue, snapshot(watched));
+                        watched = trackedNodesById.get(id) ?? watched;
+                        Queue.offerUnsafe(queue, makeAtomSnapshot(watched));
                       },
                       { immediate: true }
                     );
                     // The node may have reached its idle-removal task between
                     // resolving the id and subscribing. Reading the observation
                     // recreates it before invoking the immediate listener.
-                    watched = nodesById.get(id) ?? watched;
+                    watched = trackedNodesById.get(id) ?? watched;
                     watched.watchers.add(watcher);
                     return { cancel, watched, watcher };
                   }),
@@ -297,44 +306,50 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
             )
           )
         ),
-      activateState: Effect.fnUntraced(function* (
+      activatePredefinedState: Effect.fnUntraced(function* (
         targetId: AtomId,
         stateId: string
-      ): Effect.fn.Return<void, AtomNotFound | StateNotFound> {
+      ): Effect.fn.Return<void, AtomNotFound | PredefinedStateNotFound> {
         const {
           node: { atom },
-        } = yield* getNode(targetId);
+        } = yield* getTrackedNode(targetId);
         if (!hasPredefinedStates(atom)) {
-          return yield* new StateNotFound({ atomId: targetId, stateId });
+          return yield* new PredefinedStateNotFound({ atomId: targetId, stateId });
         }
-        const state = atom[StatesTypeId].states().find(({ id }) => id === stateId);
+        const state = atom[PredefinedStatesTypeId].getStates().find(({ id }) => id === stateId);
         if (state === void 0) {
-          return yield* new StateNotFound({ atomId: targetId, stateId });
+          return yield* new PredefinedStateNotFound({ atomId: targetId, stateId });
         }
-        atom[StatesTypeId].activate(registry, state);
-        publishCatalog();
+        atom[PredefinedStatesTypeId].activate(registry, state);
+        publishCatalogSnapshot();
         return void 0;
       }),
-      clearAllStates: Effect.fnUntraced(function* (): Effect.fn.Return<void> {
+      clearAllPredefinedStates: Effect.fnUntraced(function* (): Effect.fn.Return<void> {
         yield* Effect.sync(() => {
-          for (const { node } of nodesById.values()) {
+          for (const { node } of trackedNodesById.values()) {
             const { atom } = node;
-            if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
-              atom[StatesTypeId].clear(registry);
+            if (
+              hasPredefinedStates(atom) &&
+              atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0
+            ) {
+              atom[PredefinedStatesTypeId].clear(registry);
             }
           }
-          publishCatalog();
+          publishCatalogSnapshot();
         });
       }),
-      clearState: Effect.fnUntraced(function* (
+      clearPredefinedState: Effect.fnUntraced(function* (
         targetId: AtomId
       ): Effect.fn.Return<void, AtomNotFound> {
         const {
           node: { atom },
-        } = yield* getNode(targetId);
-        if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
-          atom[StatesTypeId].clear(registry);
-          publishCatalog();
+        } = yield* getTrackedNode(targetId);
+        if (
+          hasPredefinedStates(atom) &&
+          atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0
+        ) {
+          atom[PredefinedStatesTypeId].clear(registry);
+          publishCatalogSnapshot();
         }
       }),
       refresh: Effect.fnUntraced(function* (
@@ -342,9 +357,12 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
       ): Effect.fn.Return<void, AtomNotFound> {
         const {
           node: { atom },
-        } = yield* getNode(targetId);
-        if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
-          atom[StatesTypeId].refresh(registry);
+        } = yield* getTrackedNode(targetId);
+        if (
+          hasPredefinedStates(atom) &&
+          atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0
+        ) {
+          atom[PredefinedStatesTypeId].refresh(registry);
         } else {
           registry.refresh(atom);
         }

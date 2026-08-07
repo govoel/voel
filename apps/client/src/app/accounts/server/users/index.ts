@@ -1,7 +1,7 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import { withStates } from '#src/services/atom-devtools.ts';
+import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
@@ -43,7 +43,7 @@ export const listUsersAtom = AppRuntime.pull(
   )
 ).pipe(
   swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
-  withStates(() => {
+  withPredefinedStates(() => {
     const alex = new ServerUser({ id: 'predefined-user-alex', username: 'alex' });
     const sam = new ServerUser({ id: 'predefined-user-sam', username: 'sam' });
 

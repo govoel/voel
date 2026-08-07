@@ -3,20 +3,20 @@ import { Effect, Option } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import {
-  StatesTypeId,
+  PredefinedStatesTypeId,
   hasPredefinedStates,
-  isInternal,
-  makeWithStates,
-  markInternal,
-} from '#src/state.ts';
+  isInternalAtom,
+  makeWithPredefinedStates,
+  markInternalAtom,
+} from '#src/predefined-states.ts';
 
-describe('makeWithStates', () => {
+describe('makeWithPredefinedStates', () => {
   it('is an identity and does not evaluate states when disabled', () => {
     const atom = Atom.make(1);
     let evaluated = false;
-    const withStates = makeWithStates({ enabled: false });
+    const withPredefinedStates = makeWithPredefinedStates({ enabled: false });
 
-    const result = withStates(atom, () => {
+    const result = withPredefinedStates(atom, () => {
       evaluated = true;
       return [];
     });
@@ -29,7 +29,7 @@ describe('makeWithStates', () => {
   it('can be used in a pipe', () => {
     const alternate = Atom.make(2);
     const atom = Atom.make(1).pipe(
-      makeWithStates({ enabled: true })(() => [
+      makeWithPredefinedStates({ enabled: true })(() => [
         { id: 'alternate', label: 'Alternate', source: alternate },
       ])
     );
@@ -44,7 +44,7 @@ describe('makeWithStates', () => {
     const original = Atom.make(1);
     const alternate = Atom.make(10);
     let evaluations = 0;
-    const atom = makeWithStates({ enabled: true })(original, () => {
+    const atom = makeWithPredefinedStates({ enabled: true })(original, () => {
       evaluations += 1;
       return [{ id: 'alternate', label: 'Alternate', source: alternate }];
     });
@@ -56,13 +56,13 @@ describe('makeWithStates', () => {
       return;
     }
 
-    const metadata = atom[StatesTypeId];
-    expect(metadata.states()).toBe(metadata.states());
+    const metadata = atom[PredefinedStatesTypeId];
+    expect(metadata.getStates()).toBe(metadata.getStates());
     expect(evaluations).toBe(1);
 
-    metadata.activate(registry, Option.getOrThrow(Option.fromNullishOr(metadata.states()[0])));
+    metadata.activate(registry, Option.getOrThrow(Option.fromNullishOr(metadata.getStates()[0])));
     expect(registry.get(atom)).toBe(10);
-    expect(metadata.active(registry)).toBe('alternate');
+    expect(metadata.getActiveStateId(registry)).toBe('alternate');
 
     registry.set(atom, 12);
     expect(registry.get(atom)).toBe(12);
@@ -73,7 +73,7 @@ describe('makeWithStates', () => {
     expect(registry.get(atom)).toBe(10);
 
     metadata.clear(registry);
-    expect(metadata.active(registry)).toBeUndefined();
+    expect(metadata.getActiveStateId(registry)).toBeUndefined();
     expect(registry.get(atom)).toBe(1);
   });
 
@@ -87,7 +87,7 @@ describe('makeWithStates', () => {
         };
       },
     });
-    const atom = makeWithStates({ enabled: true })(Atom.make('normal'), () => [
+    const atom = makeWithPredefinedStates({ enabled: true })(Atom.make('normal'), () => [
       { id: 'alternate', label: 'Alternate', source: Atom.make('alternate') },
     ]);
 
@@ -98,8 +98,10 @@ describe('makeWithStates', () => {
       return;
     }
 
-    const state = Option.getOrThrow(Option.fromNullishOr(atom[StatesTypeId].states()[0]));
-    atom[StatesTypeId].activate(registry, state);
+    const state = Option.getOrThrow(
+      Option.fromNullishOr(atom[PredefinedStatesTypeId].getStates()[0])
+    );
+    atom[PredefinedStatesTypeId].activate(registry, state);
     expect(registry.get(atom)).toBe('alternate');
 
     for (const task of scheduled) {
@@ -119,21 +121,30 @@ describe('makeWithStates', () => {
         Atom.make(
           Effect.acquireRelease(Effect.succeed(name), () => Effect.sync(() => finalized.push(name)))
         );
-      const atom = makeWithStates({ enabled: true })(Atom.make(Effect.succeed('original')), () => [
-        { id: 'one', label: 'One', source: source('one') },
-        { id: 'two', label: 'Two', source: source('two') },
-      ]);
+      const atom = makeWithPredefinedStates({ enabled: true })(
+        Atom.make(Effect.succeed('original')),
+        () => [
+          { id: 'one', label: 'One', source: source('one') },
+          { id: 'two', label: 'Two', source: source('two') },
+        ]
+      );
 
       registry.get(atom);
       if (!hasPredefinedStates(atom)) {
         return;
       }
-      const states = atom[StatesTypeId].states();
-      atom[StatesTypeId].activate(registry, Option.getOrThrow(Option.fromNullishOr(states[0])));
+      const states = atom[PredefinedStatesTypeId].getStates();
+      atom[PredefinedStatesTypeId].activate(
+        registry,
+        Option.getOrThrow(Option.fromNullishOr(states[0]))
+      );
       registry.get(atom);
       yield* Effect.yieldNow;
 
-      atom[StatesTypeId].activate(registry, Option.getOrThrow(Option.fromNullishOr(states[1])));
+      atom[PredefinedStatesTypeId].activate(
+        registry,
+        Option.getOrThrow(Option.fromNullishOr(states[1]))
+      );
       registry.get(atom);
       expect(finalized).toContain('one');
 
@@ -146,16 +157,16 @@ describe('makeWithStates', () => {
 describe('internal atoms', () => {
   it('marks a shallow atom copy', () => {
     const atom = Atom.make(1);
-    const internal = markInternal(atom);
+    const internal = markInternalAtom(atom);
 
     expect(internal).not.toBe(atom);
-    expect(isInternal(atom)).toBe(false);
-    expect(isInternal(internal)).toBe(true);
+    expect(isInternalAtom(atom)).toBe(false);
+    expect(isInternalAtom(internal)).toBe(true);
   });
 });
 
 // Compile-time checks for writable source compatibility.
-const withStates = makeWithStates({ enabled: true });
+const withPredefinedStates = makeWithPredefinedStates({ enabled: true });
 const writableNumber = Atom.make(1);
 const writableWithStringInput = Atom.writable(
   () => 1,
@@ -166,9 +177,9 @@ const writableWithStringInput = Atom.writable(
 );
 const readOnlyNumber = Atom.make(() => 1);
 
-withStates(writableNumber, () => [{ id: 'valid', label: 'Valid', source: Atom.make(2) }]);
-withStates(readOnlyNumber, () => [{ id: 'valid', label: 'Valid', source: Atom.make(2) }]);
-withStates(writableWithStringInput, () => [
+withPredefinedStates(writableNumber, () => [{ id: 'valid', label: 'Valid', source: Atom.make(2) }]);
+withPredefinedStates(readOnlyNumber, () => [{ id: 'valid', label: 'Valid', source: Atom.make(2) }]);
+withPredefinedStates(writableWithStringInput, () => [
   {
     id: 'valid',
     label: 'Valid',
@@ -182,7 +193,7 @@ withStates(writableWithStringInput, () => [
   },
 ]);
 
-const decoratedWritable = withStates(writableWithStringInput, () => [
+const decoratedWritable = withPredefinedStates(writableWithStringInput, () => [
   {
     id: 'valid',
     label: 'Valid',
@@ -197,17 +208,21 @@ const decoratedWritable = withStates(writableWithStringInput, () => [
 ]);
 if (hasPredefinedStates(decoratedWritable)) {
   const state = Option.getOrThrow(
-    Option.fromNullishOr(decoratedWritable[StatesTypeId].states()[0])
+    Option.fromNullishOr(decoratedWritable[PredefinedStatesTypeId].getStates()[0])
   );
   const source: Atom.Writable<number, string> = state.source;
   void source;
 }
 
-// @ts-expect-error A writable decorated atom requires a writable source.
-withStates(writableNumber, () => [{ id: 'invalid', label: 'Invalid', source: readOnlyNumber }]);
-// @ts-expect-error A source must have a compatible read type.
-withStates(readOnlyNumber, () => [{ id: 'invalid', label: 'Invalid', source: Atom.make('wrong') }]);
-withStates(writableWithStringInput, () => [
+withPredefinedStates(writableNumber, () => [
+  // @ts-expect-error A writable decorated atom requires a writable source.
+  { id: 'invalid', label: 'Invalid', source: readOnlyNumber },
+]);
+withPredefinedStates(readOnlyNumber, () => [
+  // @ts-expect-error A source must have a compatible read type.
+  { id: 'invalid', label: 'Invalid', source: Atom.make('wrong') },
+]);
+withPredefinedStates(writableWithStringInput, () => [
   // @ts-expect-error A writable source must accept the decorated atom's write input.
   { id: 'invalid', label: 'Invalid', source: Atom.make(2) },
 ]);

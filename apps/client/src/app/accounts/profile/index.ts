@@ -3,7 +3,7 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
 import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
-import { withStates } from '#src/services/atom-devtools.ts';
+import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -49,7 +49,7 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
       })
     )
   ),
-  withStates(() => [
+  withPredefinedStates(() => [
     {
       id: 'loading',
       label: 'Loading',

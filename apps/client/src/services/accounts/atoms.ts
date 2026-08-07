@@ -2,7 +2,7 @@ import { Cause, Effect, Equal, Option, Queue, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { withStates } from '#src/services/atom-devtools.ts';
+import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -13,7 +13,7 @@ export const accountsAtom = AppRuntime.atom(
     Reactivity.stream(['account'])
   )
 ).pipe(
-  withStates(() => [
+  withPredefinedStates(() => [
     {
       id: 'loading',
       label: 'Loading',
@@ -61,7 +61,7 @@ export const activeAccountAtom = AppRuntime.atom(
     Stream.unwrap
   )
 ).pipe(
-  withStates(() => [
+  withPredefinedStates(() => [
     {
       id: 'loading',
       label: 'Loading',
@@ -118,7 +118,7 @@ export const activeAccountSessionAtom = AppRuntime.atom((get) => {
     })
   );
 }).pipe(
-  withStates(() => [
+  withPredefinedStates(() => [
     {
       id: 'loading',
       label: 'Loading',

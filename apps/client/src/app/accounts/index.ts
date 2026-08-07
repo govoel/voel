@@ -5,7 +5,7 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 import { useAppForm } from '#src/components/form';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { withStates } from '#src/services/atom-devtools.ts';
+import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -62,7 +62,7 @@ export const accountsWithActiveAccount = AppRuntime.atom(
     return { accounts, activeAccount };
   })
 ).pipe(
-  withStates(() => [
+  withPredefinedStates(() => [
     {
       id: 'loading',
       label: 'Loading',
