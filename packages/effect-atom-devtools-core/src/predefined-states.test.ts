@@ -53,7 +53,7 @@ describe('makeWithPredefinedStates', () => {
     expect(registry.get(atom)).toBe(1);
     expect(hasPredefinedStates(atom)).toBe(true);
     if (!hasPredefinedStates(atom)) {
-      return;
+      throw new Error('Expected atom to have predefined states');
     }
 
     const metadata = atom[PredefinedStatesTypeId];
@@ -83,7 +83,7 @@ describe('makeWithPredefinedStates', () => {
 
     expect(hasPredefinedStates(atom)).toBe(true);
     if (!hasPredefinedStates(atom)) {
-      return;
+      throw new Error('Expected atom to have predefined states');
     }
 
     expect(registry.getNodes().size).toBe(0);
@@ -109,7 +109,7 @@ describe('makeWithPredefinedStates', () => {
 
     expect(hasPredefinedStates(atom)).toBe(true);
     if (!hasPredefinedStates(atom)) {
-      return;
+      throw new Error('Expected atom to have predefined states');
     }
 
     const state = Option.getOrThrow(
@@ -145,7 +145,7 @@ describe('makeWithPredefinedStates', () => {
 
       registry.get(atom);
       if (!hasPredefinedStates(atom)) {
-        return;
+        throw new Error('Expected atom to have predefined states');
       }
       const states = atom[PredefinedStatesTypeId].getStates();
       atom[PredefinedStatesTypeId].activate(
@@ -220,13 +220,14 @@ const decoratedWritable = withPredefinedStates(writableWithStringInput, () => [
     ),
   },
 ]);
-if (hasPredefinedStates(decoratedWritable)) {
-  const state = Option.getOrThrow(
-    Option.fromNullishOr(decoratedWritable[PredefinedStatesTypeId].getStates()[0])
-  );
-  const source: Atom.Writable<number, string> = state.source;
-  void source;
+if (!hasPredefinedStates(decoratedWritable)) {
+  throw new Error('Expected atom to have predefined states');
 }
+const state = Option.getOrThrow(
+  Option.fromNullishOr(decoratedWritable[PredefinedStatesTypeId].getStates()[0])
+);
+const source: Atom.Writable<number, string> = state.source;
+void source;
 
 withPredefinedStates(writableNumber, () => [
   // @ts-expect-error A writable decorated atom requires a writable source.
