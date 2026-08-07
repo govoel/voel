@@ -8,7 +8,7 @@ type Client = RozeniteDevToolsClient<AtomDevToolsRpcEventMap>;
 
 export const makeAtomDevToolsRpcClientProtocol = Effect.fn('AtomDevToolsRpcClient.makeProtocol')(
   function* (client: Client) {
-    return yield* RpcClient.Protocol.make((writeResponse) =>
+    return yield* RpcClient.Protocol.make((writeResponse, clientIds) =>
       Effect.gen(function* () {
         const responses = yield* Queue.unbounded<AtomDevToolsRpcEventMap['rpc-response']>();
         yield* Effect.acquireRelease(
@@ -23,7 +23,11 @@ export const makeAtomDevToolsRpcClientProtocol = Effect.fn('AtomDevToolsRpcClien
             })
         );
         yield* Stream.fromQueue(responses).pipe(
-          Stream.runForEach((response) => writeResponse(0, response)),
+          Stream.runForEach((response) =>
+            Effect.forEach(clientIds, (clientId) => writeResponse(clientId, response), {
+              discard: true,
+            })
+          ),
           Effect.forkScoped
         );
 
@@ -32,7 +36,7 @@ export const makeAtomDevToolsRpcClientProtocol = Effect.fn('AtomDevToolsRpcClien
             Effect.sync(() => {
               client.send('rpc-request', request);
             }),
-          supportsAck: false,
+          supportsAck: true,
           supportsTransferables: false,
         };
       })

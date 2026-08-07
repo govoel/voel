@@ -20,36 +20,40 @@ describe('AtomDevToolsRpcServer', () => {
         send: (message) => Queue.offer(responses, message),
       }).pipe(Effect.forkScoped);
 
-      const protocol = yield* RpcClient.Protocol.make((writeResponse) =>
+      const protocol = yield* RpcClient.Protocol.make((writeResponse, clientIds) =>
         Effect.gen(function* () {
           yield* Stream.fromQueue(responses).pipe(
-            Stream.runForEach((response) => writeResponse(0, response)),
+            Stream.runForEach((response) =>
+              Effect.forEach(clientIds, (clientId) => writeResponse(clientId, response), {
+                discard: true,
+              })
+            ),
             Effect.forkScoped
           );
           return {
             send: (_clientId, request) => Queue.offer(requests, request),
-            supportsAck: false,
+            supportsAck: true,
             supportsTransferables: false,
           };
         })
       );
+      // Ensure responses are routed without assuming that the active RPC client has ID 0.
+      yield* RpcClient.make(AtomDevToolsRpc, {
+        disableTracing: true,
+      }).pipe(Effect.provideService(RpcClient.Protocol, protocol));
       const client = yield* RpcClient.make(AtomDevToolsRpc, {
         disableTracing: true,
       }).pipe(Effect.provideService(RpcClient.Protocol, protocol));
 
-      const initial = yield* client.GetCatalog();
-      expect(initial.map(({ name }) => name)).toEqual(['Count']);
-
       const streamed = yield* client.Catalog().pipe(Stream.runHead);
-      expect(Option.getOrThrow(streamed).map(({ name }) => name)).toEqual(['Count']);
+      const catalog = Option.getOrThrow(streamed);
+      expect(catalog.map(({ name }) => name)).toEqual(['Count']);
 
-      const atomId = Option.getOrThrow(Option.fromNullishOr(initial[0])).id;
+      const atomId = Option.getOrThrow(Option.fromNullishOr(catalog[0])).id;
       const atom = yield* client.GetAtom({ atomId });
       expect(atom.value).toBe('1');
 
       yield* client.RefreshAtom({ atomId: atom.id });
-      const page = yield* client.ListAtoms({ limit: 10, query: 'count' });
-      expect(page).toMatchObject({ total: 1, items: [{ id: atom.id }] });
     }).pipe(
       Effect.provide(AtomDevTools.layer),
       Effect.provideService(

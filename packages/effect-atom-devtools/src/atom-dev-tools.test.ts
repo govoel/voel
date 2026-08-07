@@ -1,17 +1,8 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
-import { AsyncResult, Atom, AtomRegistry } from 'effect/unstable/reactivity';
+import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
-import {
-  ActivateState,
-  AtomDevTools,
-  AtomId,
-  AtomNotFound,
-  AtomSnapshot,
-  ClearAllStates,
-  Refresh,
-  StateNotFound,
-} from '#src/atom-dev-tools.ts';
+import { AtomDevTools, AtomId, AtomNotFound, StateNotFound } from '#src/atom-dev-tools.ts';
 import type { AtomId as AtomIdType, AtomSummary } from '#src/atom-dev-tools.ts';
 import { makeWithStates } from '#src/state.ts';
 
@@ -155,13 +146,10 @@ describe('AtomDevTools', () => {
         const snapshot = yield* firstSnapshot(service, derivedId);
         expect(snapshot.dependencies).toEqual([{ id: dependencyId, name: 'Dependency' }]);
         expect(snapshot.source).toBeTruthy();
-        const encodedSnapshot = yield* AtomSnapshot.encodeEffect(snapshot);
-        expect(encodedSnapshot.value).toBe(
-          '{\n  "value": "dependency",\n  "extra": "long text"\n}'
-        );
+        expect(snapshot.value).toBe('{\n  "value": "dependency",\n  "extra": "long text"\n}');
 
         const asyncSnapshot = yield* firstSnapshot(service, asyncId);
-        expect(AsyncResult.isAsyncResult(asyncSnapshot.value)).toBe(true);
+        expect(typeof asyncSnapshot.value).toBe('string');
       })
     );
   });
@@ -200,7 +188,7 @@ describe('AtomDevTools', () => {
         expect(catalog[0]?.name).toBe('Scenario');
         const atomId = firstAtomId(catalog);
 
-        yield* service.execute(new ActivateState({ atomId, stateId: 'empty' }));
+        yield* service.activateState(atomId, 'empty');
         expect(registry.get(atom)).toBe('empty');
         expect((yield* firstCatalog(service))[0]?.overridden).toBe(true);
         const active = yield* firstSnapshot(service, atomId);
@@ -208,8 +196,8 @@ describe('AtomDevTools', () => {
         expect(active.activeStateId).toBe('empty');
         expect(active.dependencies).toEqual([]);
 
-        yield* service.execute(new Refresh({ atomId }));
-        yield* service.execute(new ClearAllStates());
+        yield* service.refresh(atomId);
+        yield* service.clearAllStates();
         expect(registry.get(atom)).toBe('normal');
         expect((yield* firstCatalog(service))[0]?.overridden).toBe(false);
         const cleared = yield* firstSnapshot(service, atomId);
@@ -236,9 +224,7 @@ describe('AtomDevTools', () => {
           .pipe(Stream.runHead, Effect.flip);
         expect(missingAtom).toBeInstanceOf(AtomNotFound);
 
-        const missingState = yield* service
-          .execute(new ActivateState({ atomId, stateId: 'missing' }))
-          .pipe(Effect.flip);
+        const missingState = yield* service.activateState(atomId, 'missing').pipe(Effect.flip);
         expect(missingState).toBeInstanceOf(StateNotFound);
       })
     );
@@ -293,7 +279,7 @@ describe('AtomDevTools', () => {
         );
 
         yield* initialObserved.await;
-        yield* service.execute(new ActivateState({ atomId, stateId: 'equal' }));
+        yield* service.activateState(atomId, 'equal');
         yield* stateObserved.await;
         yield* Effect.yieldNow;
 
@@ -329,7 +315,7 @@ describe('AtomDevTools', () => {
         const secondFiber = yield* collect(secondReady);
 
         yield* Effect.all([firstReady.await, secondReady.await]);
-        yield* service.execute(new ActivateState({ atomId, stateId: 'equal' }));
+        yield* service.activateState(atomId, 'equal');
 
         const [first, second] = yield* Effect.all([
           Fiber.join(firstFiber),
@@ -375,8 +361,8 @@ describe('AtomDevTools', () => {
           Fiber.join(firstFiber),
           Fiber.join(secondFiber),
         ]);
-        expect(first.map(({ value }) => value)).toEqual([0, 1]);
-        expect(second.map(({ value }) => value)).toEqual([0, 1]);
+        expect(first.map(({ value }) => value)).toEqual(['0', '1']);
+        expect(second.map(({ value }) => value)).toEqual(['0', '1']);
       })
     );
   });
@@ -406,7 +392,7 @@ describe('AtomDevTools', () => {
 
         yield* initialObserved.await;
         yield* Effect.yieldNow;
-        expect(observed).toEqual([1]);
+        expect(observed).toEqual(['1']);
         yield* Fiber.interrupt(watchFiber);
       })
     );
@@ -441,7 +427,7 @@ describe('AtomDevTools', () => {
 
         registry.get(atom);
         const replacement = yield* firstSnapshot(service, atomId);
-        expect(replacement.value).toBe(1);
+        expect(replacement.value).toBe('1');
       })
     );
   });

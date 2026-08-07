@@ -1,16 +1,4 @@
-import {
-  Cause,
-  Context,
-  Effect,
-  Inspectable,
-  Layer,
-  Match,
-  PubSub,
-  Queue,
-  Schema,
-  SchemaTransformation,
-  Stream,
-} from 'effect';
+import { Cause, Context, Effect, Inspectable, Layer, PubSub, Queue, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import { StatesTypeId, hasPredefinedStates, isInternal, markInternal } from '#src/state.ts';
@@ -27,10 +15,7 @@ export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: uni
   name: Schema.String,
   writable: Schema.Boolean,
   overridden: Schema.Boolean,
-}) {
-  public static readonly encodeEffect = Schema.encodeEffect(this);
-  public static readonly toEncoded = Schema.toEncoded(this);
-}
+}) {}
 
 export class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
   `${TypeId}/AtomLink`
@@ -39,22 +24,12 @@ export class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique sy
   name: Schema.String,
 }) {}
 
-const InspectableValue = Schema.String.pipe(
-  Schema.decodeTo(
-    Schema.Unknown,
-    SchemaTransformation.transform<unknown, string>({
-      decode: (value): unknown => value,
-      encode: Inspectable.toStringUnknown,
-    })
-  )
-);
-
 export class AtomSnapshot extends AtomSummary.extend<
   AtomSnapshot,
   Record<never, never>,
   { readonly atomSnapshotBrand: unique symbol }
 >(`${TypeId}/AtomSnapshot`)({
-  value: InspectableValue,
+  value: Schema.String,
   source: Schema.optional(Schema.String),
   keepAlive: Schema.Boolean,
   lazy: Schema.Boolean,
@@ -70,33 +45,7 @@ export class AtomSnapshot extends AtomSummary.extend<
     })
   ),
   activeStateId: Schema.optional(Schema.String),
-}) {
-  public static readonly encodeEffect = Schema.encodeEffect(this);
-  public static readonly toEncoded = Schema.toEncoded(this);
-}
-
-export class Refresh extends Schema.TaggedClass<Refresh, { readonly brand: unique symbol }>(
-  `${TypeId}/Command/Refresh`
-)('Refresh', {
-  atomId: AtomId,
 }) {}
-
-export class ActivateState extends Schema.TaggedClass<
-  ActivateState,
-  { readonly brand: unique symbol }
->(`${TypeId}/Command/ActivateState`)('ActivateState', {
-  atomId: AtomId,
-  stateId: Schema.String,
-}) {}
-
-export class ClearState extends Schema.TaggedClass<ClearState, { readonly brand: unique symbol }>(
-  `${TypeId}/Command/ClearState`
-)('ClearState', { atomId: AtomId }) {}
-
-export class ClearAllStates extends Schema.TaggedClass<
-  ClearAllStates,
-  { readonly brand: unique symbol }
->(`${TypeId}/Command/ClearAllStates`)('ClearAllStates', {}) {}
 
 export class AtomNotFound extends Schema.TaggedErrorClass<
   AtomNotFound,
@@ -287,7 +236,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
         name,
         overridden,
         writable,
-        value: node.value(),
+        value: Inspectable.toStringUnknown(node.value()),
         source: atom.label?.[1],
         keepAlive: atom.keepAlive,
         lazy: atom.lazy,
@@ -340,67 +289,60 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(TypeId, {
             )
           )
         ),
-      execute: Match.typeTags<
-        Refresh | ActivateState | ClearState | ClearAllStates,
-        Effect.Effect<void, AtomNotFound | StateNotFound>
-      >()({
-        ActivateState: Effect.fnUntraced(function* (command: ActivateState) {
-          const {
-            node: { atom },
-          } = yield* getNode(command.atomId);
-          if (!hasPredefinedStates(atom)) {
-            return yield* new StateNotFound({ atomId: command.atomId, stateId: command.stateId });
-          }
-          const state = atom[StatesTypeId].states().find(({ id }) => id === command.stateId);
-          if (state === void 0) {
-            return yield* new StateNotFound({ atomId: command.atomId, stateId: command.stateId });
-          }
-          atom[StatesTypeId].activate(registry, state);
-          publishCatalog();
-          return void 0;
-        }),
-        ClearAllStates: Effect.fnUntraced(function* (_command: ClearAllStates) {
-          yield* Effect.sync(() => {
-            for (const { node } of nodesById.values()) {
-              const { atom } = node;
-              if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
-                atom[StatesTypeId].clear(registry);
-              }
+      activateState: Effect.fnUntraced(function* (
+        targetId: AtomId,
+        stateId: string
+      ): Effect.fn.Return<void, AtomNotFound | StateNotFound> {
+        const {
+          node: { atom },
+        } = yield* getNode(targetId);
+        if (!hasPredefinedStates(atom)) {
+          return yield* new StateNotFound({ atomId: targetId, stateId });
+        }
+        const state = atom[StatesTypeId].states().find(({ id }) => id === stateId);
+        if (state === void 0) {
+          return yield* new StateNotFound({ atomId: targetId, stateId });
+        }
+        atom[StatesTypeId].activate(registry, state);
+        publishCatalog();
+        return void 0;
+      }),
+      clearAllStates: Effect.fnUntraced(function* (): Effect.fn.Return<void> {
+        yield* Effect.sync(() => {
+          for (const { node } of nodesById.values()) {
+            const { atom } = node;
+            if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
+              atom[StatesTypeId].clear(registry);
             }
-            publishCatalog();
-          });
-        }),
-        ClearState: Effect.fnUntraced(function* (command: ClearState) {
-          const {
-            node: { atom },
-          } = yield* getNode(command.atomId);
-          if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
-            atom[StatesTypeId].clear(registry);
-            publishCatalog();
           }
-        }),
-        Refresh: Effect.fnUntraced(function* (command: Refresh) {
-          const {
-            node: { atom },
-          } = yield* getNode(command.atomId);
-          if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
-            atom[StatesTypeId].refresh(registry);
-          } else {
-            registry.refresh(atom);
-          }
-        }),
+          publishCatalog();
+        });
+      }),
+      clearState: Effect.fnUntraced(function* (
+        targetId: AtomId
+      ): Effect.fn.Return<void, AtomNotFound> {
+        const {
+          node: { atom },
+        } = yield* getNode(targetId);
+        if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
+          atom[StatesTypeId].clear(registry);
+          publishCatalog();
+        }
+      }),
+      refresh: Effect.fnUntraced(function* (
+        targetId: AtomId
+      ): Effect.fn.Return<void, AtomNotFound> {
+        const {
+          node: { atom },
+        } = yield* getNode(targetId);
+        if (hasPredefinedStates(atom) && atom[StatesTypeId].active(registry) !== void 0) {
+          atom[StatesTypeId].refresh(registry);
+        } else {
+          registry.refresh(atom);
+        }
       }),
     };
   }),
 }) {
   public static readonly layer = Layer.effect(this, this.make);
-
-  public static readonly layerNoop = Layer.succeed(
-    this,
-    this.of({
-      catalog: Stream.succeed([]),
-      watch: (id) => Stream.fail(new AtomNotFound({ id })),
-      execute: (_command) => Effect.void,
-    })
-  );
 }

@@ -1,6 +1,6 @@
 import { useAtomValue } from '@effect/atom-react';
 import { useRozenitePluginAgentTool } from '@rozenite/agent-bridge';
-import { Context, Effect } from 'effect';
+import { Context, Effect, Option, Stream } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
 
@@ -17,6 +17,44 @@ import {
 import { ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/constants.ts';
 
 type RpcHandlers = ReturnType<typeof makeAtomDevToolsRpcHandlers>;
+
+const listAtoms = Effect.fn('AtomDevToolsPlugin.listAtoms')(function* (
+  handlers: RpcHandlers,
+  payload: {
+    readonly query?: string;
+    readonly writable?: boolean;
+    readonly overridden?: boolean;
+    readonly cursor?: number;
+    readonly limit: number;
+  }
+) {
+  const catalog = yield* handlers
+    .Catalog()
+    .pipe(Stream.runHead, Effect.map(Option.getOrElse(() => [])));
+  const query = payload.query?.trim().toLocaleLowerCase();
+  const filtered = catalog
+    .filter(
+      (atom) =>
+        (query === void 0 ||
+          atom.name.toLocaleLowerCase().includes(query) ||
+          atom.id.toLocaleLowerCase().includes(query)) &&
+        (payload.writable === void 0 || atom.writable === payload.writable) &&
+        (payload.overridden === void 0 || atom.overridden === payload.overridden)
+    )
+    .toSorted((left, right) =>
+      left.name === right.name
+        ? left.id.localeCompare(right.id)
+        : left.name.localeCompare(right.name)
+    );
+  const offset = payload.cursor ?? 0;
+  const items = filtered.slice(offset, offset + payload.limit);
+  const nextOffset = offset + items.length;
+  return {
+    items,
+    total: filtered.length,
+    ...(nextOffset < filtered.length ? { nextCursor: String(nextOffset) } : {}),
+  };
+});
 
 export const useAtomDevToolsPlugin = <R, ER>(
   runtime: Atom.AtomRuntime<AtomDevTools | R, ER>
@@ -42,7 +80,7 @@ export const useAtomDevToolsPlugin = <R, ER>(
     pluginId: ATOM_DEVTOOLS_PLUGIN_ID,
     tool: atomDevToolsToolDefinitions.listAtoms,
     enabled,
-    handler: handler(decodeListAtomsArgs, (handlers, args) => handlers.ListAtoms(args)),
+    handler: handler(decodeListAtomsArgs, listAtoms),
   });
 
   useRozenitePluginAgentTool({

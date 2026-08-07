@@ -3,12 +3,7 @@ import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useEffect } from 'react';
 
-import type {
-  AtomLink,
-  AtomSnapshot,
-  AtomSummary,
-  AtomSummaryEncodedType,
-} from '@repo/atom-devtools-core';
+import type { AtomLink, AtomSnapshot, AtomSummary } from '@repo/atom-devtools-core';
 
 import { Badge } from '#src/ui/components/ui/badge.tsx';
 import { Button } from '#src/ui/components/ui/button.tsx';
@@ -100,7 +95,7 @@ const AtomLinks = ({
   );
 };
 
-const Metadata = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Encoded }) => (
+const Metadata = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
   <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-xs">
     <dt className="text-muted-foreground">Stable ID</dt>
     <dd className="break-all font-mono text-foreground">{snapshot.id}</dd>
@@ -122,7 +117,7 @@ const ErrorNotice = ({ error }: { readonly error: string | undefined }) =>
     <Card className="rounded-md border-destructive/60 p-3 text-sm text-destructive">{error}</Card>
   );
 
-const AtomDetails = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Encoded }) => {
+const AtomDetails = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
   const activateState = useAtomSet(activateStateMutationAtom);
   const back = useAtomSet(backAtom);
   const clearState = useAtomSet(clearStateMutationAtom);
@@ -261,7 +256,7 @@ const PanelHeader = ({ catalogCount }: { readonly catalogCount: number }) => {
   );
 };
 
-const Catalog = ({ catalog }: { readonly catalog: readonly AtomSummaryEncodedType[] }) => {
+const Catalog = ({ catalog }: { readonly catalog: readonly AtomSummary[] }) => {
   const [search, setSearch] = useAtom(searchAtom);
   const mutationError = useAtomValue(mutationErrorAtom);
   const select = useAtomSet(selectAtom);
@@ -392,7 +387,7 @@ const SelectedAtom = ({ atomId }: { readonly atomId: string }) => {
   });
 };
 
-const PanelContent = ({ catalog }: { readonly catalog: readonly AtomSummaryEncodedType[] }) => {
+const PanelContent = ({ catalog }: { readonly catalog: readonly AtomSummary[] }) => {
   const selectedId = useAtomValue(selectedIdAtom);
   return Option.match(selectedId, {
     onNone: () => <Catalog catalog={catalog} />,
