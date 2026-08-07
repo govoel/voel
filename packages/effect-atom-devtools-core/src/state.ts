@@ -5,7 +5,7 @@ import type { AtomRegistry } from 'effect/unstable/reactivity';
 
 type AnyAtom = Atom.Atom<unknown>;
 
-export const StatesTypeId: unique symbol = Symbol.for('@repo/atom-devtools-core/States');
+export const StatesTypeId: unique symbol = Symbol.for('@repo/effect-atom-devtools-core/States');
 
 export interface PredefinedState<A> {
   readonly id: string;
@@ -41,7 +41,7 @@ export const hasPredefinedStates = <T extends AnyAtom>(
 ): atom is T & HasPredefinedStates<T> => StatesTypeId in atom;
 
 export const InternalAtomTypeId: unique symbol = Symbol.for(
-  '@repo/atom-devtools-core/InternalAtom'
+  '@repo/effect-atom-devtools-core/InternalAtom'
 );
 
 export interface InternalAtom {

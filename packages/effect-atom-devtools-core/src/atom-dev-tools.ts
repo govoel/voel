@@ -3,7 +3,7 @@ import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import { StatesTypeId, hasPredefinedStates, isInternal, markInternal } from '#src/state.ts';
 
-const TypeId = '@repo/atom-devtools-core/AtomDevTools' as const;
+const TypeId = '@repo/effect-atom-devtools-core/AtomDevTools' as const;
 
 export const AtomId = Schema.String.pipe(Schema.brand(`${TypeId}/AtomId`));
 export type AtomId = typeof AtomId.Type;

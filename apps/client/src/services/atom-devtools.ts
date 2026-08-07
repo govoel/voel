@@ -1,4 +1,4 @@
-import { makeWithStates } from '@repo/atom-devtools-core';
+import { makeWithStates } from '@repo/effect-atom-devtools-core';
 
 // React Native replaces __DEV__ at bundle time. Keep predefined states
 // available to tests that run outside React Native.

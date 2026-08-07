@@ -27,8 +27,8 @@
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~57.0.7",
         "@op-engineering/op-sqlite": "17.1.3",
-        "@repo/atom-devtools-core": "workspace:*",
         "@repo/auth-api": "workspace:*",
+        "@repo/effect-atom-devtools-core": "workspace:*",
         "@repo/effect-kysely": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.2",
@@ -109,8 +109,8 @@
         "typescript": "6.0.3",
       },
     },
-    "packages/effect-atom-devtools": {
-      "name": "@repo/atom-devtools-core",
+    "packages/effect-atom-devtools-core": {
+      "name": "@repo/effect-atom-devtools-core",
       "version": "0.0.0",
       "dependencies": {
         "effect": "4.0.0-beta.102",
@@ -771,9 +771,9 @@
 
     "@react-native/virtualized-lists": ["@react-native/virtualized-lists@0.86.0", "", { "dependencies": { "invariant": "^2.2.4", "nullthrows": "^1.1.1" }, "peerDependencies": { "@types/react": "^19.2.0", "react": "*", "react-native": "0.86.0" }, "optionalPeers": ["@types/react"] }, "sha512-4/ZLXdf/OSpPDVO0AsQ1SJdRIzt5t9BNQ46QwGgxvX7/cirYR5k8KXctNGGgW8lQo2gZChEfY2zFCZg9nM/jiw=="],
 
-    "@repo/atom-devtools-core": ["@repo/atom-devtools-core@workspace:packages/effect-atom-devtools"],
-
     "@repo/auth-api": ["@repo/auth-api@workspace:packages/auth-api"],
+
+    "@repo/effect-atom-devtools-core": ["@repo/effect-atom-devtools-core@workspace:packages/effect-atom-devtools-core"],
 
     "@repo/effect-kysely": ["@repo/effect-kysely@workspace:packages/effect-kysely"],
 
