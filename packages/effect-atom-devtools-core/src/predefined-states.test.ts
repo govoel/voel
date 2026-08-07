@@ -62,7 +62,7 @@ describe('makeWithPredefinedStates', () => {
 
     metadata.activate(registry, Option.getOrThrow(Option.fromNullishOr(metadata.getStates()[0])));
     expect(registry.get(atom)).toBe(10);
-    expect(metadata.getActiveStateId(registry)).toBe('alternate');
+    expect(metadata.getActiveStateId(registry)).toEqual(Option.some('alternate'));
 
     registry.set(atom, 12);
     expect(registry.get(atom)).toBe(12);
@@ -73,7 +73,7 @@ describe('makeWithPredefinedStates', () => {
     expect(registry.get(atom)).toBe(10);
 
     metadata.clear(registry);
-    expect(metadata.getActiveStateId(registry)).toBeUndefined();
+    expect(metadata.getActiveStateId(registry)).toEqual(Option.none());
     expect(registry.get(atom)).toBe(1);
   });
 

@@ -198,7 +198,7 @@ describe('AtomDevTools', () => {
         expect((yield* firstCatalog(service))[0]?.hasActivePredefinedState).toBe(true);
         const active = yield* firstSnapshot(service, atomId);
         expect(active.value).toBe('empty');
-        expect(active.activePredefinedStateId).toBe('empty');
+        expect(active.activePredefinedStateId).toEqual(Option.some('empty'));
         expect(active.dependencies).toEqual([]);
 
         yield* service.refresh(atomId);
@@ -207,7 +207,7 @@ describe('AtomDevTools', () => {
         expect((yield* firstCatalog(service))[0]?.hasActivePredefinedState).toBe(false);
         const cleared = yield* firstSnapshot(service, atomId);
         expect(cleared.value).toBe('normal');
-        expect(cleared.activePredefinedStateId).toBeUndefined();
+        expect(cleared.activePredefinedStateId).toEqual(Option.none());
       })
     );
   });
@@ -269,12 +269,12 @@ describe('AtomDevTools', () => {
         const atomId = firstAtomId(catalog);
         const initialObserved = yield* Latch.make();
         const stateObserved = yield* Latch.make();
-        const snapshots: (string | null)[] = [];
+        const snapshots: Option.Option<string>[] = [];
         const snapshotsFiber = yield* service.watch(atomId).pipe(
           Stream.tap(({ activePredefinedStateId }) =>
             Effect.sync(() => {
-              snapshots.push(activePredefinedStateId ?? null);
-              if (activePredefinedStateId === void 0) {
+              snapshots.push(activePredefinedStateId);
+              if (Option.isNone(activePredefinedStateId)) {
                 initialObserved.openUnsafe();
               } else {
                 stateObserved.openUnsafe();
@@ -290,7 +290,7 @@ describe('AtomDevTools', () => {
         yield* stateObserved.await;
         yield* Effect.yieldNow;
 
-        expect(snapshots).toEqual([null, 'equal']);
+        expect(snapshots).toEqual([Option.none(), Option.some('equal')]);
         yield* Fiber.interrupt(snapshotsFiber);
       })
     );
@@ -329,9 +329,10 @@ describe('AtomDevTools', () => {
           Fiber.join(secondFiber),
         ]);
         for (const snapshots of [first, second]) {
-          expect(
-            snapshots.map(({ activePredefinedStateId }) => activePredefinedStateId ?? null)
-          ).toEqual([null, 'equal']);
+          expect(snapshots.map(({ activePredefinedStateId }) => activePredefinedStateId)).toEqual([
+            Option.none(),
+            Option.some('equal'),
+          ]);
           expect(snapshots.map(({ subscriberCount }) => subscriberCount)).toEqual([0, 0]);
         }
       })

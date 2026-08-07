@@ -22,8 +22,8 @@ interface HasPredefinedStates<T extends AnyAtom> {
     readonly getStates: () => readonly PredefinedStateFor<T>[];
     readonly activate: (registry: AtomRegistry.AtomRegistry, state: PredefinedStateFor<T>) => void;
     readonly clear: (registry: AtomRegistry.AtomRegistry) => void;
-    readonly getActiveStateId: (registry: AtomRegistry.AtomRegistry) => string | undefined;
-    readonly readActiveStateId: (get: Atom.AtomContext) => string | undefined;
+    readonly getActiveStateId: (registry: AtomRegistry.AtomRegistry) => Option.Option<string>;
+    readonly readActiveStateId: (get: Atom.AtomContext) => Option.Option<string>;
     readonly refresh: (registry: AtomRegistry.AtomRegistry) => void;
   };
 }
@@ -92,15 +92,9 @@ function withPredefinedStates<A, T extends Atom.Atom<A>>(
       }));
     },
     getActiveStateId: (registry) =>
-      registry.get(activeStateAtom).activeState.pipe(
-        Option.map((state) => state.id),
-        Option.getOrUndefined
-      ),
+      registry.get(activeStateAtom).activeState.pipe(Option.map((state) => state.id)),
     readActiveStateId: (get) =>
-      get(activeStateAtom).activeState.pipe(
-        Option.map((state) => state.id),
-        Option.getOrUndefined
-      ),
+      get(activeStateAtom).activeState.pipe(Option.map((state) => state.id)),
     refresh: (registry) => {
       registry.update(activeStateAtom, (current) => ({
         activeState: current.activeState,

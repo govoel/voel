@@ -1,4 +1,16 @@
-import { Cause, Context, Effect, Inspectable, Layer, PubSub, Queue, Schema, Stream } from 'effect';
+import {
+  Cause,
+  Context,
+  Effect,
+  Equal,
+  Inspectable,
+  Layer,
+  Option,
+  PubSub,
+  Queue,
+  Schema,
+  Stream,
+} from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import {
@@ -49,7 +61,7 @@ class AtomSnapshot extends AtomSummary.extend<
       description: Schema.optional(Schema.String),
     })
   ),
-  activePredefinedStateId: Schema.optional(Schema.String),
+  activePredefinedStateId: Schema.Option(Schema.String),
 }) {}
 
 export class AtomNotFound extends Schema.TaggedErrorClass<
@@ -75,7 +87,7 @@ interface TrackedNode {
 
 interface NodeObservation {
   readonly value: unknown;
-  readonly activePredefinedStateId: string | undefined;
+  readonly activePredefinedStateId: Option.Option<string>;
 }
 
 export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTypeId, {
@@ -110,7 +122,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
         writable: Atom.isWritable(node.atom),
         hasActivePredefinedState:
           hasPredefinedStates(node.atom) &&
-          node.atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0,
+          Option.isSome(node.atom[PredefinedStatesTypeId].getActiveStateId(registry)),
       });
 
     const publishCatalogSnapshot = () => {
@@ -128,13 +140,13 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
             value: get(atom),
             activePredefinedStateId: hasPredefinedStates(atom)
               ? atom[PredefinedStatesTypeId].readActiveStateId(get)
-              : void 0,
+              : Option.none(),
           })
         ).pipe(
           Atom.withEquality<NodeObservation>(
             (current, next) =>
               atom.equals(current.value, next.value) &&
-              current.activePredefinedStateId === next.activePredefinedStateId
+              Equal.equals(current.activePredefinedStateId, next.activePredefinedStateId)
           )
         )
       );
@@ -262,7 +274,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
         predefinedStates: hasPredefinedStates(atom) ? atom[PredefinedStatesTypeId].getStates() : [],
         activePredefinedStateId: hasPredefinedStates(atom)
           ? atom[PredefinedStatesTypeId].getActiveStateId(registry)
-          : void 0,
+          : Option.none(),
       });
     };
 
@@ -330,7 +342,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
             const { atom } = node;
             if (
               hasPredefinedStates(atom) &&
-              atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0
+              Option.isSome(atom[PredefinedStatesTypeId].getActiveStateId(registry))
             ) {
               atom[PredefinedStatesTypeId].clear(registry);
             }
@@ -346,7 +358,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
         } = yield* getTrackedNode(targetId);
         if (
           hasPredefinedStates(atom) &&
-          atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0
+          Option.isSome(atom[PredefinedStatesTypeId].getActiveStateId(registry))
         ) {
           atom[PredefinedStatesTypeId].clear(registry);
           publishCatalogSnapshot();
@@ -360,7 +372,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
         } = yield* getTrackedNode(targetId);
         if (
           hasPredefinedStates(atom) &&
-          atom[PredefinedStatesTypeId].getActiveStateId(registry) !== void 0
+          Option.isSome(atom[PredefinedStatesTypeId].getActiveStateId(registry))
         ) {
           atom[PredefinedStatesTypeId].refresh(registry);
         } else {
