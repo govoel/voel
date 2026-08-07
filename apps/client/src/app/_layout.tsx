@@ -5,7 +5,6 @@ import { useColorScheme } from 'react-native';
 
 import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';
 import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
-import { AtomDevToolsIntegration } from '#src/components/atom-devtools/index.tsx';
 import { AppRegistry } from '#src/services/registry.ts';
 
 export const SuspenseFallback = () => (
@@ -40,8 +39,6 @@ export default function TabLayout() {
         <AppStack />
 
         <AccountsAutoPresenter />
-        {/* oxlint-disable-next-line eslint/no-undef */}
-        {__DEV__ ? <AtomDevToolsIntegration /> : null}
       </ThemeProvider>
     </RegistryContext.Provider>
   );

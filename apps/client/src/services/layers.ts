@@ -2,8 +2,6 @@ import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 
-import { AtomDevToolsPluginLayer } from '@repo/atom-devtools-plugin';
-
 import { AccountManager, UuidGenerator } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
 import { XxHash } from '#src/services/auth-client/index.ts';
@@ -23,5 +21,3 @@ export const CommonClientLayers = CommonGlobalLayers.pipe(
   ),
   Layer.orDie
 );
-
-export const AppLayers = CommonClientLayers.pipe(Layer.provideMerge(AtomDevToolsPluginLayer));

@@ -21,13 +21,3 @@ export type {
   PredefinedStateFor,
   PredefinedWritableState,
 } from '#src/state.ts';
-export { AtomCatalog, AtomDevToolsRpc } from '#src/rpc.ts';
-export type { AtomDevToolsRpcClient, AtomDevToolsRpcEventMap } from '#src/rpc.ts';
-export {
-  AtomDevToolsRpcHandlers,
-  layerAtomDevToolsRpcServer,
-  makeAtomDevToolsRpcHandlers,
-  makeAtomDevToolsRpcServerProtocol,
-  serveAtomDevToolsRpc,
-} from '#src/rpc-server.ts';
-export type { AtomDevToolsRpcServerTransport } from '#src/rpc-server.ts';
