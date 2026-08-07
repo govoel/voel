@@ -91,8 +91,17 @@ function withPredefinedStates<A, T extends Atom.Atom<A>>(
         activeState: Option.none(),
       }));
     },
+    // Registry nodes are keyed by their atom, so a node found with this key
+    // has the active state atom's value type.
     getActiveStateId: (registry) =>
-      registry.get(activeStateAtom).activeState.pipe(Option.map((state) => state.id)),
+      Option.fromNullishOr(
+        registry.getNodes().get(activeStateAtom) as
+          | AtomRegistry.Node<Atom.Type<typeof activeStateAtom>>
+          | undefined
+      ).pipe(
+        Option.flatMap((node) => node.value().activeState),
+        Option.map((state) => state.id)
+      ),
     readActiveStateId: (get) =>
       get(activeStateAtom).activeState.pipe(Option.map((state) => state.id)),
     refresh: (registry) => {

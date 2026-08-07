@@ -77,6 +77,20 @@ describe('makeWithPredefinedStates', () => {
     expect(registry.get(atom)).toBe(1);
   });
 
+  it('reads an inactive predefined state without creating its control node', () => {
+    const registry = AtomRegistry.make();
+    const atom = makeWithPredefinedStates({ enabled: true })(Atom.make(1), () => []);
+
+    expect(hasPredefinedStates(atom)).toBe(true);
+    if (!hasPredefinedStates(atom)) {
+      return;
+    }
+
+    expect(registry.getNodes().size).toBe(0);
+    expect(atom[PredefinedStatesTypeId].getActiveStateId(registry)).toEqual(Option.none());
+    expect(registry.getNodes().size).toBe(0);
+  });
+
   it('clears an active state when the decorated atom becomes inactive', () => {
     const scheduled = new Set<() => void>();
     const registry = AtomRegistry.make({
