@@ -2,8 +2,12 @@ import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
-import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
+import {
+  activeAccountAtom,
+  activeAccountSessionAtom,
+  activeAuthClientLayer,
+} from '#src/services/accounts/atoms.ts';
+import { AuthClient } from '#src/services/auth-client/service.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -51,8 +55,11 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
 );
 
 const updateCurrentUserAtom = AppRuntime.fn(
-  (input: Parameters<typeof CurrentAuthClient.Service.updateUser>[0]) =>
-    CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.updateUser(input)))
+  (input: Parameters<typeof AuthClient.Service.updateUser>[0], get) =>
+    AuthClient.pipe(
+      Effect.flatMap((authClient) => authClient.updateUser(input)),
+      Effect.provide(activeAuthClientLayer(get.result(activeAccountAtom)))
+    )
 );
 
 export const useUserProfileForm = ({
@@ -70,7 +77,7 @@ export const useUserProfileForm = ({
       Match.value(error).pipe(
         Match.tagsExhaustive({
           NoCurrentAuthClientError: () => 'No active user is available.',
-          CurrentAuthClientRequestError: (requestError) =>
+          AuthClientRequestError: (requestError) =>
             requestError.details.message ?? 'Unable to update the profile. Try again.',
         })
       ),

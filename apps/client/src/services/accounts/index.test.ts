@@ -2,8 +2,13 @@ import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
-import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current.ts';
 import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import {
+  AuthClient,
+  AuthClientMap,
+  NoCurrentAuthClientError,
+  authClientKey,
+} from '#src/services/auth-client/service.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -51,8 +56,11 @@ describe('AccountManager', () => {
     'rejects current-auth-client operations without an active account',
     Effect.fnUntraced(
       function* () {
-        const currentAuthClient = yield* CurrentAuthClient;
-        const error = yield* currentAuthClient.getCookie.pipe(Effect.flip);
+        const error = yield* AuthClient.pipe(
+          Effect.flatMap((authClient) => authClient.getCookie),
+          Effect.provide(AuthClient.layer(Effect.fail(new NoCurrentAuthClientError()))),
+          Effect.flip
+        );
 
         expect(error).toEqual(new NoCurrentAuthClientError());
       },
@@ -235,7 +243,6 @@ describe('AccountManager', () => {
           const updatedUsername = yield* makeUsername('updated.admin');
           const profilePicture = 'https://voel.app/profile.png';
           const manager = yield* AccountManager;
-          const currentAuthClient = yield* CurrentAuthClient;
 
           yield* manager.setupServerWithAccount({
             serverUrl,
@@ -247,10 +254,15 @@ describe('AccountManager', () => {
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          yield* currentAuthClient.updateUser({
-            username: updatedUsername,
-            image: profilePicture,
-          });
+          yield* AuthClient.pipe(
+            Effect.flatMap((authClient) =>
+              authClient.updateUser({
+                username: updatedUsername,
+                image: profilePicture,
+              })
+            ),
+            Effect.provide(AuthClientMap.get(authClientKey(activeAccount.account)))
+          );
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
@@ -312,7 +324,6 @@ describe('AccountManager', () => {
           const username = yield* makeUsername('test.admin');
           const updatedUsername = yield* makeUsername('updated.admin');
           const manager = yield* AccountManager;
-          const currentAuthClient = yield* CurrentAuthClient;
 
           yield* manager.setupServerWithAccount({
             serverUrl,
@@ -323,10 +334,16 @@ describe('AccountManager', () => {
           });
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          yield* currentAuthClient.updateUser({
-            name: 'Updated Admin',
-            username: updatedUsername,
-          });
+          const activeAccount = Option.getOrThrow(yield* manager.state);
+          yield* AuthClient.pipe(
+            Effect.flatMap((authClient) =>
+              authClient.updateUser({
+                name: 'Updated Admin',
+                username: updatedUsername,
+              })
+            ),
+            Effect.provide(AuthClientMap.get(authClientKey(activeAccount.account)))
+          );
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState);

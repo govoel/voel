@@ -1,6 +1,7 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 
-import { CurrentAuthClient } from '#src/services/auth-client/current';
+import { activeAccountAtom, activeAuthClientLayer } from '#src/services/accounts/atoms.ts';
+import { AuthClient } from '#src/services/auth-client/service.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
@@ -15,14 +16,14 @@ export class ServerUser extends Schema.Class<ServerUser, { readonly brand: uniqu
   public static readonly decodeUnknownArrayEffect = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
-export const listUsersAtom = AppRuntime.pull(
-  Effect.fnUntraced(
-    function* () {
-      const currentAuthClient = yield* CurrentAuthClient;
+export const listUsersAtom = AppRuntime.pull((get) =>
+  Stream.unwrap(
+    Effect.gen(function* () {
+      const authClient = yield* AuthClient;
       return Stream.paginate(
         0,
         Effect.fnUntraced(function* (offset) {
-          const data = yield* currentAuthClient.admin.listUsers({
+          const data = yield* authClient.admin.listUsers({
             query: {
               limit: 10,
               offset,
@@ -36,7 +37,6 @@ export const listUsersAtom = AppRuntime.pull(
           return [users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
         })
       );
-    },
-    (effect) => Stream.unwrap(effect)
-  )
+    })
+  ).pipe(Stream.provide(activeAuthClientLayer(get.result(activeAccountAtom))))
 ).pipe(swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }));
