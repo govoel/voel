@@ -180,7 +180,7 @@ describe('AtomDevTools', () => {
     const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('normal').pipe(Atom.withLabel('Scenario'), Atom.keepAlive),
-      () => [{ id: 'empty', label: 'Empty', source: Atom.make('empty') }]
+      () => [{ id: 'empty', label: 'Empty', atom: Atom.make('empty') }]
     );
     registry.get(atom);
 
@@ -257,7 +257,7 @@ describe('AtomDevTools', () => {
     const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('same').pipe(Atom.withLabel('Equal state'), Atom.keepAlive),
-      () => [{ id: 'equal', label: 'Equal', source: Atom.make('same') }]
+      () => [{ id: 'equal', label: 'Equal', atom: Atom.make('same') }]
     );
     registry.get(atom);
 
@@ -300,7 +300,7 @@ describe('AtomDevTools', () => {
     const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('same').pipe(Atom.withLabel('Shared watch'), Atom.keepAlive),
-      () => [{ id: 'equal', label: 'Equal', source: Atom.make('same') }]
+      () => [{ id: 'equal', label: 'Equal', atom: Atom.make('same') }]
     );
     registry.get(atom);
 

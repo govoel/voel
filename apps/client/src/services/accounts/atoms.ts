@@ -17,17 +17,17 @@ export const accountsAtom = AppRuntime.atom(
     {
       id: 'loading',
       label: 'Loading',
-      source: Atom.make(() => AsyncResult.initial(true)),
+      atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
       id: 'empty',
       label: 'No accounts',
-      source: Atom.make(() => AsyncResult.success([])),
+      atom: Atom.make(() => AsyncResult.success([])),
     },
     {
       id: 'account-available',
       label: 'Account available',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.success([
           {
             active: Account.fields.active.make(0),
@@ -46,7 +46,7 @@ export const accountsAtom = AppRuntime.atom(
     {
       id: 'failure',
       label: 'Database failure',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts database failure')))
       ),
     },
@@ -65,17 +65,17 @@ export const activeAccountAtom = AppRuntime.atom(
     {
       id: 'loading',
       label: 'Loading',
-      source: Atom.make(() => AsyncResult.initial(true)),
+      atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
       id: 'none',
       label: 'No active account',
-      source: Atom.make(() => AsyncResult.success(Option.none())),
+      atom: Atom.make(() => AsyncResult.success(Option.none())),
     },
     {
       id: 'failure',
       label: 'Account manager failure',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.failure<never>(Cause.die(new Error('Predefined active account failure')))
       ),
     },
@@ -122,17 +122,17 @@ export const activeAccountSessionAtom = AppRuntime.atom((get) => {
     {
       id: 'loading',
       label: 'Loading',
-      source: Atom.make(() => AsyncResult.initial(true)),
+      atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
       id: 'none',
       label: 'No active account',
-      source: Atom.make(() => AsyncResult.success(Option.none())),
+      atom: Atom.make(() => AsyncResult.success(Option.none())),
     },
     {
       id: 'failure',
       label: 'Session failure',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.failure<never>(
           Cause.die(new Error('Predefined active account session failure'))
         )

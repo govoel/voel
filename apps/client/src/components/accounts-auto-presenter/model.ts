@@ -39,26 +39,26 @@ export const accountsSheetAtom = AppRuntime.atom(
     {
       id: 'idle',
       label: 'Idle',
-      source: Atom.make(() => AsyncResult.success({ mode: 'IDLE', dismissable: true } as const)),
+      atom: Atom.make(() => AsyncResult.success({ mode: 'IDLE', dismissable: true } as const)),
     },
     {
       id: 'onboarding',
       label: 'Onboarding',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.success({ mode: 'ONBOARDING', dismissable: false } as const)
       ),
     },
     {
       id: 'must-pick-account',
       label: 'Must pick an account',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.success({ mode: 'MUST_PICK_ACCOUNT', dismissable: false } as const)
       ),
     },
     {
       id: 'invalid-session',
       label: 'Invalid session',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.success({ mode: 'INVALID_SESSION', dismissable: true } as const)
       ),
     },

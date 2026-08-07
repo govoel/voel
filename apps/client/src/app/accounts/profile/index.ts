@@ -53,17 +53,17 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
     {
       id: 'loading',
       label: 'Loading',
-      source: Atom.make(() => AsyncResult.initial(true)),
+      atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
       id: 'no-active-user',
       label: 'No active user',
-      source: Atom.make(() => AsyncResult.success(Option.none())),
+      atom: Atom.make(() => AsyncResult.success(Option.none())),
     },
     {
       id: 'loaded',
       label: 'Loaded profile',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.success(
           Option.some({
             email: 'reader@example.com',
@@ -78,7 +78,7 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
     {
       id: 'unavailable',
       label: 'Unavailable profile',
-      source: Atom.make(() => AsyncResult.fail('ActiveUserProfileUnavailable' as const)),
+      atom: Atom.make(() => AsyncResult.fail('ActiveUserProfileUnavailable' as const)),
     },
   ]),
   Atom.withLabel('activeUserProfileAtom')

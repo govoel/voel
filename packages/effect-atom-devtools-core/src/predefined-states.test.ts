@@ -30,7 +30,7 @@ describe('makeWithPredefinedStates', () => {
     const alternate = Atom.make(2);
     const atom = Atom.make(1).pipe(
       makeWithPredefinedStates({ enabled: true })(() => [
-        { id: 'alternate', label: 'Alternate', source: alternate },
+        { id: 'alternate', label: 'Alternate', atom: alternate },
       ])
     );
     const writable: Atom.Writable<number, number> = atom;
@@ -46,7 +46,7 @@ describe('makeWithPredefinedStates', () => {
     let evaluations = 0;
     const atom = makeWithPredefinedStates({ enabled: true })(original, () => {
       evaluations += 1;
-      return [{ id: 'alternate', label: 'Alternate', source: alternate }];
+      return [{ id: 'alternate', label: 'Alternate', atom: alternate }];
     });
 
     expect(Atom.isWritable(atom)).toBe(true);
@@ -102,7 +102,7 @@ describe('makeWithPredefinedStates', () => {
       },
     });
     const atom = makeWithPredefinedStates({ enabled: true })(Atom.make('normal'), () => [
-      { id: 'alternate', label: 'Alternate', source: Atom.make('alternate') },
+      { id: 'alternate', label: 'Alternate', atom: Atom.make('alternate') },
     ]);
 
     expect(registry.get(atom)).toBe('normal');
@@ -127,19 +127,19 @@ describe('makeWithPredefinedStates', () => {
     registry.dispose();
   });
 
-  it.effect('finalizes an active source before starting the next source', () =>
+  it.effect('finalizes an active state atom before starting the next state atom', () =>
     Effect.gen(function* () {
       const registry = AtomRegistry.make();
       const finalized: string[] = [];
-      const source = (name: string) =>
+      const makeStateAtom = (name: string) =>
         Atom.make(
           Effect.acquireRelease(Effect.succeed(name), () => Effect.sync(() => finalized.push(name)))
         );
       const atom = makeWithPredefinedStates({ enabled: true })(
         Atom.make(Effect.succeed('original')),
         () => [
-          { id: 'one', label: 'One', source: source('one') },
-          { id: 'two', label: 'Two', source: source('two') },
+          { id: 'one', label: 'One', atom: makeStateAtom('one') },
+          { id: 'two', label: 'Two', atom: makeStateAtom('two') },
         ]
       );
 
@@ -179,7 +179,7 @@ describe('internal atoms', () => {
   });
 });
 
-// Compile-time checks for writable source compatibility.
+// Compile-time checks for predefined-state atom compatibility.
 const withPredefinedStates = makeWithPredefinedStates({ enabled: true });
 const writableNumber = Atom.make(1);
 const writableWithStringInput = Atom.writable(
@@ -191,13 +191,13 @@ const writableWithStringInput = Atom.writable(
 );
 const readOnlyNumber = Atom.make(() => 1);
 
-withPredefinedStates(writableNumber, () => [{ id: 'valid', label: 'Valid', source: Atom.make(2) }]);
-withPredefinedStates(readOnlyNumber, () => [{ id: 'valid', label: 'Valid', source: Atom.make(2) }]);
+withPredefinedStates(writableNumber, () => [{ id: 'valid', label: 'Valid', atom: Atom.make(2) }]);
+withPredefinedStates(readOnlyNumber, () => [{ id: 'valid', label: 'Valid', atom: Atom.make(2) }]);
 withPredefinedStates(writableWithStringInput, () => [
   {
     id: 'valid',
     label: 'Valid',
-    source: Atom.writable(
+    atom: Atom.writable(
       () => 2,
       (_context, _value: string) => {
         void _context;
@@ -211,7 +211,7 @@ const decoratedWritable = withPredefinedStates(writableWithStringInput, () => [
   {
     id: 'valid',
     label: 'Valid',
-    source: Atom.writable(
+    atom: Atom.writable(
       () => 2,
       (_context, _value: string) => {
         void _context;
@@ -226,18 +226,18 @@ if (!hasPredefinedStates(decoratedWritable)) {
 const state = Option.getOrThrow(
   Option.fromNullishOr(decoratedWritable[PredefinedStatesTypeId].getStates()[0])
 );
-const source: Atom.Writable<number, string> = state.source;
-void source;
+const stateAtom: Atom.Writable<number, string> = state.atom;
+void stateAtom;
 
 withPredefinedStates(writableNumber, () => [
-  // @ts-expect-error A writable decorated atom requires a writable source.
-  { id: 'invalid', label: 'Invalid', source: readOnlyNumber },
+  // @ts-expect-error A writable decorated atom requires a writable state atom.
+  { id: 'invalid', label: 'Invalid', atom: readOnlyNumber },
 ]);
 withPredefinedStates(readOnlyNumber, () => [
-  // @ts-expect-error A source must have a compatible read type.
-  { id: 'invalid', label: 'Invalid', source: Atom.make('wrong') },
+  // @ts-expect-error A state atom must have a compatible read type.
+  { id: 'invalid', label: 'Invalid', atom: Atom.make('wrong') },
 ]);
 withPredefinedStates(writableWithStringInput, () => [
-  // @ts-expect-error A writable source must accept the decorated atom's write input.
-  { id: 'invalid', label: 'Invalid', source: Atom.make(2) },
+  // @ts-expect-error A writable state atom must accept the decorated atom's write input.
+  { id: 'invalid', label: 'Invalid', atom: Atom.make(2) },
 ]);

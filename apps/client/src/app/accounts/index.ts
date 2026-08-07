@@ -66,17 +66,17 @@ export const accountsWithActiveAccount = AppRuntime.atom(
     {
       id: 'loading',
       label: 'Loading',
-      source: Atom.make(() => AsyncResult.initial(true)),
+      atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
       id: 'empty',
       label: 'No accounts',
-      source: Atom.make(() => AsyncResult.success({ accounts: [], activeAccount: Option.none() })),
+      atom: Atom.make(() => AsyncResult.success({ accounts: [], activeAccount: Option.none() })),
     },
     {
       id: 'failure',
       label: 'Failed to load accounts',
-      source: Atom.make(() =>
+      atom: Atom.make(() =>
         AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts screen failure')))
       ),
     },

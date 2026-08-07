@@ -13,7 +13,7 @@ interface PredefinedStateFor<T extends AnyAtom> {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
-  readonly source: Atom.Atom<NoInfer<Atom.Type<T>>> &
+  readonly atom: Atom.Atom<NoInfer<Atom.Type<T>>> &
     (T extends Atom.Writable<infer R, infer W> ? Atom.Writable<NoInfer<R>, NoInfer<W>> : unknown);
 }
 
@@ -74,7 +74,7 @@ function withPredefinedStates<A, T extends Atom.Atom<A>>(
   const read = (get: Atom.AtomContext): A => {
     const { activeState } = get(activeStateAtom);
     if (Option.isSome(activeState)) {
-      return activeState.value.source.read(get);
+      return activeState.value.atom.read(get);
     }
     return atom.read(get);
   };
@@ -121,11 +121,11 @@ function withPredefinedStates<A, T extends Atom.Atom<A>>(
   const write = (ctx: Atom.WriteContext<A>, value: unknown): void => {
     const { activeState } = ctx.get(activeStateAtom);
     if (Option.isSome(activeState)) {
-      if (Atom.isWritable(activeState.value.source)) {
-        activeState.value.source.write(ctx, value);
+      if (Atom.isWritable(activeState.value.atom)) {
+        activeState.value.atom.write(ctx, value);
         return;
       }
-      throw new Error('Predefined state source is not writable');
+      throw new Error('Predefined state atom is not writable');
     }
     atom.write(ctx, value);
   };

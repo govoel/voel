@@ -51,7 +51,7 @@ export const listUsersAtom = AppRuntime.pull(
       {
         id: 'loading',
         label: 'Loading',
-        source: Atom.writable(
+        atom: Atom.writable(
           (): Atom.PullResult<ServerUser> => AsyncResult.initial(true),
           () => void 0
         ),
@@ -60,7 +60,7 @@ export const listUsersAtom = AppRuntime.pull(
         id: 'paginated',
         label: 'Page available',
         description: 'Starts with one user and adds another when more users are requested.',
-        source: Atom.writable(
+        atom: Atom.writable(
           (): Atom.PullResult<ServerUser> => AsyncResult.success({ items: [alex], done: false }),
           (context) => {
             context.setSelf(AsyncResult.success({ items: [alex, sam], done: true }));
@@ -70,7 +70,7 @@ export const listUsersAtom = AppRuntime.pull(
       {
         id: 'loaded',
         label: 'All users loaded',
-        source: Atom.writable(
+        atom: Atom.writable(
           (): Atom.PullResult<ServerUser> =>
             AsyncResult.success({ items: [alex, sam], done: true }),
           () => void 0
@@ -79,7 +79,7 @@ export const listUsersAtom = AppRuntime.pull(
       {
         id: 'failure',
         label: 'No active account error',
-        source: Atom.writable(
+        atom: Atom.writable(
           (): Atom.PullResult<ServerUser, NoCurrentAuthClientError> =>
             AsyncResult.fail(new NoCurrentAuthClientError()),
           () => void 0
