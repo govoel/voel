@@ -22,7 +22,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.6.23",
-        "@effect/atom-react": "4.0.0-beta.102",
+        "@effect/atom-react": "4.0.0-beta.103",
         "@expo-google-fonts/google-sans": "0.4.2",
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~57.0.7",
@@ -32,7 +32,7 @@
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.2",
         "better-auth": "1.6.23",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.103",
         "expo": "~57.0.8",
         "expo-build-properties": "~57.0.7",
         "expo-constants": "~57.0.7",
@@ -58,8 +58,8 @@
       },
       "devDependencies": {
         "@effect/language-service": "0.87.1",
-        "@effect/platform-bun": "4.0.0-beta.102",
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/platform-bun": "4.0.0-beta.103",
+        "@effect/vitest": "4.0.0-beta.103",
         "@repo/tsconfig": "workspace:*",
         "@srsholmes/vitest-react-native": "0.1.5",
         "@testing-library/react-native": "14.0.1",
@@ -75,16 +75,16 @@
       "name": "@repo/server",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/platform-bun": "4.0.0-beta.102",
+        "@effect/platform-bun": "4.0.0-beta.103",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-kysely": "workspace:*",
         "@repo/source-tap": "workspace:*",
         "@repo/spec-api": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.103",
       },
       "devDependencies": {
         "@effect/language-service": "0.87.1",
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.103",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.3.14",
         "portless": "0.15.4",
@@ -99,7 +99,7 @@
         "@better-auth/expo": "1.6.23",
         "@repo/effect-kysely": "workspace:*",
         "better-auth": "1.6.23",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.103",
       },
       "devDependencies": {
         "@effect/language-service": "0.87.1",
@@ -112,7 +112,7 @@
       "name": "@repo/effect-kysely",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.103",
         "kysely": "0.29.4",
       },
       "devDependencies": {
@@ -127,11 +127,11 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/effect-kysely": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.103",
       },
       "devDependencies": {
         "@effect/language-service": "0.87.1",
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.103",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.3.14",
         "typescript": "6.0.3",
@@ -144,7 +144,7 @@
       "dependencies": {
         "@repo/auth-api": "workspace:*",
         "@repo/effect-kysely": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.103",
       },
       "devDependencies": {
         "@effect/language-service": "0.87.1",
@@ -365,15 +365,15 @@
 
     "@changesets/write": ["@changesets/write@0.4.0", "", { "dependencies": { "@changesets/types": "^6.1.0", "fs-extra": "^7.0.1", "human-id": "^4.1.1", "prettier": "^2.7.1" } }, "sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.102", "", { "peerDependencies": { "effect": "^4.0.0-beta.102", "react": "^19.2.4", "scheduler": "*" } }, "sha512-6SX11h7OFwje4YhxYUml9qGjBU8hvnEMrLWe3TKI3lEH/W6tkU/BzajC263eXkxM68h+BJNzE81Ipi5DTfEgug=="],
+    "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.103", "", { "peerDependencies": { "effect": "^4.0.0-beta.103", "react": "^19.2.4", "scheduler": "*" } }, "sha512-1HJ+Cyq4ssLnH2UZ8OVnhtMGAySabtzZo7imKC+vEfxOW3lvJYpGZeicxQX5Ii/7AdvlR+19p/6K2a5IPKYAow=="],
 
     "@effect/language-service": ["@effect/language-service@0.87.1", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-kcljlJmEgqg5mFAM6UShJYJjMqJb3TbHHxrK8Qoubvwugc0aVWpRkbdgQvK5b17puOt3BKXXKOmcV+oQt0oQqQ=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.102", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.102" }, "peerDependencies": { "effect": "^4.0.0-beta.102" } }, "sha512-hTIb0jjTfXhNgnDq2OX5wrigc0OSvTT0VWWb1PLpMM395RJPu8rCIbTlGhy0NS7kZOd8FfgNi9e0sDhgyu+5Ag=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.103", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.103" }, "peerDependencies": { "effect": "^4.0.0-beta.103" } }, "sha512-/ay1/lhE9FUKEiDRQs56463eJ9u9ivtUtOCi2eeqI8Aooau7PupKNtV5zKjoRBCLInZMAX7JezT46NW5AdACBQ=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.102", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.0" }, "peerDependencies": { "effect": "^4.0.0-beta.102" } }, "sha512-gVd793I72MrkX4dXo7eYtRKfNj0RW4eMRfVEKEJI16h2+mBDCzQ+gqMrog2hSTHQnaIbvbYShNQ4TVGuRCYZeQ=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.104", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.0" }, "peerDependencies": { "effect": "^4.0.0-beta.104" } }, "sha512-wZQWlreuCfR+Ip6E93h2Wo56lFdBTflzSErFKxvrAW06/ORa7yZMD4oq4Ow5aU5+AlQgomQSEeBKM7uao4ZewQ=="],
 
-    "@effect/vitest": ["@effect/vitest@4.0.0-beta.102", "", { "peerDependencies": { "effect": "^4.0.0-beta.102", "vitest": "^3.0.0 || ^4.0.0" } }, "sha512-4dipFAYG6imOzrY3zy3BgzCJkbb9xESyzUef0WSx8bsK0/SpITqbJpdwKeOyDWLZ+rimjua8IbTFMAde865pIQ=="],
+    "@effect/vitest": ["@effect/vitest@4.0.0-beta.103", "", { "peerDependencies": { "effect": "^4.0.0-beta.103", "vitest": "^4.1.0" } }, "sha512-Kz3gemVuJNAZ3e4V6A7BwAP87x2Av8LyHOlCjy9jbZzlncwJXO7Olk1Sje3hdKaet3wEl51A/0/89xJ2IYSgNg=="],
 
     "@emnapi/core": ["@emnapi/core@1.11.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.2", "tslib": "^2.4.0" } }, "sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ=="],
 
@@ -1071,7 +1071,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.0-beta.102", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "find-my-way-ts": "^0.1.6", "ini": "^7.0.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "multipasta": "^0.2.8", "toml": "^4.1.2", "uuid": "^14.0.1", "yaml": "^2.9.0" } }, "sha512-z8Y+Q76Hh/kjLFZrXu8tGn6e+tDsg45R+UHhxd190pXxD53OGwf/G/zDxXTkse4HJ5mobNZfitLfUCp4fMvu6w=="],
+    "effect": ["effect@4.0.0-beta.103", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "find-my-way-ts": "^0.1.6", "ini": "^7.0.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "multipasta": "^0.2.8", "toml": "^4.1.2", "uuid": "^14.0.1", "yaml": "^2.9.0" } }, "sha512-pE8TxF4m2tQzVI+77dIlm3s+81TACV1AiX1JEkvY+zVuxgQQ8aGSkqXNJF6b/ST+coCSk5cUdbULpQ7sm4oHyw=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.397", "", {}, "sha512-khGTy9U9x02KEtsKM8vx5A62BsRmcOsIgDpWr1ImE32Ax8GxHGPHZf+Eu9H8zOOyHJnB0jTbseyTHbq2XCT8yw=="],
 
