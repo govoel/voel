@@ -128,40 +128,175 @@ export default function AccountsScreen() {
           ),
         ]}
         verticalArrangement={{ spacedBy: Spacing.four }}>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h3">Switch Account</Text>
-
-          {AsyncResult.matchWithError(accounts, {
-            onInitial: () => (
+        {AsyncResult.matchWithError(accounts, {
+          onInitial: () => (
+            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+              <Text variant="h3">Switch Account</Text>
               <Row horizontalAlignment="center">
                 <LoadingIndicator modifiers={[fillMaxWidth()]} />
               </Row>
-            ),
-            onSuccess: (result) => (
-              <SegmentedList>
-                {result.value.accounts.length === 0 ? (
-                  <SegmentedListItem index={0} count={1} enabled={false}>
-                    <SegmentedListItem.HeadlineContent>
-                      <Text color={colors.onSurfaceVariant}>No accounts</Text>
-                    </SegmentedListItem.HeadlineContent>
-                  </SegmentedListItem>
-                ) : (
-                  <SegmentedListItem
-                    index={0}
-                    count={1}
-                    onClick={() => {
-                      setIsSwitchAccountPresented(true);
-                    }}>
-                    {Option.match(result.value.activeAccount, {
-                      onNone: () => (
-                        <SegmentedListItem.HeadlineContent>
-                          <Text>Pick an account</Text>
-                        </SegmentedListItem.HeadlineContent>
-                      ),
-                      onSome: ({ account }) => (
-                        <>
+            </Column>
+          ),
+          onSuccess: ({ value: { accounts: accountList, activeAccount } }) => (
+            <>
+              <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+                <Text variant="h3">Switch Account</Text>
+
+                <SegmentedList>
+                  {accountList.length === 0 ? (
+                    <SegmentedListItem index={0} count={1} enabled={false}>
+                      <SegmentedListItem.HeadlineContent>
+                        <Text color={colors.onSurfaceVariant}>No accounts</Text>
+                      </SegmentedListItem.HeadlineContent>
+                    </SegmentedListItem>
+                  ) : (
+                    <SegmentedListItem
+                      index={0}
+                      count={1}
+                      onClick={() => {
+                        setIsSwitchAccountPresented(true);
+                      }}>
+                      {Option.match(activeAccount, {
+                        onNone: () => (
+                          <SegmentedListItem.HeadlineContent>
+                            <Text>Pick an account</Text>
+                          </SegmentedListItem.HeadlineContent>
+                        ),
+                        onSome: ({ account }) => (
+                          <>
+                            <SegmentedListItem.LeadingContent>
+                              <Icon source={AccountCircle} size={32} />
+                            </SegmentedListItem.LeadingContent>
+                            <SegmentedListItem.HeadlineContent>
+                              <Text>@{account.username}</Text>
+                            </SegmentedListItem.HeadlineContent>
+                            <SegmentedListItem.SupportingContent>
+                              <Text variant="caption" color={colors.onSurfaceVariant}>
+                                {account.serverUrl.toString()}
+                              </Text>
+                            </SegmentedListItem.SupportingContent>
+                          </>
+                        ),
+                      })}
+                      <SegmentedListItem.TrailingContent>
+                        <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
+                      </SegmentedListItem.TrailingContent>
+                    </SegmentedListItem>
+                  )}
+                </SegmentedList>
+              </Column>
+
+              {Option.match(activeAccount, {
+                onNone: () => null,
+                onSome: ({ account }) => (
+                  <>
+                    <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+                      <Column verticalArrangement={{ spacedBy: 0 }}>
+                        <Text variant="h4">Your Account</Text>
+                        <Text variant="caption" color={colors.onSurfaceVariant}>
+                          @{account.username}
+                        </Text>
+                      </Column>
+                      <SegmentedList>
+                        <StackNavigationRow
+                          index={0}
+                          count={3}
+                          title="Profile"
+                          href="/accounts/profile"
+                        />
+                        <StackNavigationRow
+                          index={1}
+                          count={3}
+                          title="Settings"
+                          href="/accounts/settings"
+                        />
+                        <SegmentedListItem
+                          index={2}
+                          count={3}
+                          onClick={() => {
+                            setIsRemoveAccountFormPresented(true);
+                          }}>
+                          <SegmentedListItem.HeadlineContent>
+                            <Text color={colors.error}>Remove account from this device</Text>
+                          </SegmentedListItem.HeadlineContent>
+                        </SegmentedListItem>
+                      </SegmentedList>
+                    </Column>
+
+                    <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+                      <Column verticalArrangement={{ spacedBy: 0 }}>
+                        <Text variant="h4">Manage Server</Text>
+                        <Text variant="caption" color={colors.onSurfaceVariant}>
+                          {account.hostname}
+                        </Text>
+                      </Column>
+                      <SegmentedList>
+                        <StackNavigationRow
+                          index={0}
+                          count={3}
+                          title="Settings"
+                          href="/accounts/server/settings"
+                        />
+                        <StackNavigationRow
+                          index={1}
+                          count={3}
+                          title="Libraries"
+                          href="/accounts/server/libraries"
+                        />
+                        <StackNavigationRow
+                          index={2}
+                          count={3}
+                          title="Users"
+                          href="/accounts/server/users"
+                        />
+                      </SegmentedList>
+                    </Column>
+
+                    {isRemoveAccountFormPresented ? (
+                      <RemoveAccountForm
+                        account={account}
+                        onDismiss={() => {
+                          setIsRemoveAccountFormPresented(false);
+                        }}
+                      />
+                    ) : null}
+                  </>
+                ),
+              })}
+
+              {isSwitchAccountPresented ? (
+                <ModalBottomSheet
+                  ref={switchAccountSheetRef}
+                  skipPartiallyExpanded
+                  onDismissRequest={() => {
+                    setIsSwitchAccountPresented(false);
+                  }}>
+                  <Column
+                    modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
+                    verticalArrangement={{ spacedBy: Spacing.two }}>
+                    <Text variant="h3">Pick an Account</Text>
+                    <SegmentedList>
+                      {accountList.map((account, index) => (
+                        <SegmentedListItem
+                          key={`${account.serverUrl.toString()}-${account.userId}`}
+                          index={index}
+                          count={accountList.length}
+                          selected={account.active === activeAccountLiteral}
+                          enabled={!AsyncResult.isWaiting(setActiveAccount)}
+                          onClick={() => {
+                            void setActiveAccountAndDismiss({
+                              input: {
+                                serverUrl: account.serverUrl,
+                                userId: account.userId,
+                                authClient: Option.none(),
+                              },
+                              onSuccess: async () => {
+                                await switchAccountSheetRef.current?.hide();
+                              },
+                            });
+                          }}>
                           <SegmentedListItem.LeadingContent>
-                            <Icon source={AccountCircle} size={32} />
+                            <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
                           </SegmentedListItem.LeadingContent>
                           <SegmentedListItem.HeadlineContent>
                             <Text>@{account.username}</Text>
@@ -171,139 +306,27 @@ export default function AccountsScreen() {
                               {account.serverUrl.toString()}
                             </Text>
                           </SegmentedListItem.SupportingContent>
-                        </>
-                      ),
-                    })}
-                    <SegmentedListItem.TrailingContent>
-                      <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
-                    </SegmentedListItem.TrailingContent>
-                  </SegmentedListItem>
-                )}
-              </SegmentedList>
-            ),
-            onError: () => <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>,
-            onDefect: () => <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>,
-          })}
-        </Column>
-
-        {AsyncResult.isSuccess(accounts) && Option.isSome(accounts.value.activeAccount) ? (
-          <>
+                        </SegmentedListItem>
+                      ))}
+                    </SegmentedList>
+                  </Column>
+                </ModalBottomSheet>
+              ) : null}
+            </>
+          ),
+          onError: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Column verticalArrangement={{ spacedBy: 0 }}>
-                <Text variant="h4">Your Account</Text>
-                <Text variant="caption" color={colors.onSurfaceVariant}>
-                  @{accounts.value.activeAccount.value.account.username}
-                </Text>
-              </Column>
-              <SegmentedList>
-                <StackNavigationRow index={0} count={3} title="Profile" href="/accounts/profile" />
-                <StackNavigationRow
-                  index={1}
-                  count={3}
-                  title="Settings"
-                  href="/accounts/settings"
-                />
-                <SegmentedListItem
-                  index={2}
-                  count={3}
-                  onClick={() => {
-                    setIsRemoveAccountFormPresented(true);
-                  }}>
-                  <SegmentedListItem.HeadlineContent>
-                    <Text color={colors.error}>Remove account from this device</Text>
-                  </SegmentedListItem.HeadlineContent>
-                </SegmentedListItem>
-              </SegmentedList>
+              <Text variant="h3">Switch Account</Text>
+              <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>
             </Column>
-
+          ),
+          onDefect: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Column verticalArrangement={{ spacedBy: 0 }}>
-                <Text variant="h4">Manage Server</Text>
-                <Text variant="caption" color={colors.onSurfaceVariant}>
-                  {accounts.value.activeAccount.value.account.hostname}
-                </Text>
-              </Column>
-              <SegmentedList>
-                <StackNavigationRow
-                  index={0}
-                  count={3}
-                  title="Settings"
-                  href="/accounts/server/settings"
-                />
-                <StackNavigationRow
-                  index={1}
-                  count={3}
-                  title="Libraries"
-                  href="/accounts/server/libraries"
-                />
-                <StackNavigationRow
-                  index={2}
-                  count={3}
-                  title="Users"
-                  href="/accounts/server/users"
-                />
-              </SegmentedList>
+              <Text variant="h3">Switch Account</Text>
+              <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>
             </Column>
-
-            {isRemoveAccountFormPresented ? (
-              <RemoveAccountForm
-                account={accounts.value.activeAccount.value.account}
-                onDismiss={() => {
-                  setIsRemoveAccountFormPresented(false);
-                }}
-              />
-            ) : null}
-          </>
-        ) : null}
-
-        {AsyncResult.isSuccess(accounts) && isSwitchAccountPresented ? (
-          <ModalBottomSheet
-            ref={switchAccountSheetRef}
-            skipPartiallyExpanded
-            onDismissRequest={() => {
-              setIsSwitchAccountPresented(false);
-            }}>
-            <Column
-              modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
-              verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h3">Pick an Account</Text>
-              <SegmentedList>
-                {accounts.value.accounts.map((account, index) => (
-                  <SegmentedListItem
-                    key={`${account.serverUrl.toString()}-${account.userId}`}
-                    index={index}
-                    count={accounts.value.accounts.length}
-                    selected={account.active === activeAccountLiteral}
-                    enabled={!AsyncResult.isWaiting(setActiveAccount)}
-                    onClick={() => {
-                      void setActiveAccountAndDismiss({
-                        input: {
-                          serverUrl: account.serverUrl,
-                          userId: account.userId,
-                          authClient: Option.none(),
-                        },
-                        onSuccess: async () => {
-                          await switchAccountSheetRef.current?.hide();
-                        },
-                      });
-                    }}>
-                    <SegmentedListItem.LeadingContent>
-                      <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
-                    </SegmentedListItem.LeadingContent>
-                    <SegmentedListItem.HeadlineContent>
-                      <Text>@{account.username}</Text>
-                    </SegmentedListItem.HeadlineContent>
-                    <SegmentedListItem.SupportingContent>
-                      <Text variant="caption" color={colors.onSurfaceVariant}>
-                        {account.serverUrl.toString()}
-                      </Text>
-                    </SegmentedListItem.SupportingContent>
-                  </SegmentedListItem>
-                ))}
-              </SegmentedList>
-            </Column>
-          </ModalBottomSheet>
-        ) : null}
+          ),
+        })}
 
         <SegmentedList>
           <StackNavigationRow index={0} count={2} title="Add account" href="/accounts/add" />
