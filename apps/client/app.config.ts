@@ -2,7 +2,7 @@
 // oxlint-disable-next-line import/no-nodejs-modules
 import { readFileSync } from 'node:fs';
 
-import { Config, ConfigProvider, Context, Effect, Layer, Match } from 'effect';
+import { Effect, Match } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
 import expoFont from 'expo-font/plugin';
 import expoImage from 'expo-image/plugin';
@@ -15,6 +15,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 import { withProjectBuildGradle } from 'expo/config-plugins';
 import type { ConfigPlugin } from 'expo/config-plugins';
 
+import { Env } from './env.mts';
 import pkg from './package.json';
 
 // oxlint-disable-next-line unicorn/prefer-module
@@ -59,18 +60,6 @@ const getExpoUiAndroidDependencyVersion = (coordinate: `${string}:${string}`) =>
 
   return expoUiAndroidBuildGradle.slice(dependencyStart, dependencyEnd);
 };
-
-class Env extends Context.Service<Env>()('voel/app.config/Env', {
-  make: Config.all({
-    releaseChannel: Config.literals(['prod', 'preview', 'dev'], 'RELEASE_CHANNEL').pipe(
-      Config.withDefault('dev')
-    ),
-  }),
-}) {
-  public static readonly layer = Layer.effect(this, this.make).pipe(
-    Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))
-  );
-}
 
 const withExpoInlineComposeModules = ((expoConfig) =>
   withProjectBuildGradle(expoConfig, (config) => {

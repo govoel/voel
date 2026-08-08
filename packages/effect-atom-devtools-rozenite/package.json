@@ -20,8 +20,7 @@
   "scripts": {
     "build": "rozenite build",
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
-    "dev": "rozenite dev",
-    "test": "bun --bun run vitest"
+    "dev": "rozenite dev"
   },
   "dependencies": {
     "@repo/effect-atom-devtools-core": "workspace:*",

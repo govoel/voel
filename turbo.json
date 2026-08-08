@@ -15,13 +15,21 @@
       "inputs": ["$TURBO_DEFAULT$"],
       "outputLogs": "errors-only"
     },
+    "voel#test": {
+      "cache": true,
+      "dependsOn": ["^test", "@repo/effect-atom-devtools-rozenite#build"],
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputLogs": "errors-only"
+    },
     "//#lint": {
       "cache": true,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"],
       "outputLogs": "errors-only"
     },
     "//#lint:fix": {
-      "cache": false
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"]
     },
     "//#format": {
       "cache": false
@@ -35,6 +43,47 @@
       "dependsOn": ["^check-types"],
       "inputs": ["$TURBO_DEFAULT$"],
       "outputLogs": "errors-only"
+    },
+    "voel#check-types": {
+      "cache": true,
+      "dependsOn": ["^check-types", "@repo/effect-atom-devtools-rozenite#build"],
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputLogs": "errors-only"
+    },
+    "start": {
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
+      "persistent": true
+    },
+    "android:dev": {
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
+      "persistent": true
+    },
+    "android:preview": {
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
+      "persistent": true
+    },
+    "android:prod": {
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
+      "persistent": true
+    },
+    "ios:dev": {
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
+      "persistent": true
+    },
+    "ios:preview": {
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
+      "persistent": true
+    },
+    "ios:prod": {
+      "cache": false,
+      "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
+      "persistent": true
     },
     "dev": {
       "cache": false,
