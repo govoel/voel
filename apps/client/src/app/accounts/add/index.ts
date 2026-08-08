@@ -1,4 +1,5 @@
 import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
+import { Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -23,7 +24,7 @@ class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: un
 const signInAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.signInAccount(input)))
-);
+).pipe(Atom.withLabel('signInAccountAtom'));
 
 export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({

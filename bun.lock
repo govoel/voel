@@ -60,6 +60,7 @@
         "@effect/language-service": "0.87.1",
         "@effect/platform-bun": "4.0.0-beta.102",
         "@effect/vitest": "4.0.0-beta.102",
+        "@repo/effect-atom-devtools-core": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "@srsholmes/vitest-react-native": "0.1.5",
         "@testing-library/react-native": "14.0.1",
@@ -106,6 +107,21 @@
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.3.14",
         "typescript": "6.0.3",
+      },
+    },
+    "packages/effect-atom-devtools-core": {
+      "name": "@repo/effect-atom-devtools-core",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "4.0.0-beta.102",
+      },
+      "devDependencies": {
+        "@effect/language-service": "0.87.1",
+        "@effect/vitest": "4.0.0-beta.102",
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.3.14",
+        "typescript": "6.0.3",
+        "vitest": "4.1.10",
       },
     },
     "packages/effect-kysely": {
@@ -756,6 +772,8 @@
     "@react-native/virtualized-lists": ["@react-native/virtualized-lists@0.86.0", "", { "dependencies": { "invariant": "^2.2.4", "nullthrows": "^1.1.1" }, "peerDependencies": { "@types/react": "^19.2.0", "react": "*", "react-native": "0.86.0" }, "optionalPeers": ["@types/react"] }, "sha512-4/ZLXdf/OSpPDVO0AsQ1SJdRIzt5t9BNQ46QwGgxvX7/cirYR5k8KXctNGGgW8lQo2gZChEfY2zFCZg9nM/jiw=="],
 
     "@repo/auth-api": ["@repo/auth-api@workspace:packages/auth-api"],
+
+    "@repo/effect-atom-devtools-core": ["@repo/effect-atom-devtools-core@workspace:packages/effect-atom-devtools-core"],
 
     "@repo/effect-kysely": ["@repo/effect-kysely@workspace:packages/effect-kysely"],
 
