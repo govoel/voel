@@ -25,6 +25,25 @@ const AtomDevToolsTypeId = '@repo/effect-atom-devtools-core/AtomDevTools' as con
 export const AtomId = Schema.String.pipe(Schema.brand(`${AtomDevToolsTypeId}/AtomId`));
 export type AtomId = typeof AtomId.Type;
 
+export class AtomDevToolsAtomInput extends Schema.Class<
+  AtomDevToolsAtomInput,
+  { readonly brand: unique symbol }
+>(`${AtomDevToolsTypeId}/AtomDevToolsAtomInput`)({
+  atomId: AtomId,
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
+
+export class ActivatePredefinedStateInput extends AtomDevToolsAtomInput.extend<
+  ActivatePredefinedStateInput,
+  Record<never, never>,
+  { readonly activatePredefinedStateInputBrand: unique symbol }
+>(`${AtomDevToolsTypeId}/ActivatePredefinedStateInput`)({
+  stateId: Schema.String,
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
+
 export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: unique symbol }>(
   `${AtomDevToolsTypeId}/AtomSummary`
 )({

@@ -2,7 +2,8 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
 import {
-  AtomId,
+  ActivatePredefinedStateInput,
+  AtomDevToolsAtomInput,
   AtomNotFound,
   AtomSnapshot,
   AtomSummary,
@@ -15,25 +16,22 @@ export const AtomDevToolsRpc = RpcGroup.make(
     stream: true,
   }),
   Rpc.make('watch', {
-    payload: Schema.Struct({ id: AtomId }),
+    payload: AtomDevToolsAtomInput,
     success: AtomSnapshot,
     error: AtomNotFound,
     stream: true,
   }),
   Rpc.make('activatePredefinedState', {
-    payload: Schema.Struct({
-      atomId: AtomId,
-      stateId: Schema.String,
-    }),
+    payload: ActivatePredefinedStateInput,
     error: Schema.Union([AtomNotFound, PredefinedStateNotFound], { mode: 'oneOf' }),
   }),
   Rpc.make('clearPredefinedState', {
-    payload: Schema.Struct({ id: AtomId }),
+    payload: AtomDevToolsAtomInput,
     error: AtomNotFound,
   }),
   Rpc.make('clearAllPredefinedStates'),
   Rpc.make('refresh', {
-    payload: Schema.Struct({ id: AtomId }),
+    payload: AtomDevToolsAtomInput,
     error: AtomNotFound,
   })
 );

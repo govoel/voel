@@ -75,7 +75,7 @@ describe('Rozenite Effect RPC protocol', () => {
         expect(summary.name).toBe('Count');
 
         const initialObserved = yield* Latch.make();
-        const snapshotsFiber = yield* client.watch({ id: summary.id }).pipe(
+        const snapshotsFiber = yield* client.watch({ atomId: summary.id }).pipe(
           Stream.tap(() => initialObserved.open),
           Stream.take(2),
           Stream.runCollect,

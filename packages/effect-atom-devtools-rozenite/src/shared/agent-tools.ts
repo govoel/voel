@@ -1,11 +1,12 @@
 import { defineAgentToolContract } from '@rozenite/agent-shared';
 import type { AgentToolContract } from '@rozenite/agent-shared';
 
-import type { AtomSnapshot, AtomSummary } from '@repo/effect-atom-devtools-core/atom-dev-tools';
-
-interface AtomDevToolsAtomInput {
-  readonly atomId: string;
-}
+import type {
+  ActivatePredefinedStateInput,
+  AtomDevToolsAtomInput,
+  AtomSnapshot,
+  AtomSummary,
+} from '@repo/effect-atom-devtools-core/atom-dev-tools';
 
 const emptyInputSchema = {
   type: 'object',
@@ -41,7 +42,7 @@ export const atomDevToolsToolDefinitions = {
     },
   }),
   activatePredefinedState: defineAgentToolContract<
-    AtomDevToolsAtomInput & { readonly stateId: string },
+    ActivatePredefinedStateInput,
     { readonly activated: true; readonly atom: AtomSnapshot }
   >({
     name: 'activate-predefined-state',
