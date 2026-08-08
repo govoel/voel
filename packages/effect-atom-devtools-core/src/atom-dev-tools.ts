@@ -41,7 +41,7 @@ class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>
   name: Schema.String,
 }) {}
 
-class AtomSnapshot extends AtomSummary.extend<
+export class AtomSnapshot extends AtomSummary.extend<
   AtomSnapshot,
   Record<never, never>,
   { readonly atomSnapshotBrand: unique symbol }

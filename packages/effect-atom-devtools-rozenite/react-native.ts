@@ -1,13 +1,21 @@
-/**
- * React Native DevTools Plugin Entry Point
- *
- * This file serves as the main entry point for your DevTools plugin in the React Native environment.
- * You have full access to all React Native APIs and can integrate with your app's functionality.
- *
- * To communicate with the DevTools panel, use the `@rozenite/plugin-bridge` package
- * which provides a reliable communication channel between your plugin and the DevTools interface.
- */
+// The imported type also defines the local development/no-op function signature.
+// oxlint-disable-next-line unicorn/prefer-export-from
+import type { UseAtomDevToolsOptions } from '#src/react-native/use-atom-dev-tools.ts';
 
-export const useDevTools = () => {
-  // TODO: Implement your plugin!
-};
+export type { UseAtomDevToolsOptions };
+
+// React Native replaces __DEV__, allowing Metro to remove the development-only implementation.
+// Keep the no-op export usable in server rendering and production bundles.
+// oxlint-disable-next-line eslint/no-undef
+const isDev = typeof __DEV__ !== 'boolean' || __DEV__;
+// oxlint-disable-next-line unicorn/no-typeof-undefined
+const isServer = typeof globalThis.window === 'undefined';
+
+// This is the same development-only entry-point pattern used by Rozenite v2 plugins.
+/* oxlint-disable typescript/no-unsafe-assignment */
+export const useAtomDevTools: (options: UseAtomDevToolsOptions) => void =
+  isDev && !isServer
+    ? // oxlint-disable-next-line eslint/prefer-destructuring, node/global-require, typescript/no-require-imports, typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-var-requires, unicorn/prefer-module
+      require('#src/react-native/use-atom-dev-tools.ts').useAtomDevTools
+    : () => void 0;
+/* oxlint-enable typescript/no-unsafe-assignment */
