@@ -1,8 +1,8 @@
 const config = {
   panels: [
     {
-      name: 'Hello world!',
-      source: './src/hello-world.tsx',
+      name: 'Effect Atom DevTools',
+      source: './src/ui/panel.tsx',
     },
   ],
 };

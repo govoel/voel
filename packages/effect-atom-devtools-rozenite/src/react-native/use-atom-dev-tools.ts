@@ -6,10 +6,10 @@ import { useEffect, useMemo } from 'react';
 import { AtomDevTools } from '@repo/effect-atom-devtools-core/atom-dev-tools';
 import { AtomDevToolsRpcServerFromService } from '@repo/effect-atom-devtools-core/rpc-server';
 
-import { useAtomDevToolsAgentTools } from '#src/react-native/use-atom-dev-tools-agent-tools.ts';
-import type { EffectRpcEventMap } from '#src/rpc/messages.ts';
-import { layerRozeniteRpcServerProtocol } from '#src/rpc/server-protocol.ts';
+import { useAtomDevToolsAgentTools } from '#src/react-native/agent/use-agent-tools.ts';
+import { layerRozeniteRpcServerProtocol } from '#src/react-native/rpc-server-protocol.ts';
 import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
+import type { EffectRpcEventMap } from '#src/shared/rpc-messages.ts';
 
 export interface UseAtomDevToolsOptions {
   readonly registry: AtomRegistry.AtomRegistry;

@@ -1,51 +1,53 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-export default function HelloWorldPanel() {
+export default function AtomDevToolsPanel() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>💎</Text>
+            <Text style={styles.logo}>⚛️</Text>
           </View>
-          <Text style={styles.title}>Welcome to Rozenite</Text>
-          <Text style={styles.subtitle}>React Native DevTools Framework</Text>
+          <Text style={styles.title}>Effect Atom DevTools</Text>
+          <Text style={styles.subtitle}>Inspect and control Effect atoms in React Native</Text>
         </View>
 
         <View style={styles.featuresContainer}>
-          <Text style={styles.sectionTitle}>✨ Features</Text>
+          <Text style={styles.sectionTitle}>Capabilities</Text>
           <View style={styles.featureGrid}>
             <View style={styles.featureCard}>
-              <Text style={styles.featureIcon}>🔧</Text>
-              <Text style={styles.featureTitle}>Plugin System</Text>
+              <Text style={styles.featureIcon}>🔎</Text>
+              <Text style={styles.featureTitle}>Tracked Atoms</Text>
               <Text style={styles.featureDescription}>
-                Extensible architecture for custom dev tools
+                Browse atoms registered with the Effect AtomRegistry
               </Text>
             </View>
             <View style={styles.featureCard}>
               <Text style={styles.featureIcon}>⚡</Text>
-              <Text style={styles.featureTitle}>Fast & Lightweight</Text>
+              <Text style={styles.featureTitle}>Live Snapshots</Text>
               <Text style={styles.featureDescription}>
-                Optimized for performance and developer experience
+                Stream current values and runtime state through Effect RPC
               </Text>
             </View>
             <View style={styles.featureCard}>
-              <Text style={styles.featureIcon}>🎨</Text>
-              <Text style={styles.featureTitle}>Modern UI</Text>
+              <Text style={styles.featureIcon}>🎭</Text>
+              <Text style={styles.featureTitle}>Predefined States</Text>
               <Text style={styles.featureDescription}>
-                Beautiful, responsive interface built with React Native
+                Activate and clear predefined states while developing
               </Text>
             </View>
             <View style={styles.featureCard}>
-              <Text style={styles.featureIcon}>🔌</Text>
-              <Text style={styles.featureTitle}>Easy Integration</Text>
-              <Text style={styles.featureDescription}>Simple setup and configuration process</Text>
+              <Text style={styles.featureIcon}>🤖</Text>
+              <Text style={styles.featureTitle}>Agent Tools</Text>
+              <Text style={styles.featureDescription}>
+                Inspect, refresh, and control atoms through Rozenite agents
+              </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Built with ❤️ for the React Native community</Text>
+          <Text style={styles.footerText}>Powered by Effect and Rozenite</Text>
         </View>
       </ScrollView>
     </View>

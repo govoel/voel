@@ -3,8 +3,11 @@ import { Effect, Layer, Queue } from 'effect';
 import { RpcServer } from 'effect/unstable/rpc';
 import type { RpcMessage } from 'effect/unstable/rpc';
 
-import { EFFECT_RPC_REQUEST_MESSAGE, EFFECT_RPC_RESPONSE_MESSAGE } from '#src/rpc/messages.ts';
-import type { EffectRpcEventMap } from '#src/rpc/messages.ts';
+import {
+  EFFECT_RPC_REQUEST_MESSAGE,
+  EFFECT_RPC_RESPONSE_MESSAGE,
+} from '#src/shared/rpc-messages.ts';
+import type { EffectRpcEventMap } from '#src/shared/rpc-messages.ts';
 
 const ROZENITE_CLIENT_ID = 0;
 
