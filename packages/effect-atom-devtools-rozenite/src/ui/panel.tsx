@@ -43,10 +43,10 @@ const AtomDevToolsPanelContent = () => {
   );
 };
 
-const AtomDevToolsPanel = () => (
-  <RegistryProvider>
-    <AtomDevToolsPanelContent />
-  </RegistryProvider>
-);
-
-export default AtomDevToolsPanel;
+export default function AtomDevToolsPanel() {
+  return (
+    <RegistryProvider>
+      <AtomDevToolsPanelContent />
+    </RegistryProvider>
+  );
+}

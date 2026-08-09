@@ -33,6 +33,7 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
 
       const broadcastResponse = (response: RpcMessage.FromServerEncoded) =>
         Effect.forEach(clientIds, (clientId) => writeResponse(clientId, response), {
+          concurrency: 'unbounded',
           discard: true,
         });
 
