@@ -17,24 +17,24 @@ class AgentToolError extends Schema.TaggedErrorClass<
   message: Schema.String,
 }) {}
 
-const emptyInputSchema = {
+const emptyObjectInputSchema = {
   type: 'object',
   properties: {},
 } as const;
 
-const atomIdProperty = {
+const atomIdInputProperty = {
   atomId: {
     type: 'string',
     description: 'Atom ID returned by list-atoms.',
   },
 } as const;
 
-const atomNotFound = (id: AtomId) =>
+const makeAtomNotFoundError = (id: AtomId) =>
   new AgentToolError({
     message: `Atom "${id}" is not currently tracked. Call list-atoms to get a current atom ID.`,
   });
 
-export const atomDevToolsAgentTools: readonly {
+export const agentToolHandlers: readonly {
   readonly tool: AgentTool;
   readonly execute: (
     input: unknown
@@ -48,7 +48,7 @@ export const atomDevToolsAgentTools: readonly {
       readOnly: true,
       destructive: false,
       idempotent: true,
-      inputSchema: emptyInputSchema,
+      inputSchema: emptyObjectInputSchema,
     },
     execute: () => AtomDevTools.pipe(Effect.flatMap(({ catalog }) => catalog.pipe(Stream.runHead))),
   },
@@ -61,7 +61,7 @@ export const atomDevToolsAgentTools: readonly {
       idempotent: true,
       inputSchema: {
         type: 'object',
-        properties: atomIdProperty,
+        properties: atomIdInputProperty,
         required: ['atomId'],
       },
     },
@@ -70,7 +70,7 @@ export const atomDevToolsAgentTools: readonly {
         Effect.flatMap(({ atomId }) =>
           AtomDevTools.pipe(Effect.flatMap(({ watch }) => watch(atomId).pipe(Stream.runHead)))
         ),
-        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(atomNotFound(id)))
+        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(makeAtomNotFoundError(id)))
       ),
   },
   {
@@ -83,7 +83,7 @@ export const atomDevToolsAgentTools: readonly {
       inputSchema: {
         type: 'object',
         properties: {
-          ...atomIdProperty,
+          ...atomIdInputProperty,
           stateId: {
             type: 'string',
             description: 'Predefined state ID returned by get-atom-details.',
@@ -103,7 +103,7 @@ export const atomDevToolsAgentTools: readonly {
         ),
         Effect.as({ activated: true } as const),
         Effect.catchTags({
-          AtomNotFound: ({ id }) => Effect.fail(atomNotFound(id)),
+          AtomNotFound: ({ id }) => Effect.fail(makeAtomNotFoundError(id)),
           PredefinedStateNotFound: ({ atomId, stateId }) =>
             Effect.fail(
               new AgentToolError({
@@ -122,7 +122,7 @@ export const atomDevToolsAgentTools: readonly {
       idempotent: true,
       inputSchema: {
         type: 'object',
-        properties: atomIdProperty,
+        properties: atomIdInputProperty,
         required: ['atomId'],
       },
     },
@@ -134,7 +134,7 @@ export const atomDevToolsAgentTools: readonly {
           )
         ),
         Effect.as({ cleared: true } as const),
-        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(atomNotFound(id)))
+        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(makeAtomNotFoundError(id)))
       ),
   },
   {
@@ -144,7 +144,7 @@ export const atomDevToolsAgentTools: readonly {
       readOnly: false,
       destructive: true,
       idempotent: true,
-      inputSchema: emptyInputSchema,
+      inputSchema: emptyObjectInputSchema,
     },
     execute: () =>
       AtomDevTools.pipe(
@@ -161,7 +161,7 @@ export const atomDevToolsAgentTools: readonly {
       idempotent: false,
       inputSchema: {
         type: 'object',
-        properties: atomIdProperty,
+        properties: atomIdInputProperty,
         required: ['atomId'],
       },
     },
@@ -171,7 +171,7 @@ export const atomDevToolsAgentTools: readonly {
           AtomDevTools.pipe(Effect.flatMap(({ refresh }) => refresh(atomId)))
         ),
         Effect.as({ refreshed: true } as const),
-        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(atomNotFound(id)))
+        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(makeAtomNotFoundError(id)))
       ),
   },
 ];

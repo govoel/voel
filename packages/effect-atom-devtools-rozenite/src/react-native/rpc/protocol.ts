@@ -3,25 +3,22 @@ import { Effect, Queue } from 'effect';
 import { RpcServer } from 'effect/unstable/rpc';
 import type { RpcMessage } from 'effect/unstable/rpc';
 
-import {
-  EFFECT_RPC_REQUEST_MESSAGE,
-  EFFECT_RPC_RESPONSE_MESSAGE,
-} from '#src/shared/rpc-messages.ts';
-import type { EffectRpcEventMap } from '#src/shared/rpc-messages.ts';
+import { RPC_REQUEST_EVENT, RPC_RESPONSE_EVENT } from '#src/shared/rpc-bridge.ts';
+import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
 
-const ROZENITE_CLIENT_ID = 0;
+const BRIDGE_CLIENT_ID = 0;
 
-export const makeRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<EffectRpcEventMap>) =>
+export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBridgeEventMap>) =>
   RpcServer.Protocol.make(
     Effect.fnUntraced(function* (writeRequest) {
       const disconnects = yield* Queue.unbounded<number>();
-      const requests = yield* Queue.unbounded<RpcMessage.FromClientEncoded>();
-      const clientIds = new Set([ROZENITE_CLIENT_ID]);
+      const incomingRequests = yield* Queue.unbounded<RpcMessage.FromClientEncoded>();
+      const clientIds = new Set([BRIDGE_CLIENT_ID]);
 
       yield* Effect.acquireRelease(
         Effect.sync(() =>
-          client.onMessage(EFFECT_RPC_REQUEST_MESSAGE, (request) => {
-            Queue.offerUnsafe(requests, request);
+          bridgeClient.onMessage(RPC_REQUEST_EVENT, (request) => {
+            Queue.offerUnsafe(incomingRequests, request);
           })
         ),
         (subscription) =>
@@ -35,8 +32,8 @@ export const makeRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<Eff
       // then runs the handler concurrently in the background. Processing this queue with
       // unbounded concurrency could let a following Ack, Interrupt, or Eof overtake that
       // registration and observe incomplete request state.
-      yield* Queue.take(requests).pipe(
-        Effect.flatMap((request) => writeRequest(ROZENITE_CLIENT_ID, request)),
+      yield* Queue.take(incomingRequests).pipe(
+        Effect.flatMap((request) => writeRequest(BRIDGE_CLIENT_ID, request)),
         Effect.forever,
         Effect.forkScoped
       );
@@ -45,7 +42,7 @@ export const makeRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<Eff
         disconnects,
         send: (_clientId, response) =>
           Effect.sync(() => {
-            client.send(EFFECT_RPC_RESPONSE_MESSAGE, response);
+            bridgeClient.send(RPC_RESPONSE_EVENT, response);
           }),
         end: () => Effect.void,
         clientIds: Effect.succeed(clientIds),

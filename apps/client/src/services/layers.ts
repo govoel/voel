@@ -2,7 +2,7 @@ import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 
-import { AtomDevToolsRozeniteLive } from '@repo/effect-atom-devtools-rozenite';
+import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
 
 import { AccountManager, UuidGenerator } from '#src/services/accounts/index.ts';
 import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
@@ -24,6 +24,4 @@ export const CommonClientLayers = CommonGlobalLayers.pipe(
   Layer.orDie
 );
 
-export const AppRuntimeLayers = CommonClientLayers.pipe(
-  Layer.provideMerge(AtomDevToolsRozeniteLive)
-);
+export const AppRuntimeLayers = CommonClientLayers.pipe(Layer.provideMerge(AtomDevToolsLayer));

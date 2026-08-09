@@ -1,4 +1,4 @@
-const config = {
+const rozeniteConfig = {
   panels: [
     {
       name: 'Effect Atom DevTools',
@@ -7,4 +7,4 @@ const config = {
   ],
 };
 
-export default config;
+export default rozeniteConfig;
