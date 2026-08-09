@@ -1,4 +1,5 @@
 import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
+import { Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -26,7 +27,7 @@ export class SetupServerAccountInput extends Schema.Class<
 const setupServerWithAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setupServerWithAccount>[0]) =>
     AccountManager.pipe(Effect.flatMap((manager) => manager.setupServerWithAccount(input)))
-);
+).pipe(Atom.withLabel('setupServerWithAccountAtom'));
 
 export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
   const form = useAppForm({
