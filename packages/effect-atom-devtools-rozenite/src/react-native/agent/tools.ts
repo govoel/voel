@@ -1,5 +1,5 @@
 import type { AgentTool } from '@rozenite/agent-shared';
-import { Effect, Option, Schema, Stream } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
 
 import { AtomDevTools } from '@repo/effect-atom-devtools-core/atom-dev-tools';
 import type { AtomId } from '@repo/effect-atom-devtools-core/atom-dev-tools';
@@ -43,21 +43,19 @@ export const atomDevToolsAgentTools: readonly {
   {
     tool: {
       name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.list-atoms`,
-      description: 'List all atoms currently tracked by Effect Atom DevTools.',
+      description:
+        'Return the latest catalog of atoms tracked by Effect Atom DevTools as an Option.',
       readOnly: true,
       destructive: false,
       idempotent: true,
       inputSchema: emptyInputSchema,
     },
-    execute: () =>
-      AtomDevTools.pipe(
-        Effect.flatMap(({ catalog }) => catalog.pipe(Stream.runHead, Effect.map(Option.getOrThrow)))
-      ),
+    execute: () => AtomDevTools.pipe(Effect.flatMap(({ catalog }) => catalog.pipe(Stream.runHead))),
   },
   {
     tool: {
       name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.get-atom-details`,
-      description: 'Get the current Effect Atom DevTools snapshot for an atom.',
+      description: 'Return the current Effect Atom DevTools snapshot for an atom as an Option.',
       readOnly: true,
       destructive: false,
       idempotent: true,
@@ -78,7 +76,7 @@ export const atomDevToolsAgentTools: readonly {
   {
     tool: {
       name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.activate-predefined-state`,
-      description: 'Activate a predefined state for an atom and return its resulting snapshot.',
+      description: 'Activate a predefined state for an atom.',
       readOnly: false,
       destructive: false,
       idempotent: true,
@@ -118,7 +116,7 @@ export const atomDevToolsAgentTools: readonly {
   {
     tool: {
       name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.clear-predefined-state`,
-      description: "Clear an atom's active predefined state and return its resulting snapshot.",
+      description: "Clear an atom's active predefined state.",
       readOnly: false,
       destructive: false,
       idempotent: true,
@@ -157,7 +155,7 @@ export const atomDevToolsAgentTools: readonly {
   {
     tool: {
       name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.refresh-atom`,
-      description: 'Refresh an atom and return its resulting snapshot.',
+      description: 'Refresh an atom.',
       readOnly: false,
       destructive: false,
       idempotent: false,
