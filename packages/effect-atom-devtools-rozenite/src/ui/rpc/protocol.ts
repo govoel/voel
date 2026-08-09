@@ -16,7 +16,7 @@ const makeRpcSendError = (cause: unknown) =>
 
 export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBridgeEventMap>) =>
   RpcClient.Protocol.make(
-    Effect.fn('makeRpcClientProtocol')(function* (writeResponse, clientIds) {
+    Effect.fnUntraced(function* (writeResponse, clientIds) {
       const incomingResponses = yield* Queue.unbounded<RpcMessage.FromServerEncoded>();
 
       yield* Effect.acquireRelease(

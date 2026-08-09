@@ -42,7 +42,7 @@ const AgentToolsRegistrationLive = Layer.effectDiscard(
     );
     const incomingMessages = yield* Queue.unbounded<IncomingAgentMessage>();
 
-    const registerAgentTools = Effect.fn('registerAgentTools')(function* () {
+    const registerAgentTools = Effect.fnUntraced(function* () {
       yield* Effect.sync(() => {
         agentClient.send('register-tool', {
           tools: agentToolHandlers.map(({ tool }) => tool),
@@ -70,9 +70,7 @@ const AgentToolsRegistrationLive = Layer.effectDiscard(
         })
     );
 
-    const handleAgentMessage = Effect.fn('handleAgentMessage')(function* (
-      message: IncomingAgentMessage
-    ) {
+    const handleAgentMessage = Effect.fnUntraced(function* (message: IncomingAgentMessage) {
       return yield* Match.value(message).pipe(
         Match.tagsExhaustive({
           SessionReady: () => registerAgentTools(),
