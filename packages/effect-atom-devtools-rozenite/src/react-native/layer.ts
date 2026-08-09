@@ -10,7 +10,7 @@ import { Array, Cause, Data, Effect, Layer, Match, Option, Queue, Stream } from 
 import { RpcServer } from 'effect/unstable/rpc';
 
 import { AtomDevTools } from '@repo/effect-atom-devtools-core/atom-dev-tools';
-import { AtomDevToolsRpcServerFromService } from '@repo/effect-atom-devtools-core/rpc-server';
+import { AtomDevToolsRpcServer } from '@repo/effect-atom-devtools-core/rpc-server';
 
 import { atomDevToolsAgentTools } from '#src/react-native/agent/tools.ts';
 import { makeRozeniteRpcServerProtocol } from '#src/react-native/rpc-server-protocol.ts';
@@ -54,9 +54,9 @@ const RozeniteRpcServerProtocolLive = Layer.effect(
 );
 
 const AtomDevToolsRozeniteRpcLive = Layer.effectDiscard(
-  Layer.build(
-    AtomDevToolsRpcServerFromService.pipe(Layer.provide(RozeniteRpcServerProtocolLive))
-  ).pipe(Effect.forkScoped)
+  Layer.build(AtomDevToolsRpcServer.pipe(Layer.provide(RozeniteRpcServerProtocolLive))).pipe(
+    Effect.forkScoped
+  )
 );
 
 const AtomDevToolsRozeniteAgentTools = Layer.effectDiscard(

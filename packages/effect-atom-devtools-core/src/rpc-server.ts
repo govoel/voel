@@ -20,10 +20,6 @@ const AtomDevToolsRpcHandlers = AtomDevToolsRpc.toLayer(
   })
 );
 
-export const AtomDevToolsRpcServerFromService = RpcServer.layer(AtomDevToolsRpc).pipe(
+export const AtomDevToolsRpcServer = RpcServer.layer(AtomDevToolsRpc).pipe(
   Layer.provide(AtomDevToolsRpcHandlers)
-);
-
-export const AtomDevToolsRpcServer = AtomDevToolsRpcServerFromService.pipe(
-  Layer.provide(AtomDevTools.layer)
 );
