@@ -20,13 +20,14 @@
   "scripts": {
     "build": "rozenite build",
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
-    "dev": "rozenite dev"
+    "dev": "rozenite dev",
+    "test": "bun --bun run vitest --passWithNoTests"
   },
   "dependencies": {
     "@repo/effect-atom-devtools-core": "workspace:*",
-    "@rozenite/agent-bridge": "2.0.0",
     "@rozenite/agent-shared": "2.0.0",
     "@rozenite/plugin-bridge": "2.0.0",
+    "@rozenite/ui": "2.0.0",
     "effect": "4.0.0-beta.102"
   },
   "devDependencies": {

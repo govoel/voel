@@ -1,5 +1,5 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect, Layer, Queue } from 'effect';
+import { Effect, Queue } from 'effect';
 import { RpcServer } from 'effect/unstable/rpc';
 import type { RpcMessage } from 'effect/unstable/rpc';
 
@@ -11,9 +11,9 @@ import type { EffectRpcEventMap } from '#src/shared/rpc-messages.ts';
 
 const ROZENITE_CLIENT_ID = 0;
 
-const makeRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<EffectRpcEventMap>) =>
+export const makeRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<EffectRpcEventMap>) =>
   RpcServer.Protocol.make(
-    Effect.fn('makeRozeniteRpcServerProtocol')(function* (writeRequest) {
+    Effect.fnUntraced(function* (writeRequest) {
       const disconnects = yield* Queue.unbounded<number>();
       const requests = yield* Queue.unbounded<RpcMessage.FromClientEncoded>();
       const clientIds = new Set([ROZENITE_CLIENT_ID]);
@@ -30,6 +30,11 @@ const makeRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<EffectRpcE
           })
       );
 
+      // Keep transport envelopes ordered through `writeRequest`. It decodes a Request,
+      // records its schema, and registers the handler fiber before returning; Effect RPC
+      // then runs the handler concurrently in the background. Processing this queue with
+      // unbounded concurrency could let a following Ack, Interrupt, or Eof overtake that
+      // registration and observe incomplete request state.
       yield* Queue.take(requests).pipe(
         Effect.flatMap((request) => writeRequest(ROZENITE_CLIENT_ID, request)),
         Effect.forever,
@@ -51,6 +56,3 @@ const makeRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<EffectRpcE
       };
     })
   );
-
-export const layerRozeniteRpcServerProtocol = (client: RozeniteDevToolsClient<EffectRpcEventMap>) =>
-  Layer.effect(RpcServer.Protocol, makeRozeniteRpcServerProtocol(client));

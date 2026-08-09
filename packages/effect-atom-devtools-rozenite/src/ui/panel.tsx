@@ -1,157 +1,491 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  RegistryProvider,
+  useAtom,
+  useAtomRefresh,
+  useAtomSet,
+  useAtomValue,
+} from '@effect/atom-react';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  PluginHeader,
+  PluginShell,
+  ScrollArea,
+  Sidebar,
+  Split,
+} from '@rozenite/ui';
+import { Cause, Inspectable, Option } from 'effect';
+import { AsyncResult } from 'effect/unstable/reactivity';
+import type { ReactNode } from 'react';
 
-export default function AtomDevToolsPanel() {
-  return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logo}>⚛️</Text>
-          </View>
-          <Text style={styles.title}>Effect Atom DevTools</Text>
-          <Text style={styles.subtitle}>Inspect and control Effect atoms in React Native</Text>
-        </View>
+import type {
+  AtomId,
+  AtomSnapshot,
+  AtomSummary,
+} from '@repo/effect-atom-devtools-core/atom-dev-tools';
 
-        <View style={styles.featuresContainer}>
-          <Text style={styles.sectionTitle}>Capabilities</Text>
-          <View style={styles.featureGrid}>
-            <View style={styles.featureCard}>
-              <Text style={styles.featureIcon}>🔎</Text>
-              <Text style={styles.featureTitle}>Tracked Atoms</Text>
-              <Text style={styles.featureDescription}>
-                Browse atoms registered with the Effect AtomRegistry
-              </Text>
-            </View>
-            <View style={styles.featureCard}>
-              <Text style={styles.featureIcon}>⚡</Text>
-              <Text style={styles.featureTitle}>Live Snapshots</Text>
-              <Text style={styles.featureDescription}>
-                Stream current values and runtime state through Effect RPC
-              </Text>
-            </View>
-            <View style={styles.featureCard}>
-              <Text style={styles.featureIcon}>🎭</Text>
-              <Text style={styles.featureTitle}>Predefined States</Text>
-              <Text style={styles.featureDescription}>
-                Activate and clear predefined states while developing
-              </Text>
-            </View>
-            <View style={styles.featureCard}>
-              <Text style={styles.featureIcon}>🤖</Text>
-              <Text style={styles.featureTitle}>Agent Tools</Text>
-              <Text style={styles.featureDescription}>
-                Inspect, refresh, and control atoms through Rozenite agents
-              </Text>
-            </View>
-          </View>
-        </View>
+import {
+  activatePredefinedStateAtom,
+  catalogAtom,
+  clearAllPredefinedStatesAtom,
+  clearPredefinedStateAtom,
+  hasActivePredefinedStatesAtom,
+  refreshAtom,
+  selectedAtomIdAtom,
+  snapshotAtom,
+} from '#src/ui/model.ts';
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Powered by Effect and Rozenite</Text>
-        </View>
-      </ScrollView>
-    </View>
+// Rozenite panels import the shared UI stylesheet from their browser entry point.
+// oxlint-disable-next-line import/no-unassigned-import
+import './styles.css';
+
+const LoadingState = ({ label }: { readonly label: string }) => (
+  <div
+    className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground"
+    role="status">
+    <span className="mr-2 inline-block size-3 animate-pulse rounded-full bg-primary" />
+    {label}
+  </div>
+);
+
+const ErrorState = ({
+  title,
+  cause,
+  onRetry,
+}: {
+  readonly title: string;
+  readonly cause: Cause.Cause<unknown>;
+  readonly onRetry?: () => void;
+}) => (
+  <EmptyState
+    title={title}
+    description={
+      <pre className="max-h-32 max-w-lg overflow-auto whitespace-pre-wrap text-left font-mono text-xs">
+        {Cause.pretty(cause)}
+      </pre>
+    }
+    action={
+      onRetry ? (
+        <Button variant="outline" size="compact" onClick={onRetry}>
+          Retry
+        </Button>
+      ) : null
+    }
+  />
+);
+
+const DetailSection = ({
+  title,
+  children,
+}: {
+  readonly title: string;
+  readonly children: ReactNode;
+}) => (
+  <section className="min-w-0 overflow-hidden rounded-md border border-border bg-card">
+    <div className="border-b border-border px-4 py-3">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+    </div>
+    <div className="p-4">{children}</div>
+  </section>
+);
+
+const BooleanValue = ({ value }: { readonly value: boolean }) => (
+  <Badge variant={value ? 'default' : 'secondary'}>{value ? 'Yes' : 'No'}</Badge>
+);
+
+const MetadataRow = ({
+  label,
+  children,
+}: {
+  readonly label: string;
+  readonly children: ReactNode;
+}) => (
+  <div className="grid min-w-0 grid-cols-[minmax(6rem,0.35fr)_minmax(0,1fr)] gap-4 border-b border-border py-2.5 last:border-b-0">
+    <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+    <dd className="min-w-0 text-sm text-foreground">{children}</dd>
+  </div>
+);
+
+const CommandError = ({ status }: { readonly status: AsyncResult.AsyncResult<void, unknown> }) =>
+  AsyncResult.matchWithError(status, {
+    onInitial: () => null,
+    onError: (error) => (
+      <span
+        className="max-w-80 truncate text-xs text-destructive"
+        title={Inspectable.toStringUnknown(error)}>
+        {Inspectable.toStringUnknown(error)}
+      </span>
+    ),
+    onDefect: (defect) => (
+      <span
+        className="max-w-80 truncate text-xs text-destructive"
+        title={Inspectable.toStringUnknown(defect)}>
+        {Inspectable.toStringUnknown(defect)}
+      </span>
+    ),
+    onSuccess: () => null,
+  });
+
+const ValuePanel = ({
+  snapshot,
+  activatePredefinedStateStatus,
+  onActivatePredefinedState,
+}: {
+  readonly snapshot: AtomSnapshot;
+  readonly activatePredefinedStateStatus: AsyncResult.AsyncResult<void, unknown>;
+  readonly onActivatePredefinedState: (stateId: string) => void;
+}) => (
+  <div className="flex min-w-0 flex-col gap-4">
+    <DetailSection title="Predefined states">
+      <CommandError status={activatePredefinedStateStatus} />
+      {snapshot.predefinedStates.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          This atom does not expose predefined states.
+        </p>
+      ) : (
+        <div className="flex flex-col divide-y divide-border">
+          {snapshot.predefinedStates.map((state) => {
+            const active =
+              Option.isSome(snapshot.activePredefinedStateId) &&
+              snapshot.activePredefinedStateId.value === state.id;
+
+            return (
+              <div
+                key={state.id}
+                className="flex flex-wrap items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0 flex-1 basis-48">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {state.label}
+                    </span>
+                    {active ? <Badge>Active</Badge> : null}
+                  </div>
+                  {state.description !== void 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">{state.description}</p>
+                  ) : null}
+                  <code className="mt-1 block truncate text-xs text-muted-foreground">
+                    {state.id}
+                  </code>
+                </div>
+                <Button
+                  variant={active ? 'secondary' : 'outline'}
+                  size="compact"
+                  disabled={active || AsyncResult.isWaiting(activatePredefinedStateStatus)}
+                  onClick={() => {
+                    onActivatePredefinedState(state.id);
+                  }}>
+                  {active ? 'Active' : 'Activate'}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </DetailSection>
+
+    <DetailSection title="Current value">
+      <pre className="max-h-[24rem] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-xs leading-5 text-foreground">
+        {snapshot.value}
+      </pre>
+    </DetailSection>
+  </div>
+);
+
+const AtomLinks = ({
+  title,
+  links,
+  onSelect,
+}: {
+  readonly title: string;
+  readonly links: AtomSnapshot['dependencies'];
+  readonly onSelect: (atomId: AtomId) => void;
+}) => (
+  <DetailSection title={title}>
+    {links.length === 0 ? (
+      <p className="text-sm text-muted-foreground">None</p>
+    ) : (
+      <div className="flex flex-col gap-1">
+        {links.map((link) => (
+          <button
+            key={link.id}
+            type="button"
+            className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md px-2 py-2 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => {
+              onSelect(link.id);
+            }}>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+              {link.name}
+            </span>
+            <code className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
+              {link.id}
+            </code>
+          </button>
+        ))}
+      </div>
+    )}
+  </DetailSection>
+);
+
+const GraphPanel = ({
+  snapshot,
+  onSelect,
+}: {
+  readonly snapshot: AtomSnapshot;
+  readonly onSelect: (atomId: AtomId) => void;
+}) => (
+  <div className="grid gap-4 xl:grid-cols-2">
+    <AtomLinks
+      title={`Dependencies (${snapshot.dependencies.length})`}
+      links={snapshot.dependencies}
+      onSelect={onSelect}
+    />
+    <AtomLinks
+      title={`Dependents (${snapshot.dependents.length})`}
+      links={snapshot.dependents}
+      onSelect={onSelect}
+    />
+  </div>
+);
+
+const MetadataPanel = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
+  <DetailSection title="Atom metadata">
+    <dl>
+      <MetadataRow label="Keep alive">
+        <BooleanValue value={snapshot.keepAlive} />
+      </MetadataRow>
+      <MetadataRow label="Lazy">
+        <BooleanValue value={snapshot.lazy} />
+      </MetadataRow>
+      <MetadataRow label="Idle TTL">
+        {snapshot.idleTTL === void 0 ? (
+          <span className="text-muted-foreground">Default</span>
+        ) : (
+          `${snapshot.idleTTL} ms`
+        )}
+      </MetadataRow>
+      <MetadataRow label="Subscribers">{snapshot.subscriberCount}</MetadataRow>
+    </dl>
+  </DetailSection>
+);
+
+const SourcePanel = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
+  <DetailSection title="Source">
+    {snapshot.source !== void 0 ? (
+      <pre className="max-h-[36rem] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-xs leading-5 text-foreground">
+        {snapshot.source}
+      </pre>
+    ) : (
+      <p className="text-sm text-muted-foreground">
+        No source information was attached to this atom.
+      </p>
+    )}
+  </DetailSection>
+);
+
+const SnapshotDetails = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
+  const [activatePredefinedStateStatus, activatePredefinedState] = useAtom(
+    activatePredefinedStateAtom
   );
-}
+  const [clearPredefinedStateStatus, clearPredefinedState] = useAtom(clearPredefinedStateAtom);
+  const [refreshStatus, refresh] = useAtom(refreshAtom);
+  const setSelectedAtomId = useAtomSet(selectedAtomIdAtom);
+  const hasActivePredefinedState = Option.isSome(snapshot.activePredefinedStateId);
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  header: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#8232FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logo: {
-    fontSize: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  featuresContainer: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 16,
-  },
-  featureGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  featureCard: {
-    width: '48%',
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  featureIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  featureTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 16,
-  },
+  const selectAtom = (atomId: AtomId) => {
+    setSelectedAtomId(Option.some(atomId));
+  };
 
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#999',
-    textAlign: 'center',
-  },
-});
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-3">
+        <div className="min-w-0 flex-1 basis-48">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="truncate text-sm font-semibold text-foreground">{snapshot.name}</h2>
+            <Badge variant="outline">{snapshot.writable ? 'Writable' : 'Read only'}</Badge>
+            {hasActivePredefinedState ? <Badge>Predefined state</Badge> : null}
+          </div>
+          <code className="mt-1 block truncate font-mono text-xs text-muted-foreground">
+            {snapshot.id}
+          </code>
+        </div>
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+          <CommandError status={refreshStatus} />
+          <CommandError status={clearPredefinedStateStatus} />
+          <Button
+            variant="outline"
+            size="compact"
+            disabled={AsyncResult.isWaiting(refreshStatus)}
+            onClick={() => {
+              refresh({ payload: { atomId: snapshot.id } });
+            }}>
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="compact"
+            disabled={
+              !hasActivePredefinedState || AsyncResult.isWaiting(clearPredefinedStateStatus)
+            }
+            onClick={() => {
+              clearPredefinedState({ payload: { atomId: snapshot.id } });
+            }}>
+            Clear state
+          </Button>
+        </div>
+      </div>
+
+      <ScrollArea
+        className="min-h-0 min-w-0 flex-1"
+        viewportClassName="min-h-full min-w-0 [&>[role=presentation]]:!min-w-full [&>[role=presentation]]:max-w-full">
+        <div className="flex min-w-0 flex-col gap-4 p-4">
+          <ValuePanel
+            snapshot={snapshot}
+            activatePredefinedStateStatus={activatePredefinedStateStatus}
+            onActivatePredefinedState={(stateId) => {
+              activatePredefinedState({ payload: { atomId: snapshot.id, stateId } });
+            }}
+          />
+          <GraphPanel snapshot={snapshot} onSelect={selectAtom} />
+          <MetadataPanel snapshot={snapshot} />
+          <SourcePanel snapshot={snapshot} />
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};
+
+const AtomDetails = ({ atomId }: { readonly atomId: AtomId }) => {
+  const atomSnapshotAtom = snapshotAtom(atomId);
+  const snapshot = useAtomValue(atomSnapshotAtom);
+  const retry = useAtomRefresh(atomSnapshotAtom);
+
+  return AsyncResult.match(snapshot, {
+    onInitial: () => <LoadingState label="Subscribing to atom…" />,
+    onFailure: ({ cause }) => (
+      <ErrorState title="Unable to watch this atom" cause={cause} onRetry={retry} />
+    ),
+    onSuccess: ({ value }) => <SnapshotDetails snapshot={value} />,
+  });
+};
+
+const AtomSidebar = ({ catalog }: { readonly catalog: readonly AtomSummary[] }) => {
+  const [selectedAtomId, setSelectedAtomId] = useAtom(selectedAtomIdAtom);
+
+  return (
+    <Sidebar className="w-full overflow-hidden border-r-0 p-0">
+      <ScrollArea
+        className="min-h-0 min-w-0 flex-1"
+        viewportClassName="min-w-0 overflow-x-hidden [&>[role=presentation]]:!min-w-full [&>[role=presentation]]:max-w-full">
+        {catalog.length === 0 ? (
+          <div className="p-4 text-center text-xs text-muted-foreground">
+            No atoms are being tracked.
+          </div>
+        ) : (
+          <Sidebar.Group className="p-2">
+            {catalog.map((atom) => (
+              <Sidebar.Item
+                key={atom.id}
+                className="h-auto py-2"
+                selected={Option.contains(selectedAtomId, atom.id)}
+                trailing={
+                  <span className="flex items-center gap-1.5">
+                    {atom.hasActivePredefinedState ? (
+                      <span
+                        className="size-2 rounded-full bg-primary"
+                        title="A predefined state is active"
+                      />
+                    ) : null}
+                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                      {atom.writable ? 'RW' : 'RO'}
+                    </Badge>
+                  </span>
+                }
+                onClick={() => {
+                  setSelectedAtomId(Option.some(atom.id));
+                }}>
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{atom.name}</span>
+                  <code className="truncate font-mono text-[10px] font-normal text-muted-foreground">
+                    {atom.id}
+                  </code>
+                </span>
+              </Sidebar.Item>
+            ))}
+          </Sidebar.Group>
+        )}
+      </ScrollArea>
+    </Sidebar>
+  );
+};
+
+const CatalogPane = () => {
+  const catalog = useAtomValue(catalogAtom);
+  const retry = useAtomRefresh(catalogAtom);
+
+  return AsyncResult.match(catalog, {
+    onInitial: () => <LoadingState label="Subscribing to atom catalog…" />,
+    onFailure: ({ cause }) => (
+      <ErrorState title="Unable to load atoms" cause={cause} onRetry={retry} />
+    ),
+    onSuccess: ({ value }) => <AtomSidebar catalog={value} />,
+  });
+};
+
+const ConnectedPanel = () => {
+  const selectedAtomId = useAtomValue(selectedAtomIdAtom);
+  const [clearAllPredefinedStatesStatus, clearAllPredefinedStates] = useAtom(
+    clearAllPredefinedStatesAtom
+  );
+  const hasActivePredefinedStates = useAtomValue(hasActivePredefinedStatesAtom);
+
+  return (
+    <PluginShell>
+      <PluginHeader>
+        <PluginHeader.Title>Effect Atom DevTools</PluginHeader.Title>
+        <PluginHeader.Actions>
+          <CommandError status={clearAllPredefinedStatesStatus} />
+          <Button
+            variant="outline"
+            size="compact"
+            disabled={
+              AsyncResult.isWaiting(clearAllPredefinedStatesStatus) || !hasActivePredefinedStates
+            }
+            onClick={() => {
+              clearAllPredefinedStates({ payload: void 0 });
+            }}>
+            Clear all states
+          </Button>
+        </PluginHeader.Actions>
+      </PluginHeader>
+
+      <PluginShell.Body className="overflow-hidden">
+        <Split direction="horizontal">
+          <Split.Pane defaultSize={27} minSize={18} maxSize={45}>
+            <CatalogPane />
+          </Split.Pane>
+          <Split.Handle />
+          <Split.Pane className="flex min-w-0 flex-col overflow-hidden">
+            {Option.match(selectedAtomId, {
+              onNone: () => (
+                <EmptyState
+                  title="Select an atom"
+                  description="Choose a tracked atom from the sidebar to inspect its live value and runtime details."
+                />
+              ),
+              onSome: (atomId) => <AtomDetails atomId={atomId} />,
+            })}
+          </Split.Pane>
+        </Split>
+      </PluginShell.Body>
+    </PluginShell>
+  );
+};
+
+const AtomDevToolsPanel = () => (
+  <RegistryProvider>
+    <ConnectedPanel />
+  </RegistryProvider>
+);
+
+export default AtomDevToolsPanel;

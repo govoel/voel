@@ -21,7 +21,6 @@ export const makeRozeniteRpcClientProtocol = (client: RozeniteDevToolsClient<Eff
   RpcClient.Protocol.make(
     Effect.fn('makeRozeniteRpcClientProtocol')(function* (writeResponse, clientIds) {
       const responses = yield* Queue.unbounded<RpcMessage.FromServerEncoded>();
-      const requestClientIds = new Map<string | number, number>();
 
       yield* Effect.acquireRelease(
         Effect.sync(() =>
@@ -40,38 +39,23 @@ export const makeRozeniteRpcClientProtocol = (client: RozeniteDevToolsClient<Eff
           discard: true,
         });
 
+      // Each protocol instance backs exactly one AtomDevToolsClient, so every transport
+      // response belongs to its sole active RPC client. Avoid maintaining the general
+      // request-to-client routing map used by multiplexed protocols.
       yield* Queue.take(responses).pipe(
-        Effect.flatMap((response) => {
-          if ('requestId' in response) {
-            const clientId = requestClientIds.get(response.requestId);
-            if (clientId !== void 0) {
-              if (response._tag === 'Exit') {
-                requestClientIds.delete(response.requestId);
-              }
-              return writeResponse(clientId, response);
-            }
-          }
-          return broadcast(response);
-        }),
+        Effect.flatMap(broadcast),
         Effect.forever,
         Effect.forkScoped
       );
 
       return {
-        send: Effect.fn('RozeniteRpcClientProtocol.send')(
-          function* (clientId, request): Effect.fn.Return<void, RpcClientError.RpcClientError> {
-            yield* Effect.try({
-              try: () => {
-                client.send(EFFECT_RPC_REQUEST_MESSAGE, request);
-              },
-              catch: makeSendError,
-            });
-
-            if (request._tag === 'Request') {
-              requestClientIds.set(request.id, clientId);
-            }
-          }
-        ),
+        send: (_clientId, request) =>
+          Effect.try({
+            try: () => {
+              client.send(EFFECT_RPC_REQUEST_MESSAGE, request);
+            },
+            catch: makeSendError,
+          }),
         supportsAck: true,
         supportsTransferables: false,
       };

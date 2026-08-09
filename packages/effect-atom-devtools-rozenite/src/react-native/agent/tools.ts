@@ -1,0 +1,179 @@
+import type { AgentTool } from '@rozenite/agent-shared';
+import { Effect, Option, Schema, Stream } from 'effect';
+
+import { AtomDevTools } from '@repo/effect-atom-devtools-core/atom-dev-tools';
+import type { AtomId } from '@repo/effect-atom-devtools-core/atom-dev-tools';
+import {
+  ActivatePredefinedStateInput,
+  AtomDevToolsAtomInput,
+} from '@repo/effect-atom-devtools-core/rpc';
+
+import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
+
+class AgentToolError extends Schema.TaggedErrorClass<
+  AgentToolError,
+  { readonly brand: unique symbol }
+>('@repo/effect-atom-devtools-rozenite/react-native/agent/AgentToolError')('AgentToolError', {
+  message: Schema.String,
+}) {}
+
+const emptyInputSchema = {
+  type: 'object',
+  properties: {},
+} as const;
+
+const atomIdProperty = {
+  atomId: {
+    type: 'string',
+    description: 'Atom ID returned by list-atoms.',
+  },
+} as const;
+
+const atomNotFound = (id: AtomId) =>
+  new AgentToolError({
+    message: `Atom "${id}" is not currently tracked. Call list-atoms to get a current atom ID.`,
+  });
+
+export const atomDevToolsAgentTools: readonly {
+  readonly tool: AgentTool;
+  readonly execute: (
+    input: unknown
+  ) => Effect.Effect<unknown, Schema.SchemaError | AgentToolError, AtomDevTools>;
+}[] = [
+  {
+    tool: {
+      name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.list-atoms`,
+      description: 'List all atoms currently tracked by Effect Atom DevTools.',
+      readOnly: true,
+      destructive: false,
+      idempotent: true,
+      inputSchema: emptyInputSchema,
+    },
+    execute: () =>
+      AtomDevTools.pipe(
+        Effect.flatMap(({ catalog }) => catalog.pipe(Stream.runHead, Effect.map(Option.getOrThrow)))
+      ),
+  },
+  {
+    tool: {
+      name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.get-atom-details`,
+      description: 'Get the current Effect Atom DevTools snapshot for an atom.',
+      readOnly: true,
+      destructive: false,
+      idempotent: true,
+      inputSchema: {
+        type: 'object',
+        properties: atomIdProperty,
+        required: ['atomId'],
+      },
+    },
+    execute: (input) =>
+      AtomDevToolsAtomInput.decodeUnknownEffect(input).pipe(
+        Effect.flatMap(({ atomId }) =>
+          AtomDevTools.pipe(Effect.flatMap(({ watch }) => watch(atomId).pipe(Stream.runHead)))
+        ),
+        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(atomNotFound(id)))
+      ),
+  },
+  {
+    tool: {
+      name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.activate-predefined-state`,
+      description: 'Activate a predefined state for an atom and return its resulting snapshot.',
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          ...atomIdProperty,
+          stateId: {
+            type: 'string',
+            description: 'Predefined state ID returned by get-atom-details.',
+          },
+        },
+        required: ['atomId', 'stateId'],
+      },
+    },
+    execute: (input) =>
+      ActivatePredefinedStateInput.decodeUnknownEffect(input).pipe(
+        Effect.flatMap(({ atomId, stateId }) =>
+          AtomDevTools.pipe(
+            Effect.flatMap(({ activatePredefinedState }) =>
+              activatePredefinedState(atomId, stateId)
+            )
+          )
+        ),
+        Effect.as({ activated: true } as const),
+        Effect.catchTags({
+          AtomNotFound: ({ id }) => Effect.fail(atomNotFound(id)),
+          PredefinedStateNotFound: ({ atomId, stateId }) =>
+            Effect.fail(
+              new AgentToolError({
+                message: `Predefined state "${stateId}" was not found for atom "${atomId}". Call get-atom-details for that atom to list its available predefined states.`,
+              })
+            ),
+        })
+      ),
+  },
+  {
+    tool: {
+      name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.clear-predefined-state`,
+      description: "Clear an atom's active predefined state and return its resulting snapshot.",
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      inputSchema: {
+        type: 'object',
+        properties: atomIdProperty,
+        required: ['atomId'],
+      },
+    },
+    execute: (input) =>
+      AtomDevToolsAtomInput.decodeUnknownEffect(input).pipe(
+        Effect.flatMap(({ atomId }) =>
+          AtomDevTools.pipe(
+            Effect.flatMap(({ clearPredefinedState }) => clearPredefinedState(atomId))
+          )
+        ),
+        Effect.as({ cleared: true } as const),
+        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(atomNotFound(id)))
+      ),
+  },
+  {
+    tool: {
+      name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.clear-all-predefined-states`,
+      description: 'Clear active predefined states from every tracked atom.',
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      inputSchema: emptyInputSchema,
+    },
+    execute: () =>
+      AtomDevTools.pipe(
+        Effect.flatMap(({ clearAllPredefinedStates }) => clearAllPredefinedStates()),
+        Effect.as({ cleared: true } as const)
+      ),
+  },
+  {
+    tool: {
+      name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.refresh-atom`,
+      description: 'Refresh an atom and return its resulting snapshot.',
+      readOnly: false,
+      destructive: false,
+      idempotent: false,
+      inputSchema: {
+        type: 'object',
+        properties: atomIdProperty,
+        required: ['atomId'],
+      },
+    },
+    execute: (input) =>
+      AtomDevToolsAtomInput.decodeUnknownEffect(input).pipe(
+        Effect.flatMap(({ atomId }) =>
+          AtomDevTools.pipe(Effect.flatMap(({ refresh }) => refresh(atomId)))
+        ),
+        Effect.as({ refreshed: true } as const),
+        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(atomNotFound(id)))
+      ),
+  },
+];

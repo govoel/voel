@@ -1,6 +1,7 @@
 {
   "extends": "@repo/tsconfig/effect.json",
   "compilerOptions": {
+    "allowArbitraryExtensions": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx"
   },

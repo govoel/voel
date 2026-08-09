@@ -6,7 +6,6 @@ import type { Theme } from 'expo-router/react-navigation';
 import { useColorScheme } from 'react-native';
 
 import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';
-import { AtomDevToolsIntegration } from '#src/components/atom-devtools/index.tsx';
 import { AppRegistry } from '#src/services/registry.ts';
 
 const loadingIndicatorScale = 0.25;
@@ -67,7 +66,6 @@ export default function TabLayout() {
         </Stack>
 
         <AccountsAutoPresenter />
-        <AtomDevToolsIntegration />
       </ThemeProvider>
     </RegistryContext.Provider>
   );

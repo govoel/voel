@@ -131,9 +131,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/effect-atom-devtools-core": "workspace:*",
-        "@rozenite/agent-bridge": "2.0.0",
         "@rozenite/agent-shared": "2.0.0",
         "@rozenite/plugin-bridge": "2.0.0",
+        "@rozenite/ui": "2.0.0",
         "effect": "4.0.0-beta.102",
       },
       "devDependencies": {
@@ -929,8 +929,6 @@
     "@rollup/rollup-win32-x64-gnu": ["@rollup/rollup-win32-x64-gnu@4.62.4", "", { "os": "win32", "cpu": "x64" }, "sha512-qPzHqdj9rfUD+w79dtE07zi/kFwKyCJqplp5K5ygeLTp7jLpAoc16OAH39HSmRC9UpozaecsleI8uAdEj6v2yw=="],
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.62.4", "", { "os": "win32", "cpu": "x64" }, "sha512-zD6NdeWEByGE9QF9vCrlJ5YQB4oq9q91kPZS37Jwj5hOkvR1lTBSpsKhKDw4IJtbQ35LsTS1HD9DZYGKIshU1Q=="],
-
-    "@rozenite/agent-bridge": ["@rozenite/agent-bridge@2.0.0", "", { "dependencies": { "@rozenite/agent-shared": "2.0.0", "@rozenite/plugin-bridge": "2.0.0", "tslib": "^2.3.0" }, "peerDependencies": { "react": ">=17" } }, "sha512-yfyQAUOBn0zlPSC3KsA1aaNEWXe9k94RtB3RexOA8+9QPfn1VTN/OGiTAeRsKKNQNkIGzz+VcKYMT0csAkrYZQ=="],
 
     "@rozenite/agent-sdk": ["@rozenite/agent-sdk@2.0.0", "", { "dependencies": { "@rozenite/agent-shared": "2.0.0", "tslib": "^2.3.0" } }, "sha512-t3NIqJw8ibZvDEt4OEDzUBhEBNS9AitLLMzBt1bgHYUCHQQAAoBBs9JbOre6V254k582ZYwPRZmJdrfjw1N8yw=="],
 
