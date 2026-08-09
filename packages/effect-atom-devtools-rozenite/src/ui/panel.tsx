@@ -14,9 +14,13 @@ import {
   ScrollArea,
   Sidebar,
   Split,
+  Toast,
+  useToast,
 } from '@rozenite/ui';
-import { Cause, Inspectable, Option } from 'effect';
+import { Cause, Exit, Inspectable, Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
+import type { Atom } from 'effect/unstable/reactivity';
+import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
 import type {
@@ -30,7 +34,6 @@ import {
   catalogAtom,
   clearAllPredefinedStatesAtom,
   clearPredefinedStateAtom,
-  hasActivePredefinedStatesAtom,
   refreshAtom,
   selectedAtomIdAtom,
   snapshotAtom,
@@ -107,38 +110,52 @@ const MetadataRow = ({
   </div>
 );
 
-const CommandError = ({ status }: { readonly status: AsyncResult.AsyncResult<void, unknown> }) =>
-  AsyncResult.matchWithError(status, {
-    onInitial: () => null,
-    onError: (error) => (
-      <span
-        className="max-w-80 truncate text-xs text-destructive"
-        title={Inspectable.toStringUnknown(error)}>
-        {Inspectable.toStringUnknown(error)}
-      </span>
-    ),
-    onDefect: (defect) => (
-      <span
-        className="max-w-80 truncate text-xs text-destructive"
-        title={Inspectable.toStringUnknown(defect)}>
-        {Inspectable.toStringUnknown(defect)}
-      </span>
-    ),
-    onSuccess: () => null,
-  });
+const useMutationWithErrorToast = <A, E, W>(
+  mutation: Atom.Writable<AsyncResult.AsyncResult<A, E>, W>,
+  {
+    id,
+    title,
+  }: {
+    readonly id: string;
+    readonly title: string;
+  }
+) => {
+  const [status, runMutation] = useAtom(mutation, { mode: 'promiseExit' });
+  const { add: addToast } = useToast();
 
-const ValuePanel = ({
-  snapshot,
-  activatePredefinedStateStatus,
-  onActivatePredefinedState,
-}: {
-  readonly snapshot: AtomSnapshot;
-  readonly activatePredefinedStateStatus: AsyncResult.AsyncResult<void, unknown>;
-  readonly onActivatePredefinedState: (stateId: string) => void;
-}) => (
-  <div className="flex min-w-0 flex-col gap-4">
+  const runMutationWithErrorToast = useCallback(
+    async (value: W) => {
+      const exit = await runMutation(value);
+
+      if (Exit.isFailure(exit)) {
+        addToast({
+          id,
+          title,
+          description: Inspectable.toStringUnknown(Cause.squash(exit.cause)),
+          type: 'error',
+          priority: 'high',
+        });
+      }
+
+      return exit;
+    },
+    [addToast, id, runMutation, title]
+  );
+
+  return [status, runMutationWithErrorToast] as const;
+};
+
+const PredefinedStatesPanel = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
+  const [activatePredefinedStateStatus, activatePredefinedState] = useMutationWithErrorToast(
+    activatePredefinedStateAtom,
+    {
+      id: 'activate-predefined-state-error',
+      title: 'Unable to activate predefined state',
+    }
+  );
+
+  return (
     <DetailSection title="Predefined states">
-      <CommandError status={activatePredefinedStateStatus} />
       {snapshot.predefinedStates.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           This atom does not expose predefined states.
@@ -173,7 +190,9 @@ const ValuePanel = ({
                   size="compact"
                   disabled={active || AsyncResult.isWaiting(activatePredefinedStateStatus)}
                   onClick={() => {
-                    onActivatePredefinedState(state.id);
+                    void activatePredefinedState({
+                      payload: { atomId: snapshot.id, stateId: state.id },
+                    });
                   }}>
                   {active ? 'Active' : 'Activate'}
                 </Button>
@@ -183,68 +202,61 @@ const ValuePanel = ({
         </div>
       )}
     </DetailSection>
+  );
+};
 
-    <DetailSection title="Current value">
-      <pre className="max-h-[24rem] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-xs leading-5 text-foreground">
-        {snapshot.value}
-      </pre>
-    </DetailSection>
-  </div>
+const CurrentValuePanel = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
+  <DetailSection title="Current value">
+    <pre className="max-h-[24rem] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-xs leading-5 text-foreground">
+      {snapshot.value}
+    </pre>
+  </DetailSection>
 );
 
 const AtomLinks = ({
   title,
   links,
-  onSelect,
 }: {
   readonly title: string;
   readonly links: AtomSnapshot['dependencies'];
-  readonly onSelect: (atomId: AtomId) => void;
-}) => (
-  <DetailSection title={title}>
-    {links.length === 0 ? (
-      <p className="text-sm text-muted-foreground">None</p>
-    ) : (
-      <div className="flex flex-col gap-1">
-        {links.map((link) => (
-          <button
-            key={link.id}
-            type="button"
-            className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md px-2 py-2 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => {
-              onSelect(link.id);
-            }}>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-              {link.name}
-            </span>
-            <code className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
-              {link.id}
-            </code>
-          </button>
-        ))}
-      </div>
-    )}
-  </DetailSection>
-);
+}) => {
+  const setSelectedAtomId = useAtomSet(selectedAtomIdAtom);
 
-const GraphPanel = ({
-  snapshot,
-  onSelect,
-}: {
-  readonly snapshot: AtomSnapshot;
-  readonly onSelect: (atomId: AtomId) => void;
-}) => (
+  return (
+    <DetailSection title={title}>
+      {links.length === 0 ? (
+        <p className="text-sm text-muted-foreground">None</p>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {links.map((link) => (
+            <button
+              key={link.id}
+              type="button"
+              className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md px-2 py-2 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => {
+                setSelectedAtomId(Option.some(link.id));
+              }}>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                {link.name}
+              </span>
+              <code className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
+                {link.id}
+              </code>
+            </button>
+          ))}
+        </div>
+      )}
+    </DetailSection>
+  );
+};
+
+const GraphPanel = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
   <div className="grid gap-4 xl:grid-cols-2">
     <AtomLinks
       title={`Dependencies (${snapshot.dependencies.length})`}
       links={snapshot.dependencies}
-      onSelect={onSelect}
     />
-    <AtomLinks
-      title={`Dependents (${snapshot.dependents.length})`}
-      links={snapshot.dependents}
-      onSelect={onSelect}
-    />
+    <AtomLinks title={`Dependents (${snapshot.dependents.length})`} links={snapshot.dependents} />
   </div>
 );
 
@@ -284,17 +296,18 @@ const SourcePanel = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
 );
 
 const SnapshotDetails = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
-  const [activatePredefinedStateStatus, activatePredefinedState] = useAtom(
-    activatePredefinedStateAtom
+  const [clearPredefinedStateStatus, clearPredefinedState] = useMutationWithErrorToast(
+    clearPredefinedStateAtom,
+    {
+      id: 'clear-predefined-state-error',
+      title: 'Unable to clear predefined state',
+    }
   );
-  const [clearPredefinedStateStatus, clearPredefinedState] = useAtom(clearPredefinedStateAtom);
-  const [refreshStatus, refresh] = useAtom(refreshAtom);
-  const setSelectedAtomId = useAtomSet(selectedAtomIdAtom);
+  const [refreshStatus, refresh] = useMutationWithErrorToast(refreshAtom, {
+    id: 'refresh-atom-error',
+    title: 'Unable to refresh atom',
+  });
   const hasActivePredefinedState = Option.isSome(snapshot.activePredefinedStateId);
-
-  const selectAtom = (atomId: AtomId) => {
-    setSelectedAtomId(Option.some(atomId));
-  };
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -310,14 +323,12 @@ const SnapshotDetails = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
           </code>
         </div>
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
-          <CommandError status={refreshStatus} />
-          <CommandError status={clearPredefinedStateStatus} />
           <Button
             variant="outline"
             size="compact"
             disabled={AsyncResult.isWaiting(refreshStatus)}
             onClick={() => {
-              refresh({ payload: { atomId: snapshot.id } });
+              void refresh({ payload: { atomId: snapshot.id } });
             }}>
             Refresh
           </Button>
@@ -328,7 +339,7 @@ const SnapshotDetails = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
               !hasActivePredefinedState || AsyncResult.isWaiting(clearPredefinedStateStatus)
             }
             onClick={() => {
-              clearPredefinedState({ payload: { atomId: snapshot.id } });
+              void clearPredefinedState({ payload: { atomId: snapshot.id } });
             }}>
             Clear state
           </Button>
@@ -339,14 +350,9 @@ const SnapshotDetails = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
         className="min-h-0 min-w-0 flex-1"
         viewportClassName="min-h-full min-w-0 [&>[role=presentation]]:!min-w-full [&>[role=presentation]]:max-w-full">
         <div className="flex min-w-0 flex-col gap-4 p-4">
-          <ValuePanel
-            snapshot={snapshot}
-            activatePredefinedStateStatus={activatePredefinedStateStatus}
-            onActivatePredefinedState={(stateId) => {
-              activatePredefinedState({ payload: { atomId: snapshot.id, stateId } });
-            }}
-          />
-          <GraphPanel snapshot={snapshot} onSelect={selectAtom} />
+          <PredefinedStatesPanel snapshot={snapshot} />
+          <CurrentValuePanel snapshot={snapshot} />
+          <GraphPanel snapshot={snapshot} />
           <MetadataPanel snapshot={snapshot} />
           <SourcePanel snapshot={snapshot} />
         </div>
@@ -432,52 +438,61 @@ const CatalogPane = () => {
   });
 };
 
+const PanelHeader = () => {
+  const [clearAllPredefinedStatesStatus, clearAllPredefinedStates] = useMutationWithErrorToast(
+    clearAllPredefinedStatesAtom,
+    {
+      id: 'clear-all-predefined-states-error',
+      title: 'Unable to clear all predefined states',
+    }
+  );
+
+  return (
+    <PluginHeader>
+      <PluginHeader.Title>Effect Atom DevTools</PluginHeader.Title>
+      <PluginHeader.Actions>
+        <Button
+          variant="outline"
+          size="compact"
+          disabled={AsyncResult.isWaiting(clearAllPredefinedStatesStatus)}
+          onClick={() => {
+            void clearAllPredefinedStates({ payload: void 0 });
+          }}>
+          Clear all states
+        </Button>
+      </PluginHeader.Actions>
+    </PluginHeader>
+  );
+};
+
 const ConnectedPanel = () => {
   const selectedAtomId = useAtomValue(selectedAtomIdAtom);
-  const [clearAllPredefinedStatesStatus, clearAllPredefinedStates] = useAtom(
-    clearAllPredefinedStatesAtom
-  );
-  const hasActivePredefinedStates = useAtomValue(hasActivePredefinedStatesAtom);
 
   return (
     <PluginShell>
-      <PluginHeader>
-        <PluginHeader.Title>Effect Atom DevTools</PluginHeader.Title>
-        <PluginHeader.Actions>
-          <CommandError status={clearAllPredefinedStatesStatus} />
-          <Button
-            variant="outline"
-            size="compact"
-            disabled={
-              AsyncResult.isWaiting(clearAllPredefinedStatesStatus) || !hasActivePredefinedStates
-            }
-            onClick={() => {
-              clearAllPredefinedStates({ payload: void 0 });
-            }}>
-            Clear all states
-          </Button>
-        </PluginHeader.Actions>
-      </PluginHeader>
+      <Toast.Provider>
+        <PanelHeader />
 
-      <PluginShell.Body className="overflow-hidden">
-        <Split direction="horizontal">
-          <Split.Pane defaultSize={27} minSize={18} maxSize={45}>
-            <CatalogPane />
-          </Split.Pane>
-          <Split.Handle />
-          <Split.Pane className="flex min-w-0 flex-col overflow-hidden">
-            {Option.match(selectedAtomId, {
-              onNone: () => (
-                <EmptyState
-                  title="Select an atom"
-                  description="Choose a tracked atom from the sidebar to inspect its live value and runtime details."
-                />
-              ),
-              onSome: (atomId) => <AtomDetails atomId={atomId} />,
-            })}
-          </Split.Pane>
-        </Split>
-      </PluginShell.Body>
+        <PluginShell.Body className="overflow-hidden">
+          <Split direction="horizontal">
+            <Split.Pane defaultSize={27} minSize={18} maxSize={45}>
+              <CatalogPane />
+            </Split.Pane>
+            <Split.Handle />
+            <Split.Pane className="flex min-w-0 flex-col overflow-hidden">
+              {Option.match(selectedAtomId, {
+                onNone: () => (
+                  <EmptyState
+                    title="Select an atom"
+                    description="Choose a tracked atom from the sidebar to inspect its live value and runtime details."
+                  />
+                ),
+                onSome: (atomId) => <AtomDetails atomId={atomId} />,
+              })}
+            </Split.Pane>
+          </Split>
+        </PluginShell.Body>
+      </Toast.Provider>
     </PluginShell>
   );
 };

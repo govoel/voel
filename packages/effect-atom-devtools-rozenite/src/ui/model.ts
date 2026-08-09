@@ -1,6 +1,6 @@
 import { getRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Effect, Layer, Option, Stream } from 'effect';
-import { AsyncResult, Atom, AtomRpc } from 'effect/unstable/reactivity';
+import { Atom, AtomRpc } from 'effect/unstable/reactivity';
 import { RpcClient } from 'effect/unstable/rpc';
 
 import type { AtomId } from '@repo/effect-atom-devtools-core/atom-dev-tools';
@@ -49,11 +49,5 @@ export const catalogAtom = AtomDevToolsClient.runtime.atom(
 export const snapshotAtom = Atom.family((atomId: AtomId) =>
   AtomDevToolsClient.runtime.atom(
     Stream.unwrap(AtomDevToolsClient.use((client) => Effect.succeed(client('watch', { atomId }))))
-  )
-);
-
-export const hasActivePredefinedStatesAtom = Atom.make((get) =>
-  AsyncResult.getOrElse(get(catalogAtom), () => []).some(
-    ({ hasActivePredefinedState }) => hasActivePredefinedState
   )
 );
