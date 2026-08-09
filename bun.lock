@@ -130,6 +130,7 @@
       "name": "@repo/effect-atom-devtools-rozenite",
       "version": "0.0.0",
       "dependencies": {
+        "@effect/atom-react": "4.0.0-beta.102",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@rozenite/agent-shared": "2.0.0",
         "@rozenite/plugin-bridge": "2.0.0",
