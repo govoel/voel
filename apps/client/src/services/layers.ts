@@ -12,8 +12,7 @@ import { AppConfig } from '#src/services/config.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 
 export const CommonGlobalLayers = AccountManager.layer.pipe(
-  Layer.provideMerge(AuthClientMap.layer),
-  Layer.provideMerge(Layer.mergeAll(FetchHttpClient.layer, Reactivity.layer))
+  Layer.provideMerge(Layer.mergeAll(AuthClientMap.layer, FetchHttpClient.layer, Reactivity.layer))
 );
 
 export const CommonClientLayers = CommonGlobalLayers.pipe(
