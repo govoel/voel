@@ -1,14 +1,20 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect, Match, Option, Queue } from 'effect';
+import { Effect, Option, Queue, Random } from 'effect';
 import { RpcServer } from 'effect/unstable/rpc';
 import type { RpcMessage } from 'effect/unstable/rpc';
 
-import { RPC_CLIENT_EVENT, RPC_RESPONSE_EVENT } from '#src/shared/rpc-bridge.ts';
-import type { RpcBridgeClientMessage, RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
+import {
+  RPC_CLIENT_EVENT,
+  RPC_SERVER_EVENT,
+  RpcBridgeClientMessage,
+  RpcBridgeServerMessage,
+} from '#src/shared/rpc-bridge.ts';
+import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
 
 export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBridgeEventMap>) =>
   RpcServer.Protocol.make(
     Effect.fnUntraced(function* (writeRequest) {
+      const serverId = `${yield* Random.nextInt}:${yield* Random.nextInt}`;
       const disconnects = yield* Queue.unbounded<number>();
       const incomingMessages = yield* Queue.unbounded<RpcBridgeClientMessage>();
       const clientIds = new Set<number>();
@@ -29,6 +35,10 @@ export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
             subscription.remove();
           })
       );
+
+      yield* Effect.sync(() => {
+        bridgeClient.send(RPC_SERVER_EVENT, RpcBridgeServerMessage.Ready({ serverId }));
+      });
 
       const startSession = Effect.fnUntraced(function* (sessionId: string) {
         if (Option.exists(activeSession, (session) => session.sessionId === sessionId)) {
@@ -69,16 +79,10 @@ export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
         yield* writeRequest(activeSession.value.clientId, message);
       });
 
-      const handleIncomingMessage = Effect.fnUntraced(function* (
-        clientMessage: RpcBridgeClientMessage
-      ) {
-        return yield* Match.value(clientMessage).pipe(
-          Match.tagsExhaustive({
-            Start: ({ sessionId }) => startSession(sessionId),
-            End: ({ sessionId }) => endSession(sessionId),
-            Request: ({ sessionId, message }) => handleRequest(sessionId, message),
-          })
-        );
+      const handleIncomingMessage = RpcBridgeClientMessage.$match({
+        Start: ({ sessionId }) => startSession(sessionId),
+        End: ({ sessionId }) => endSession(sessionId),
+        Request: ({ sessionId, message }) => handleRequest(sessionId, message),
       });
 
       // Keep session changes and transport envelopes ordered through `writeRequest`.
@@ -97,10 +101,13 @@ export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
         send: (clientId, response) =>
           Effect.sync(() => {
             if (Option.isSome(activeSession) && activeSession.value.clientId === clientId) {
-              bridgeClient.send(RPC_RESPONSE_EVENT, {
-                sessionId: activeSession.value.sessionId,
-                message: response,
-              });
+              bridgeClient.send(
+                RPC_SERVER_EVENT,
+                RpcBridgeServerMessage.Response({
+                  sessionId: activeSession.value.sessionId,
+                  message: response,
+                })
+              );
             }
           }),
         end: (clientId) =>

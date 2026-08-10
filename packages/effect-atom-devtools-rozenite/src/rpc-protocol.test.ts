@@ -1,13 +1,14 @@
 import { describe, expect, it } from '@effect/vitest';
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Deferred, Effect, Option, Queue, Random, Ref, Schema, Stream } from 'effect';
+import { Deferred, Effect, Exit, Option, Queue, Random, Ref, Schema, Scope, Stream } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcMessage, RpcSchema, RpcServer } from 'effect/unstable/rpc';
 
 import { makeRpcServerProtocol } from '#src/react-native/rpc/protocol.ts';
 import {
   RPC_CLIENT_EVENT,
-  RPC_RESPONSE_EVENT,
+  RPC_SERVER_EVENT,
   RpcBridgeClientMessage,
+  RpcBridgeServerMessage,
 } from '#src/shared/rpc-bridge.ts';
 import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
 import { makeRpcClientProtocol } from '#src/ui/rpc/protocol.ts';
@@ -24,14 +25,15 @@ type BridgeListeners = {
 const makeBridgeClient = (loopback = false) => {
   const listeners: BridgeListeners = {
     [RPC_CLIENT_EVENT]: new Set(),
-    [RPC_RESPONSE_EVENT]: new Set(),
+    [RPC_SERVER_EVENT]: new Set(),
   };
   const sent: BridgeEvent[] = [];
+  const mutedEvents = new Set<keyof RpcBridgeEventMap>();
 
   const client: RozeniteDevToolsClient<RpcBridgeEventMap> = {
     send: (type, payload) => {
       sent.push({ type, payload });
-      if (loopback) {
+      if (loopback && !mutedEvents.has(type)) {
         for (const listener of listeners[type]) {
           listener(payload);
         }
@@ -63,7 +65,15 @@ const makeBridgeClient = (loopback = false) => {
     }
   };
 
-  return { client, emit, sent } as const;
+  const mute = (type: keyof RpcBridgeEventMap): void => {
+    mutedEvents.add(type);
+  };
+
+  const unmute = (type: keyof RpcBridgeEventMap): void => {
+    mutedEvents.delete(type);
+  };
+
+  return { client, emit, mute, sent, unmute } as const;
 };
 
 const ping = { _tag: 'Ping' } as const satisfies RpcMessage.FromClientEncoded;
@@ -78,7 +88,9 @@ describe('Rozenite RPC server protocol sessions', () => {
     Effect.scoped(
       Effect.gen(function* () {
         const bridge = makeBridgeClient();
-        const protocol = yield* makeRpcServerProtocol(bridge.client);
+        const protocol = yield* makeRpcServerProtocol(bridge.client).pipe(
+          Effect.provideService(Random.Random, fixedRandom(1))
+        );
         const requests = yield* Queue.unbounded<{
           readonly clientId: number;
           readonly message: RpcMessage.FromClientEncoded;
@@ -131,7 +143,9 @@ describe('Rozenite RPC server protocol sessions', () => {
     Effect.scoped(
       Effect.gen(function* () {
         const bridge = makeBridgeClient();
-        const protocol = yield* makeRpcServerProtocol(bridge.client);
+        const protocol = yield* makeRpcServerProtocol(bridge.client).pipe(
+          Effect.provideService(Random.Random, fixedRandom(1))
+        );
         const requestClientIds = yield* Queue.unbounded<number>();
 
         yield* protocol
@@ -147,8 +161,12 @@ describe('Rozenite RPC server protocol sessions', () => {
 
         expect(bridge.sent).toEqual([
           {
-            type: RPC_RESPONSE_EVENT,
-            payload: { sessionId: 'session-b', message: pong },
+            type: RPC_SERVER_EVENT,
+            payload: { _tag: 'Ready', serverId: '1:1' },
+          },
+          {
+            type: RPC_SERVER_EVENT,
+            payload: { _tag: 'Response', sessionId: 'session-b', message: pong },
           },
         ]);
 
@@ -170,7 +188,7 @@ describe('Rozenite RPC server protocol sessions', () => {
         yield* protocol.end(2);
         yield* protocol.send(2, pong);
         expect([...(yield* protocol.clientIds)]).toEqual([]);
-        expect(bridge.sent).toHaveLength(1);
+        expect(bridge.sent).toHaveLength(2);
       })
     )
   );
@@ -193,11 +211,17 @@ describe('Rozenite RPC client protocol sessions', () => {
 
           yield* protocol.send(0, ping);
 
-          bridge.emit(RPC_RESPONSE_EVENT, { sessionId: 'stale-session', message: pong });
+          bridge.emit(
+            RPC_SERVER_EVENT,
+            RpcBridgeServerMessage.Response({ sessionId: 'stale-session', message: pong })
+          );
           yield* Effect.yieldNow;
           expect(yield* Queue.size(responses)).toBe(0);
 
-          bridge.emit(RPC_RESPONSE_EVENT, { sessionId: '1:1', message: pong });
+          bridge.emit(
+            RPC_SERVER_EVENT,
+            RpcBridgeServerMessage.Response({ sessionId: '1:1', message: pong })
+          );
           expect(yield* Queue.take(responses)).toEqual(pong);
         })
       );
@@ -285,6 +309,76 @@ describe('Rozenite RPC session reload integration', () => {
             .pipe(Stream.runHead, Effect.map(Option.getOrThrow), Effect.timeout('1 second'))
         ).toBe('event-2');
         yield* Deferred.await(firstHandlerFinalized).pipe(Effect.timeout('1 second'));
+        expect(yield* Ref.get(handlerCount)).toBe(2);
+      })
+    )
+  );
+
+  it.effect('replays active requests after replacing the runtime server', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const bridge = makeBridgeClient(true);
+        const parentScope = yield* Effect.scope;
+        const handlerCount = yield* Ref.make(0);
+        const firstHandlerFinalized = yield* Deferred.make<boolean>();
+
+        const handlers = ReloadTestRpc.toLayer({
+          Events: () =>
+            Stream.unwrap(
+              Ref.updateAndGet(handlerCount, (count) => count + 1).pipe(
+                Effect.map((handlerId) =>
+                  Stream.make(`event-${handlerId}`).pipe(
+                    Stream.concat(Stream.never),
+                    Stream.ensuring(
+                      handlerId === 1 ? Deferred.succeed(firstHandlerFinalized, true) : Effect.void
+                    )
+                  )
+                )
+              )
+            ),
+        });
+
+        const startServer = Effect.fnUntraced(function* (scope: Scope.Scope, randomValue: number) {
+          yield* Effect.gen(function* () {
+            const serverProtocol = yield* makeRpcServerProtocol(bridge.client).pipe(
+              Effect.provideService(Random.Random, fixedRandom(randomValue))
+            );
+
+            yield* RpcServer.make(ReloadTestRpc).pipe(
+              Effect.provideService(RpcServer.Protocol, serverProtocol),
+              Effect.provide(handlers),
+              Effect.forkScoped
+            );
+          }).pipe(Effect.provideService(Scope.Scope, scope));
+        });
+
+        const firstServerScope = yield* Scope.fork(parentScope);
+        yield* startServer(firstServerScope, 1);
+
+        const clientProtocol = yield* makeRpcClientProtocol(bridge.client).pipe(
+          Effect.provideService(Random.Random, fixedRandom(3))
+        );
+        const client = yield* RpcClient.make(ReloadTestRpc, {
+          generateRequestId: () => RpcMessage.RequestId('0'),
+        }).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
+        const values = yield* Queue.unbounded<string>();
+
+        yield* client.Events().pipe(
+          Stream.runForEach((value) => Queue.offer(values, value)),
+          Effect.forkScoped
+        );
+
+        expect(yield* Queue.take(values)).toBe('event-1');
+
+        bridge.mute(RPC_SERVER_EVENT);
+        yield* Scope.close(firstServerScope, Exit.void);
+        bridge.unmute(RPC_SERVER_EVENT);
+        yield* Deferred.await(firstHandlerFinalized).pipe(Effect.timeout('1 second'));
+
+        const secondServerScope = yield* Scope.fork(parentScope);
+        yield* startServer(secondServerScope, 2);
+
+        expect(yield* Queue.take(values).pipe(Effect.timeout('1 second'))).toBe('event-2');
         expect(yield* Ref.get(handlerCount)).toBe(2);
       })
     )
