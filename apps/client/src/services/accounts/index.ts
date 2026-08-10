@@ -50,33 +50,33 @@ export class UuidGenerator extends Context.Service<
   });
 }
 
-export class AccountSignInError extends Schema.TaggedErrorClass<
+export class AccountSignInError extends Schema.TaggedError<
   AccountSignInError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignInError')('AccountSignInError', {
   details: BetterAuthErrorDetails,
 }) {}
 
-export class AccountSignUpError extends Schema.TaggedErrorClass<
+export class AccountSignUpError extends Schema.TaggedError<
   AccountSignUpError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignUpError')('AccountSignUpError', {
   details: BetterAuthErrorDetails,
 }) {}
 
-export class AccountSignOutError extends Schema.TaggedErrorClass<
+export class AccountSignOutError extends Schema.TaggedError<
   AccountSignOutError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignOutError')('AccountSignOutError', {
   details: BetterAuthErrorDetails,
 }) {}
 
-export class AccountDatabaseError extends Schema.TaggedErrorClass<
+export class AccountDatabaseError extends Schema.TaggedError<
   AccountDatabaseError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountDatabaseError')('AccountDatabaseError', {}) {}
 
-export class AccountNotFoundError extends Schema.TaggedErrorClass<
+export class AccountNotFoundError extends Schema.TaggedError<
   AccountNotFoundError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountNotFoundError')('AccountNotFoundError', {

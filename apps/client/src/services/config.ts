@@ -9,7 +9,7 @@ class AppConfigVariables extends Schema.Class<
   ),
 }) {}
 
-export class AppConfigError extends Schema.TaggedErrorClass<
+export class AppConfigError extends Schema.TaggedError<
   AppConfigError,
   { readonly brand: unique symbol }
 >('voel/services/config/AppConfigError')('AppConfigError', {}) {}

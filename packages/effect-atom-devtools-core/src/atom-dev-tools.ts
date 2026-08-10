@@ -64,14 +64,14 @@ export class AtomSnapshot extends AtomSummary.extend<
   activePredefinedStateId: Schema.Option(Schema.String),
 }) {}
 
-export class AtomNotFound extends Schema.TaggedErrorClass<
+export class AtomNotFound extends Schema.TaggedError<
   AtomNotFound,
   { readonly brand: unique symbol }
 >(`${AtomDevToolsTypeId}/AtomNotFound`)('AtomNotFound', {
   id: AtomId,
 }) {}
 
-export class PredefinedStateNotFound extends Schema.TaggedErrorClass<
+export class PredefinedStateNotFound extends Schema.TaggedError<
   PredefinedStateNotFound,
   { readonly brand: unique symbol }
 >(`${AtomDevToolsTypeId}/PredefinedStateNotFound`)('PredefinedStateNotFound', {

@@ -13,14 +13,18 @@ class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
   absolutePath: Schema.String.pipe(
     Schema.decodeTo(LibraryPath.fields.absolutePath, {
       decode: SchemaGetter.transformOrFail(
-        Effect.fnUntraced(function* (absolutePath) {
+        Effect.fnUntraced(function* (absolutePath, options) {
           const path = yield* Path.Path;
 
           if (!path.isAbsolute(absolutePath)) {
             return yield* Effect.fail(
-              new SchemaIssue.InvalidValue(Option.some(absolutePath), {
-                message: 'Expected an absolute path',
-              })
+              new SchemaIssue.InvalidValue(
+                {
+                  message: 'Expected an absolute path',
+                },
+                absolutePath,
+                options
+              )
             );
           }
 
@@ -105,6 +109,7 @@ export const LibraryHandlers = Layer.mergeAll(
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryUpsert'>) {
       const absolutePaths = yield* LibraryAbsolutePath.decodeEffect(payload.absolutePaths, {
         errors: 'all',
+        reportInput: true,
       });
 
       const { db } = yield* Database;
