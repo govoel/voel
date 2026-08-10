@@ -94,7 +94,7 @@ const expectNoUpdates = Effect.fnUntraced(function* (queue: Queue.Dequeue<unknow
 
 const expectUpdates = Effect.fnUntraced(function* (
   queue: Queue.Dequeue<unknown>,
-  updates: readonly unknown[]
+  updates: ReadonlyArray<unknown>
 ) {
   for (const update of updates) {
     expect(yield* Queue.take(queue)).toEqual(update);
@@ -104,7 +104,7 @@ const expectUpdates = Effect.fnUntraced(function* (
 const expectUpdateForEntry = Effect.fnUntraced(function* (
   sourceTap: SourceTap<KyselyDB> | undefined,
   queue: Queue.Dequeue<unknown>,
-  entry: { readonly updates?: readonly unknown[]; readonly [key: string]: unknown }
+  entry: { readonly updates?: ReadonlyArray<unknown>; readonly [key: string]: unknown }
 ) {
   if (sourceTap !== void 0 && 'updates' in entry) {
     yield* expectUpdates(queue, entry.updates);
@@ -117,7 +117,10 @@ const expectUpdateForEntry = Effect.fnUntraced(function* (
 const expectAllUpdates = Effect.fnUntraced(function* (
   sourceTap: SourceTap<KyselyDB> | undefined,
   queue: Queue.Dequeue<unknown>,
-  queries: readonly { readonly updates?: readonly unknown[]; readonly [key: string]: unknown }[]
+  queries: ReadonlyArray<{
+    readonly updates?: ReadonlyArray<unknown>;
+    readonly [key: string]: unknown;
+  }>
 ) {
   if (sourceTap !== void 0) {
     for (const entry of queries) {

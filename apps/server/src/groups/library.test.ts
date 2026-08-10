@@ -25,10 +25,10 @@ const makeTestLayer = () =>
 
 const formatSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 
-const makeAbsolutePaths = (absolutePaths: readonly string[]) =>
+const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
   absolutePaths.map((absolutePath) => ({ absolutePath }));
 
-const makeExpectedAbsolutePaths = (absolutePaths: readonly string[]) =>
+const makeExpectedAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
   absolutePaths.map((absolutePath) => ({ id: expect.any(Number) as unknown, absolutePath }));
 
 it.layer(

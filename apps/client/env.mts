@@ -1,0 +1,19 @@
+import { Config, ConfigProvider, Context, Effect, Layer } from 'effect';
+
+export class Env extends Context.Service<Env>()('voel/env/Env', {
+  make: Effect.gen(function* () {
+    const releaseChannel = yield* Config.literals(
+      ['prod', 'preview', 'dev'],
+      'RELEASE_CHANNEL'
+    ).pipe(Config.withDefault('dev'));
+
+    return {
+      releaseChannel,
+      rozeniteEnabled: releaseChannel === 'dev',
+    };
+  }),
+}) {
+  public static readonly layer = Layer.effect(this, this.make).pipe(
+    Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))
+  );
+}

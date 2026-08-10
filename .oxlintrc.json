@@ -68,6 +68,7 @@
 
     "typescript/explicit-function-return-type": "off",
     "typescript/explicit-module-boundary-types": "off",
+    "typescript/array-type": ["error", { "default": "generic", "readonly": "generic" }],
     "typescript/require-await": "off",
     "typescript/prefer-readonly-parameter-types": "off",
 
@@ -80,6 +81,8 @@
     "unicorn/no-negated-condition": "off",
     "unicorn/max-nested-calls": "off",
     "unicorn/no-array-sort": "off",
+    // Effect's Schema.TaggedError is a class factory, but this rule mistakes it for an Error call without `new`.
+    "unicorn/throw-new-error": "off",
 
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"

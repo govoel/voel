@@ -41,7 +41,7 @@ type StandardSchemaFieldContext<TData> = Omit<
       ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state']['meta'],
       'errors'
     > & {
-      readonly errors: FormFieldError[];
+      readonly errors: Array<FormFieldError>;
     };
   };
 };
@@ -61,7 +61,7 @@ export const {
       ReturnType<typeof tanStackFormHookContexts.useFormContext>['state'],
       'errors'
     > & {
-      readonly errors: (string | Record<string, StandardSchemaV1Issue[]>)[];
+      readonly errors: Array<string | Record<string, Array<StandardSchemaV1Issue>>>;
     };
   };
 } = tanStackFormHookContexts;

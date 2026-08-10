@@ -137,7 +137,7 @@ class SourceTapSqliteConnection implements DatabaseConnection {
 
   public async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
     const { sql, parameters } = compiledQuery;
-    const stmt = this.#db.prepare<O, SQLQueryBindings[]>(sql);
+    const stmt = this.#db.prepare<O, Array<SQLQueryBindings>>(sql);
 
     if (stmt.columnNames.length > 0) {
       // oxlint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument

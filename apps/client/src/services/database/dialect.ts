@@ -142,13 +142,13 @@ class OpSqliteConnection implements DatabaseConnection {
     // Execute each compiled query directly. Prepared statements only help when reused, and their
     // result shape differs from execute on native op-sqlite, which made zero-row reads ambiguous.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const result = await this.#db.execute(sql, parameters as Scalar[]);
+    const result = await this.#db.execute(sql, parameters as Array<Scalar>);
 
     return {
       ...(typeof result.insertId === 'number' ? { insertId: BigInt(result.insertId) } : void 0),
       numAffectedRows: BigInt(result.rowsAffected),
       // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      rows: result.rows as O[],
+      rows: result.rows as Array<O>,
     };
   }
 

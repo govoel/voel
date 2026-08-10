@@ -63,7 +63,7 @@ class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
 
             drainCount += 1;
 
-            const tasks: (() => void)[] = [];
+            const tasks: Array<() => void> = [];
             for (const scheduledTask of scheduledTasks) {
               tasks.push(scheduledTask);
             }

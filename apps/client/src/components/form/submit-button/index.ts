@@ -3,7 +3,7 @@ import type { HStackProps, ButtonProps as SwiftButtonProps } from '@expo/ui/swif
 import type { ComponentType, ReactElement } from 'react';
 
 export type SubmitButtonComponent = ComponentType<{
-  children: ReactElement | ReactElement[];
+  children: ReactElement | Array<ReactElement>;
   disabled?: boolean;
   platformProps?:
     | {

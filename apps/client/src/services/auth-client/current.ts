@@ -7,12 +7,12 @@ import {
 } from '#src/services/auth-client/errors.ts';
 import type { VoelAuthClient } from '#src/services/auth-client/index.ts';
 
-export class NoCurrentAuthClientError extends Schema.TaggedErrorClass<
+export class NoCurrentAuthClientError extends Schema.TaggedError<
   NoCurrentAuthClientError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/current/NoCurrentAuthClientError')('NoCurrentAuthClientError', {}) {}
 
-class CurrentAuthClientRequestError extends Schema.TaggedErrorClass<
+class CurrentAuthClientRequestError extends Schema.TaggedError<
   CurrentAuthClientRequestError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/current/CurrentAuthClientRequestError')(

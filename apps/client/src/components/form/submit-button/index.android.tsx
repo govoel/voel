@@ -22,7 +22,7 @@ const SubmitErrorMessage = ({
   formErrorMessages,
 }: {
   readonly color: string;
-  readonly formErrorMessages: string[];
+  readonly formErrorMessages: Array<string>;
 }) => {
   const errorMessage = Array.head(formErrorMessages);
 
@@ -46,7 +46,7 @@ export const SubmitButton = (({
   const submissionError = useFormSubmissionError();
   const [canSubmit, isSubmitting, validationErrorMessages] = useSelector(
     form.store,
-    (state): readonly [boolean, boolean, string[]] => [
+    (state): readonly [boolean, boolean, Array<string>] => [
       state.canSubmit,
       state.isSubmitting,
       state.errors.filter(

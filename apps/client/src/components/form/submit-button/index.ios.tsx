@@ -18,7 +18,11 @@ import type { SubmitButtonComponent } from '#src/components/form/submit-button/i
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-const SubmitErrorMessage = ({ formErrorMessages }: { readonly formErrorMessages: string[] }) => {
+const SubmitErrorMessage = ({
+  formErrorMessages,
+}: {
+  readonly formErrorMessages: Array<string>;
+}) => {
   const errorMessage = Array.head(formErrorMessages);
 
   return Option.match(errorMessage, {
@@ -47,7 +51,7 @@ export const SubmitButton = (({
   const submissionError = useFormSubmissionError();
   const [canSubmit, isSubmitting, validationErrorMessages] = useSelector(
     form.store,
-    (state): readonly [boolean, boolean, string[]] => [
+    (state): readonly [boolean, boolean, Array<string>] => [
       state.canSubmit,
       state.isSubmitting,
       state.errors.filter(
