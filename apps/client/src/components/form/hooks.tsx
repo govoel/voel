@@ -18,11 +18,8 @@ const formSubmissionError = Atom.family((_form: AnyFormApi) =>
   Atom.make<Option.Option<string>>(Option.none())
 );
 
-export const useFormSubmissionError = () => {
-  const form = tanStackFormHookContexts.useFormContext();
-
-  return useAtomValue(formSubmissionError(form));
-};
+export const useFormSubmissionError = () =>
+  useAtomValue(formSubmissionError(tanStackFormHookContexts.useFormContext()));
 
 export type FormFieldError = string | StandardSchemaV1Issue;
 
@@ -193,6 +190,13 @@ export const createEffectSchemaFormHook = <
 
     const form = useTanStackAppForm({
       ...props,
+      listeners: {
+        ...props.listeners,
+        onChange: (listenerProps) => {
+          setSubmissionError(Option.none());
+          props.listeners?.onChange?.(listenerProps);
+        },
+      },
       onSubmit: async (submitProps) => {
         setSubmissionError(Option.none());
 
