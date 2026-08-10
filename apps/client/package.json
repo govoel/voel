@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@better-auth/expo": "1.6.23",
-    "@effect/atom-react": "4.0.0-beta.102",
+    "@effect/atom-react": "4.0.0-beta.105",
     "@expo-google-fonts/google-sans": "0.4.2",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~57.0.7",
@@ -26,7 +26,7 @@
     "@repo/spec-api": "workspace:*",
     "@tanstack/react-form": "1.33.2",
     "better-auth": "1.6.23",
-    "effect": "4.0.0-beta.102",
+    "effect": "4.0.0-beta.105",
     "expo": "~57.0.8",
     "expo-build-properties": "~57.0.7",
     "expo-constants": "~57.0.7",
@@ -52,8 +52,8 @@
   },
   "devDependencies": {
     "@effect/language-service": "0.87.1",
-    "@effect/platform-bun": "4.0.0-beta.102",
-    "@effect/vitest": "4.0.0-beta.102",
+    "@effect/platform-bun": "4.0.0-beta.105",
+    "@effect/vitest": "4.0.0-beta.105",
     "@repo/effect-atom-devtools-core": "workspace:*",
     "@repo/effect-atom-devtools-rozenite": "workspace:*",
     "@repo/tsconfig": "workspace:*",

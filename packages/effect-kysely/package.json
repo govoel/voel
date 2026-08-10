@@ -14,7 +14,7 @@
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
   },
   "dependencies": {
-    "effect": "4.0.0-beta.102",
+    "effect": "4.0.0-beta.105",
     "kysely": "0.29.4"
   },
   "devDependencies": {
