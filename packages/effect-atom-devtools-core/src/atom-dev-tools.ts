@@ -20,7 +20,7 @@ import {
   markInternalAtom,
 } from '#src/predefined-states.ts';
 
-const AtomDevToolsTypeId = '@repo/effect-atom-devtools-core/AtomDevTools' as const;
+export const AtomDevToolsTypeId = '@repo/effect-atom-devtools-core/AtomDevTools' as const;
 
 export const AtomId = Schema.String.pipe(Schema.brand(`${AtomDevToolsTypeId}/AtomId`));
 export type AtomId = typeof AtomId.Type;
@@ -41,7 +41,7 @@ class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>
   name: Schema.String,
 }) {}
 
-class AtomSnapshot extends AtomSummary.extend<
+export class AtomSnapshot extends AtomSummary.extend<
   AtomSnapshot,
   Record<never, never>,
   { readonly atomSnapshotBrand: unique symbol }

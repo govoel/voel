@@ -1,0 +1,54 @@
+{
+  "name": "@repo/effect-atom-devtools-rozenite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/react-native/index.cjs",
+  "module": "./dist/react-native/index.js",
+  "types": "./dist/react-native/index.d.ts",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/react-native/index.d.ts",
+      "import": "./dist/react-native/index.js",
+      "require": "./dist/react-native/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rozenite build",
+    "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
+    "dev": "rozenite dev",
+    "test": "bun --bun run vitest --passWithNoTests"
+  },
+  "dependencies": {
+    "@effect/atom-react": "4.0.0-beta.102",
+    "@repo/effect-atom-devtools-core": "workspace:*",
+    "@rozenite/agent-shared": "2.0.0",
+    "@rozenite/plugin-bridge": "2.0.0",
+    "@rozenite/ui": "2.0.0",
+    "effect": "4.0.0-beta.102"
+  },
+  "devDependencies": {
+    "@effect/language-service": "0.87.1",
+    "@effect/vitest": "4.0.0-beta.102",
+    "@repo/tsconfig": "workspace:*",
+    "@rozenite/vite-plugin": "2.0.0",
+    "@types/react": "~19.2.2",
+    "bun-types": "1.3.14",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-web": "0.21.2",
+    "rozenite": "2.0.0",
+    "typescript": "6.0.3",
+    "vite": "7.3.1",
+    "vitest": "4.1.10"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  }
+}

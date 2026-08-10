@@ -8,7 +8,10 @@
     "#src/*": "./src/*"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./atom-dev-tools": "./src/atom-dev-tools.ts",
+    "./rpc": "./src/rpc.ts",
+    "./rpc-server": "./src/rpc-server.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",

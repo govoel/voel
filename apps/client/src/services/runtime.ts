@@ -1,5 +1,5 @@
 import { Atom } from 'effect/unstable/reactivity';
 
-import { CommonClientLayers } from '#src/services/layers.ts';
+import { AppRuntimeLayers } from '#src/services/layers.ts';
 
-export const AppRuntime = Atom.runtime(CommonClientLayers).pipe(Atom.withLabel('AppRuntime'));
+export const AppRuntime = Atom.runtime(AppRuntimeLayers).pipe(Atom.withLabel('AppRuntime'));
