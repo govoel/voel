@@ -1,6 +1,6 @@
 import { Cache, Context, Effect, Layer, Option, Schema } from 'effect';
 
-export class AuthClientStorageGetItemError extends Schema.TaggedError<
+class AuthClientStorageGetItemError extends Schema.TaggedError<
   AuthClientStorageGetItemError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/storage/AuthClientStorageGetItemError')(
@@ -8,7 +8,7 @@ export class AuthClientStorageGetItemError extends Schema.TaggedError<
   { key: Schema.String }
 ) {}
 
-export class AuthClientStorageSetItemError extends Schema.TaggedError<
+class AuthClientStorageSetItemError extends Schema.TaggedError<
   AuthClientStorageSetItemError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/storage/AuthClientStorageSetItemError')(
@@ -16,7 +16,7 @@ export class AuthClientStorageSetItemError extends Schema.TaggedError<
   { key: Schema.String }
 ) {}
 
-export class AuthClientStorageRemoveItemError extends Schema.TaggedError<
+class AuthClientStorageRemoveItemError extends Schema.TaggedError<
   AuthClientStorageRemoveItemError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/storage/AuthClientStorageRemoveItemError')(

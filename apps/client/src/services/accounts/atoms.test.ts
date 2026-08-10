@@ -218,6 +218,7 @@ describe('accountsSheetAtom', () => {
       'stays idle and dismissable while the session is pending',
       Effect.fnUntraced(
         function* () {
+          const runPromise = Effect.runPromiseWith(yield* Effect.context());
           const { drainAtomTasks } = yield* AtomTaskScheduler;
           const manager = yield* AccountManager;
           const db = yield* MainDatabase;
@@ -242,7 +243,7 @@ describe('accountsSheetAtom', () => {
               throw new Error('Expected the get-session request to have an AbortSignal.');
             }
 
-            return Effect.runPromise(Effect.never, {
+            return runPromise(Effect.never, {
               // @ts-expect-error - React Native's AbortSignal type omits DOM-only members.
               signal,
             });
@@ -277,6 +278,7 @@ describe('accountsSheetAtom', () => {
       'stays idle and dismissable when the session request fails',
       Effect.fnUntraced(
         function* () {
+          const runPromise = Effect.runPromiseWith(yield* Effect.context());
           const { drainAtomTasks } = yield* AtomTaskScheduler;
           const manager = yield* AccountManager;
           const db = yield* MainDatabase;
@@ -297,7 +299,7 @@ describe('accountsSheetAtom', () => {
               throw new Error(`Unexpected request: ${requestUrl.toString()}`);
             }
 
-            return Effect.runPromise(Deferred.await(getSessionResponse));
+            return runPromise(Deferred.await(getSessionResponse));
           });
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => {

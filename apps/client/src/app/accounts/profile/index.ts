@@ -87,9 +87,7 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
 
 const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['updateUser']>[0]>()(
   Effect.fnUntraced(function* (input, get) {
-    const activeAccount = yield* get
-      .result(activeAccountAtom)
-      .pipe(Effect.catchTag('NoSuchElementError', () => Effect.succeed(Option.none())));
+    const activeAccount = yield* get.result(activeAccountAtom);
 
     if (Option.isNone(activeAccount)) {
       return yield* new NoActiveAccountError();
@@ -97,7 +95,7 @@ const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['up
 
     const authClient = yield* acquireAuthClient(activeAccount.value.account);
     return yield* authClient.updateUser(input);
-  }, Effect.scoped)
+  })
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
 export const useUserProfileForm = ({

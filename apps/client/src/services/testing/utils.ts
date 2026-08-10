@@ -3,8 +3,9 @@ import type { Types } from 'effect';
 
 import { UuidGenerator } from '#src/services/accounts/index.ts';
 import type { AccountManager } from '#src/services/accounts/index.ts';
-import { XxHash, createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
+import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';

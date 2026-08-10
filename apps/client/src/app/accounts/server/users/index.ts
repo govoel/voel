@@ -21,9 +21,7 @@ export class ServerUser extends Schema.Class<ServerUser, { readonly brand: uniqu
 export const listUsersAtom = AppRuntime.pull(
   Effect.fnUntraced(
     function* (get) {
-      const activeAccount = yield* get
-        .result(activeAccountAtom)
-        .pipe(Effect.catchTag('NoSuchElementError', () => Effect.succeed(Option.none())));
+      const activeAccount = yield* get.result(activeAccountAtom);
       if (Option.isNone(activeAccount)) {
         return yield* new NoActiveAccountError();
       }

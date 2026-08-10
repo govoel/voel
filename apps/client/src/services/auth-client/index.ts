@@ -14,37 +14,19 @@ import {
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import { betterAuthErrorFromUnknown } from '#src/services/auth-client/errors.ts';
-import type { BetterAuthError } from '#src/services/auth-client/errors.ts';
+import { BetterAuthError } from '#src/services/auth-client/errors.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
+import { XxHash } from '#src/services/auth-client/xxhash.ts';
 
 export const makeAuthStorageKey = ({
   serverUrl,
   authStorageId,
 }: {
-  readonly serverUrl: string;
-  readonly authStorageId: string;
+  serverUrl: AuthClientKey['serverUrl'];
+  authStorageId: AuthClientKey['authStorageId'];
 }) => `voel::auth::${serverUrl}::${authStorageId}`;
 
-export class XxHash extends Context.Service<
-  XxHash,
-  { readonly hash128: (input: string) => Effect.Effect<string> }
->()('voel/services/auth-client/index/XxHash') {
-  public static readonly layer = Layer.unwrap(
-    Effect.gen(function* () {
-      const { hash128 } = yield* Effect.promise(async () => import('react-native-xxhash'));
-      return Layer.succeed(XxHash, {
-        hash128: (input) => Effect.sync(() => hash128(input)),
-      });
-    })
-  );
-
-  public static readonly layerTest = Layer.succeed(this, {
-    hash128: (input) => Effect.succeed(`test-${input.replaceAll(':', '-')}`),
-  });
-}
-
-export class BetterAuthClientInitializationError extends Schema.TaggedError<
+class BetterAuthClientInitializationError extends Schema.TaggedError<
   BetterAuthClientInitializationError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/index/BetterAuthClientInitializationError')(
@@ -54,17 +36,10 @@ export class BetterAuthClientInitializationError extends Schema.TaggedError<
   }
 ) {}
 
-export interface AuthClientKeyFields {
+class AuthClientKey extends Data.Class<{
   readonly serverUrl: string;
   readonly authStorageId: string;
-}
-
-export class AuthClientKey extends Data.Class<AuthClientKeyFields> {}
-
-export const makeAuthClientKey = ({
-  serverUrl,
-  authStorageId,
-}: AuthClientKeyFields): AuthClientKey => new AuthClientKey({ serverUrl, authStorageId });
+}> {}
 
 export const createVoelAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
@@ -98,9 +73,9 @@ export const createVoelAuthClient = Effect.fnUntraced(function* ({
   });
 });
 
-export type VoelAuthClient = Effect.Success<ReturnType<typeof createVoelAuthClient>>;
+type VoelAuthClient = Effect.Success<ReturnType<typeof createVoelAuthClient>>;
 
-const executeAuthClientRequest = Effect.fn('executeAuthClientRequest')(function* <A>(
+const executeAuthClientRequest = Effect.fnUntraced(function* <A>(
   request: () => Promise<{
     readonly data: A | null;
     readonly error: unknown;
@@ -108,32 +83,34 @@ const executeAuthClientRequest = Effect.fn('executeAuthClientRequest')(function*
 ) {
   const result = yield* Effect.tryPromise({
     try: request,
-    catch: betterAuthErrorFromUnknown,
+    catch: BetterAuthError.decodeFromUnknown,
   });
 
   if (result.error !== null) {
-    return yield* betterAuthErrorFromUnknown(result.error);
+    return yield* BetterAuthError.decodeFromUnknown(result.error);
   }
 
   if (result.data === null) {
-    return yield* betterAuthErrorFromUnknown(new Error('Authentication response was empty.'));
+    return yield* BetterAuthError.decodeFromUnknown(
+      new Error('Authentication response was empty.')
+    );
   }
 
   return result.data;
 });
 
-type VoelAuthClientSessionState = ReturnType<VoelAuthClient['useSession']['get']>;
-
 export interface AuthClientSessionState {
-  readonly data: VoelAuthClientSessionState['data'];
+  readonly data: ReturnType<VoelAuthClient['useSession']['get']>['data'];
   readonly error: BetterAuthError | null;
   readonly isPending: boolean;
   readonly isRefetching: boolean;
 }
 
-const authClientSessionState = (state: VoelAuthClientSessionState): AuthClientSessionState => ({
+const authClientSessionState = (
+  state: ReturnType<VoelAuthClient['useSession']['get']>
+): AuthClientSessionState => ({
   data: state.data,
-  error: state.error === null ? null : betterAuthErrorFromUnknown(state.error),
+  error: state.error === null ? null : BetterAuthError.decodeFromUnknown(state.error),
   isPending: state.isPending,
   isRefetching: state.isRefetching,
 });
@@ -141,14 +118,15 @@ const authClientSessionState = (state: VoelAuthClientSessionState): AuthClientSe
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/services/auth-client/index/AuthClient',
   {
-    make: Effect.fn('AuthClient.make')(function* ({ serverUrl, authStorageId }: AuthClientKey) {
+    make: Effect.fnUntraced(function* ({ serverUrl, authStorageId }: AuthClientKey) {
+      const runSync = Effect.runSyncWith(yield* Effect.context());
       const storage = yield* AuthClientStorage;
       const xxHash = yield* XxHash;
 
       const authClientStorage = {
-        getItem: (key) => Effect.runSync(storage.getItem(key).pipe(Effect.map(Option.getOrNull))),
+        getItem: (key) => runSync(storage.getItem(key).pipe(Effect.map(Option.getOrNull))),
         setItem: (key, value) => {
-          Effect.runSync(storage.setItem(key, value));
+          runSync(storage.setItem(key, value));
         },
       } satisfies Parameters<typeof createVoelAuthClient>[0]['storage'];
 
@@ -166,64 +144,47 @@ export class AuthClient extends Context.Service<AuthClient>()(
       yield* Effect.acquireRelease(
         Effect.sync(() =>
           client.useSession.subscribe((state) => {
-            Effect.runSync(SubscriptionRef.set(sessionState, authClientSessionState(state)));
+            runSync(SubscriptionRef.set(sessionState, authClientSessionState(state)));
           })
         ),
         (unsubscribe) => Effect.sync(unsubscribe)
       );
 
-      const getCookie = Effect.fn('AuthClient.getCookie')(() =>
-        Effect.sync(() => Option.liftPredicate(client.getCookie(), String.isNonEmpty))
-      );
+      const getCookie = () =>
+        Effect.sync(() => Option.liftPredicate(client.getCookie(), String.isNonEmpty));
 
-      const getSession = Effect.fn('AuthClient.getSession')(function* () {
-        return yield* SubscriptionRef.get(sessionState);
-      });
+      const getSession = () => SubscriptionRef.get(sessionState);
 
-      const refreshSession = Effect.fn('AuthClient.refreshSession')(function* () {
-        return yield* Effect.tryPromise({
+      const refreshSession = () =>
+        Effect.tryPromise({
           try: async () =>
             client.useSession.get().refetch({
               query: { disableCookieCache: true },
             }),
-          catch: betterAuthErrorFromUnknown,
+          catch: BetterAuthError.decodeFromUnknown,
         });
-      });
 
-      const signOut = Effect.fn('AuthClient.signOut')(function* () {
-        return yield* executeAuthClientRequest(async () => client.signOut());
-      });
+      const signOut = () => executeAuthClientRequest(async () => client.signOut());
 
-      const signInUsername = Effect.fn('AuthClient.signIn.username')(function* (
-        input: Parameters<VoelAuthClient['signIn']['username']>[0]
-      ) {
-        return yield* executeAuthClientRequest(async () => client.signIn.username(input));
-      });
+      const signInUsername = (input: Parameters<VoelAuthClient['signIn']['username']>[0]) =>
+        executeAuthClientRequest(async () => client.signIn.username(input));
 
-      const signUpEmail = Effect.fn('AuthClient.signUp.email')(function* (
-        input: Parameters<VoelAuthClient['signUp']['email']>[0]
-      ) {
-        return yield* executeAuthClientRequest(async () => client.signUp.email(input));
-      });
+      const signUpEmail = (input: Parameters<VoelAuthClient['signUp']['email']>[0]) =>
+        executeAuthClientRequest(async () => client.signUp.email(input));
 
-      const updateUser = Effect.fn('AuthClient.updateUser')(function* (
-        input: Parameters<VoelAuthClient['updateUser']>[0]
-      ) {
-        return yield* executeAuthClientRequest(async () => client.updateUser(input));
-      });
+      const updateUser = (input: Parameters<VoelAuthClient['updateUser']>[0]) =>
+        executeAuthClientRequest(async () => client.updateUser(input));
 
-      const listUsers = Effect.fn('AuthClient.admin.listUsers')(function* (
-        input: Parameters<VoelAuthClient['admin']['listUsers']>[0]
-      ) {
-        return yield* executeAuthClientRequest(async () => client.admin.listUsers(input));
-      });
+      const listUsers = (input: Parameters<VoelAuthClient['admin']['listUsers']>[0]) =>
+        executeAuthClientRequest(async () => client.admin.listUsers(input));
 
       return {
+        sessionChanges: SubscriptionRef.changes(sessionState),
+
         admin: { listUsers },
         getCookie,
         getSession,
         refreshSession,
-        sessionChanges: SubscriptionRef.changes(sessionState),
         signIn: { username: signInUsername },
         signOut,
         signUp: { email: signUpEmail },
@@ -242,8 +203,10 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   }
 ) {}
 
-export const acquireAuthClient = (key: AuthClientKeyFields) =>
-  AuthClientMap.contextEffect(makeAuthClientKey(key)).pipe(Effect.map(Context.get(AuthClient)));
+export const acquireAuthClient = (key: {
+  authStorageId: AuthClientKey['authStorageId'];
+  serverUrl: AuthClientKey['serverUrl'];
+}) => AuthClientMap.contextEffect(new AuthClientKey(key)).pipe(Effect.map(Context.get(AuthClient)));
 
 export class NoActiveAccountError extends Schema.TaggedError<
   NoActiveAccountError,

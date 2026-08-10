@@ -16,9 +16,10 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
 import { BetterAuthError } from '#src/services/auth-client/errors.ts';
-import { XxHash, acquireAuthClient, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
+import { acquireAuthClient, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
 import type { AuthClient, AuthClientSessionState } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
+import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';

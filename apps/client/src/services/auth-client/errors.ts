@@ -1,37 +1,31 @@
-import { Option, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
-const BetterAuthErrorFields = {
-  code: Schema.optional(Schema.String),
-  message: Schema.optional(Schema.String),
-  status: Schema.Number,
-  statusText: Schema.String,
-};
+const UnknownBetterAuthErrorFields = {
+  code: 'UNKNOWN',
+  status: 0,
+  statusText: 'UNKNOWN',
+} as const;
 
-const decodeBetterAuthErrorFieldsOption = Schema.decodeUnknownOption(
-  Schema.Struct(BetterAuthErrorFields)
-);
-
-export class BetterAuthError extends Schema.TaggedError<
+export class BetterAuthError extends Schema.Error<
   BetterAuthError,
   { readonly brand: unique symbol }
->('voel/services/auth-client/errors/BetterAuthError')('BetterAuthError', BetterAuthErrorFields) {}
-
-export const betterAuthErrorFromUnknown = (error: unknown) => {
-  const fields = decodeBetterAuthErrorFieldsOption(error);
-  if (Option.isSome(fields)) {
-    return new BetterAuthError(fields.value);
-  }
-
-  return error instanceof Error
-    ? new BetterAuthError({
-        message: error.message,
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      })
-    : new BetterAuthError({
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      });
-};
+>('voel/services/auth-client/errors/BetterAuthError')({
+  _tag: Schema.tagDefaultOmit('BetterAuthError'),
+  code: Schema.String.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.code))
+  ),
+  message: Schema.optional(Schema.String),
+  status: Schema.Number.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.status))
+  ),
+  statusText: Schema.String.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.statusText))
+  ),
+}) {
+  public static readonly decodeFromUnknown = this.pipe(
+    Schema.catchDecoding(() =>
+      Effect.succeed(Option.some(new BetterAuthError(UnknownBetterAuthErrorFields)))
+    ),
+    Schema.decodeUnknownSync
+  );
+}

@@ -61,6 +61,16 @@ export const activeAccountAtom = AppRuntime.atom(
     Stream.unwrap
   )
 ).pipe(
+  (source) =>
+    AppRuntime.atom((get) =>
+      get
+        .result(source)
+        .pipe(
+          Effect.catchTag('NoSuchElementError', () =>
+            Effect.succeed<Atom.Success<typeof source>>(Option.none())
+          )
+        )
+    ),
   withPredefinedStates(() => [
     {
       id: 'loading',

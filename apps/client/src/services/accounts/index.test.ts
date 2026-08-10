@@ -2,12 +2,9 @@ import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
-import {
-  XxHash,
-  acquireAuthClient,
-  createVoelAuthClient,
-} from '#src/services/auth-client/index.ts';
+import { acquireAuthClient, createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
+import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
