@@ -39,7 +39,9 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
         Match.tagsExhaustive({
           BetterAuthClientInitializationError: () =>
             'Unexpected error during account setup. Try again.',
-          AccountSignUpError: (signUpError) => signUpError.details.message,
+          AccountSignUpError: (signUpError) =>
+            signUpError.details.message ||
+            'Failed to create the account. Check the server and try again.',
           AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),

@@ -117,7 +117,8 @@ export const useUserProfileForm = ({
           NoActiveAccountError: () => 'No active user is available.',
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
-          BetterAuthError: (betterAuthError) => betterAuthError.message,
+          BetterAuthError: (betterAuthError) =>
+            betterAuthError.message || 'Unable to update the profile. Try again.',
         })
       ),
     onSuccess: async () => {
