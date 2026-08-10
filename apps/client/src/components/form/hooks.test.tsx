@@ -1,20 +1,18 @@
 import { useSelector } from '@tanstack/react-form';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FormFieldError } from '#src/components/form/hooks.tsx';
 import {
   createEffectSchemaFormHook,
   fieldContext,
   formContext,
-  getFormFieldErrorMessage,
   useFormContext,
+  useFormSubmissionError,
 } from '#src/components/form/hooks.tsx';
-import { canSubmitOrRetry } from '#src/components/form/submit-button/index.ts';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
 
@@ -41,36 +39,24 @@ const makeUser = () =>
 
 const ErrorProbe = () => {
   const form = useFormContext();
-  const [formError, fieldError] = useSelector(
+  const submissionError = useFormSubmissionError();
+  const validationFormError = useSelector(
     form.store,
-    (state): readonly [string | null, string | null] => {
-      const nextFormError = state.errors.find(
-        (error): error is string => typeof error === 'string'
-      );
-      const nextFieldError = (
-        state.fieldMeta as Record<string, { readonly errors: Array<FormFieldError> }>
-      )['name']?.errors[0];
-
-      return [
-        nextFormError ?? null,
-        nextFieldError === void 0 ? null : getFormFieldErrorMessage(nextFieldError),
-      ];
-    }
+    (state) => state.errors.find((error): error is string => typeof error === 'string') ?? null
   );
 
   return (
-    <>
-      <Text testID="form-error">{formError ?? 'No form error'}</Text>
-      <Text testID="field-error">{fieldError ?? 'No field error'}</Text>
-    </>
+    <Text testID="form-error">
+      {Option.getOrElse(submissionError, () => validationFormError ?? 'No form error')}
+    </Text>
   );
 };
 
 const RetrySubmitButton = () => {
   const form = useFormContext();
-  const [canSubmit, canSubmitWithoutRetry] = useSelector(
+  const [canSubmit, hasSubmitValidationError] = useSelector(
     form.store,
-    (state): readonly [boolean, boolean] => [canSubmitOrRetry(state), state.canSubmit]
+    (state): readonly [boolean, boolean] => [state.canSubmit, state.errorMap.onSubmit !== void 0]
   );
 
   return (
@@ -82,7 +68,8 @@ const RetrySubmitButton = () => {
         onPress={() => void form.handleSubmit()}>
         <Text>Submit</Text>
       </Pressable>
-      <Text testID="can-submit">{String(canSubmitWithoutRetry)}</Text>
+      <Text testID="can-submit">{String(canSubmit)}</Text>
+      <Text testID="has-submit-validation-error">{String(hasSubmitValidationError)}</Text>
     </>
   );
 };
@@ -96,7 +83,7 @@ describe('createEffectSchemaFormHook', () => {
     vi.useRealTimers();
   });
 
-  it('stores a string mutation failure as a native form error', async () => {
+  it('stores a string mutation failure without invalidating the form', async () => {
     const mutation = runtime.fn((_value: typeof schema.Type) =>
       Effect.fail(new TestSubmitError({ message: 'failed' }))
     );
@@ -114,38 +101,12 @@ describe('createEffectSchemaFormHook', () => {
           <Pressable role="button" onPress={() => void form.handleSubmit()}>
             <Text>Submit</Text>
           </Pressable>
-          <ErrorProbe />
-        </form.AppForm>
-      );
-    };
-
-    await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
-
-    expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
-  });
-
-  it('stores mapped mutation failures on the form and fields', async () => {
-    const mutation = runtime.fn((_value: typeof schema.Type) =>
-      Effect.fail(new TestSubmitError({ message: 'failed' }))
-    );
-
-    const TestForm = () => {
-      const form = useAppForm({
-        defaultValues: { name: 'ok' },
-        mutation,
-        schema,
-        onFailure: () => ({
-          form: 'Invalid account',
-          fields: { name: 'Name is already taken' },
-        }),
-      });
-
-      return (
-        <form.AppForm>
-          <form.AppField name="name">{(field) => <field.EmptyComponent />}</form.AppField>
-          <Pressable role="button" onPress={() => void form.handleSubmit()}>
-            <Text>Submit</Text>
+          <Pressable
+            role="button"
+            onPress={() => {
+              form.reset();
+            }}>
+            <Text>Reset</Text>
           </Pressable>
           <ErrorProbe />
         </form.AppForm>
@@ -155,8 +116,13 @@ describe('createEffectSchemaFormHook', () => {
     await render(<TestForm />);
     await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(await screen.findByTestId('form-error')).toHaveTextContent('Invalid account');
-    expect(screen.getByTestId('field-error')).toHaveTextContent('Name is already taken');
+    expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
+
+    await makeUser().press(screen.getByRole('button', { name: 'Reset' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+    });
   });
 
   it('can retry after a failed submission and then submit successfully', async () => {
@@ -194,7 +160,8 @@ describe('createEffectSchemaFormHook', () => {
     await user.press(submitButton);
 
     expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
-    expect(screen.getByTestId('can-submit')).toHaveTextContent('false');
+    expect(screen.getByTestId('can-submit')).toHaveTextContent('true');
+    expect(screen.getByTestId('has-submit-validation-error')).toHaveTextContent('false');
     expect(submitButton).toBeEnabled();
 
     await user.press(submitButton);

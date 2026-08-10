@@ -12,8 +12,7 @@ import { padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { useSelector } from '@tanstack/react-form';
 import { Array, Option, Predicate } from 'effect';
 
-import { useFormContext } from '#src/components/form/hooks.tsx';
-import { canSubmitOrRetry } from '#src/components/form/submit-button/index.ts';
+import { useFormContext, useFormSubmissionError } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
@@ -44,16 +43,21 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const form = useFormContext();
-  const [canSubmitOrRetryMutation, isSubmitting, formErrorMessages] = useSelector(
+  const submissionError = useFormSubmissionError();
+  const [canSubmit, isSubmitting, validationErrorMessages] = useSelector(
     form.store,
     (state): readonly [boolean, boolean, Array<string>] => [
-      canSubmitOrRetry(state),
+      state.canSubmit,
       state.isSubmitting,
       state.errors.filter(
         (error): error is string => Predicate.isString(error) && error.length > 0
       ),
     ]
   );
+  const formErrorMessages = Option.match(submissionError, {
+    onNone: () => validationErrorMessages,
+    onSome: (error) => [error, ...validationErrorMessages],
+  });
 
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
   const ButtonComponent =
@@ -68,7 +72,7 @@ export const SubmitButton = (({
       <Row>
         <ButtonComponent
           {...('android' in platformProps ? platformProps.android : {})}
-          enabled={canSubmitOrRetryMutation && !isSubmitting && !disabled}
+          enabled={canSubmit && !isSubmitting && !disabled}
           onClick={() => {
             void form.handleSubmit();
           }}>

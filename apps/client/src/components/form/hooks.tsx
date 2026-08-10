@@ -1,26 +1,25 @@
-import { useAtomSet } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
-  DeepKeys,
   FormOptions,
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
 import { Cause, Exit, Option, Schema } from 'effect';
-import type { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/unstable/reactivity';
 import { useMemo } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
-type FormMutationError<TFormData> =
-  | string
-  | {
-      readonly form?: string;
-      readonly fields: Partial<Record<DeepKeys<TFormData>, string>>;
-    };
+const formSubmissionError = Atom.family((_form: AnyFormApi) =>
+  Atom.make<Option.Option<string>>(Option.none())
+);
+
+export const useFormSubmissionError = () =>
+  useAtomValue(formSubmissionError(tanStackFormHookContexts.useFormContext()));
 
 export type FormFieldError = string | StandardSchemaV1Issue;
 
@@ -64,16 +63,6 @@ export const {
   };
 } = tanStackFormHookContexts;
 
-type EffectSchemaSubmitValidator<TEncoded> = (props: {
-  readonly value: TEncoded;
-  readonly formApi: AnyFormApi;
-  readonly signal: AbortSignal;
-}) => FormMutationError<TEncoded> | null | Promise<FormMutationError<TEncoded> | null>;
-
-// Mutation failures are stored in TanStack's onSubmit error slot. Returning null
-// clears the previous failure so the form can be submitted again without a field change.
-const clearMutationErrorValidator = () => null;
-
 type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOptions<
   TEncoded,
   undefined,
@@ -82,7 +71,7 @@ type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOpt
   undefined,
   undefined,
   undefined,
-  EffectSchemaSubmitValidator<TEncoded>,
+  undefined,
   undefined,
   undefined,
   undefined,
@@ -124,7 +113,7 @@ type EffectSchemaFormOptions<
   ) => void | Promise<void>;
   readonly onFailure: (
     props: EffectSchemaMutationFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
-  ) => FormMutationError<TEncoded>;
+  ) => string;
 };
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
@@ -201,7 +190,16 @@ export const createEffectSchemaFormHook = <
 
     const form = useTanStackAppForm({
       ...props,
+      listeners: {
+        ...props.listeners,
+        onChange: (listenerProps) => {
+          setSubmissionError(Option.none());
+          props.listeners?.onChange?.(listenerProps);
+        },
+      },
       onSubmit: async (submitProps) => {
+        setSubmissionError(Option.none());
+
         const schemaResult = await standardSchema['~standard'].validate(submitProps.value);
         if (schemaResult.issues !== void 0) {
           throw new Error('Unexpected invalid data during submit');
@@ -220,12 +218,15 @@ export const createEffectSchemaFormHook = <
 
         const error = Exit.findErrorOption(mutationExit);
         if (Option.isSome(error)) {
-          const formError = onFailure({
-            ...submitProps,
-            error: error.value,
-            value: schemaResult.value,
-          });
-          submitProps.formApi.setErrorMap({ onSubmit: formError });
+          setSubmissionError(
+            Option.some(
+              onFailure({
+                ...submitProps,
+                error: error.value,
+                value: schemaResult.value,
+              })
+            )
+          );
           return;
         }
 
@@ -233,11 +234,19 @@ export const createEffectSchemaFormHook = <
       },
       validators: {
         onChangeAsync: standardSchema,
-        onSubmitAsync: clearMutationErrorValidator,
       },
     });
+    const setSubmissionError = useAtomSet(formSubmissionError(form));
+    const reset = useMemo(() => {
+      const resetForm = form.reset;
 
-    return withoutFieldValidators(form);
+      return (...args: Parameters<typeof resetForm>) => {
+        setSubmissionError(Option.none());
+        resetForm(...args);
+      };
+    }, [form, setSubmissionError]);
+
+    return withoutFieldValidators(Object.assign(form, { reset }));
   };
 
   return { ...formHook, useAppForm };
