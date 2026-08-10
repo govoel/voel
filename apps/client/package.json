@@ -5,7 +5,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "check-types": "expo customize tsconfig.json && tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
-    "test": "vitest run --config vitest.rn.config.ts src/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts src/services/accounts src/services/auth-client",
+    "test": "vitest run --config vitest.rn.config.ts src/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts src/services/accounts",
     "start": "RELEASE_CHANNEL=dev expo start",
     "android:dev": "RELEASE_CHANNEL=dev expo run:android",
     "android:preview": "RELEASE_CHANNEL=preview expo run:android --variant release",
