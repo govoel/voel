@@ -3,50 +3,25 @@ import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
-  DeepKeys,
   FormOptions,
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
 import { Cause, Exit, Option, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
-type FormMutationError<TFormData> =
-  | string
-  | {
-      readonly form?: string;
-      readonly fields: Partial<Record<DeepKeys<TFormData>, string>>;
-    };
+const formSubmissionError = Atom.family((_form: AnyFormApi) =>
+  Atom.make<Option.Option<string>>(Option.none())
+);
 
-interface FormMutationErrorState {
-  readonly form: string | undefined;
-  readonly fields: Readonly<Partial<Record<string, string>>>;
-}
-
-const emptyFormMutationError: FormMutationErrorState = {
-  form: void 0,
-  fields: {},
-};
-
-// Mutation failures describe the last request, not the validity of the current values. Putting
-// them in TanStack's errorMap makes canSubmit false and prevents an unchanged value from retrying.
-// Associate this separate state with the form API so field and form components can find it from
-// their existing TanStack contexts without replacing AppForm.
-const formMutationErrorAtoms = new WeakMap<AnyFormApi, Atom.Atom<FormMutationErrorState>>();
-
-export const useFormMutationError = () => {
+export const useFormSubmissionError = () => {
   const form = tanStackFormHookContexts.useFormContext();
-  const mutationErrorAtom = formMutationErrorAtoms.get(form);
 
-  if (mutationErrorAtom === void 0) {
-    throw new Error('useFormMutationError must be used inside an AppForm');
-  }
-
-  return useAtomValue(mutationErrorAtom);
+  return useAtomValue(formSubmissionError(form));
 };
 
 export type FormFieldError = string | StandardSchemaV1Issue;
@@ -141,7 +116,7 @@ type EffectSchemaFormOptions<
   ) => void | Promise<void>;
   readonly onFailure: (
     props: EffectSchemaMutationFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
-  ) => FormMutationError<TEncoded>;
+  ) => string;
 };
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
@@ -215,37 +190,18 @@ export const createEffectSchemaFormHook = <
   >) => {
     const runMutation = useAtomSet(mutation, { mode: 'promiseExit' });
     const standardSchema = useMemo(() => Schema.toStandardSchemaV1(schema), [schema]);
-    const mutationErrorAtom = useMemo(() => Atom.make(emptyFormMutationError), []);
-    const setMutationError = useAtomSet(mutationErrorAtom);
-    const submitAttemptRef = useRef(0);
 
     const form = useTanStackAppForm({
       ...props,
-      listeners: {
-        ...props.listeners,
-        onChange: (listenerProps) => {
-          submitAttemptRef.current += 1;
-          setMutationError(emptyFormMutationError);
-          props.listeners?.onChange?.(listenerProps);
-        },
-      },
       onSubmit: async (submitProps) => {
-        const submitAttempt = submitAttemptRef.current + 1;
-        submitAttemptRef.current = submitAttempt;
-        setMutationError(emptyFormMutationError);
+        setSubmissionError(Option.none());
 
         const schemaResult = await standardSchema['~standard'].validate(submitProps.value);
         if (schemaResult.issues !== void 0) {
           throw new Error('Unexpected invalid data during submit');
         }
-        if (submitAttempt !== submitAttemptRef.current) {
-          return;
-        }
 
         const mutationExit = await runMutation(schemaResult.value);
-        if (submitAttempt !== submitAttemptRef.current) {
-          return;
-        }
 
         if (Exit.isSuccess(mutationExit)) {
           await onSuccess?.({
@@ -258,15 +214,14 @@ export const createEffectSchemaFormHook = <
 
         const error = Exit.findErrorOption(mutationExit);
         if (Option.isSome(error)) {
-          const formError = onFailure({
-            ...submitProps,
-            error: error.value,
-            value: schemaResult.value,
-          });
-          setMutationError(
-            typeof formError === 'string'
-              ? { form: formError, fields: {} }
-              : { form: formError.form, fields: formError.fields }
+          setSubmissionError(
+            Option.some(
+              onFailure({
+                ...submitProps,
+                error: error.value,
+                value: schemaResult.value,
+              })
+            )
           );
           return;
         }
@@ -277,28 +232,17 @@ export const createEffectSchemaFormHook = <
         onChangeAsync: standardSchema,
       },
     });
-    formMutationErrorAtoms.set(form, mutationErrorAtom);
+    const setSubmissionError = useAtomSet(formSubmissionError(form));
+    const reset = useMemo(() => {
+      const resetForm = form.reset;
 
-    useEffect(() => {
-      let previousSubmissionAttempts = form.state.submissionAttempts;
-
-      // TanStack does not invoke onChange when reset is called, so observe the reset transition
-      // to clear the request error and make any in-flight result stale.
-      const subscription = form.store.subscribe(() => {
-        const { submissionAttempts } = form.state;
-        if (previousSubmissionAttempts > 0 && submissionAttempts === 0) {
-          submitAttemptRef.current += 1;
-          setMutationError(emptyFormMutationError);
-        }
-        previousSubmissionAttempts = submissionAttempts;
-      });
-
-      return () => {
-        subscription.unsubscribe();
+      return (...args: Parameters<typeof resetForm>) => {
+        setSubmissionError(Option.none());
+        resetForm(...args);
       };
-    }, [form, setMutationError]);
+    }, [form, setSubmissionError]);
 
-    return withoutFieldValidators(form);
+    return withoutFieldValidators(Object.assign(form, { reset }));
   };
 
   return { ...formHook, useAppForm };

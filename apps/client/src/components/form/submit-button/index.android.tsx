@@ -12,7 +12,7 @@ import { padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { useSelector } from '@tanstack/react-form';
 import { Array, Option, Predicate } from 'effect';
 
-import { useFormContext, useFormMutationError } from '#src/components/form/hooks.tsx';
+import { useFormContext, useFormSubmissionError } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
@@ -43,7 +43,7 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const form = useFormContext();
-  const mutationError = useFormMutationError();
+  const submissionError = useFormSubmissionError();
   const [canSubmit, isSubmitting, validationErrorMessages] = useSelector(
     form.store,
     (state): readonly [boolean, boolean, string[]] => [
@@ -54,10 +54,10 @@ export const SubmitButton = (({
       ),
     ]
   );
-  const formErrorMessages =
-    mutationError.form === void 0
-      ? validationErrorMessages
-      : [mutationError.form, ...validationErrorMessages];
+  const formErrorMessages = Option.match(submissionError, {
+    onNone: () => validationErrorMessages,
+    onSome: (error) => [error, ...validationErrorMessages],
+  });
 
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
   const ButtonComponent =
