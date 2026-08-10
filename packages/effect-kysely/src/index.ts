@@ -76,7 +76,7 @@ interface EffectExecutor {
   executeRaw: <Q extends AnyRawQuery>(
     query: Q
   ) => Effect.Effect<QueryResult<QueryOutput<Q>>, DatabaseSqlError>;
-  execute: <Q extends AnyQuery>(query: Q) => Effect.Effect<QueryOutput<Q>[], DatabaseSqlError>;
+  execute: <Q extends AnyQuery>(query: Q) => Effect.Effect<Array<QueryOutput<Q>>, DatabaseSqlError>;
   executeTakeFirstOption: <Q extends AnyQuery>(
     query: Q
   ) => Effect.Effect<Option.Option<QueryOutput<Q>>, DatabaseSqlError>;
@@ -138,7 +138,7 @@ export const makeFromKysely = <DB>(kysely: Kysely<DB>): EffectKysely<DB> => {
 };
 
 interface Executable<O> extends Compilable<O> {
-  execute: () => Promise<O[]>;
+  execute: () => Promise<Array<O>>;
 }
 
 interface ExecutableRaw<O> extends Executable<O>, QueryExecutorProvider {}
@@ -199,11 +199,11 @@ const execute =
         if (isRawBuilder(query)) {
           const result = await queryAsPromise(client, query);
           // oxlint-disable-next-line no-unsafe-type-assertion
-          return result.rows as QueryOutput<Q>[];
+          return result.rows as Array<QueryOutput<Q>>;
         }
         const results = await query.execute();
         // oxlint-disable-next-line no-unsafe-type-assertion
-        return results as QueryOutput<Q>[];
+        return results as Array<QueryOutput<Q>>;
       },
       catch: (cause) => toSqlError(cause),
     }).pipe(executeSpan(client, query));

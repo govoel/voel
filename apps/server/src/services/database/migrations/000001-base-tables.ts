@@ -8,7 +8,7 @@ const createIndex = async ({
 }: {
   db: Kysely<unknown>;
   table: string;
-  columns: string[];
+  columns: Array<string>;
 }) => {
   const indexName = `${table}_${columns.join('_')}_idx`;
   await db.schema.createIndex(indexName).on(table).columns(columns).execute();
@@ -21,7 +21,7 @@ const createUniqueIndex = async ({
 }: {
   db: Kysely<unknown>;
   table: string;
-  columns: string[];
+  columns: Array<string>;
 }) => {
   const indexName = `${table}_${columns.join('_')}_uniqueidx`;
   await db.schema.createIndex(indexName).unique().on(table).columns(columns).execute();
@@ -34,7 +34,7 @@ const createUpdatedAtTrigger = async ({
 }: {
   db: Kysely<unknown>;
   table: string;
-  columns: string[];
+  columns: Array<string>;
 }) => {
   const triggerName = `${table}_updatedAt_trigger`;
   const updateColumns = columns.map((column) => sql.ref(column));

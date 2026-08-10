@@ -19,7 +19,7 @@ interface PredefinedStateFor<T extends AnyAtom> {
 
 interface HasPredefinedStates<T extends AnyAtom> {
   readonly [PredefinedStatesTypeId]: {
-    readonly getStates: () => readonly PredefinedStateFor<T>[];
+    readonly getStates: () => ReadonlyArray<PredefinedStateFor<T>>;
     readonly activate: (registry: AtomRegistry.AtomRegistry, state: PredefinedStateFor<T>) => void;
     readonly clear: (registry: AtomRegistry.AtomRegistry) => void;
     readonly getActiveStateId: (registry: AtomRegistry.AtomRegistry) => Option.Option<string>;
@@ -55,14 +55,14 @@ export const isInternalAtom = (
 
 function withPredefinedStates<A, T extends Atom.Atom<A>>(
   atom: T,
-  getPredefinedStates: () => readonly PredefinedStateFor<T>[]
+  getPredefinedStates: () => ReadonlyArray<PredefinedStateFor<T>>
 ): T;
 function withPredefinedStates<A, T extends Atom.Atom<A>>(
   atom: T,
-  getPredefinedStates: () => readonly PredefinedStateFor<T>[]
+  getPredefinedStates: () => ReadonlyArray<PredefinedStateFor<T>>
 ): T {
-  let cachedPredefinedStates: readonly PredefinedStateFor<T>[] | undefined = void 0;
-  const predefinedStates = (): readonly PredefinedStateFor<T>[] =>
+  let cachedPredefinedStates: ReadonlyArray<PredefinedStateFor<T>> | undefined = void 0;
+  const predefinedStates = (): ReadonlyArray<PredefinedStateFor<T>> =>
     (cachedPredefinedStates ??= getPredefinedStates());
 
   const activeStateAtom = markInternalAtom(
@@ -140,12 +140,17 @@ function withPredefinedStates<A, T extends Atom.Atom<A>>(
 export const makeWithPredefinedStates = (options: {
   readonly enabled: boolean;
 }): {
-  <T extends AnyAtom>(getStates: () => readonly PredefinedStateFor<NoInfer<T>>[]): (atom: T) => T;
-  <T extends AnyAtom>(atom: T, getStates: () => readonly PredefinedStateFor<NoInfer<T>>[]): T;
+  <T extends AnyAtom>(
+    getStates: () => ReadonlyArray<PredefinedStateFor<NoInfer<T>>>
+  ): (atom: T) => T;
+  <T extends AnyAtom>(atom: T, getStates: () => ReadonlyArray<PredefinedStateFor<NoInfer<T>>>): T;
 } =>
   Function.dual(
     2,
-    <T extends AnyAtom>(atom: T, getStates: () => readonly PredefinedStateFor<NoInfer<T>>[]): T => {
+    <T extends AnyAtom>(
+      atom: T,
+      getStates: () => ReadonlyArray<PredefinedStateFor<NoInfer<T>>>
+    ): T => {
       if (!options.enabled) {
         return atom;
       }

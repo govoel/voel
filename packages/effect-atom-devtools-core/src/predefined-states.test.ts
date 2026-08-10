@@ -130,7 +130,7 @@ describe('makeWithPredefinedStates', () => {
   it.effect('finalizes an active state atom before starting the next state atom', () =>
     Effect.gen(function* () {
       const registry = AtomRegistry.make();
-      const finalized: string[] = [];
+      const finalized: Array<string> = [];
       const makeStateAtom = (name: string) =>
         Atom.make(
           Effect.acquireRelease(Effect.succeed(name), () => Effect.sync(() => finalized.push(name)))

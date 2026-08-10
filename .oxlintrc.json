@@ -68,6 +68,7 @@
 
     "typescript/explicit-function-return-type": "off",
     "typescript/explicit-module-boundary-types": "off",
+    "typescript/array-type": ["error", { "default": "generic", "readonly": "generic" }],
     "typescript/require-await": "off",
     "typescript/prefer-readonly-parameter-types": "off",
 

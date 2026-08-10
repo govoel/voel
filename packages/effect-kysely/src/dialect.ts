@@ -128,7 +128,7 @@ class BunSqliteConnection implements DatabaseConnection {
 
   public async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
     const { sql, parameters } = compiledQuery;
-    const stmt = this.#db.prepare<O, SQLQueryBindings[]>(sql);
+    const stmt = this.#db.prepare<O, Array<SQLQueryBindings>>(sql);
 
     if (stmt.columnNames.length > 0) {
       return {

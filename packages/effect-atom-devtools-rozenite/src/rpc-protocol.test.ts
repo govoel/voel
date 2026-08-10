@@ -27,7 +27,7 @@ const makeBridgeClient = (loopback = false) => {
     [RPC_CLIENT_EVENT]: new Set(),
     [RPC_SERVER_EVENT]: new Set(),
   };
-  const sent: BridgeEvent[] = [];
+  const sent: Array<BridgeEvent> = [];
   const mutedEvents = new Set<keyof RpcBridgeEventMap>();
 
   const client: RozeniteDevToolsClient<RpcBridgeEventMap> = {

@@ -12,7 +12,7 @@ import type { ServerUser } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
 
 interface ServerUsersListProps {
-  readonly users: readonly ServerUser[];
+  readonly users: ReadonlyArray<ServerUser>;
   readonly waiting: boolean;
   readonly done: boolean;
   readonly onEndReached: () => void;

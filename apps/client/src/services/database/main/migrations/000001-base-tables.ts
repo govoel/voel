@@ -8,7 +8,7 @@ const createUpdatedAtTrigger = async ({
 }: {
   db: Kysely<unknown>;
   table: string;
-  columns: string[];
+  columns: Array<string>;
 }) => {
   const triggerName = `${table}_updatedAt_trigger`;
   const updateColumns = columns.map((column) => sql.ref(column));

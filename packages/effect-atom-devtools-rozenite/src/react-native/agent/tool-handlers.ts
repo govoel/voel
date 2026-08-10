@@ -33,12 +33,12 @@ const makeAtomNotFoundError = (id: AtomId) =>
     message: `Atom "${id}" is not currently tracked. Call list-atoms to get a current atom ID.`,
   });
 
-export const agentToolHandlers: readonly {
+export const agentToolHandlers: ReadonlyArray<{
   readonly tool: AgentTool;
   readonly execute: (
     input: unknown
   ) => Effect.Effect<unknown, Schema.SchemaError | AgentToolError, AtomDevTools>;
-}[] = [
+}> = [
   {
     tool: {
       name: `${EFFECT_ATOM_DEVTOOLS_PLUGIN_ID}.list-atoms`,
