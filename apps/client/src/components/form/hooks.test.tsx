@@ -48,7 +48,7 @@ const ErrorProbe = () => {
         (error): error is string => typeof error === 'string'
       );
       const nextFieldError = (
-        state.fieldMeta as Record<string, { readonly errors: FormFieldError[] }>
+        state.fieldMeta as Record<string, { readonly errors: Array<FormFieldError> }>
       )['name']?.errors[0];
 
       return [

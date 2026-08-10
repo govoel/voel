@@ -28,7 +28,7 @@ export const canSubmitOrRetry = ({ canSubmit, errorMap, fieldMeta }: SubmitError
   Object.values(fieldMeta).some((meta) => meta?.errorMap.onSubmit !== void 0);
 
 export type SubmitButtonComponent = ComponentType<{
-  children: ReactElement | ReactElement[];
+  children: ReactElement | Array<ReactElement>;
   disabled?: boolean;
   platformProps?:
     | {

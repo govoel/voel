@@ -94,7 +94,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
   make: Effect.gen(function* () {
     const registry = yield* AtomRegistry.AtomRegistry;
 
-    const catalogPubSub = yield* PubSub.unbounded<readonly AtomSummary[]>({ replay: 1 });
+    const catalogPubSub = yield* PubSub.unbounded<ReadonlyArray<AtomSummary>>({ replay: 1 });
     const trackedNodesById = new Map<AtomId, TrackedNode>();
     const runtimeIdsByAtom = new WeakMap<Atom.Atom<unknown>, AtomId>();
 

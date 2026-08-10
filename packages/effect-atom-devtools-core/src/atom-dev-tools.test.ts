@@ -24,16 +24,18 @@ const runWithService = async <A, E>(
     )
   );
 
-const firstCatalog = (service: AtomDevTools['Service']): Effect.Effect<readonly AtomSummary[]> =>
+const firstCatalog = (
+  service: AtomDevTools['Service']
+): Effect.Effect<ReadonlyArray<AtomSummary>> =>
   service.catalog.pipe(
     Stream.runHead,
-    Effect.map(Option.getOrElse((): readonly AtomSummary[] => []))
+    Effect.map(Option.getOrElse((): ReadonlyArray<AtomSummary> => []))
   );
 
-const findAtomId = (catalog: readonly AtomSummary[], name: string): AtomIdType =>
+const findAtomId = (catalog: ReadonlyArray<AtomSummary>, name: string): AtomIdType =>
   Option.getOrThrow(Option.fromNullishOr(catalog.find((summary) => summary.name === name))).id;
 
-const firstAtomId = (catalog: readonly AtomSummary[]): AtomIdType =>
+const firstAtomId = (catalog: ReadonlyArray<AtomSummary>): AtomIdType =>
   Option.getOrThrow(Option.fromNullishOr(catalog[0])).id;
 
 const firstSnapshot = (service: AtomDevTools['Service'], id: AtomIdType) =>
@@ -269,7 +271,7 @@ describe('AtomDevTools', () => {
         const atomId = firstAtomId(catalog);
         const initialObserved = yield* Latch.make();
         const stateObserved = yield* Latch.make();
-        const snapshots: Option.Option<string>[] = [];
+        const snapshots: Array<Option.Option<string>> = [];
         const snapshotsFiber = yield* service.watch(atomId).pipe(
           Stream.tap(({ activePredefinedStateId }) =>
             Effect.sync(() => {
@@ -384,7 +386,7 @@ describe('AtomDevTools', () => {
       Effect.gen(function* () {
         const service = yield* AtomDevTools;
         const catalog = yield* firstCatalog(service);
-        const observed: unknown[] = [];
+        const observed: Array<unknown> = [];
         const initialObserved = yield* Latch.make();
         const watchFiber = yield* service.watch(firstAtomId(catalog)).pipe(
           Stream.tap(({ value }) =>

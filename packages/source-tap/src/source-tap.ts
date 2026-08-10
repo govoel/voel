@@ -40,14 +40,14 @@ export class SourceTapUpdate<DB, Table extends keyof DB = keyof DB> extends Data
 )<{
   readonly operation: 'insert' | 'update';
   readonly table: Table;
-  readonly rows: readonly Selectable<DB[Table]>[];
+  readonly rows: ReadonlyArray<Selectable<DB[Table]>>;
 }> {}
 
 export class SourceTap<DB> implements KyselyPlugin {
   public readonly updates: Stream.Stream<SourceTapUpdate<DB>>;
 
   #inTransaction: boolean;
-  #transactionEvents: SourceTapUpdate<DB>[];
+  #transactionEvents: Array<SourceTapUpdate<DB>>;
 
   readonly #pubsub: PubSub.PubSub<SourceTapUpdate<DB>>;
   readonly #trackTables: ReadonlySet<keyof DB>;
@@ -161,7 +161,7 @@ export class SourceTap<DB> implements KyselyPlugin {
               operation: queryState.queryType,
               table: queryState.table,
               // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-              rows: listenerRows as Selectable<DB[keyof DB]>[],
+              rows: listenerRows as Array<Selectable<DB[keyof DB]>>,
             })
           );
         } else {
@@ -171,7 +171,7 @@ export class SourceTap<DB> implements KyselyPlugin {
               operation: queryState.queryType,
               table: queryState.table,
               // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-              rows: listenerRows as Selectable<DB[keyof DB]>[],
+              rows: listenerRows as Array<Selectable<DB[keyof DB]>>,
             })
           );
         }

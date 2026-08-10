@@ -70,7 +70,7 @@
     "typescript/explicit-module-boundary-types": "off",
     "typescript/array-type": ["error", { "default": "generic", "readonly": "generic" }],
     "typescript/require-await": "off",
-    "typescript/prefer-readonly-parameter-types": "off",
+    "typescript/prefer-readonly-parameter-types": "error",
 
     "unicorn/no-null": "off",
     "unicorn/catch-error-name": ["error", { "ignore": ["e", "err", "error"] }],
