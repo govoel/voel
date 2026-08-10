@@ -135,14 +135,12 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
     const makeObservationAtom = (node: AtomRegistry.Node<unknown>) => {
       const { atom } = node;
       return markInternalAtom(
-        Atom.make(
-          (get): NodeObservation => ({
-            value: get(atom),
-            activePredefinedStateId: hasPredefinedStates(atom)
-              ? atom[PredefinedStatesTypeId].readActiveStateId(get)
-              : Option.none(),
-          })
-        ).pipe(
+        Atom.make((get): NodeObservation => ({
+          value: get(atom),
+          activePredefinedStateId: hasPredefinedStates(atom)
+            ? atom[PredefinedStatesTypeId].readActiveStateId(get)
+            : Option.none(),
+        })).pipe(
           Atom.withEquality<NodeObservation>(
             (current, next) =>
               atom.equals(current.value, next.value) &&
