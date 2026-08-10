@@ -64,14 +64,14 @@ export class AtomSnapshot extends AtomSummary.extend<
   activePredefinedStateId: Schema.Option(Schema.String),
 }) {}
 
-export class AtomNotFound extends Schema.TaggedErrorClass<
+export class AtomNotFound extends Schema.TaggedError<
   AtomNotFound,
   { readonly brand: unique symbol }
 >(`${AtomDevToolsTypeId}/AtomNotFound`)('AtomNotFound', {
   id: AtomId,
 }) {}
 
-export class PredefinedStateNotFound extends Schema.TaggedErrorClass<
+export class PredefinedStateNotFound extends Schema.TaggedError<
   PredefinedStateNotFound,
   { readonly brand: unique symbol }
 >(`${AtomDevToolsTypeId}/PredefinedStateNotFound`)('PredefinedStateNotFound', {
@@ -135,14 +135,12 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
     const makeObservationAtom = (node: AtomRegistry.Node<unknown>) => {
       const { atom } = node;
       return markInternalAtom(
-        Atom.make(
-          (get): NodeObservation => ({
-            value: get(atom),
-            activePredefinedStateId: hasPredefinedStates(atom)
-              ? atom[PredefinedStatesTypeId].readActiveStateId(get)
-              : Option.none(),
-          })
-        ).pipe(
+        Atom.make((get): NodeObservation => ({
+          value: get(atom),
+          activePredefinedStateId: hasPredefinedStates(atom)
+            ? atom[PredefinedStatesTypeId].readActiveStateId(get)
+            : Option.none(),
+        })).pipe(
           Atom.withEquality<NodeObservation>(
             (current, next) =>
               atom.equals(current.value, next.value) &&

@@ -21,7 +21,7 @@ const EmptyComponent = (() => null) satisfies ComponentType;
 const runtime = Atom.runtime(Layer.empty);
 const schema = Schema.Struct({ name: Schema.String });
 
-class TestSubmitError extends Schema.TaggedErrorClass<TestSubmitError>()('TestSubmitError', {
+class TestSubmitError extends Schema.TaggedError<TestSubmitError>()('TestSubmitError', {
   message: Schema.String,
 }) {}
 

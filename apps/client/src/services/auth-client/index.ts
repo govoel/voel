@@ -29,7 +29,7 @@ export class XxHash extends Context.Service<
   });
 }
 
-export class BetterAuthClientInitializationError extends Schema.TaggedErrorClass<
+export class BetterAuthClientInitializationError extends Schema.TaggedError<
   BetterAuthClientInitializationError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/index/BetterAuthClientInitializationError')(

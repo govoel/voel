@@ -55,7 +55,13 @@ export declare namespace ToJsonSchema {
   }
 
   /**
-   * JSON Schema compiler for a check.
+   * Compiles a check to a JSON Schema fragment.
+   *
+   * **Gotchas**
+   *
+   * Treat the input schemas as immutable. The returned value must be a valid JSON Schema object graph and must not be
+   * mutated after this function returns. Return a new object graph to produce different output during a later
+   * compilation.
    *
    * @category models
    * @since 4.0.0
@@ -488,17 +494,6 @@ export interface MultiDocument {
 }
 
 /**
- * Live schemas reconstructed from a multi-document.
- *
- * @category models
- * @since 4.0.0
- */
-export interface SchemaMultiDocument {
-  readonly schemas: readonly [Schema.Top, ...Array<Schema.Top>]
-  readonly definitions: Readonly<Record<string, Schema.Top>>
-}
-
-/**
  * Reviver for a declaration.
  *
  * @category models
@@ -714,27 +709,6 @@ export function toRepresentations(
 }
 
 /**
- * Converts live schemas and their named definitions to a shared representation document.
- *
- * **When to use**
- *
- * Use when schemas with shared or unreachable definitions must be passed to representation compilers such as `toCodeDocument`.
- *
- * **Gotchas**
- *
- * Every schema is projected to its encoded side. Definitions are preserved even when no root reaches them.
- *
- * @see {@link toRepresentations} for converting AST roots without an explicit definition map
- * @see {@link toCodeDocument} for generating code from the result
- *
- * @category constructors
- * @since 4.0.0
- */
-export function fromSchemaMultiDocument(document: SchemaMultiDocument): MultiDocument {
-  return InternalToRepresentation.fromSchemaMultiDocument(document)
-}
-
-/**
  * Wraps a single representation document as a multi-document with one root.
  *
  * **When to use**
@@ -760,7 +734,10 @@ export function toMultiDocument(document: Document): MultiDocument {
  *
  * **Gotchas**
  *
- * Opaque declarations are represented by an unconstrained JSON Schema. Check callback results are used directly, and exceptions raised by a callback pass through unchanged.
+ * Opaque declarations are represented by an unconstrained JSON Schema. Check callback results are used directly, and
+ * exceptions raised by a callback pass through unchanged. Callbacks must treat their input schemas as immutable. Each
+ * returned value must be a valid JSON Schema object graph and must not be mutated after the callback returns. Local
+ * definition references returned by callbacks are resolved together with compiler-generated references.
  *
  * @see {@link toJsonSchemaMultiDocument} for multiple roots sharing definitions
  *
@@ -783,7 +760,10 @@ export function toJsonSchemaDocument(
  *
  * **Gotchas**
  *
- * Every definition is compiled, including definitions that are not reachable from a root.
+ * Every definition is compiled, including definitions that are not reachable from a root. Check callbacks must treat
+ * their input schemas as immutable. Each returned value must be a valid JSON Schema object graph and must not be
+ * mutated after the callback returns. Local definition references returned by callbacks are resolved together with
+ * compiler-generated references.
  *
  * @see {@link toJsonSchemaDocument} for a single root
  *
@@ -1120,6 +1100,20 @@ export function fromJsonMultiDocument(input: Schema.Json): MultiDocument {
  *
  * Revivers are resolved locally by `id`; none are installed implicitly. Reviver results are used directly, and exceptions raised by a reviver pass through unchanged.
  *
+ * **Example** (Restoring a persisted schema)
+ *
+ * ```ts import.meta.vitest
+ * import { Schema, SchemaRepresentation } from "effect"
+ *
+ * const document = SchemaRepresentation.toRepresentation(Schema.Struct({ name: Schema.String }).ast)
+ * const persisted = SchemaRepresentation.toJson(document)
+ * const restored = SchemaRepresentation.fromJson(persisted)
+ * const schema = SchemaRepresentation.fromRepresentation(restored, { revivers: [] })
+ * const Person = Schema.make<Schema.Codec<{ readonly name: string }>>(schema.ast)
+ *
+ * Schema.decodeUnknownSync(Person)({ name: "Ada" }) // => { name: "Ada" }
+ * ```
+ *
  * @see {@link fromJson} for decoding a persisted document
  * @see {@link fromRepresentations} for multiple roots sharing references
  *
@@ -1134,15 +1128,15 @@ export function fromRepresentation(
 }
 
 /**
- * Reconstructs multiple runtime schemas and their shared definitions from a representation multi-document.
+ * Reconstructs multiple runtime schemas from a representation multi-document.
  *
  * **When to use**
  *
- * Use when every root and named definition must be rebuilt in one shared reference environment.
+ * Use when multiple roots must be rebuilt in one shared reference environment.
  *
  * **Gotchas**
  *
- * Every definition is revived, including definitions not reachable from a root. Revivers are resolved locally by `id`; none are installed implicitly.
+ * Only references reachable from a root are revived. Revivers are resolved locally by `id`; none are installed implicitly.
  *
  * @see {@link fromJsonMultiDocument} for decoding a persisted multi-document
  * @see {@link fromRepresentation} for a single root
@@ -1153,7 +1147,7 @@ export function fromRepresentation(
 export function fromRepresentations(
   document: MultiDocument,
   options: { readonly revivers: ReadonlyArray<AnyReviver> }
-): SchemaMultiDocument {
+): readonly [Schema.Top, ...Array<Schema.Top>] {
   return InternalFromRepresentation.fromRepresentations(document, options.revivers)
 }
 
@@ -1186,14 +1180,14 @@ export function fromJsonSchemaDocument(
  *
  * **When to use**
  *
- * Use when multiple imported roots must preserve shared definitions, aliases, and recursion.
+ * Use when multiple imported roots share reachable definitions, aliases, or recursion.
  *
  * **Gotchas**
  *
- * Every definition is translated, including definitions that no root references. Callback results are used directly, and exceptions raised by a callback pass through unchanged.
+ * Only definitions reachable from a root are translated. Callback results are used directly, and exceptions raised by a callback pass through unchanged.
  *
  * @see {@link fromJsonSchemaDocument} for a single root
- * @see {@link fromSchemaMultiDocument} for converting the result to a representation document
+ * @see {@link toRepresentations} for converting the returned schema ASTs to a representation document
  *
  * @category constructors
  * @since 4.0.0
@@ -1201,6 +1195,6 @@ export function fromJsonSchemaDocument(
 export function fromJsonSchemaMultiDocument(
   document: JsonSchema.MultiDocument<"draft-2020-12">,
   options?: FromJsonSchemaOptions
-): SchemaMultiDocument {
+): readonly [Schema.Top, ...Array<Schema.Top>] {
   return InternalFromJsonSchemaDocument.fromJsonSchemaMultiDocument(document, options)
 }

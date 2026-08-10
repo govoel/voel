@@ -10,10 +10,9 @@ import {
 
 import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
 
-class AgentToolError extends Schema.TaggedErrorClass<
-  AgentToolError,
-  { readonly brand: unique symbol }
->('@repo/effect-atom-devtools-rozenite/react-native/agent/AgentToolError')('AgentToolError', {
+class AgentToolError extends Schema.TaggedError<AgentToolError, { readonly brand: unique symbol }>(
+  '@repo/effect-atom-devtools-rozenite/react-native/agent/tool-handlers/AgentToolError'
+)('AgentToolError', {
   message: Schema.String,
 }) {}
 

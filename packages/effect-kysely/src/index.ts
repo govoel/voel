@@ -55,7 +55,7 @@ export { jsonArrayFrom } from 'kysely/helpers/sqlite';
 export { Migrator } from 'kysely/migration';
 export type { MigrationProvider } from 'kysely/migration';
 
-export class DatabaseSqlError extends Schema.TaggedErrorClass<
+export class DatabaseSqlError extends Schema.TaggedError<
   DatabaseSqlError,
   { readonly brand: unique symbol }
 >('@repo/effect-kysely/index/DatabaseSqlError')('DatabaseSqlError', {
@@ -65,7 +65,7 @@ export class DatabaseSqlError extends Schema.TaggedErrorClass<
   public static readonly is = Schema.is(this);
 }
 
-export class DatabaseNoSuchElementError extends Schema.TaggedErrorClass<
+export class DatabaseNoSuchElementError extends Schema.TaggedError<
   DatabaseNoSuchElementError,
   { readonly brand: unique symbol }
 >('@repo/effect-kysely/index/DatabaseNoSuchElementError')('DatabaseNoSuchElementError', {}) {

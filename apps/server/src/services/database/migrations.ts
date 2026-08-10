@@ -17,7 +17,7 @@ export const createMigrationProvider = (): MigrationProvider => ({
   }),
 });
 
-class DatabaseMigrationError extends Schema.TaggedErrorClass<
+class DatabaseMigrationError extends Schema.TaggedError<
   DatabaseMigrationError,
   { readonly brand: unique symbol }
 >('@repo/server/services/database/migrations/DatabaseMigrationError')(

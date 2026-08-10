@@ -34,7 +34,7 @@ import * as UndefinedOr from "../../UndefinedOr.ts"
 import * as IncomingMessage from "./HttpIncomingMessage.ts"
 import * as HttpServerRespondable from "./HttpServerRespondable.ts"
 import * as HttpServerResponse from "./HttpServerResponse.ts"
-import * as MP from "./Multipasta.ts"
+import * as MP from "./MultipartParser.ts"
 
 /**
  * Type identifier used to brand multipart part values.
@@ -438,7 +438,7 @@ export const makeConfig = (
  * non-empty batches of parsed `Part` values, failing with `MultipartError` for
  * parser and limit failures.
  *
- * @category Parsers
+ * @category parsing
  * @since 4.0.0
  */
 export const makeChannel = <IE>(headers: Record<string, string>): Channel.Channel<
@@ -678,6 +678,8 @@ export const toPersisted = (
     const path_ = yield* Path.Path
     const dir = yield* fs.makeTempDirectoryScoped()
     const persisted: Record<string, Array<PersistedFile> | Array<string> | string> = Object.create(null)
+    const usedPaths = new Set<string>()
+    let fileIndex = 0
     yield* Stream.runForEach(stream, (part) => {
       if (part._tag === "Field") {
         if (!(part.key in persisted)) {
@@ -692,7 +694,12 @@ export const toPersisted = (
         return Effect.void
       }
       const file = part
-      const path = path_.join(dir, path_.basename(file.name).slice(-128))
+      const fileName = path_.basename(file.name).slice(-128)
+      let path = path_.join(dir, fileName)
+      while (usedPaths.has(path)) {
+        path = path_.join(dir, `${fileIndex++}-${fileName}`)
+      }
+      usedPaths.add(path)
       const filePart = new PersistedFileImpl(
         file.key,
         file.name,
@@ -794,7 +801,7 @@ export declare namespace withLimits {
    * These settings control maximum part count, field size, file size, total body
    * size, and MIME types that should be treated as fields instead of files.
    *
-   * @category fiber refs
+   * @category options
    * @since 4.0.0
    */
   export type Options = {
@@ -813,7 +820,7 @@ export declare namespace withLimits {
  *
  * The default is `undefined`, meaning no explicit part-count limit.
  *
- * @category references
+ * @category services
  * @since 4.0.0
  */
 export const MaxParts = Context.Reference<number | undefined>("effect/http/Multipart/MaxParts", {
@@ -827,7 +834,7 @@ export const MaxParts = Context.Reference<number | undefined>("effect/http/Multi
  *
  * The default limit is 10 MiB.
  *
- * @category references
+ * @category services
  * @since 4.0.0
  */
 export const MaxFieldSize = Context.Reference<FileSystem.SizeInput>("effect/http/Multipart/MaxFieldSize", {
@@ -841,7 +848,7 @@ export const MaxFieldSize = Context.Reference<FileSystem.SizeInput>("effect/http
  *
  * The default is `undefined`, meaning no explicit per-file limit.
  *
- * @category references
+ * @category services
  * @since 4.0.0
  */
 export const MaxFileSize = Context.Reference<FileSystem.SizeInput | undefined>(
@@ -857,7 +864,7 @@ export const MaxFileSize = Context.Reference<FileSystem.SizeInput | undefined>(
  *
  * The default treats `application/json` parts as fields.
  *
- * @category references
+ * @category services
  * @since 4.0.0
  */
 export const FieldMimeTypes = Context.Reference<ReadonlyArray<string>>("effect/http/Multipart/FieldMimeTypes", {
