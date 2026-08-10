@@ -1,4 +1,3 @@
-import { vi } from '@effect/vitest';
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
 
@@ -155,43 +154,4 @@ export const signInTestServerUsers = Effect.fnUntraced(function* <const UserCoun
   }
 
   return accounts;
-});
-
-export const makeAuthClientWithSpy = Effect.fnUntraced(function* ({
-  serverUrl,
-}: Parameters<typeof makeAuthClient>[0]) {
-  const authClient = yield* makeAuthClient({ serverUrl });
-  const originalSubscribe = authClient.useSession.subscribe.bind(authClient.useSession);
-  let subscribeCount = 0;
-  let unsubscribeCount = 0;
-
-  const subscribeSpy = vi
-    .spyOn(authClient.useSession, 'subscribe')
-    .mockImplementation((subscriber) => {
-      subscribeCount += 1;
-
-      const unsubscribe = originalSubscribe(subscriber);
-
-      return () => {
-        unsubscribeCount += 1;
-
-        unsubscribe();
-      };
-    });
-
-  yield* Effect.addFinalizer(() =>
-    Effect.sync(() => {
-      subscribeSpy.mockRestore();
-    })
-  );
-
-  return {
-    authClient,
-    get subscribeCount() {
-      return subscribeCount;
-    },
-    get unsubscribeCount() {
-      return unsubscribeCount;
-    },
-  };
 });

@@ -21,10 +21,14 @@ import {
   betterAuthErrorDetailsFromUnknown,
 } from '#src/services/auth-client/errors.ts';
 import {
+  AuthClient,
+  AuthClientFactory,
+  AuthClientMap,
   XxHash,
-  createVoelAuthClient,
+  makeAuthClientKey,
   makeAuthStorageKey,
 } from '#src/services/auth-client/index.ts';
+import type { VoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
@@ -92,32 +96,14 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
+      const authClientFactory = yield* AuthClientFactory;
       const authClientStorageService = yield* AuthClientStorage;
-
-      const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
-        Effect.map(Effect.runSyncWith)
-      );
-
-      const authClientStorage = {
-        getItem: (key) =>
-          runWithAuthClientStorage(
-            AuthClientStorage.pipe(
-              Effect.flatMap((storage) => storage.getItem(key)),
-              Effect.map(Option.getOrNull)
-            )
-          ),
-        setItem: (key, value) => {
-          runWithAuthClientStorage(
-            AuthClientStorage.pipe(Effect.flatMap((storage) => storage.setItem(key, value)))
-          );
-        },
-      } satisfies Parameters<typeof createVoelAuthClient>[0]['storage'];
 
       const stateRef = yield* SubscriptionRef.make(
         Option.none<{
           readonly account: Selectable<AccountTable>;
           readonly state: {
-            readonly authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
+            readonly authClient: AuthClient['Service'];
             readonly scope: Scope.Closeable;
           };
         }>()
@@ -125,12 +111,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
       const initializeActiveAccountState = ({
         activeAccount,
-        existingAuthClient,
       }: {
         readonly activeAccount: Selectable<AccountTable>;
-        readonly existingAuthClient: Option.Option<
-          Effect.Success<ReturnType<typeof createVoelAuthClient>>
-        >;
       }) =>
         SubscriptionRef.modifySomeEffect(
           stateRef,
@@ -139,25 +121,18 @@ export class AccountManager extends Context.Service<AccountManager>()(
               Option.isSome(state) &&
               state.value.account.serverUrl === activeAccount.serverUrl &&
               state.value.account.userId === activeAccount.userId &&
-              Option.match(existingAuthClient, {
-                onNone: () => true,
-                onSome: (nextAuthClient) => state.value.state.authClient === nextAuthClient,
-              })
+              state.value.account.authStorageId === activeAccount.authStorageId
             ) {
               return [void 0, Option.none()] as const;
             }
 
             const scope = yield* Scope.fork(serviceScope);
-            const authClient = yield* Option.match(existingAuthClient, {
-              onSome: Effect.succeed,
-              onNone: () =>
-                createVoelAuthClient({
-                  serverUrl: activeAccount.serverUrl.toString(),
-                  authStorageId: activeAccount.authStorageId,
-                  storage: authClientStorage,
-                  xxHash,
-                }),
-            });
+            const authClient = yield* Effect.gen(function* () {
+              return yield* AuthClient;
+            }).pipe(
+              Effect.provide(AuthClientMap.get(makeAuthClientKey(activeAccount))),
+              Effect.provideService(Scope.Scope, scope)
+            );
 
             // Subscribe directly rather than through Stream.callback, which acquires lazily:
             // forkIn may return before its callback runs. Account initialization must own the
@@ -261,17 +236,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
       if (Option.isSome(storedActiveAccount)) {
         yield* initializeActiveAccountState({
           activeAccount: storedActiveAccount.value,
-          existingAuthClient: Option.none(),
         });
       }
 
       const setActiveAccount = Effect.fnUntraced(function* ({
         serverUrl,
         userId,
-        authClient,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId'> & {
-        readonly authClient: Option.Option<Effect.Success<ReturnType<typeof createVoelAuthClient>>>;
-      }) {
+      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId'>) {
         const activeAccount = yield* db
           .trx()
           .execute(
@@ -302,19 +273,16 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
         return yield* initializeActiveAccountState({
           activeAccount,
-          existingAuthClient: authClient,
         });
       });
 
       const upsertAccount = Effect.fnUntraced(function* ({
         account,
-        authClient,
       }: {
         readonly account: Pick<
           Insertable<AccountTable>,
           'serverUrl' | 'userId' | 'username' | 'authStorageId' | 'role' | 'profilePicture'
         >;
-        readonly authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
       }) {
         const activeAccount = yield* db
           .trx()
@@ -359,7 +327,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
         return yield* initializeActiveAccountState({
           activeAccount,
-          existingAuthClient: Option.some(authClient),
         });
       });
 
@@ -420,11 +387,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
         password: Redacted.Redacted;
       }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* createVoelAuthClient({
+        const authClient = yield* authClientFactory.create({
           serverUrl,
           authStorageId,
-          storage: authClientStorage,
-          xxHash,
         });
 
         const signInResult = yield* Effect.tryPromise({
@@ -449,7 +414,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
             role: AccountRole.decodeSyncFromNullishString(signInResult.data.user.role).value,
             profilePicture: signInResult.data.user.image ?? null,
           },
-          authClient,
         });
       });
 
@@ -460,20 +424,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
         username,
         password,
       }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> &
-        Pick<
-          Parameters<
-            Effect.Success<ReturnType<typeof createVoelAuthClient>>['signUp']['email']
-          >['0'],
-          'name' | 'email'
-        > & {
+        Pick<Parameters<VoelAuthClient['signUp']['email']>['0'], 'name' | 'email'> & {
           password: Redacted.Redacted;
         }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* createVoelAuthClient({
+        const authClient = yield* authClientFactory.create({
           serverUrl,
           authStorageId,
-          storage: authClientStorage,
-          xxHash,
         });
 
         const signUpResult = yield* Effect.tryPromise({
@@ -503,7 +460,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
             role: AccountRole.decodeSyncFromNullishString(signUpResult.data.user.role).value,
             profilePicture: signUpResult.data.user.image ?? null,
           },
-          authClient,
         });
       });
 

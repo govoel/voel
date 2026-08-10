@@ -1,8 +1,9 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { activeAccountAtom } from '#src/services/accounts/atoms';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current';
+import { NoActiveAccountError, authClientRequest } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
@@ -19,17 +20,25 @@ export class ServerUser extends Schema.Class<ServerUser, { readonly brand: uniqu
 
 export const listUsersAtom = AppRuntime.pull(
   Effect.fnUntraced(
-    function* () {
-      const currentAuthClient = yield* CurrentAuthClient;
+    function* (get) {
+      const activeAccount = yield* get
+        .result(activeAccountAtom)
+        .pipe(Effect.catchTag('NoSuchElementError', () => Effect.succeed(Option.none())));
+      if (Option.isNone(activeAccount)) {
+        return yield* new NoActiveAccountError();
+      }
+
       return Stream.paginate(
         0,
         Effect.fnUntraced(function* (offset) {
-          const data = yield* currentAuthClient.admin.listUsers({
-            query: {
-              limit: 10,
-              offset,
-            },
-          });
+          const data = yield* authClientRequest(async () =>
+            activeAccount.value.state.authClient.admin.listUsers({
+              query: {
+                limit: 10,
+                offset,
+              },
+            })
+          );
 
           const users = yield* ServerUser.decodeUnknownArrayEffect(data.users);
           const nextOffset = offset + users.length;
@@ -80,8 +89,8 @@ export const listUsersAtom = AppRuntime.pull(
         id: 'failure',
         label: 'No active account error',
         atom: Atom.writable(
-          (): Atom.PullResult<ServerUser, NoCurrentAuthClientError> =>
-            AsyncResult.fail(new NoCurrentAuthClientError()),
+          (): Atom.PullResult<ServerUser, NoActiveAccountError> =>
+            AsyncResult.fail(new NoActiveAccountError()),
           () => void 0
         ),
       },

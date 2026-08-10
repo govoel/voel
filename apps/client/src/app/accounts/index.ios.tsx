@@ -276,7 +276,6 @@ export default function AccountsScreen() {
                               input: {
                                 serverUrl: account.serverUrl,
                                 userId: account.userId,
-                                authClient: Option.none(),
                               },
                               onSuccess: async () => {
                                 setIsSwitchAccountPresented(false);

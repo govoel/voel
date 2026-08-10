@@ -2,9 +2,10 @@ import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAtom, activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
+import { NoActiveAccountError, authClientRequest } from '#src/services/auth-client/index.ts';
+import type { VoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -84,9 +85,20 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
   Atom.withLabel('activeUserProfileAtom')
 );
 
-const updateCurrentUserAtom = AppRuntime.fn(
-  (input: Parameters<typeof CurrentAuthClient.Service.updateUser>[0]) =>
-    CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.updateUser(input)))
+const updateCurrentUserAtom = AppRuntime.fn<Parameters<VoelAuthClient['updateUser']>[0]>()(
+  Effect.fnUntraced(function* (input, get) {
+    const activeAccount = yield* get
+      .result(activeAccountAtom)
+      .pipe(Effect.catchTag('NoSuchElementError', () => Effect.succeed(Option.none())));
+
+    if (Option.isNone(activeAccount)) {
+      return yield* new NoActiveAccountError();
+    }
+
+    return yield* authClientRequest(async () =>
+      activeAccount.value.state.authClient.updateUser(input)
+    );
+  })
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
 export const useUserProfileForm = ({
@@ -103,8 +115,8 @@ export const useUserProfileForm = ({
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
-          NoCurrentAuthClientError: () => 'No active user is available.',
-          CurrentAuthClientRequestError: (requestError) =>
+          NoActiveAccountError: () => 'No active user is available.',
+          AuthClientRequestError: (requestError) =>
             requestError.details.message ?? 'Unable to update the profile. Try again.',
         })
       ),
