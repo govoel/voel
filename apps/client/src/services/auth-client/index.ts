@@ -47,7 +47,6 @@ export class BetterAuthClientInitializationError extends Schema.TaggedError<
 
 export interface AuthClientKeyFields {
   readonly serverUrl: string;
-  readonly userId: string;
   readonly authStorageId: string;
 }
 
@@ -55,9 +54,8 @@ export class AuthClientKey extends Data.Class<AuthClientKeyFields> {}
 
 export const makeAuthClientKey = ({
   serverUrl,
-  userId,
   authStorageId,
-}: AuthClientKeyFields): AuthClientKey => new AuthClientKey({ serverUrl, userId, authStorageId });
+}: AuthClientKeyFields): AuthClientKey => new AuthClientKey({ serverUrl, authStorageId });
 
 export const createVoelAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
@@ -97,7 +95,7 @@ export class AuthClient extends Context.Service<AuthClient, VoelAuthClient>()(
   'voel/services/auth-client/index/AuthClient'
 ) {}
 
-export class AuthClientFactory extends Context.Service<AuthClientFactory>()(
+class AuthClientFactory extends Context.Service<AuthClientFactory>()(
   'voel/services/auth-client/index/AuthClientFactory',
   {
     make: Effect.gen(function* () {
@@ -152,8 +150,12 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
           return yield* factory.create(key);
         })
       ),
+    dependencies: [AuthClientFactory.layer],
   }
 ) {}
+
+export const getAuthClient = (key: AuthClientKeyFields) =>
+  AuthClientMap.contextEffect(makeAuthClientKey(key)).pipe(Effect.map(Context.get(AuthClient)));
 
 export class AuthClientRequestError extends Schema.TaggedError<
   AuthClientRequestError,

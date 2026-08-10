@@ -20,15 +20,8 @@ import {
   BetterAuthErrorDetails,
   betterAuthErrorDetailsFromUnknown,
 } from '#src/services/auth-client/errors.ts';
-import {
-  AuthClient,
-  AuthClientFactory,
-  AuthClientMap,
-  XxHash,
-  makeAuthClientKey,
-  makeAuthStorageKey,
-} from '#src/services/auth-client/index.ts';
-import type { VoelAuthClient } from '#src/services/auth-client/index.ts';
+import { XxHash, getAuthClient, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
+import type { AuthClient, VoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
@@ -96,7 +89,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
-      const authClientFactory = yield* AuthClientFactory;
       const authClientStorageService = yield* AuthClientStorage;
 
       const stateRef = yield* SubscriptionRef.make(
@@ -127,10 +119,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             }
 
             const scope = yield* Scope.fork(serviceScope);
-            const authClient = yield* Effect.gen(function* () {
-              return yield* AuthClient;
-            }).pipe(
-              Effect.provide(AuthClientMap.get(makeAuthClientKey(activeAccount))),
+            const authClient = yield* getAuthClient(activeAccount).pipe(
               Effect.provideService(Scope.Scope, scope)
             );
 
@@ -387,10 +376,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         password: Redacted.Redacted;
       }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* authClientFactory.create({
-          serverUrl,
-          authStorageId,
-        });
+        const authClient = yield* getAuthClient({ serverUrl, authStorageId });
 
         const signInResult = yield* Effect.tryPromise({
           try: async () =>
@@ -415,7 +401,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             profilePicture: signInResult.data.user.image ?? null,
           },
         });
-      });
+      }, Effect.scoped);
 
       const setupServerWithAccount = Effect.fnUntraced(function* ({
         serverUrl,
@@ -428,10 +414,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           password: Redacted.Redacted;
         }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* authClientFactory.create({
-          serverUrl,
-          authStorageId,
-        });
+        const authClient = yield* getAuthClient({ serverUrl, authStorageId });
 
         const signUpResult = yield* Effect.tryPromise({
           try: async () =>
@@ -461,7 +444,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             profilePicture: signUpResult.data.user.image ?? null,
           },
         });
-      });
+      }, Effect.scoped);
 
       return {
         changes: SubscriptionRef.changes(stateRef),

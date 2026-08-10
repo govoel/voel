@@ -3,7 +3,11 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { activeAccountAtom } from '#src/services/accounts/atoms';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { NoActiveAccountError, authClientRequest } from '#src/services/auth-client/index.ts';
+import {
+  NoActiveAccountError,
+  authClientRequest,
+  getAuthClient,
+} from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
@@ -27,12 +31,13 @@ export const listUsersAtom = AppRuntime.pull(
       if (Option.isNone(activeAccount)) {
         return yield* new NoActiveAccountError();
       }
+      const authClient = yield* getAuthClient(activeAccount.value.account);
 
       return Stream.paginate(
         0,
         Effect.fnUntraced(function* (offset) {
           const data = yield* authClientRequest(async () =>
-            activeAccount.value.state.authClient.admin.listUsers({
+            authClient.admin.listUsers({
               query: {
                 limit: 10,
                 offset,

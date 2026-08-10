@@ -1,12 +1,8 @@
 import { describe, expect, it } from '@effect/vitest';
-import { Deferred, Effect, Equal, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
+import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
-import {
-  XxHash,
-  createVoelAuthClient,
-  makeAuthClientKey,
-} from '#src/services/auth-client/index.ts';
+import { XxHash, createVoelAuthClient, getAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -39,15 +35,24 @@ const forkNextAccountManagerChange = Effect.fnUntraced(function* (
 });
 
 describe('AccountManager', () => {
-  it('compares auth client map keys by account value', () => {
-    const account = {
-      serverUrl: 'https://voel.example.com',
-      userId: 'user-id',
-      authStorageId: 'auth-storage-id',
-    };
+  it.effect(
+    'reuses auth clients by auth storage identity',
+    Effect.fnUntraced(
+      function* () {
+        const authStorage = {
+          serverUrl: 'https://voel.example.com',
+          authStorageId: 'auth-storage-id',
+        };
+        const [firstClient, secondClient] = yield* Effect.all([
+          getAuthClient(authStorage),
+          getAuthClient(authStorage),
+        ]).pipe(Effect.scoped);
 
-    expect(Equal.equals(makeAuthClientKey(account), makeAuthClientKey(account))).toBe(true);
-  });
+        expect(secondClient).toBe(firstClient);
+      },
+      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+    )
+  );
 
   it.effect(
     'starts without an active account when the database is empty',

@@ -4,7 +4,11 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 import { useAppForm } from '#src/components/form';
 import { activeAccountAtom, activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { NoActiveAccountError, authClientRequest } from '#src/services/auth-client/index.ts';
+import {
+  NoActiveAccountError,
+  authClientRequest,
+  getAuthClient,
+} from '#src/services/auth-client/index.ts';
 import type { VoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -95,10 +99,9 @@ const updateCurrentUserAtom = AppRuntime.fn<Parameters<VoelAuthClient['updateUse
       return yield* new NoActiveAccountError();
     }
 
-    return yield* authClientRequest(async () =>
-      activeAccount.value.state.authClient.updateUser(input)
-    );
-  })
+    const authClient = yield* getAuthClient(activeAccount.value.account);
+    return yield* authClientRequest(async () => authClient.updateUser(input));
+  }, Effect.scoped)
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
 export const useUserProfileForm = ({
@@ -116,6 +119,8 @@ export const useUserProfileForm = ({
       Match.value(error).pipe(
         Match.tagsExhaustive({
           NoActiveAccountError: () => 'No active user is available.',
+          BetterAuthClientInitializationError: () =>
+            'Unexpected error during authentication. Try again.',
           AuthClientRequestError: (requestError) =>
             requestError.details.message ?? 'Unable to update the profile. Try again.',
         })
