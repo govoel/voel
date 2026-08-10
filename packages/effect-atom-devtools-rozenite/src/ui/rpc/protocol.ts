@@ -1,33 +1,48 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect, Queue } from 'effect';
+import { Effect, Queue, Random } from 'effect';
 import { RpcClient, RpcClientError } from 'effect/unstable/rpc';
 import type { RpcMessage } from 'effect/unstable/rpc';
 
-import { RPC_REQUEST_EVENT, RPC_RESPONSE_EVENT } from '#src/shared/rpc-bridge.ts';
+import {
+  RPC_CLIENT_EVENT,
+  RPC_RESPONSE_EVENT,
+  RpcBridgeClientMessage,
+} from '#src/shared/rpc-bridge.ts';
 import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
-
-const makeRpcSendError = (cause: unknown) =>
-  new RpcClientError.RpcClientError({
-    reason: new RpcClientError.RpcClientDefect({
-      message: 'Failed to send an RPC message through the Rozenite bridge',
-      cause,
-    }),
-  });
 
 export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBridgeEventMap>) =>
   RpcClient.Protocol.make(
     Effect.fnUntraced(function* (writeResponse, clientIds) {
+      const activeSessionId = `${yield* Random.nextInt}:${yield* Random.nextInt}`;
       const incomingResponses = yield* Queue.unbounded<RpcMessage.FromServerEncoded>();
 
       yield* Effect.acquireRelease(
         Effect.sync(() =>
           bridgeClient.onMessage(RPC_RESPONSE_EVENT, (response) => {
-            Queue.offerUnsafe(incomingResponses, response);
+            if (response.sessionId === activeSessionId) {
+              Queue.offerUnsafe(incomingResponses, response.message);
+            }
           })
         ),
         (subscription) =>
           Effect.sync(() => {
             subscription.remove();
+          })
+      );
+
+      yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          bridgeClient.send(
+            RPC_CLIENT_EVENT,
+            RpcBridgeClientMessage.Start({ sessionId: activeSessionId })
+          );
+        }),
+        () =>
+          Effect.sync(() => {
+            bridgeClient.send(
+              RPC_CLIENT_EVENT,
+              RpcBridgeClientMessage.End({ sessionId: activeSessionId })
+            );
           })
       );
 
@@ -50,9 +65,21 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
         send: (_clientId, request) =>
           Effect.try({
             try: () => {
-              bridgeClient.send(RPC_REQUEST_EVENT, request);
+              bridgeClient.send(
+                RPC_CLIENT_EVENT,
+                RpcBridgeClientMessage.Request({
+                  sessionId: activeSessionId,
+                  message: request,
+                })
+              );
             },
-            catch: makeRpcSendError,
+            catch: (cause: unknown) =>
+              new RpcClientError.RpcClientError({
+                reason: new RpcClientError.RpcClientDefect({
+                  message: 'Failed to send an RPC message through the Rozenite bridge',
+                  cause,
+                }),
+              }),
           }),
         supportsAck: true,
         supportsTransferables: false,
