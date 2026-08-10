@@ -8,7 +8,7 @@ import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { getAuthClient } from '#src/services/auth-client/index.ts';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { CommonClientLayers } from '#src/services/layers.ts';
 
 const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
@@ -18,8 +18,8 @@ const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
     const cookie = yield* Option.match(accountState, {
       onNone: () => Effect.succeed(Option.none<string>()),
       onSome: ({ account }) =>
-        getAuthClient(account).pipe(
-          Effect.map((authClient) => Option.fromNullishOr(authClient.getCookie() as string | null)),
+        acquireAuthClient(account).pipe(
+          Effect.flatMap((authClient) => authClient.getCookie()),
           Effect.catchTag('BetterAuthClientInitializationError', () =>
             Effect.succeed(Option.none())
           )

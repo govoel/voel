@@ -8,7 +8,7 @@ Run these commands after you are done with your changes: `bun turbo run check-ty
 
 # This project uses "effect"
 
-Before writing any Effect code, YOU MUST read `.repos/effect/LLMS.md` fully.
+Before writing any Effect code, YOU MUST read `.repos/effect/LLMS.md` fully, and Effect's source code is in `.repos/effect`.
 
 # Browse library code
 

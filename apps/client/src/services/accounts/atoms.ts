@@ -1,4 +1,4 @@
-import { Cause, Effect, Equal, Option, Queue, Stream } from 'effect';
+import { Cause, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -101,20 +101,7 @@ export const activeAccountSessionAtom = AppRuntime.atom((get) => {
   return Stream.switchMap(changes, (newActiveAccount) =>
     Option.match(newActiveAccount, {
       onNone: () => Stream.make(Option.none()),
-      onSome: ({ state }) =>
-        Stream.callback<
-          Option.Option<Parameters<Parameters<typeof state.authClient.useSession.subscribe>[0]>[0]>
-        >(
-          Effect.fnUntraced(function* (queue) {
-            const unsubscribe = yield* Effect.sync(() =>
-              state.authClient.useSession.subscribe((session) => {
-                Queue.offerUnsafe(queue, Option.some(session));
-              })
-            );
-
-            yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
-          })
-        ),
+      onSome: ({ state }) => state.authClient.sessionChanges.pipe(Stream.map(Option.some)),
     })
   );
 }).pipe(

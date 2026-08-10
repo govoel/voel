@@ -1,12 +1,21 @@
 import { expoClient } from '@better-auth/expo/client';
-import { Context, Data, Duration, Effect, Layer, LayerMap, Schema } from 'effect';
+import {
+  Context,
+  Data,
+  Duration,
+  Effect,
+  Layer,
+  LayerMap,
+  Option,
+  Schema,
+  String,
+  SubscriptionRef,
+} from 'effect';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import {
-  BetterAuthErrorDetails,
-  betterAuthErrorDetailsFromUnknown,
-} from '#src/services/auth-client/errors.ts';
+import { betterAuthErrorFromUnknown } from '#src/services/auth-client/errors.ts';
+import type { BetterAuthError } from '#src/services/auth-client/errors.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 
 export const makeAuthStorageKey = ({
@@ -91,106 +100,152 @@ export const createVoelAuthClient = Effect.fnUntraced(function* ({
 
 export type VoelAuthClient = Effect.Success<ReturnType<typeof createVoelAuthClient>>;
 
-export class AuthClient extends Context.Service<AuthClient, VoelAuthClient>()(
-  'voel/services/auth-client/index/AuthClient'
-) {}
+const executeAuthClientRequest = Effect.fn('executeAuthClientRequest')(function* <A>(
+  request: () => Promise<{
+    readonly data: A | null;
+    readonly error: unknown;
+  }>
+) {
+  const result = yield* Effect.tryPromise({
+    try: request,
+    catch: betterAuthErrorFromUnknown,
+  });
 
-class AuthClientFactory extends Context.Service<AuthClientFactory>()(
-  'voel/services/auth-client/index/AuthClientFactory',
+  if (result.error !== null) {
+    return yield* betterAuthErrorFromUnknown(result.error);
+  }
+
+  if (result.data === null) {
+    return yield* betterAuthErrorFromUnknown(new Error('Authentication response was empty.'));
+  }
+
+  return result.data;
+});
+
+type VoelAuthClientSessionState = ReturnType<VoelAuthClient['useSession']['get']>;
+
+export interface AuthClientSessionState {
+  readonly data: VoelAuthClientSessionState['data'];
+  readonly error: BetterAuthError | null;
+  readonly isPending: boolean;
+  readonly isRefetching: boolean;
+}
+
+const authClientSessionState = (state: VoelAuthClientSessionState): AuthClientSessionState => ({
+  data: state.data,
+  error: state.error === null ? null : betterAuthErrorFromUnknown(state.error),
+  isPending: state.isPending,
+  isRefetching: state.isRefetching,
+});
+
+export class AuthClient extends Context.Service<AuthClient>()(
+  'voel/services/auth-client/index/AuthClient',
   {
-    make: Effect.gen(function* () {
-      yield* AuthClientStorage;
+    make: Effect.fn('AuthClient.make')(function* ({ serverUrl, authStorageId }: AuthClientKey) {
+      const storage = yield* AuthClientStorage;
       const xxHash = yield* XxHash;
 
-      const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
-        Effect.map(Effect.runSyncWith)
-      );
-
       const authClientStorage = {
-        getItem: (key) =>
-          runWithAuthClientStorage(
-            AuthClientStorage.pipe(
-              Effect.flatMap((storage) => storage.getItem(key)),
-              Effect.map((value) => value.valueOrUndefined ?? null)
-            )
-          ),
+        getItem: (key) => Effect.runSync(storage.getItem(key).pipe(Effect.map(Option.getOrNull))),
         setItem: (key, value) => {
-          runWithAuthClientStorage(
-            AuthClientStorage.pipe(Effect.flatMap((storage) => storage.setItem(key, value)))
-          );
+          Effect.runSync(storage.setItem(key, value));
         },
       } satisfies Parameters<typeof createVoelAuthClient>[0]['storage'];
 
+      const client = yield* createVoelAuthClient({
+        serverUrl,
+        authStorageId,
+        storage: authClientStorage,
+        xxHash,
+      });
+
+      const sessionState = yield* SubscriptionRef.make(
+        authClientSessionState(client.useSession.get())
+      );
+
+      yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          client.useSession.subscribe((state) => {
+            Effect.runSync(SubscriptionRef.set(sessionState, authClientSessionState(state)));
+          })
+        ),
+        (unsubscribe) => Effect.sync(unsubscribe)
+      );
+
+      const getCookie = Effect.fn('AuthClient.getCookie')(() =>
+        Effect.sync(() => Option.liftPredicate(client.getCookie(), String.isNonEmpty))
+      );
+
+      const getSession = Effect.fn('AuthClient.getSession')(function* () {
+        return yield* SubscriptionRef.get(sessionState);
+      });
+
+      const refreshSession = Effect.fn('AuthClient.refreshSession')(function* () {
+        return yield* Effect.tryPromise({
+          try: async () =>
+            client.useSession.get().refetch({
+              query: { disableCookieCache: true },
+            }),
+          catch: betterAuthErrorFromUnknown,
+        });
+      });
+
+      const signOut = Effect.fn('AuthClient.signOut')(function* () {
+        return yield* executeAuthClientRequest(async () => client.signOut());
+      });
+
+      const signInUsername = Effect.fn('AuthClient.signIn.username')(function* (
+        input: Parameters<VoelAuthClient['signIn']['username']>[0]
+      ) {
+        return yield* executeAuthClientRequest(async () => client.signIn.username(input));
+      });
+
+      const signUpEmail = Effect.fn('AuthClient.signUp.email')(function* (
+        input: Parameters<VoelAuthClient['signUp']['email']>[0]
+      ) {
+        return yield* executeAuthClientRequest(async () => client.signUp.email(input));
+      });
+
+      const updateUser = Effect.fn('AuthClient.updateUser')(function* (
+        input: Parameters<VoelAuthClient['updateUser']>[0]
+      ) {
+        return yield* executeAuthClientRequest(async () => client.updateUser(input));
+      });
+
+      const listUsers = Effect.fn('AuthClient.admin.listUsers')(function* (
+        input: Parameters<VoelAuthClient['admin']['listUsers']>[0]
+      ) {
+        return yield* executeAuthClientRequest(async () => client.admin.listUsers(input));
+      });
+
       return {
-        create: ({
-          serverUrl,
-          authStorageId,
-        }: Pick<AuthClientKey, 'serverUrl' | 'authStorageId'>) =>
-          createVoelAuthClient({
-            serverUrl,
-            authStorageId,
-            storage: authClientStorage,
-            xxHash,
-          }),
+        admin: { listUsers },
+        getCookie,
+        getSession,
+        refreshSession,
+        sessionChanges: SubscriptionRef.changes(sessionState),
+        signIn: { username: signInUsername },
+        signOut,
+        signUp: { email: signUpEmail },
+        updateUser,
       };
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layer = (key: AuthClientKey) => Layer.effect(this, this.make(key));
 }
 
 export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   'voel/services/auth-client/index/AuthClientMap',
   {
-    lookup: (key: AuthClientKey) =>
-      Layer.effect(
-        AuthClient,
-        Effect.gen(function* () {
-          const factory = yield* AuthClientFactory;
-          return yield* factory.create(key);
-        })
-      ),
-    dependencies: [AuthClientFactory.layer],
+    lookup: AuthClient.layer,
   }
 ) {}
 
-export const getAuthClient = (key: AuthClientKeyFields) =>
+export const acquireAuthClient = (key: AuthClientKeyFields) =>
   AuthClientMap.contextEffect(makeAuthClientKey(key)).pipe(Effect.map(Context.get(AuthClient)));
-
-export class AuthClientRequestError extends Schema.TaggedError<
-  AuthClientRequestError,
-  { readonly brand: unique symbol }
->('voel/services/auth-client/index/AuthClientRequestError')('AuthClientRequestError', {
-  details: BetterAuthErrorDetails,
-}) {}
 
 export class NoActiveAccountError extends Schema.TaggedError<
   NoActiveAccountError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/index/NoActiveAccountError')('NoActiveAccountError', {}) {}
-
-export const authClientRequest = Effect.fnUntraced(function* <A>(
-  request: () => Promise<{ readonly data: A | null; readonly error: object | null }>
-) {
-  const result = yield* Effect.tryPromise({
-    try: request,
-    catch: (error) =>
-      new AuthClientRequestError({
-        details: betterAuthErrorDetailsFromUnknown(error),
-      }),
-  });
-
-  if (result.error !== null) {
-    return yield* new AuthClientRequestError({
-      details: betterAuthErrorDetailsFromUnknown(result.error),
-    });
-  }
-
-  if (result.data === null) {
-    return yield* new AuthClientRequestError({
-      details: betterAuthErrorDetailsFromUnknown(new Error('Authentication response was empty.')),
-    });
-  }
-
-  return result.data;
-});

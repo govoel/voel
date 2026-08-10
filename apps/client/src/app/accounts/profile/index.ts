@@ -4,12 +4,8 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 import { useAppForm } from '#src/components/form';
 import { activeAccountAtom, activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import {
-  NoActiveAccountError,
-  authClientRequest,
-  getAuthClient,
-} from '#src/services/auth-client/index.ts';
-import type { VoelAuthClient } from '#src/services/auth-client/index.ts';
+import { NoActiveAccountError, acquireAuthClient } from '#src/services/auth-client/index.ts';
+import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -89,7 +85,7 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
   Atom.withLabel('activeUserProfileAtom')
 );
 
-const updateCurrentUserAtom = AppRuntime.fn<Parameters<VoelAuthClient['updateUser']>[0]>()(
+const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['updateUser']>[0]>()(
   Effect.fnUntraced(function* (input, get) {
     const activeAccount = yield* get
       .result(activeAccountAtom)
@@ -99,8 +95,8 @@ const updateCurrentUserAtom = AppRuntime.fn<Parameters<VoelAuthClient['updateUse
       return yield* new NoActiveAccountError();
     }
 
-    const authClient = yield* getAuthClient(activeAccount.value.account);
-    return yield* authClientRequest(async () => authClient.updateUser(input));
+    const authClient = yield* acquireAuthClient(activeAccount.value.account);
+    return yield* authClient.updateUser(input);
   }, Effect.scoped)
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
@@ -121,8 +117,7 @@ export const useUserProfileForm = ({
           NoActiveAccountError: () => 'No active user is available.',
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
-          AuthClientRequestError: (requestError) =>
-            requestError.details.message ?? 'Unable to update the profile. Try again.',
+          BetterAuthError: (betterAuthError) => betterAuthError.message,
         })
       ),
     onSuccess: async () => {

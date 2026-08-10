@@ -2,7 +2,11 @@ import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
-import { XxHash, createVoelAuthClient, getAuthClient } from '#src/services/auth-client/index.ts';
+import {
+  XxHash,
+  acquireAuthClient,
+  createVoelAuthClient,
+} from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -44,8 +48,8 @@ describe('AccountManager', () => {
           authStorageId: 'auth-storage-id',
         };
         const [firstClient, secondClient] = yield* Effect.all([
-          getAuthClient(authStorage),
-          getAuthClient(authStorage),
+          acquireAuthClient(authStorage),
+          acquireAuthClient(authStorage),
         ]).pipe(Effect.scoped);
 
         expect(secondClient).toBe(firstClient);
@@ -149,7 +153,9 @@ describe('AccountManager', () => {
             const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
               storedCookie.valueOrUndefined
             );
-            expect(activeAccount.valueOrUndefined?.state.authClient.getCookie()).toContain(
+            const { authClient } = Option.getOrThrow(activeAccount).state;
+            const cookie = yield* authClient.getCookie();
+            expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
           }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
@@ -250,12 +256,10 @@ describe('AccountManager', () => {
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          yield* Effect.promise(async () =>
-            activeAccount.state.authClient.updateUser({
-              username: updatedUsername,
-              image: profilePicture,
-            })
-          );
+          yield* activeAccount.state.authClient.updateUser({
+            username: updatedUsername,
+            image: profilePicture,
+          });
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState).account;
@@ -300,7 +304,8 @@ describe('AccountManager', () => {
               username: updatedUsername,
               authStorageId: synchronizedAccount.authStorageId,
             });
-            expect(restoredAccount.state.authClient.getCookie()).toContain(
+            const cookie = yield* restoredAccount.state.authClient.getCookie();
+            expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
           }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
@@ -328,17 +333,16 @@ describe('AccountManager', () => {
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          yield* Effect.promise(async () =>
-            activeAccount.state.authClient.updateUser({
-              name: 'Updated Admin',
-              username: updatedUsername,
-            })
-          );
+          yield* activeAccount.state.authClient.updateUser({
+            name: 'Updated Admin',
+            username: updatedUsername,
+          });
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState);
           expect(synchronizedAccount.account.username).toBe(updatedUsername);
-          expect(synchronizedAccount.state.authClient.useSession.get().data?.user).toMatchObject({
+          const session = yield* synchronizedAccount.state.authClient.getSession();
+          expect(session.data?.user).toMatchObject({
             name: 'Updated Admin',
             username: updatedUsername,
           });
@@ -386,11 +390,7 @@ describe('AccountManager', () => {
           expect(roleResult.error).toBeNull();
 
           const nextAccountChange = yield* forkNextAccountManagerChange(manager);
-          yield* Effect.promise(async () =>
-            activeAccount.state.authClient.useSession.get().refetch({
-              query: { disableCookieCache: true },
-            })
-          );
+          yield* activeAccount.state.authClient.refreshSession();
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState).account;

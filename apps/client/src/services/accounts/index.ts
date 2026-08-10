@@ -4,7 +4,6 @@ import {
   Exit,
   Layer,
   Option,
-  Queue,
   Random,
   Redacted,
   Schema,
@@ -16,12 +15,9 @@ import { Reactivity } from 'effect/unstable/reactivity';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
-import {
-  BetterAuthErrorDetails,
-  betterAuthErrorDetailsFromUnknown,
-} from '#src/services/auth-client/errors.ts';
-import { XxHash, getAuthClient, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
-import type { AuthClient, VoelAuthClient } from '#src/services/auth-client/index.ts';
+import { BetterAuthError } from '#src/services/auth-client/errors.ts';
+import { XxHash, acquireAuthClient, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
+import type { AuthClient, AuthClientSessionState } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
@@ -51,21 +47,21 @@ export class AccountSignInError extends Schema.TaggedError<
   AccountSignInError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignInError')('AccountSignInError', {
-  details: BetterAuthErrorDetails,
+  details: BetterAuthError,
 }) {}
 
 export class AccountSignUpError extends Schema.TaggedError<
   AccountSignUpError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignUpError')('AccountSignUpError', {
-  details: BetterAuthErrorDetails,
+  details: BetterAuthError,
 }) {}
 
 export class AccountSignOutError extends Schema.TaggedError<
   AccountSignOutError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignOutError')('AccountSignOutError', {
-  details: BetterAuthErrorDetails,
+  details: BetterAuthError,
 }) {}
 
 export class AccountDatabaseError extends Schema.TaggedError<
@@ -119,19 +115,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
             }
 
             const scope = yield* Scope.fork(serviceScope);
-            const authClient = yield* getAuthClient(activeAccount).pipe(
+            const authClient = yield* acquireAuthClient(activeAccount).pipe(
               Effect.provideService(Scope.Scope, scope)
             );
 
-            // Subscribe directly rather than through Stream.callback, which acquires lazily:
-            // forkIn may return before its callback runs. Account initialization must own the
-            // subscription synchronously so an immediate account switch closes it deterministically.
-            type SessionState = Parameters<
-              Parameters<typeof authClient.useSession.subscribe>[0]
-            >[0];
-            const sessionStates = yield* Queue.unbounded<SessionState>();
-
-            const synchronizeAccount = Effect.fnUntraced(function* (sessionState: SessionState) {
+            const synchronizeAccount = Effect.fnUntraced(function* (
+              sessionState: AuthClientSessionState
+            ) {
               if (sessionState.data === null) {
                 return;
               }
@@ -190,19 +180,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
               );
             });
 
-            yield* Stream.fromQueue(sessionStates).pipe(
+            yield* authClient.sessionChanges.pipe(
               Stream.runForEach(synchronizeAccount),
               Effect.forkIn(scope, { startImmediately: true })
-            );
-
-            const unsubscribe = authClient.useSession.subscribe((sessionState) => {
-              Queue.offerUnsafe(sessionStates, sessionState);
-            });
-            yield* Scope.addFinalizer(
-              scope,
-              Effect.all([Effect.sync(unsubscribe), Queue.shutdown(sessionStates)], {
-                discard: true,
-              })
             );
 
             if (Option.isSome(state)) {
@@ -328,13 +308,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
           // we ignore errors here because the server may be offline
           // which causes better-auth to throw
-          yield* Effect.tryPromise({
-            try: async () => state.value.state.authClient.signOut(),
-            catch: (error) =>
-              new AccountSignOutError({
-                details: betterAuthErrorDetailsFromUnknown(error),
-              }),
-          }).pipe(Effect.ignore);
+          yield* state.value.state.authClient.signOut().pipe(Effect.ignore);
 
           // mimick better-auth and remove the auth storage items for this account
           const storagePrefix = yield* xxHash.hash128(
@@ -376,29 +350,20 @@ export class AccountManager extends Context.Service<AccountManager>()(
         password: Redacted.Redacted;
       }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* getAuthClient({ serverUrl, authStorageId });
+        const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
 
-        const signInResult = yield* Effect.tryPromise({
-          try: async () =>
-            authClient.signIn.username({ username, password: Redacted.value(password) }),
-          catch: (error) =>
-            new AccountSignInError({ details: betterAuthErrorDetailsFromUnknown(error) }),
-        });
-
-        if (signInResult.error !== null) {
-          return yield* new AccountSignInError({
-            details: new BetterAuthErrorDetails(signInResult.error),
-          });
-        }
+        const signInResult = yield* authClient.signIn
+          .username({ username, password: Redacted.value(password) })
+          .pipe(Effect.mapError((error) => new AccountSignInError({ details: error })));
 
         return yield* upsertAccount({
           account: {
             serverUrl,
-            userId: signInResult.data.user.id,
-            username: signInResult.data.user.username ?? username,
+            userId: signInResult.user.id,
+            username: signInResult.user.username ?? username,
             authStorageId,
-            role: AccountRole.decodeSyncFromNullishString(signInResult.data.user.role).value,
-            profilePicture: signInResult.data.user.image ?? null,
+            role: AccountRole.decodeSyncFromNullishString(signInResult.user.role).value,
+            profilePicture: signInResult.user.image ?? null,
           },
         });
       }, Effect.scoped);
@@ -410,38 +375,29 @@ export class AccountManager extends Context.Service<AccountManager>()(
         username,
         password,
       }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> &
-        Pick<Parameters<VoelAuthClient['signUp']['email']>['0'], 'name' | 'email'> & {
+        Pick<Parameters<AuthClient['Service']['signUp']['email']>[0], 'name' | 'email'> & {
           password: Redacted.Redacted;
         }) {
         const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* getAuthClient({ serverUrl, authStorageId });
+        const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
 
-        const signUpResult = yield* Effect.tryPromise({
-          try: async () =>
-            authClient.signUp.email({
-              name,
-              email,
-              username,
-              password: Redacted.value(password),
-            }),
-          catch: (error) =>
-            new AccountSignUpError({ details: betterAuthErrorDetailsFromUnknown(error) }),
-        });
-
-        if (signUpResult.error !== null) {
-          return yield* new AccountSignUpError({
-            details: new BetterAuthErrorDetails(signUpResult.error),
-          });
-        }
+        const signUpResult = yield* authClient.signUp
+          .email({
+            name,
+            email,
+            username,
+            password: Redacted.value(password),
+          })
+          .pipe(Effect.mapError((error) => new AccountSignUpError({ details: error })));
 
         return yield* upsertAccount({
           account: {
             serverUrl,
-            userId: signUpResult.data.user.id,
-            username: signUpResult.data.user.username ?? username,
+            userId: signUpResult.user.id,
+            username: signUpResult.user.username ?? username,
             authStorageId,
-            role: AccountRole.decodeSyncFromNullishString(signUpResult.data.user.role).value,
-            profilePicture: signUpResult.data.user.image ?? null,
+            role: AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value,
+            profilePicture: signUpResult.user.image ?? null,
           },
         });
       }, Effect.scoped);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { Context, Deferred, Effect, Layer, Option, Redacted } from 'effect';
+import { Context, Deferred, Effect, Layer, Option, Redacted, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { vi } from 'vitest';
 
@@ -12,12 +12,12 @@ import {
 } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { NoActiveAccountError } from '#src/services/auth-client/index.ts';
+import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
-  makeAuthClient,
   makeClientTestLayers,
   makeServerUrl,
   makeUsername,
@@ -96,29 +96,17 @@ const TestAccountsAtomsLayer = Layer.unwrap(
 const makeAccountsAtomsTestLayer = () =>
   TestAccountsAtomsLayer.pipe(Layer.provideMerge(makeClientTestLayers()));
 
-type AuthClient = Effect.Success<ReturnType<typeof makeAuthClient>>;
+const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
+  const session = yield* authClient.getSession();
+  if (!session.isPending && !session.isRefetching) {
+    return;
+  }
 
-const waitForSessionRequest = (authClient: AuthClient) =>
-  Effect.callback((resume) => {
-    let completed = false;
-    const completeIfSettled = ({
-      isPending,
-      isRefetching,
-    }: ReturnType<AuthClient['useSession']['get']>) => {
-      if (completed || isPending || isRefetching) {
-        return;
-      }
-
-      completed = true;
-      unsubscribe();
-      resume(Effect.void);
-    };
-    const unsubscribe = authClient.useSession.listen(completeIfSettled);
-
-    completeIfSettled(authClient.useSession.get());
-
-    return Effect.sync(unsubscribe);
-  });
+  yield* authClient.sessionChanges.pipe(
+    Stream.filter((state) => !state.isPending && !state.isRefetching),
+    Stream.runHead
+  );
+});
 
 it.layer(TestServerControllerClient.layerNoDeps)('accountsAtom', (iit) => {
   iit.effect(
@@ -264,16 +252,13 @@ describe('accountsSheetAtom', () => {
               fetchSpy.mockRestore();
             })
           );
-          const authClient = yield* makeAuthClient({
-            serverUrl: account.serverUrl,
-          });
-
           yield* manager.setActiveAccount({
             serverUrl: account.serverUrl,
             userId: account.userId,
           });
 
-          expect(authClient.useSession.get()).toMatchObject({
+          const { authClient } = Option.getOrThrow(yield* manager.state).state;
+          expect(yield* authClient.getSession()).toMatchObject({
             data: null,
             error: null,
             isPending: true,
@@ -319,18 +304,16 @@ describe('accountsSheetAtom', () => {
               fetchSpy.mockRestore();
             })
           );
-          const authClient = yield* makeAuthClient({
-            serverUrl: account.serverUrl,
-          });
-
           yield* manager.setActiveAccount({
             serverUrl: account.serverUrl,
             userId: account.userId,
           });
-          yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
-          yield* waitForSessionRequest(authClient);
+          const { authClient } = Option.getOrThrow(yield* manager.state).state;
 
-          const failedSession = authClient.useSession.get();
+          yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
+          yield* authClient.refreshSession();
+
+          const failedSession = yield* authClient.getSession();
           expect(failedSession).toMatchObject({ data: null, isPending: false });
           expect(failedSession.error).not.toBeNull();
 
@@ -366,7 +349,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
 
         const { authClient } = Option.getOrThrow(yield* manager.state).state;
         yield* waitForSessionRequest(authClient);
-        const validSession = authClient.useSession.get();
+        const validSession = yield* authClient.getSession();
         expect(validSession).toMatchObject({ error: null, isPending: false });
         expect(validSession.data).not.toBeNull();
 
@@ -398,15 +381,10 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         });
         const { authClient } = Option.getOrThrow(yield* manager.state).state;
 
-        const revokeResult = yield* Effect.promise(async () => authClient.signOut());
-        expect(revokeResult).toMatchObject({
-          data: { success: true },
-          error: null,
-        });
+        const revokeResult = yield* authClient.signOut();
+        expect(revokeResult).toEqual({ success: true });
 
-        yield* Effect.promise(async () =>
-          authClient.useSession.get().refetch({ query: { disableCookieCache: true } })
-        );
+        yield* authClient.refreshSession();
         yield* waitForSessionRequest(authClient);
 
         yield* drainAtomTasks;
