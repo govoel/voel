@@ -8,22 +8,28 @@ import {
   LayerMap,
   Option,
   Schema,
+  Stream,
   String,
   SubscriptionRef,
 } from 'effect';
+import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
+import type { Selectable } from '@repo/effect-kysely';
 
 import { BetterAuthError } from '#src/services/auth-client/errors.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
+import { MainDatabase } from '#src/services/database/main/index.ts';
+import { Account, AccountRole } from '#src/services/database/main/schema.ts';
+import type { AccountTable } from '#src/services/database/main/schema.ts';
 
 export const makeAuthStorageKey = ({
   serverUrl,
   authStorageId,
 }: {
-  serverUrl: AuthClientKey['serverUrl'];
-  authStorageId: AuthClientKey['authStorageId'];
+  readonly serverUrl: string;
+  readonly authStorageId: string;
 }) => `voel::auth::${serverUrl}::${authStorageId}`;
 
 class BetterAuthClientInitializationError extends Schema.TaggedError<
@@ -36,10 +42,9 @@ class BetterAuthClientInitializationError extends Schema.TaggedError<
   }
 ) {}
 
-class AuthClientKey extends Data.Class<{
-  readonly serverUrl: string;
-  readonly authStorageId: string;
-}> {}
+class AuthClientKey extends Data.Class<
+  Pick<Selectable<AccountTable>, 'serverUrl' | 'authStorageId'>
+> {}
 
 export const createVoelAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
@@ -99,21 +104,30 @@ const executeAuthClientRequest = Effect.fnUntraced(function* <A>(
   return result.data;
 });
 
-export interface AuthClientSessionState {
-  readonly data: ReturnType<VoelAuthClient['useSession']['get']>['data'];
-  readonly error: BetterAuthError | null;
-  readonly isPending: boolean;
-  readonly isRefetching: boolean;
-}
-
 const authClientSessionState = (
-  state: ReturnType<VoelAuthClient['useSession']['get']>
-): AuthClientSessionState => ({
-  data: state.data,
-  error: state.error === null ? null : BetterAuthError.decodeFromUnknown(state.error),
-  isPending: state.isPending,
-  isRefetching: state.isRefetching,
-});
+  state: ReturnType<VoelAuthClient['useSession']['get']>,
+  previous: Option.Option<
+    AsyncResult.AsyncResult<
+      Option.Option<NonNullable<ReturnType<VoelAuthClient['useSession']['get']>['data']>>,
+      BetterAuthError
+    >
+  >
+) => {
+  const waiting = state.isPending || state.isRefetching;
+
+  if (state.error !== null) {
+    return AsyncResult.failWithPrevious(BetterAuthError.decodeFromUnknown(state.error), {
+      previous,
+      waiting,
+    });
+  }
+
+  if (waiting) {
+    return AsyncResult.waitingFrom(previous);
+  }
+
+  return AsyncResult.success(Option.fromNullishOr(state.data));
+};
 
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/services/auth-client/index/AuthClient',
@@ -122,6 +136,7 @@ export class AuthClient extends Context.Service<AuthClient>()(
       const runSync = Effect.runSyncWith(yield* Effect.context());
       const storage = yield* AuthClientStorage;
       const xxHash = yield* XxHash;
+      const db = yield* MainDatabase;
 
       const authClientStorage = {
         getItem: (key) => runSync(storage.getItem(key).pipe(Effect.map(Option.getOrNull))),
@@ -137,14 +152,18 @@ export class AuthClient extends Context.Service<AuthClient>()(
         xxHash,
       });
 
-      const sessionState = yield* SubscriptionRef.make(
-        authClientSessionState(client.useSession.get())
+      const sessionState = yield* SubscriptionRef.make<ReturnType<typeof authClientSessionState>>(
+        AsyncResult.initial(true)
       );
 
       yield* Effect.acquireRelease(
         Effect.sync(() =>
           client.useSession.subscribe((state) => {
-            runSync(SubscriptionRef.set(sessionState, authClientSessionState(state)));
+            runSync(
+              SubscriptionRef.update(sessionState, (previous) =>
+                authClientSessionState(state, Option.some(previous))
+              )
+            );
           })
         ),
         (unsubscribe) => Effect.sync(unsubscribe)
@@ -177,6 +196,62 @@ export class AuthClient extends Context.Service<AuthClient>()(
 
       const listUsers = (input: Parameters<VoelAuthClient['admin']['listUsers']>[0]) =>
         executeAuthClientRequest(async () => client.admin.listUsers(input));
+
+      yield* SubscriptionRef.changes(sessionState).pipe(
+        Stream.runForEach(
+          Effect.fnUntraced(
+            function* (session) {
+              if (!AsyncResult.isSuccess(session) || Option.isNone(session.value)) {
+                return;
+              }
+
+              const sessionUser = session.value.value.user;
+              const accountUserId = Account.fields.userId.make(sessionUser.id);
+              const account = yield* db.executeTakeFirstOption(
+                db
+                  .selectFrom('account')
+                  .where('serverUrl', '=', serverUrl)
+                  .where('userId', '=', accountUserId)
+                  .where('authStorageId', '=', authStorageId)
+                  .selectAll()
+              );
+              if (Option.isNone(account)) {
+                return;
+              }
+
+              const username = sessionUser.username ?? account.value.username;
+              const role = AccountRole.decodeSyncFromNullishString(sessionUser.role).value;
+              const profilePicture = sessionUser.image ?? null;
+              if (
+                account.value.username === username &&
+                account.value.role === role &&
+                account.value.profilePicture === profilePicture
+              ) {
+                return;
+              }
+
+              yield* db
+                .executeTakeFirstOption(
+                  db
+                    .updateTable('account')
+                    .set({ username, role, profilePicture })
+                    .where('serverUrl', '=', serverUrl)
+                    .where('userId', '=', accountUserId)
+                    .where('authStorageId', '=', authStorageId)
+                    .returningAll()
+                )
+                .pipe(Reactivity.mutation(['account']));
+            },
+            (effect) =>
+              effect.pipe(
+                Effect.catchTag('DatabaseSqlError', (error) =>
+                  Effect.logError('Failed to synchronize account from session', error)
+                )
+              ),
+            Effect.forkScoped({ startImmediately: true })
+          )
+        )
+      );
 
       return {
         sessionChanges: SubscriptionRef.changes(sessionState),

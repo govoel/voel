@@ -1,13 +1,17 @@
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
 
+import type { Selectable } from '@repo/effect-kysely';
+
 import { UuidGenerator } from '#src/services/accounts/index.ts';
 import type { AccountManager } from '#src/services/accounts/index.ts';
 import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { AppConfig } from '#src/services/config.ts';
+import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
+import type { AccountTable } from '#src/services/database/main/schema.ts';
 import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
 import { CommonGlobalLayers } from '#src/services/layers.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
@@ -43,10 +47,6 @@ export const makeAuthClientStorage = (): Parameters<typeof createVoelAuthClient>
   };
 };
 
-type TestAccount = Option.Option.Value<
-  Effect.Success<(typeof AccountManager.Service)['state']>
->['account'];
-
 export const makeUsername = (prefix = 'test.user') =>
   Random.nextInt.pipe(
     Effect.map((suffix) => Account.fields.username.make(`${prefix}.${Math.abs(suffix)}`))
@@ -54,10 +54,7 @@ export const makeUsername = (prefix = 'test.user') =>
 
 export const makeAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
-}: Pick<
-  Option.Option.Value<Effect.Success<(typeof AccountManager.Service)['state']>>['account'],
-  'serverUrl'
->) {
+}: Pick<Selectable<AccountTable>, 'serverUrl'>) {
   const uuidGenerator = yield* UuidGenerator;
   const xxHash = yield* XxHash;
   const authStorageId = yield* uuidGenerator.v4;
@@ -71,11 +68,11 @@ export const makeAuthClient = Effect.fnUntraced(function* ({
 });
 
 interface TestServer<UserCount extends number> {
-  readonly adminUsername: TestAccount['username'];
+  readonly adminUsername: Selectable<AccountTable>['username'];
   readonly password: Redacted.Redacted;
-  readonly serverUrl: TestAccount['serverUrl'];
+  readonly serverUrl: Selectable<AccountTable>['serverUrl'];
   readonly userCount: UserCount;
-  readonly usernames: Types.TupleOf<UserCount, TestAccount['username']>;
+  readonly usernames: Types.TupleOf<UserCount, Selectable<AccountTable>['username']>;
 }
 
 export const setupTestServerWithUsers = Effect.fnUntraced(function* <
@@ -141,12 +138,20 @@ export const signInTestServerUsers = Effect.fnUntraced(function* <const UserCoun
   manager: AccountManager['Service'],
   { password, serverUrl, userCount, usernames }: TestServer<UserCount>
 ) {
+  const db = yield* MainDatabase;
   const accounts = yield* Effect.forEach(
     // oxlint-disable-next-line unicorn/no-array-method-this-argument -- seems like a false positive
     usernames,
     Effect.fnUntraced(function* (username) {
       yield* manager.signInAccount({ serverUrl, username, password });
-      return Option.getOrThrow(yield* manager.state).account;
+      const activeAccountKey = Option.getOrThrow(yield* manager.state);
+      return yield* db.executeTakeFirstOrError(
+        db
+          .selectFrom('account')
+          .where('serverUrl', '=', activeAccountKey.serverUrl)
+          .where('userId', '=', activeAccountKey.userId)
+          .selectAll()
+      );
     })
   );
 

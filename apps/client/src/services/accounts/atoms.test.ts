@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
-import { Context, Deferred, Effect, Layer, Option, Redacted, Stream } from 'effect';
-import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
+import { Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Stream } from 'effect';
+import { AsyncResult, Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { vi } from 'vitest';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
@@ -11,7 +11,7 @@ import {
   activeAccountSessionAtom,
 } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { NoActiveAccountError } from '#src/services/auth-client/index.ts';
+import { NoActiveAccountError, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -98,12 +98,12 @@ const makeAccountsAtomsTestLayer = () =>
 
 const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
   const session = yield* authClient.getSession();
-  if (!session.isPending && !session.isRefetching) {
+  if (!session.waiting) {
     return;
   }
 
   yield* authClient.sessionChanges.pipe(
-    Stream.filter((state) => !state.isPending && !state.isRefetching),
+    Stream.filter((state) => !state.waiting),
     Stream.runHead
   );
 });
@@ -258,11 +258,11 @@ describe('accountsSheetAtom', () => {
             userId: account.userId,
           });
 
-          const { authClient } = Option.getOrThrow(yield* manager.state).state;
+          const activeAccount = Option.getOrThrow(yield* manager.state);
+          const authClient = yield* acquireAuthClient(activeAccount);
           expect(yield* authClient.getSession()).toMatchObject({
-            data: null,
-            error: null,
-            isPending: true,
+            _tag: 'Initial',
+            waiting: true,
           });
           yield* drainAtomTasks;
           expect(yield* Atom.getResult(accountsSheetAtom)).toEqual({
@@ -310,14 +310,15 @@ describe('accountsSheetAtom', () => {
             serverUrl: account.serverUrl,
             userId: account.userId,
           });
-          const { authClient } = Option.getOrThrow(yield* manager.state).state;
+          const activeAccount = Option.getOrThrow(yield* manager.state);
+          const authClient = yield* acquireAuthClient(activeAccount);
 
           yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
           yield* authClient.refreshSession();
 
           const failedSession = yield* authClient.getSession();
-          expect(failedSession).toMatchObject({ data: null, isPending: false });
-          expect(failedSession.error).not.toBeNull();
+          expect(failedSession).toMatchObject({ _tag: 'Failure', waiting: false });
+          expect(Option.isSome(AsyncResult.error(failedSession))).toBe(true);
 
           yield* drainAtomTasks;
           expect(yield* Atom.getResult(accountsSheetAtom)).toEqual({
@@ -349,11 +350,12 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
           password: Redacted.make('ha!niceTry'),
         });
 
-        const { authClient } = Option.getOrThrow(yield* manager.state).state;
+        const activeAccount = Option.getOrThrow(yield* manager.state);
+        const authClient = yield* acquireAuthClient(activeAccount);
         yield* waitForSessionRequest(authClient);
         const validSession = yield* authClient.getSession();
-        expect(validSession).toMatchObject({ error: null, isPending: false });
-        expect(validSession.data).not.toBeNull();
+        expect(validSession).toMatchObject({ _tag: 'Success', waiting: false });
+        expect(Option.isSome(Option.flatten(AsyncResult.value(validSession)))).toBe(true);
 
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual({
@@ -381,14 +383,27 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
           username,
           password: Redacted.make('ha!niceTry'),
         });
-        const { authClient } = Option.getOrThrow(yield* manager.state).state;
+        const activeAccount = Option.getOrThrow(yield* manager.state);
+        const authClient = yield* acquireAuthClient(activeAccount);
+        yield* Atom.mount(accountsSheetAtom);
+        yield* Effect.yieldNow;
+        yield* drainAtomTasks;
 
         const revokeResult = yield* authClient.signOut();
         expect(revokeResult).toEqual({ success: true });
 
+        const invalidSessionFiber = yield* authClient.sessionChanges.pipe(
+          Stream.filter(
+            (session) =>
+              AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)
+          ),
+          Stream.runHead,
+          Effect.forkChild
+        );
         yield* authClient.refreshSession();
-        yield* waitForSessionRequest(authClient);
+        yield* Fiber.join(invalidSessionFiber);
 
+        yield* Effect.yieldNow;
         yield* drainAtomTasks;
         expect(
           yield* Atom.getResult(accountsSheetAtom, {
@@ -491,6 +506,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('activeAccountAtom', (iit) => {
     'reflects an account created by AccountManager',
     Effect.fnUntraced(
       function* () {
+        const { drainAtomTasks } = yield* AtomTaskScheduler;
         const serverUrl = yield* makeServerUrl();
 
         const manager = yield* AccountManager;
@@ -507,6 +523,8 @@ it.layer(TestServerControllerClient.layerNoDeps)('activeAccountAtom', (iit) => {
           username,
           password: Redacted.make('ha!niceTry'),
         });
+        yield* Effect.yieldNow;
+        yield* drainAtomTasks;
 
         const activeAccount = yield* Atom.getResult(activeAccountAtom).pipe(
           Effect.map(Option.map(({ account }) => account))
@@ -541,21 +559,25 @@ it.layer(TestServerControllerClient.layerNoDeps)('activeAccountSessionAtom', (ii
           serverUrl: testServer.serverUrl,
           userId: firstAccount.userId,
         });
-        const firstClient = Option.getOrThrow(yield* manager.state).state.authClient;
+        const firstState = Option.getOrThrow(yield* manager.state);
+        const firstClient = yield* acquireAuthClient(firstState);
 
         yield* drainAtomTasks;
 
         yield* Atom.mount(activeAccountSessionAtom);
         yield* drainAtomTasks;
+        expect(yield* Atom.get(activeAccountSessionAtom)).toBe(yield* firstClient.getSession());
 
         yield* manager.setActiveAccount({
           serverUrl: testServer.serverUrl,
           userId: secondAccount.userId,
         });
-        const secondClient = Option.getOrThrow(yield* manager.state).state.authClient;
+        const secondState = Option.getOrThrow(yield* manager.state);
+        const secondClient = yield* acquireAuthClient(secondState);
 
         yield* drainAtomTasks;
         expect(secondClient).not.toBe(firstClient);
+        expect(yield* Atom.get(activeAccountSessionAtom)).toBe(yield* secondClient.getSession());
         return secondClient;
       }).pipe(Effect.provide(makeAccountsAtomsTestLayer()), Effect.scoped);
 
@@ -576,7 +598,8 @@ it.layer(TestServerControllerClient.layerNoDeps)('activeAccountSessionAtom', (ii
           serverUrl: testServer.serverUrl,
           userId: firstAccount.userId,
         });
-        const client = Option.getOrThrow(yield* manager.state).state.authClient;
+        const initialState = Option.getOrThrow(yield* manager.state);
+        const client = yield* acquireAuthClient(initialState);
 
         yield* drainAtomTasks;
 
@@ -597,7 +620,8 @@ it.layer(TestServerControllerClient.layerNoDeps)('activeAccountSessionAtom', (ii
           serverUrl: testServer.serverUrl,
           username: firstAccount.username,
         });
-        expect(Option.getOrThrow(yield* manager.state).state.authClient).toBe(client);
+        const currentState = Option.getOrThrow(yield* manager.state);
+        expect(yield* acquireAuthClient(currentState)).toBe(client);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )

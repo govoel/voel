@@ -2,7 +2,7 @@ import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountAtom, activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountKeyAtom, activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { NoActiveAccountError, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
@@ -17,39 +17,43 @@ export class UserProfileUpdateInput extends Schema.Class<
   username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
 }) {}
 
-export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
-  Atom.map((result) =>
-    AsyncResult.flatMap(
-      // oxlint-disable-next-line unicorn/no-array-method-this-argument
-      result,
-      Option.match({
-        onNone: () => AsyncResult.success(Option.none()),
-        onSome: (sessionState) => {
-          if (sessionState.data === null) {
-            return sessionState.isPending
-              ? AsyncResult.initial(true)
-              : AsyncResult.fail('ActiveUserProfileUnavailable' as const);
-          }
+export const activeUserProfileAtom = Atom.make((get) =>
+  AsyncResult.flatMap(
+    // oxlint-disable-next-line unicorn/no-array-method-this-argument
+    get(activeAccountKeyAtom),
+    Option.match({
+      onNone: () => AsyncResult.success(Option.none()),
+      onSome: () =>
+        AsyncResult.flatMap(
+          // oxlint-disable-next-line unicorn/no-array-method-this-argument
+          get(activeAccountSessionAtom),
+          (session, sessionResult) =>
+            Option.match(session, {
+              onNone: () =>
+                sessionResult.waiting
+                  ? AsyncResult.initial(true)
+                  : AsyncResult.fail('ActiveUserProfileUnavailable' as const),
+              onSome: ({ user }) => {
+                if (user.username === null || user.username === void 0) {
+                  return AsyncResult.fail('ActiveUserProfileUnavailable' as const);
+                }
 
-          const { user } = sessionState.data;
-          if (user.username === null || user.username === void 0) {
-            return AsyncResult.fail('ActiveUserProfileUnavailable' as const);
-          }
-
-          return AsyncResult.success(
-            Option.some({
-              email: user.email,
-              id: user.id,
-              name: user.name,
-              role: AccountRole.formatFromNullishString(user.role),
-              username: user.username,
-            }),
-            { waiting: sessionState.isPending || sessionState.isRefetching }
-          );
-        },
-      })
-    )
-  ),
+                return AsyncResult.success(
+                  Option.some({
+                    email: user.email,
+                    id: user.id,
+                    name: user.name,
+                    role: AccountRole.formatFromNullishString(user.role),
+                    username: user.username,
+                  }),
+                  { waiting: sessionResult.waiting }
+                );
+              },
+            })
+        ),
+    })
+  )
+).pipe(
   withPredefinedStates(() => [
     {
       id: 'loading',
@@ -87,13 +91,13 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
 
 const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['updateUser']>[0]>()(
   Effect.fnUntraced(function* (input, get) {
-    const activeAccount = yield* get.result(activeAccountAtom);
+    const activeAccountKey = yield* get.result(activeAccountKeyAtom);
 
-    if (Option.isNone(activeAccount)) {
+    if (Option.isNone(activeAccountKey)) {
       return yield* new NoActiveAccountError();
     }
 
-    const authClient = yield* acquireAuthClient(activeAccount.value.account);
+    const authClient = yield* acquireAuthClient(activeAccountKey.value);
     return yield* authClient.updateUser(input);
   })
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));

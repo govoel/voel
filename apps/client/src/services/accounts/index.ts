@@ -1,14 +1,13 @@
 import {
   Context,
+  Data,
   Effect,
-  Exit,
+  Equal,
   Layer,
   Option,
   Random,
   Redacted,
   Schema,
-  Scope,
-  Stream,
   SubscriptionRef,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
@@ -17,7 +16,7 @@ import type { Insertable, Selectable } from '@repo/effect-kysely';
 
 import { BetterAuthError } from '#src/services/auth-client/errors.ts';
 import { acquireAuthClient, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
-import type { AuthClient, AuthClientSessionState } from '#src/services/auth-client/index.ts';
+import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
@@ -78,124 +77,43 @@ export class AccountNotFoundError extends Schema.TaggedError<
   userId: Schema.String,
 }) {}
 
+class ActiveAccountKey extends Data.Class<
+  Pick<Selectable<AccountTable>, 'serverUrl' | 'userId' | 'authStorageId'>
+> {}
+
+const activeAccountKeyFromAccount = (
+  account: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId' | 'authStorageId'>
+) =>
+  new ActiveAccountKey({
+    serverUrl: account.serverUrl,
+    userId: account.userId,
+    authStorageId: account.authStorageId,
+  });
+
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/index/AccountManager',
   {
     make: Effect.gen(function* () {
       const db = yield* MainDatabase;
-      const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
       const authClientStorageService = yield* AuthClientStorage;
 
-      const stateRef = yield* SubscriptionRef.make(
-        Option.none<{
-          readonly account: Selectable<AccountTable>;
-          readonly state: {
-            readonly authClient: AuthClient['Service'];
-            readonly scope: Scope.Closeable;
-          };
-        }>()
-      );
+      const stateRef = yield* SubscriptionRef.make(Option.none<ActiveAccountKey>());
 
       const initializeActiveAccountState = ({
         activeAccount,
       }: {
         readonly activeAccount: Selectable<AccountTable>;
       }) =>
-        SubscriptionRef.modifySomeEffect(
-          stateRef,
-          Effect.fnUntraced(function* (state) {
-            if (
-              Option.isSome(state) &&
-              state.value.account.serverUrl === activeAccount.serverUrl &&
-              state.value.account.userId === activeAccount.userId &&
-              state.value.account.authStorageId === activeAccount.authStorageId
-            ) {
-              return [void 0, Option.none()] as const;
-            }
+        SubscriptionRef.modifySome(stateRef, (state) => {
+          const key = activeAccountKeyFromAccount(activeAccount);
+          if (Option.isSome(state) && Equal.equals(state.value, key)) {
+            return [void 0, Option.none()] as const;
+          }
 
-            const scope = yield* Scope.fork(serviceScope);
-            const authClient = yield* acquireAuthClient(activeAccount).pipe(
-              Effect.provideService(Scope.Scope, scope)
-            );
-
-            const synchronizeAccount = Effect.fnUntraced(function* (
-              sessionState: AuthClientSessionState
-            ) {
-              if (sessionState.data === null) {
-                return;
-              }
-
-              const sessionUser = sessionState.data.user;
-              yield* SubscriptionRef.modifySomeEffect(
-                stateRef,
-                Effect.fnUntraced(function* (currentState) {
-                  if (
-                    Option.isNone(currentState) ||
-                    currentState.value.state.authClient !== authClient ||
-                    currentState.value.account.userId !== sessionUser.id
-                  ) {
-                    return [void 0, Option.none()] as const;
-                  }
-
-                  const username = sessionUser.username ?? currentState.value.account.username;
-                  const role = AccountRole.decodeSyncFromNullishString(sessionUser.role).value;
-                  const profilePicture = sessionUser.image ?? null;
-                  if (
-                    currentState.value.account.username === username &&
-                    currentState.value.account.role === role &&
-                    currentState.value.account.profilePicture === profilePicture
-                  ) {
-                    return [void 0, Option.none()] as const;
-                  }
-
-                  const persistedAccount = yield* db
-                    .executeTakeFirstOption(
-                      db
-                        .updateTable('account')
-                        .set({ username, role, profilePicture })
-                        .where('serverUrl', '=', currentState.value.account.serverUrl)
-                        .where('userId', '=', currentState.value.account.userId)
-                        .returningAll()
-                    )
-                    .pipe(Reactivity.mutation(['account']));
-                  if (Option.isNone(persistedAccount)) {
-                    return [void 0, Option.none()] as const;
-                  }
-
-                  return [
-                    void 0,
-                    Option.some(
-                      Option.some({
-                        account: persistedAccount.value,
-                        state: currentState.value.state,
-                      })
-                    ),
-                  ] as const;
-                })
-              ).pipe(
-                Effect.catchCause((cause) =>
-                  Effect.logError('Failed to synchronize active account from session', cause)
-                )
-              );
-            });
-
-            yield* authClient.sessionChanges.pipe(
-              Stream.runForEach(synchronizeAccount),
-              Effect.forkIn(scope, { startImmediately: true })
-            );
-
-            if (Option.isSome(state)) {
-              yield* Scope.close(state.value.state.scope, Exit.void);
-            }
-
-            return [
-              void 0,
-              Option.some(Option.some({ account: activeAccount, state: { authClient, scope } })),
-            ] as const;
-          })
-        );
+          return [void 0, Option.some(Option.some(key))] as const;
+        });
 
       const storedActiveAccount = yield* db.executeTakeFirstOption(
         db
@@ -309,13 +227,17 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
           // we ignore errors here because the server may be offline
           // which causes better-auth to throw
-          yield* state.value.state.authClient.signOut().pipe(Effect.ignore);
+          yield* acquireAuthClient(state.value).pipe(
+            Effect.flatMap((authClient) => authClient.signOut()),
+            Effect.ignore,
+            Effect.scoped
+          );
 
           // mimick better-auth and remove the auth storage items for this account
           const storagePrefix = yield* xxHash.hash128(
             makeAuthStorageKey({
-              serverUrl: state.value.account.serverUrl,
-              authStorageId: state.value.account.authStorageId,
+              serverUrl: state.value.serverUrl,
+              authStorageId: state.value.authStorageId,
             })
           );
           yield* Effect.all(
@@ -330,15 +252,14 @@ export class AccountManager extends Context.Service<AccountManager>()(
             .execute(
               db
                 .deleteFrom('account')
-                .where('serverUrl', '=', state.value.account.serverUrl)
-                .where('userId', '=', state.value.account.userId)
+                .where('serverUrl', '=', state.value.serverUrl)
+                .where('userId', '=', state.value.userId)
             )
             .pipe(
               Reactivity.mutation(['account']),
               Effect.mapError(() => new AccountDatabaseError())
             );
 
-          yield* Scope.close(state.value.state.scope, Exit.void);
           return [void 0, Option.none()] as const;
         })
       );

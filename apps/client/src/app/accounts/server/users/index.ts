@@ -1,7 +1,7 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import { activeAccountAtom } from '#src/services/accounts/atoms';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { NoActiveAccountError, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -21,11 +21,11 @@ export class ServerUser extends Schema.Class<ServerUser, { readonly brand: uniqu
 export const listUsersAtom = AppRuntime.pull(
   Effect.fnUntraced(
     function* (get) {
-      const activeAccount = yield* get.result(activeAccountAtom);
-      if (Option.isNone(activeAccount)) {
+      const activeAccountKey = yield* get.result(activeAccountKeyAtom);
+      if (Option.isNone(activeAccountKey)) {
         return yield* new NoActiveAccountError();
       }
-      const authClient = yield* acquireAuthClient(activeAccount.value.account);
+      const authClient = yield* acquireAuthClient(activeAccountKey.value);
 
       return Stream.paginate(
         0,

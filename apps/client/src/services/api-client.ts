@@ -6,7 +6,7 @@ import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc'
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { CommonClientLayers } from '#src/services/layers.ts';
@@ -17,8 +17,8 @@ const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
     const accountState = yield* AccountManager.pipe(Effect.flatMap((manager) => manager.state));
     const cookie = yield* Option.match(accountState, {
       onNone: () => Effect.succeed(Option.none<string>()),
-      onSome: ({ account }) =>
-        acquireAuthClient(account).pipe(
+      onSome: (accountKey) =>
+        acquireAuthClient(accountKey).pipe(
           Effect.flatMap((authClient) => authClient.getCookie()),
           Effect.catchTag('BetterAuthClientInitializationError', () =>
             Effect.succeed(Option.none())
@@ -43,11 +43,11 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
     Layer.effect(
       RpcClient.Protocol,
       Effect.gen(function* () {
-        const serverUrl = yield* get.result(activeAccountAtom).pipe(
+        const serverUrl = yield* get.result(activeAccountKeyAtom).pipe(
           Effect.map(
             Option.match({
               onNone: () => '/api/rpc',
-              onSome: ({ account }) => `${account.serverUrl.toString()}/api/rpc`,
+              onSome: (accountKey) => `${accountKey.serverUrl.toString()}/api/rpc`,
             })
           )
         );
