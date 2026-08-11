@@ -247,10 +247,10 @@ export class AuthClient extends Context.Service<AuthClient>()(
                 Effect.catchTag('DatabaseSqlError', (error) =>
                   Effect.logError('Failed to synchronize account from session', error)
                 )
-              ),
-            Effect.forkScoped({ startImmediately: true })
+              )
           )
-        )
+        ),
+        Effect.forkScoped({ startImmediately: true })
       );
 
       return {
