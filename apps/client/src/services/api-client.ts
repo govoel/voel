@@ -24,18 +24,20 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
           return ({ request, next }) => next(request);
         }
 
-        const cookie = yield* acquireAuthClient(accountKey.value).pipe(
-          Effect.flatMap((client) => client.getCookie())
-        );
+        const authClient = yield* acquireAuthClient(accountKey.value);
 
         return ({ request, next }) =>
-          next({
-            ...request,
-            headers: Option.match(cookie, {
-              onNone: () => request.headers,
-              onSome: (value) => Headers.set(request.headers, 'cookie', value),
-            }),
-          });
+          authClient.getCookie().pipe(
+            Effect.flatMap((cookie) =>
+              next({
+                ...request,
+                headers: Option.match(cookie, {
+                  onNone: () => request.headers,
+                  onSome: (value) => Headers.set(request.headers, 'cookie', value),
+                }),
+              })
+            )
+          );
       })
     );
 
