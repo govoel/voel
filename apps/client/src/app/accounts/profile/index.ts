@@ -89,6 +89,7 @@ export const useUserProfileForm = ({
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
+          AccountDatabaseError: () => 'Unable to update the profile. Try again.',
           NoActiveAccountError: () => 'No active user is available.',
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',

@@ -4,7 +4,11 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
 import { BetterAuthError } from '#src/services/auth-client/errors.ts';
-import { acquireAuthClient, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
+import {
+  AuthClientMap,
+  acquireAuthClient,
+  makeAuthStorageKey,
+} from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
@@ -85,6 +89,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
       const authClientStorageService = yield* AuthClientStorage;
+      const authClientMap = yield* AuthClientMap;
 
       const state = db
         .executeTakeFirstOption(
@@ -205,7 +210,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
         yield* acquireAuthClient(activeAccount.value).pipe(
           Effect.flatMap((authClient) => authClient.signOut()),
           Effect.ignore,
-          Effect.scoped
+          Effect.scoped,
+          Effect.provideService(AuthClientMap, authClientMap)
         );
 
         // mimick better-auth and remove the auth storage items for this account
@@ -236,69 +242,77 @@ export class AccountManager extends Context.Service<AccountManager>()(
           );
       });
 
-      const signInAccount = Effect.fnUntraced(function* ({
-        serverUrl,
-        username,
-        password,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
-        password: Redacted.Redacted;
-      }) {
-        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
-
-        const signInResult = yield* authClient.signIn
-          .username({ username, password: Redacted.value(password) })
-          .pipe(Effect.mapError((error) => new AccountSignInError({ details: error })));
-
-        return yield* upsertAccount({
-          account: {
-            serverUrl,
-            userId: signInResult.user.id,
-            username: signInResult.user.username ?? username,
-            name: signInResult.user.name,
-            email: signInResult.user.email,
-            authStorageId,
-            role: AccountRole.decodeSyncFromNullishString(signInResult.user.role).value,
-            profilePicture: signInResult.user.image ?? null,
-          },
-        });
-      }, Effect.scoped);
-
-      const setupServerWithAccount = Effect.fnUntraced(function* ({
-        serverUrl,
-        name,
-        email,
-        username,
-        password,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> &
-        Pick<Parameters<AuthClient['Service']['signUp']['email']>[0], 'name' | 'email'> & {
+      const signInAccount = Effect.fnUntraced(
+        function* ({
+          serverUrl,
+          username,
+          password,
+        }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
           password: Redacted.Redacted;
         }) {
-        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
+          const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+          const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
 
-        const signUpResult = yield* authClient.signUp
-          .email({
-            name,
-            email,
-            username,
-            password: Redacted.value(password),
-          })
-          .pipe(Effect.mapError((error) => new AccountSignUpError({ details: error })));
+          const signInResult = yield* authClient.signIn
+            .username({ username, password: Redacted.value(password) })
+            .pipe(Effect.mapError((error) => new AccountSignInError({ details: error })));
 
-        return yield* upsertAccount({
-          account: {
-            serverUrl,
-            userId: signUpResult.user.id,
-            username: signUpResult.user.username ?? username,
-            name: signUpResult.user.name,
-            email: signUpResult.user.email,
-            authStorageId,
-            role: AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value,
-            profilePicture: signUpResult.user.image ?? null,
-          },
-        });
-      }, Effect.scoped);
+          return yield* upsertAccount({
+            account: {
+              serverUrl,
+              userId: signInResult.user.id,
+              username: signInResult.user.username ?? username,
+              name: signInResult.user.name,
+              email: signInResult.user.email,
+              authStorageId,
+              role: AccountRole.decodeSyncFromNullishString(signInResult.user.role).value,
+              profilePicture: signInResult.user.image ?? null,
+            },
+          });
+        },
+        Effect.scoped,
+        Effect.provideService(AuthClientMap, authClientMap)
+      );
+
+      const setupServerWithAccount = Effect.fnUntraced(
+        function* ({
+          serverUrl,
+          name,
+          email,
+          username,
+          password,
+        }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> &
+          Pick<Parameters<AuthClient['Service']['signUp']['email']>[0], 'name' | 'email'> & {
+            password: Redacted.Redacted;
+          }) {
+          const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+          const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
+
+          const signUpResult = yield* authClient.signUp
+            .email({
+              name,
+              email,
+              username,
+              password: Redacted.value(password),
+            })
+            .pipe(Effect.mapError((error) => new AccountSignUpError({ details: error })));
+
+          return yield* upsertAccount({
+            account: {
+              serverUrl,
+              userId: signUpResult.user.id,
+              username: signUpResult.user.username ?? username,
+              name: signUpResult.user.name,
+              email: signUpResult.user.email,
+              authStorageId,
+              role: AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value,
+              profilePicture: signUpResult.user.image ?? null,
+            },
+          });
+        },
+        Effect.scoped,
+        Effect.provideService(AuthClientMap, authClientMap)
+      );
 
       return {
         changes,
