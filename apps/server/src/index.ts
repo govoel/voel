@@ -7,10 +7,10 @@ import { Api } from '@repo/spec-api';
 
 import { LibraryHandlers } from '#src/groups/library.ts';
 import {
-  AdminMiddlewareLive,
+  AdminMiddlewareLayer,
   Auth,
-  AuthMiddlewareLive,
-  AuthRouterLive,
+  AuthMiddlewareLayer,
+  AuthRouterLayer,
 } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
@@ -21,24 +21,24 @@ export const AllRoutes = RpcServer.layerHttp({
   protocol: 'http',
   concurrency: 'unbounded',
 }).pipe(
-  Layer.provideMerge(Layer.mergeAll(AuthRouterLive, LibraryHandlers)),
-  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
+  Layer.provideMerge(Layer.mergeAll(AuthRouterLayer, LibraryHandlers)),
+  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayer, AdminMiddlewareLayer)),
   Layer.provideMerge(Layer.mergeAll(Auth.layer)),
   Layer.provideMerge(Layer.mergeAll(Database.layer)),
   Layer.provideMerge(Layer.mergeAll(RpcSerialization.layerMsgPack, BunPath.layer))
 );
 
 if (import.meta.main) {
-  const HttpServerLive = pipe(
+  const HttpServerLayer = pipe(
     Effect.service(ApiConfig),
     Effect.map((config) => BunHttpServer.layer({ port: config.server.port })),
     Layer.unwrap
   );
 
-  const ServerLive = HttpRouter.serve(AllRoutes).pipe(
-    Layer.provide(Layer.mergeAll(HttpServerLive)),
+  const ServerLayer = HttpRouter.serve(AllRoutes).pipe(
+    Layer.provide(Layer.mergeAll(HttpServerLayer)),
     Layer.provideMerge(Layer.mergeAll(ApiConfig.layer))
   );
 
-  BunRuntime.runMain(Layer.launch(ServerLive));
+  BunRuntime.runMain(Layer.launch(ServerLayer));
 }

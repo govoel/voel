@@ -15,7 +15,7 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
   protocol: (get) => {
     const activeAccountKey = get.result(activeAccountKeyAtom);
 
-    const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
+    const AuthMiddlewareClientLayer = RpcMiddleware.layerClient(
       AuthMiddleware,
       Effect.gen(function* () {
         const accountKey = yield* activeAccountKey;
@@ -59,7 +59,7 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
         return yield* RpcClient.makeProtocolHttp(client);
       })
     ).pipe(
-      Layer.provideMerge(Layer.mergeAll(AuthMiddlewareClientLive, RpcSerialization.layerMsgPack)),
+      Layer.provideMerge(Layer.mergeAll(AuthMiddlewareClientLayer, RpcSerialization.layerMsgPack)),
       Layer.provide(CommonClientLayers)
     );
   },

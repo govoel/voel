@@ -8,7 +8,7 @@ import { makeRpcServerProtocol } from '#src/react-native/rpc/protocol.ts';
 import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
 import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
 
-const RozeniteRpcServerProtocolLive = Layer.effect(
+const RozeniteRpcServerProtocolLayer = Layer.effect(
   RpcServer.Protocol,
   Effect.gen(function* () {
     const bridgeClient = yield* Effect.acquireRelease(
@@ -26,7 +26,7 @@ const RozeniteRpcServerProtocolLive = Layer.effect(
 );
 
 export const RpcServerLayer = Layer.effectDiscard(
-  Layer.build(AtomDevToolsRpcServer.pipe(Layer.provide(RozeniteRpcServerProtocolLive))).pipe(
+  Layer.build(AtomDevToolsRpcServer.pipe(Layer.provide(RozeniteRpcServerProtocolLayer))).pipe(
     Effect.forkScoped
   )
 );
