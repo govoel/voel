@@ -339,16 +339,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
   public static readonly layer = this.layerNoDeps.pipe(
     Layer.provide(
-      AuthClientMap.layer.pipe(
-        Layer.provideMerge(
-          Layer.mergeAll(
-            AuthClientStorage.layer,
-            MainDatabase.layer,
-            Reactivity.layer,
-            UuidGenerator.layer,
-            XxHash.layer
-          )
-        )
+      Layer.mergeAll(
+        AuthClientMap.layer,
+        AuthClientStorage.layer,
+        MainDatabase.layer,
+        Reactivity.layer,
+        UuidGenerator.layer,
+        XxHash.layer
       )
     )
   );

@@ -320,6 +320,7 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
 export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   'voel/services/auth-client/index/AuthClientMap',
   {
+    dependencies: [AuthClientStorage.layer, MainDatabase.layer, Reactivity.layer, XxHash.layer],
     lookup: (key: AuthClientKey) =>
       AuthClient.layerNoDeps(key).pipe(
         Layer.tap((context) => synchronizeAccountFromSession(key, Context.get(context, AuthClient)))

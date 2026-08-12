@@ -49,6 +49,6 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
   public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provideMerge(Layer.mergeAll(BunServices.layer, FetchHttpClient.layer))
+    Layer.provide(Layer.mergeAll(BunServices.layer, FetchHttpClient.layer))
   );
 }
