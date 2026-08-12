@@ -80,10 +80,8 @@ const makeUpdateQueue = Effect.fnUntraced(function* (sourceTap: SourceTap<Kysely
   yield* sourceTap.updates.pipe(
     Stream.map((payload) => ({ table: payload.table, rows: payload.rows })),
     Stream.runForEach((payload) => Queue.offer(queue, payload)),
-    Effect.forkScoped
+    Effect.forkScoped({ startImmediately: true })
   );
-
-  yield* Effect.yieldNow;
 
   return queue;
 });

@@ -77,7 +77,9 @@ const makeBridgeClient = (loopback = false) => {
 };
 
 const ping = { _tag: 'Ping' } as const satisfies RpcMessage.FromClientEncoded;
+const stalePing = { ...ping };
 const pong = { _tag: 'Pong' } as const satisfies RpcMessage.FromServerEncoded;
+const stalePong = { ...pong };
 const fixedRandom = (nextInt: number) => ({
   nextIntUnsafe: () => nextInt,
   nextDoubleUnsafe: () => 0,
@@ -125,16 +127,16 @@ describe('Rozenite RPC server protocol sessions', () => {
 
         bridge.emit(
           RPC_CLIENT_EVENT,
-          RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: ping })
+          RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: stalePing })
         );
         bridge.emit(
           RPC_CLIENT_EVENT,
           RpcBridgeClientMessage.Request({ sessionId: 'session-b', message: ping })
         );
 
-        expect(yield* Queue.take(requests)).toEqual({ clientId: 1, message: ping });
-        yield* Effect.yieldNow;
-        expect(yield* Queue.size(requests)).toBe(0);
+        const routedRequest = yield* Queue.take(requests);
+        expect(routedRequest).toEqual({ clientId: 1, message: ping });
+        expect(routedRequest.message).toBe(ping);
       })
     )
   );
@@ -171,7 +173,11 @@ describe('Rozenite RPC server protocol sessions', () => {
         ]);
 
         bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.End({ sessionId: 'session-a' }));
-        yield* Effect.yieldNow;
+        bridge.emit(
+          RPC_CLIENT_EVENT,
+          RpcBridgeClientMessage.Request({ sessionId: 'session-b', message: ping })
+        );
+        expect(yield* Queue.take(requestClientIds)).toBe(1);
         expect([...(yield* protocol.clientIds)]).toEqual([1]);
 
         bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.End({ sessionId: 'session-b' }));
@@ -213,16 +219,14 @@ describe('Rozenite RPC client protocol sessions', () => {
 
           bridge.emit(
             RPC_SERVER_EVENT,
-            RpcBridgeServerMessage.Response({ sessionId: 'stale-session', message: pong })
+            RpcBridgeServerMessage.Response({ sessionId: 'stale-session', message: stalePong })
           );
-          yield* Effect.yieldNow;
-          expect(yield* Queue.size(responses)).toBe(0);
 
           bridge.emit(
             RPC_SERVER_EVENT,
             RpcBridgeServerMessage.Response({ sessionId: '1:1', message: pong })
           );
-          expect(yield* Queue.take(responses)).toEqual(pong);
+          expect(yield* Queue.take(responses)).toBe(pong);
         })
       );
 
