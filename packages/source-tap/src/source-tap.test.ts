@@ -453,7 +453,7 @@ describe('SourceTap', () => {
   it.effect.each(cases)(
     '%s',
     Effect.fnUntraced(function* ([_, { trackTables }, queries]) {
-      const effect = Effect.fnUntraced(function* () {
+      const effect = Effect.gen(function* () {
         const { db, sourceTap } = yield* TestDatabase;
         const updates = yield* makeUpdateQueue(sourceTap);
 
@@ -480,8 +480,8 @@ describe('SourceTap', () => {
 
       yield* Effect.all(
         [
-          effect().pipe(Effect.provide(TestDatabase.layer({ trackTables }))),
-          effect().pipe(Effect.provide(TestDatabase.layer({}))),
+          effect.pipe(Effect.provide(TestDatabase.layer({ trackTables }))),
+          effect.pipe(Effect.provide(TestDatabase.layer({}))),
         ],
         { concurrency: 1 }
       );
@@ -491,7 +491,7 @@ describe('SourceTap', () => {
   it.effect.each(cases)(
     'Transaction: %s',
     Effect.fnUntraced(function* ([_, { trackTables }, queries]) {
-      const effect = Effect.fnUntraced(function* () {
+      const effect = Effect.gen(function* () {
         const { db, sourceTap } = yield* TestDatabase;
         const updates = yield* makeUpdateQueue(sourceTap);
 
@@ -524,8 +524,8 @@ describe('SourceTap', () => {
 
       yield* Effect.all(
         [
-          effect().pipe(Effect.provide(TestDatabase.layer({ trackTables }))),
-          effect().pipe(Effect.provide(TestDatabase.layer({}))),
+          effect.pipe(Effect.provide(TestDatabase.layer({ trackTables }))),
+          effect.pipe(Effect.provide(TestDatabase.layer({}))),
         ],
         { concurrency: 1 }
       );
@@ -535,7 +535,7 @@ describe('SourceTap', () => {
   it.effect.each(cases)(
     'Transaction rollback discards events: %s',
     Effect.fnUntraced(function* ([_, { trackTables }, queries]) {
-      const effect = Effect.fnUntraced(function* () {
+      const effect = Effect.gen(function* () {
         const { db, sourceTap } = yield* TestDatabase;
         const updates = yield* makeUpdateQueue(sourceTap);
 
@@ -583,8 +583,8 @@ describe('SourceTap', () => {
 
       yield* Effect.all(
         [
-          effect().pipe(Effect.provide(TestDatabase.layer({ trackTables }))),
-          effect().pipe(Effect.provide(TestDatabase.layer({}))),
+          effect.pipe(Effect.provide(TestDatabase.layer({ trackTables }))),
+          effect.pipe(Effect.provide(TestDatabase.layer({}))),
         ],
         { concurrency: 1 }
       );

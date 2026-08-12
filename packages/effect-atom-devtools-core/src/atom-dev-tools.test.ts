@@ -204,7 +204,7 @@ describe('AtomDevTools', () => {
         expect(active.dependencies).toEqual([]);
 
         yield* service.refresh(atomId);
-        yield* service.clearAllPredefinedStates();
+        yield* service.clearAllPredefinedStates;
         expect(registry.get(atom)).toBe('normal');
         expect((yield* firstCatalog(service))[0]?.hasActivePredefinedState).toBe(false);
         const cleared = yield* firstSnapshot(service, atomId);

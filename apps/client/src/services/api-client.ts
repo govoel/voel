@@ -27,7 +27,7 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
         const authClient = yield* acquireAuthClient(accountKey.value);
 
         return ({ request, next }) =>
-          authClient.getCookie().pipe(
+          authClient.getCookie.pipe(
             Effect.flatMap((cookie) =>
               next({
                 ...request,

@@ -14,7 +14,7 @@ const AtomDevToolsRpcHandlers = AtomDevToolsRpc.toLayer(
       activatePredefinedState: ({ atomId, stateId }) =>
         atomDevTools.activatePredefinedState(atomId, stateId),
       clearPredefinedState: ({ atomId }) => atomDevTools.clearPredefinedState(atomId),
-      clearAllPredefinedStates: () => atomDevTools.clearAllPredefinedStates(),
+      clearAllPredefinedStates: () => atomDevTools.clearAllPredefinedStates,
       refresh: ({ atomId }) => atomDevTools.refresh(atomId),
     });
   })

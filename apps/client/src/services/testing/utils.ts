@@ -29,7 +29,7 @@ export const makeClientTestLayers = (authClientStorageMap = new Map<string, stri
     )
   );
 
-export const makeServerUrl = Effect.fnUntraced(function* () {
+export const makeServerUrl = Effect.gen(function* () {
   const port = yield* Random.nextIntBetween(49_152, 65_535);
   return yield* TestServerControllerClient.use((controller) => controller.start({ port })).pipe(
     Effect.map((url) => Account.fields.serverUrl.make(url))
@@ -78,7 +78,7 @@ interface TestServer<UserCount extends number> {
 export const setupTestServerWithUsers = Effect.fnUntraced(function* <
   const UserCount extends number,
 >({ userCount }: { readonly userCount: UserCount }) {
-  const serverUrl = yield* makeServerUrl();
+  const serverUrl = yield* makeServerUrl;
   const password = Redacted.make('ha!niceTry');
   const usernames = yield* Effect.forEach(
     Array.makeBy(userCount, (index) => index),

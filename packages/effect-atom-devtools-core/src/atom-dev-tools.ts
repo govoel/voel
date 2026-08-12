@@ -334,19 +334,17 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
         publishCatalogSnapshot();
         return void 0;
       }),
-      clearAllPredefinedStates: Effect.fnUntraced(function* (): Effect.fn.Return<void> {
-        yield* Effect.sync(() => {
-          for (const { node } of trackedNodesById.values()) {
-            const { atom } = node;
-            if (
-              hasPredefinedStates(atom) &&
-              Option.isSome(atom[PredefinedStatesTypeId].getActiveStateId(registry))
-            ) {
-              atom[PredefinedStatesTypeId].clear(registry);
-            }
+      clearAllPredefinedStates: Effect.sync(() => {
+        for (const { node } of trackedNodesById.values()) {
+          const { atom } = node;
+          if (
+            hasPredefinedStates(atom) &&
+            Option.isSome(atom[PredefinedStatesTypeId].getActiveStateId(registry))
+          ) {
+            atom[PredefinedStatesTypeId].clear(registry);
           }
-          publishCatalogSnapshot();
-        });
+        }
+        publishCatalogSnapshot();
       }),
       clearPredefinedState: Effect.fnUntraced(function* (
         targetId: AtomId
