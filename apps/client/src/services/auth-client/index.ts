@@ -8,6 +8,7 @@ import {
   LayerMap,
   Option,
   Schema,
+  SchemaGetter,
   Stream,
   String,
   SubscriptionRef,
@@ -104,15 +105,34 @@ const executeAuthClientRequest = Effect.fnUntraced(function* <A>(
   return result.data;
 });
 
-const authClientSessionState = (
+class AuthClientSession extends Schema.Class<AuthClientSession, { readonly brand: unique symbol }>(
+  'voel/services/auth-client/index/AuthClientSession'
+)({
+  user: Schema.Struct({
+    email: Schema.String,
+    id: Account.fields.userId,
+    image: Schema.NullishOr(Schema.String),
+    name: Schema.String,
+    role: Schema.String.pipe(
+      Schema.decodeTo(Account.fields.role, {
+        decode: SchemaGetter.transform((role) =>
+          AccountRole.isValue(role) ? role : ('under18' as const)
+        ),
+        encode: SchemaGetter.transform((role) => role),
+      })
+    ),
+    username: Account.fields.username,
+  }),
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
+
+const authClientSessionState = Effect.fnUntraced(function* (
   state: ReturnType<VoelAuthClient['useSession']['get']>,
   previous: Option.Option<
-    AsyncResult.AsyncResult<
-      Option.Option<NonNullable<ReturnType<VoelAuthClient['useSession']['get']>['data']>>,
-      BetterAuthError
-    >
+    AsyncResult.AsyncResult<Option.Option<AuthClientSession>, BetterAuthError | Schema.SchemaError>
   >
-) => {
+) {
   const waiting = state.isPending || state.isRefetching;
 
   if (state.error !== null) {
@@ -126,8 +146,18 @@ const authClientSessionState = (
     return AsyncResult.waitingFrom(previous);
   }
 
-  return AsyncResult.success(Option.fromNullishOr(state.data));
-};
+  const session = Option.fromNullishOr(state.data);
+  if (Option.isNone(session)) {
+    return AsyncResult.success(Option.none());
+  }
+
+  return yield* AuthClientSession.decodeUnknownEffect(session.value).pipe(
+    Effect.map((decodedSession) => AsyncResult.success(Option.some(decodedSession))),
+    Effect.catch((error) =>
+      Effect.succeed(AsyncResult.failWithPrevious(error, { previous, waiting }))
+    )
+  );
+});
 
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/services/auth-client/index/AuthClient',
@@ -152,15 +182,15 @@ export class AuthClient extends Context.Service<AuthClient>()(
         xxHash,
       });
 
-      const sessionState = yield* SubscriptionRef.make<ReturnType<typeof authClientSessionState>>(
-        AsyncResult.initial(true)
-      );
+      const sessionState = yield* SubscriptionRef.make<
+        Effect.Success<ReturnType<typeof authClientSessionState>>
+      >(AsyncResult.initial(true));
 
       yield* Effect.acquireRelease(
         Effect.sync(() =>
           client.useSession.subscribe((state) => {
             runSync(
-              SubscriptionRef.update(sessionState, (previous) =>
+              SubscriptionRef.updateEffect(sessionState, (previous) =>
                 authClientSessionState(state, Option.some(previous))
               )
             );
@@ -205,13 +235,11 @@ export class AuthClient extends Context.Service<AuthClient>()(
                 return;
               }
 
-              const sessionUser = session.value.value.user;
-              const accountUserId = Account.fields.userId.make(sessionUser.id);
               const account = yield* db.executeTakeFirstOption(
                 db
                   .selectFrom('account')
                   .where('serverUrl', '=', serverUrl)
-                  .where('userId', '=', accountUserId)
+                  .where('userId', '=', session.value.value.user.id)
                   .where('authStorageId', '=', authStorageId)
                   .selectAll()
               );
@@ -219,13 +247,10 @@ export class AuthClient extends Context.Service<AuthClient>()(
                 return;
               }
 
-              const username = sessionUser.username ?? account.value.username;
-              const role = AccountRole.decodeSyncFromNullishString(sessionUser.role).value;
-              const profilePicture = sessionUser.image ?? null;
               if (
-                account.value.username === username &&
-                account.value.role === role &&
-                account.value.profilePicture === profilePicture
+                account.value.username === session.value.value.user.username &&
+                account.value.role === session.value.value.user.role &&
+                account.value.profilePicture === session.value.value.user.image
               ) {
                 return;
               }
@@ -234,9 +259,13 @@ export class AuthClient extends Context.Service<AuthClient>()(
                 .executeTakeFirstOption(
                   db
                     .updateTable('account')
-                    .set({ username, role, profilePicture })
+                    .set({
+                      username: session.value.value.user.username,
+                      role: session.value.value.user.role,
+                      profilePicture: session.value.value.user.image,
+                    })
                     .where('serverUrl', '=', serverUrl)
-                    .where('userId', '=', accountUserId)
+                    .where('userId', '=', session.value.value.user.id)
                     .where('authStorageId', '=', authStorageId)
                     .returningAll()
                 )

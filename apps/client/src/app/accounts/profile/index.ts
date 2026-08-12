@@ -19,37 +19,31 @@ export class UserProfileUpdateInput extends Schema.Class<
 
 export const activeUserProfileAtom = Atom.make((get) =>
   AsyncResult.flatMap(
-    // oxlint-disable-next-line unicorn/no-array-method-this-argument
     get(activeAccountKeyAtom),
     Option.match({
       onNone: () => AsyncResult.success(Option.none()),
       onSome: () =>
-        AsyncResult.flatMap(
-          // oxlint-disable-next-line unicorn/no-array-method-this-argument
-          get(activeAccountSessionAtom),
-          (session, sessionResult) =>
-            Option.match(session, {
-              onNone: () =>
-                sessionResult.waiting
-                  ? AsyncResult.initial(true)
-                  : AsyncResult.fail('ActiveUserProfileUnavailable' as const),
-              onSome: ({ user }) => {
-                if (user.username === null || user.username === void 0) {
-                  return AsyncResult.fail('ActiveUserProfileUnavailable' as const);
-                }
-
-                return AsyncResult.success(
-                  Option.some({
-                    email: user.email,
-                    id: user.id,
-                    name: user.name,
-                    role: AccountRole.formatFromNullishString(user.role),
-                    username: user.username,
-                  }),
-                  { waiting: sessionResult.waiting }
-                );
-              },
-            })
+        AsyncResult.flatMap(get(activeAccountSessionAtom), (session, sessionResult) =>
+          Option.match(session, {
+            onNone: () =>
+              sessionResult.waiting
+                ? AsyncResult.initial(true)
+                : AsyncResult.fail('ActiveUserProfileUnavailable' as const),
+            onSome: ({ user }) => {
+              const id: string = user.id;
+              const username: string = user.username;
+              return AsyncResult.success(
+                Option.some({
+                  email: user.email,
+                  id,
+                  name: user.name,
+                  role: AccountRole.formatFromNullishString(user.role),
+                  username,
+                }),
+                { waiting: sessionResult.waiting }
+              );
+            },
+          })
         ),
     })
   )
