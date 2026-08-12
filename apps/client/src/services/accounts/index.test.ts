@@ -122,7 +122,7 @@ describe('AccountManager', () => {
             userId: username,
             authStorageId,
           });
-        }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+        }).pipe(Effect.provide(Layer.fresh(AccountManager.layerNoDeps)));
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -183,7 +183,7 @@ describe('AccountManager', () => {
             expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
-          }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+          }).pipe(Effect.provide(Layer.fresh(AccountManager.layerNoDeps)));
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
@@ -230,7 +230,7 @@ describe('AccountManager', () => {
             expect(activeAccount.valueOrUndefined).toMatchObject({
               serverUrl,
             });
-          }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+          }).pipe(Effect.provide(Layer.fresh(AccountManager.layerNoDeps)));
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
@@ -351,7 +351,7 @@ describe('AccountManager', () => {
             expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
-          }).pipe(Effect.provide(Layer.fresh(AccountManager.layer)));
+          }).pipe(Effect.provide(Layer.fresh(AccountManager.layerNoDeps)));
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

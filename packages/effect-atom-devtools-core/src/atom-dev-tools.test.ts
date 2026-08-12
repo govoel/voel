@@ -19,7 +19,7 @@ const runWithService = async <A, E>(
   Effect.runPromise(
     Effect.scoped(
       effect.pipe(
-        Effect.provide(AtomDevTools.layer),
+        Effect.provide(AtomDevTools.layerNoDeps),
         Effect.provideService(AtomRegistry.AtomRegistry, registry)
       )
     )

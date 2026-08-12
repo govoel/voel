@@ -19,10 +19,23 @@ export const CommonGlobalLayers = AccountManager.layer.pipe(
   )
 );
 
-export const CommonClientLayers = CommonGlobalLayers.pipe(
-  Layer.provideMerge(MainDatabase.layer),
+export const CommonGlobalLayersNoDeps = AccountManager.layerNoDeps.pipe(
   Layer.provideMerge(
-    Layer.mergeAll(AuthClientStorage.layer, UuidGenerator.layer, XxHash.layer, AppConfig.layer)
+    Layer.mergeAll(AuthClientMap.layer, FetchHttpClient.layer).pipe(
+      Layer.provideMerge(Reactivity.layer)
+    )
+  )
+);
+
+export const CommonClientLayers = CommonGlobalLayers.pipe(
+  Layer.provideMerge(
+    Layer.mergeAll(
+      MainDatabase.layer,
+      AuthClientStorage.layer,
+      UuidGenerator.layer,
+      XxHash.layer,
+      AppConfig.layer
+    )
   ),
   Layer.orDie
 );

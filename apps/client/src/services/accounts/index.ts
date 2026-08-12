@@ -335,5 +335,21 @@ export class AccountManager extends Context.Service<AccountManager>()(
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide(
+      AuthClientMap.layer.pipe(
+        Layer.provideMerge(
+          Layer.mergeAll(
+            AuthClientStorage.layer,
+            MainDatabase.layer,
+            Reactivity.layer,
+            UuidGenerator.layer,
+            XxHash.layer
+          )
+        )
+      )
+    )
+  );
 }

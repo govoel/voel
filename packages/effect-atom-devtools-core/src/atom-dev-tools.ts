@@ -378,5 +378,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
     };
   }),
 }) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(AtomRegistry.layer));
 }

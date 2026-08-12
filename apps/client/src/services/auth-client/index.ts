@@ -241,7 +241,12 @@ export class AuthClient extends Context.Service<AuthClient>()(
     }),
   }
 ) {
-  public static readonly layer = (key: AuthClientKey) => Layer.effect(this, this.make(key));
+  public static readonly layerNoDeps = (key: AuthClientKey) => Layer.effect(this, this.make(key));
+
+  public static readonly layer = (key: AuthClientKey) =>
+    this.layerNoDeps(key).pipe(
+      Layer.provide(Layer.mergeAll(AuthClientStorage.layer, XxHash.layer))
+    );
 }
 
 const synchronizeAccountFromSession = Effect.fnUntraced(function* (
@@ -316,7 +321,7 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   'voel/services/auth-client/index/AuthClientMap',
   {
     lookup: (key: AuthClientKey) =>
-      AuthClient.layer(key).pipe(
+      AuthClient.layerNoDeps(key).pipe(
         Layer.tap((context) => synchronizeAccountFromSession(key, Context.get(context, AuthClient)))
       ),
   }

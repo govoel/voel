@@ -32,7 +32,7 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
       ),
   }
 ) {
-  public static readonly layer = Layer.unwrap(
+  public static readonly layerNoDeps = Layer.unwrap(
     Effect.gen(function* () {
       const config = yield* AppConfig;
       const { OpSqliteDialect } = yield* Effect.promise(
@@ -47,4 +47,6 @@ export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<Mai
       );
     })
   );
+
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(AppConfig.layer));
 }

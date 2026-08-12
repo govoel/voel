@@ -198,7 +198,7 @@ describe('accountsSheetAtom', () => {
           }).pipe(
             Effect.provide(
               Layer.fresh(TestAccountsAtomsLayer).pipe(
-                Layer.provideMerge(Layer.fresh(AccountManager.layer))
+                Layer.provideMerge(Layer.fresh(AccountManager.layerNoDeps))
               )
             )
           );

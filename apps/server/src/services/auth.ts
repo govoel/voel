@@ -48,7 +48,11 @@ export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', 
     });
   }),
 }) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide(Layer.mergeAll(ApiConfig.layer, Database.layer))
+  );
 }
 
 export const AuthRouterLayer = HttpRouter.use(

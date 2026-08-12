@@ -45,12 +45,14 @@ export class Database extends Context.Service<
     return { db, sourceTap, kysely };
   }),
 }) {
-  public static readonly layer = Layer.effect(
+  public static readonly layerNoDeps = Layer.effect(
     this,
     Effect.service(ApiConfig).pipe(
       Effect.flatMap((config) => this.make({ filename: config.db.filename }))
     )
   );
+
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(ApiConfig.layer));
 
   public static readonly layerTest = (args: Parameters<(typeof this)['make']>['0']) =>
     Layer.effect(this, this.make(args));

@@ -17,7 +17,7 @@ import { Database } from '#src/services/database/index.ts';
 const makeTestLayer = () =>
   LibraryHandlers.pipe(
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayer, AdminMiddlewareLayer)),
-    Layer.provideMerge(Layer.mergeAll(Auth.layer)),
+    Layer.provideMerge(Layer.mergeAll(Auth.layerNoDeps)),
     Layer.provideMerge(Database.layerTest({ filename: ':memory:' })),
     Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
