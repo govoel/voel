@@ -127,45 +127,41 @@ describe('makeWithPredefinedStates', () => {
     registry.dispose();
   });
 
-  it.effect('finalizes an active state atom before starting the next state atom', () =>
-    Effect.gen(function* () {
-      const registry = AtomRegistry.make();
-      const finalized: Array<string> = [];
-      const makeStateAtom = (name: string) =>
-        Atom.make(
-          Effect.acquireRelease(Effect.succeed(name), () => Effect.sync(() => finalized.push(name)))
-        );
-      const atom = makeWithPredefinedStates({ enabled: true })(
-        Atom.make(Effect.succeed('original')),
-        () => [
-          { id: 'one', label: 'One', atom: makeStateAtom('one') },
-          { id: 'two', label: 'Two', atom: makeStateAtom('two') },
-        ]
+  it('finalizes an active state atom before starting the next state atom', () => {
+    const registry = AtomRegistry.make();
+    const finalized: Array<string> = [];
+    const makeStateAtom = (name: string) =>
+      Atom.make(
+        Effect.acquireRelease(Effect.succeed(name), () => Effect.sync(() => finalized.push(name)))
       );
+    const atom = makeWithPredefinedStates({ enabled: true })(
+      Atom.make(Effect.succeed('original')),
+      () => [
+        { id: 'one', label: 'One', atom: makeStateAtom('one') },
+        { id: 'two', label: 'Two', atom: makeStateAtom('two') },
+      ]
+    );
 
-      registry.get(atom);
-      if (!hasPredefinedStates(atom)) {
-        throw new Error('Expected atom to have predefined states');
-      }
-      const states = atom[PredefinedStatesTypeId].getStates();
-      atom[PredefinedStatesTypeId].activate(
-        registry,
-        Option.getOrThrow(Option.fromNullishOr(states[0]))
-      );
-      registry.get(atom);
-      yield* Effect.yieldNow;
+    registry.get(atom);
+    if (!hasPredefinedStates(atom)) {
+      throw new Error('Expected atom to have predefined states');
+    }
+    const states = atom[PredefinedStatesTypeId].getStates();
+    atom[PredefinedStatesTypeId].activate(
+      registry,
+      Option.getOrThrow(Option.fromNullishOr(states[0]))
+    );
+    registry.get(atom);
+    atom[PredefinedStatesTypeId].activate(
+      registry,
+      Option.getOrThrow(Option.fromNullishOr(states[1]))
+    );
+    registry.get(atom);
+    expect(finalized).toContain('one');
 
-      atom[PredefinedStatesTypeId].activate(
-        registry,
-        Option.getOrThrow(Option.fromNullishOr(states[1]))
-      );
-      registry.get(atom);
-      expect(finalized).toContain('one');
-
-      registry.dispose();
-      expect(finalized).toContain('two');
-    })
-  );
+    registry.dispose();
+    expect(finalized).toContain('two');
+  });
 });
 
 describe('internal atoms', () => {

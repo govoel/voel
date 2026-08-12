@@ -382,7 +382,6 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         const authClient = yield* acquireAuthClient(activeAccount);
         yield* waitForSessionRequest(authClient);
         yield* Atom.mount(accountsSheetAtom);
-        yield* Effect.yieldNow;
         yield* drainAtomTasks;
 
         const revokeResult = yield* authClient.signOut;
@@ -399,7 +398,6 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         yield* authClient.refreshSession;
         yield* Fiber.join(invalidSessionFiber);
 
-        yield* Effect.yieldNow;
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.InvalidSession({ dismissable: true })
@@ -426,7 +424,6 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         yield* waitForSessionRequest(firstClient);
 
         yield* Atom.mount(accountsSheetAtom);
-        yield* Effect.yieldNow;
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
@@ -441,7 +438,6 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         yield* secondClient.signOut;
         yield* secondClient.refreshSession;
 
-        yield* Effect.yieldNow;
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.InvalidSession({ dismissable: true })
@@ -468,7 +464,6 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
           userId: account.userId,
         });
 
-        yield* Effect.yieldNow;
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
@@ -587,6 +582,8 @@ it.layer(TestServerControllerClient.layerNoDeps)('activeAccountAtom', (iit) => {
           username,
           password: Redacted.make('ha!niceTry'),
         });
+        // Allow activeAccountKeyAtom's stream fiber to observe the manager change
+        // before synchronously draining the registry's scheduled work.
         yield* Effect.yieldNow;
         yield* drainAtomTasks;
 

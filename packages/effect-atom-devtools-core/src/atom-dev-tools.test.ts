@@ -290,8 +290,6 @@ describe('AtomDevTools', () => {
         yield* initialObserved.await;
         yield* service.activatePredefinedState(atomId, 'equal');
         yield* stateObserved.await;
-        yield* Effect.yieldNow;
-
         expect(snapshots).toEqual([Option.none(), Option.some('equal')]);
         yield* Fiber.interrupt(snapshotsFiber);
       })
@@ -400,7 +398,6 @@ describe('AtomDevTools', () => {
         );
 
         yield* initialObserved.await;
-        yield* Effect.yieldNow;
         expect(observed).toEqual(['1']);
         yield* Fiber.interrupt(watchFiber);
       })
