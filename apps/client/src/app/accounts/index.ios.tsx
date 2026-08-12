@@ -165,7 +165,7 @@ export default function AccountsScreen() {
                         <HStack alignment="center" spacing={Spacing.two}>
                           {Option.match(activeAccount, {
                             onNone: () => <Text>Pick an account</Text>,
-                            onSome: ({ account }) => (
+                            onSome: (account) => (
                               <>
                                 <Icon
                                   name="person.crop.circle.fill"
@@ -205,7 +205,7 @@ export default function AccountsScreen() {
 
                   {Option.match(activeAccount, {
                     onNone: () => null,
-                    onSome: ({ account }) => (
+                    onSome: (account) => (
                       <>
                         <Section
                           header={
@@ -276,7 +276,6 @@ export default function AccountsScreen() {
                               input: {
                                 serverUrl: account.serverUrl,
                                 userId: account.userId,
-                                authClient: Option.none(),
                               },
                               onSuccess: async () => {
                                 setIsSwitchAccountPresented(false);
@@ -327,7 +326,7 @@ export default function AccountsScreen() {
 
                 {Option.match(activeAccount, {
                   onNone: () => null,
-                  onSome: ({ account }) => (
+                  onSome: (account) => (
                     <BottomSheet
                       fitToContents
                       isPresented={isRemoveAccountFormPresented}

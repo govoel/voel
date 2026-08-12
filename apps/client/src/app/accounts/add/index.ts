@@ -37,7 +37,7 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
           AccountSignInError: (signInError) =>
-            signInError.details.message ??
+            signInError.details.message ||
             'Failed to sign in. Check your credentials and try again.',
           AccountDatabaseError: () => 'A database error occurred. Try again.',
         })

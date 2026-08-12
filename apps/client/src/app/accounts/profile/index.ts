@@ -2,10 +2,12 @@ import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
-import { AccountRole } from '#src/services/database/main/schema.ts';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
+import type { AuthClient } from '#src/services/auth-client/index.ts';
+import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export class UserProfileUpdateInput extends Schema.Class<
@@ -16,37 +18,18 @@ export class UserProfileUpdateInput extends Schema.Class<
   username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
 }) {}
 
-export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
+export const activeUserProfileAtom = activeAccountAtom.pipe(
   Atom.map((result) =>
-    AsyncResult.flatMap(
-      // oxlint-disable-next-line unicorn/no-array-method-this-argument
-      result,
-      Option.match({
-        onNone: () => AsyncResult.success(Option.none()),
-        onSome: (sessionState) => {
-          if (sessionState.data === null) {
-            return sessionState.isPending
-              ? AsyncResult.initial(true)
-              : AsyncResult.fail('ActiveUserProfileUnavailable' as const);
-          }
-
-          const { user } = sessionState.data;
-          if (user.username === null || user.username === void 0) {
-            return AsyncResult.fail('ActiveUserProfileUnavailable' as const);
-          }
-
-          return AsyncResult.success(
-            Option.some({
-              email: user.email,
-              id: user.id,
-              name: user.name,
-              role: AccountRole.formatFromNullishString(user.role),
-              username: user.username,
-            }),
-            { waiting: sessionState.isPending || sessionState.isRefetching }
-          );
-        },
-      })
+    result.pipe(
+      AsyncResult.map(
+        Option.map(({ email, name, role, userId, username }) => ({
+          email,
+          id: userId,
+          name,
+          role: AccountRole.formatFromNullishString(role),
+          username,
+        }))
+      )
     )
   ),
   withPredefinedStates(() => [
@@ -66,27 +49,30 @@ export const activeUserProfileAtom = activeAccountSessionAtom.pipe(
       atom: Atom.make(() =>
         AsyncResult.success(
           Option.some({
-            email: 'reader@example.com',
-            id: 'predefined-user',
-            name: 'Alex Reader',
-            role: 'Admin' as const,
-            username: 'alex',
+            email: Account.fields.email.make('reader@example.com'),
+            id: Account.fields.userId.make('predefined-user'),
+            name: Account.fields.name.make('Alex Reader'),
+            role: AccountRole.formatFromNullishString('admin'),
+            username: Account.fields.username.make('alex'),
           })
         )
       ),
-    },
-    {
-      id: 'unavailable',
-      label: 'Unavailable profile',
-      atom: Atom.make(() => AsyncResult.fail('ActiveUserProfileUnavailable' as const)),
     },
   ]),
   Atom.withLabel('activeUserProfileAtom')
 );
 
-const updateCurrentUserAtom = AppRuntime.fn(
-  (input: Parameters<typeof CurrentAuthClient.Service.updateUser>[0]) =>
-    CurrentAuthClient.pipe(Effect.flatMap((authClient) => authClient.updateUser(input)))
+const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['updateUser']>[0]>()(
+  Effect.fnUntraced(function* (input) {
+    const activeAccountKey = yield* AccountManager.use((manager) => manager.state);
+
+    if (Option.isNone(activeAccountKey)) {
+      return yield* new NoActiveAccountError();
+    }
+
+    const authClient = yield* acquireAuthClient(activeAccountKey.value);
+    return yield* authClient.updateUser(input);
+  })
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
 export const useUserProfileForm = ({
@@ -103,9 +89,12 @@ export const useUserProfileForm = ({
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
-          NoCurrentAuthClientError: () => 'No active user is available.',
-          CurrentAuthClientRequestError: (requestError) =>
-            requestError.details.message ?? 'Unable to update the profile. Try again.',
+          AccountDatabaseError: () => 'Unable to update the profile. Try again.',
+          NoActiveAccountError: () => 'No active user is available.',
+          BetterAuthClientInitializationError: () =>
+            'Unexpected error during authentication. Try again.',
+          BetterAuthError: (betterAuthError) =>
+            betterAuthError.message || 'Unable to update the profile. Try again.',
         })
       ),
     onSuccess: async () => {

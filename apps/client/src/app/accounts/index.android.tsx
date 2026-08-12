@@ -162,7 +162,7 @@ export default function AccountsScreen() {
                             <Text>Pick an account</Text>
                           </SegmentedListItem.HeadlineContent>
                         ),
-                        onSome: ({ account }) => (
+                        onSome: (account) => (
                           <>
                             <SegmentedListItem.LeadingContent>
                               <Icon source={AccountCircle} size={32} />
@@ -188,7 +188,7 @@ export default function AccountsScreen() {
 
               {Option.match(activeAccount, {
                 onNone: () => null,
-                onSome: ({ account }) => (
+                onSome: (account) => (
                   <>
                     <Column verticalArrangement={{ spacedBy: Spacing.two }}>
                       <Column verticalArrangement={{ spacedBy: 0 }}>
@@ -288,7 +288,6 @@ export default function AccountsScreen() {
                               input: {
                                 serverUrl: account.serverUrl,
                                 userId: account.userId,
-                                authClient: Option.none(),
                               },
                               onSuccess: async () => {
                                 await switchAccountSheetRef.current?.hide();

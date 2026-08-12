@@ -1,26 +1,31 @@
-import { Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
-export class BetterAuthErrorDetails extends Schema.Class<
-  BetterAuthErrorDetails,
+const UnknownBetterAuthErrorFields = {
+  code: 'UNKNOWN',
+  status: 0,
+  statusText: 'UNKNOWN',
+} as const;
+
+export class BetterAuthError extends Schema.Error<
+  BetterAuthError,
   { readonly brand: unique symbol }
->('voel/services/auth-client/errors/BetterAuthErrorDetails')({
-  code: Schema.optional(Schema.String),
+>('voel/services/auth-client/errors/BetterAuthError')({
+  _tag: Schema.tagDefaultOmit('BetterAuthError'),
+  code: Schema.String.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.code))
+  ),
   message: Schema.optional(Schema.String),
-  status: Schema.Number,
-  statusText: Schema.String,
-}) {}
-
-export const betterAuthErrorDetailsFromUnknown = (error: unknown) =>
-  error instanceof Error
-    ? new BetterAuthErrorDetails({
-        message: error.message,
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      })
-    : new BetterAuthErrorDetails({
-        message: 'An unknown error occurred.',
-        status: 0,
-        statusText: 'UNKNOWN',
-        code: 'UNKNOWN',
-      });
+  status: Schema.Number.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.status))
+  ),
+  statusText: Schema.String.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.statusText))
+  ),
+}) {
+  public static readonly decodeFromUnknown = this.pipe(
+    Schema.catchDecoding(() =>
+      Effect.succeed(Option.some(new BetterAuthError(UnknownBetterAuthErrorFields)))
+    ),
+    Schema.decodeUnknownSync
+  );
+}

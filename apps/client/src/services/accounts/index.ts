@@ -1,31 +1,17 @@
-import {
-  Context,
-  Effect,
-  Exit,
-  Layer,
-  Option,
-  Queue,
-  Random,
-  Redacted,
-  Schema,
-  Scope,
-  Stream,
-  SubscriptionRef,
-} from 'effect';
+import { Context, Data, Effect, Layer, Option, Random, Redacted, Schema, Stream } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
+import { BetterAuthError } from '#src/services/auth-client/errors.ts';
 import {
-  BetterAuthErrorDetails,
-  betterAuthErrorDetailsFromUnknown,
-} from '#src/services/auth-client/errors.ts';
-import {
-  XxHash,
-  createVoelAuthClient,
+  AuthClientMap,
+  acquireAuthClient,
   makeAuthStorageKey,
 } from '#src/services/auth-client/index.ts';
+import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
+import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
@@ -54,21 +40,14 @@ export class AccountSignInError extends Schema.TaggedError<
   AccountSignInError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignInError')('AccountSignInError', {
-  details: BetterAuthErrorDetails,
+  details: BetterAuthError,
 }) {}
 
 export class AccountSignUpError extends Schema.TaggedError<
   AccountSignUpError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignUpError')('AccountSignUpError', {
-  details: BetterAuthErrorDetails,
-}) {}
-
-export class AccountSignOutError extends Schema.TaggedError<
-  AccountSignOutError,
-  { readonly brand: unique symbol }
->('voel/services/accounts/index/AccountSignOutError')('AccountSignOutError', {
-  details: BetterAuthErrorDetails,
+  details: BetterAuthError,
 }) {}
 
 export class AccountDatabaseError extends Schema.TaggedError<
@@ -84,195 +63,52 @@ export class AccountNotFoundError extends Schema.TaggedError<
   userId: Schema.String,
 }) {}
 
+export class NoActiveAccountError extends Schema.TaggedError<
+  NoActiveAccountError,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/index/NoActiveAccountError')('NoActiveAccountError', {}) {}
+
+export class ActiveAccountKey extends Data.Class<
+  Pick<Selectable<AccountTable>, 'serverUrl' | 'userId' | 'authStorageId'>
+> {}
+
+const activeAccountKeyFromAccount = (
+  account: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId' | 'authStorageId'>
+) =>
+  new ActiveAccountKey({
+    serverUrl: account.serverUrl,
+    userId: account.userId,
+    authStorageId: account.authStorageId,
+  });
+
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/index/AccountManager',
   {
     make: Effect.gen(function* () {
       const db = yield* MainDatabase;
-      const serviceScope = yield* Scope.Scope;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
       const authClientStorageService = yield* AuthClientStorage;
+      const authClientMap = yield* AuthClientMap;
 
-      const runWithAuthClientStorage = yield* Effect.context<AuthClientStorage>().pipe(
-        Effect.map(Effect.runSyncWith)
-      );
-
-      const authClientStorage = {
-        getItem: (key) =>
-          runWithAuthClientStorage(
-            AuthClientStorage.pipe(
-              Effect.flatMap((storage) => storage.getItem(key)),
-              Effect.map(Option.getOrNull)
-            )
-          ),
-        setItem: (key, value) => {
-          runWithAuthClientStorage(
-            AuthClientStorage.pipe(Effect.flatMap((storage) => storage.setItem(key, value)))
-          );
-        },
-      } satisfies Parameters<typeof createVoelAuthClient>[0]['storage'];
-
-      const stateRef = yield* SubscriptionRef.make(
-        Option.none<{
-          readonly account: Selectable<AccountTable>;
-          readonly state: {
-            readonly authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
-            readonly scope: Scope.Closeable;
-          };
-        }>()
-      );
-
-      const initializeActiveAccountState = ({
-        activeAccount,
-        existingAuthClient,
-      }: {
-        readonly activeAccount: Selectable<AccountTable>;
-        readonly existingAuthClient: Option.Option<
-          Effect.Success<ReturnType<typeof createVoelAuthClient>>
-        >;
-      }) =>
-        SubscriptionRef.modifySomeEffect(
-          stateRef,
-          Effect.fnUntraced(function* (state) {
-            if (
-              Option.isSome(state) &&
-              state.value.account.serverUrl === activeAccount.serverUrl &&
-              state.value.account.userId === activeAccount.userId &&
-              Option.match(existingAuthClient, {
-                onNone: () => true,
-                onSome: (nextAuthClient) => state.value.state.authClient === nextAuthClient,
-              })
-            ) {
-              return [void 0, Option.none()] as const;
-            }
-
-            const scope = yield* Scope.fork(serviceScope);
-            const authClient = yield* Option.match(existingAuthClient, {
-              onSome: Effect.succeed,
-              onNone: () =>
-                createVoelAuthClient({
-                  serverUrl: activeAccount.serverUrl.toString(),
-                  authStorageId: activeAccount.authStorageId,
-                  storage: authClientStorage,
-                  xxHash,
-                }),
-            });
-
-            // Subscribe directly rather than through Stream.callback, which acquires lazily:
-            // forkIn may return before its callback runs. Account initialization must own the
-            // subscription synchronously so an immediate account switch closes it deterministically.
-            type SessionState = Parameters<
-              Parameters<typeof authClient.useSession.subscribe>[0]
-            >[0];
-            const sessionStates = yield* Queue.unbounded<SessionState>();
-
-            const synchronizeAccount = Effect.fnUntraced(function* (sessionState: SessionState) {
-              if (sessionState.data === null) {
-                return;
-              }
-
-              const sessionUser = sessionState.data.user;
-              yield* SubscriptionRef.modifySomeEffect(
-                stateRef,
-                Effect.fnUntraced(function* (currentState) {
-                  if (
-                    Option.isNone(currentState) ||
-                    currentState.value.state.authClient !== authClient ||
-                    currentState.value.account.userId !== sessionUser.id
-                  ) {
-                    return [void 0, Option.none()] as const;
-                  }
-
-                  const username = sessionUser.username ?? currentState.value.account.username;
-                  const role = AccountRole.decodeSyncFromNullishString(sessionUser.role).value;
-                  const profilePicture = sessionUser.image ?? null;
-                  if (
-                    currentState.value.account.username === username &&
-                    currentState.value.account.role === role &&
-                    currentState.value.account.profilePicture === profilePicture
-                  ) {
-                    return [void 0, Option.none()] as const;
-                  }
-
-                  const persistedAccount = yield* db
-                    .executeTakeFirstOption(
-                      db
-                        .updateTable('account')
-                        .set({ username, role, profilePicture })
-                        .where('serverUrl', '=', currentState.value.account.serverUrl)
-                        .where('userId', '=', currentState.value.account.userId)
-                        .returningAll()
-                    )
-                    .pipe(Reactivity.mutation(['account']));
-                  if (Option.isNone(persistedAccount)) {
-                    return [void 0, Option.none()] as const;
-                  }
-
-                  return [
-                    void 0,
-                    Option.some(
-                      Option.some({
-                        account: persistedAccount.value,
-                        state: currentState.value.state,
-                      })
-                    ),
-                  ] as const;
-                })
-              ).pipe(
-                Effect.catchCause((cause) =>
-                  Effect.logError('Failed to synchronize active account from session', cause)
-                )
-              );
-            });
-
-            yield* Stream.fromQueue(sessionStates).pipe(
-              Stream.runForEach(synchronizeAccount),
-              Effect.forkIn(scope, { startImmediately: true })
-            );
-
-            const unsubscribe = authClient.useSession.subscribe((sessionState) => {
-              Queue.offerUnsafe(sessionStates, sessionState);
-            });
-            yield* Scope.addFinalizer(
-              scope,
-              Effect.all([Effect.sync(unsubscribe), Queue.shutdown(sessionStates)], {
-                discard: true,
-              })
-            );
-
-            if (Option.isSome(state)) {
-              yield* Scope.close(state.value.state.scope, Exit.void);
-            }
-
-            return [
-              void 0,
-              Option.some(Option.some({ account: activeAccount, state: { authClient, scope } })),
-            ] as const;
-          })
+      const state = db
+        .executeTakeFirstOption(
+          db
+            .selectFrom('account')
+            .where('account.active', '=', Account.fields.active.make(1))
+            .selectAll()
+        )
+        .pipe(
+          Effect.map(Option.map(activeAccountKeyFromAccount)),
+          Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
         );
-
-      const storedActiveAccount = yield* db.executeTakeFirstOption(
-        db
-          .selectFrom('account')
-          .where('account.active', '=', Account.fields.active.make(1))
-          .selectAll()
-      );
-      if (Option.isSome(storedActiveAccount)) {
-        yield* initializeActiveAccountState({
-          activeAccount: storedActiveAccount.value,
-          existingAuthClient: Option.none(),
-        });
-      }
+      const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
 
       const setActiveAccount = Effect.fnUntraced(function* ({
         serverUrl,
         userId,
-        authClient,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId'> & {
-        readonly authClient: Option.Option<Effect.Success<ReturnType<typeof createVoelAuthClient>>>;
-      }) {
-        const activeAccount = yield* db
+      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId'>) {
+        yield* db
           .trx()
           .execute(
             Effect.fnUntraced(function* (trx) {
@@ -298,25 +134,28 @@ export class AccountManager extends Context.Service<AccountManager>()(
               return persistedAccount.value;
             })
           )
-          .pipe(Reactivity.mutation(['account']));
-
-        return yield* initializeActiveAccountState({
-          activeAccount,
-          existingAuthClient: authClient,
-        });
+          .pipe(
+            Reactivity.mutation(['account']),
+            Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
+          );
       });
 
       const upsertAccount = Effect.fnUntraced(function* ({
         account,
-        authClient,
       }: {
         readonly account: Pick<
           Insertable<AccountTable>,
-          'serverUrl' | 'userId' | 'username' | 'authStorageId' | 'role' | 'profilePicture'
+          | 'serverUrl'
+          | 'userId'
+          | 'username'
+          | 'name'
+          | 'email'
+          | 'authStorageId'
+          | 'role'
+          | 'profilePicture'
         >;
-        readonly authClient: Effect.Success<ReturnType<typeof createVoelAuthClient>>;
       }) {
-        const activeAccount = yield* db
+        yield* db
           .trx()
           .execute(
             Effect.fnUntraced(function* (trx) {
@@ -327,6 +166,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   .onConflict((oc) =>
                     oc.columns(['serverUrl', 'userId']).doUpdateSet({
                       username: account.username,
+                      name: account.name,
+                      email: account.email,
                       authStorageId: account.authStorageId,
                       role: account.role,
                       profilePicture: account.profilePicture,
@@ -354,162 +195,141 @@ export class AccountManager extends Context.Service<AccountManager>()(
           )
           .pipe(
             Reactivity.mutation(['account']),
-            Effect.mapError(() => new AccountDatabaseError())
+            Effect.catchTag(
+              ['DatabaseSqlError', 'DatabaseNoSuchElementError'],
+              () => new AccountDatabaseError()
+            )
           );
-
-        return yield* initializeActiveAccountState({
-          activeAccount,
-          existingAuthClient: Option.some(authClient),
-        });
       });
 
-      const removeActiveAccount = SubscriptionRef.modifyEffect(
-        stateRef,
-        Effect.fnUntraced(function* (state) {
-          if (Option.isNone(state)) {
-            return [void 0, state] as const;
-          }
-
-          // we ignore errors here because the server may be offline
-          // which causes better-auth to throw
-          yield* Effect.tryPromise({
-            try: async () => state.value.state.authClient.signOut(),
-            catch: (error) =>
-              new AccountSignOutError({
-                details: betterAuthErrorDetailsFromUnknown(error),
-              }),
-          }).pipe(Effect.ignore);
-
-          // mimick better-auth and remove the auth storage items for this account
-          const storagePrefix = yield* xxHash.hash128(
-            makeAuthStorageKey({
-              serverUrl: state.value.account.serverUrl,
-              authStorageId: state.value.account.authStorageId,
-            })
-          );
-          yield* Effect.all(
-            [
-              authClientStorageService.removeItem(`${storagePrefix}_cookie`),
-              authClientStorageService.removeItem(`${storagePrefix}_session_data`),
-            ],
-            { concurrency: 'unbounded' }
-          );
-
-          yield* db
-            .execute(
-              db
-                .deleteFrom('account')
-                .where('serverUrl', '=', state.value.account.serverUrl)
-                .where('userId', '=', state.value.account.userId)
-            )
-            .pipe(
-              Reactivity.mutation(['account']),
-              Effect.mapError(() => new AccountDatabaseError())
-            );
-
-          yield* Scope.close(state.value.state.scope, Exit.void);
-          return [void 0, Option.none()] as const;
-        })
-      );
-
-      const signInAccount = Effect.fnUntraced(function* ({
-        serverUrl,
-        username,
-        password,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
-        password: Redacted.Redacted;
-      }) {
-        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* createVoelAuthClient({
-          serverUrl,
-          authStorageId,
-          storage: authClientStorage,
-          xxHash,
-        });
-
-        const signInResult = yield* Effect.tryPromise({
-          try: async () =>
-            authClient.signIn.username({ username, password: Redacted.value(password) }),
-          catch: (error) =>
-            new AccountSignInError({ details: betterAuthErrorDetailsFromUnknown(error) }),
-        });
-
-        if (signInResult.error !== null) {
-          return yield* new AccountSignInError({
-            details: new BetterAuthErrorDetails(signInResult.error),
-          });
+      const removeActiveAccount = Effect.gen(function* () {
+        const activeAccount = yield* state;
+        if (Option.isNone(activeAccount)) {
+          return;
         }
 
-        return yield* upsertAccount({
-          account: {
-            serverUrl,
-            userId: signInResult.data.user.id,
-            username: signInResult.data.user.username ?? username,
-            authStorageId,
-            role: AccountRole.decodeSyncFromNullishString(signInResult.data.user.role).value,
-            profilePicture: signInResult.data.user.image ?? null,
-          },
-          authClient,
-        });
+        // we ignore errors here because the server may be offline
+        // which causes better-auth to throw
+        yield* acquireAuthClient(activeAccount.value).pipe(
+          Effect.flatMap((authClient) => authClient.signOut()),
+          Effect.ignore,
+          Effect.scoped,
+          Effect.provideService(AuthClientMap, authClientMap)
+        );
+
+        // mimick better-auth and remove the auth storage items for this account
+        const storagePrefix = yield* xxHash.hash128(
+          makeAuthStorageKey({
+            serverUrl: activeAccount.value.serverUrl,
+            authStorageId: activeAccount.value.authStorageId,
+          })
+        );
+        yield* Effect.all(
+          [
+            authClientStorageService.removeItem(`${storagePrefix}_cookie`),
+            authClientStorageService.removeItem(`${storagePrefix}_session_data`),
+          ],
+          { concurrency: 'unbounded' }
+        );
+
+        yield* db
+          .execute(
+            db
+              .deleteFrom('account')
+              .where('serverUrl', '=', activeAccount.value.serverUrl)
+              .where('userId', '=', activeAccount.value.userId)
+          )
+          .pipe(
+            Reactivity.mutation(['account']),
+            Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
+          );
       });
 
-      const setupServerWithAccount = Effect.fnUntraced(function* ({
-        serverUrl,
-        name,
-        email,
-        username,
-        password,
-      }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> &
-        Pick<
-          Parameters<
-            Effect.Success<ReturnType<typeof createVoelAuthClient>>['signUp']['email']
-          >['0'],
-          'name' | 'email'
-        > & {
+      const signInAccount = Effect.fnUntraced(
+        function* ({
+          serverUrl,
+          username,
+          password,
+        }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> & {
           password: Redacted.Redacted;
         }) {
-        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* createVoelAuthClient({
-          serverUrl,
-          authStorageId,
-          storage: authClientStorage,
-          xxHash,
-        });
+          const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+          const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
 
-        const signUpResult = yield* Effect.tryPromise({
-          try: async () =>
-            authClient.signUp.email({
+          const signInResult = yield* authClient.signIn
+            .username({ username, password: Redacted.value(password) })
+            .pipe(
+              Effect.catchTag(
+                'BetterAuthError',
+                (error) => new AccountSignInError({ details: error })
+              )
+            );
+
+          return yield* upsertAccount({
+            account: {
+              serverUrl,
+              userId: signInResult.user.id,
+              username: signInResult.user.username ?? username,
+              name: signInResult.user.name,
+              email: signInResult.user.email,
+              authStorageId,
+              role: AccountRole.decodeSyncFromNullishString(signInResult.user.role).value,
+              profilePicture: signInResult.user.image ?? null,
+            },
+          });
+        },
+        Effect.scoped,
+        Effect.provideService(AuthClientMap, authClientMap)
+      );
+
+      const setupServerWithAccount = Effect.fnUntraced(
+        function* ({
+          serverUrl,
+          name,
+          email,
+          username,
+          password,
+        }: Pick<Selectable<AccountTable>, 'serverUrl' | 'username'> &
+          Pick<Parameters<AuthClient['Service']['signUp']['email']>[0], 'name' | 'email'> & {
+            password: Redacted.Redacted;
+          }) {
+          const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+          const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
+
+          const signUpResult = yield* authClient.signUp
+            .email({
               name,
               email,
               username,
               password: Redacted.value(password),
-            }),
-          catch: (error) =>
-            new AccountSignUpError({ details: betterAuthErrorDetailsFromUnknown(error) }),
-        });
+            })
+            .pipe(
+              Effect.catchTag(
+                'BetterAuthError',
+                (error) => new AccountSignUpError({ details: error })
+              )
+            );
 
-        if (signUpResult.error !== null) {
-          return yield* new AccountSignUpError({
-            details: new BetterAuthErrorDetails(signUpResult.error),
+          return yield* upsertAccount({
+            account: {
+              serverUrl,
+              userId: signUpResult.user.id,
+              username: signUpResult.user.username ?? username,
+              name: signUpResult.user.name,
+              email: signUpResult.user.email,
+              authStorageId,
+              role: AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value,
+              profilePicture: signUpResult.user.image ?? null,
+            },
           });
-        }
-
-        return yield* upsertAccount({
-          account: {
-            serverUrl,
-            userId: signUpResult.data.user.id,
-            username: signUpResult.data.user.username ?? username,
-            authStorageId,
-            role: AccountRole.decodeSyncFromNullishString(signUpResult.data.user.role).value,
-            profilePicture: signUpResult.data.user.image ?? null,
-          },
-          authClient,
-        });
-      });
+        },
+        Effect.scoped,
+        Effect.provideService(AuthClientMap, authClientMap)
+      );
 
       return {
-        changes: SubscriptionRef.changes(stateRef),
-        state: SubscriptionRef.get(stateRef),
+        changes,
+        state,
         setActiveAccount,
         removeActiveAccount,
         signInAccount,

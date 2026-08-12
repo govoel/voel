@@ -6,38 +6,49 @@ import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc'
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
-import { CurrentAuthClient } from '#src/services/auth-client/current.ts';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { CommonClientLayers } from '#src/services/layers.ts';
 
-const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
-  AuthMiddleware,
-  Effect.fnUntraced(function* ({ request, next }) {
-    const currentAuthClient = yield* CurrentAuthClient;
-    const cookie = yield* currentAuthClient.getCookie.pipe(Effect.option);
-
-    return yield* next({
-      ...request,
-      headers: Option.match(cookie, {
-        onNone: () => request.headers,
-        onSome: (value) => Headers.set(request.headers, 'cookie', value),
-      }),
-    });
-  })
-);
-
-// TODO: Call authClient to refresh the session after an unauthorized RPC response.
 export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-client/ApiClient', {
   group: Api,
-  protocol: (get) =>
-    Layer.effect(
+  protocol: (get) => {
+    const activeAccountKey = get.result(activeAccountKeyAtom);
+
+    const AuthMiddlewareClientLive = RpcMiddleware.layerClient(
+      AuthMiddleware,
+      Effect.gen(function* () {
+        const accountKey = yield* activeAccountKey;
+
+        if (Option.isNone(accountKey)) {
+          return ({ request, next }) => next(request);
+        }
+
+        const authClient = yield* acquireAuthClient(accountKey.value);
+
+        return ({ request, next }) =>
+          authClient.getCookie().pipe(
+            Effect.flatMap((cookie) =>
+              next({
+                ...request,
+                headers: Option.match(cookie, {
+                  onNone: () => request.headers,
+                  onSome: (value) => Headers.set(request.headers, 'cookie', value),
+                }),
+              })
+            )
+          );
+      })
+    );
+
+    return Layer.effect(
       RpcClient.Protocol,
       Effect.gen(function* () {
-        const serverUrl = yield* get.result(activeAccountAtom).pipe(
+        const serverUrl = yield* activeAccountKey.pipe(
           Effect.map(
             Option.match({
               onNone: () => '/api/rpc',
-              onSome: ({ account }) => `${account.serverUrl.toString()}/api/rpc`,
+              onSome: (accountKey) => `${accountKey.serverUrl.toString()}/api/rpc`,
             })
           )
         );
@@ -50,5 +61,6 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
     ).pipe(
       Layer.provideMerge(Layer.mergeAll(AuthMiddlewareClientLive, RpcSerialization.layerMsgPack)),
       Layer.provide(CommonClientLayers)
-    ),
+    );
+  },
 }) {}

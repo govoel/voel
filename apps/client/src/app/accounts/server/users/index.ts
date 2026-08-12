@@ -1,8 +1,10 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms';
+import { NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { CurrentAuthClient, NoCurrentAuthClientError } from '#src/services/auth-client/current';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
@@ -19,12 +21,17 @@ export class ServerUser extends Schema.Class<ServerUser, { readonly brand: uniqu
 
 export const listUsersAtom = AppRuntime.pull(
   Effect.fnUntraced(
-    function* () {
-      const currentAuthClient = yield* CurrentAuthClient;
+    function* (get) {
+      const activeAccountKey = yield* get.result(activeAccountKeyAtom);
+      if (Option.isNone(activeAccountKey)) {
+        return yield* new NoActiveAccountError();
+      }
+      const authClient = yield* acquireAuthClient(activeAccountKey.value);
+
       return Stream.paginate(
         0,
         Effect.fnUntraced(function* (offset) {
-          const data = yield* currentAuthClient.admin.listUsers({
+          const data = yield* authClient.admin.listUsers({
             query: {
               limit: 10,
               offset,
@@ -80,8 +87,8 @@ export const listUsersAtom = AppRuntime.pull(
         id: 'failure',
         label: 'No active account error',
         atom: Atom.writable(
-          (): Atom.PullResult<ServerUser, NoCurrentAuthClientError> =>
-            AsyncResult.fail(new NoCurrentAuthClientError()),
+          (): Atom.PullResult<ServerUser, NoActiveAccountError> =>
+            AsyncResult.fail(new NoActiveAccountError()),
           () => void 0
         ),
       },

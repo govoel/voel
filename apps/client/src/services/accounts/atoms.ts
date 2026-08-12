@@ -1,4 +1,4 @@
-import { Cause, Effect, Equal, Option, Queue, Stream } from 'effect';
+import { Cause, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -33,6 +33,8 @@ export const accountsAtom = AppRuntime.atom(
             active: Account.fields.active.make(0),
             authStorageId: Account.fields.authStorageId.make('predefined-auth-storage'),
             createdAt: 0,
+            email: Account.fields.email.make('alex@example.com'),
+            name: Account.fields.name.make('Alex Reader'),
             profilePicture: null,
             role: Account.fields.role.make('admin'),
             serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
@@ -55,10 +57,26 @@ export const accountsAtom = AppRuntime.atom(
   Atom.withLabel('accountsAtom')
 );
 
-export const activeAccountAtom = AppRuntime.atom(
-  AccountManager.pipe(
-    Effect.map((manager) => manager.changes),
-    Stream.unwrap
+export const activeAccountAtom = AppRuntime.atom((get) =>
+  Stream.switchMap(
+    get.streamResult(activeAccountKeyAtom),
+    Option.match({
+      onNone: () => Stream.make(Option.none()),
+      onSome: ({ authStorageId, serverUrl, userId }) =>
+        MainDatabase.pipe(
+          Effect.flatMap((db) =>
+            db.executeTakeFirstOption(
+              db
+                .selectFrom('account')
+                .where('serverUrl', '=', serverUrl)
+                .where('authStorageId', '=', authStorageId)
+                .where('userId', '=', userId)
+                .selectAll()
+            )
+          ),
+          Reactivity.stream(['account'])
+        ),
+    })
   )
 ).pipe(
   withPredefinedStates(() => [
@@ -74,70 +92,32 @@ export const activeAccountAtom = AppRuntime.atom(
     },
     {
       id: 'failure',
-      label: 'Account manager failure',
+      label: 'Active account database failure',
       atom: Atom.make(() =>
-        AsyncResult.failure<never>(Cause.die(new Error('Predefined active account failure')))
+        AsyncResult.failure<never>(
+          Cause.die(new Error('Predefined active account database failure'))
+        )
       ),
     },
   ]),
   Atom.withLabel('activeAccountAtom')
 );
 
-export const activeAccountSessionAtom = AppRuntime.atom((get) => {
-  const activeAccount = get.streamResult(activeAccountAtom);
-
-  const changes = Stream.changesWith(activeAccount, (previous, next) =>
-    Option.match(previous, {
-      onNone: () => Option.isNone(next),
-      onSome: (previousActiveAccount) =>
-        Option.match(next, {
-          onNone: () => false,
-          onSome: (nextActiveAccount) =>
-            previousActiveAccount.state.authClient === nextActiveAccount.state.authClient,
-        }),
-    })
-  );
-
-  return Stream.switchMap(changes, (newActiveAccount) =>
-    Option.match(newActiveAccount, {
-      onNone: () => Stream.make(Option.none()),
-      onSome: ({ state }) =>
-        Stream.callback<
-          Option.Option<Parameters<Parameters<typeof state.authClient.useSession.subscribe>[0]>[0]>
-        >(
-          Effect.fnUntraced(function* (queue) {
-            const unsubscribe = yield* Effect.sync(() =>
-              state.authClient.useSession.subscribe((session) => {
-                Queue.offerUnsafe(queue, Option.some(session));
-              })
-            );
-
-            yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
-          })
-        ),
-    })
-  );
-}).pipe(
-  withPredefinedStates(() => [
-    {
-      id: 'loading',
-      label: 'Loading',
-      atom: Atom.make(() => AsyncResult.initial(true)),
-    },
-    {
-      id: 'none',
-      label: 'No active account',
-      atom: Atom.make(() => AsyncResult.success(Option.none())),
-    },
-    {
-      id: 'failure',
-      label: 'Session failure',
-      atom: Atom.make(() =>
-        AsyncResult.failure<never>(
-          Cause.die(new Error('Predefined active account session failure'))
+export const activeAccountKeyAtom = AppRuntime.atom(
+  AccountManager.pipe(
+    Effect.map((manager) => manager.changes),
+    Stream.unwrap
+  )
+).pipe(
+  (source) =>
+    AppRuntime.atom((get) =>
+      get
+        .result(source)
+        .pipe(
+          Effect.catchTag('NoSuchElementError', () =>
+            Effect.succeed<Atom.Success<typeof source>>(Option.none())
+          )
         )
-      ),
-    },
-  ]),
-  Atom.withLabel('activeAccountSessionAtom')
+    ),
+  Atom.withLabel('activeAccountKeyAtom')
 );

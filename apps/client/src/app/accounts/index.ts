@@ -49,9 +49,9 @@ export const accountsWithActiveAccount = AppRuntime.atom(
         get.result(accountsAtom),
         get.result(activeAccountAtom).pipe(
           Effect.map(
-            Option.map((a) => ({
-              ...a,
-              account: { ...a.account, hostname: new URL(a.account.serverUrl).hostname },
+            Option.map((account) => ({
+              ...account,
+              hostname: new URL(account.serverUrl).hostname,
             }))
           )
         ),
