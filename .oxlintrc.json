@@ -25,6 +25,7 @@
     "eslint/sort-imports": ["error", { "ignoreDeclarationSort": true }],
     "eslint/max-lines-per-function": "off",
     "eslint/max-statements": "off",
+    "eslint/one-var": "off",
     "eslint/id-length": "off",
     "eslint/complexity": "off",
     "eslint/max-lines": "off",
