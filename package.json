@@ -16,12 +16,12 @@
   },
   "devDependencies": {
     "@effect/language-service": "0.87.2",
-    "agent-browser": "0.33.2",
-    "agent-device": "0.20.6",
+    "agent-browser": "0.34.0",
+    "agent-device": "0.20.8",
     "eslint-plugin-turbo": "2.10.9",
     "opensrc": "0.7.3",
-    "oxfmt": "0.62.0",
-    "oxlint": "1.77.0",
+    "oxfmt": "0.63.0",
+    "oxlint": "1.78.0",
     "oxlint-tsgolint": "0.25.0",
     "turbo": "2.10.9",
     "typescript": "6.0.3"
