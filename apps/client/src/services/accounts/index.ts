@@ -100,7 +100,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         )
         .pipe(
           Effect.map(Option.map(activeAccountKeyFromAccount)),
-          Effect.mapError(() => new AccountDatabaseError())
+          Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
         );
       const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
 
@@ -136,7 +136,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           )
           .pipe(
             Reactivity.mutation(['account']),
-            Effect.mapError(() => new AccountDatabaseError())
+            Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
           );
       });
 
@@ -195,7 +195,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
           )
           .pipe(
             Reactivity.mutation(['account']),
-            Effect.mapError(() => new AccountDatabaseError())
+            Effect.catchTag(
+              ['DatabaseSqlError', 'DatabaseNoSuchElementError'],
+              () => new AccountDatabaseError()
+            )
           );
       });
 
@@ -238,7 +241,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           )
           .pipe(
             Reactivity.mutation(['account']),
-            Effect.mapError(() => new AccountDatabaseError())
+            Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
           );
       });
 
@@ -255,7 +258,12 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
           const signInResult = yield* authClient.signIn
             .username({ username, password: Redacted.value(password) })
-            .pipe(Effect.mapError((error) => new AccountSignInError({ details: error })));
+            .pipe(
+              Effect.catchTag(
+                'BetterAuthError',
+                (error) => new AccountSignInError({ details: error })
+              )
+            );
 
           return yield* upsertAccount({
             account: {
@@ -295,7 +303,12 @@ export class AccountManager extends Context.Service<AccountManager>()(
               username,
               password: Redacted.value(password),
             })
-            .pipe(Effect.mapError((error) => new AccountSignUpError({ details: error })));
+            .pipe(
+              Effect.catchTag(
+                'BetterAuthError',
+                (error) => new AccountSignUpError({ details: error })
+              )
+            );
 
           return yield* upsertAccount({
             account: {

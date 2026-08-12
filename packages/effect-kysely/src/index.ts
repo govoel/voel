@@ -229,7 +229,9 @@ const executeTakeFirstOrError =
   <Q extends AnyQuery>(query: Q) =>
     executeTakeFirstOption(client)(query).pipe(
       Effect.flatMap((result) =>
-        Effect.mapError(Effect.fromOption(result), () => new DatabaseNoSuchElementError())
+        Effect.fromOption(result).pipe(
+          Effect.catchTag('NoSuchElementError', () => new DatabaseNoSuchElementError())
+        )
       )
     );
 
