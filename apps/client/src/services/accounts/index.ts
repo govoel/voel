@@ -90,6 +90,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const xxHash = yield* XxHash;
       const authClientStorageService = yield* AuthClientStorage;
       const authClientMap = yield* AuthClientMap;
+      const reactivity = yield* Reactivity.Reactivity;
 
       const state = db
         .executeTakeFirstOption(
@@ -102,7 +103,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           Effect.map(Option.map(activeAccountKeyFromAccount)),
           Effect.catchTag('DatabaseSqlError', () => AccountDatabaseError.make())
         );
-      const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
+      const changes = reactivity.stream(['account'], state).pipe(Stream.changes);
 
       const setActiveAccount = Effect.fnUntraced(function* ({
         serverUrl,
@@ -135,7 +136,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             })
           )
           .pipe(
-            Reactivity.mutation(['account']),
+            (effect) => reactivity.mutation(['account'], effect),
             Effect.catchTag('DatabaseSqlError', () => AccountDatabaseError.make())
           );
       });
@@ -194,7 +195,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             })
           )
           .pipe(
-            Reactivity.mutation(['account']),
+            (effect) => reactivity.mutation(['account'], effect),
             Effect.catchTag(['DatabaseSqlError', 'DatabaseNoSuchElementError'], () =>
               AccountDatabaseError.make()
             )
@@ -239,7 +240,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
               .where('userId', '=', activeAccount.value.userId)
           )
           .pipe(
-            Reactivity.mutation(['account']),
+            (effect) => reactivity.mutation(['account'], effect),
             Effect.catchTag('DatabaseSqlError', () => AccountDatabaseError.make())
           );
       });

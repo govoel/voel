@@ -11,8 +11,7 @@ import { MainDatabase } from '#src/services/database/main/index.ts';
 export const CommonGlobalLayers = Layer.mergeAll(
   AccountManager.layer,
   AuthClientMap.layer,
-  FetchHttpClient.layer,
-  Reactivity.layer
+  FetchHttpClient.layer
 );
 
 export const CommonGlobalLayersNoDeps = AccountManager.layerNoDeps.pipe(
