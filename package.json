@@ -12,14 +12,9 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "build": "turbo run build",
-    "clean": "find . \\( -type d -name node_modules -o -type d -name .turbo \\) -prune -exec rm -rf -- {} \\;",
-    "changeset": "changeset",
-    "release:version": "changeset version",
-    "release:tag": "changeset tag"
+    "clean": "find . \\( -type d -name node_modules -o -type d -name .turbo \\) -prune -exec rm -rf -- {} \\;"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "0.7.0",
-    "@changesets/cli": "2.31.1",
     "@effect/language-service": "0.87.2",
     "agent-browser": "0.33.2",
     "agent-device": "0.20.6",
