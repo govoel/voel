@@ -2,11 +2,11 @@ import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountKeyAtom, activeAccountSessionAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { NoActiveAccountError, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
-import { AccountRole } from '#src/services/database/main/schema.ts';
+import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export class UserProfileUpdateInput extends Schema.Class<
@@ -17,37 +17,20 @@ export class UserProfileUpdateInput extends Schema.Class<
   username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
 }) {}
 
-export const activeUserProfileAtom = Atom.make((get) =>
-  AsyncResult.flatMap(
-    get(activeAccountKeyAtom),
-    Option.match({
-      onNone: () => AsyncResult.success(Option.none()),
-      onSome: () =>
-        AsyncResult.flatMap(get(activeAccountSessionAtom), (session, sessionResult) =>
-          Option.match(session, {
-            onNone: () =>
-              sessionResult.waiting
-                ? AsyncResult.initial(true)
-                : AsyncResult.fail('ActiveUserProfileUnavailable' as const),
-            onSome: ({ user }) => {
-              const id: string = user.id;
-              const username: string = user.username;
-              return AsyncResult.success(
-                Option.some({
-                  email: user.email,
-                  id,
-                  name: user.name,
-                  role: AccountRole.formatFromNullishString(user.role),
-                  username,
-                }),
-                { waiting: sessionResult.waiting }
-              );
-            },
-          })
-        ),
-    })
-  )
-).pipe(
+export const activeUserProfileAtom = activeAccountAtom.pipe(
+  Atom.map((result) =>
+    result.pipe(
+      AsyncResult.map(
+        Option.map(({ email, name, role, userId, username }) => ({
+          email,
+          id: userId,
+          name,
+          role,
+          username,
+        }))
+      )
+    )
+  ),
   withPredefinedStates(() => [
     {
       id: 'loading',
@@ -65,19 +48,14 @@ export const activeUserProfileAtom = Atom.make((get) =>
       atom: Atom.make(() =>
         AsyncResult.success(
           Option.some({
-            email: 'reader@example.com',
-            id: 'predefined-user',
-            name: 'Alex Reader',
-            role: 'Admin' as const,
-            username: 'alex',
+            email: Account.fields.email.make('reader@example.com'),
+            id: Account.fields.userId.make('predefined-user'),
+            name: Account.fields.name.make('Alex Reader'),
+            role: Account.fields.role.make('admin'),
+            username: Account.fields.username.make('alex'),
           })
         )
       ),
-    },
-    {
-      id: 'unavailable',
-      label: 'Unavailable profile',
-      atom: Atom.make(() => AsyncResult.fail('ActiveUserProfileUnavailable' as const)),
     },
   ]),
   Atom.withLabel('activeUserProfileAtom')

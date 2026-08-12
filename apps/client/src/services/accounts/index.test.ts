@@ -105,6 +105,8 @@ describe('AccountManager', () => {
             serverUrl,
             userId: username,
             username,
+            name: 'Restored User',
+            email: 'restored@example.test',
             authStorageId,
             role: 'user',
             active: Account.fields.active.make(1),
@@ -210,7 +212,14 @@ describe('AccountManager', () => {
             serverUrl,
           });
           expect(yield* getAccounts).toMatchObject([
-            { serverUrl, username, role: 'admin', active: 1 },
+            {
+              serverUrl,
+              username,
+              name: 'Test User',
+              email: `${username}@voel.app`,
+              role: 'admin',
+              active: 1,
+            },
           ]);
 
           yield* Effect.gen(function* () {
@@ -246,7 +255,16 @@ describe('AccountManager', () => {
             serverUrl,
           });
           const accounts = yield* getAccounts;
-          expect(accounts).toMatchObject([{ serverUrl, username, role: 'admin', active: 1 }]);
+          expect(accounts).toMatchObject([
+            {
+              serverUrl,
+              username,
+              name: 'Test Admin',
+              email: `${username}@voel.app`,
+              role: 'admin',
+              active: 1,
+            },
+          ]);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
@@ -285,6 +303,8 @@ describe('AccountManager', () => {
             serverUrl,
             userId: activeAccountKey.userId,
             username: updatedUsername,
+            name: 'Test Admin',
+            email: `${username}@voel.app`,
             authStorageId: activeAccountKey.authStorageId,
             role: 'admin',
             profilePicture,
@@ -295,6 +315,8 @@ describe('AccountManager', () => {
               serverUrl,
               userId: activeAccountKey.userId,
               username: updatedUsername,
+              name: 'Test Admin',
+              email: `${username}@voel.app`,
               authStorageId: activeAccountKey.authStorageId,
               role: 'admin',
               profilePicture,
@@ -361,7 +383,10 @@ describe('AccountManager', () => {
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState);
-          expect(synchronizedAccount.username).toBe(updatedUsername);
+          expect(synchronizedAccount).toMatchObject({
+            name: 'Updated Admin',
+            username: updatedUsername,
+          });
           const session = Option.getOrThrow(
             Option.flatten(AsyncResult.value(yield* authClient.getSession()))
           );
@@ -370,7 +395,12 @@ describe('AccountManager', () => {
             username: updatedUsername,
           });
           expect(yield* getAccounts).toEqual(
-            expect.arrayContaining([expect.objectContaining({ username: updatedUsername })])
+            expect.arrayContaining([
+              expect.objectContaining({
+                name: 'Updated Admin',
+                username: updatedUsername,
+              }),
+            ])
           );
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))

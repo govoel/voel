@@ -56,6 +56,16 @@ export class Account extends Model.Class<Account>('voel/services/database/main/s
     insert: Schema.String,
     update: Schema.String,
   }),
+  name: Model.Field({
+    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/name')),
+    insert: Schema.String,
+    update: Schema.String,
+  }),
+  email: Model.Field({
+    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/email')),
+    insert: Schema.String,
+    update: Schema.String,
+  }),
   authStorageId: Model.Field({
     select: Schema.String.pipe(
       Schema.brand('voel/services/database/main/schema/Account/authStorageId')
@@ -71,7 +81,9 @@ export class Account extends Model.Class<Account>('voel/services/database/main/s
     update: AccountRole.fields.value,
   }),
   profilePicture: Model.Field({
-    select: Schema.NullOr(Schema.String),
+    select: Schema.NullOr(
+      Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/profilePicture'))
+    ),
     insert: Schema.NullOr(Schema.String),
     update: Schema.NullOr(Schema.String),
   }),

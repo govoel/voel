@@ -109,10 +109,10 @@ class AuthClientSession extends Schema.Class<AuthClientSession, { readonly brand
   'voel/services/auth-client/index/AuthClientSession'
 )({
   user: Schema.Struct({
-    email: Schema.String,
+    email: Account.fields.email,
     id: Account.fields.userId,
-    image: Schema.NullishOr(Schema.String),
-    name: Schema.String,
+    image: Account.fields.profilePicture,
+    name: Account.fields.name,
     role: Schema.String.pipe(
       Schema.decodeTo(Account.fields.role, {
         decode: SchemaGetter.transform((role) =>
@@ -249,6 +249,8 @@ export class AuthClient extends Context.Service<AuthClient>()(
 
               if (
                 account.value.username === session.value.value.user.username &&
+                account.value.name === session.value.value.user.name &&
+                account.value.email === session.value.value.user.email &&
                 account.value.role === session.value.value.user.role &&
                 account.value.profilePicture === session.value.value.user.image
               ) {
@@ -261,6 +263,8 @@ export class AuthClient extends Context.Service<AuthClient>()(
                     .updateTable('account')
                     .set({
                       username: session.value.value.user.username,
+                      name: session.value.value.user.name,
+                      email: session.value.value.user.email,
                       role: session.value.value.user.role,
                       profilePicture: session.value.value.user.image,
                     })

@@ -169,7 +169,14 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: {
         readonly account: Pick<
           Insertable<AccountTable>,
-          'serverUrl' | 'userId' | 'username' | 'authStorageId' | 'role' | 'profilePicture'
+          | 'serverUrl'
+          | 'userId'
+          | 'username'
+          | 'name'
+          | 'email'
+          | 'authStorageId'
+          | 'role'
+          | 'profilePicture'
         >;
       }) {
         const activeAccount = yield* db
@@ -183,6 +190,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   .onConflict((oc) =>
                     oc.columns(['serverUrl', 'userId']).doUpdateSet({
                       username: account.username,
+                      name: account.name,
+                      email: account.email,
                       authStorageId: account.authStorageId,
                       role: account.role,
                       profilePicture: account.profilePicture,
@@ -283,6 +292,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
             serverUrl,
             userId: signInResult.user.id,
             username: signInResult.user.username ?? username,
+            name: signInResult.user.name,
+            email: signInResult.user.email,
             authStorageId,
             role: AccountRole.decodeSyncFromNullishString(signInResult.user.role).value,
             profilePicture: signInResult.user.image ?? null,
@@ -317,6 +328,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
             serverUrl,
             userId: signUpResult.user.id,
             username: signUpResult.user.username ?? username,
+            name: signUpResult.user.name,
+            email: signUpResult.user.email,
             authStorageId,
             role: AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value,
             profilePicture: signUpResult.user.image ?? null,
