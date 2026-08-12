@@ -3,7 +3,7 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { accountsAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { acquireAuthClient } from '#src/services/auth-client';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export type AccountsSheet = Data.TaggedEnum<{

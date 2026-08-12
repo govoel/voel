@@ -2,11 +2,12 @@ import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { NoActiveAccountError, acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
-import { Account } from '#src/services/database/main/schema.ts';
+import { Account, AccountRole } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export class UserProfileUpdateInput extends Schema.Class<
@@ -25,7 +26,7 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
           email,
           id: userId,
           name,
-          role,
+          role: AccountRole.formatFromNullishString(role),
           username,
         }))
       )
@@ -51,7 +52,7 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
             email: Account.fields.email.make('reader@example.com'),
             id: Account.fields.userId.make('predefined-user'),
             name: Account.fields.name.make('Alex Reader'),
-            role: Account.fields.role.make('admin'),
+            role: AccountRole.formatFromNullishString('admin'),
             username: Account.fields.username.make('alex'),
           })
         )
@@ -62,8 +63,8 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
 );
 
 const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['updateUser']>[0]>()(
-  Effect.fnUntraced(function* (input, get) {
-    const activeAccountKey = yield* get.result(activeAccountKeyAtom);
+  Effect.fnUntraced(function* (input) {
+    const activeAccountKey = yield* AccountManager.use((manager) => manager.state);
 
     if (Option.isNone(activeAccountKey)) {
       return yield* new NoActiveAccountError();

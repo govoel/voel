@@ -1,15 +1,4 @@
-import {
-  Context,
-  Data,
-  Effect,
-  Equal,
-  Layer,
-  Option,
-  Random,
-  Redacted,
-  Schema,
-  SubscriptionRef,
-} from 'effect';
+import { Context, Data, Effect, Layer, Option, Random, Redacted, Schema, Stream } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 
 import type { Insertable, Selectable } from '@repo/effect-kysely';
@@ -57,13 +46,6 @@ export class AccountSignUpError extends Schema.TaggedError<
   details: BetterAuthError,
 }) {}
 
-export class AccountSignOutError extends Schema.TaggedError<
-  AccountSignOutError,
-  { readonly brand: unique symbol }
->('voel/services/accounts/index/AccountSignOutError')('AccountSignOutError', {
-  details: BetterAuthError,
-}) {}
-
 export class AccountDatabaseError extends Schema.TaggedError<
   AccountDatabaseError,
   { readonly brand: unique symbol }
@@ -77,7 +59,12 @@ export class AccountNotFoundError extends Schema.TaggedError<
   userId: Schema.String,
 }) {}
 
-class ActiveAccountKey extends Data.Class<
+export class NoActiveAccountError extends Schema.TaggedError<
+  NoActiveAccountError,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/index/NoActiveAccountError')('NoActiveAccountError', {}) {}
+
+export class ActiveAccountKey extends Data.Class<
   Pick<Selectable<AccountTable>, 'serverUrl' | 'userId' | 'authStorageId'>
 > {}
 
@@ -99,39 +86,24 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const xxHash = yield* XxHash;
       const authClientStorageService = yield* AuthClientStorage;
 
-      const stateRef = yield* SubscriptionRef.make(Option.none<ActiveAccountKey>());
-
-      const initializeActiveAccountState = ({
-        activeAccount,
-      }: {
-        readonly activeAccount: Selectable<AccountTable>;
-      }) =>
-        SubscriptionRef.modifySome(stateRef, (state) => {
-          const key = activeAccountKeyFromAccount(activeAccount);
-          if (Option.isSome(state) && Equal.equals(state.value, key)) {
-            return [void 0, Option.none()] as const;
-          }
-
-          return [void 0, Option.some(Option.some(key))] as const;
-        });
-
-      const storedActiveAccount = yield* db.executeTakeFirstOption(
-        db
-          .selectFrom('account')
-          .where('account.active', '=', Account.fields.active.make(1))
-          .selectAll()
-      );
-      if (Option.isSome(storedActiveAccount)) {
-        yield* initializeActiveAccountState({
-          activeAccount: storedActiveAccount.value,
-        });
-      }
+      const state = db
+        .executeTakeFirstOption(
+          db
+            .selectFrom('account')
+            .where('account.active', '=', Account.fields.active.make(1))
+            .selectAll()
+        )
+        .pipe(
+          Effect.map(Option.map(activeAccountKeyFromAccount)),
+          Effect.mapError(() => new AccountDatabaseError())
+        );
+      const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
 
       const setActiveAccount = Effect.fnUntraced(function* ({
         serverUrl,
         userId,
       }: Pick<Selectable<AccountTable>, 'serverUrl' | 'userId'>) {
-        const activeAccount = yield* db
+        yield* db
           .trx()
           .execute(
             Effect.fnUntraced(function* (trx) {
@@ -157,11 +129,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
               return persistedAccount.value;
             })
           )
-          .pipe(Reactivity.mutation(['account']));
-
-        return yield* initializeActiveAccountState({
-          activeAccount,
-        });
+          .pipe(
+            Reactivity.mutation(['account']),
+            Effect.mapError(() => new AccountDatabaseError())
+          );
       });
 
       const upsertAccount = Effect.fnUntraced(function* ({
@@ -179,7 +150,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           | 'profilePicture'
         >;
       }) {
-        const activeAccount = yield* db
+        yield* db
           .trx()
           .execute(
             Effect.fnUntraced(function* (trx) {
@@ -221,57 +192,49 @@ export class AccountManager extends Context.Service<AccountManager>()(
             Reactivity.mutation(['account']),
             Effect.mapError(() => new AccountDatabaseError())
           );
-
-        return yield* initializeActiveAccountState({
-          activeAccount,
-        });
       });
 
-      const removeActiveAccount = SubscriptionRef.modifyEffect(
-        stateRef,
-        Effect.fnUntraced(function* (state) {
-          if (Option.isNone(state)) {
-            return [void 0, state] as const;
-          }
+      const removeActiveAccount = Effect.gen(function* () {
+        const activeAccount = yield* state;
+        if (Option.isNone(activeAccount)) {
+          return;
+        }
 
-          // we ignore errors here because the server may be offline
-          // which causes better-auth to throw
-          yield* acquireAuthClient(state.value).pipe(
-            Effect.flatMap((authClient) => authClient.signOut()),
-            Effect.ignore,
-            Effect.scoped
+        // we ignore errors here because the server may be offline
+        // which causes better-auth to throw
+        yield* acquireAuthClient(activeAccount.value).pipe(
+          Effect.flatMap((authClient) => authClient.signOut()),
+          Effect.ignore,
+          Effect.scoped
+        );
+
+        // mimick better-auth and remove the auth storage items for this account
+        const storagePrefix = yield* xxHash.hash128(
+          makeAuthStorageKey({
+            serverUrl: activeAccount.value.serverUrl,
+            authStorageId: activeAccount.value.authStorageId,
+          })
+        );
+        yield* Effect.all(
+          [
+            authClientStorageService.removeItem(`${storagePrefix}_cookie`),
+            authClientStorageService.removeItem(`${storagePrefix}_session_data`),
+          ],
+          { concurrency: 'unbounded' }
+        );
+
+        yield* db
+          .execute(
+            db
+              .deleteFrom('account')
+              .where('serverUrl', '=', activeAccount.value.serverUrl)
+              .where('userId', '=', activeAccount.value.userId)
+          )
+          .pipe(
+            Reactivity.mutation(['account']),
+            Effect.mapError(() => new AccountDatabaseError())
           );
-
-          // mimick better-auth and remove the auth storage items for this account
-          const storagePrefix = yield* xxHash.hash128(
-            makeAuthStorageKey({
-              serverUrl: state.value.serverUrl,
-              authStorageId: state.value.authStorageId,
-            })
-          );
-          yield* Effect.all(
-            [
-              authClientStorageService.removeItem(`${storagePrefix}_cookie`),
-              authClientStorageService.removeItem(`${storagePrefix}_session_data`),
-            ],
-            { concurrency: 'unbounded' }
-          );
-
-          yield* db
-            .execute(
-              db
-                .deleteFrom('account')
-                .where('serverUrl', '=', state.value.serverUrl)
-                .where('userId', '=', state.value.userId)
-            )
-            .pipe(
-              Reactivity.mutation(['account']),
-              Effect.mapError(() => new AccountDatabaseError())
-            );
-
-          return [void 0, Option.none()] as const;
-        })
-      );
+      });
 
       const signInAccount = Effect.fnUntraced(function* ({
         serverUrl,
@@ -338,8 +301,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }, Effect.scoped);
 
       return {
-        changes: SubscriptionRef.changes(stateRef),
-        state: SubscriptionRef.get(stateRef),
+        changes,
+        state,
         setActiveAccount,
         removeActiveAccount,
         signInAccount,

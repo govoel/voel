@@ -166,7 +166,6 @@ export class AuthClient extends Context.Service<AuthClient>()(
       const runSync = Effect.runSyncWith(yield* Effect.context());
       const storage = yield* AuthClientStorage;
       const xxHash = yield* XxHash;
-      const db = yield* MainDatabase;
 
       const authClientStorage = {
         getItem: (key) => runSync(storage.getItem(key).pipe(Effect.map(Option.getOrNull))),
@@ -227,65 +226,6 @@ export class AuthClient extends Context.Service<AuthClient>()(
       const listUsers = (input: Parameters<VoelAuthClient['admin']['listUsers']>[0]) =>
         executeAuthClientRequest(async () => client.admin.listUsers(input));
 
-      yield* SubscriptionRef.changes(sessionState).pipe(
-        Stream.runForEach(
-          Effect.fnUntraced(
-            function* (session) {
-              if (!AsyncResult.isSuccess(session) || Option.isNone(session.value)) {
-                return;
-              }
-
-              const account = yield* db.executeTakeFirstOption(
-                db
-                  .selectFrom('account')
-                  .where('serverUrl', '=', serverUrl)
-                  .where('userId', '=', session.value.value.user.id)
-                  .where('authStorageId', '=', authStorageId)
-                  .selectAll()
-              );
-              if (Option.isNone(account)) {
-                return;
-              }
-
-              if (
-                account.value.username === session.value.value.user.username &&
-                account.value.name === session.value.value.user.name &&
-                account.value.email === session.value.value.user.email &&
-                account.value.role === session.value.value.user.role &&
-                account.value.profilePicture === session.value.value.user.image
-              ) {
-                return;
-              }
-
-              yield* db
-                .executeTakeFirstOption(
-                  db
-                    .updateTable('account')
-                    .set({
-                      username: session.value.value.user.username,
-                      name: session.value.value.user.name,
-                      email: session.value.value.user.email,
-                      role: session.value.value.user.role,
-                      profilePicture: session.value.value.user.image,
-                    })
-                    .where('serverUrl', '=', serverUrl)
-                    .where('userId', '=', session.value.value.user.id)
-                    .where('authStorageId', '=', authStorageId)
-                    .returningAll()
-                )
-                .pipe(Reactivity.mutation(['account']));
-            },
-            (effect) =>
-              effect.pipe(
-                Effect.catchTag('DatabaseSqlError', (error) =>
-                  Effect.logError('Failed to synchronize account from session', error)
-                )
-              )
-          )
-        ),
-        Effect.forkScoped({ startImmediately: true })
-      );
-
       return {
         sessionChanges: SubscriptionRef.changes(sessionState),
 
@@ -304,19 +244,85 @@ export class AuthClient extends Context.Service<AuthClient>()(
   public static readonly layer = (key: AuthClientKey) => Layer.effect(this, this.make(key));
 }
 
+const synchronizeAccountFromSession = Effect.fnUntraced(function* (
+  key: AuthClientKey,
+  authClient: AuthClient['Service']
+) {
+  const db = yield* MainDatabase;
+
+  yield* authClient.sessionChanges.pipe(
+    Stream.runForEach(
+      Effect.fnUntraced(
+        function* (session) {
+          if (!AsyncResult.isSuccess(session) || Option.isNone(session.value)) {
+            return;
+          }
+
+          const { user } = session.value.value;
+          const userId = Account.fields.userId.make(user.id);
+          const account = yield* db.executeTakeFirstOption(
+            db
+              .selectFrom('account')
+              .where('serverUrl', '=', key.serverUrl)
+              .where('userId', '=', userId)
+              .where('authStorageId', '=', key.authStorageId)
+              .selectAll()
+          );
+          if (Option.isNone(account)) {
+            return;
+          }
+
+          if (
+            account.value.username === user.username &&
+            account.value.name === user.name &&
+            account.value.email === user.email &&
+            account.value.role === user.role &&
+            account.value.profilePicture === user.image
+          ) {
+            return;
+          }
+
+          yield* db
+            .executeTakeFirstOption(
+              db
+                .updateTable('account')
+                .set({
+                  username: user.username,
+                  name: user.name,
+                  email: user.email,
+                  role: user.role,
+                  profilePicture: user.image,
+                })
+                .where('serverUrl', '=', key.serverUrl)
+                .where('userId', '=', userId)
+                .where('authStorageId', '=', key.authStorageId)
+                .returningAll()
+            )
+            .pipe(Reactivity.mutation(['account']));
+        },
+        (effect) =>
+          effect.pipe(
+            Effect.catchTag('DatabaseSqlError', (error) =>
+              Effect.logError('Failed to synchronize account from session', error)
+            )
+          )
+      )
+    ),
+    Effect.forkScoped({ startImmediately: true })
+  );
+});
+
 export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   'voel/services/auth-client/index/AuthClientMap',
   {
-    lookup: AuthClient.layer,
+    lookup: (key: AuthClientKey) =>
+      AuthClient.layer(key).pipe(
+        Layer.tap((context) => synchronizeAccountFromSession(key, Context.get(context, AuthClient)))
+      ),
   }
 ) {}
 
 export const acquireAuthClient = (key: {
-  authStorageId: AuthClientKey['authStorageId'];
-  serverUrl: AuthClientKey['serverUrl'];
+  readonly authStorageId: AuthClientKey['authStorageId'];
+  readonly serverUrl: AuthClientKey['serverUrl'];
 }) => AuthClientMap.contextEffect(new AuthClientKey(key)).pipe(Effect.map(Context.get(AuthClient)));
-
-export class NoActiveAccountError extends Schema.TaggedError<
-  NoActiveAccountError,
-  { readonly brand: unique symbol }
->('voel/services/auth-client/index/NoActiveAccountError')('NoActiveAccountError', {}) {}

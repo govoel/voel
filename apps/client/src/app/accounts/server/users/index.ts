@@ -2,8 +2,9 @@ import { Effect, Option, Schema, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms';
+import { NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { NoActiveAccountError, acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
