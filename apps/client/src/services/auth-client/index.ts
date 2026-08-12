@@ -198,21 +198,21 @@ export class AuthClient extends Context.Service<AuthClient>()(
         (unsubscribe) => Effect.sync(unsubscribe)
       );
 
-      const getCookie = () =>
-        Effect.sync(() => Option.liftPredicate(client.getCookie(), String.isNonEmpty));
+      const getCookie = Effect.sync(() =>
+        Option.liftPredicate(client.getCookie(), String.isNonEmpty)
+      );
 
-      const getSession = () => SubscriptionRef.get(sessionState);
+      const getSession = SubscriptionRef.get(sessionState);
 
-      const refreshSession = () =>
-        Effect.tryPromise({
-          try: async () =>
-            client.useSession.get().refetch({
-              query: { disableCookieCache: true },
-            }),
-          catch: BetterAuthError.decodeFromUnknown,
-        });
+      const refreshSession = Effect.tryPromise({
+        try: async () =>
+          client.useSession.get().refetch({
+            query: { disableCookieCache: true },
+          }),
+        catch: BetterAuthError.decodeFromUnknown,
+      });
 
-      const signOut = () => executeAuthClientRequest(async () => client.signOut());
+      const signOut = executeAuthClientRequest(async () => client.signOut());
 
       const signInUsername = (input: Parameters<VoelAuthClient['signIn']['username']>[0]) =>
         executeAuthClientRequest(async () => client.signIn.username(input));

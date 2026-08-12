@@ -147,7 +147,7 @@ export const agentToolHandlers: ReadonlyArray<{
     },
     execute: () =>
       AtomDevTools.pipe(
-        Effect.flatMap(({ clearAllPredefinedStates }) => clearAllPredefinedStates()),
+        Effect.flatMap(({ clearAllPredefinedStates }) => clearAllPredefinedStates),
         Effect.as({ cleared: true } as const)
       ),
   },

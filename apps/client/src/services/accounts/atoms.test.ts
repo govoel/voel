@@ -93,7 +93,7 @@ const makeAccountsAtomsTestLayer = () =>
   TestAccountsAtomsLayer.pipe(Layer.provideMerge(makeClientTestLayers()));
 
 const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
-  const session = yield* authClient.getSession();
+  const session = yield* authClient.getSession;
   if (!session.waiting) {
     return;
   }
@@ -256,7 +256,7 @@ describe('accountsSheetAtom', () => {
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
           const authClient = yield* acquireAuthClient(activeAccount);
-          expect(yield* authClient.getSession()).toMatchObject({
+          expect(yield* authClient.getSession).toMatchObject({
             _tag: 'Initial',
             waiting: true,
           });
@@ -311,9 +311,9 @@ describe('accountsSheetAtom', () => {
           const authClient = yield* acquireAuthClient(activeAccount);
 
           yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
-          yield* authClient.refreshSession();
+          yield* authClient.refreshSession;
 
-          const failedSession = yield* authClient.getSession();
+          const failedSession = yield* authClient.getSession;
           expect(failedSession).toMatchObject({ _tag: 'Failure', waiting: false });
           expect(Option.isSome(AsyncResult.error(failedSession))).toBe(true);
 
@@ -335,7 +335,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
       function* () {
         const { drainAtomTasks } = yield* AtomTaskScheduler;
         const manager = yield* AccountManager;
-        const serverUrl = yield* makeServerUrl();
+        const serverUrl = yield* makeServerUrl;
         const username = yield* makeUsername('test.admin');
 
         yield* manager.setupServerWithAccount({
@@ -349,7 +349,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         const activeAccount = Option.getOrThrow(yield* manager.state);
         const authClient = yield* acquireAuthClient(activeAccount);
         yield* waitForSessionRequest(authClient);
-        const validSession = yield* authClient.getSession();
+        const validSession = yield* authClient.getSession;
         expect(validSession).toMatchObject({ _tag: 'Success', waiting: false });
         expect(Option.isSome(Option.flatten(AsyncResult.value(validSession)))).toBe(true);
 
@@ -368,7 +368,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
       function* () {
         const { drainAtomTasks } = yield* AtomTaskScheduler;
         const manager = yield* AccountManager;
-        const serverUrl = yield* makeServerUrl();
+        const serverUrl = yield* makeServerUrl;
         const username = yield* makeUsername('test.admin');
 
         yield* manager.setupServerWithAccount({
@@ -385,7 +385,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         yield* Effect.yieldNow;
         yield* drainAtomTasks;
 
-        const revokeResult = yield* authClient.signOut();
+        const revokeResult = yield* authClient.signOut;
         expect(revokeResult).toEqual({ success: true });
 
         const invalidSessionFiber = yield* authClient.sessionChanges.pipe(
@@ -396,7 +396,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
           Stream.runHead,
           Effect.forkChild
         );
-        yield* authClient.refreshSession();
+        yield* authClient.refreshSession;
         yield* Fiber.join(invalidSessionFiber);
 
         yield* Effect.yieldNow;
@@ -438,8 +438,8 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
         });
         const secondClient = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
         yield* waitForSessionRequest(secondClient);
-        yield* secondClient.signOut();
-        yield* secondClient.refreshSession();
+        yield* secondClient.signOut;
+        yield* secondClient.refreshSession;
 
         yield* Effect.yieldNow;
         yield* drainAtomTasks;
@@ -571,7 +571,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('activeAccountAtom', (iit) => {
     Effect.fnUntraced(
       function* () {
         const { drainAtomTasks } = yield* AtomTaskScheduler;
-        const serverUrl = yield* makeServerUrl();
+        const serverUrl = yield* makeServerUrl;
 
         const manager = yield* AccountManager;
         yield* Atom.mount(activeAccountAtom);

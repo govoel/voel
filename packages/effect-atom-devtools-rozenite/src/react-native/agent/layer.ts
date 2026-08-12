@@ -42,11 +42,9 @@ const AgentToolsRegistrationLive = Layer.effectDiscard(
     );
     const incomingMessages = yield* Queue.unbounded<IncomingAgentMessage>();
 
-    const registerAgentTools = Effect.fnUntraced(function* () {
-      yield* Effect.sync(() => {
-        agentClient.send('register-tool', {
-          tools: agentToolHandlers.map(({ tool }) => tool),
-        });
+    const registerAgentTools = Effect.sync(() => {
+      agentClient.send('register-tool', {
+        tools: agentToolHandlers.map(({ tool }) => tool),
       });
     });
 
@@ -73,7 +71,7 @@ const AgentToolsRegistrationLive = Layer.effectDiscard(
     const handleAgentMessage = Effect.fnUntraced(function* (message: IncomingAgentMessage) {
       return yield* Match.value(message).pipe(
         Match.tagsExhaustive({
-          SessionReady: () => registerAgentTools(),
+          SessionReady: () => registerAgentTools,
           ToolCall: ({ payload }) => {
             const handler = Array.findFirst(
               agentToolHandlers,
@@ -109,7 +107,7 @@ const AgentToolsRegistrationLive = Layer.effectDiscard(
       );
     });
 
-    yield* registerAgentTools();
+    yield* registerAgentTools;
     yield* Stream.fromQueue(incomingMessages).pipe(
       Stream.mapEffect(handleAgentMessage, { concurrency: 'unbounded', unordered: true }),
       Stream.runDrain,

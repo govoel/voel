@@ -211,7 +211,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         // we ignore errors here because the server may be offline
         // which causes better-auth to throw
         yield* acquireAuthClient(activeAccount.value).pipe(
-          Effect.flatMap((authClient) => authClient.signOut()),
+          Effect.flatMap((authClient) => authClient.signOut),
           Effect.ignore,
           Effect.scoped,
           Effect.provideService(AuthClientMap, authClientMap)

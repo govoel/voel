@@ -31,7 +31,7 @@ const getActiveAccount = MainDatabase.pipe(
   )
 );
 
-const forkNextActiveAccountChange = Effect.fnUntraced(function* () {
+const forkNextActiveAccountChange = Effect.gen(function* () {
   const db = yield* MainDatabase;
   const subscribed = yield* Deferred.make<true>();
   const fiber = yield* db
@@ -50,7 +50,7 @@ const forkNextActiveAccountChange = Effect.fnUntraced(function* () {
 });
 
 const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
-  const session = yield* authClient.getSession();
+  const session = yield* authClient.getSession;
   if (!session.waiting) {
     return;
   }
@@ -142,7 +142,7 @@ describe('AccountManager', () => {
       'persists auth cookies through AuthClientStorage',
       Effect.fnUntraced(
         function* () {
-          const serverUrl = yield* makeServerUrl();
+          const serverUrl = yield* makeServerUrl;
           const username = yield* makeUsername('test.admin');
           const password = Redacted.make('ha!niceTry');
           const manager = yield* AccountManager;
@@ -178,7 +178,7 @@ describe('AccountManager', () => {
               storedCookie.valueOrUndefined
             );
             const authClient = yield* acquireAuthClient(Option.getOrThrow(activeAccount));
-            const cookie = yield* authClient.getCookie();
+            const cookie = yield* authClient.getCookie;
             expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
@@ -192,7 +192,7 @@ describe('AccountManager', () => {
       'signInAccount signs in, persists the account, and activates it',
       Effect.fnUntraced(
         function* () {
-          const serverUrl = yield* makeServerUrl();
+          const serverUrl = yield* makeServerUrl;
           const username = yield* makeUsername();
           const password = Redacted.make('ha!niceTry');
           const manager = yield* AccountManager;
@@ -239,7 +239,7 @@ describe('AccountManager', () => {
       'setupServerWithAccount signs up, persists the account, and activates it',
       Effect.fnUntraced(
         function* () {
-          const serverUrl = yield* makeServerUrl();
+          const serverUrl = yield* makeServerUrl;
           const username = yield* makeUsername('test.admin');
           const manager = yield* AccountManager;
 
@@ -274,7 +274,7 @@ describe('AccountManager', () => {
       'synchronizes profile metadata while preserving auth storage across a username change',
       Effect.fnUntraced(
         function* () {
-          const serverUrl = yield* makeServerUrl();
+          const serverUrl = yield* makeServerUrl;
           const username = yield* makeUsername('test.admin');
           const updatedUsername = yield* makeUsername('updated.admin');
           const profilePicture = 'https://voel.app/profile.png';
@@ -289,7 +289,7 @@ describe('AccountManager', () => {
           });
 
           const activeAccountKey = Option.getOrThrow(yield* manager.state);
-          const nextAccountChange = yield* forkNextActiveAccountChange();
+          const nextAccountChange = yield* forkNextActiveAccountChange;
           const authClient = yield* acquireAuthClient(activeAccountKey);
           yield* authClient.updateUser({
             username: updatedUsername,
@@ -346,7 +346,7 @@ describe('AccountManager', () => {
               username: updatedUsername,
             });
             const restoredAuthClient = yield* acquireAuthClient(restoredAccount);
-            const cookie = yield* restoredAuthClient.getCookie();
+            const cookie = yield* restoredAuthClient.getCookie;
             expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
             );
@@ -360,7 +360,7 @@ describe('AccountManager', () => {
       'updates the active user profile',
       Effect.fnUntraced(
         function* () {
-          const serverUrl = yield* makeServerUrl();
+          const serverUrl = yield* makeServerUrl;
           const username = yield* makeUsername('test.admin');
           const updatedUsername = yield* makeUsername('updated.admin');
           const manager = yield* AccountManager;
@@ -373,7 +373,7 @@ describe('AccountManager', () => {
             password: Redacted.make('ha!niceTry'),
           });
 
-          const nextAccountChange = yield* forkNextActiveAccountChange();
+          const nextAccountChange = yield* forkNextActiveAccountChange;
           const activeAccountKey = Option.getOrThrow(yield* manager.state);
           const authClient = yield* acquireAuthClient(activeAccountKey);
           yield* authClient.updateUser({
@@ -388,7 +388,7 @@ describe('AccountManager', () => {
             username: updatedUsername,
           });
           const session = Option.getOrThrow(
-            Option.flatten(AsyncResult.value(yield* authClient.getSession()))
+            Option.flatten(AsyncResult.value(yield* authClient.getSession))
           );
           expect(session.user).toMatchObject({
             name: 'Updated Admin',
@@ -444,8 +444,8 @@ describe('AccountManager', () => {
           );
           expect(roleResult.error).toBeNull();
 
-          const nextAccountChange = yield* forkNextActiveAccountChange();
-          yield* authClient.refreshSession();
+          const nextAccountChange = yield* forkNextActiveAccountChange;
+          yield* authClient.refreshSession;
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState);
