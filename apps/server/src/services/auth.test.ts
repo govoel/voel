@@ -5,13 +5,15 @@ import { HttpRouter, HttpServer } from 'effect/unstable/http';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import { AllRoutes } from '#src/index.ts';
+import { AllRoutesLayerNoDeps } from '#src/index.ts';
 import { ApiConfig } from '#src/services/config.ts';
 
 const TestServerLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
-      AllRoutes.pipe(Layer.provide(Layer.mergeAll(HttpServer.layerServices, ApiConfig.layerTest())))
+      AllRoutesLayerNoDeps.pipe(
+        Layer.provide(Layer.mergeAll(HttpServer.layerServices, ApiConfig.layerTest()))
+      )
     );
     yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));
 
