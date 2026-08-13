@@ -24,13 +24,7 @@
         { "language_server": { "name": "oxfmt" } },
         { "code_action": "source.fixAll.oxc" }
       ],
-      "language_servers": [
-        "effect-tsgo",
-        "!vtsls",
-        "!typescript-language-server",
-        "!typescript-ls",
-        "..."
-      ]
+      "language_servers": ["effect-tsgo", "!vtsls", "!typescript-language-server", "..."]
     },
     "JSON": {
       "format_on_save": "on",
@@ -63,13 +57,7 @@
         { "language_server": { "name": "oxfmt" } },
         { "code_action": "source.fixAll.oxc" }
       ],
-      "language_servers": [
-        "effect-tsgo",
-        "!vtsls",
-        "!typescript-language-server",
-        "!typescript-ls",
-        "..."
-      ]
+      "language_servers": ["effect-tsgo", "!vtsls", "!typescript-language-server", "..."]
     },
     "TSX": {
       "format_on_save": "on",
@@ -78,13 +66,7 @@
         { "language_server": { "name": "oxfmt" } },
         { "code_action": "source.fixAll.oxc" }
       ],
-      "language_servers": [
-        "effect-tsgo",
-        "!vtsls",
-        "!typescript-language-server",
-        "!typescript-ls",
-        "..."
-      ]
+      "language_servers": ["effect-tsgo", "!vtsls", "!typescript-language-server", "..."]
     },
     "YAML": {
       "format_on_save": "on",
@@ -95,29 +77,18 @@
       ]
     },
     "JSX": {
-      "language_servers": [
-        "effect-tsgo",
-        "!vtsls",
-        "!typescript-language-server",
-        "!typescript-ls",
-        "..."
-      ]
+      "language_servers": ["effect-tsgo", "!vtsls", "!typescript-language-server", "..."]
     }
   },
   "lsp": {
-    "vtsls": {
-      "initialization_options": {
-        "settings": {
-          "typescript": {
-            "preferences": {
-              "importModuleSpecifier": "non-relative"
-            }
-          },
-          "javascript": {
-            "preferences": {
-              "importModuleSpecifier": "non-relative"
-            }
-          }
+    "effect-tsgo": {
+      "settings": {
+        "package_version": "0.36.4",
+        "typescript": {
+          "preferences": { "importModuleSpecifier": "non-relative" }
+        },
+        "javascript": {
+          "preferences": { "importModuleSpecifier": "non-relative" }
         }
       }
     },
@@ -143,11 +114,6 @@
           "typeAware": true,
           "unusedDisableDirectives": "deny"
         }
-      }
-    },
-    "effect-tsgo": {
-      "settings": {
-        "package_version": "0.36.4"
       }
     }
   }
