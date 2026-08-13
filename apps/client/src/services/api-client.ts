@@ -62,11 +62,7 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
       )
     ).pipe(
       Layer.provide(
-        Layer.mergeAll(
-          AuthClientMap.layer,
-          FetchHttpClient.layer,
-          RpcSerialization.layerMsgPack
-        )
+        Layer.mergeAll(AuthClientMap.layer, FetchHttpClient.layer, RpcSerialization.layerMsgPack)
       )
     );
   },
