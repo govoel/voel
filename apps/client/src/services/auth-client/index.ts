@@ -75,7 +75,7 @@ export const createVoelAuthClient = Effect.fnUntraced(function* ({
           refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
         },
       }),
-    catch: (error) => new BetterAuthClientInitializationError({ error }),
+    catch: (error) => BetterAuthClientInitializationError.make({ error }),
   });
 });
 

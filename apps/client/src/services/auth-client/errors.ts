@@ -15,7 +15,7 @@ export class BetterAuthError extends Schema.Error<
     Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.code))
   ),
   message: Schema.optional(Schema.String),
-  status: Schema.Number.pipe(
+  status: Schema.Finite.pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.status))
   ),
   statusText: Schema.String.pipe(
@@ -24,7 +24,7 @@ export class BetterAuthError extends Schema.Error<
 }) {
   public static readonly decodeFromUnknown = this.pipe(
     Schema.catchDecoding(() =>
-      Effect.succeed(Option.some(new BetterAuthError(UnknownBetterAuthErrorFields)))
+      Effect.succeed(Option.some(BetterAuthError.make(UnknownBetterAuthErrorFields)))
     ),
     Schema.decodeUnknownSync
   );

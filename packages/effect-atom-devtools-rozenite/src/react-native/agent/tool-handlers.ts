@@ -29,7 +29,7 @@ const atomIdInputProperty = {
 } as const;
 
 const makeAtomNotFoundError = (id: AtomId) =>
-  new AgentToolError({
+  AgentToolError.make({
     message: `Atom "${id}" is not currently tracked. Call list-atoms to get a current atom ID.`,
   });
 
@@ -105,7 +105,7 @@ export const agentToolHandlers: ReadonlyArray<{
           AtomNotFound: ({ id }) => Effect.fail(makeAtomNotFoundError(id)),
           PredefinedStateNotFound: ({ atomId, stateId }) =>
             Effect.fail(
-              new AgentToolError({
+              AgentToolError.make({
                 message: `Predefined state "${stateId}" was not found for atom "${atomId}". Call get-atom-details for that atom to list its available predefined states.`,
               })
             ),

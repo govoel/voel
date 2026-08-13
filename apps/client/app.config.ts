@@ -97,6 +97,7 @@ project(':expo') {
   })) satisfies ConfigPlugin;
 
 export default function app({ config }: ConfigContext): ExpoConfig {
+  // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this config function is an application entry point
   const env = Effect.runSync(Effect.service(Env).pipe(Effect.provide(Env.layer)));
 
   return withExpoInlineComposeModules({

@@ -50,8 +50,8 @@ export class AtomSnapshot extends AtomSummary.extend<
   source: Schema.optional(Schema.String),
   keepAlive: Schema.Boolean,
   lazy: Schema.Boolean,
-  idleTTL: Schema.optional(Schema.Number),
-  subscriberCount: Schema.Number,
+  idleTTL: Schema.optional(Schema.Finite),
+  subscriberCount: Schema.Finite,
   dependencies: Schema.Array(AtomLink),
   dependents: Schema.Array(AtomLink),
   predefinedStates: Schema.Array(
@@ -116,7 +116,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
     const getAtomName = (atom: Atom.Atom<unknown>) => atom.label?.[0] ?? getAtomId(atom);
 
     const makeAtomSummary = (node: AtomRegistry.Node<unknown>) =>
-      new AtomSummary({
+      AtomSummary.make({
         id: getAtomId(node.atom),
         name: getAtomName(node.atom),
         writable: Atom.isWritable(node.atom),
@@ -151,7 +151,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
     };
 
     const failSnapshotWatchers = (id: AtomId, tracked: TrackedNode) => {
-      const error = new AtomNotFound({ id });
+      const error = AtomNotFound.make({ id });
       for (const watcher of tracked.watchers) {
         watcher.fail(error);
       }
@@ -238,13 +238,13 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
     const getTrackedNode = Effect.fnUntraced(function* (id: AtomId) {
       const tracked = trackedNodesById.get(id);
       if (tracked === void 0) {
-        return yield* new AtomNotFound({ id });
+        return yield* AtomNotFound.make({ id });
       }
       return tracked;
     });
 
     const makeAtomLink = (node: AtomRegistry.Node<unknown>) =>
-      new AtomLink({
+      AtomLink.make({
         id: getAtomId(node.atom),
         name: getAtomName(node.atom),
       });
@@ -252,7 +252,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
     const makeAtomSnapshot = ({ node }: TrackedNode) => {
       const { atom } = node;
       const { id, name, hasActivePredefinedState, writable } = makeAtomSummary(node);
-      return new AtomSnapshot({
+      return AtomSnapshot.make({
         id,
         name,
         hasActivePredefinedState,
@@ -324,11 +324,11 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTy
           node: { atom },
         } = yield* getTrackedNode(targetId);
         if (!hasPredefinedStates(atom)) {
-          return yield* new PredefinedStateNotFound({ atomId: targetId, stateId });
+          return yield* PredefinedStateNotFound.make({ atomId: targetId, stateId });
         }
         const state = atom[PredefinedStatesTypeId].getStates().find(({ id }) => id === stateId);
         if (state === void 0) {
-          return yield* new PredefinedStateNotFound({ atomId: targetId, stateId });
+          return yield* PredefinedStateNotFound.make({ atomId: targetId, stateId });
         }
         atom[PredefinedStatesTypeId].activate(registry, state);
         publishCatalogSnapshot();

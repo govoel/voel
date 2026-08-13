@@ -42,7 +42,7 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
           lookup: (key) =>
             Effect.try({
               try: () => Option.fromNullishOr(getItem(key)),
-              catch: () => new AuthClientStorageGetItemError({ key }),
+              catch: () => AuthClientStorageGetItemError.make({ key }),
             }),
         }
       );
@@ -57,7 +57,7 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
             try: () => {
               setItem(key, value);
             },
-            catch: () => new AuthClientStorageSetItemError({ key }),
+            catch: () => AuthClientStorageSetItemError.make({ key }),
           });
           yield* Cache.set(cache, key, Option.some(value));
         }),
@@ -67,7 +67,7 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
             try: async () => {
               await removeItem(key);
             },
-            catch: () => new AuthClientStorageRemoveItemError({ key }),
+            catch: () => AuthClientStorageRemoveItemError.make({ key }),
           });
           yield* Cache.set(cache, key, Option.none());
         }),

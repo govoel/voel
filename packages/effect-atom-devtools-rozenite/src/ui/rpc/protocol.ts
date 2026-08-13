@@ -122,8 +122,8 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
                 activeRequests.delete(request.id);
               }
 
-              return new RpcClientError.RpcClientError({
-                reason: new RpcClientError.RpcClientDefect({
+              return RpcClientError.RpcClientError.make({
+                reason: RpcClientError.RpcClientDefect.make({
                   message: 'Failed to send an RPC message through the Rozenite bridge',
                   cause,
                 }),

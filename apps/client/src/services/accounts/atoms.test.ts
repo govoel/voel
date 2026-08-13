@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import { Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Stream } from 'effect';
 import { AsyncResult, Atom, AtomRegistry } from 'effect/unstable/reactivity';

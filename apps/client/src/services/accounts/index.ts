@@ -100,7 +100,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         )
         .pipe(
           Effect.map(Option.map(activeAccountKeyFromAccount)),
-          Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
+          Effect.catchTag('DatabaseSqlError', () => AccountDatabaseError.make())
         );
       const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
 
@@ -128,7 +128,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
                   .returningAll()
               );
               if (Option.isNone(persistedAccount)) {
-                return yield* new AccountNotFoundError({ serverUrl, userId });
+                return yield* AccountNotFoundError.make({ serverUrl, userId });
               }
 
               return persistedAccount.value;
@@ -136,7 +136,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           )
           .pipe(
             Reactivity.mutation(['account']),
-            Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
+            Effect.catchTag('DatabaseSqlError', () => AccountDatabaseError.make())
           );
       });
 
@@ -195,9 +195,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
           )
           .pipe(
             Reactivity.mutation(['account']),
-            Effect.catchTag(
-              ['DatabaseSqlError', 'DatabaseNoSuchElementError'],
-              () => new AccountDatabaseError()
+            Effect.catchTag(['DatabaseSqlError', 'DatabaseNoSuchElementError'], () =>
+              AccountDatabaseError.make()
             )
           );
       });
@@ -241,7 +240,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           )
           .pipe(
             Reactivity.mutation(['account']),
-            Effect.catchTag('DatabaseSqlError', () => new AccountDatabaseError())
+            Effect.catchTag('DatabaseSqlError', () => AccountDatabaseError.make())
           );
       });
 
@@ -259,9 +258,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
           const signInResult = yield* authClient.signIn
             .username({ username, password: Redacted.value(password) })
             .pipe(
-              Effect.catchTag(
-                'BetterAuthError',
-                (error) => new AccountSignInError({ details: error })
+              Effect.catchTag('BetterAuthError', (error) =>
+                AccountSignInError.make({ details: error })
               )
             );
 
@@ -304,9 +302,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
               password: Redacted.value(password),
             })
             .pipe(
-              Effect.catchTag(
-                'BetterAuthError',
-                (error) => new AccountSignUpError({ details: error })
+              Effect.catchTag('BetterAuthError', (error) =>
+                AccountSignUpError.make({ details: error })
               )
             );
 

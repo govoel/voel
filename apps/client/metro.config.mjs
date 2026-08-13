@@ -5,6 +5,7 @@ import { getDefaultConfig } from 'expo/metro-config.js';
 
 import { Env } from './env.mts';
 
+// oxlint-disable-next-line effecttsgo/strict-effect-provide -- this config module is an application entry point
 const env = Effect.runSync(Effect.service(Env).pipe(Effect.provide(Env.layer)));
 
 // oxlint-disable-next-line typescript/no-unsafe-argument
