@@ -1,5 +1,5 @@
 import { Effect, Layer, Option } from 'effect';
-import { Headers, HttpClient, HttpClientRequest } from 'effect/unstable/http';
+import { FetchHttpClient, Headers, HttpClient, HttpClientRequest } from 'effect/unstable/http';
 import { AtomRpc } from 'effect/unstable/reactivity';
 import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc';
 
@@ -7,8 +7,7 @@ import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
-import { acquireAuthClient } from '#src/services/auth-client/index.ts';
-import { CommonClientLayers } from '#src/services/layers.ts';
+import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
 
 export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-client/ApiClient', {
   group: Api,
@@ -41,26 +40,26 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
       })
     );
 
-    return Layer.effect(
-      RpcClient.Protocol,
-      Effect.gen(function* () {
-        const serverUrl = yield* activeAccountKey.pipe(
-          Effect.map(
-            Option.match({
-              onNone: () => '/api/rpc',
-              onSome: (accountKey) => `${accountKey.serverUrl.toString()}/api/rpc`,
-            })
-          )
-        );
-        const client = (yield* HttpClient.HttpClient).pipe(
-          HttpClient.mapRequest(HttpClientRequest.prependUrl(serverUrl))
-        );
+    return Layer.merge(
+      AuthMiddlewareClientLayer,
+      Layer.effect(
+        RpcClient.Protocol,
+        Effect.gen(function* () {
+          const serverUrl = yield* activeAccountKey.pipe(
+            Effect.map(
+              Option.match({
+                onNone: () => '/api/rpc',
+                onSome: (accountKey) => `${accountKey.serverUrl.toString()}/api/rpc`,
+              })
+            )
+          );
+          const client = (yield* HttpClient.HttpClient).pipe(
+            HttpClient.mapRequest(HttpClientRequest.prependUrl(serverUrl))
+          );
 
-        return yield* RpcClient.makeProtocolHttp(client);
-      })
-    ).pipe(
-      Layer.provideMerge(Layer.mergeAll(AuthMiddlewareClientLayer, RpcSerialization.layerMsgPack)),
-      Layer.provide(CommonClientLayers)
-    );
+          return yield* RpcClient.makeProtocolHttp(client);
+        })
+      ).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, RpcSerialization.layerMsgPack)))
+    ).pipe(Layer.provide(AuthClientMap.layer));
   },
 }) {}

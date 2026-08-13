@@ -13,11 +13,11 @@ import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
 import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
-import { CommonGlobalLayersNoDeps } from '#src/services/layers.ts';
+import { AppRuntimeLayersNoDeps } from '#src/services/layers.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
 export const makeClientTestLayers = (authClientStorageMap = new Map<string, string>()) =>
-  CommonGlobalLayersNoDeps.pipe(
+  AppRuntimeLayersNoDeps.pipe(
     Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
       Layer.mergeAll(
