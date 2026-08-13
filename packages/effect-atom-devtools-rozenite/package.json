@@ -19,7 +19,7 @@
   },
   "scripts": {
     "build": "rozenite build",
-    "check-types": "../../node_modules/.bin/tsc --noEmit",
+    "check-types": "tsc --noEmit",
     "dev": "rozenite dev",
     "test": "bun --bun run vitest --passWithNoTests"
   },
@@ -41,7 +41,7 @@
     "react-dom": "19.2.3",
     "react-native-web": "0.21.2",
     "rozenite": "2.0.0",
-    "typescript": "5.9.3",
+    "typescript": "~6.0.3",
     "vite": "7.3.1",
     "vitest": "4.1.10"
   }
