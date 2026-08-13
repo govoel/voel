@@ -3,50 +3,26 @@
   "languages": {
     "CSS": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ]
     },
     "HTML": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ]
     },
     "JavaScript": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ],
       "language_servers": [
         "effect-tsgo",
@@ -58,66 +34,34 @@
     },
     "JSON": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ]
     },
     "JSONC": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ]
     },
     "Markdown": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ]
     },
     "TypeScript": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ],
       "language_servers": [
         "effect-tsgo",
@@ -129,18 +73,10 @@
     },
     "TSX": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ],
       "language_servers": [
         "effect-tsgo",
@@ -152,18 +88,10 @@
     },
     "YAML": {
       "format_on_save": "on",
-      "prettier": {
-        "allowed": false
-      },
+      "prettier": { "allowed": false },
       "formatter": [
-        {
-          "language_server": {
-            "name": "oxfmt"
-          }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
-        }
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
       ]
     },
     "JSX": {
