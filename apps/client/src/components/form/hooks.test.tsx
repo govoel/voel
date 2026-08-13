@@ -85,7 +85,7 @@ describe('createEffectSchemaFormHook', () => {
 
   it('stores a string mutation failure without invalidating the form', async () => {
     const mutation = runtime.fn((_value: typeof schema.Type) =>
-      Effect.fail(new TestSubmitError({ message: 'failed' }))
+      Effect.fail(TestSubmitError.make({ message: 'failed' }))
     );
 
     const TestForm = () => {
@@ -131,7 +131,7 @@ describe('createEffectSchemaFormHook', () => {
       mutationAttempts += 1;
 
       return mutationAttempts === 1
-        ? Effect.fail(new TestSubmitError({ message: 'failed' }))
+        ? Effect.fail(TestSubmitError.make({ message: 'failed' }))
         : Effect.succeed('saved');
     });
     const onSuccess = vi.fn();
@@ -175,7 +175,7 @@ describe('createEffectSchemaFormHook', () => {
 
   it('passes per-submit metadata to onFailure', async () => {
     const mutation = runtime.fn((_value: typeof schema.Type) =>
-      Effect.fail(new TestSubmitError({ message: 'failed' }))
+      Effect.fail(TestSubmitError.make({ message: 'failed' }))
     );
     const onFailure = vi.fn(() => 'failed');
 
@@ -208,7 +208,7 @@ describe('createEffectSchemaFormHook', () => {
   });
 
   it('passes the decoded value and mutation result to onSuccess', async () => {
-    const decodedSchema = Schema.Struct({ count: Schema.NumberFromString });
+    const decodedSchema = Schema.Struct({ count: Schema.FiniteFromString });
     const mutation = runtime.fn((value: typeof decodedSchema.Type) =>
       Effect.succeed(value.count * 2)
     );

@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
@@ -163,7 +164,7 @@ describe('AtomDevTools', () => {
 
   it('uses serializable keys as ids', async () => {
     const registry = AtomRegistry.make();
-    const atom = Atom.make(1).pipe(Atom.serializable({ key: 'count', schema: Schema.Number }));
+    const atom = Atom.make(1).pipe(Atom.serializable({ key: 'count', schema: Schema.Finite }));
     registry.get(atom);
 
     await runWithService(

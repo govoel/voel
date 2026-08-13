@@ -117,7 +117,7 @@ export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
             }
             clientIds.delete(clientId);
           }),
-        clientIds: Effect.sync(() => clientIds),
+        clientIds: Effect.succeed(clientIds),
         initialMessage: Effect.succeedNone,
         supportsAck: true,
         supportsTransferables: false,

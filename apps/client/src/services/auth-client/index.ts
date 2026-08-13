@@ -75,7 +75,7 @@ export const createVoelAuthClient = Effect.fnUntraced(function* ({
           refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
         },
       }),
-    catch: (error) => new BetterAuthClientInitializationError({ error }),
+    catch: (error) => BetterAuthClientInitializationError.make({ error }),
   });
 });
 
@@ -160,7 +160,7 @@ const authClientSessionState = Effect.fnUntraced(function* (
 });
 
 export class AuthClient extends Context.Service<AuthClient>()(
-  'voel/services/auth-client/index/AuthClient',
+  'voel/services/auth-client/AuthClient',
   {
     make: Effect.fnUntraced(function* ({ serverUrl, authStorageId }: AuthClientKey) {
       const runSync = Effect.runSyncWith(yield* Effect.context());

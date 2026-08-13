@@ -61,14 +61,12 @@ export function createDatabase<DB>({
           ? {
               log: (event) => {
                 if (event.level === 'query') {
-                  // @effect-diagnostics-next-line globalConsole:off
-                  // oxlint-disable-next-line eslint/no-console
+                  // oxlint-disable-next-line eslint/no-console, effecttsgo/global-console
                   console.log(
                     `${sourceTap ? '☀️' : '🍦'} dbQuery(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
                   );
                 } else {
-                  // @effect-diagnostics-next-line globalConsole:off
-                  // oxlint-disable-next-line eslint/no-console
+                  // oxlint-disable-next-line eslint/no-console, effecttsgo/global-console
                   console.log(
                     `${sourceTap ? '☀️' : '🍦'} dbError(${event.queryDurationMillis.toFixed(2)}ms) => ${event.query.sql}`
                   );

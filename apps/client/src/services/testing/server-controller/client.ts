@@ -29,7 +29,7 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
                 stderr: 'ignore',
               })
             ),
-            (server) => server.kill().pipe(Effect.catch(() => Effect.void))
+            (server) => server.kill().pipe(Effect.ignore)
           );
 
           const serverUrl = `http://localhost:${port}`;

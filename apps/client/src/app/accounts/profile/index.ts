@@ -67,7 +67,7 @@ const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['up
     const activeAccountKey = yield* AccountManager.use((manager) => manager.state);
 
     if (Option.isNone(activeAccountKey)) {
-      return yield* new NoActiveAccountError();
+      return yield* NoActiveAccountError.make();
     }
 
     const authClient = yield* acquireAuthClient(activeAccountKey.value);

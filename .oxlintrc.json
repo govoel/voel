@@ -1,7 +1,7 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
   "ignorePatterns": [".repos/**", ".agents/skills/**"],
-  "plugins": ["unicorn", "typescript", "import", "oxc", "promise", "node", "eslint"],
+  "plugins": ["unicorn", "typescript", "import", "oxc", "promise", "node", "eslint", "effecttsgo"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -16,6 +16,10 @@
     "node": true
   },
   "rules": {
+    "effecttsgo/async-function": "off",
+    "effecttsgo/missing-pipeable-signature": "off",
+    "effecttsgo/strict-boolean-expressions": "off",
+
     "eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
     "eslint/new-cap": "off",
     "eslint/max-classes-per-file": "off",
@@ -25,7 +29,6 @@
     "eslint/sort-imports": ["error", { "ignoreDeclarationSort": true }],
     "eslint/max-lines-per-function": "off",
     "eslint/max-statements": "off",
-    "eslint/one-var": "off",
     "eslint/id-length": "off",
     "eslint/complexity": "off",
     "eslint/max-lines": "off",

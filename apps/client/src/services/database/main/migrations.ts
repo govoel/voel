@@ -23,7 +23,7 @@ export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { 
   const { error, results } = yield* Effect.promise(async () => migrator.migrateToLatest());
 
   if (error !== void 0) {
-    return yield* new DatabaseMigrationError();
+    return yield* DatabaseMigrationError.make();
   }
 
   return results;

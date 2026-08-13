@@ -1,5 +1,4 @@
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-// oxlint-disable-next-line import/no-nodejs-modules
+// oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
 import { readFileSync } from 'node:fs';
 
 import { Effect, Match } from 'effect';
@@ -98,6 +97,7 @@ project(':expo') {
   })) satisfies ConfigPlugin;
 
 export default function app({ config }: ConfigContext): ExpoConfig {
+  // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this config function is an application entry point
   const env = Effect.runSync(Effect.service(Env).pipe(Effect.provide(Env.layer)));
 
   return withExpoInlineComposeModules({

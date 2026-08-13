@@ -1,6 +1,6 @@
 import { Config, ConfigProvider, Context, Effect, Layer } from 'effect';
 
-export class Env extends Context.Service<Env>()('voel/env/Env', {
+export class Env extends Context.Service<Env>()('voel/env', {
   make: Effect.gen(function* () {
     const releaseChannel = yield* Config.literals(
       ['prod', 'preview', 'dev'],

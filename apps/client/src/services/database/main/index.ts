@@ -8,7 +8,7 @@ import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts
 import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
 
 export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<MainDatabaseTables>>()(
-  'voel/services/database/main/index/MainDatabase',
+  'voel/services/database/main/MainDatabase',
   {
     make: ({ dialect }: { dialect: Dialect }) =>
       Effect.acquireRelease(

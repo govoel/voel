@@ -55,6 +55,7 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
   ).pipe(Effect.orDie, Effect.map(EffectHeaders.fromInput));
 
   return yield* RpcTest.makeClient(Api).pipe(
+    // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this test helper installs a value-only client middleware layer
     Effect.provide(
       RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
         next({ ...request, headers: EffectHeaders.merge(request.headers, headers) })

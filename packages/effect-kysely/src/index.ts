@@ -165,7 +165,7 @@ const queryAsPromise = async <DB, O>(
 };
 
 const toSqlError = (cause: unknown) =>
-  new DatabaseSqlError({
+  DatabaseSqlError.make({
     cause,
     ...(cause instanceof Error ? { message: cause.message } : {}),
   });
@@ -230,7 +230,7 @@ const executeTakeFirstOrError =
     executeTakeFirstOption(client)(query).pipe(
       Effect.flatMap((result) =>
         Effect.fromOption(result).pipe(
-          Effect.catchTag('NoSuchElementError', () => new DatabaseNoSuchElementError())
+          Effect.catchTag('NoSuchElementError', () => DatabaseNoSuchElementError.make())
         )
       )
     );

@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it, vi } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/unstable/http';

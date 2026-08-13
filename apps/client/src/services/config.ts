@@ -18,7 +18,7 @@ export class AppConfig extends Context.Service<AppConfig>()('voel/services/confi
   make: Effect.gen(function* () {
     const config = yield* Config.schema(AppConfigVariables);
     return { mainDb: { filename: config.MAIN_DB_FILENAME } };
-  }).pipe(Effect.catchTags({ ConfigError: () => new AppConfigError() })),
+  }).pipe(Effect.catchTags({ ConfigError: () => AppConfigError.make() })),
 }) {
   public static readonly layer = Layer.effect(this, this.make).pipe(
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))

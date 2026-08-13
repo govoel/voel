@@ -24,7 +24,7 @@ export const listUsersAtom = AppRuntime.pull(
     function* (get) {
       const activeAccountKey = yield* get.result(activeAccountKeyAtom);
       if (Option.isNone(activeAccountKey)) {
-        return yield* new NoActiveAccountError();
+        return yield* NoActiveAccountError.make();
       }
       const authClient = yield* acquireAuthClient(activeAccountKey.value);
 
@@ -51,8 +51,8 @@ export const listUsersAtom = AppRuntime.pull(
 ).pipe(
   swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
   withPredefinedStates(() => {
-    const alex = new ServerUser({ id: 'predefined-user-alex', username: 'alex' });
-    const sam = new ServerUser({ id: 'predefined-user-sam', username: 'sam' });
+    const alex = ServerUser.make({ id: 'predefined-user-alex', username: 'alex' });
+    const sam = ServerUser.make({ id: 'predefined-user-sam', username: 'sam' });
 
     return [
       {
@@ -88,7 +88,7 @@ export const listUsersAtom = AppRuntime.pull(
         label: 'No active account error',
         atom: Atom.writable(
           (): Atom.PullResult<ServerUser, NoActiveAccountError> =>
-            AsyncResult.fail(new NoActiveAccountError()),
+            AsyncResult.fail(NoActiveAccountError.make()),
           () => void 0
         ),
       },

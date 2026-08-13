@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Deferred, Effect, Exit, Option, Queue, Random, Ref, Schema, Scope, Stream } from 'effect';

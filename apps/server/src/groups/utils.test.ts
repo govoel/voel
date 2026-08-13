@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
@@ -161,11 +162,11 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
 
                   const session = yield* Effect.tryPromise({
                     try: async () => auth.api.getSession({ headers }),
-                    catch: () => new UnauthorizedError({}),
+                    catch: () => UnauthorizedError.make({}),
                   });
 
                   if (session === null) {
-                    return yield* new UnauthorizedError({});
+                    return yield* UnauthorizedError.make({});
                   }
 
                   return yield* Effect.provideService(httpEffect, CurrentSession, session);

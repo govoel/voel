@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
@@ -487,7 +488,7 @@ describe('AccountManager', () => {
             })
             .pipe(Effect.flip);
 
-          expect(error).toEqual(new AccountNotFoundError({ serverUrl, userId }));
+          expect(error).toEqual(AccountNotFoundError.make({ serverUrl, userId }));
           expect(yield* manager.state).toBe(Option.none());
           expect(yield* getAccounts).toEqual([]);
         },
