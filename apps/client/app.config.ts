@@ -1,5 +1,4 @@
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-// oxlint-disable-next-line import/no-nodejs-modules
+// oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
 import { readFileSync } from 'node:fs';
 
 import { Effect, Match } from 'effect';

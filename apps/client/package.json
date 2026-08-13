@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "check-types": "expo customize tsconfig.json && tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
+    "check-types": "expo customize tsconfig.json && ../../node_modules/.bin/tsc --noEmit",
     "test": "vitest run --config vitest.rn.config.ts src/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts src/services/accounts",
     "start": "RELEASE_CHANNEL=dev expo start",
     "android:dev": "RELEASE_CHANNEL=dev expo run:android",
@@ -51,7 +51,6 @@
     "react-native-xxhash": "0.1.10"
   },
   "devDependencies": {
-    "@effect/language-service": "0.87.2",
     "@effect/platform-bun": "4.0.0-rc.108",
     "@effect/vitest": "4.0.0-rc.108",
     "@repo/effect-atom-devtools-core": "workspace:*",
@@ -64,7 +63,7 @@
     "@vitejs/plugin-react": "6.0.5",
     "bun-types": "1.3.14",
     "test-renderer": "1.2.0",
-    "typescript": "6.0.3",
+    "typescript": "5.9.3",
     "vite": "8.2.1",
     "vitest": "4.1.10"
   }

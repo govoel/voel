@@ -160,7 +160,7 @@ const authClientSessionState = Effect.fnUntraced(function* (
 });
 
 export class AuthClient extends Context.Service<AuthClient>()(
-  'voel/services/auth-client/index/AuthClient',
+  'voel/services/auth-client/AuthClient',
   {
     make: Effect.fnUntraced(function* ({ serverUrl, authStorageId }: AuthClientKey) {
       const runSync = Effect.runSyncWith(yield* Effect.context());

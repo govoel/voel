@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
-// oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs
+// oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs, effecttsgo/node-builtin-import
 const fs = require('node:fs');
-// oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs
+// oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs, effecttsgo/node-builtin-import
 const path = require('node:path');
 
 /** @type {Readonly<Record<string, ReadonlySet<string>>>} */

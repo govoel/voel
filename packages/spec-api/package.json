@@ -11,7 +11,7 @@
     "./*": "./src/*"
   },
   "scripts": {
-    "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json"
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@repo/auth-api": "workspace:*",
@@ -19,9 +19,8 @@
     "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
-    "@effect/language-service": "0.87.2",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.3.14",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   }
 }

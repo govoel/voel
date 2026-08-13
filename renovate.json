@@ -10,7 +10,7 @@
   "packageRules": [
     {
       "groupName": "effect",
-      "matchPackageNames": ["effect", "@effect/*", "!@effect/language-service"]
+      "matchPackageNames": ["effect", "@effect/*", "!@effect/tsgo"]
     }
   ],
   "ignorePaths": ["**/node_modules/**", ".repos/**"],

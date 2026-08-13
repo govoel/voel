@@ -3,77 +3,176 @@
   "languages": {
     "CSS": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ]
     },
     "HTML": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ]
     },
     "JavaScript": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ],
-      "language_servers": ["...", "!eslint", "!typescript-language-server"]
+      "language_servers": [
+        "effect-tsgo",
+        "!vtsls",
+        "!typescript-language-server",
+        "!typescript-ls",
+        "..."
+      ]
     },
     "JSON": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ]
     },
     "JSONC": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ]
     },
     "Markdown": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ]
     },
     "TypeScript": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ],
-      "language_servers": ["...", "!eslint", "!typescript-language-server"]
+      "language_servers": [
+        "effect-tsgo",
+        "!vtsls",
+        "!typescript-language-server",
+        "!typescript-ls",
+        "..."
+      ]
     },
     "TSX": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
       ],
-      "language_servers": ["...", "!eslint", "!typescript-language-server"]
+      "language_servers": [
+        "effect-tsgo",
+        "!vtsls",
+        "!typescript-language-server",
+        "!typescript-ls",
+        "..."
+      ]
     },
     "YAML": {
       "format_on_save": "on",
-      "prettier": { "allowed": false },
+      "prettier": {
+        "allowed": false
+      },
       "formatter": [
-        { "language_server": { "name": "oxfmt" } },
-        { "code_action": "source.fixAll.oxc" }
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        },
+        {
+          "code_action": "source.fixAll.oxc"
+        }
+      ]
+    },
+    "JSX": {
+      "language_servers": [
+        "effect-tsgo",
+        "!vtsls",
+        "!typescript-language-server",
+        "!typescript-ls",
+        "..."
       ]
     }
   },
@@ -116,6 +215,11 @@
           "typeAware": true,
           "unusedDisableDirectives": "deny"
         }
+      }
+    },
+    "effect-tsgo": {
+      "settings": {
+        "package_version": "0.36.4"
       }
     }
   }

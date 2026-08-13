@@ -19,7 +19,7 @@
   },
   "scripts": {
     "build": "rozenite build",
-    "check-types": "tsc --noEmit && effect-language-service diagnostics --project tsconfig.json",
+    "check-types": "../../node_modules/.bin/tsc --noEmit",
     "dev": "rozenite dev",
     "test": "bun --bun run vitest --passWithNoTests"
   },
@@ -32,7 +32,6 @@
     "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
-    "@effect/language-service": "0.87.2",
     "@effect/vitest": "4.0.0-rc.108",
     "@repo/tsconfig": "workspace:*",
     "@rozenite/vite-plugin": "2.0.0",
@@ -42,7 +41,7 @@
     "react-dom": "19.2.3",
     "react-native-web": "0.21.2",
     "rozenite": "2.0.0",
-    "typescript": "6.0.3",
+    "typescript": "5.9.3",
     "vite": "7.3.1",
     "vitest": "4.1.10"
   }

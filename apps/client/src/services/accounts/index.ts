@@ -19,7 +19,7 @@ import type { AccountTable } from '#src/services/database/main/schema.ts';
 export class UuidGenerator extends Context.Service<
   UuidGenerator,
   { readonly v4: Effect.Effect<string> }
->()('voel/services/accounts/index/UuidGenerator') {
+>()('voel/services/accounts/UuidGenerator') {
   public static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
       const { randomUUID } = yield* Effect.promise(async () => import('expo-crypto'));
@@ -82,7 +82,7 @@ const activeAccountKeyFromAccount = (
   });
 
 export class AccountManager extends Context.Service<AccountManager>()(
-  'voel/services/accounts/index/AccountManager',
+  'voel/services/accounts/AccountManager',
   {
     make: Effect.gen(function* () {
       const db = yield* MainDatabase;

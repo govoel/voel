@@ -16,7 +16,7 @@ export class Database extends Context.Service<
     sourceTap: SourceTap<DatabaseTables>;
     kysely: Kysely<DatabaseTables>;
   }
->()('@repo/server/services/database/index/Database', {
+>()('@repo/server/services/database/Database', {
   make: Effect.fnUntraced(function* ({ filename }: { filename: string }) {
     const { db, sourceTap, kysely } = yield* createDatabase<DatabaseTables>({
       filename,
