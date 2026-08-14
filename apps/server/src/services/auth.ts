@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Match, Redacted } from 'effect';
+import { Effect, Layer, Match, Option, Redacted } from 'effect';
 import { HttpEffect, HttpRouter } from 'effect/unstable/http';
 
-import { createAuth } from '@repo/auth-api/server.ts';
+import { AuthServerClient } from '@repo/auth-api/server.ts';
 import {
   AdminMiddleware,
   AuthMiddleware,
@@ -13,14 +13,15 @@ import {
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
 
-export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', {
-  make: Effect.gen(function* () {
+export const AuthLayerNoDeps = Layer.effect(
+  AuthServerClient,
+  Effect.gen(function* () {
     const config = yield* ApiConfig;
     const sql = yield* Database;
 
     const runtime = Effect.runSyncWith(yield* Effect.context());
 
-    return createAuth({
+    return yield* AuthServerClient.make({
       secret: Redacted.value(config.auth.secret),
       database: sql.kysely,
       logger: {
@@ -47,18 +48,16 @@ export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', 
         },
       },
     });
-  }),
-}) {
-  public static readonly layerNoDeps = Layer.effect(this, this.make);
+  })
+);
 
-  public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide(Layer.mergeAll(ApiConfig.layer, Database.layer))
-  );
-}
+export const AuthLayer = AuthLayerNoDeps.pipe(
+  Layer.provide(Layer.mergeAll(ApiConfig.layer, Database.layer))
+);
 
-export const AuthRouterLayer = HttpRouter.use(
+export const AuthRouterLayerNoDeps = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
-    const auth = yield* Auth;
+    const auth = yield* AuthServerClient;
 
     yield* router
       .prefixed('/api/auth')
@@ -66,35 +65,41 @@ export const AuthRouterLayer = HttpRouter.use(
   })
 );
 
-export const AuthMiddlewareLayer = Layer.effect(
+export const AuthRouterLayer = AuthRouterLayerNoDeps.pipe(Layer.provide(AuthLayer));
+
+export const AuthMiddlewareLayerNoDeps = Layer.effect(
   AuthMiddleware,
   Effect.gen(function* () {
-    const auth = yield* Auth;
+    const auth = yield* AuthServerClient;
 
     return AuthMiddleware.of(
       Effect.fnUntraced(function* (httpEffect, { headers }) {
-        const session = yield* Effect.tryPromise({
-          try: async () => auth.api.getSession({ headers }),
-          catch: () => UnauthorizedError.make({}),
-        });
+        const session = yield* auth.api.getSession({ headers }).pipe(
+          Effect.catchTags({
+            BetterAuthServerError: Effect.die,
+            UnexpectedAuthSessionError: Effect.die,
+          })
+        );
 
-        if (session === null) {
+        if (Option.isNone(session)) {
           return yield* UnauthorizedError.make({});
         }
 
-        return yield* Effect.provideService(httpEffect, CurrentSession, session);
+        return yield* Effect.provideService(httpEffect, CurrentSession, session.value);
       })
     );
   })
 );
 
-export const AdminMiddlewareLayer = Layer.succeed(
+export const AuthMiddlewareLayer = AuthMiddlewareLayerNoDeps.pipe(Layer.provide(AuthLayer));
+
+export const AdminMiddlewareLayerNoDeps = Layer.succeed(
   AdminMiddleware,
   AdminMiddleware.of(
     Effect.fnUntraced(function* (effect) {
       const session = yield* CurrentSession;
 
-      if (!('role' in session.user) || session.user.role !== 'admin') {
+      if (session.user.role !== 'admin') {
         return yield* ForbiddenError.make({});
       }
 
@@ -102,3 +107,5 @@ export const AdminMiddlewareLayer = Layer.succeed(
     })
   )
 );
+
+export const AdminMiddlewareLayer = AdminMiddlewareLayerNoDeps;

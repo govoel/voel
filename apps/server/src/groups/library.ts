@@ -1,16 +1,17 @@
 import { SQLiteError } from 'bun:sqlite';
 
+import { BunPath } from '@effect/platform-bun';
 import { Array, Effect, Layer, Option, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
 
 import { DatabaseSqlError, jsonArrayFrom } from '@repo/effect-kysely';
+import type { ApiPayload } from '@repo/spec-api';
+import { LibraryPath } from '@repo/spec-api/database/schema.ts';
 import {
-  Api,
   LibraryInvalidPathError,
   LibraryNameConflictError,
   LibraryNotFoundError,
-} from '@repo/spec-api';
-import type { ApiPayload } from '@repo/spec-api';
-import { LibraryPath } from '@repo/spec-api/database/schema.ts';
+  LibraryRpcs,
+} from '@repo/spec-api/groups/library.ts';
 
 import { Database } from '#src/services/database/index.ts';
 
@@ -43,8 +44,8 @@ class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
   public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
-export const LibraryHandlers = Layer.mergeAll(
-  Api.toLayerHandler(
+export const LibraryHandlersNoDeps = Layer.mergeAll(
+  LibraryRpcs.toLayerHandler(
     'libraryGet',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryGet'>) {
       const { db } = yield* Database;
@@ -79,7 +80,7 @@ export const LibraryHandlers = Layer.mergeAll(
         );
     })
   ),
-  Api.toLayerHandler(
+  LibraryRpcs.toLayerHandler(
     'libraryList',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryList'>) {
       const { db } = yield* Database;
@@ -121,7 +122,7 @@ export const LibraryHandlers = Layer.mergeAll(
       };
     })
   ),
-  Api.toLayerHandler(
+  LibraryRpcs.toLayerHandler(
     'libraryUpsert',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryUpsert'>) {
       const [invalidPaths, absolutePaths] = yield* Effect.partition(
@@ -229,7 +230,7 @@ export const LibraryHandlers = Layer.mergeAll(
         );
     })
   ),
-  Api.toLayerHandler(
+  LibraryRpcs.toLayerHandler(
     'libraryDelete',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryDelete'>) {
       const { db } = yield* Database;
@@ -256,4 +257,8 @@ export const LibraryHandlers = Layer.mergeAll(
         .pipe(Effect.catchTags({ DatabaseSqlError: Effect.die }));
     })
   )
+);
+
+export const LibraryHandlers = LibraryHandlersNoDeps.pipe(
+  Layer.provide([Database.layer, BunPath.layer])
 );

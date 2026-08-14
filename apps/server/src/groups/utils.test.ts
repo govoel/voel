@@ -11,15 +11,15 @@ import {
   UnauthorizedError,
 } from '@repo/spec-api/middlewares/auth.ts';
 
-import { LibraryHandlers } from '#src/groups/library.ts';
+import { LibraryHandlersNoDeps } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
-import { AdminMiddlewareLayer, Auth, AuthMiddlewareLayer } from '#src/services/auth.ts';
+import { AdminMiddlewareLayerNoDeps, Auth, AuthMiddlewareLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
 
 const makeTestLayer = () =>
-  LibraryHandlers.pipe(
-    Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLayer)),
+  LibraryHandlersNoDeps.pipe(
+    Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLayerNoDeps)),
     Layer.provideMerge(Layer.mergeAll(Auth.layerNoDeps)),
     Layer.provideMerge(Database.layerNoDeps),
     Layer.provideMerge(BunPath.layer),
@@ -37,7 +37,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         role: 'admin',
         email: 'utils_library_admin@example.test',
         name: 'Utils Library Admin',
-      }).pipe(Effect.provide(AuthMiddlewareLayer));
+      }).pipe(Effect.provide(AuthMiddlewareLayerNoDeps));
 
       const users = yield* db.executeRaw(
         sql<{
@@ -81,7 +81,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       yield* Effect.scoped(
         Effect.gen(function* () {
           yield* makeAuthedClient({ username: 'utils_library_cleanup', role: 'admin' }).pipe(
-            Effect.provide(AuthMiddlewareLayer)
+            Effect.provide(AuthMiddlewareLayerNoDeps)
           );
 
           const users = yield* db.executeRaw(
@@ -125,7 +125,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       expect(existingUsers.rows).toEqual([]);
 
       yield* makeAuthedClient({ username: 'utils_library_first_user', role: 'user' }).pipe(
-        Effect.provide(AuthMiddlewareLayer)
+        Effect.provide(AuthMiddlewareLayerNoDeps)
       );
 
       const users = yield* db.executeRaw(

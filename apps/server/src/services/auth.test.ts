@@ -1,18 +1,22 @@
+import { BunPath } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it, vi } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
-import { HttpRouter, HttpServer } from 'effect/unstable/http';
+import { HttpRouter } from 'effect/unstable/http';
 
-import { createAuthClient } from '@repo/auth-api/client.ts';
+import { AuthClient } from '@repo/auth-api/client.ts';
 
-import { AllRoutesLayerNoDeps } from '#src/index.ts';
+import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
+import { Database } from '#src/services/database/index.ts';
 
 const TestServerLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
-      AllRoutesLayerNoDeps.pipe(
-        Layer.provide(Layer.mergeAll(HttpServer.layerServices, ApiConfig.layerTest()))
+      AuthRouterLayerNoDeps.pipe(
+        Layer.provide(AuthLayerNoDeps),
+        Layer.provide(Database.layerNoDeps),
+        Layer.provide([ApiConfig.layerTest(), BunPath.layer])
       )
     );
     yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));
@@ -30,18 +34,17 @@ it.describe('auth customizations', () => {
     'should not allow sign up when username is missing',
     Effect.fnUntraced(
       function* () {
-        const auth = createAuthClient({ baseURL: 'http://test/' });
+        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
 
-        const response = yield* Effect.tryPromise(async () =>
-          auth.signUp.email({
+        const response = yield* auth.signUp
+          .email({
             name: 'Test User',
             email: 'test@example.com',
             password: 'password',
           })
-        );
+          .pipe(Effect.flip);
 
-        expect(response.data).toBe(null);
-        expect(response.error?.code).toBe('MUST_SIGN_UP_WITH_USERNAME');
+        expect(response.code).toBe('MUST_SIGN_UP_WITH_USERNAME');
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
@@ -51,30 +54,26 @@ it.describe('auth customizations', () => {
     'should not allow sign in with email',
     Effect.fnUntraced(
       function* () {
-        const auth = createAuthClient({ baseURL: 'http://test/' });
+        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
 
-        const response = yield* Effect.tryPromise(async () =>
-          auth.signUp.email({
-            name: 'Test User',
-            username: 'testuser',
+        const response = yield* auth.signUp.email({
+          name: 'Test User',
+          username: 'testuser',
+          email: 'test@example.com',
+          password: 'password',
+        });
+        expect(response.user.name).toBe('Test User');
+        expect(response.user.email).toBe('test@example.com');
+        expect(response.user.id).toBeDefined();
+
+        const signInResponse = yield* auth.signIn
+          .email({
             email: 'test@example.com',
             password: 'password',
           })
-        );
-        expect(response.error).toBe(null);
-        expect(response.data?.user.name).toBe('Test User');
-        expect(response.data?.user.email).toBe('test@example.com');
-        expect(response.data?.user.id).toBeDefined();
+          .pipe(Effect.flip);
 
-        const signInResponse = yield* Effect.tryPromise(async () =>
-          auth.signIn.email({
-            email: 'test@example.com',
-            password: 'password',
-          })
-        );
-
-        expect(signInResponse.data).toBe(null);
-        expect(signInResponse.error?.code).toBe('MUST_SIGN_IN_WITH_USERNAME');
+        expect(signInResponse.code).toBe('MUST_SIGN_IN_WITH_USERNAME');
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
@@ -84,32 +83,27 @@ it.describe('auth customizations', () => {
     'should set role as admin for the first user',
     Effect.fnUntraced(
       function* () {
-        const auth = createAuthClient({ baseURL: 'http://test/' });
+        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
 
-        const response = yield* Effect.tryPromise(async () =>
-          auth.signUp.email({
-            name: 'Test User',
-            username: 'testuser',
-            email: 'test@example.com',
-            password: 'password',
-          })
-        );
-        expect(response.error).toBe(null);
-        expect(response.data?.user.name).toBe('Test User');
-        expect(response.data?.user.email).toBe('test@example.com');
-        expect(response.data?.user.id).toBeDefined();
+        const response = yield* auth.signUp.email({
+          name: 'Test User',
+          username: 'testuser',
+          email: 'test@example.com',
+          password: 'password',
+        });
+        expect(response.user.name).toBe('Test User');
+        expect(response.user.email).toBe('test@example.com');
+        expect(response.user.id).toBeDefined();
 
-        const signInResponse = yield* Effect.tryPromise(async () =>
-          auth.signIn.username({
-            username: 'testuser',
-            password: 'password',
-          })
-        );
+        const signInResponse = yield* auth.signIn.username({
+          username: 'testuser',
+          password: 'password',
+        });
 
-        expect(signInResponse.data?.user.name).toBe('Test User');
-        expect(signInResponse.data?.user.email).toBe('test@example.com');
-        expect(signInResponse.data?.user.id).toBeDefined();
-        expect(signInResponse.data?.user.role).toBe('admin');
+        expect(signInResponse.user.name).toBe('Test User');
+        expect(signInResponse.user.email).toBe('test@example.com');
+        expect(signInResponse.user.id).toBeDefined();
+        expect(signInResponse.user.role).toBe('admin');
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
@@ -119,31 +113,27 @@ it.describe('auth customizations', () => {
     'should not allow sign up when one user exists',
     Effect.fnUntraced(
       function* () {
-        const auth = createAuthClient({ baseURL: 'http://test/' });
+        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
 
-        const response = yield* Effect.tryPromise(async () =>
-          auth.signUp.email({
-            name: 'Test User',
-            username: 'testuser',
-            email: 'test@example.com',
-            password: 'password',
-          })
-        );
-        expect(response.error).toBe(null);
-        expect(response.data?.user.name).toBe('Test User');
-        expect(response.data?.user.email).toBe('test@example.com');
-        expect(response.data?.user.id).toBeDefined();
+        const response = yield* auth.signUp.email({
+          name: 'Test User',
+          username: 'testuser',
+          email: 'test@example.com',
+          password: 'password',
+        });
+        expect(response.user.name).toBe('Test User');
+        expect(response.user.email).toBe('test@example.com');
+        expect(response.user.id).toBeDefined();
 
-        const response2 = yield* Effect.tryPromise(async () =>
-          auth.signUp.email({
+        const response2 = yield* auth.signUp
+          .email({
             name: 'Test User 2',
             username: 'testuser2',
             email: 'test2@example.com',
             password: 'password',
           })
-        );
-        expect(response2.data).toBe(null);
-        expect(response2.error?.code).toBe('EMAIL_PASSWORD_SIGN_UP_DISABLED');
+          .pipe(Effect.flip);
+        expect(response2.code).toBe('EMAIL_PASSWORD_SIGN_UP_DISABLED');
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )

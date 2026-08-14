@@ -1,9 +1,9 @@
 import { Context, Schema } from 'effect';
 import { RpcMiddleware } from 'effect/unstable/rpc';
 
-import type { Session } from '@repo/auth-api/server.ts';
+import type { AuthSession } from '@repo/auth-api/shared.ts';
 
-export class CurrentSession extends Context.Service<CurrentSession, Session>()(
+export class CurrentSession extends Context.Service<CurrentSession, AuthSession>()(
   '@repo/spec-api/middlewares/auth/CurrentSession'
 ) {}
 

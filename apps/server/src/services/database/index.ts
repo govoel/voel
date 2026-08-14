@@ -5,6 +5,7 @@ import type { EffectKysely, Kysely } from '@repo/effect-kysely';
 import { createDatabase } from '@repo/source-tap';
 import type { SourceTap } from '@repo/source-tap';
 import type { DatabaseTables } from '@repo/spec-api/database/schema.ts';
+import { syncTables } from '@repo/spec-api/groups/sync.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
 import { runDatabaseMigrations } from '#src/services/database/migrations.ts';
@@ -20,20 +21,7 @@ export class Database extends Context.Service<
   make: Effect.fnUntraced(function* ({ filename }: { filename: string }) {
     const { db, sourceTap, kysely } = yield* createDatabase<DatabaseTables>({
       filename,
-      trackTables: new Set([
-        'mediaType',
-        'mediaItem',
-        'audiobook',
-        'audiobookSeries',
-        'audiobookSeriesMap',
-        'audiobookContributor',
-        'audiobookContributorRole',
-        'audiobookContributorMap',
-        'library',
-        'libraryPath',
-        'mediaFile',
-        'libraryFileMap',
-      ] as const),
+      trackTables: new Set(syncTables),
     });
 
     yield* db.executeRaw(sql`PRAGMA journal_mode = WAL`);

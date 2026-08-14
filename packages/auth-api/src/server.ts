@@ -5,13 +5,15 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { testUtils } from 'better-auth/plugins';
 import { admin } from 'better-auth/plugins/admin';
 import { username } from 'better-auth/plugins/username';
-import { Duration } from 'effect';
+import { Context, Duration, Effect, Option, Schema } from 'effect';
 
 import type { Kysely } from '@repo/effect-kysely';
 
+import { AuthSession, UnexpectedAuthSessionError } from '#src/shared.ts';
+
 export type { TestHelpers } from 'better-auth/plugins';
 
-export const createAuth = (config: {
+const createServerAuthClient = (config: {
   secret: NonNullable<BetterAuthOptions['secret']>;
   // oxlint-disable-next-line typescript/no-explicit-any
   database: Kysely<any>;
@@ -93,6 +95,72 @@ export const createAuth = (config: {
     },
   });
 
-export type BetterAuthInstance = ReturnType<typeof createAuth>;
+export type BetterAuthInstance = ReturnType<typeof createServerAuthClient>;
 
-export type Session = BetterAuthInstance['$Infer']['Session'];
+class BetterAuthServerClientInitializationError extends Schema.TaggedError<
+  BetterAuthServerClientInitializationError,
+  { readonly brand: unique symbol }
+>('voel/services/auth-client/index/BetterAuthServerClientInitializationError')(
+  'BetterAuthServerClientInitializationError',
+  { error: Schema.Unknown }
+) {}
+
+const UnknownBetterAuthErrorFields = {
+  code: 'UNKNOWN',
+  status: 0,
+  statusText: 'UNKNOWN',
+} as const;
+
+class BetterAuthServerError extends Schema.Error<
+  BetterAuthServerError,
+  { readonly brand: unique symbol }
+>('@repo/auth-api/server/BetterAuthServerError')({
+  _tag: Schema.tagDefaultOmit('BetterAuthServerError'),
+  code: Schema.String.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.code))
+  ),
+  message: Schema.optional(Schema.String),
+  status: Schema.Finite.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.status))
+  ),
+  statusText: Schema.String.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.statusText))
+  ),
+}) {
+  public static readonly decodeFromUnknown = this.pipe(
+    Schema.catchDecoding(() =>
+      Effect.succeed(Option.some(BetterAuthServerError.make(UnknownBetterAuthErrorFields)))
+    ),
+    Schema.decodeUnknownSync
+  );
+}
+
+export class AuthServerClient extends Context.Service<AuthServerClient>()(
+  '@repo/auth-api/server/AuthServerClient',
+  {
+    make: Effect.fnUntraced(function* (config: Parameters<typeof createServerAuthClient>[0]) {
+      const client = yield* Effect.try({
+        try: () => createServerAuthClient(config),
+        catch: (error) => BetterAuthServerClientInitializationError.make({ error }),
+      });
+
+      return {
+        $context: Effect.tryPromise(async () => client.$context).pipe(Effect.orDie),
+        handler: client.handler,
+
+        api: {
+          getSession: (input: Parameters<typeof client.api.getSession>[0]) =>
+            Effect.tryPromise({
+              try: async () => client.api.getSession(input),
+              catch: BetterAuthServerError.decodeFromUnknown,
+            }).pipe(
+              Effect.map(Option.fromNullishOr),
+              Effect.map(Option.map(AuthSession.decodeFromUnknownEffect)),
+              Effect.flatMap(Effect.transposeOption),
+              Effect.catchTag('SchemaError', () => Effect.fail(UnexpectedAuthSessionError.make()))
+            ),
+        },
+      };
+    }),
+  }
+) {}
