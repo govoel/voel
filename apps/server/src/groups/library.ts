@@ -2,7 +2,7 @@ import { SQLiteError } from 'bun:sqlite';
 
 import { Array, Effect, Layer, Option, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
 
-import { jsonArrayFrom } from '@repo/effect-kysely';
+import { DatabaseSqlError, jsonArrayFrom } from '@repo/effect-kysely';
 import {
   Api,
   LibraryInvalidPathError,
@@ -48,7 +48,7 @@ export const LibraryHandlers = Layer.mergeAll(
     'libraryGet',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryGet'>) {
       const { db } = yield* Database;
-      const library = yield* db
+      return yield* db
         .executeTakeFirstOption(
           db
             .selectFrom('library as l')
@@ -69,15 +69,14 @@ export const LibraryHandlers = Layer.mergeAll(
             .where('l.deletedAt', 'is', null)
         )
         .pipe(
-          Effect.catchTags({
-            DatabaseSqlError: Effect.die,
-          })
+          Effect.catchTags({ DatabaseSqlError: Effect.die }),
+          Effect.flatMap(
+            Option.match({
+              onNone: () => LibraryNotFoundError.make({ id: payload.id }),
+              onSome: Effect.succeed,
+            })
+          )
         );
-
-      return yield* Option.match(library, {
-        onNone: () => LibraryNotFoundError.make({ id: payload.id }),
-        onSome: Effect.succeed,
-      });
     })
   ),
   Api.toLayerHandler(
@@ -129,8 +128,9 @@ export const LibraryHandlers = Layer.mergeAll(
         payload.absolutePaths,
         ({ absolutePath }) =>
           LibraryAbsolutePath.decodeEffect({ absolutePath }).pipe(
-            Effect.mapError(() => absolutePath)
-          )
+            Effect.catchTags({ SchemaError: () => Effect.fail(absolutePath) })
+          ),
+        { concurrency: 'unbounded' }
       );
 
       if (Array.isReadonlyArrayNonEmpty(invalidPaths)) {
@@ -156,8 +156,8 @@ export const LibraryHandlers = Layer.mergeAll(
                     )
                     .returning(['id', 'name', 'type'])
                 ),
-              onSome: Effect.fnUntraced(function* (id) {
-                const updatedLibrary = yield* trx
+              onSome: (id) =>
+                trx
                   .executeTakeFirstOption(
                     trx
                       .updateTable('library')
@@ -166,27 +166,21 @@ export const LibraryHandlers = Layer.mergeAll(
                       .returning(['id', 'name', 'type'])
                   )
                   .pipe(
-                    Effect.catchTag(
-                      'DatabaseSqlError',
-                      Effect.fnUntraced(function* (error) {
-                        if (
-                          error.cause instanceof SQLiteError &&
-                          error.cause.code === 'SQLITE_CONSTRAINT_UNIQUE' &&
-                          error.cause.message.includes('library.name')
-                        ) {
-                          return yield* LibraryNameConflictError.make({ name: payload.name });
-                        }
-
-                        return yield* error;
+                    Effect.catchIf(
+                      (error) =>
+                        DatabaseSqlError.is(error) &&
+                        error.cause instanceof SQLiteError &&
+                        error.cause.code === 'SQLITE_CONSTRAINT_UNIQUE' &&
+                        error.cause.message.includes('library.name'),
+                      () => LibraryNameConflictError.make({ name: payload.name })
+                    ),
+                    Effect.flatMap(
+                      Option.match({
+                        onNone: () => LibraryNotFoundError.make({ id }),
+                        onSome: Effect.succeed,
                       })
                     )
-                  );
-
-                return yield* Option.match(updatedLibrary, {
-                  onNone: () => LibraryNotFoundError.make({ id }),
-                  onSome: Effect.succeed,
-                });
-              }),
+                  ),
             });
 
             let removeOtherPathsQuery = trx
@@ -195,7 +189,7 @@ export const LibraryHandlers = Layer.mergeAll(
               .where('libraryPath.libraryId', '=', insertedLibrary.id)
               .where('libraryPath.deletedAt', 'is', null);
 
-            if (absolutePaths.length > 0) {
+            if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
               removeOtherPathsQuery = removeOtherPathsQuery.where(
                 'libraryPath.absolutePath',
                 'not in',
@@ -205,7 +199,7 @@ export const LibraryHandlers = Layer.mergeAll(
 
             yield* trx.execute(removeOtherPathsQuery);
 
-            if (absolutePaths.length > 0) {
+            if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
               yield* trx.execute(
                 trx
                   .insertInto('libraryPath')
@@ -221,6 +215,7 @@ export const LibraryHandlers = Layer.mergeAll(
                   .returning(['absolutePath'])
               );
             }
+
             // TODO: Trigger a scan, and also clean up related tables based on the library type
 
             return { id: insertedLibrary.id };
