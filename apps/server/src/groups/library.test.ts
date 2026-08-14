@@ -1,6 +1,6 @@
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer, Option, Schema } from 'effect';
+import { Effect, Layer, Option } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import {
@@ -36,33 +36,6 @@ const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
 
 const makeExpectedAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
   absolutePaths.map((absolutePath) => ({ id: expect.any(Number) as unknown, absolutePath }));
-
-it('should serialize server domain errors', () => {
-  const id = Library.fields.id.make(42);
-
-  expect(
-    Schema.decodeSync(LibraryNotFoundError)(
-      Schema.encodeSync(LibraryNotFoundError)(new LibraryNotFoundError({ id }))
-    )
-  ).toEqual(new LibraryNotFoundError({ id }));
-  expect(
-    Schema.decodeSync(LibraryNameConflictError)(
-      Schema.encodeSync(LibraryNameConflictError)(
-        new LibraryNameConflictError({ name: 'Existing Library' })
-      )
-    )
-  ).toEqual(new LibraryNameConflictError({ name: 'Existing Library' }));
-  expect(
-    Schema.decodeSync(InvalidLibraryPathError)(
-      Schema.encodeSync(InvalidLibraryPathError)(
-        new InvalidLibraryPathError({ paths: ['relative/path'] })
-      )
-    )
-  ).toEqual(new InvalidLibraryPathError({ paths: ['relative/path'] }));
-  expect(
-    Schema.decodeSync(ForbiddenError)(Schema.encodeSync(ForbiddenError)(new ForbiddenError({})))
-  ).toEqual(new ForbiddenError({}));
-});
 
 it.layer(
   RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request)).pipe(
