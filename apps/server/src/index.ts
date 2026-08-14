@@ -27,7 +27,15 @@ export const AllRoutesLayerNoDeps = RpcServer.layerHttp({
   Layer.provide([RpcSerialization.layerMsgPack, BunPath.layer])
 );
 
-const AllRoutesLayer = AllRoutesLayerNoDeps.pipe(Layer.provide(ApiConfig.layer));
+const AllRoutesLayer = RpcServer.layerHttp({
+  group: Api,
+  path: '/api/rpc',
+  protocol: 'http',
+  concurrency: 'unbounded',
+}).pipe(
+  Layer.provide([AuthRouterLayer, LibraryHandlers, AuthMiddlewareLayer, AdminMiddlewareLayer]),
+  Layer.provide([Auth.layer, Database.layer, RpcSerialization.layerMsgPack, BunPath.layer])
+);
 
 if (import.meta.main) {
   const HttpServerLayer = pipe(
