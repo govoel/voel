@@ -53,7 +53,4 @@ export class Database extends Context.Service<
   );
 
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(ApiConfig.layer));
-
-  public static readonly layerTest = (args: Parameters<(typeof this)['make']>['0']) =>
-    Layer.effect(this, this.make(args));
 }

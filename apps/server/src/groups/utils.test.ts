@@ -21,7 +21,7 @@ const makeTestLayer = () =>
   LibraryHandlers.pipe(
     Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLayer)),
     Layer.provideMerge(Layer.mergeAll(Auth.layerNoDeps)),
-    Layer.provideMerge(Database.layerTest({ filename: ':memory:' })),
+    Layer.provideMerge(Database.layerNoDeps),
     Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
   );
