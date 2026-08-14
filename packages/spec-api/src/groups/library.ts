@@ -1,11 +1,30 @@
 import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 
-import { DatabaseNoSuchElementError, DatabaseSqlError } from '@repo/effect-kysely';
-
 import { Library, LibraryPath } from '#src/database/schema.ts';
 import { makeCursorPaginated } from '#src/groups/utils.ts';
 import { AdminMiddleware } from '#src/middlewares/auth.ts';
+
+export class LibraryNotFoundError extends Schema.TaggedError<
+  LibraryNotFoundError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryNotFoundError')('LibraryNotFoundError', {
+  id: Library.json.fields.id,
+}) {}
+
+export class LibraryNameConflictError extends Schema.TaggedError<
+  LibraryNameConflictError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryNameConflictError')('LibraryNameConflictError', {
+  name: Library.jsonUpdate.fields.name,
+}) {}
+
+export class InvalidLibraryPathError extends Schema.TaggedError<
+  InvalidLibraryPathError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/InvalidLibraryPathError')('InvalidLibraryPathError', {
+  paths: Schema.NonEmptyArray(LibraryPath.jsonUpdate.fields.absolutePath),
+}) {}
 
 export const library = [
   makeCursorPaginated('libraryList', {
@@ -21,7 +40,6 @@ export const library = [
         })
       ),
     }),
-    error: DatabaseSqlError,
   }),
 
   Rpc.make('libraryGet', {
@@ -37,7 +55,7 @@ export const library = [
         })
       ),
     }),
-    error: Schema.Union([DatabaseSqlError, DatabaseNoSuchElementError], { mode: 'oneOf' }),
+    error: LibraryNotFoundError,
   }),
 
   Rpc.make('libraryUpsert', {
@@ -52,15 +70,13 @@ export const library = [
       ),
     }),
     success: Schema.Struct({ id: Library.fields.id }),
-    error: Schema.Union(
-      [DatabaseSqlError, DatabaseNoSuchElementError, Schema.instanceOf(Schema.SchemaError)],
-      { mode: 'oneOf' }
-    ),
+    error: Schema.Union([LibraryNotFoundError, LibraryNameConflictError, InvalidLibraryPathError], {
+      mode: 'oneOf',
+    }),
   }).middleware(AdminMiddleware),
 
   Rpc.make('libraryDelete', {
     payload: Schema.Struct({ id: Library.json.fields.id }),
     success: Schema.Void,
-    error: DatabaseSqlError,
   }).middleware(AdminMiddleware),
 ];

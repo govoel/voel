@@ -1,7 +1,14 @@
+import { SQLiteError } from 'bun:sqlite';
+
 import { Array, Effect, Layer, Option, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
 
 import { jsonArrayFrom } from '@repo/effect-kysely';
-import { Api } from '@repo/spec-api';
+import {
+  Api,
+  InvalidLibraryPathError,
+  LibraryNameConflictError,
+  LibraryNotFoundError,
+} from '@repo/spec-api';
 import type { ApiPayload } from '@repo/spec-api';
 import { LibraryPath } from '@repo/spec-api/database/schema.ts';
 
@@ -19,9 +26,7 @@ class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
           if (!path.isAbsolute(absolutePath)) {
             return yield* Effect.fail(
               new SchemaIssue.InvalidValue(
-                {
-                  message: 'Expected an absolute path',
-                },
+                { message: 'Expected an absolute path' },
                 absolutePath,
                 options
               )
@@ -35,7 +40,7 @@ class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
     })
   ),
 }) {
-  public static readonly decodeEffect = Schema.decodeEffect(Schema.Array(this));
+  public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
 export const LibraryHandlers = Layer.mergeAll(
@@ -43,25 +48,32 @@ export const LibraryHandlers = Layer.mergeAll(
     'libraryGet',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryGet'>) {
       const { db } = yield* Database;
-      return yield* db.executeTakeFirstOrError(
-        db
-          .selectFrom('library as l')
-          .select([
-            'l.id',
-            'l.type',
-            'l.name',
-            (eb) =>
-              jsonArrayFrom(
-                eb
-                  .selectFrom('libraryPath as lp')
-                  .select(['lp.id', 'lp.absolutePath'])
-                  .whereRef('lp.libraryId', '=', 'l.id')
-                  .where('lp.deletedAt', 'is', null)
-              ).as('absolutePaths'),
-          ])
-          .where('l.id', '=', payload.id)
-          .where('l.deletedAt', 'is', null)
-      );
+      const library = yield* db
+        .executeTakeFirstOption(
+          db
+            .selectFrom('library as l')
+            .select([
+              'l.id',
+              'l.type',
+              'l.name',
+              (eb) =>
+                jsonArrayFrom(
+                  eb
+                    .selectFrom('libraryPath as lp')
+                    .select(['lp.id', 'lp.absolutePath'])
+                    .whereRef('lp.libraryId', '=', 'l.id')
+                    .where('lp.deletedAt', 'is', null)
+                ).as('absolutePaths'),
+            ])
+            .where('l.id', '=', payload.id)
+            .where('l.deletedAt', 'is', null)
+        )
+        .pipe(Effect.orDie);
+
+      return yield* Option.match(library, {
+        onNone: () => new LibraryNotFoundError({ id: payload.id }),
+        onSome: Effect.succeed,
+      });
     })
   ),
   Api.toLayerHandler(
@@ -92,7 +104,7 @@ export const LibraryHandlers = Layer.mergeAll(
         query = query.where('l.id', '>', payload.cursor.value);
       }
 
-      const result = yield* db.execute(query);
+      const result = yield* db.execute(query).pipe(Effect.orDie);
       const items = result.slice(0, payload.limit);
 
       return {
@@ -107,75 +119,111 @@ export const LibraryHandlers = Layer.mergeAll(
   Api.toLayerHandler(
     'libraryUpsert',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryUpsert'>) {
-      const absolutePaths = yield* LibraryAbsolutePath.decodeEffect(payload.absolutePaths, {
-        errors: 'all',
-        reportInput: true,
-      });
+      const [invalidPaths, absolutePaths] = yield* Effect.partition(
+        payload.absolutePaths,
+        ({ absolutePath }) =>
+          LibraryAbsolutePath.decodeEffect({ absolutePath }).pipe(
+            Effect.mapError(() => absolutePath)
+          )
+      );
+
+      if (Array.isReadonlyArrayNonEmpty(invalidPaths)) {
+        return yield* new InvalidLibraryPathError({ paths: invalidPaths });
+      }
 
       const { db } = yield* Database;
 
-      return yield* db.trx().execute(
-        Effect.fnUntraced(function* (trx) {
-          const insertedLibrary = yield* Option.match(payload.id, {
-            onNone: () =>
-              trx.executeTakeFirstOrError(
-                trx
-                  .insertInto('library')
-                  .values({ name: payload.name, type: payload.type })
-                  .onConflict((oc) =>
-                    oc
-                      .column('name')
-                      .doUpdateSet((eb) => ({ type: eb.ref('excluded.type'), deletedAt: null }))
+      return yield* db
+        .trx()
+        .execute(
+          Effect.fnUntraced(function* (trx) {
+            const insertedLibrary = yield* Option.match(payload.id, {
+              onNone: () =>
+                trx.executeTakeFirstOrError(
+                  trx
+                    .insertInto('library')
+                    .values({ name: payload.name, type: payload.type })
+                    .onConflict((oc) =>
+                      oc
+                        .column('name')
+                        .doUpdateSet((eb) => ({ type: eb.ref('excluded.type'), deletedAt: null }))
+                    )
+                    .returning(['id', 'name', 'type'])
+                ),
+              onSome: Effect.fnUntraced(function* (id) {
+                const updatedLibrary = yield* trx
+                  .executeTakeFirstOption(
+                    trx
+                      .updateTable('library')
+                      .set({ name: payload.name, type: payload.type, deletedAt: null })
+                      .where('library.id', '=', id)
+                      .returning(['id', 'name', 'type'])
                   )
-                  .returning(['id', 'name', 'type'])
-              ),
-            onSome: (id) =>
-              trx.executeTakeFirstOrError(
+                  .pipe(
+                    Effect.catchTag(
+                      'DatabaseSqlError',
+                      Effect.fnUntraced(function* (error) {
+                        if (
+                          error.cause instanceof SQLiteError &&
+                          error.cause.code === 'SQLITE_CONSTRAINT_UNIQUE' &&
+                          error.cause.message.includes('library.name')
+                        ) {
+                          return yield* new LibraryNameConflictError({ name: payload.name });
+                        }
+
+                        return yield* error;
+                      })
+                    )
+                  );
+
+                return yield* Option.match(updatedLibrary, {
+                  onNone: () => new LibraryNotFoundError({ id }),
+                  onSome: Effect.succeed,
+                });
+              }),
+            });
+
+            let removeOtherPathsQuery = trx
+              .updateTable('libraryPath')
+              .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+              .where('libraryPath.libraryId', '=', insertedLibrary.id)
+              .where('libraryPath.deletedAt', 'is', null);
+
+            if (absolutePaths.length > 0) {
+              removeOtherPathsQuery = removeOtherPathsQuery.where(
+                'libraryPath.absolutePath',
+                'not in',
+                absolutePaths.map(({ absolutePath }) => absolutePath)
+              );
+            }
+
+            yield* trx.execute(removeOtherPathsQuery);
+
+            if (absolutePaths.length > 0) {
+              yield* trx.execute(
                 trx
-                  .updateTable('library')
-                  .set({ name: payload.name, type: payload.type, deletedAt: null })
-                  .where('library.id', '=', id)
-                  .returning(['id', 'name', 'type'])
-              ),
-          });
+                  .insertInto('libraryPath')
+                  .values(
+                    absolutePaths.map(({ absolutePath }) => ({
+                      libraryId: insertedLibrary.id,
+                      absolutePath,
+                    }))
+                  )
+                  .onConflict((oc) =>
+                    oc.columns(['libraryId', 'absolutePath']).doUpdateSet({ deletedAt: null })
+                  )
+                  .returning(['absolutePath'])
+              );
+            }
+            // TODO: Trigger a scan, and also clean up related tables based on the library type
 
-          let removeOtherPathsQuery = trx
-            .updateTable('libraryPath')
-            .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-            .where('libraryPath.libraryId', '=', insertedLibrary.id)
-            .where('libraryPath.deletedAt', 'is', null);
-
-          if (absolutePaths.length > 0) {
-            removeOtherPathsQuery = removeOtherPathsQuery.where(
-              'libraryPath.absolutePath',
-              'not in',
-              absolutePaths.map(({ absolutePath }) => absolutePath)
-            );
-          }
-
-          yield* trx.execute(removeOtherPathsQuery);
-
-          if (absolutePaths.length > 0) {
-            yield* trx.execute(
-              trx
-                .insertInto('libraryPath')
-                .values(
-                  absolutePaths.map(({ absolutePath }) => ({
-                    libraryId: insertedLibrary.id,
-                    absolutePath,
-                  }))
-                )
-                .onConflict((oc) =>
-                  oc.columns(['libraryId', 'absolutePath']).doUpdateSet({ deletedAt: null })
-                )
-                .returning(['absolutePath'])
-            );
-          }
-          // TODO: Trigger a scan, and also clean up related tables based on the library type
-
-          return { id: insertedLibrary.id };
-        })
-      );
+            return { id: insertedLibrary.id };
+          })
+        )
+        .pipe(
+          Effect.catchTag('DatabaseNoSuchElementError', (error) => Effect.die(error)),
+          Effect.catchTag('DatabaseSqlError', (error) => Effect.die(error))
+        );
     })
   ),
   Api.toLayerHandler(
@@ -183,23 +231,26 @@ export const LibraryHandlers = Layer.mergeAll(
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryDelete'>) {
       const { db } = yield* Database;
 
-      return yield* db.trx().execute(
-        Effect.fnUntraced(function* (trx) {
-          yield* trx.execute(
-            trx
-              .updateTable('libraryPath')
-              .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-              .where('libraryPath.libraryId', '=', payload.id)
-          );
+      return yield* db
+        .trx()
+        .execute(
+          Effect.fnUntraced(function* (trx) {
+            yield* trx.execute(
+              trx
+                .updateTable('libraryPath')
+                .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                .where('libraryPath.libraryId', '=', payload.id)
+            );
 
-          yield* trx.execute(
-            trx
-              .updateTable('library')
-              .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
-              .where('library.id', '=', payload.id)
-          );
-        })
-      );
+            yield* trx.execute(
+              trx
+                .updateTable('library')
+                .set((eb) => ({ deletedAt: eb.fn('unixepoch') }))
+                .where('library.id', '=', payload.id)
+            );
+          })
+        )
+        .pipe(Effect.orDie);
     })
   )
 );

@@ -6,6 +6,7 @@ import {
   AdminMiddleware,
   AuthMiddleware,
   CurrentSession,
+  ForbiddenError,
   UnauthorizedError,
 } from '@repo/spec-api/middlewares/auth.ts';
 
@@ -94,7 +95,7 @@ export const AdminMiddlewareLayer = Layer.succeed(
       const session = yield* CurrentSession;
 
       if (!('role' in session.user) || session.user.role !== 'admin') {
-        return yield* UnauthorizedError.make({});
+        return yield* ForbiddenError.make({});
       }
 
       return yield* effect;
