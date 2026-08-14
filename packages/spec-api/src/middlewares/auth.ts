@@ -12,6 +12,11 @@ export class UnauthorizedError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/middlewares/auth/UnauthorizedError')('UnauthorizedError', {}) {}
 
+export class ForbiddenError extends Schema.TaggedError<
+  ForbiddenError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/middlewares/auth/ForbiddenError')('ForbiddenError', {}) {}
+
 export class AuthMiddleware extends RpcMiddleware.Service<
   AuthMiddleware,
   { provides: CurrentSession }
@@ -23,4 +28,4 @@ export class AuthMiddleware extends RpcMiddleware.Service<
 export class AdminMiddleware extends RpcMiddleware.Service<
   AdminMiddleware,
   { requires: CurrentSession }
->()('@repo/spec-api/middlewares/auth/AdminMiddleware', { error: UnauthorizedError }) {}
+>()('@repo/spec-api/middlewares/auth/AdminMiddleware', { error: ForbiddenError }) {}

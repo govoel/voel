@@ -1,12 +1,20 @@
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer, Option, Schema, SchemaIssue } from 'effect';
+import { Effect, Layer, Option } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
-import { DatabaseNoSuchElementError, DatabaseSqlError } from '@repo/effect-kysely';
-import { Api } from '@repo/spec-api';
+import {
+  Api,
+  LibraryInvalidPathError,
+  LibraryNameConflictError,
+  LibraryNotFoundError,
+} from '@repo/spec-api';
 import { Library, MediaType } from '@repo/spec-api/database/schema.js';
-import { AuthMiddleware, UnauthorizedError } from '@repo/spec-api/middlewares/auth.ts';
+import {
+  AuthMiddleware,
+  ForbiddenError,
+  UnauthorizedError,
+} from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlers } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
@@ -22,8 +30,6 @@ const makeTestLayer = () =>
     Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
   );
-
-const formatSchemaIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 
 const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
   absolutePaths.map((absolutePath) => ({ absolutePath }));
@@ -77,8 +83,8 @@ it.layer(
         .libraryDelete({ id: Library.fields.id.make(999_999) })
         .pipe(Effect.flip);
 
-      expect(upsertResult).toBeInstanceOf(UnauthorizedError);
-      expect(deleteResult).toBeInstanceOf(UnauthorizedError);
+      expect(upsertResult).toBeInstanceOf(ForbiddenError);
+      expect(deleteResult).toBeInstanceOf(ForbiddenError);
     })
   );
 
@@ -458,22 +464,9 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(result).toBeInstanceOf(Schema.SchemaError);
-      if (!Schema.isSchemaError(result)) {
-        throw new Error('Expected SchemaError');
-      }
-
-      const { issues } = formatSchemaIssue(result.issue);
-      expect(issues).toEqual([
-        expect.objectContaining({
-          message: 'Expected an absolute path',
-          path: [1, 'absolutePath'],
-        }),
-        expect.objectContaining({
-          message: 'Expected an absolute path',
-          path: [3, 'absolutePath'],
-        }),
-      ]);
+      expect(result).toEqual(
+        LibraryInvalidPathError.make({ paths: ['relative/path', 'another/relative/path'] })
+      );
     })
   );
 
@@ -522,7 +515,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       yield* client.libraryDelete({ id: result1.id });
 
       const deletedResult = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
-      expect(DatabaseNoSuchElementError.is(deletedResult)).toBe(true);
+      expect(deletedResult).toEqual(LibraryNotFoundError.make({ id: result1.id }));
 
       const result2 = yield* client
         .libraryUpsert({
@@ -710,11 +703,10 @@ it.layer(makeTestLayer())('library', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
 
-      const result = yield* client
-        .libraryGet({ id: Library.fields.id.make(999_999) })
-        .pipe(Effect.flip);
+      const id = Library.fields.id.make(999_999);
+      const result = yield* client.libraryGet({ id }).pipe(Effect.flip);
 
-      expect(DatabaseNoSuchElementError.is(result)).toBe(true);
+      expect(result).toEqual(LibraryNotFoundError.make({ id }));
     })
   );
 
@@ -734,7 +726,7 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
 
-      expect(DatabaseNoSuchElementError.is(result2)).toBe(true);
+      expect(result2).toEqual(LibraryNotFoundError.make({ id: result1.id }));
     })
   );
 
@@ -752,16 +744,17 @@ it.layer(makeTestLayer())('library', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
 
+      const id = Library.fields.id.make(999_999);
       const result = yield* client
         .libraryUpsert({
-          id: Option.some(Library.fields.id.make(999_999)),
+          id: Option.some(id),
           type: MediaType.fields.type.make('movie'),
           name: 'Ghost Library',
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flip);
 
-      expect(DatabaseNoSuchElementError.is(result)).toBe(true);
+      expect(result).toEqual(LibraryNotFoundError.make({ id }));
     })
   );
 
@@ -770,11 +763,11 @@ it.layer(makeTestLayer())('library', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
 
-      yield* client.libraryUpsert({
+      const existingLibrary = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
         name: 'Existing Name Library',
-        absolutePaths: makeAbsolutePaths([]),
+        absolutePaths: makeAbsolutePaths(['/movie/existing-name']),
       });
       const library = yield* client.libraryUpsert({
         id: Option.none(),
@@ -792,7 +785,20 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(DatabaseSqlError.is(result)).toBe(true);
+      expect(result).toEqual(LibraryNameConflictError.make({ name: 'Existing Name Library' }));
+
+      expect(yield* client.libraryGet({ id: existingLibrary.id })).toEqual({
+        id: existingLibrary.id,
+        type: MediaType.fields.type.make('movie'),
+        name: 'Existing Name Library',
+        absolutePaths: makeExpectedAbsolutePaths(['/movie/existing-name']),
+      });
+      expect(yield* client.libraryGet({ id: library.id })).toEqual({
+        id: library.id,
+        type: MediaType.fields.type.make('show'),
+        name: 'Rename Collision Library',
+        absolutePaths: makeExpectedAbsolutePaths([]),
+      });
     })
   );
 });
