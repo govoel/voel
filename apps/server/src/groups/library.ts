@@ -5,7 +5,7 @@ import { Array, Effect, Layer, Option, Path, Schema, SchemaGetter, SchemaIssue }
 import { jsonArrayFrom } from '@repo/effect-kysely';
 import {
   Api,
-  InvalidLibraryPathError,
+  LibraryInvalidPathError,
   LibraryNameConflictError,
   LibraryNotFoundError,
 } from '@repo/spec-api';
@@ -68,10 +68,14 @@ export const LibraryHandlers = Layer.mergeAll(
             .where('l.id', '=', payload.id)
             .where('l.deletedAt', 'is', null)
         )
-        .pipe(Effect.orDie);
+        .pipe(
+          Effect.catchTags({
+            DatabaseSqlError: Effect.die,
+          })
+        );
 
       return yield* Option.match(library, {
-        onNone: () => new LibraryNotFoundError({ id: payload.id }),
+        onNone: () => LibraryNotFoundError.make({ id: payload.id }),
         onSome: Effect.succeed,
       });
     })
@@ -104,7 +108,9 @@ export const LibraryHandlers = Layer.mergeAll(
         query = query.where('l.id', '>', payload.cursor.value);
       }
 
-      const result = yield* db.execute(query).pipe(Effect.orDie);
+      const result = yield* db
+        .execute(query)
+        .pipe(Effect.catchTags({ DatabaseSqlError: Effect.die }));
       const items = result.slice(0, payload.limit);
 
       return {
@@ -128,7 +134,7 @@ export const LibraryHandlers = Layer.mergeAll(
       );
 
       if (Array.isReadonlyArrayNonEmpty(invalidPaths)) {
-        return yield* new InvalidLibraryPathError({ paths: invalidPaths });
+        return yield* LibraryInvalidPathError.make({ paths: invalidPaths });
       }
 
       const { db } = yield* Database;
@@ -168,7 +174,7 @@ export const LibraryHandlers = Layer.mergeAll(
                           error.cause.code === 'SQLITE_CONSTRAINT_UNIQUE' &&
                           error.cause.message.includes('library.name')
                         ) {
-                          return yield* new LibraryNameConflictError({ name: payload.name });
+                          return yield* LibraryNameConflictError.make({ name: payload.name });
                         }
 
                         return yield* error;
@@ -177,7 +183,7 @@ export const LibraryHandlers = Layer.mergeAll(
                   );
 
                 return yield* Option.match(updatedLibrary, {
-                  onNone: () => new LibraryNotFoundError({ id }),
+                  onNone: () => LibraryNotFoundError.make({ id }),
                   onSome: Effect.succeed,
                 });
               }),
@@ -221,8 +227,10 @@ export const LibraryHandlers = Layer.mergeAll(
           })
         )
         .pipe(
-          Effect.catchTag('DatabaseNoSuchElementError', (error) => Effect.die(error)),
-          Effect.catchTag('DatabaseSqlError', (error) => Effect.die(error))
+          Effect.catchTags({
+            DatabaseNoSuchElementError: Effect.die,
+            DatabaseSqlError: Effect.die,
+          })
         );
     })
   ),
@@ -250,7 +258,7 @@ export const LibraryHandlers = Layer.mergeAll(
             );
           })
         )
-        .pipe(Effect.orDie);
+        .pipe(Effect.catchTags({ DatabaseSqlError: Effect.die }));
     })
   )
 );

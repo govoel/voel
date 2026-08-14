@@ -4,7 +4,7 @@ import { library } from '#src/groups/library.ts';
 import { AuthMiddleware } from '#src/middlewares/auth.ts';
 
 export {
-  InvalidLibraryPathError,
+  LibraryInvalidPathError,
   LibraryNameConflictError,
   LibraryNotFoundError,
 } from '#src/groups/library.ts';

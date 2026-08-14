@@ -5,7 +5,7 @@ import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import {
   Api,
-  InvalidLibraryPathError,
+  LibraryInvalidPathError,
   LibraryNameConflictError,
   LibraryNotFoundError,
 } from '@repo/spec-api';
@@ -465,9 +465,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .pipe(Effect.flip);
 
       expect(result).toEqual(
-        new InvalidLibraryPathError({
-          paths: ['relative/path', 'another/relative/path'],
-        })
+        LibraryInvalidPathError.make({ paths: ['relative/path', 'another/relative/path'] })
       );
     })
   );
@@ -517,7 +515,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       yield* client.libraryDelete({ id: result1.id });
 
       const deletedResult = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
-      expect(deletedResult).toEqual(new LibraryNotFoundError({ id: result1.id }));
+      expect(deletedResult).toEqual(LibraryNotFoundError.make({ id: result1.id }));
 
       const result2 = yield* client
         .libraryUpsert({
@@ -708,7 +706,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       const id = Library.fields.id.make(999_999);
       const result = yield* client.libraryGet({ id }).pipe(Effect.flip);
 
-      expect(result).toEqual(new LibraryNotFoundError({ id }));
+      expect(result).toEqual(LibraryNotFoundError.make({ id }));
     })
   );
 
@@ -728,7 +726,7 @@ it.layer(makeTestLayer())('library', (iit) => {
 
       const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
 
-      expect(result2).toEqual(new LibraryNotFoundError({ id: result1.id }));
+      expect(result2).toEqual(LibraryNotFoundError.make({ id: result1.id }));
     })
   );
 
@@ -756,7 +754,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(result).toEqual(new LibraryNotFoundError({ id }));
+      expect(result).toEqual(LibraryNotFoundError.make({ id }));
     })
   );
 
@@ -787,7 +785,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         })
         .pipe(Effect.flip);
 
-      expect(result).toEqual(new LibraryNameConflictError({ name: 'Existing Name Library' }));
+      expect(result).toEqual(LibraryNameConflictError.make({ name: 'Existing Name Library' }));
 
       expect(yield* client.libraryGet({ id: existingLibrary.id })).toEqual({
         id: existingLibrary.id,

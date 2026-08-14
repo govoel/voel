@@ -19,10 +19,10 @@ export class LibraryNameConflictError extends Schema.TaggedError<
   name: Library.jsonUpdate.fields.name,
 }) {}
 
-export class InvalidLibraryPathError extends Schema.TaggedError<
-  InvalidLibraryPathError,
+export class LibraryInvalidPathError extends Schema.TaggedError<
+  LibraryInvalidPathError,
   { readonly brand: unique symbol }
->('@repo/spec-api/groups/library/InvalidLibraryPathError')('InvalidLibraryPathError', {
+>('@repo/spec-api/groups/library/LibraryInvalidPathError')('LibraryInvalidPathError', {
   paths: Schema.NonEmptyArray(LibraryPath.jsonUpdate.fields.absolutePath),
 }) {}
 
@@ -70,7 +70,7 @@ export const library = [
       ),
     }),
     success: Schema.Struct({ id: Library.fields.id }),
-    error: Schema.Union([LibraryNotFoundError, LibraryNameConflictError, InvalidLibraryPathError], {
+    error: Schema.Union([LibraryNotFoundError, LibraryNameConflictError, LibraryInvalidPathError], {
       mode: 'oneOf',
     }),
   }).middleware(AdminMiddleware),
