@@ -10,15 +10,15 @@ import { AuthMiddleware, UnauthorizedError } from '@repo/spec-api/middlewares/au
 
 import { LibraryHandlers } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
-import { AdminMiddlewareLive, Auth, AuthMiddlewareLive } from '#src/services/auth.ts';
+import { AdminMiddlewareLayer, Auth, AuthMiddlewareLayer } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
 
 const makeTestLayer = () =>
   LibraryHandlers.pipe(
-    Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
-    Layer.provideMerge(Layer.mergeAll(Auth.layer)),
-    Layer.provideMerge(Database.layerTest({ filename: ':memory:' })),
+    Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayer, AdminMiddlewareLayer)),
+    Layer.provideMerge(Layer.mergeAll(Auth.layerNoDeps)),
+    Layer.provideMerge(Database.layerNoDeps),
     Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
   );

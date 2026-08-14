@@ -13,7 +13,9 @@ export class Env extends Context.Service<Env>()('voel/env', {
     };
   }),
 }) {
-  public static readonly layer = Layer.effect(this, this.make).pipe(
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))
   );
 }

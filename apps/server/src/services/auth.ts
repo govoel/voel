@@ -48,10 +48,14 @@ export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', 
     });
   }),
 }) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide(Layer.mergeAll(ApiConfig.layer, Database.layer))
+  );
 }
 
-export const AuthRouterLive = HttpRouter.use(
+export const AuthRouterLayer = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
     const auth = yield* Auth;
 
@@ -61,7 +65,7 @@ export const AuthRouterLive = HttpRouter.use(
   })
 );
 
-export const AuthMiddlewareLive = Layer.effect(
+export const AuthMiddlewareLayer = Layer.effect(
   AuthMiddleware,
   Effect.gen(function* () {
     const auth = yield* Auth;
@@ -83,7 +87,7 @@ export const AuthMiddlewareLive = Layer.effect(
   })
 );
 
-export const AdminMiddlewareLive = Layer.succeed(
+export const AdminMiddlewareLayer = Layer.succeed(
   AdminMiddleware,
   AdminMiddleware.of(
     Effect.fnUntraced(function* (effect) {

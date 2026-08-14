@@ -21,12 +21,14 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make).pipe(
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))
   );
 
   public static readonly layerTest = (config?: Partial<(typeof ApiConfigSchema)['Encoded']>) =>
-    Layer.effect(this, this.make).pipe(
+    this.layerNoDeps.pipe(
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({

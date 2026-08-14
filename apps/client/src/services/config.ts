@@ -20,12 +20,14 @@ export class AppConfig extends Context.Service<AppConfig>()('voel/services/confi
     return { mainDb: { filename: config.MAIN_DB_FILENAME } };
   }).pipe(Effect.catchTags({ ConfigError: () => AppConfigError.make() })),
 }) {
-  public static readonly layer = Layer.effect(this, this.make).pipe(
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))
   );
 
   public static readonly layerTest = (config?: Partial<(typeof AppConfigVariables)['Encoded']>) =>
-    Layer.effect(this, this.make).pipe(
+    this.layerNoDeps.pipe(
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({

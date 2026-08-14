@@ -105,7 +105,7 @@ const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClien
   );
 });
 
-it.layer(TestServerControllerClient.layerNoDeps)('accountsAtom', (iit) => {
+it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
   iit.effect(
     'reacts to account table mutations',
     Effect.fnUntraced(
@@ -173,7 +173,7 @@ describe('accountsSheetAtom', () => {
     )
   );
 
-  it.layer(TestServerControllerClient.layerNoDeps)('with persisted accounts', (iit) => {
+  it.layer(TestServerControllerClient.layer)('with persisted accounts', (iit) => {
     iit.effect(
       'requires account selection and cannot be dismissed when no account is active',
       Effect.fnUntraced(
@@ -198,7 +198,7 @@ describe('accountsSheetAtom', () => {
           }).pipe(
             Effect.provide(
               Layer.fresh(TestAccountsAtomsLayer).pipe(
-                Layer.provideMerge(Layer.fresh(AccountManager.layer))
+                Layer.provideMerge(Layer.fresh(AccountManager.layerNoDeps))
               )
             )
           );
@@ -329,7 +329,7 @@ describe('accountsSheetAtom', () => {
   });
 });
 
-it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessions', (iit) => {
+it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (iit) => {
   iit.effect(
     'stays idle and dismissable when the session is valid',
     Effect.fnUntraced(
@@ -476,7 +476,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('accountsSheetAtom valid sessio
   );
 });
 
-it.layer(TestServerControllerClient.layerNoDeps)('listUsersAtom', (iit) => {
+it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   iit.effect(
     'fails with NoActiveAccountError without an active account',
     Effect.fnUntraced(
@@ -561,7 +561,7 @@ it.layer(TestServerControllerClient.layerNoDeps)('listUsersAtom', (iit) => {
   );
 });
 
-it.layer(TestServerControllerClient.layerNoDeps)('activeAccountAtom', (iit) => {
+it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
   iit.effect(
     'reflects an account created by AccountManager',
     Effect.fnUntraced(

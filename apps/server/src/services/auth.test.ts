@@ -5,13 +5,15 @@ import { HttpRouter, HttpServer } from 'effect/unstable/http';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import { AllRoutes } from '#src/index.ts';
+import { AllRoutesLayerNoDeps } from '#src/index.ts';
 import { ApiConfig } from '#src/services/config.ts';
 
-const TestServerLive = Layer.effectDiscard(
+const TestServerLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
-      AllRoutes.pipe(Layer.provide(Layer.mergeAll(HttpServer.layerServices, ApiConfig.layerTest())))
+      AllRoutesLayerNoDeps.pipe(
+        Layer.provide(Layer.mergeAll(HttpServer.layerServices, ApiConfig.layerTest()))
+      )
     );
     yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));
 
@@ -41,7 +43,7 @@ it.describe('auth customizations', () => {
         expect(response.data).toBe(null);
         expect(response.error?.code).toBe('MUST_SIGN_UP_WITH_USERNAME');
       },
-      (effect) => effect.pipe(Effect.provide(TestServerLive))
+      (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
   );
 
@@ -74,7 +76,7 @@ it.describe('auth customizations', () => {
         expect(signInResponse.data).toBe(null);
         expect(signInResponse.error?.code).toBe('MUST_SIGN_IN_WITH_USERNAME');
       },
-      (effect) => effect.pipe(Effect.provide(TestServerLive))
+      (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
   );
 
@@ -109,7 +111,7 @@ it.describe('auth customizations', () => {
         expect(signInResponse.data?.user.id).toBeDefined();
         expect(signInResponse.data?.user.role).toBe('admin');
       },
-      (effect) => effect.pipe(Effect.provide(TestServerLive))
+      (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
   );
 
@@ -143,7 +145,7 @@ it.describe('auth customizations', () => {
         expect(response2.data).toBe(null);
         expect(response2.error?.code).toBe('EMAIL_PASSWORD_SIGN_UP_DISABLED');
       },
-      (effect) => effect.pipe(Effect.provide(TestServerLive))
+      (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
   );
 });

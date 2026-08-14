@@ -29,7 +29,7 @@ type IncomingAgentMessage = Data.TaggedEnum<{
 
 const IncomingAgentMessage = Data.taggedEnum<IncomingAgentMessage>();
 
-const AgentToolsRegistrationLive = Layer.effectDiscard(
+const AgentToolsRegistrationLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const agentClient = yield* Effect.acquireRelease(
       Effect.promise(async () =>
@@ -125,5 +125,5 @@ const AgentToolsRegistrationLive = Layer.effectDiscard(
 );
 
 export const AgentToolsLayer = Layer.effectDiscard(
-  Layer.build(AgentToolsRegistrationLive).pipe(Effect.forkScoped)
+  Layer.build(AgentToolsRegistrationLayer).pipe(Effect.forkScoped)
 );

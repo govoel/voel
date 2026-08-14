@@ -10,7 +10,7 @@ import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
 import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
 import { makeRpcClientProtocol } from '#src/ui/rpc/protocol.ts';
 
-const RozeniteRpcClientProtocolLive = Layer.effect(
+const RozeniteRpcClientProtocolLayer = Layer.effect(
   RpcClient.Protocol,
   Effect.gen(function* () {
     const bridgeClient = yield* Effect.acquireRelease(
@@ -31,7 +31,7 @@ class AtomDevToolsRpcClient extends AtomRpc.Service<AtomDevToolsRpcClient>()(
   '@repo/effect-atom-devtools-rozenite/ui/atoms/AtomDevToolsRpcClient',
   {
     group: AtomDevToolsRpc,
-    protocol: RozeniteRpcClientProtocolLive,
+    protocol: RozeniteRpcClientProtocolLayer,
   }
 ) {}
 
