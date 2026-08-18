@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- test utilities construct isolated clients */
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
 
@@ -5,7 +6,7 @@ import type { Selectable } from '@repo/effect-kysely';
 
 import { UuidGenerator } from '#src/services/accounts/index.ts';
 import type { AccountManager } from '#src/services/accounts/index.ts';
-import { createVoelAuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClient, AuthClientKey } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { AppConfig } from '#src/services/config.ts';
@@ -36,17 +37,6 @@ export const makeServerUrl = Effect.gen(function* () {
   );
 });
 
-export const makeAuthClientStorage = (): Parameters<typeof createVoelAuthClient>[0]['storage'] => {
-  const items = new Map<string, string>();
-
-  return {
-    getItem: (key) => items.get(key) ?? null,
-    setItem: (key, value) => {
-      items.set(key, value);
-    },
-  };
-};
-
 export const makeUsername = (prefix = 'test.user') =>
   Random.nextInt.pipe(
     Effect.map((suffix) => Account.fields.username.make(`${prefix}.${Math.abs(suffix)}`))
@@ -56,15 +46,16 @@ export const makeAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
 }: Pick<Selectable<AccountTable>, 'serverUrl'>) {
   const uuidGenerator = yield* UuidGenerator;
-  const xxHash = yield* XxHash;
-  const authStorageId = yield* uuidGenerator.v4;
+  const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+  const storage = new Map<string, string>();
 
-  return yield* createVoelAuthClient({
-    serverUrl,
-    authStorageId,
-    storage: makeAuthClientStorage(),
-    xxHash,
-  });
+  return yield* AuthClient.pipe(
+    Effect.provide(
+      AuthClient.layerNoDeps(new AuthClientKey({ serverUrl, authStorageId })).pipe(
+        Layer.provide(Layer.mergeAll(AuthClientStorage.layerTest(storage), XxHash.layerTest))
+      )
+    )
+  );
 });
 
 interface TestServer<UserCount extends number> {
@@ -87,35 +78,23 @@ export const setupTestServerWithUsers = Effect.fnUntraced(function* <
   const adminUsername = Array.headNonEmpty(usernames);
   const adminAuthClient = yield* makeAuthClient({ serverUrl });
 
-  const signUpResult = yield* Effect.promise(async () =>
-    adminAuthClient.signUp.email({
-      name: 'Test Admin',
-      email: `${adminUsername}@voel.app`,
-      username: adminUsername,
-      password: Redacted.value(password),
-    })
-  );
-  if (signUpResult.error !== null) {
-    return yield* Effect.die(new Error(signUpResult.error.message ?? 'Failed to create admin'));
-  }
+  yield* adminAuthClient.signUp.email({
+    name: 'Test Admin',
+    email: `${adminUsername}@voel.app`,
+    username: adminUsername,
+    password: Redacted.value(password),
+  });
 
   yield* Effect.forEach(
     Array.tailNonEmpty(usernames),
     Effect.fnUntraced(function* (username, index) {
-      const createUserResult = yield* Effect.promise(async () =>
-        adminAuthClient.admin.createUser({
-          name: `Test User ${index + 1}`,
-          email: `${username}@voel.app`,
-          password: Redacted.value(password),
-          role: 'user',
-          data: { username },
-        })
-      );
-      if (createUserResult.error !== null) {
-        return yield* Effect.die(
-          new Error(createUserResult.error.message ?? 'Failed to create user')
-        );
-      }
+      yield* adminAuthClient.admin.createUser({
+        name: `Test User ${index + 1}`,
+        email: `${username}@voel.app`,
+        password: Redacted.value(password),
+        role: 'user',
+        data: { username },
+      });
       return void 0;
     }),
     { discard: true, concurrency: 'unbounded' }
