@@ -56,7 +56,7 @@ export class Auth extends Context.Service<Auth>()('@repo/server/services/auth', 
   );
 }
 
-export const AuthRouterLayer = HttpRouter.use(
+export const AuthRouterLayerNoDeps = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
     const auth = yield* Auth;
 
@@ -66,7 +66,9 @@ export const AuthRouterLayer = HttpRouter.use(
   })
 );
 
-export const AuthMiddlewareLayer = Layer.effect(
+export const AuthRouterLayer = AuthRouterLayerNoDeps.pipe(Layer.provide(Auth.layer));
+
+export const AuthMiddlewareLayerNoDeps = Layer.effect(
   AuthMiddleware,
   Effect.gen(function* () {
     const auth = yield* Auth;
@@ -88,7 +90,9 @@ export const AuthMiddlewareLayer = Layer.effect(
   })
 );
 
-export const AdminMiddlewareLayer = Layer.succeed(
+export const AuthMiddlewareLayer = AuthMiddlewareLayerNoDeps.pipe(Layer.provide(Auth.layer));
+
+export const AdminMiddlewareLayerNoDeps = Layer.succeed(
   AdminMiddleware,
   AdminMiddleware.of(
     Effect.fnUntraced(function* (effect) {
@@ -102,3 +106,5 @@ export const AdminMiddlewareLayer = Layer.succeed(
     })
   )
 );
+
+export const AdminMiddlewareLayer = AdminMiddlewareLayerNoDeps;

@@ -1,5 +1,6 @@
 import { SQLiteError } from 'bun:sqlite';
 
+import { BunPath } from '@effect/platform-bun';
 import { Array, Effect, Layer, Option, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
 
 import { DatabaseSqlError, jsonArrayFrom } from '@repo/effect-kysely';
@@ -43,7 +44,7 @@ class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
   public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
-export const LibraryHandlers = Layer.mergeAll(
+export const LibraryHandlersNoDeps = Layer.mergeAll(
   Api.toLayerHandler(
     'libraryGet',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryGet'>) {
@@ -256,4 +257,8 @@ export const LibraryHandlers = Layer.mergeAll(
         .pipe(Effect.catchTags({ DatabaseSqlError: Effect.die }));
     })
   )
+);
+
+export const LibraryHandlers = LibraryHandlersNoDeps.pipe(
+  Layer.provide([Database.layer, BunPath.layer])
 );
