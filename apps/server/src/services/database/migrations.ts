@@ -14,6 +14,11 @@ export const createMigrationProvider = (): MigrationProvider => ({
       up: (await import('#src/services/database/migrations/000001-base-tables.ts')).up,
       down: (await import('#src/services/database/migrations/000001-base-tables.ts')).down,
     },
+    '000002-media-file-updated-at': {
+      up: (await import('#src/services/database/migrations/000002-media-file-updated-at.ts')).up,
+      down: (await import('#src/services/database/migrations/000002-media-file-updated-at.ts'))
+        .down,
+    },
   }),
 });
 

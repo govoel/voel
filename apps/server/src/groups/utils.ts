@@ -1,11 +1,10 @@
 import { Effect } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
-import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
+import { RpcMiddleware } from 'effect/unstable/rpc';
 
 import { AuthServerClient } from '@repo/auth-api/server.ts';
 import type { TestHelpers } from '@repo/auth-api/server.ts';
 import { sql } from '@repo/effect-kysely';
-import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { Database } from '#src/services/database/index.ts';
@@ -54,12 +53,7 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
     test.getAuthHeaders({ userId: savedUser.id })
   ).pipe(Effect.orDie, Effect.map(EffectHeaders.fromInput));
 
-  return yield* RpcTest.makeClient(Api).pipe(
-    // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this test helper installs a value-only client middleware layer
-    Effect.provide(
-      RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
-        next({ ...request, headers: EffectHeaders.merge(request.headers, headers) })
-      )
-    )
+  return RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
+    next({ ...request, headers: EffectHeaders.merge(request.headers, headers) })
   );
 });

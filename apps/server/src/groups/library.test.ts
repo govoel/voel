@@ -1,15 +1,16 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
+import { Library, MediaType } from '@repo/spec-api/database/schema.js';
 import {
-  Api,
   LibraryInvalidPathError,
   LibraryNameConflictError,
   LibraryNotFoundError,
-} from '@repo/spec-api';
-import { Library, MediaType } from '@repo/spec-api/database/schema.js';
+  LibraryRpcs,
+} from '@repo/spec-api/groups/library.ts';
 import {
   AuthMiddleware,
   ForbiddenError,
@@ -31,8 +32,7 @@ const makeTestLayer = () =>
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
     Layer.provideMerge(AuthLayerNoDeps),
     Layer.provideMerge(Database.layerNoDeps),
-    Layer.provideMerge(BunPath.layer),
-    Layer.provideMerge(ApiConfig.layerTest())
+    Layer.provide([ApiConfig.layerTest(), BunPath.layer])
   );
 
 const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
@@ -41,15 +41,15 @@ const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
 const makeExpectedAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
   absolutePaths.map((absolutePath) => ({ id: expect.any(Number) as unknown, absolutePath }));
 
-it.layer(
-  RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request)).pipe(
-    Layer.provideMerge(makeTestLayer())
-  )
-)('library authorization', (iit) => {
+it.layer(makeTestLayer())('library authorization', (iit) => {
   iit.effect(
     'should reject unauthenticated library mutations',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Api);
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(
+          RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
+        )
+      );
 
       const upsertResult = yield* client
         .libraryUpsert({
@@ -72,7 +72,9 @@ it.layer(
   iit.effect.each(['user', 'under18'] as const)(
     'should reject %s library mutations',
     Effect.fnUntraced(function* (role) {
-      const client = yield* makeAuthedClient({ username: `library_auth_${role}`, role });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: `library_auth_${role}`, role }))
+      );
 
       const upsertResult = yield* client
         .libraryUpsert({
@@ -95,7 +97,11 @@ it.layer(
   iit.effect(
     'should reject unauthenticated library reads',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(Api);
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(
+          RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
+        )
+      );
 
       const getResult = yield* client
         .libraryGet({ id: Library.fields.id.make(999_999) })
@@ -112,10 +118,14 @@ it.layer(
   iit.effect.each(['user', 'under18'] as const)(
     'should allow %s library reads',
     Effect.fnUntraced(function* (role) {
-      const adminClient = yield* makeAuthedClient({
-        username: `library_read_admin_${role}`,
-        role: 'admin',
-      });
+      const adminClient = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(
+          yield* makeAuthedClient({
+            username: `library_read_admin_${role}`,
+            role: 'admin',
+          })
+        )
+      );
       const marker = yield* adminClient.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
@@ -128,7 +138,9 @@ it.layer(
         name: `${role} Read Library`,
         absolutePaths: makeAbsolutePaths([`/show/${role}-read`]),
       });
-      const client = yield* makeAuthedClient({ username: `library_read_${role}`, role });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: `library_read_${role}`, role }))
+      );
 
       const getResult = yield* client.libraryGet({ id: library.id });
       const listResult = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 1 });
@@ -151,7 +163,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should list active libraries',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -199,7 +213,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should list only active library paths',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -229,7 +245,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should paginate active libraries by cursor',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
@@ -320,7 +338,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should return an empty page after the last library',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -341,7 +361,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should list a page larger than the active library count',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
@@ -387,7 +409,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'should create a %s library',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result = yield* client
         .libraryUpsert({
@@ -408,7 +432,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'should create a %s library with no paths',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result = yield* client
         .libraryUpsert({
@@ -429,7 +455,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'should create a %s library with multiple paths',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result = yield* client
         .libraryUpsert({
@@ -452,7 +480,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should reject relative library paths',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result = yield* client
         .libraryUpsert({
@@ -477,7 +507,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'should soft delete a %s library and recreate it',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -507,7 +539,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'should soft delete a %s library and restore it by id',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -542,7 +576,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     '%s library paths should not get deleted on upsert',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client
         .libraryUpsert({
@@ -584,7 +620,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'should de-duplicate paths for a %s library',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result = yield* client
         .libraryUpsert({
@@ -604,7 +642,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'should restore a removed path for a %s library',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -642,7 +682,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     'name changes for %s library is supported',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client
         .libraryUpsert({
@@ -674,7 +716,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect.each(MediaType.fields.type.schema.literals)(
     '%s library type should change on upsert, with associated tables cleaned up',
     Effect.fnUntraced(function* (type) {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -705,7 +749,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should fail to get a non-existent library',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const id = Library.fields.id.make(999_999);
       const result = yield* client.libraryGet({ id }).pipe(Effect.flip);
@@ -717,7 +763,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should fail to get a deleted library',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
@@ -737,7 +785,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should succeed in deleting a non-existent library',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       yield* client.libraryDelete({ id: Library.fields.id.make(999_999) });
     })
@@ -746,7 +796,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should fail to upsert with a non-existent id',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const id = Library.fields.id.make(999_999);
       const result = yield* client
@@ -765,7 +817,9 @@ it.layer(makeTestLayer())('library', (iit) => {
   iit.effect(
     'should fail to rename a library to an existing library name',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'default', role: 'admin' });
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      );
 
       const existingLibrary = yield* client.libraryUpsert({
         id: Option.none(),
