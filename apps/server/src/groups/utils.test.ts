@@ -4,6 +4,7 @@ import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
 
+import { AuthServerClient } from '@repo/auth-api/server.ts';
 import { sql } from '@repo/effect-kysely';
 import {
   AuthMiddleware,
@@ -13,14 +14,18 @@ import {
 
 import { LibraryHandlersNoDeps } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
-import { AdminMiddlewareLayerNoDeps, Auth, AuthMiddlewareLayerNoDeps } from '#src/services/auth.ts';
+import {
+  AdminMiddlewareLayerNoDeps,
+  AuthLayerNoDeps,
+  AuthMiddlewareLayerNoDeps,
+} from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
 
 const makeTestLayer = () =>
   LibraryHandlersNoDeps.pipe(
     Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLayerNoDeps)),
-    Layer.provideMerge(Layer.mergeAll(Auth.layerNoDeps)),
+    Layer.provideMerge(AuthLayerNoDeps),
     Layer.provideMerge(Database.layerNoDeps),
     Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
@@ -154,22 +159,21 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
           Layer.effect(
             AuthMiddleware,
             Effect.gen(function* () {
-              const auth = yield* Auth;
+              const auth = yield* AuthServerClient;
 
               return AuthMiddleware.of(
                 Effect.fnUntraced(function* (httpEffect, { headers }) {
                   capturedHeaders = Option.some(headers);
 
-                  const session = yield* Effect.tryPromise({
-                    try: async () => auth.api.getSession({ headers }),
-                    catch: () => UnauthorizedError.make({}),
-                  });
+                  const session = yield* auth.api
+                    .getSession({ headers })
+                    .pipe(Effect.catch(() => UnauthorizedError.make({})));
 
-                  if (session === null) {
+                  if (Option.isNone(session)) {
                     return yield* UnauthorizedError.make({});
                   }
 
-                  return yield* Effect.provideService(httpEffect, CurrentSession, session);
+                  return yield* Effect.provideService(httpEffect, CurrentSession, session.value);
                 })
               );
             })

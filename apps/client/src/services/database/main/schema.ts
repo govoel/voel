@@ -1,6 +1,7 @@
 import { Match, Schema, SchemaGetter } from 'effect';
 import { Model } from 'effect/unstable/schema';
 
+import { AuthSession } from '@repo/auth-api/shared.ts';
 import type { TableFromModel } from '@repo/effect-kysely';
 
 export class AccountRole extends Schema.Class<AccountRole, { readonly brand: unique symbol }>(
@@ -47,24 +48,24 @@ export class Account extends Model.Class<Account>('voel/services/database/main/s
     update: Schema.String,
   }),
   userId: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/userId')),
-    insert: Schema.String,
-    update: Schema.String,
+    select: AuthSession.fields.user.fields.id,
+    insert: AuthSession.fields.user.fields.id,
+    update: AuthSession.fields.user.fields.id,
   }),
   username: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/username')),
-    insert: Schema.String,
-    update: Schema.String,
+    select: AuthSession.fields.user.fields.username,
+    insert: AuthSession.fields.user.fields.username,
+    update: AuthSession.fields.user.fields.username,
   }),
   name: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/name')),
-    insert: Schema.String,
-    update: Schema.String,
+    select: AuthSession.fields.user.fields.name,
+    insert: AuthSession.fields.user.fields.name,
+    update: AuthSession.fields.user.fields.name,
   }),
   email: Model.Field({
-    select: Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/email')),
-    insert: Schema.String,
-    update: Schema.String,
+    select: AuthSession.fields.user.fields.email,
+    insert: AuthSession.fields.user.fields.email,
+    update: AuthSession.fields.user.fields.email,
   }),
   authStorageId: Model.Field({
     select: Schema.String.pipe(
@@ -74,18 +75,14 @@ export class Account extends Model.Class<Account>('voel/services/database/main/s
     update: Schema.String,
   }),
   role: Model.Field({
-    select: AccountRole.fields.value.pipe(
-      Schema.brand('voel/services/database/main/schema/Account/role')
-    ),
-    insert: AccountRole.fields.value,
-    update: AccountRole.fields.value,
+    select: AuthSession.fields.user.fields.role,
+    insert: AuthSession.fields.user.fields.role,
+    update: AuthSession.fields.user.fields.role,
   }),
   profilePicture: Model.Field({
-    select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('voel/services/database/main/schema/Account/profilePicture'))
-    ),
-    insert: Schema.NullOr(Schema.String),
-    update: Schema.NullOr(Schema.String),
+    select: AuthSession.fields.user.fields.image,
+    insert: AuthSession.fields.user.fields.image,
+    update: AuthSession.fields.user.fields.image,
   }),
   active: Model.Field({
     select: Schema.Literals([0, 1]).pipe(
