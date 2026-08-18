@@ -1,9 +1,9 @@
 import { Context, Data, Effect, Layer, Option, Random, Redacted, Schema, Stream } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 
+import { BetterAuthError } from '@repo/auth-api/client.ts';
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
-import { BetterAuthError } from '#src/services/auth-client/errors.ts';
 import {
   AuthClientMap,
   acquireAuthClient,
@@ -267,13 +267,17 @@ export class AccountManager extends Context.Service<AccountManager>()(
           return yield* upsertAccount({
             account: {
               serverUrl,
-              userId: signInResult.user.id,
-              username: signInResult.user.username ?? username,
-              name: signInResult.user.name,
-              email: signInResult.user.email,
+              userId: Account.fields.userId.make(signInResult.user.id),
+              username: Account.fields.username.make(signInResult.user.username ?? username),
+              name: Account.fields.name.make(signInResult.user.name),
+              email: Account.fields.email.make(signInResult.user.email),
               authStorageId,
-              role: AccountRole.decodeSyncFromNullishString(signInResult.user.role).value,
-              profilePicture: signInResult.user.image ?? null,
+              role: Account.fields.role.make(
+                AccountRole.decodeSyncFromNullishString(signInResult.user.role).value
+              ),
+              profilePicture: yield* Schema.decodeEffect(Account.fields.profilePicture)(
+                signInResult.user.image ?? null
+              ).pipe(Effect.orDie),
             },
           });
         },
@@ -311,13 +315,17 @@ export class AccountManager extends Context.Service<AccountManager>()(
           return yield* upsertAccount({
             account: {
               serverUrl,
-              userId: signUpResult.user.id,
-              username: signUpResult.user.username ?? username,
-              name: signUpResult.user.name,
-              email: signUpResult.user.email,
+              userId: Account.fields.userId.make(signUpResult.user.id),
+              username: Account.fields.username.make(signUpResult.user.username ?? username),
+              name: Account.fields.name.make(signUpResult.user.name),
+              email: Account.fields.email.make(signUpResult.user.email),
               authStorageId,
-              role: AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value,
-              profilePicture: signUpResult.user.image ?? null,
+              role: Account.fields.role.make(
+                AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value
+              ),
+              profilePicture: yield* Schema.decodeEffect(Account.fields.profilePicture)(
+                signUpResult.user.image ?? null
+              ).pipe(Effect.orDie),
             },
           });
         },

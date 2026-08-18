@@ -4,8 +4,7 @@ import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
-import { acquireAuthClient, createVoelAuthClient } from '#src/services/auth-client/index.ts';
-import type { AuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClient, AuthClientKey, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
@@ -98,18 +97,20 @@ describe('AccountManager', () => {
       function* () {
         const db = yield* MainDatabase;
         const serverUrl = Account.fields.serverUrl.make('http://restored.example.test');
+        const userId = Account.fields.userId.make('restored');
         const username = Account.fields.username.make('restored');
         const authStorageId = Account.fields.authStorageId.make('restored-auth-storage');
 
         yield* db.execute(
           db.insertInto('account').values({
             serverUrl,
-            userId: username,
+            userId,
             username,
-            name: 'Restored User',
-            email: 'restored@example.test',
+            name: Account.fields.name.make('Restored User'),
+            email: Account.fields.email.make('restored@example.test'),
             authStorageId,
-            role: 'user',
+            role: Account.fields.role.make('user'),
+            profilePicture: Account.fields.profilePicture.make(null),
             active: Account.fields.active.make(1),
           })
         );
@@ -199,14 +200,12 @@ describe('AccountManager', () => {
           const manager = yield* AccountManager;
 
           const authClient = yield* makeAuthClient({ serverUrl });
-          yield* Effect.promise(async () =>
-            authClient.signUp.email({
-              name: 'Test User',
-              email: `${username}@voel.app`,
-              username,
-              password: Redacted.value(password),
-            })
-          );
+          yield* authClient.signUp.email({
+            name: 'Test User',
+            email: `${username}@voel.app`,
+            username,
+            password: Redacted.value(password),
+          });
           yield* manager.signInAccount({ serverUrl, username, password });
 
           expect((yield* manager.state).valueOrUndefined).toMatchObject({
@@ -429,21 +428,15 @@ describe('AccountManager', () => {
           const adminAuthClient = yield* makeAuthClient({
             serverUrl: testServer.serverUrl,
           });
-          const adminSignInResult = yield* Effect.promise(async () =>
-            adminAuthClient.signIn.username({
-              username: adminUsername,
-              password: Redacted.value(testServer.password),
-            })
-          );
-          expect(adminSignInResult.error).toBeNull();
+          yield* adminAuthClient.signIn.username({
+            username: adminUsername,
+            password: Redacted.value(testServer.password),
+          });
 
-          const roleResult = yield* Effect.promise(async () =>
-            adminAuthClient.admin.setRole({
-              userId: activeAccountKey.userId,
-              role: 'admin',
-            })
-          );
-          expect(roleResult.error).toBeNull();
+          yield* adminAuthClient.admin.setRole({
+            userId: activeAccountKey.userId,
+            role: 'admin',
+          });
 
           const nextAccountChange = yield* forkNextActiveAccountChange;
           yield* authClient.refreshSession;
@@ -670,36 +663,44 @@ describe('AccountManager', () => {
           const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
           expect(Option.isSome(storedCookie)).toBe(true);
 
-          const verificationAuthStorageId = 'removed-account-session-verification';
+          const verificationAuthStorageId = Account.fields.authStorageId.make(
+            'removed-account-session-verification'
+          );
           const verificationStoragePrefix = yield* xxHash.hash128(
             `voel::auth::${testServer.serverUrl}::${verificationAuthStorageId}`
           );
           const verificationStorage = new Map([
             [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
           ]);
-          const verificationAuthClient = yield* createVoelAuthClient({
-            serverUrl: testServer.serverUrl,
-            authStorageId: verificationAuthStorageId,
-            storage: {
-              getItem: (key) => verificationStorage.get(key) ?? null,
-              setItem: (key, value) => {
-                verificationStorage.set(key, value);
-              },
-            },
-            xxHash,
-          });
-          const sessionBeforeRemoval = yield* Effect.promise(async () =>
-            verificationAuthClient.getSession({ query: { disableCookieCache: true } })
+          const verificationAuthClient = yield* AuthClient.pipe(
+            Effect.provide(
+              AuthClient.layerNoDeps(
+                new AuthClientKey({
+                  serverUrl: testServer.serverUrl,
+                  authStorageId: verificationAuthStorageId,
+                })
+              ).pipe(
+                Layer.provide(
+                  Layer.mergeAll(AuthClientStorage.layerTest(verificationStorage), XxHash.layerTest)
+                )
+              )
+            )
           );
-          expect(sessionBeforeRemoval.data?.user.id).toBe(account.userId);
+          yield* verificationAuthClient.refreshSession;
+          yield* waitForSessionRequest(verificationAuthClient);
+          const sessionBeforeRemoval = yield* verificationAuthClient.getSession;
+          expect(Option.flatten(AsyncResult.value(sessionBeforeRemoval))).toMatchObject({
+            user: { id: account.userId },
+          });
 
           yield* manager.removeActiveAccount;
 
           expect(storageItems.size).toEqual(0);
-          const sessionAfterRemoval = yield* Effect.promise(async () =>
-            verificationAuthClient.getSession({ query: { disableCookieCache: true } })
-          );
-          expect(sessionAfterRemoval).toMatchObject({ data: null, error: null });
+          yield* verificationAuthClient.refreshSession;
+          yield* waitForSessionRequest(verificationAuthClient);
+          const sessionAfterRemoval = yield* verificationAuthClient.getSession;
+          expect(sessionAfterRemoval).toMatchObject({ _tag: 'Success', waiting: false });
+          expect(Option.isNone(Option.flatten(AsyncResult.value(sessionAfterRemoval)))).toBe(true);
           expect(yield* getAccounts).toEqual([]);
           expect(yield* manager.state).toBe(Option.none());
         },

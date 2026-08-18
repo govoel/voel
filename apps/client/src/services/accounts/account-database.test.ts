@@ -1,3 +1,4 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import BunSqliteDatabase from 'bun:sqlite';
 
 import { expect, it } from '@effect/vitest';

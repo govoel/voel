@@ -221,11 +221,11 @@ describe('accountsSheetAtom', () => {
             serverUrl: Account.fields.serverUrl.make('http://pending-session.example.test'),
             userId: Account.fields.userId.make('pending-session-id'),
             username: Account.fields.username.make('pending-session'),
-            name: 'Pending Session',
-            email: 'pending-session@example.test',
+            name: Account.fields.name.make('Pending Session'),
+            email: Account.fields.email.make('pending-session@example.test'),
             authStorageId: Account.fields.authStorageId.make('pending-session-auth-storage'),
-            role: 'user' as const,
-            profilePicture: null,
+            role: Account.fields.role.make('user'),
+            profilePicture: Account.fields.profilePicture.make(null),
             active: Account.fields.active.make(0),
           };
           yield* db.execute(db.insertInto('account').values(account));
@@ -282,11 +282,11 @@ describe('accountsSheetAtom', () => {
             serverUrl: Account.fields.serverUrl.make('http://failed-session.example.test'),
             userId: Account.fields.userId.make('failed-session-id'),
             username: Account.fields.username.make('failed-session'),
-            name: 'Failed Session',
-            email: 'failed-session@example.test',
+            name: Account.fields.name.make('Failed Session'),
+            email: Account.fields.email.make('failed-session@example.test'),
             authStorageId: Account.fields.authStorageId.make('failed-session-auth-storage'),
-            role: 'user' as const,
-            profilePicture: null,
+            role: Account.fields.role.make('user'),
+            profilePicture: Account.fields.profilePicture.make(null),
             active: Account.fields.active.make(0),
           };
           yield* db.execute(db.insertInto('account').values(account));
@@ -313,6 +313,7 @@ describe('accountsSheetAtom', () => {
 
           yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
           yield* authClient.refreshSession;
+          yield* waitForSessionRequest(authClient);
 
           const failedSession = yield* authClient.getSession;
           expect(failedSession).toMatchObject({ _tag: 'Failure', waiting: false });
@@ -381,12 +382,12 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         });
         const activeAccount = Option.getOrThrow(yield* manager.state);
         const authClient = yield* acquireAuthClient(activeAccount);
-        yield* waitForSessionRequest(authClient);
         yield* Atom.mount(accountsSheetAtom);
+        yield* waitForSessionRequest(authClient);
         yield* drainAtomTasks;
-
-        const revokeResult = yield* authClient.signOut;
-        expect(revokeResult).toEqual({ success: true });
+        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
+          AccountsSheet.Idle({ dismissable: true })
+        );
 
         const invalidSessionFiber = yield* authClient.sessionChanges.pipe(
           Stream.filter(
@@ -396,7 +397,11 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           Stream.runHead,
           Effect.forkChild
         );
+        const revokeResult = yield* authClient.signOut;
+        expect(revokeResult).toEqual({ success: true });
+
         yield* authClient.refreshSession;
+        yield* waitForSessionRequest(authClient);
         yield* Fiber.join(invalidSessionFiber);
 
         yield* drainAtomTasks;

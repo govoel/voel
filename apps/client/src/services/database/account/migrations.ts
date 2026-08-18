@@ -22,7 +22,7 @@ export const runAccountDatabaseMigrations = Effect.fnUntraced(function* <DB>(db:
     new Migrator({ db, provider }).migrateToLatest()
   );
   if (error !== void 0) {
-    return yield* new AccountDatabaseMigrationError();
+    return yield* AccountDatabaseMigrationError.make({});
   }
   return void 0;
 });

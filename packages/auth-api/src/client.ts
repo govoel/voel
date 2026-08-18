@@ -40,9 +40,10 @@ const UnknownBetterAuthErrorFields = {
   statusText: 'UNKNOWN',
 } as const;
 
-class BetterAuthError extends Schema.Error<BetterAuthError, { readonly brand: unique symbol }>(
-  'voel/services/auth-client/errors/BetterAuthError'
-)({
+export class BetterAuthError extends Schema.Error<
+  BetterAuthError,
+  { readonly brand: unique symbol }
+>('voel/services/auth-client/errors/BetterAuthError')({
   _tag: Schema.tagDefaultOmit('BetterAuthError'),
   code: Schema.String.pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.code))
@@ -176,8 +177,14 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        createUser: (input: Parameters<CoreAuthClient['admin']['createUser']>[0]) =>
+          executeAuthClientRequest(async () => coreClient.admin.createUser(input)),
+
         listUsers: (input: Parameters<CoreAuthClient['admin']['listUsers']>[0]) =>
           executeAuthClientRequest(async () => coreClient.admin.listUsers(input)),
+
+        setRole: (input: Parameters<CoreAuthClient['admin']['setRole']>[0]) =>
+          executeAuthClientRequest(async () => coreClient.admin.setRole(input)),
       },
 
       getSession: SubscriptionRef.get(sessionState),

@@ -1,23 +1,31 @@
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Deferred, Effect, Layer, Option, Stream } from 'effect';
+import { RpcTest } from 'effect/unstable/rpc';
 
 import { sql } from '@repo/effect-kysely';
 import { MediaFile, MediaType } from '@repo/spec-api/database/schema.ts';
+import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import type { SyncEvent } from '@repo/spec-api/groups/sync.ts';
+import { SyncRpcs } from '@repo/spec-api/groups/sync.ts';
 
 import { LibraryHandlersNoDeps } from '#src/groups/library.ts';
 import { SyncHandlersNoDeps } from '#src/groups/sync.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
-import { AdminMiddlewareLive, Auth, AuthMiddlewareLive } from '#src/services/auth.ts';
+import {
+  AdminMiddlewareLayerNoDeps,
+  AuthLayerNoDeps,
+  AuthMiddlewareLayerNoDeps,
+} from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
 
 const TestLayer = Layer.mergeAll(LibraryHandlersNoDeps, SyncHandlersNoDeps).pipe(
-  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
-  Layer.provideMerge(Auth.layer),
-  Layer.provideMerge(Database.layerTest({ filename: ':memory:' })),
-  Layer.provideMerge(ApiConfig.layerTest())
+  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
+  Layer.provideMerge(AuthLayerNoDeps),
+  Layer.provideMerge(Database.layerNoDeps),
+  Layer.provide([ApiConfig.layerTest(), BunPath.layer])
 );
 
 const emptyCheckpoints = {
@@ -37,14 +45,16 @@ it.layer(TestLayer)('sync', (iit) => {
   iit.effect(
     'streams ordered history followed by committed live updates',
     Effect.fnUntraced(function* () {
-      const client = yield* makeAuthedClient({ username: 'sync.admin', role: 'admin' });
-      const library = yield* client.libraryUpsert({
+      const authLayer = yield* makeAuthedClient({ username: 'sync.admin', role: 'admin' });
+      const libraryClient = yield* RpcTest.makeClient(LibraryRpcs).pipe(Effect.provide(authLayer));
+      const syncClient = yield* RpcTest.makeClient(SyncRpcs).pipe(Effect.provide(authLayer));
+      const library = yield* libraryClient.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('audiobook'),
         name: 'History library',
         absolutePaths: [],
       });
-      const history = yield* client.sync(emptyCheckpoints).pipe(
+      const history = yield* syncClient.sync(emptyCheckpoints).pipe(
         Stream.takeUntil((event) => event.type === 'historyComplete'),
         Stream.runCollect
       );
@@ -66,7 +76,7 @@ it.layer(TestLayer)('sync', (iit) => {
         { payload: { table: 'mediaType' } },
       ]);
 
-      const checkpointedHistory = yield* client
+      const checkpointedHistory = yield* syncClient
         .sync({ ...emptyCheckpoints, library: libraryHistory.payload.row.updatedAt + 1 })
         .pipe(
           Stream.takeUntil((event) => event.type === 'historyComplete'),
@@ -80,7 +90,7 @@ it.layer(TestLayer)('sync', (iit) => {
 
       const historyComplete = yield* Deferred.make<true>();
       const liveEvent = yield* Deferred.make<SyncEvent>();
-      yield* client.sync(emptyCheckpoints).pipe(
+      yield* syncClient.sync(emptyCheckpoints).pipe(
         Stream.runForEach((event) => {
           if (event.type === 'historyComplete') {
             return Deferred.succeed(historyComplete, true);
@@ -94,7 +104,7 @@ it.layer(TestLayer)('sync', (iit) => {
       );
       yield* Deferred.await(historyComplete);
 
-      yield* client.libraryUpsert({
+      yield* libraryClient.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
         name: 'Live library',

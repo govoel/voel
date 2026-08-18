@@ -34,9 +34,7 @@ if (import.meta.main) {
     Layer.provide(ApiConfig.layer)
   );
 
-  const ServerLayer = HttpRouter.serve(AllRoutesLayer).pipe(
-    Layer.provide(HttpServerLayer),
-  );
+  const ServerLayer = HttpRouter.serve(AllRoutesLayer).pipe(Layer.provide(HttpServerLayer));
 
   BunRuntime.runMain(Layer.launch(ServerLayer));
 }

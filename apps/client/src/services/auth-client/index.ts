@@ -1,5 +1,16 @@
 import { expoClient } from '@better-auth/expo/client';
-import { Context, Data, Duration, Effect, Layer, LayerMap, Option, Stream, String } from 'effect';
+import {
+  Context,
+  Data,
+  Duration,
+  Effect,
+  Layer,
+  LayerMap,
+  Option,
+  Schema,
+  Stream,
+  String,
+} from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
@@ -19,7 +30,7 @@ export const makeAuthStorageKey = ({
   readonly authStorageId: string;
 }) => `voel::auth::${serverUrl}::${authStorageId}`;
 
-class AuthClientKey extends Data.Class<
+export class AuthClientKey extends Data.Class<
   Pick<Selectable<AccountTable>, 'serverUrl' | 'authStorageId'>
 > {}
 
@@ -89,6 +100,15 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
 
           const { user } = session.value.value;
           const userId = Account.fields.userId.make(user.id);
+          const sessionAccount = {
+            username: Account.fields.username.make(user.username),
+            name: Account.fields.name.make(user.name),
+            email: Account.fields.email.make(user.email),
+            role: Account.fields.role.make(user.role),
+            profilePicture: yield* Schema.decodeEffect(Account.fields.profilePicture)(
+              user.image
+            ).pipe(Effect.orDie),
+          };
           const account = yield* db.executeTakeFirstOption(
             db
               .selectFrom('account')
@@ -102,11 +122,11 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
           }
 
           if (
-            account.value.username === user.username &&
-            account.value.name === user.name &&
-            account.value.email === user.email &&
-            account.value.role === user.role &&
-            account.value.profilePicture === user.image
+            account.value.username === sessionAccount.username &&
+            account.value.name === sessionAccount.name &&
+            account.value.email === sessionAccount.email &&
+            account.value.role === sessionAccount.role &&
+            account.value.profilePicture === sessionAccount.profilePicture
           ) {
             return;
           }
@@ -116,11 +136,11 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
               db
                 .updateTable('account')
                 .set({
-                  username: user.username,
-                  name: user.name,
-                  email: user.email,
-                  role: user.role,
-                  profilePicture: user.image,
+                  username: sessionAccount.username,
+                  name: sessionAccount.name,
+                  email: sessionAccount.email,
+                  role: sessionAccount.role,
+                  profilePicture: sessionAccount.profilePicture,
                 })
                 .where('serverUrl', '=', key.serverUrl)
                 .where('userId', '=', userId)
