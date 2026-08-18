@@ -93,8 +93,17 @@ export const useUserProfileForm = ({
           NoActiveAccountError: () => 'No active user is available.',
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
-          BetterAuthError: (betterAuthError) =>
-            betterAuthError.message || 'Unable to update the profile. Try again.',
+          AuthError: (authError) =>
+            Match.value(authError.reason).pipe(
+              Match.tagsExhaustive({
+                BetterAuthApiError: (authReason) =>
+                  authReason.message || 'Unable to update the profile. Try again.',
+                AuthTransportError: () =>
+                  'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthResponseError: () =>
+                  'The server returned an invalid authentication response. Try again.',
+              })
+            ),
         })
       ),
     onSuccess: async () => {

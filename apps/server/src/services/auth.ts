@@ -75,10 +75,15 @@ export const AuthMiddlewareLayerNoDeps = Layer.effect(
     return AuthMiddleware.of(
       Effect.fnUntraced(function* (httpEffect, { headers }) {
         const session = yield* auth.api.getSession({ headers }).pipe(
-          Effect.catchTags({
-            BetterAuthServerError: Effect.die,
-            UnexpectedAuthSessionError: Effect.die,
-          })
+          Effect.catchReasons(
+            'AuthError',
+            {
+              BetterAuthApiError: Effect.die,
+              AuthTransportError: Effect.die,
+              InvalidAuthResponseError: Effect.die,
+            },
+            Effect.die
+          )
         );
 
         if (Option.isNone(session)) {

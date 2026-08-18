@@ -9,7 +9,12 @@ import { Context, Duration, Effect, Option, Schema } from 'effect';
 
 import type { Kysely } from '@repo/effect-kysely';
 
-import { AuthSession, UnexpectedAuthSessionError } from '#src/shared.ts';
+import {
+  AuthError,
+  AuthSession,
+  AuthTransportError,
+  InvalidAuthResponseError,
+} from '#src/shared.ts';
 
 export type { TestHelpers } from 'better-auth/plugins';
 
@@ -105,36 +110,6 @@ class BetterAuthServerClientInitializationError extends Schema.TaggedError<
   { error: Schema.Unknown }
 ) {}
 
-const UnknownBetterAuthErrorFields = {
-  code: 'UNKNOWN',
-  status: 0,
-  statusText: 'UNKNOWN',
-} as const;
-
-class BetterAuthServerError extends Schema.Error<
-  BetterAuthServerError,
-  { readonly brand: unique symbol }
->('@repo/auth-api/server/BetterAuthServerError')({
-  _tag: Schema.tagDefaultOmit('BetterAuthServerError'),
-  code: Schema.String.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.code))
-  ),
-  message: Schema.optional(Schema.String),
-  status: Schema.Finite.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.status))
-  ),
-  statusText: Schema.String.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.statusText))
-  ),
-}) {
-  public static readonly decodeFromUnknown = this.pipe(
-    Schema.catchDecoding(() =>
-      Effect.succeed(Option.some(BetterAuthServerError.make(UnknownBetterAuthErrorFields)))
-    ),
-    Schema.decodeUnknownSync
-  );
-}
-
 export class AuthServerClient extends Context.Service<AuthServerClient>()(
   '@repo/auth-api/server/AuthServerClient',
   {
@@ -152,12 +127,13 @@ export class AuthServerClient extends Context.Service<AuthServerClient>()(
           getSession: (input: Parameters<typeof client.api.getSession>[0]) =>
             Effect.tryPromise({
               try: async () => client.api.getSession(input),
-              catch: BetterAuthServerError.decodeFromUnknown,
+              catch: (cause) => AuthTransportError.make({ cause }),
             }).pipe(
               Effect.map(Option.fromNullishOr),
-              Effect.map(Option.map(AuthSession.decodeFromUnknownEffect)),
+              Effect.map(Option.map(AuthSession.decodeUnknownEffect)),
               Effect.flatMap(Effect.transposeOption),
-              Effect.catchTag('SchemaError', () => Effect.fail(UnexpectedAuthSessionError.make()))
+              Effect.catchTag('SchemaError', () => Effect.fail(InvalidAuthResponseError.make())),
+              Effect.mapError((reason) => AuthError.make({ reason }))
             ),
         },
       };

@@ -312,7 +312,7 @@ describe('accountsSheetAtom', () => {
           const authClient = yield* acquireAuthClient(activeAccount);
 
           yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
-          yield* authClient.refreshSession;
+          yield* authClient.refreshSession({ query: { disableCookieCache: true } });
           yield* waitForSessionRequest(authClient);
 
           const failedSession = yield* authClient.getSession;
@@ -397,10 +397,10 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           Stream.runHead,
           Effect.forkChild
         );
-        const revokeResult = yield* authClient.signOut;
+        const revokeResult = yield* authClient.signOut();
         expect(revokeResult).toEqual({ success: true });
 
-        yield* authClient.refreshSession;
+        yield* authClient.refreshSession({ query: { disableCookieCache: true } });
         yield* waitForSessionRequest(authClient);
         yield* Fiber.join(invalidSessionFiber);
 
@@ -441,8 +441,8 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         });
         const secondClient = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
         yield* waitForSessionRequest(secondClient);
-        yield* secondClient.signOut;
-        yield* secondClient.refreshSession;
+        yield* secondClient.signOut();
+        yield* secondClient.refreshSession({ query: { disableCookieCache: true } });
 
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(

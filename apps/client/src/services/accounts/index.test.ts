@@ -439,7 +439,7 @@ describe('AccountManager', () => {
           });
 
           const nextAccountChange = yield* forkNextActiveAccountChange;
-          yield* authClient.refreshSession;
+          yield* authClient.refreshSession({ query: { disableCookieCache: true } });
 
           const synchronizedState = Option.getOrThrow(yield* Fiber.join(nextAccountChange));
           const synchronizedAccount = Option.getOrThrow(synchronizedState);
@@ -685,7 +685,7 @@ describe('AccountManager', () => {
             )
           );
           const verificationAuthClient = Context.get(verificationAuthClientContext, AuthClient);
-          yield* verificationAuthClient.refreshSession;
+          yield* verificationAuthClient.refreshSession({ query: { disableCookieCache: true } });
           yield* waitForSessionRequest(verificationAuthClient);
           const sessionBeforeRemoval = yield* verificationAuthClient.getSession;
           expect(
@@ -697,7 +697,7 @@ describe('AccountManager', () => {
           yield* manager.removeActiveAccount;
 
           expect(storageItems.size).toEqual(0);
-          yield* verificationAuthClient.refreshSession;
+          yield* verificationAuthClient.refreshSession({ query: { disableCookieCache: true } });
           yield* waitForSessionRequest(verificationAuthClient);
           const sessionAfterRemoval = yield* verificationAuthClient.getSession;
           expect(sessionAfterRemoval).toMatchObject({ _tag: 'Success', waiting: false });

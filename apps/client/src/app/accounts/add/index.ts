@@ -37,8 +37,16 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
           AccountSignInError: (signInError) =>
-            signInError.details.message ||
-            'Failed to sign in. Check your credentials and try again.',
+            Match.value(signInError.reason).pipe(
+              Match.tagsExhaustive({
+                BetterAuthApiError: (authReason) =>
+                  authReason.message || 'Failed to sign in. Check your credentials and try again.',
+                AuthTransportError: () =>
+                  'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthResponseError: () =>
+                  'The server returned an invalid authentication response. Try again.',
+              })
+            ),
           AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),

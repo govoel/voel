@@ -1,7 +1,7 @@
 import { Context, Data, Effect, Layer, Option, Random, Redacted, Schema, Stream } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 
-import { BetterAuthError } from '@repo/auth-api/client.ts';
+import { AuthError } from '@repo/auth-api/shared.ts';
 import type { Insertable, Selectable } from '@repo/effect-kysely';
 
 import {
@@ -40,14 +40,14 @@ export class AccountSignInError extends Schema.TaggedError<
   AccountSignInError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignInError')('AccountSignInError', {
-  details: BetterAuthError,
+  reason: AuthError.fields.reason,
 }) {}
 
 export class AccountSignUpError extends Schema.TaggedError<
   AccountSignUpError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/index/AccountSignUpError')('AccountSignUpError', {
-  details: BetterAuthError,
+  reason: AuthError.fields.reason,
 }) {}
 
 export class AccountDatabaseError extends Schema.TaggedError<
@@ -211,7 +211,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         // we ignore errors here because the server may be offline
         // which causes better-auth to throw
         yield* acquireAuthClient(activeAccount.value).pipe(
-          Effect.flatMap((authClient) => authClient.signOut),
+          Effect.flatMap((authClient) => authClient.signOut()),
           Effect.ignore,
           Effect.scoped,
           Effect.provideService(AuthClientMap, authClientMap)
@@ -259,21 +259,21 @@ export class AccountManager extends Context.Service<AccountManager>()(
           const signInResult = yield* authClient.signIn
             .username({ username, password: Redacted.value(password) })
             .pipe(
-              Effect.catchTag('BetterAuthError', (error) =>
-                AccountSignInError.make({ details: error })
+              Effect.catchTag('AuthError', (error) =>
+                AccountSignInError.make({ reason: error.reason })
               )
             );
 
           return yield* upsertAccount({
             account: {
               serverUrl,
-              userId: signInResult.id,
-              username: signInResult.username,
-              name: signInResult.name,
-              email: signInResult.email,
+              userId: signInResult.user.id,
+              username: signInResult.user.username,
+              name: signInResult.user.name,
+              email: signInResult.user.email,
               authStorageId,
-              role: signInResult.role,
-              profilePicture: signInResult.image,
+              role: signInResult.user.role,
+              profilePicture: signInResult.user.image,
             },
           });
         },
@@ -303,21 +303,21 @@ export class AccountManager extends Context.Service<AccountManager>()(
               password: Redacted.value(password),
             })
             .pipe(
-              Effect.catchTag('BetterAuthError', (error) =>
-                AccountSignUpError.make({ details: error })
+              Effect.catchTag('AuthError', (error) =>
+                AccountSignUpError.make({ reason: error.reason })
               )
             );
 
           return yield* upsertAccount({
             account: {
               serverUrl,
-              userId: signUpResult.id,
-              username: signUpResult.username,
-              name: signUpResult.name,
-              email: signUpResult.email,
+              userId: signUpResult.user.id,
+              username: signUpResult.user.username,
+              name: signUpResult.user.name,
+              email: signUpResult.user.email,
               authStorageId,
-              role: signUpResult.role,
-              profilePicture: signUpResult.image,
+              role: signUpResult.user.role,
+              profilePicture: signUpResult.user.image,
             },
           });
         },

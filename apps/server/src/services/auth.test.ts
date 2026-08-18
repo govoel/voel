@@ -44,7 +44,10 @@ it.describe('auth customizations', () => {
           })
           .pipe(Effect.flip);
 
-        expect(response.code).toBe('MUST_SIGN_UP_WITH_USERNAME');
+        expect(response.reason).toMatchObject({
+          _tag: 'BetterAuthApiError',
+          code: 'MUST_SIGN_UP_WITH_USERNAME',
+        });
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
@@ -62,9 +65,9 @@ it.describe('auth customizations', () => {
           email: 'test@example.com',
           password: 'password',
         });
-        expect(response.name).toBe('Test User');
-        expect(response.email).toBe('test@example.com');
-        expect(response.id).toBeDefined();
+        expect(response.user.name).toBe('Test User');
+        expect(response.user.email).toBe('test@example.com');
+        expect(response.user.id).toBeDefined();
 
         const signInResponse = yield* auth.signIn
           .email({
@@ -73,7 +76,10 @@ it.describe('auth customizations', () => {
           })
           .pipe(Effect.flip);
 
-        expect(signInResponse.code).toBe('MUST_SIGN_IN_WITH_USERNAME');
+        expect(signInResponse.reason).toMatchObject({
+          _tag: 'BetterAuthApiError',
+          code: 'MUST_SIGN_IN_WITH_USERNAME',
+        });
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
@@ -91,19 +97,19 @@ it.describe('auth customizations', () => {
           email: 'test@example.com',
           password: 'password',
         });
-        expect(response.name).toBe('Test User');
-        expect(response.email).toBe('test@example.com');
-        expect(response.id).toBeDefined();
+        expect(response.user.name).toBe('Test User');
+        expect(response.user.email).toBe('test@example.com');
+        expect(response.user.id).toBeDefined();
 
         const signInResponse = yield* auth.signIn.username({
           username: 'testuser',
           password: 'password',
         });
 
-        expect(signInResponse.name).toBe('Test User');
-        expect(signInResponse.email).toBe('test@example.com');
-        expect(signInResponse.id).toBeDefined();
-        expect(signInResponse.role).toBe('admin');
+        expect(signInResponse.user.name).toBe('Test User');
+        expect(signInResponse.user.email).toBe('test@example.com');
+        expect(signInResponse.user.id).toBeDefined();
+        expect(signInResponse.user.role).toBe('admin');
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
@@ -121,9 +127,9 @@ it.describe('auth customizations', () => {
           email: 'test@example.com',
           password: 'password',
         });
-        expect(response.name).toBe('Test User');
-        expect(response.email).toBe('test@example.com');
-        expect(response.id).toBeDefined();
+        expect(response.user.name).toBe('Test User');
+        expect(response.user.email).toBe('test@example.com');
+        expect(response.user.id).toBeDefined();
 
         const response2 = yield* auth.signUp
           .email({
@@ -133,7 +139,10 @@ it.describe('auth customizations', () => {
             password: 'password',
           })
           .pipe(Effect.flip);
-        expect(response2.code).toBe('EMAIL_PASSWORD_SIGN_UP_DISABLED');
+        expect(response2.reason).toMatchObject({
+          _tag: 'BetterAuthApiError',
+          code: 'EMAIL_PASSWORD_SIGN_UP_DISABLED',
+        });
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )

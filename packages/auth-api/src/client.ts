@@ -5,7 +5,14 @@ import { Context, Effect, Option, Queue, Schema, Stream, SubscriptionRef } from 
 import { AsyncResult } from 'effect/unstable/reactivity';
 
 import type { BetterAuthInstance } from '#src/server.ts';
-import { AuthSession, AuthUser, UnexpectedAuthSessionError } from '#src/shared.ts';
+import {
+  AuthError,
+  AuthSession,
+  AuthTransportError,
+  AuthUserResponse,
+  BetterAuthApiError,
+  InvalidAuthResponseError,
+} from '#src/shared.ts';
 
 const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>({
   baseURL,
@@ -34,89 +41,43 @@ class BetterAuthClientInitializationError extends Schema.TaggedError<
   { error: Schema.Unknown }
 ) {}
 
-const UnknownBetterAuthErrorFields = {
-  code: 'UNKNOWN',
-  status: 0,
-  statusText: 'UNKNOWN',
-} as const;
+const executeAuthClientRequest = Effect.fnUntraced(
+  function* <A>(request: () => Promise<{ readonly data: A | null; readonly error: unknown }>) {
+    const result = yield* Effect.tryPromise({
+      try: request,
+      catch: (cause) => AuthTransportError.make({ cause }),
+    });
 
-export class BetterAuthError extends Schema.Error<
-  BetterAuthError,
-  { readonly brand: unique symbol }
->('voel/services/auth-client/errors/BetterAuthError')({
-  _tag: Schema.tagDefaultOmit('BetterAuthError'),
-  code: Schema.String.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.code))
-  ),
-  message: Schema.optional(Schema.String),
-  status: Schema.Finite.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.status))
-  ),
-  statusText: Schema.String.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(UnknownBetterAuthErrorFields.statusText))
-  ),
-}) {
-  public static readonly decodeFromUnknown = this.pipe(
-    Schema.catchDecoding(() =>
-      Effect.succeed(Option.some(BetterAuthError.make(UnknownBetterAuthErrorFields)))
-    ),
-    Schema.decodeUnknownSync
-  );
-}
+    if (result.error !== null) {
+      return yield* Option.getOrElse(BetterAuthApiError.decodeUnknownOption(result.error), () =>
+        InvalidAuthResponseError.make()
+      );
+    }
 
-const executeAuthClientRequest = Effect.fnUntraced(function* <A>(
-  request: () => Promise<{
-    readonly data: A | null;
-    readonly error: unknown;
-  }>
-) {
-  const result = yield* Effect.tryPromise({
-    try: request,
-    catch: BetterAuthError.decodeFromUnknown,
-  });
+    if (result.data === null) {
+      return yield* InvalidAuthResponseError.make();
+    }
 
-  if (result.error !== null) {
-    return yield* BetterAuthError.decodeFromUnknown(result.error);
-  }
-
-  if (result.data === null) {
-    return yield* BetterAuthError.decodeFromUnknown(
-      new Error('Authentication response was empty.')
-    );
-  }
-
-  return result.data;
-});
-
-const executeAuthClientUserRequest = Effect.fnUntraced(function* (
-  request: () => Promise<{
-    readonly data: { readonly user: unknown } | null;
-    readonly error: unknown;
-  }>
-) {
-  const response = yield* executeAuthClientRequest(request);
-
-  return yield* AuthUser.decodeFromUnknownEffect(response.user).pipe(
-    Effect.catchTag('SchemaError', BetterAuthError.decodeFromUnknown)
-  );
-});
+    return result.data;
+  },
+  (effect) => effect.pipe(Effect.mapError((reason) => AuthError.make({ reason })))
+);
 
 const authClientSessionState = Effect.fnUntraced(function* (
   state: ReturnType<ReturnType<typeof createAuthClient<[]>>['useSession']['get']>,
-  previous: Option.Option<
-    AsyncResult.AsyncResult<
-      Option.Option<AuthSession>,
-      BetterAuthError | UnexpectedAuthSessionError
-    >
-  >
+  previous: Option.Option<AsyncResult.AsyncResult<Option.Option<AuthSession>, AuthError>>
 ) {
   const waiting = state.isPending || state.isRefetching;
 
   if (state.error !== null) {
-    return AsyncResult.failWithPrevious(BetterAuthError.decodeFromUnknown(state.error), {
-      previous,
-      waiting,
-    });
+    return AsyncResult.failWithPrevious(
+      AuthError.make({
+        reason: Option.getOrElse(BetterAuthApiError.decodeUnknownOption(state.error), () =>
+          InvalidAuthResponseError.make()
+        ),
+      }),
+      { previous, waiting }
+    );
   }
 
   if (waiting) {
@@ -128,15 +89,15 @@ const authClientSessionState = Effect.fnUntraced(function* (
     return AsyncResult.success(Option.none());
   }
 
-  return yield* AuthSession.decodeFromUnknownEffect(session.value).pipe(
+  return yield* AuthSession.decodeUnknownEffect(session.value).pipe(
     Effect.map((decodedSession) => AsyncResult.success(Option.some(decodedSession))),
     Effect.catchTags({
       SchemaError: () =>
         Effect.succeed(
-          AsyncResult.failWithPrevious(UnexpectedAuthSessionError.make(), {
-            previous,
-            waiting,
-          })
+          AsyncResult.failWithPrevious(
+            AuthError.make({ reason: InvalidAuthResponseError.make() }),
+            { previous, waiting }
+          )
         ),
     })
   );
@@ -202,27 +163,43 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
 
       getSession: SubscriptionRef.get(sessionState),
 
-      refreshSession: Effect.tryPromise({
-        try: async () =>
-          client.useSession.get().refetch({
-            query: { disableCookieCache: true },
-          }),
-        catch: BetterAuthError.decodeFromUnknown,
-      }),
+      refreshSession: (
+        input: Parameters<ReturnType<CoreAuthClient['useSession']['get']>['refetch']>['0']
+      ) =>
+        Effect.tryPromise({
+          try: async () => client.useSession.get().refetch(input),
+          catch: (cause) => AuthTransportError.make({ cause }),
+        }),
 
       signIn: {
         username: (input: Parameters<CoreAuthClient['signIn']['username']>[0]) =>
-          executeAuthClientUserRequest(async () => coreClient.signIn.username(input)),
+          executeAuthClientRequest(async () => coreClient.signIn.username(input)).pipe(
+            Effect.flatMap(AuthUserResponse.decodeUnknownEffect),
+            Effect.catchTags({
+              SchemaError: () => AuthError.make({ reason: InvalidAuthResponseError.make() }),
+            })
+          ),
 
         email: (input: Parameters<CoreAuthClient['signIn']['email']>[0]) =>
-          executeAuthClientUserRequest(async () => coreClient.signIn.email(input)),
+          executeAuthClientRequest(async () => coreClient.signIn.email(input)).pipe(
+            Effect.flatMap(AuthUserResponse.decodeUnknownEffect),
+            Effect.catchTags({
+              SchemaError: () => AuthError.make({ reason: InvalidAuthResponseError.make() }),
+            })
+          ),
       },
 
-      signOut: executeAuthClientRequest(async () => coreClient.signOut()),
+      signOut: (input?: Parameters<CoreAuthClient['signOut']>[0]) =>
+        executeAuthClientRequest(async () => coreClient.signOut(input)),
 
       signUp: {
         email: (input: Parameters<CoreAuthClient['signUp']['email']>[0]) =>
-          executeAuthClientUserRequest(async () => coreClient.signUp.email(input)),
+          executeAuthClientRequest(async () => coreClient.signUp.email(input)).pipe(
+            Effect.flatMap(AuthUserResponse.decodeUnknownEffect),
+            Effect.catchTags({
+              SchemaError: () => AuthError.make({ reason: InvalidAuthResponseError.make() }),
+            })
+          ),
       },
 
       updateUser: (input: Parameters<CoreAuthClient['updateUser']>[0]) =>
