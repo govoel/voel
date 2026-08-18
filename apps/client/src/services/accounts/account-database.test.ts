@@ -18,7 +18,7 @@ import { Account } from '#src/services/database/main/schema.ts';
 import { applySyncRows } from '#src/services/sync.ts';
 
 it.effect(
-  'creates an isolated writable account replica',
+  'migrates an account replica and applies sync upserts',
   Effect.fnUntraced(
     function* () {
       const db = yield* AccountDatabase;

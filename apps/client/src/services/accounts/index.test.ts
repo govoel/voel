@@ -1,6 +1,6 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
+import { Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
@@ -97,7 +97,7 @@ describe('AccountManager', () => {
       function* () {
         const db = yield* MainDatabase;
         const serverUrl = Account.fields.serverUrl.make('http://restored.example.test');
-        const userId = Account.fields.userId.make('restored');
+        const userId = Account.fields.userId.make('restored-user-id');
         const username = Account.fields.username.make('restored');
         const authStorageId = Account.fields.authStorageId.make('restored-auth-storage');
 
@@ -120,7 +120,7 @@ describe('AccountManager', () => {
 
           expect((yield* manager.state).valueOrUndefined).toMatchObject({
             serverUrl,
-            userId: username,
+            userId,
             authStorageId,
           });
         }).pipe(Effect.provide(Layer.fresh(AccountManager.layerNoDeps)));
@@ -672,24 +672,25 @@ describe('AccountManager', () => {
           const verificationStorage = new Map([
             [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
           ]);
-          const verificationAuthClient = yield* AuthClient.pipe(
-            Effect.provide(
-              AuthClient.layerNoDeps(
-                new AuthClientKey({
-                  serverUrl: testServer.serverUrl,
-                  authStorageId: verificationAuthStorageId,
-                })
-              ).pipe(
-                Layer.provide(
-                  Layer.mergeAll(AuthClientStorage.layerTest(verificationStorage), XxHash.layerTest)
-                )
+          const verificationAuthClientContext = yield* Layer.build(
+            AuthClient.layerNoDeps(
+              new AuthClientKey({
+                serverUrl: testServer.serverUrl,
+                authStorageId: verificationAuthStorageId,
+              })
+            ).pipe(
+              Layer.provide(
+                Layer.mergeAll(AuthClientStorage.layerTest(verificationStorage), XxHash.layerTest)
               )
             )
           );
+          const verificationAuthClient = Context.get(verificationAuthClientContext, AuthClient);
           yield* verificationAuthClient.refreshSession;
           yield* waitForSessionRequest(verificationAuthClient);
           const sessionBeforeRemoval = yield* verificationAuthClient.getSession;
-          expect(Option.flatten(AsyncResult.value(sessionBeforeRemoval))).toMatchObject({
+          expect(
+            Option.getOrThrow(Option.flatten(AsyncResult.value(sessionBeforeRemoval)))
+          ).toMatchObject({
             user: { id: account.userId },
           });
 
@@ -704,7 +705,7 @@ describe('AccountManager', () => {
           expect(yield* getAccounts).toEqual([]);
           expect(yield* manager.state).toBe(Option.none());
         },
-        (effect) => effect.pipe(Effect.provide(makeClientTestLayers(storageItems)))
+        (effect) => effect.pipe(Effect.scoped, Effect.provide(makeClientTestLayers(storageItems)))
       )
     );
   });
