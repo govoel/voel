@@ -3,8 +3,10 @@ import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
+import { RpcTest } from 'effect/unstable/rpc';
 
 import { sql } from '@repo/effect-kysely';
+import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import {
   AuthMiddleware,
   CurrentSession,
@@ -19,8 +21,8 @@ import { Database } from '#src/services/database/index.ts';
 
 const makeTestLayer = () =>
   LibraryHandlersLayerNoDeps.pipe(
-    Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLayerNoDeps)),
-    Layer.provideMerge(Layer.mergeAll(Auth.layerNoDeps)),
+    Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
+    Layer.provideMerge(Auth.layerNoDeps),
     Layer.provideMerge(Database.layerNoDeps),
     Layer.provideMerge(BunPath.layer),
     Layer.provideMerge(ApiConfig.layerTest())
@@ -146,35 +148,35 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
     Effect.fnUntraced(function* () {
       let capturedHeaders = Option.none<EffectHeaders.Headers>();
 
-      const client = yield* makeAuthedClient({
+      const authLayer = yield* makeAuthedClient({
         username: 'utils_library_headers',
         role: 'admin',
-      }).pipe(
-        Effect.provide(
-          Layer.effect(
-            AuthMiddleware,
-            Effect.gen(function* () {
-              const auth = yield* Auth;
+      });
+      const authMiddlewareLayer = Layer.effect(
+        AuthMiddleware,
+        Effect.gen(function* () {
+          const auth = yield* Auth;
 
-              return AuthMiddleware.of(
-                Effect.fnUntraced(function* (httpEffect, { headers }) {
-                  capturedHeaders = Option.some(headers);
+          return AuthMiddleware.of(
+            Effect.fnUntraced(function* (httpEffect, { headers }) {
+              capturedHeaders = Option.some(headers);
 
-                  const session = yield* Effect.tryPromise({
-                    try: async () => auth.api.getSession({ headers }),
-                    catch: () => UnauthorizedError.make({}),
-                  });
+              const session = yield* Effect.tryPromise({
+                try: async () => auth.api.getSession({ headers }),
+                catch: () => UnauthorizedError.make({}),
+              });
 
-                  if (session === null) {
-                    return yield* UnauthorizedError.make({});
-                  }
+              if (session === null) {
+                return yield* UnauthorizedError.make({});
+              }
 
-                  return yield* Effect.provideService(httpEffect, CurrentSession, session);
-                })
-              );
+              return yield* Effect.provideService(httpEffect, CurrentSession, session);
             })
-          )
-        )
+          );
+        })
+      );
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(Layer.mergeAll(authLayer, authMiddlewareLayer))
       );
 
       yield* client.libraryList({ cursor: Option.none(), limit: 1 });
