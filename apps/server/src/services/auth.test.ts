@@ -62,9 +62,9 @@ it.describe('auth customizations', () => {
           email: 'test@example.com',
           password: 'password',
         });
-        expect(response.user.name).toBe('Test User');
-        expect(response.user.email).toBe('test@example.com');
-        expect(response.user.id).toBeDefined();
+        expect(response.name).toBe('Test User');
+        expect(response.email).toBe('test@example.com');
+        expect(response.id).toBeDefined();
 
         const signInResponse = yield* auth.signIn
           .email({
@@ -91,19 +91,19 @@ it.describe('auth customizations', () => {
           email: 'test@example.com',
           password: 'password',
         });
-        expect(response.user.name).toBe('Test User');
-        expect(response.user.email).toBe('test@example.com');
-        expect(response.user.id).toBeDefined();
+        expect(response.name).toBe('Test User');
+        expect(response.email).toBe('test@example.com');
+        expect(response.id).toBeDefined();
 
         const signInResponse = yield* auth.signIn.username({
           username: 'testuser',
           password: 'password',
         });
 
-        expect(signInResponse.user.name).toBe('Test User');
-        expect(signInResponse.user.email).toBe('test@example.com');
-        expect(signInResponse.user.id).toBeDefined();
-        expect(signInResponse.user.role).toBe('admin');
+        expect(signInResponse.name).toBe('Test User');
+        expect(signInResponse.email).toBe('test@example.com');
+        expect(signInResponse.id).toBeDefined();
+        expect(signInResponse.role).toBe('admin');
       },
       (effect) => effect.pipe(Effect.provide(TestServerLayer))
     )
@@ -121,9 +121,9 @@ it.describe('auth customizations', () => {
           email: 'test@example.com',
           password: 'password',
         });
-        expect(response.user.name).toBe('Test User');
-        expect(response.user.email).toBe('test@example.com');
-        expect(response.user.id).toBeDefined();
+        expect(response.name).toBe('Test User');
+        expect(response.email).toBe('test@example.com');
+        expect(response.id).toBeDefined();
 
         const response2 = yield* auth.signUp
           .email({

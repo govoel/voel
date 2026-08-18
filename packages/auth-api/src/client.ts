@@ -5,7 +5,7 @@ import { Context, Effect, Option, Queue, Schema, Stream, SubscriptionRef } from 
 import { AsyncResult } from 'effect/unstable/reactivity';
 
 import type { BetterAuthInstance } from '#src/server.ts';
-import { AuthSession, UnexpectedAuthSessionError } from '#src/shared.ts';
+import { AuthSession, AuthUser, UnexpectedAuthSessionError } from '#src/shared.ts';
 
 const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>({
   baseURL,
@@ -86,6 +86,19 @@ const executeAuthClientRequest = Effect.fnUntraced(function* <A>(
   }
 
   return result.data;
+});
+
+const executeAuthClientUserRequest = Effect.fnUntraced(function* (
+  request: () => Promise<{
+    readonly data: { readonly user: unknown } | null;
+    readonly error: unknown;
+  }>
+) {
+  const response = yield* executeAuthClientRequest(request);
+
+  return yield* AuthUser.decodeFromUnknownEffect(response.user).pipe(
+    Effect.catchTag('SchemaError', BetterAuthError.decodeFromUnknown)
+  );
 });
 
 const authClientSessionState = Effect.fnUntraced(function* (
@@ -199,17 +212,17 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
 
       signIn: {
         username: (input: Parameters<CoreAuthClient['signIn']['username']>[0]) =>
-          executeAuthClientRequest(async () => coreClient.signIn.username(input)),
+          executeAuthClientUserRequest(async () => coreClient.signIn.username(input)),
 
         email: (input: Parameters<CoreAuthClient['signIn']['email']>[0]) =>
-          executeAuthClientRequest(async () => coreClient.signIn.email(input)),
+          executeAuthClientUserRequest(async () => coreClient.signIn.email(input)),
       },
 
       signOut: executeAuthClientRequest(async () => coreClient.signOut()),
 
       signUp: {
         email: (input: Parameters<CoreAuthClient['signUp']['email']>[0]) =>
-          executeAuthClientRequest(async () => coreClient.signUp.email(input)),
+          executeAuthClientUserRequest(async () => coreClient.signUp.email(input)),
       },
 
       updateUser: (input: Parameters<CoreAuthClient['updateUser']>[0]) =>

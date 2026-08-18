@@ -13,7 +13,7 @@ import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
-import { Account, AccountRole } from '#src/services/database/main/schema.ts';
+import { Account } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
 
 export class UuidGenerator extends Context.Service<
@@ -267,17 +267,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
           return yield* upsertAccount({
             account: {
               serverUrl,
-              userId: Account.fields.userId.make(signInResult.user.id),
-              username: Account.fields.username.make(signInResult.user.username ?? username),
-              name: Account.fields.name.make(signInResult.user.name),
-              email: Account.fields.email.make(signInResult.user.email),
+              userId: signInResult.id,
+              username: signInResult.username,
+              name: signInResult.name,
+              email: signInResult.email,
               authStorageId,
-              role: Account.fields.role.make(
-                AccountRole.decodeSyncFromNullishString(signInResult.user.role).value
-              ),
-              profilePicture: yield* Schema.decodeEffect(Account.fields.profilePicture)(
-                signInResult.user.image ?? null
-              ).pipe(Effect.orDie),
+              role: signInResult.role,
+              profilePicture: signInResult.image,
             },
           });
         },
@@ -315,17 +311,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
           return yield* upsertAccount({
             account: {
               serverUrl,
-              userId: Account.fields.userId.make(signUpResult.user.id),
-              username: Account.fields.username.make(signUpResult.user.username ?? username),
-              name: Account.fields.name.make(signUpResult.user.name),
-              email: Account.fields.email.make(signUpResult.user.email),
+              userId: signUpResult.id,
+              username: signUpResult.username,
+              name: signUpResult.name,
+              email: signUpResult.email,
               authStorageId,
-              role: Account.fields.role.make(
-                AccountRole.decodeSyncFromNullishString(signUpResult.user.role).value
-              ),
-              profilePicture: yield* Schema.decodeEffect(Account.fields.profilePicture)(
-                signUpResult.user.image ?? null
-              ).pipe(Effect.orDie),
+              role: signUpResult.role,
+              profilePicture: signUpResult.image,
             },
           });
         },

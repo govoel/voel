@@ -1,16 +1,5 @@
 import { expoClient } from '@better-auth/expo/client';
-import {
-  Context,
-  Data,
-  Duration,
-  Effect,
-  Layer,
-  LayerMap,
-  Option,
-  Schema,
-  Stream,
-  String,
-} from 'effect';
+import { Context, Data, Duration, Effect, Layer, LayerMap, Option, Stream, String } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
@@ -19,7 +8,6 @@ import type { Selectable } from '@repo/effect-kysely';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
-import { Account } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
 
 export const makeAuthStorageKey = ({
@@ -99,15 +87,13 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
           }
 
           const { user } = session.value.value;
-          const userId = Account.fields.userId.make(user.id);
+          const userId = user.id;
           const sessionAccount = {
-            username: Account.fields.username.make(user.username),
-            name: Account.fields.name.make(user.name),
-            email: Account.fields.email.make(user.email),
-            role: Account.fields.role.make(user.role),
-            profilePicture: yield* Schema.decodeEffect(Account.fields.profilePicture)(
-              user.image
-            ).pipe(Effect.orDie),
+            username: user.username,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            profilePicture: user.image,
           };
           const account = yield* db.executeTakeFirstOption(
             db
