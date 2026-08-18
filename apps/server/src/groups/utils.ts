@@ -2,11 +2,11 @@ import { Effect } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
 import { RpcMiddleware } from 'effect/unstable/rpc';
 
+import { AuthServerClient } from '@repo/auth-api/server.ts';
 import type { TestHelpers } from '@repo/auth-api/server.ts';
 import { sql } from '@repo/effect-kysely';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { Auth } from '#src/services/auth.ts';
 import { Database } from '#src/services/database/index.ts';
 
 const isTestHelpers = (value: unknown): value is TestHelpers =>
@@ -23,9 +23,9 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
   readonly email?: string;
   readonly name?: string;
 }) {
-  const auth = yield* Auth;
+  const auth = yield* AuthServerClient;
   const { db } = yield* Database;
-  const context = yield* Effect.tryPromise(async () => auth.$context).pipe(Effect.orDie);
+  const context = yield* auth.$context;
 
   if (!('test' in context) || !isTestHelpers(context.test)) {
     return yield* Effect.die(new Error('Auth test helpers are unavailable'));
