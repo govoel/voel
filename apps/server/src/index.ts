@@ -6,6 +6,7 @@ import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import { Api } from '@repo/spec-api';
 
 import { LibraryHandlersLayer } from '#src/groups/library.ts';
+import { SyncHandlersLayer } from '#src/groups/sync.ts';
 import { AdminMiddlewareLayer, AuthMiddlewareLayer, AuthRouterLayer } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 
@@ -18,6 +19,7 @@ const AllRoutesLayer = RpcServer.layerHttp({
   Layer.provide([
     AuthRouterLayer,
     LibraryHandlersLayer,
+    SyncHandlersLayer,
     AuthMiddlewareLayer,
     AdminMiddlewareLayer,
     RpcSerialization.layerMsgPack,
@@ -27,7 +29,7 @@ const AllRoutesLayer = RpcServer.layerHttp({
 if (import.meta.main) {
   const HttpServerLayer = pipe(
     Effect.service(ApiConfig),
-    Effect.map((config) => BunHttpServer.layer({ port: config.server.port })),
+    Effect.map((config) => BunHttpServer.layer({ port: config.server.port, idleTimeout: 0 })),
     Layer.unwrap,
     Layer.provide(ApiConfig.layer)
   );
