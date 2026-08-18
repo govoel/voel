@@ -11,14 +11,14 @@ import {
   UnauthorizedError,
 } from '@repo/spec-api/middlewares/auth.ts';
 
-import { LibraryHandlersNoDeps } from '#src/groups/library.ts';
+import { LibraryHandlersLayerNoDeps } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
 import { AdminMiddlewareLayerNoDeps, Auth, AuthMiddlewareLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
 
 const makeTestLayer = () =>
-  LibraryHandlersNoDeps.pipe(
+  LibraryHandlersLayerNoDeps.pipe(
     Layer.provideMerge(Layer.mergeAll(AdminMiddlewareLayerNoDeps)),
     Layer.provideMerge(Layer.mergeAll(Auth.layerNoDeps)),
     Layer.provideMerge(Database.layerNoDeps),

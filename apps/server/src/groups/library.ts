@@ -44,7 +44,7 @@ class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
   public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
-export const LibraryHandlersNoDeps = Layer.mergeAll(
+export const LibraryHandlersLayerNoDeps = Layer.mergeAll(
   Api.toLayerHandler(
     'libraryGet',
     Effect.fnUntraced(function* (payload: ApiPayload<'libraryGet'>) {
@@ -259,6 +259,6 @@ export const LibraryHandlersNoDeps = Layer.mergeAll(
   )
 );
 
-export const LibraryHandlers = LibraryHandlersNoDeps.pipe(
+export const LibraryHandlersLayer = LibraryHandlersLayerNoDeps.pipe(
   Layer.provide([Database.layer, BunPath.layer])
 );

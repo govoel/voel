@@ -5,7 +5,7 @@ import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
 import { Api } from '@repo/spec-api';
 
-import { LibraryHandlers } from '#src/groups/library.ts';
+import { LibraryHandlersLayer } from '#src/groups/library.ts';
 import { AdminMiddlewareLayer, AuthMiddlewareLayer, AuthRouterLayer } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 
@@ -17,7 +17,7 @@ const AllRoutesLayer = RpcServer.layerHttp({
 }).pipe(
   Layer.provide([
     AuthRouterLayer,
-    LibraryHandlers,
+    LibraryHandlersLayer,
     AuthMiddlewareLayer,
     AdminMiddlewareLayer,
     RpcSerialization.layerMsgPack,
