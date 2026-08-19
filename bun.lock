@@ -131,7 +131,7 @@
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@rozenite/agent-shared": "2.0.0",
         "@rozenite/plugin-bridge": "2.0.0",
-        "@rozenite/ui": "2.0.0",
+        "@rozenite/ui": "2.1.0",
         "effect": "4.0.0-rc.108",
       },
       "devDependencies": {
@@ -889,7 +889,7 @@
 
     "@rozenite/tools": ["@rozenite/tools@2.0.0", "", {}, "sha512-INW88NXTYZJLGAMsSAbCTECEcJ/q/y8G3gJrQuiei1V8YfxqXJ6PEinyMpQ7TV923yXQQNdMQkMxFV6wcPxLJw=="],
 
-    "@rozenite/ui": ["@rozenite/ui@2.0.0", "", { "dependencies": { "@base-ui/react": "^1.7.0", "@tanstack/react-table": "^8.21.3", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^0.263.1", "react-resizable-panels": "^4.12.2", "react-virtuoso": "^4.14.1", "tailwind-merge": "^3.3.1", "tailwindcss": "4.2.2", "tslib": "^2.3.0", "tw-animate-css": "^1.4.0" }, "peerDependencies": { "react": ">=19", "react-dom": ">=19" } }, "sha512-irAl5WgvQHnejQy3ujfR+u9S5MEbXCHiXxWs7+LNxEzuBhD0CLMd3E27MUJIyWQ0N/PpDY+JzVOQ7NiOfchSIA=="],
+    "@rozenite/ui": ["@rozenite/ui@2.1.0", "", { "dependencies": { "@base-ui/react": "^1.7.0", "@tanstack/react-table": "^8.21.3", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^0.263.1", "react-resizable-panels": "^4.12.2", "react-virtuoso": "^4.14.1", "tailwind-merge": "^3.3.1", "tailwindcss": "4.2.2", "tslib": "^2.3.0", "tw-animate-css": "^1.4.0" }, "peerDependencies": { "react": ">=19", "react-dom": ">=19" } }, "sha512-PxxyvRM/f3mGXh/CSqRHHK+TMv1g8KLQAl8todisBetjO7NHSE8mCuBA3o7nBL+Ktn+QsY1vyJj9IpMCgHDVqg=="],
 
     "@rozenite/vite-plugin": ["@rozenite/vite-plugin@2.0.0", "", { "dependencies": { "@microsoft/api-extractor": "^7.50.1", "@rozenite/ui": "2.0.0", "@tailwindcss/vite": "4.2.2", "@vitejs/plugin-react": "^4.3.4", "ejs": "^3.1.9", "lucide-react": "^0.263.1", "vite-plugin-dts": "~4.5.0", "vite-plugin-react-native-web": "^2.1.1" }, "peerDependencies": { "react": "*", "react-dom": "*", "vite": "^7.3.1" } }, "sha512-/ZA3R3bd4BLPHfDrl/ec7GEnp89hk3C9AzYHAReoT1jM/9qMDb/FM7dso4n1/+umfpftwC+Th7/BX+fnjf9L/Q=="],
 
@@ -2310,6 +2310,10 @@
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
 
     "@rozenite/middleware/ws": ["ws@8.21.3", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw=="],
+
+    "@rozenite/shell/@rozenite/ui": ["@rozenite/ui@2.0.0", "", { "dependencies": { "@base-ui/react": "^1.7.0", "@tanstack/react-table": "^8.21.3", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^0.263.1", "react-resizable-panels": "^4.12.2", "react-virtuoso": "^4.14.1", "tailwind-merge": "^3.3.1", "tailwindcss": "4.2.2", "tslib": "^2.3.0", "tw-animate-css": "^1.4.0" }, "peerDependencies": { "react": ">=19", "react-dom": ">=19" } }, "sha512-irAl5WgvQHnejQy3ujfR+u9S5MEbXCHiXxWs7+LNxEzuBhD0CLMd3E27MUJIyWQ0N/PpDY+JzVOQ7NiOfchSIA=="],
+
+    "@rozenite/vite-plugin/@rozenite/ui": ["@rozenite/ui@2.0.0", "", { "dependencies": { "@base-ui/react": "^1.7.0", "@tanstack/react-table": "^8.21.3", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^0.263.1", "react-resizable-panels": "^4.12.2", "react-virtuoso": "^4.14.1", "tailwind-merge": "^3.3.1", "tailwindcss": "4.2.2", "tslib": "^2.3.0", "tw-animate-css": "^1.4.0" }, "peerDependencies": { "react": ">=19", "react-dom": ">=19" } }, "sha512-irAl5WgvQHnejQy3ujfR+u9S5MEbXCHiXxWs7+LNxEzuBhD0CLMd3E27MUJIyWQ0N/PpDY+JzVOQ7NiOfchSIA=="],
 
     "@rozenite/vite-plugin/@vitejs/plugin-react": ["@vitejs/plugin-react@4.7.0", "", { "dependencies": { "@babel/core": "^7.28.0", "@babel/plugin-transform-react-jsx-self": "^7.27.1", "@babel/plugin-transform-react-jsx-source": "^7.27.1", "@rolldown/pluginutils": "1.0.0-beta.27", "@types/babel__core": "^7.20.5", "react-refresh": "^0.17.0" }, "peerDependencies": { "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0" } }, "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA=="],
 
