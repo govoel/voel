@@ -146,34 +146,34 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
     Effect.fnUntraced(function* () {
       let capturedHeaders = Option.none<EffectHeaders.Headers>();
 
-      const authLayer = yield* makeAuthedClient({
-        username: 'utils_library_headers',
-        role: 'admin',
-      });
-      const authMiddlewareLayer = Layer.effect(
-        AuthMiddleware,
-        Effect.gen(function* () {
-          const auth = yield* AuthServerClient;
-
-          return AuthMiddleware.of(
-            Effect.fnUntraced(function* (httpEffect, { headers }) {
-              capturedHeaders = Option.some(headers);
-
-              const session = yield* auth.api
-                .getSession({ headers })
-                .pipe(Effect.catch(() => UnauthorizedError.make({})));
-
-              if (Option.isNone(session)) {
-                return yield* UnauthorizedError.make({});
-              }
-
-              return yield* Effect.provideService(httpEffect, CurrentSession, session.value);
-            })
-          );
-        })
-      );
       const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(Layer.mergeAll(authLayer, authMiddlewareLayer))
+        Effect.provide(
+          Layer.mergeAll(
+            yield* makeAuthedClient({ username: 'utils_library_headers', role: 'admin' }),
+            Layer.effect(
+              AuthMiddleware,
+              Effect.gen(function* () {
+                const auth = yield* AuthServerClient;
+
+                return AuthMiddleware.of(
+                  Effect.fnUntraced(function* (httpEffect, { headers }) {
+                    capturedHeaders = Option.some(headers);
+
+                    const session = yield* auth.api
+                      .getSession({ headers })
+                      .pipe(Effect.catch(() => UnauthorizedError.make({})));
+
+                    if (Option.isNone(session)) {
+                      return yield* UnauthorizedError.make({});
+                    }
+
+                    return yield* Effect.provideService(httpEffect, CurrentSession, session.value);
+                  })
+                );
+              })
+            )
+          )
+        )
       );
 
       yield* client.libraryList({ cursor: Option.none(), limit: 1 });
