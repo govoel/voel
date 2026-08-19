@@ -4,41 +4,6 @@ import { Model } from 'effect/unstable/schema';
 import { AuthSession } from '@repo/auth-api/shared.ts';
 import type { TableFromModel } from '@repo/effect-kysely';
 
-export class AccountRole extends Schema.Class<AccountRole, { readonly brand: unique symbol }>(
-  'voel/services/database/main/schema/AccountRole'
-)({
-  value: Schema.Literals(['admin', 'user', 'under18']),
-}) {
-  public static readonly isValue = Schema.is(this.fields.value);
-
-  public static readonly decodeSyncFromNullishString = Schema.NullishOr(Schema.String).pipe(
-    Schema.decodeTo(this, {
-      decode: SchemaGetter.transform((value) => ({
-        value: this.isValue(value) ? value : 'under18',
-      })),
-      encode: SchemaGetter.transform(({ value }) => value),
-    }),
-    Schema.decodeSync
-  );
-
-  public static readonly formatFromNullishString = Schema.NullishOr(Schema.String).pipe(
-    Schema.decodeTo(Schema.Literals(['Admin', 'User', 'Under 18', 'Unknown']), {
-      decode: SchemaGetter.transform((value) =>
-        this.isValue(value)
-          ? Match.value(value).pipe(
-              Match.when('admin', () => 'Admin' as const),
-              Match.when('user', () => 'User' as const),
-              Match.when('under18', () => 'Under 18' as const),
-              Match.exhaustive
-            )
-          : ('Unknown' as const)
-      ),
-      encode: SchemaGetter.forbidden(() => 'encoding is forbidden'),
-    }),
-    Schema.decodeSync
-  );
-}
-
 export class Account extends Model.Class<Account>('voel/services/database/main/schema/Account')({
   serverUrl: Model.Field({
     select: Schema.String.pipe(
@@ -93,7 +58,34 @@ export class Account extends Model.Class<Account>('voel/services/database/main/s
   }),
   createdAt: Model.Field({ select: Schema.Natural }),
   updatedAt: Model.Field({ select: Schema.Natural }),
-}) {}
+}) {
+  public static readonly roleToDisplayString = this.fields.role.pipe(
+    Schema.decodeTo(
+      Schema.Literals(['Admin', 'User', 'Under 18']).pipe(
+        Schema.brand('voel/services/database/main/schema/Account/roleDisplayString')
+      ),
+      {
+        decode: SchemaGetter.transform((role) =>
+          Match.value(role).pipe(
+            Match.when('admin', () => 'Admin' as const),
+            Match.when('user', () => 'User' as const),
+            Match.when('under18', () => 'Under 18' as const),
+            Match.exhaustive
+          )
+        ),
+        encode: SchemaGetter.transform((role) =>
+          Match.value(role).pipe(
+            Match.when('Admin', () => this.fields.role.make('admin')),
+            Match.when('User', () => this.fields.role.make('user')),
+            Match.when('Under 18', () => this.fields.role.make('under18')),
+            Match.exhaustive
+          )
+        ),
+      }
+    ),
+    Schema.decodeSync
+  );
+}
 
 export type AccountTable = TableFromModel<typeof Account>;
 

@@ -1,6 +1,6 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
+import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
@@ -672,19 +672,20 @@ describe('AccountManager', () => {
           const verificationStorage = new Map([
             [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
           ]);
-          const verificationAuthClientContext = yield* Layer.build(
-            AuthClient.layerNoDeps(
-              new AuthClientKey({
-                serverUrl: testServer.serverUrl,
-                authStorageId: verificationAuthStorageId,
-              })
-            ).pipe(
-              Layer.provide(
-                Layer.mergeAll(AuthClientStorage.layerTest(verificationStorage), XxHash.layerTest)
+          const verificationAuthClient = yield* AuthClient.pipe(
+            Effect.provide(
+              AuthClient.layerNoDeps(
+                new AuthClientKey({
+                  serverUrl: testServer.serverUrl,
+                  authStorageId: verificationAuthStorageId,
+                })
+              ).pipe(
+                Layer.provide(
+                  Layer.mergeAll(AuthClientStorage.layerTest(verificationStorage), XxHash.layerTest)
+                )
               )
             )
           );
-          const verificationAuthClient = Context.get(verificationAuthClientContext, AuthClient);
           yield* verificationAuthClient.refreshSession({ query: { disableCookieCache: true } });
           yield* waitForSessionRequest(verificationAuthClient);
           const sessionBeforeRemoval = yield* verificationAuthClient.getSession;

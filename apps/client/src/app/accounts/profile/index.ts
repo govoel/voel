@@ -7,7 +7,7 @@ import { AccountManager, NoActiveAccountError } from '#src/services/accounts/ind
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
-import { Account, AccountRole } from '#src/services/database/main/schema.ts';
+import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export class UserProfileUpdateInput extends Schema.Class<
@@ -26,7 +26,7 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
           email,
           id: userId,
           name,
-          role: AccountRole.formatFromNullishString(role),
+          role: Account.roleToDisplayString(role),
           username,
         }))
       )
@@ -52,7 +52,7 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
             email: Account.fields.email.make('reader@example.com'),
             id: Account.fields.userId.make('predefined-user'),
             name: Account.fields.name.make('Alex Reader'),
-            role: AccountRole.formatFromNullishString('admin'),
+            role: Account.roleToDisplayString('admin'),
             username: Account.fields.username.make('alex'),
           })
         )
