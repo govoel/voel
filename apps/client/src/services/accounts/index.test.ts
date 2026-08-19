@@ -669,10 +669,31 @@ describe('AccountManager', () => {
           const verificationStoragePrefix = yield* xxHash.hash128(
             `voel::auth::${testServer.serverUrl}::${verificationAuthStorageId}`
           );
-          const verificationStorage = new Map([
-            [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
-          ]);
-          const verificationAuthClient = yield* AuthClient.pipe(
+
+          yield* Effect.gen(function* () {
+            const authClient = yield* AuthClient;
+            yield* authClient.refreshSession({ query: { disableCookieCache: true } });
+            yield* waitForSessionRequest(authClient);
+            const sessionBeforeRemoval = yield* authClient.getSession;
+            expect(
+              Option.getOrThrow(Option.flatten(AsyncResult.value(sessionBeforeRemoval)))
+            ).toMatchObject({
+              user: { id: account.userId },
+            });
+
+            yield* manager.removeActiveAccount;
+
+            expect(storageItems.size).toEqual(0);
+            yield* authClient.refreshSession({ query: { disableCookieCache: true } });
+            yield* waitForSessionRequest(authClient);
+            const sessionAfterRemoval = yield* authClient.getSession;
+            expect(sessionAfterRemoval).toMatchObject({ _tag: 'Success', waiting: false });
+            expect(Option.isNone(Option.flatten(AsyncResult.value(sessionAfterRemoval)))).toBe(
+              true
+            );
+            expect(yield* getAccounts).toEqual([]);
+            expect(yield* manager.state).toBe(Option.none());
+          }).pipe(
             Effect.provide(
               AuthClient.layerNoDeps(
                 new AuthClientKey({
@@ -681,30 +702,18 @@ describe('AccountManager', () => {
                 })
               ).pipe(
                 Layer.provide(
-                  Layer.mergeAll(AuthClientStorage.layerTest(verificationStorage), XxHash.layerTest)
+                  Layer.mergeAll(
+                    AuthClientStorage.layerTest(
+                      new Map([
+                        [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
+                      ])
+                    ),
+                    XxHash.layerTest
+                  )
                 )
               )
             )
           );
-          yield* verificationAuthClient.refreshSession({ query: { disableCookieCache: true } });
-          yield* waitForSessionRequest(verificationAuthClient);
-          const sessionBeforeRemoval = yield* verificationAuthClient.getSession;
-          expect(
-            Option.getOrThrow(Option.flatten(AsyncResult.value(sessionBeforeRemoval)))
-          ).toMatchObject({
-            user: { id: account.userId },
-          });
-
-          yield* manager.removeActiveAccount;
-
-          expect(storageItems.size).toEqual(0);
-          yield* verificationAuthClient.refreshSession({ query: { disableCookieCache: true } });
-          yield* waitForSessionRequest(verificationAuthClient);
-          const sessionAfterRemoval = yield* verificationAuthClient.getSession;
-          expect(sessionAfterRemoval).toMatchObject({ _tag: 'Success', waiting: false });
-          expect(Option.isNone(Option.flatten(AsyncResult.value(sessionAfterRemoval)))).toBe(true);
-          expect(yield* getAccounts).toEqual([]);
-          expect(yield* manager.state).toBe(Option.none());
         },
         (effect) => effect.pipe(Effect.scoped, Effect.provide(makeClientTestLayers(storageItems)))
       )
