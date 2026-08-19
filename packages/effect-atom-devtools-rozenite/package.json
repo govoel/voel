@@ -26,7 +26,7 @@
   "dependencies": {
     "@effect/atom-react": "4.0.0-rc.108",
     "@repo/effect-atom-devtools-core": "workspace:*",
-    "@rozenite/agent-shared": "2.0.0",
+    "@rozenite/agent-shared": "2.1.0",
     "@rozenite/plugin-bridge": "2.0.0",
     "@rozenite/ui": "2.0.0",
     "effect": "4.0.0-rc.108"
