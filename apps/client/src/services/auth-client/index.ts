@@ -86,20 +86,11 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
             return;
           }
 
-          const { user } = session.value.value;
-          const userId = user.id;
-          const sessionAccount = {
-            username: user.username,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            profilePicture: user.image,
-          };
           const account = yield* db.executeTakeFirstOption(
             db
               .selectFrom('account')
               .where('serverUrl', '=', key.serverUrl)
-              .where('userId', '=', userId)
+              .where('userId', '=', session.value.value.user.id)
               .where('authStorageId', '=', key.authStorageId)
               .selectAll()
           );
@@ -108,11 +99,11 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
           }
 
           if (
-            account.value.username === sessionAccount.username &&
-            account.value.name === sessionAccount.name &&
-            account.value.email === sessionAccount.email &&
-            account.value.role === sessionAccount.role &&
-            account.value.profilePicture === sessionAccount.profilePicture
+            account.value.username === session.value.value.user.username &&
+            account.value.name === session.value.value.user.name &&
+            account.value.email === session.value.value.user.email &&
+            account.value.role === session.value.value.user.role &&
+            account.value.profilePicture === session.value.value.user.image
           ) {
             return;
           }
@@ -122,14 +113,14 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
               db
                 .updateTable('account')
                 .set({
-                  username: sessionAccount.username,
-                  name: sessionAccount.name,
-                  email: sessionAccount.email,
-                  role: sessionAccount.role,
-                  profilePicture: sessionAccount.profilePicture,
+                  username: session.value.value.user.username,
+                  name: session.value.value.user.name,
+                  email: session.value.value.user.email,
+                  role: session.value.value.user.role,
+                  profilePicture: session.value.value.user.image,
                 })
                 .where('serverUrl', '=', key.serverUrl)
-                .where('userId', '=', userId)
+                .where('userId', '=', session.value.value.user.id)
                 .where('authStorageId', '=', key.authStorageId)
                 .returningAll()
             )
