@@ -1,5 +1,13 @@
 [
   {
+    "label": "worktree: prepare",
+    "command": "$ZED_WORKTREE_ROOT/.agents/prepare",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "hooks": ["create_worktree"],
+    "reveal": "no_focus",
+    "hide": "on_success"
+  },
+  {
     "label": "server: dev",
     "command": "cd $ZED_WORKTREE_ROOT/apps/server && bun run dev"
   }
