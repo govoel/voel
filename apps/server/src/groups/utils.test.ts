@@ -7,22 +7,22 @@ import { RpcTest } from 'effect/unstable/rpc';
 
 import { sql } from '@repo/effect-kysely';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
-import {
-  AuthMiddleware,
-  CurrentSession,
-  UnauthorizedError,
-} from '@repo/spec-api/middlewares/auth.ts';
+import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlersLayerNoDeps } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
-import { AdminMiddlewareLayerNoDeps, Auth, AuthMiddlewareLayerNoDeps } from '#src/services/auth.ts';
+import {
+  AdminMiddlewareLayerNoDeps,
+  AuthLayerNoDeps,
+  AuthMiddlewareLayerNoDeps,
+} from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { Database } from '#src/services/database/index.ts';
 
 const makeTestLayer = () =>
   LibraryHandlersLayerNoDeps.pipe(
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
-    Layer.provideMerge(Auth.layerNoDeps),
+    Layer.provideMerge(AuthLayerNoDeps),
     Layer.provideMerge(Database.layerNoDeps),
     Layer.provide([ApiConfig.layerTest(), BunPath.layer])
   );
@@ -148,22 +148,13 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
             Layer.effect(
               AuthMiddleware,
               Effect.gen(function* () {
-                const auth = yield* Auth;
+                const realAuthMiddleware = yield* AuthMiddleware;
 
                 return AuthMiddleware.of(
-                  Effect.fnUntraced(function* (httpEffect, { headers }) {
-                    capturedHeaders = Option.some(headers);
+                  Effect.fnUntraced(function* (httpEffect, options) {
+                    capturedHeaders = Option.some(options.headers);
 
-                    const session = yield* Effect.tryPromise({
-                      try: async () => auth.api.getSession({ headers }),
-                      catch: () => UnauthorizedError.make({}),
-                    });
-
-                    if (session === null) {
-                      return yield* UnauthorizedError.make({});
-                    }
-
-                    return yield* Effect.provideService(httpEffect, CurrentSession, session);
+                    return yield* realAuthMiddleware(httpEffect, options);
                   })
                 );
               })

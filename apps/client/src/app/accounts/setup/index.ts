@@ -40,8 +40,17 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
           BetterAuthClientInitializationError: () =>
             'Unexpected error during account setup. Try again.',
           AccountSignUpError: (signUpError) =>
-            signUpError.details.message ||
-            'Failed to create the account. Check the server and try again.',
+            Match.value(signUpError.reason).pipe(
+              Match.tagsExhaustive({
+                BetterAuthApiError: (authReason) =>
+                  authReason.message ||
+                  'Failed to create the account. Check the server and try again.',
+                AuthTransportError: () =>
+                  'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthResponseError: () =>
+                  'The server returned an invalid authentication response. Try again.',
+              })
+            ),
           AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),

@@ -9,7 +9,8 @@
   "exports": {
     "./client.ts": "./src/client.ts",
     "./migrations/*": "./src/migrations/*",
-    "./server.ts": "./src/server.ts"
+    "./server.ts": "./src/server.ts",
+    "./shared.ts": "./src/shared.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit"

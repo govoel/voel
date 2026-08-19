@@ -35,7 +35,7 @@ export const accountsAtom = AppRuntime.atom(
             createdAt: 0,
             email: Account.fields.email.make('alex@example.com'),
             name: Account.fields.name.make('Alex Reader'),
-            profilePicture: null,
+            profilePicture: Account.fields.profilePicture.make(null),
             role: Account.fields.role.make('admin'),
             serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
             updatedAt: 0,
