@@ -24,13 +24,12 @@ const makeTestLayer = () =>
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
     Layer.provideMerge(Auth.layerNoDeps),
     Layer.provideMerge(Database.layerNoDeps),
-    Layer.provideMerge(BunPath.layer),
-    Layer.provideMerge(ApiConfig.layerTest())
+    Layer.provide([ApiConfig.layerTest(), BunPath.layer])
   );
 
 it.layer(makeTestLayer())('groups utils', (iit) => {
   iit.effect(
-    'makeLibraryClient creates the expected auth rows',
+    'makeAuthedClient creates the expected auth rows',
     Effect.fnUntraced(function* () {
       const { db } = yield* Database;
 
@@ -39,7 +38,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         role: 'admin',
         email: 'utils_library_admin@example.test',
         name: 'Utils Library Admin',
-      }).pipe(Effect.provide(AuthMiddlewareLayerNoDeps));
+      });
 
       const users = yield* db.executeRaw(
         sql<{
@@ -75,16 +74,14 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
   );
 
   iit.effect(
-    'makeLibraryClient cleans up the auth rows when its scope closes',
+    'makeAuthedClient cleans up the auth rows when its scope closes',
     Effect.fnUntraced(function* () {
       const { db } = yield* Database;
       let userId = '';
 
       yield* Effect.scoped(
         Effect.gen(function* () {
-          yield* makeAuthedClient({ username: 'utils_library_cleanup', role: 'admin' }).pipe(
-            Effect.provide(AuthMiddlewareLayerNoDeps)
-          );
+          yield* makeAuthedClient({ username: 'utils_library_cleanup', role: 'admin' });
 
           const users = yield* db.executeRaw(
             sql<{
@@ -95,9 +92,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
           userId = users.rows[0]?.id ?? '';
 
           const sessions = yield* db.executeRaw(
-            sql<{
-              readonly id: string;
-            }>`select id from "session" where userId = ${userId}`
+            sql<{ readonly id: string }>`select id from "session" where userId = ${userId}`
           );
           expect(sessions.rows).toHaveLength(1);
         })
@@ -117,7 +112,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
   );
 
   iit.effect(
-    'makeLibraryClient does not preserve first-user-is-admin behavior',
+    'makeAuthedClient does not preserve first-user-is-admin behavior',
     Effect.fnUntraced(function* () {
       const { db } = yield* Database;
 
@@ -126,9 +121,7 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       );
       expect(existingUsers.rows).toEqual([]);
 
-      yield* makeAuthedClient({ username: 'utils_library_first_user', role: 'user' }).pipe(
-        Effect.provide(AuthMiddlewareLayerNoDeps)
-      );
+      yield* makeAuthedClient({ username: 'utils_library_first_user', role: 'user' });
 
       const users = yield* db.executeRaw(
         sql<{
@@ -144,39 +137,39 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
 
 it.layer(makeTestLayer())('groups utils headers', (iit) => {
   iit.effect(
-    'makeLibraryClient sends the generated auth headers to the server',
+    'makeAuthedClient sends the generated auth headers to the server',
     Effect.fnUntraced(function* () {
       let capturedHeaders = Option.none<EffectHeaders.Headers>();
 
-      const authLayer = yield* makeAuthedClient({
-        username: 'utils_library_headers',
-        role: 'admin',
-      });
-      const authMiddlewareLayer = Layer.effect(
-        AuthMiddleware,
-        Effect.gen(function* () {
-          const auth = yield* Auth;
-
-          return AuthMiddleware.of(
-            Effect.fnUntraced(function* (httpEffect, { headers }) {
-              capturedHeaders = Option.some(headers);
-
-              const session = yield* Effect.tryPromise({
-                try: async () => auth.api.getSession({ headers }),
-                catch: () => UnauthorizedError.make({}),
-              });
-
-              if (session === null) {
-                return yield* UnauthorizedError.make({});
-              }
-
-              return yield* Effect.provideService(httpEffect, CurrentSession, session);
-            })
-          );
-        })
-      );
       const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(Layer.mergeAll(authLayer, authMiddlewareLayer))
+        Effect.provide(
+          Layer.mergeAll(
+            yield* makeAuthedClient({ username: 'utils_library_headers', role: 'admin' }),
+            Layer.effect(
+              AuthMiddleware,
+              Effect.gen(function* () {
+                const auth = yield* Auth;
+
+                return AuthMiddleware.of(
+                  Effect.fnUntraced(function* (httpEffect, { headers }) {
+                    capturedHeaders = Option.some(headers);
+
+                    const session = yield* Effect.tryPromise({
+                      try: async () => auth.api.getSession({ headers }),
+                      catch: () => UnauthorizedError.make({}),
+                    });
+
+                    if (session === null) {
+                      return yield* UnauthorizedError.make({});
+                    }
+
+                    return yield* Effect.provideService(httpEffect, CurrentSession, session);
+                  })
+                );
+              })
+            )
+          )
+        )
       );
 
       yield* client.libraryList({ cursor: Option.none(), limit: 1 });
