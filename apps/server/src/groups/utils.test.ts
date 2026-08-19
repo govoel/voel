@@ -5,14 +5,9 @@ import { Effect, Layer, Option } from 'effect';
 import { Headers as EffectHeaders } from 'effect/unstable/http';
 import { RpcTest } from 'effect/unstable/rpc';
 
-import { AuthServerClient } from '@repo/auth-api/server.ts';
 import { sql } from '@repo/effect-kysely';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
-import {
-  AuthMiddleware,
-  CurrentSession,
-  UnauthorizedError,
-} from '@repo/spec-api/middlewares/auth.ts';
+import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlersLayerNoDeps } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
@@ -153,21 +148,13 @@ it.layer(makeTestLayer())('groups utils headers', (iit) => {
             Layer.effect(
               AuthMiddleware,
               Effect.gen(function* () {
-                const auth = yield* AuthServerClient;
+                const realAuthMiddleware = yield* AuthMiddleware;
 
                 return AuthMiddleware.of(
-                  Effect.fnUntraced(function* (httpEffect, { headers }) {
-                    capturedHeaders = Option.some(headers);
+                  Effect.fnUntraced(function* (httpEffect, options) {
+                    capturedHeaders = Option.some(options.headers);
 
-                    const session = yield* auth.api
-                      .getSession({ headers })
-                      .pipe(Effect.catch(() => UnauthorizedError.make({})));
-
-                    if (Option.isNone(session)) {
-                      return yield* UnauthorizedError.make({});
-                    }
-
-                    return yield* Effect.provideService(httpEffect, CurrentSession, session.value);
+                    return yield* realAuthMiddleware(httpEffect, options);
                   })
                 );
               })
