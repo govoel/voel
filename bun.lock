@@ -130,7 +130,7 @@
         "@effect/atom-react": "4.0.0-rc.108",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@rozenite/agent-shared": "2.0.0",
-        "@rozenite/plugin-bridge": "2.0.0",
+        "@rozenite/plugin-bridge": "2.1.0",
         "@rozenite/ui": "2.0.0",
         "effect": "4.0.0-rc.108",
       },
@@ -881,7 +881,7 @@
 
     "@rozenite/middleware": ["@rozenite/middleware@2.0.0", "", { "dependencies": { "@rozenite/agent-shared": "2.0.0", "@rozenite/runtime": "2.0.0", "@rozenite/shell": "2.0.0", "@rozenite/tools": "2.0.0", "express": "^5.1.0", "semver": "^7.7.2", "tslib": "^2.3.0", "ws": "^8.18.3" } }, "sha512-YKvj2nwI28XxPdgCyhQUdahSkumBF9+Qpn3JYJCf7D3MGr/KNnojhepuCuTa4f9Qc0i1EjnIfHvzAJVmoYylkA=="],
 
-    "@rozenite/plugin-bridge": ["@rozenite/plugin-bridge@2.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "react": ">=17" } }, "sha512-+qzsqnluoYqA0NtOD+phVUPnloC6Nf9ZcRIvUOV231PnXiG52jvbKzavTXMFlZ1L89aKgr5560eglGZEAQ/Blg=="],
+    "@rozenite/plugin-bridge": ["@rozenite/plugin-bridge@2.1.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "react": ">=17" } }, "sha512-fxGi+8RN5eoIviokhwJRKeSuAdhOfhcyz5BDMQZ2w5ou/GOAYvVYgjG43zBKJIC5FCclX+Lj9HkhiWVQZPqRVg=="],
 
     "@rozenite/runtime": ["@rozenite/runtime@2.0.0", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-g/ollXllenrWLpAJ90BX4iD4krZgECBNx98xZDHeFv/M2zXN1Hft7X2IcV1HlasIYK55mBQgBk1kmzdoitKlmA=="],
 
