@@ -1,18 +1,22 @@
+import { BunPath } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it, vi } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
-import { HttpRouter, HttpServer } from 'effect/unstable/http';
+import { HttpRouter } from 'effect/unstable/http';
 
 import { createAuthClient } from '@repo/auth-api/client.ts';
 
-import { AllRoutesLayerNoDeps } from '#src/index.ts';
+import { Auth, AuthRouterLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
+import { Database } from '#src/services/database/index.ts';
 
 const TestServerLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
-      AllRoutesLayerNoDeps.pipe(
-        Layer.provide(Layer.mergeAll(HttpServer.layerServices, ApiConfig.layerTest()))
+      AuthRouterLayerNoDeps.pipe(
+        Layer.provide(Auth.layerNoDeps),
+        Layer.provide(Database.layerNoDeps),
+        Layer.provide([ApiConfig.layerTest(), BunPath.layer])
       )
     );
     yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));

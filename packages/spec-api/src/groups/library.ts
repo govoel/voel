@@ -1,9 +1,9 @@
 import { Schema } from 'effect';
-import { Rpc } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
 import { Library, LibraryPath } from '#src/database/schema.ts';
 import { makeCursorPaginated } from '#src/groups/utils.ts';
-import { AdminMiddleware } from '#src/middlewares/auth.ts';
+import { AdminMiddleware, AuthMiddleware } from '#src/middlewares/auth.ts';
 
 export class LibraryNotFoundError extends Schema.TaggedError<
   LibraryNotFoundError,
@@ -26,7 +26,7 @@ export class LibraryInvalidPathError extends Schema.TaggedError<
   paths: Schema.NonEmptyArray(LibraryPath.jsonUpdate.fields.absolutePath),
 }) {}
 
-export const library = [
+export const LibraryRpcs = RpcGroup.make(
   makeCursorPaginated('libraryList', {
     cursor: Library.json.fields.id,
     success: Schema.Struct({
@@ -78,5 +78,5 @@ export const library = [
   Rpc.make('libraryDelete', {
     payload: Schema.Struct({ id: Library.json.fields.id }),
     success: Schema.Void,
-  }).middleware(AdminMiddleware),
-];
+  }).middleware(AdminMiddleware)
+).middleware(AuthMiddleware);
