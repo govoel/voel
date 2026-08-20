@@ -148,7 +148,7 @@ it.layer(TestLayer)('sync', (iit) => {
         type: 'live',
         payload: {
           table: 'library',
-          rows: [expect.objectContaining({ name: 'Live library' })],
+          row: { name: 'Live library' },
         },
       });
       return void 0;

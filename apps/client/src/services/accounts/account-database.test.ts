@@ -15,7 +15,7 @@ import {
   makeAccountDatabaseFilename,
 } from '#src/services/database/account/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
-import { applySyncRows } from '#src/services/sync.ts';
+import { applySyncRow } from '#src/services/sync.ts';
 
 it.effect(
   'migrates an account replica and applies sync upserts',
@@ -33,18 +33,16 @@ it.effect(
       ]);
       expect(yield* db.execute(db.selectFrom('mediaType').selectAll())).toEqual([]);
 
-      yield* applySyncRows(db, {
+      yield* applySyncRow(db, {
         table: 'library',
-        rows: [
-          {
-            id: Library.fields.id.make(1),
-            type: MediaType.fields.type.make('movie'),
-            name: Library.fields.name.make('Live update'),
-            createdAt: 10,
-            updatedAt: 20,
-            deletedAt: null,
-          },
-        ],
+        row: {
+          id: Library.fields.id.make(1),
+          type: MediaType.fields.type.make('movie'),
+          name: Library.fields.name.make('Live update'),
+          createdAt: 10,
+          updatedAt: 20,
+          deletedAt: null,
+        },
       });
       expect(
         yield* db.executeTakeFirstOrUndefined(db.selectFrom('library').selectAll())

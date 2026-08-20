@@ -95,12 +95,15 @@ export const SyncHandlersLayerNoDeps = SyncRpcs.toLayerHandler(
           ),
           Stream.concat(
             liveUpdates.pipe(
-              Stream.mapEffect((update) =>
-                decode({
-                  type: 'live',
-                  payload: { table: update.table, rows: update.rows },
-                }).pipe(Effect.orDie)
-              )
+              Stream.flatMap((update) =>
+                Stream.fromIterable(
+                  update.rows.map((row) => ({
+                    type: 'live' as const,
+                    payload: { table: update.table, row },
+                  }))
+                )
+              ),
+              Stream.mapEffect((event) => decode(event).pipe(Effect.orDie))
             )
           )
         );

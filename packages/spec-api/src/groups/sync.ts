@@ -75,11 +75,6 @@ const row = <Table extends string, Fields extends Schema.Struct.Fields>(
   fields: Fields
 ) => Schema.Struct({ table: Schema.Literal(table), row: Schema.Struct(fields) });
 
-const rows = <Table extends string, Fields extends Schema.Struct.Fields>(
-  table: Table,
-  fields: Fields
-) => Schema.Struct({ table: Schema.Literal(table), rows: Schema.Array(Schema.Struct(fields)) });
-
 export const SyncRow = Schema.Union(
   [
     row('mediaType', MediaType.json.fields),
@@ -98,36 +93,17 @@ export const SyncRow = Schema.Union(
   { mode: 'oneOf' }
 );
 
-export const SyncRows = Schema.Union(
-  [
-    rows('mediaType', MediaType.json.fields),
-    rows('mediaItem', MediaItem.json.fields),
-    rows('audiobook', Audiobook.json.fields),
-    rows('audiobookSeries', AudiobookSeries.json.fields),
-    rows('audiobookSeriesMap', AudiobookSeriesMap.json.fields),
-    rows('audiobookContributor', AudiobookContributor.json.fields),
-    rows('audiobookContributorRole', AudiobookContributorRole.json.fields),
-    rows('audiobookContributorMap', AudiobookContributorMap.json.fields),
-    rows('library', Library.json.fields),
-    rows('libraryPath', LibraryPath.json.fields),
-    rows('mediaFile', MediaFile.json.fields),
-    rows('libraryFileMap', LibraryFileMap.json.fields),
-  ],
-  { mode: 'oneOf' }
-);
-
 export const SyncEvent = Schema.Union(
   [
     Schema.Struct({ type: Schema.Literal('history'), payload: SyncRow }),
     Schema.Struct({ type: Schema.Literal('historyComplete') }),
-    Schema.Struct({ type: Schema.Literal('live'), payload: SyncRows }),
+    Schema.Struct({ type: Schema.Literal('live'), payload: SyncRow }),
   ],
   { mode: 'oneOf' }
 );
 
 export type SyncEvent = typeof SyncEvent.Type;
 export type SyncRow = typeof SyncRow.Type;
-export type SyncRows = typeof SyncRows.Type;
 export type SyncCheckpoint = typeof SyncCheckpoint.Type;
 
 export class SyncSlowConsumerError extends Schema.TaggedError<

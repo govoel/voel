@@ -7,7 +7,7 @@ import {
   syncPrimaryKeys,
   syncTimestampedTables,
 } from '@repo/spec-api/groups/sync.ts';
-import type { SyncEvent, SyncRow, SyncRows } from '@repo/spec-api/groups/sync.ts';
+import type { SyncEvent, SyncRow } from '@repo/spec-api/groups/sync.ts';
 
 import { acquireAccountApiClient } from '#src/services/account-api-client.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -40,17 +40,11 @@ const upsertRow = Effect.fnUntraced(function* (
   `);
 });
 
-export const applySyncRows = Effect.fnUntraced(function* (
+export const applySyncRow = Effect.fnUntraced(function* (
   db: EffectKysely<AccountDatabaseTables>,
-  event: SyncRows
+  event: SyncRow
 ) {
-  yield* db.trx().execute(
-    Effect.fnUntraced(function* (trx) {
-      yield* Effect.forEach(event.rows, (row) => upsertRow(trx, event.table, row), {
-        discard: true,
-      });
-    })
-  );
+  yield* upsertRow(db, event.table, event.row);
 });
 
 const getCheckpoints = Effect.fnUntraced(function* (db: EffectKysely<AccountDatabaseTables>) {
@@ -106,7 +100,7 @@ const synchronizeOnce = Effect.fnUntraced(function* (
           yield* flushHistory();
         } else {
           yield* flushHistory();
-          yield* applySyncRows(db, event.payload);
+          yield* applySyncRow(db, event.payload);
         }
       })
     )
