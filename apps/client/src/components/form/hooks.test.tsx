@@ -17,7 +17,11 @@ import {
 const EmptyComponent = (() => null) satisfies ComponentType;
 
 const runtime = Atom.runtime(Layer.empty);
-const schema = Schema.Struct({ name: Schema.String });
+class TestFormInput extends Schema.Class<TestFormInput, { readonly brand: unique symbol }>(
+  'voel/components/form/hooks.test/TestFormInput'
+)({
+  name: Schema.String,
+}) {}
 
 class TestSubmitError extends Schema.TaggedError<
   TestSubmitError,
@@ -87,7 +91,7 @@ describe('createEffectSchemaFormHook', () => {
   });
 
   it('stores a string mutation failure without invalidating the form', async () => {
-    const mutation = runtime.fn((_value: typeof schema.Type) =>
+    const mutation = runtime.fn((_value: TestFormInput) =>
       Effect.fail(TestSubmitError.make({ message: 'failed' }))
     );
 
@@ -95,7 +99,7 @@ describe('createEffectSchemaFormHook', () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
         mutation,
-        schema,
+        schema: TestFormInput,
         onFailure: ({ error }) => error.message,
       });
 
@@ -130,7 +134,7 @@ describe('createEffectSchemaFormHook', () => {
 
   it('can retry after a failed submission and then submit successfully', async () => {
     let mutationAttempts = 0;
-    const mutation = runtime.fn((_value: typeof schema.Type) => {
+    const mutation = runtime.fn((_value: TestFormInput) => {
       mutationAttempts += 1;
 
       return mutationAttempts === 1
@@ -143,7 +147,7 @@ describe('createEffectSchemaFormHook', () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
         mutation,
-        schema,
+        schema: TestFormInput,
         onFailure: ({ error }) => error.message,
         onSuccess,
       });
@@ -177,7 +181,7 @@ describe('createEffectSchemaFormHook', () => {
   });
 
   it('passes per-submit metadata to onFailure', async () => {
-    const mutation = runtime.fn((_value: typeof schema.Type) =>
+    const mutation = runtime.fn((_value: TestFormInput) =>
       Effect.fail(TestSubmitError.make({ message: 'failed' }))
     );
     const onFailure = vi.fn(() => 'failed');
@@ -187,7 +191,7 @@ describe('createEffectSchemaFormHook', () => {
         defaultValues: { name: 'ok' },
         mutation,
         onSubmitMeta: { source: 'default' },
-        schema,
+        schema: TestFormInput,
         onFailure,
       });
 
@@ -211,17 +215,20 @@ describe('createEffectSchemaFormHook', () => {
   });
 
   it('passes the decoded value and mutation result to onSuccess', async () => {
-    const decodedSchema = Schema.Struct({ count: Schema.FiniteFromString });
-    const mutation = runtime.fn((value: typeof decodedSchema.Type) =>
-      Effect.succeed(value.count * 2)
-    );
+    class DecodedFormInput extends Schema.Class<
+      DecodedFormInput,
+      { readonly brand: unique symbol }
+    >('voel/components/form/hooks.test/DecodedFormInput')({
+      count: Schema.FiniteFromString,
+    }) {}
+    const mutation = runtime.fn((value: DecodedFormInput) => Effect.succeed(value.count * 2));
     const onSuccess = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { count: '4' },
         mutation,
-        schema: decodedSchema,
+        schema: DecodedFormInput,
         onFailure: () => 'failed',
         onSuccess,
       });
@@ -249,7 +256,7 @@ describe('createEffectSchemaFormHook', () => {
 
   it('propagates mutation defects without passing them to onFailure', async () => {
     const defect = new Error('mutation defect');
-    const mutation = runtime.fn((_value: typeof schema.Type) => Effect.die(defect));
+    const mutation = runtime.fn((_value: TestFormInput) => Effect.die(defect));
     const onFailure = vi.fn(() => 'mapped failure');
     const onRejected = vi.fn();
 
@@ -257,7 +264,7 @@ describe('createEffectSchemaFormHook', () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
         mutation,
-        schema,
+        schema: TestFormInput,
         onFailure,
       });
 

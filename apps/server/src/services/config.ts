@@ -1,12 +1,14 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Schema } from 'effect';
 
-const ApiConfigSchema = Schema.Struct({
+class ApiConfigSchema extends Schema.Class<ApiConfigSchema, { readonly brand: unique symbol }>(
+  '@repo/server/services/config/ApiConfigSchema'
+)({
   AUTH_SECRET: Schema.RedactedFromValue(Schema.String),
   PORT: Config.Port.pipe(Schema.withDecodingDefaultType(Effect.succeed(8080))),
   DB_FILENAME: Schema.String.pipe(
     Schema.withDecodingDefaultType(Effect.succeed('database.sqlite'))
   ),
-});
+}) {}
 
 export class ApiConfig extends Context.Service<ApiConfig>()(
   '@repo/server/services/config/ApiConfig',

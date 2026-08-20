@@ -1,6 +1,10 @@
 import { RuleTester } from 'oxlint/plugins-dev';
 
-import { deterministicIdentifiersRule, schemaClassBrandRule } from './effect-conventions.mts';
+import {
+  deterministicIdentifiersRule,
+  noSchemaStructAssignmentRule,
+  schemaClassBrandRule,
+} from './effect-conventions.mts';
 
 // The rule only needs this path to be beneath a workspace package; the source file need not exist.
 const filename = `${import.meta.dirname}/../packages/effect-kysely/src/domain/models.ts`;
@@ -117,6 +121,86 @@ new RuleTester().run('schema-class-brand', schemaClassBrandRule, {
         class Admin extends User.extend<Admin, Record<never, never>>("Admin")({}) {}
       `,
       errors: [{ message: 'Add a readonly unique-symbol brand to this schema subclass.' }],
+    },
+  ],
+});
+
+new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule, {
+  valid: [
+    {
+      filename,
+      code: `
+        class User extends Schema.Class<
+          User,
+          { readonly brand: unique symbol }
+        >("User")({ name: Schema.String }) {}
+      `,
+    },
+    {
+      filename,
+      code: `
+        const response = Schema.Array(
+          Schema.Struct({ name: Schema.String })
+        )
+
+        const makeRow = () =>
+          Schema.Struct({ name: Schema.String })
+
+        const container = {
+          user: Schema.Struct({ name: Schema.String })
+        }
+      `,
+    },
+  ],
+  invalid: [
+    {
+      filename,
+      code: `const User = Schema.Struct({ name: Schema.String })`,
+      errors: [
+        {
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+        },
+      ],
+    },
+    {
+      filename,
+      code: `
+        let User
+        User = Schema.Struct({ name: Schema.String })
+      `,
+      errors: [
+        {
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+        },
+      ],
+    },
+    {
+      filename,
+      code: `
+        const User = (Schema.Struct({ name: Schema.String }) satisfies Schema.Top)
+      `,
+      errors: [
+        {
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+        },
+      ],
+    },
+    {
+      filename,
+      code: `
+        const User = Schema.Struct({ name: Schema.String }).pipe(
+          Schema.annotations({ identifier: "User" })
+        )
+      `,
+      errors: [
+        {
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+        },
+      ],
     },
   ],
 });

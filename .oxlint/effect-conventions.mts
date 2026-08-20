@@ -202,6 +202,19 @@ const uniqueSymbolProperties = (type: ESTree.TSType) =>
       )
     : [];
 
+const isSchemaStructCall = (expression: ESTree.Expression): boolean => {
+  const unwrapped = unwrapExpression(expression);
+  if (unwrapped.type !== 'CallExpression') {
+    return false;
+  }
+  if (Option.contains(staticMemberName(unwrapped.callee), 'Schema.Struct')) {
+    return true;
+  }
+
+  const callee = unwrapExpression(unwrapped.callee);
+  return callee.type === 'MemberExpression' && isSchemaStructCall(callee.object);
+};
+
 const plugin = eslintCompatPlugin({
   meta: { name: 'effect-conventions' },
   rules: {
@@ -354,10 +367,36 @@ const plugin = eslintCompatPlugin({
         },
       }),
     },
+    'no-schema-struct-assignment': {
+      createOnce: (context) => {
+        const report = (expression: ESTree.Expression) => {
+          if (!isSchemaStructCall(expression)) {
+            return;
+          }
+          context.report({
+            message:
+              'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+            node: expression,
+          });
+        };
+
+        return {
+          VariableDeclarator: (node) => {
+            if (node.init !== null) {
+              report(node.init);
+            }
+          },
+          AssignmentExpression: (node) => {
+            report(node.right);
+          },
+        };
+      },
+    },
   },
 });
 
 export const deterministicIdentifiersRule = plugin.rules['deterministic-identifiers'];
+export const noSchemaStructAssignmentRule = plugin.rules['no-schema-struct-assignment'];
 export const schemaClassBrandRule = plugin.rules['schema-class-brand'];
 
 export default plugin;
