@@ -122,6 +122,7 @@ export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
         supportsAck: true,
         supportsTransferables: false,
         supportsSpanPropagation: false,
+        supportsNotifications: true,
       };
     })
   );
