@@ -83,7 +83,7 @@
   "lsp": {
     "effect-tsgo": {
       "settings": {
-        "package_version": "0.36.4",
+        "package_version": "0.36.5",
         "typescript": {
           "preferences": { "importModuleSpecifier": "non-relative" }
         },
