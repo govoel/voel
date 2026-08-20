@@ -106,7 +106,7 @@ export type BetterAuthInstance = ReturnType<typeof createServerAuthClient>;
 class BetterAuthServerClientInitializationError extends Schema.TaggedError<
   BetterAuthServerClientInitializationError,
   { readonly brand: unique symbol }
->('voel/services/auth-client/index/BetterAuthServerClientInitializationError')(
+>('@repo/auth-api/server/BetterAuthServerClientInitializationError')(
   'BetterAuthServerClientInitializationError',
   { error: Schema.Unknown }
 ) {}

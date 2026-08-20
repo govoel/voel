@@ -9,6 +9,7 @@
   "scripts": {
     "lint": "oxlint . --ignore-pattern .repos/** --type-aware --type-check --deny-warnings",
     "lint:fix": "oxlint . --ignore-pattern .repos/** --fix --type-aware --type-check --deny-warnings",
+    "test": "node .oxlint/effect-conventions.test.mts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "build": "turbo run build",
@@ -17,8 +18,11 @@
   },
   "devDependencies": {
     "@effect/tsgo": "0.36.5",
+    "@oxlint/plugins": "1.78.0",
     "agent-browser": "0.34.0",
     "agent-device": "0.20.10",
+    "bun-types": "1.3.14",
+    "effect": "4.0.0-rc.110",
     "eslint-plugin-turbo": "2.10.11",
     "opensrc": "0.7.3",
     "oxfmt": "0.64.0",

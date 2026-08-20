@@ -19,7 +19,10 @@ const EmptyComponent = (() => null) satisfies ComponentType;
 const runtime = Atom.runtime(Layer.empty);
 const schema = Schema.Struct({ name: Schema.String });
 
-class TestSubmitError extends Schema.TaggedError<TestSubmitError>()('TestSubmitError', {
+class TestSubmitError extends Schema.TaggedError<
+  TestSubmitError,
+  { readonly brand: unique symbol }
+>('voel/components/form/hooks.test/TestSubmitError')('TestSubmitError', {
   message: Schema.String,
 }) {}
 

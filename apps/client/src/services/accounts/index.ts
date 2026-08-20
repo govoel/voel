@@ -39,26 +39,26 @@ export class UuidGenerator extends Context.Service<
 export class AccountSignInError extends Schema.TaggedError<
   AccountSignInError,
   { readonly brand: unique symbol }
->('voel/services/accounts/index/AccountSignInError')('AccountSignInError', {
+>('voel/services/accounts/AccountSignInError')('AccountSignInError', {
   reason: AuthError.fields.reason,
 }) {}
 
 export class AccountSignUpError extends Schema.TaggedError<
   AccountSignUpError,
   { readonly brand: unique symbol }
->('voel/services/accounts/index/AccountSignUpError')('AccountSignUpError', {
+>('voel/services/accounts/AccountSignUpError')('AccountSignUpError', {
   reason: AuthError.fields.reason,
 }) {}
 
 export class AccountDatabaseError extends Schema.TaggedError<
   AccountDatabaseError,
   { readonly brand: unique symbol }
->('voel/services/accounts/index/AccountDatabaseError')('AccountDatabaseError', {}) {}
+>('voel/services/accounts/AccountDatabaseError')('AccountDatabaseError', {}) {}
 
 export class AccountNotFoundError extends Schema.TaggedError<
   AccountNotFoundError,
   { readonly brand: unique symbol }
->('voel/services/accounts/index/AccountNotFoundError')('AccountNotFoundError', {
+>('voel/services/accounts/AccountNotFoundError')('AccountNotFoundError', {
   serverUrl: Schema.String,
   userId: Schema.String,
 }) {}
@@ -66,7 +66,7 @@ export class AccountNotFoundError extends Schema.TaggedError<
 export class NoActiveAccountError extends Schema.TaggedError<
   NoActiveAccountError,
   { readonly brand: unique symbol }
->('voel/services/accounts/index/NoActiveAccountError')('NoActiveAccountError', {}) {}
+>('voel/services/accounts/NoActiveAccountError')('NoActiveAccountError', {}) {}
 
 export class ActiveAccountKey extends Data.Class<
   Pick<Selectable<AccountTable>, 'serverUrl' | 'userId' | 'authStorageId'>

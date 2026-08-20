@@ -15,6 +15,11 @@
       "inputs": ["$TURBO_DEFAULT$"],
       "outputLogs": "errors-only"
     },
+    "//#test": {
+      "cache": true,
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputLogs": "errors-only"
+    },
     "voel#test": {
       "cache": true,
       "dependsOn": ["^test", "@repo/effect-atom-devtools-rozenite#build"],
