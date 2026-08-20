@@ -16,9 +16,9 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@better-auth/expo": "1.6.23",
+    "@better-auth/expo": "1.7.1",
     "@repo/effect-kysely": "workspace:*",
-    "better-auth": "1.6.23",
+    "better-auth": "1.7.1",
     "effect": "4.0.0-rc.110"
   },
   "devDependencies": {

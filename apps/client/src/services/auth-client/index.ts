@@ -1,5 +1,16 @@
 import { expoClient } from '@better-auth/expo/client';
-import { Context, Data, Duration, Effect, Layer, LayerMap, Option, Stream, String } from 'effect';
+import {
+  Context,
+  Data,
+  Duration,
+  Effect,
+  Layer,
+  LayerMap,
+  Option,
+  Schema,
+  Stream,
+  String,
+} from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
@@ -22,6 +33,10 @@ export class AuthClientKey extends Data.Class<
   Pick<Selectable<AccountTable>, 'serverUrl' | 'authStorageId'>
 > {}
 
+export class AuthClientGetCookieError extends Schema.TaggedError<AuthClientGetCookieError>(
+  'voel/services/auth-client/AuthClientGetCookieError'
+)('AuthClientGetCookieError', { cause: Schema.Unknown }) {}
+
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/services/auth-client/AuthClient',
   {
@@ -32,7 +47,9 @@ export class AuthClient extends Context.Service<AuthClient>()(
       );
 
       const storage = yield* AuthClientStorage;
-      const runSync = Effect.runSyncWith(yield* Effect.context());
+      const context = yield* Effect.context();
+      const runPromise = Effect.runPromiseWith(context);
+      const runSync = Effect.runSyncWith(context);
 
       const { rawClient, ...client } = yield* CoreAuthClient.make({
         baseURL: key.serverUrl,
@@ -40,8 +57,13 @@ export class AuthClient extends Context.Service<AuthClient>()(
           expoClient({
             storage: {
               getItem: (k) => runSync(storage.getItem(k).pipe(Effect.map(Option.getOrNull))),
+              getItemAsync: async (k) =>
+                runPromise(storage.getItem(k).pipe(Effect.map(Option.getOrNull))),
               setItem: (k, v) => {
                 runSync(storage.setItem(k, v));
+              },
+              setItemAsync: async (k, v) => {
+                await runPromise(storage.setItem(k, v));
               },
             },
             storagePrefix,
@@ -53,9 +75,10 @@ export class AuthClient extends Context.Service<AuthClient>()(
         },
       });
 
-      const getCookie = Effect.sync(() =>
-        Option.liftPredicate(rawClient.getCookie(), String.isNonEmpty)
-      );
+      const getCookie = Effect.tryPromise({
+        try: async () => rawClient.getCookie(),
+        catch: (cause) => AuthClientGetCookieError.make({ cause }),
+      }).pipe(Effect.map(Option.liftPredicate(String.isNonEmpty)));
 
       return {
         getCookie,

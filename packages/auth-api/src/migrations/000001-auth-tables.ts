@@ -34,6 +34,7 @@ export const up = async (db: Kysely<unknown>) => {
   await db.schema
     .createTable('account')
     .addColumn('id', 'text', (col) => col.notNull().primaryKey())
+    .addColumn('issuer', 'text', (col) => col.notNull())
     .addColumn('accountId', 'text', (col) => col.notNull())
     .addColumn('providerId', 'text', (col) => col.notNull())
     .addColumn('userId', 'text', (col) => col.notNull().references('user.id').onDelete('cascade'))
@@ -64,6 +65,12 @@ export const up = async (db: Kysely<unknown>) => {
     .createIndex('verification_identifier_idx')
     .on('verification')
     .columns(['identifier'])
+    .execute();
+  await db.schema
+    .createIndex('account_issuer_accountId_uidx')
+    .unique()
+    .on('account')
+    .columns(['issuer', 'accountId'])
     .execute();
 };
 

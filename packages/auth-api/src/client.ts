@@ -63,46 +63,6 @@ const executeAuthClientRequest = Effect.fnUntraced(
   (effect) => effect.pipe(Effect.mapError((reason) => AuthError.make({ reason })))
 );
 
-const authClientSessionState = Effect.fnUntraced(function* (
-  state: ReturnType<ReturnType<typeof createAuthClient<[]>>['useSession']['get']>,
-  previous: Option.Option<AsyncResult.AsyncResult<Option.Option<AuthSession>, AuthError>>
-) {
-  const waiting = state.isPending || state.isRefetching;
-
-  if (state.error !== null) {
-    return AsyncResult.failWithPrevious(
-      AuthError.make({
-        reason: Option.getOrElse(BetterAuthApiError.decodeUnknownOption(state.error), () =>
-          InvalidAuthResponseError.make()
-        ),
-      }),
-      { previous, waiting }
-    );
-  }
-
-  if (waiting) {
-    return AsyncResult.waitingFrom(previous);
-  }
-
-  const session = Option.fromNullishOr(state.data);
-  if (Option.isNone(session)) {
-    return AsyncResult.success(Option.none());
-  }
-
-  return yield* AuthSession.decodeUnknownEffect(session.value).pipe(
-    Effect.map((decodedSession) => AsyncResult.success(Option.some(decodedSession))),
-    Effect.catchTags({
-      SchemaError: () =>
-        Effect.succeed(
-          AsyncResult.failWithPrevious(
-            AuthError.make({ reason: InvalidAuthResponseError.make() }),
-            { previous, waiting }
-          )
-        ),
-    })
-  );
-});
-
 type CoreAuthClient = ReturnType<typeof createAuthClient<[]>>;
 
 export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/client/AuthClient', {
@@ -121,7 +81,7 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
     const coreClient = client as typeof client & CoreAuthClient;
 
     const sessionState = yield* SubscriptionRef.make<
-      Effect.Success<ReturnType<typeof authClientSessionState>>
+      AsyncResult.AsyncResult<Option.Option<AuthSession>, AuthError>
     >(AsyncResult.initial(true));
 
     yield* Stream.callback<ReturnType<typeof client.useSession.get>>((queue) =>
@@ -137,8 +97,45 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       )
     ).pipe(
       Stream.mapEffect((state) =>
-        SubscriptionRef.updateEffect(sessionState, (previous) =>
-          authClientSessionState(state, Option.some(previous))
+        SubscriptionRef.updateEffect(
+          sessionState,
+          Effect.fnUntraced(function* (previous) {
+            const waiting = state.isPending || state.isRefetching;
+
+            if (state.error !== null) {
+              return AsyncResult.failWithPrevious(
+                AuthError.make({
+                  reason: Option.getOrElse(
+                    BetterAuthApiError.decodeUnknownOption(state.error),
+                    () => InvalidAuthResponseError.make()
+                  ),
+                }),
+                { previous: Option.some(previous), waiting }
+              );
+            }
+
+            if (waiting) {
+              return AsyncResult.waitingFrom(Option.some(previous));
+            }
+
+            const session = Option.fromNullishOr(state.data);
+            if (Option.isNone(session)) {
+              return AsyncResult.success(Option.none());
+            }
+
+            return yield* AuthSession.decodeUnknownEffect(session.value).pipe(
+              Effect.map((decodedSession) => AsyncResult.success(Option.some(decodedSession))),
+              Effect.catchTags({
+                SchemaError: () =>
+                  Effect.succeed(
+                    AsyncResult.failWithPrevious(
+                      AuthError.make({ reason: InvalidAuthResponseError.make() }),
+                      { previous: Option.some(previous), waiting }
+                    )
+                  ),
+              })
+            );
+          })
         )
       ),
       Stream.runDrain,

@@ -32,9 +32,9 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
       setItem,
       removeItem,
     }: {
-      getItem: (key: string) => string | null;
-      setItem: (key: string, value: string) => void;
-      removeItem: (key: string) => Promise<void>;
+      readonly getItem: (key: string) => string | null;
+      readonly setItem: (key: string, value: string) => void;
+      readonly removeItem: (key: string) => Promise<void>;
     }) {
       const cache = yield* Cache.make<string, Option.Option<string>, AuthClientStorageGetItemError>(
         {
