@@ -158,7 +158,7 @@ const expectedIdentifier = (filename: string, className: string) =>
     const sourceSegments = fileName === 'index' ? segments.slice(0, -1) : segments;
     const sourceIdentifier = [location.packageName, ...sourceSegments].join('/');
     const identifier =
-      fileName !== 'index' && fileName.toLocaleLowerCase() === className.toLocaleLowerCase()
+      fileName !== 'index' && fileName.toLowerCase() === className.toLowerCase()
         ? sourceIdentifier
         : `${sourceIdentifier}/${className}`;
 
