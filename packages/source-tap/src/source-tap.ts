@@ -83,15 +83,6 @@ export class SourceTap<DB> implements KyselyPlugin {
     this.#transformer = new SourceTapTransformer(this.#transformerVars, this.#queryState);
   }
 
-  /**
-   * Acquires a live subscription immediately. This is useful when a consumer
-   * must install its listener before reading a snapshot from the database.
-   */
-  public subscribe = Effect.fnUntraced(function* (this: SourceTap<DB>) {
-    const subscription = yield* PubSub.subscribe(this.#pubsub);
-    return Stream.fromEffectRepeat(PubSub.take(subscription));
-  });
-
   private isTrackedTable(tableName: string): tableName is Extract<keyof DB, string> {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return this.#trackTables.has(tableName as keyof DB);

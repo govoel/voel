@@ -130,11 +130,18 @@ export type SyncRow = typeof SyncRow.Type;
 export type SyncRows = typeof SyncRows.Type;
 export type SyncCheckpoint = typeof SyncCheckpoint.Type;
 
+export class SyncSlowConsumerError extends Schema.TaggedError<
+  SyncSlowConsumerError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/sync/SyncSlowConsumerError')('SyncSlowConsumerError', {
+  capacity: Schema.Natural,
+}) {}
+
 export const SyncRpcs = RpcGroup.make(
   Rpc.make('sync', {
     payload: SyncCheckpoint,
     success: SyncEvent,
-    error: DatabaseSqlError,
+    error: Schema.Union([DatabaseSqlError, SyncSlowConsumerError], { mode: 'oneOf' }),
     stream: true,
   })
 ).middleware(AuthMiddleware);

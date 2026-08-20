@@ -1,17 +1,17 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Deferred, Effect, Layer, Option, Stream } from 'effect';
+import { Deferred, Effect, Layer, Option, PubSub, Stream } from 'effect';
 import { RpcTest } from 'effect/unstable/rpc';
 
 import { sql } from '@repo/effect-kysely';
 import { MediaFile, MediaType } from '@repo/spec-api/database/schema.ts';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import type { SyncEvent } from '@repo/spec-api/groups/sync.ts';
-import { SyncRpcs } from '@repo/spec-api/groups/sync.ts';
+import { SyncRpcs, SyncSlowConsumerError } from '@repo/spec-api/groups/sync.ts';
 
 import { LibraryHandlersLayerNoDeps } from '#src/groups/library.ts';
-import { SyncHandlersLayerNoDeps } from '#src/groups/sync.ts';
+import { SyncHandlersLayerNoDeps, bufferLiveUpdates } from '#src/groups/sync.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
 import {
   AdminMiddlewareLayerNoDeps,
@@ -40,6 +40,39 @@ const emptyCheckpoints = {
   mediaFile: 0,
   libraryFileMap: 0,
 };
+
+it.effect(
+  'starts consuming live updates before returning the buffered stream',
+  Effect.fnUntraced(function* () {
+    const pubsub = yield* PubSub.unbounded<number>();
+    yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
+
+    const updates = yield* bufferLiveUpdates(Stream.fromPubSub(pubsub), 1);
+    yield* PubSub.publish(pubsub, 1);
+
+    expect(yield* Stream.runHead(updates)).toEqual(Option.some(1));
+  })
+);
+
+it.effect(
+  'fails an overflowed live update stream without interrupting history',
+  Effect.fnUntraced(function* () {
+    const updates = yield* bufferLiveUpdates(Stream.make(1, 2), 1);
+    const received: Array<number> = [];
+    const error = yield* Stream.make(0).pipe(
+      Stream.concat(updates),
+      Stream.runForEach((event) =>
+        Effect.sync(() => {
+          received.push(event);
+        })
+      ),
+      Effect.flip
+    );
+
+    expect(received).toEqual([0]);
+    expect(error).toEqual(SyncSlowConsumerError.make({ capacity: 1 }));
+  })
+);
 
 it.layer(TestLayer)('sync', (iit) => {
   iit.effect(
