@@ -20,6 +20,7 @@ export class AccountApiClient extends Context.Service<
         const authClient = yield* acquireAuthClient(key);
         return ({ request, next }) =>
           authClient.getCookie.pipe(
+            Effect.catchTags({ AuthClientGetCookieError: Effect.die }),
             Effect.flatMap((cookie) =>
               next({
                 ...request,

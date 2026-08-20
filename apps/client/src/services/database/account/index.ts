@@ -44,7 +44,7 @@ export const makeAccountDatabaseFilename = Effect.fnUntraced(function* (key: Acc
 });
 
 export class AccountDatabaseMap extends LayerMap.Service<AccountDatabaseMap>()(
-  'voel/services/database/account/index/AccountDatabaseMap',
+  'voel/services/database/account/AccountDatabaseMap',
   {
     lookup: (key: AccountDatabaseKey) =>
       Layer.unwrap(
