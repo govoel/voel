@@ -33,6 +33,21 @@ new RuleTester().run('deterministic-identifiers', deterministicIdentifiersTestRu
         >("voel/domain/models/UserError")("UserError", {}) {}
       `,
     },
+    {
+      filename,
+      code: `
+        const packageName = "voel"
+        const userIdentifier = \`\${packageName}/domain/models/User\`
+
+        class User extends Schema.Class<User, { readonly brand: unique symbol }>(
+          userIdentifier
+        )({ name: Schema.String }) {}
+
+        const UserId = Schema.String.pipe(
+          Schema.brand(\`\${packageName}/domain/models/UserId\`)
+        )
+      `,
+    },
   ],
   invalid: [
     {

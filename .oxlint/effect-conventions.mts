@@ -1,4 +1,5 @@
 import type * as ESTree from '@oxc-project/types';
+import { Array, Option } from 'effect';
 
 interface RuleContext {
   readonly filename: string;
@@ -16,17 +17,24 @@ interface Plugin {
   readonly rules: Readonly<Record<string, { readonly create: (context: RuleContext) => Visitor }>>;
 }
 
+const schemaClassConstructors = new Set([
+  'Schema.Class',
+  'Schema.Error',
+  'Schema.TaggedClass',
+  'Schema.TaggedError',
+]);
+
 const deterministicConstructors = new Set([
   'AtomRpc.Service',
   'Context.Service',
   'LayerMap.Service',
   'Model.Class',
   'RpcMiddleware.Service',
-  'Schema.Class',
-  'Schema.Error',
-  'Schema.TaggedClass',
-  'Schema.TaggedError',
+  ...schemaClassConstructors,
 ]);
+
+const packageLocationPattern =
+  /(?:^|\/)\b(?<workspaceType>apps|packages)\/(?<workspaceName>[^/]+)\/(?<sourcePath>.+)$/u;
 
 const isWrappedExpression = (
   expression: ESTree.Expression
@@ -57,101 +65,97 @@ const unwrapExpression = (expression: ESTree.Expression) => {
 const staticMemberName = (expression: ESTree.Expression) => {
   const unwrapped = unwrapExpression(expression);
   if (unwrapped.type !== 'MemberExpression' || unwrapped.computed) {
-    return void 0;
+    return Option.none<string>();
   }
 
   const object = unwrapExpression(unwrapped.object);
   if (object.type !== 'Identifier' || unwrapped.property.type !== 'Identifier') {
-    return void 0;
+    return Option.none<string>();
   }
 
-  return `${object.name}.${unwrapped.property.name}`;
+  return Option.some(`${object.name}.${unwrapped.property.name}`);
 };
 
-const callChain = (expression: ESTree.Expression) => {
-  const calls: Array<ESTree.CallExpression> = [];
-  let current = unwrapExpression(expression);
+const callChain = (expression: ESTree.Expression) =>
+  Array.unfold(unwrapExpression(expression), (current) =>
+    current.type === 'CallExpression'
+      ? Option.some([current, unwrapExpression(current.callee)] as const)
+      : Option.none()
+  );
 
-  while (current.type === 'CallExpression') {
-    calls.push(current);
-    current = unwrapExpression(current.callee);
-  }
+const expressionArgument = (call: ESTree.CallExpression, index: number) =>
+  Array.get(call.arguments, index).pipe(
+    Option.filter((argument): argument is ESTree.Expression => argument.type !== 'SpreadElement')
+  );
 
-  return calls;
-};
+const analyzeSuperclass = (superClass: ESTree.Expression) =>
+  Option.gen(function* () {
+    const calls = callChain(superClass);
+    const innermostCall = yield* Array.last(calls);
+    const constructorName = yield* staticMemberName(innermostCall.callee);
+
+    return {
+      calls,
+      constructorName,
+      innermostCall,
+      isExtend: constructorName.endsWith('.extend'),
+    };
+  });
 
 const getPackageLocation = (filename: string) => {
   const normalized = filename.replaceAll('\\', '/');
-  const match =
-    /(?:^|\/)\b(?<workspaceType>apps|packages)\/(?<workspaceName>[^/]+)\/(?<sourcePath>.+)$/u.exec(
-      normalized
-    );
-  if (match === null) {
-    return void 0;
-  }
+  return Option.gen(function* () {
+    const match = yield* Option.fromNullOr(packageLocationPattern.exec(normalized));
+    const groups = yield* Option.fromUndefinedOr(match.groups);
+    const { sourcePath: rawSourcePath, workspaceName, workspaceType } = groups;
 
-  if (match.groups === void 0) {
-    return void 0;
-  }
-  const { sourcePath: rawSourcePath, workspaceName, workspaceType } = match.groups;
-
-  let packageName = `@repo/${workspaceName}`;
-  if (workspaceType === 'apps' && workspaceName === 'client') {
-    packageName = 'voel';
-  }
-
-  return {
-    packageName,
-    sourcePath: rawSourcePath.replace(/^src\//u, '').replace(/\.(?:mts|tsx?|cts)$/u, ''),
-  };
+    return {
+      packageName:
+        workspaceType === 'apps' && workspaceName === 'client' ? 'voel' : `@repo/${workspaceName}`,
+      sourcePath: rawSourcePath.replace(/^src\//u, '').replace(/\.(?:mts|tsx?|cts)$/u, ''),
+    };
+  });
 };
 
-const expectedIdentifier = (filename: string, className: string) => {
-  const location = getPackageLocation(filename);
-  if (location === void 0) {
-    return void 0;
-  }
+const expectedIdentifier = (filename: string, className: string) =>
+  Option.gen(function* () {
+    const location = yield* getPackageLocation(filename);
+    const segments = location.sourcePath.split('/');
+    const fileName = yield* Array.last(segments);
 
-  const segments = location.sourcePath.split('/');
-  const fileName = segments.at(-1);
-  if (fileName === void 0) {
-    return void 0;
-  }
+    const sourceSegments = fileName === 'index' ? segments.slice(0, -1) : segments;
+    const sourceIdentifier = [location.packageName, ...sourceSegments].join('/');
+    const identifier =
+      fileName !== 'index' && fileName.toLocaleLowerCase() === className.toLocaleLowerCase()
+        ? sourceIdentifier
+        : `${sourceIdentifier}/${className}`;
 
-  const sourceSegments = fileName === 'index' ? segments.slice(0, -1) : segments;
-  const sourceIdentifier = [location.packageName, ...sourceSegments].join('/');
-  const identifier =
-    fileName !== 'index' && fileName.toLocaleLowerCase() === className.toLocaleLowerCase()
-      ? sourceIdentifier
-      : `${sourceIdentifier}/${className}`;
-
-  return { identifier, sourceIdentifier };
-};
+    return { identifier, sourceIdentifier };
+  });
 
 const evaluateString = (
   expression: ESTree.Expression,
   constants: ReadonlyMap<string, string>
-): string | undefined => {
+): Option.Option<string> => {
   const unwrapped = unwrapExpression(expression);
   if (unwrapped.type === 'Literal') {
-    return typeof unwrapped.value === 'string' ? unwrapped.value : void 0;
+    return typeof unwrapped.value === 'string' ? Option.some(unwrapped.value) : Option.none();
   }
   if (unwrapped.type === 'Identifier') {
-    return constants.get(unwrapped.name);
+    return Option.fromUndefinedOr(constants.get(unwrapped.name));
   }
   if (unwrapped.type !== 'TemplateLiteral') {
-    return void 0;
+    return Option.none();
   }
 
-  let value = unwrapped.quasis[0]?.value.cooked ?? '';
-  for (const [index, interpolation] of unwrapped.expressions.entries()) {
-    const evaluated = evaluateString(interpolation, constants);
-    if (evaluated === void 0) {
-      return void 0;
+  return Option.gen(function* () {
+    let value = unwrapped.quasis[0]?.value.cooked ?? '';
+    for (const [index, interpolation] of unwrapped.expressions.entries()) {
+      const evaluated = yield* evaluateString(interpolation, constants);
+      value += evaluated + (unwrapped.quasis[index + 1]?.value.cooked ?? '');
     }
-    value += evaluated + (unwrapped.quasis[index + 1]?.value.cooked ?? '');
-  }
-  return value;
+    return value;
+  });
 };
 
 const uniqueSymbolProperties = (type: ESTree.TSType) =>
@@ -179,8 +183,8 @@ const plugin = {
               return;
             }
             const value = evaluateString(node.init, constants);
-            if (value !== void 0) {
-              constants.set(node.id.name, value);
+            if (Option.isSome(value)) {
+              constants.set(node.id.name, value.value);
             }
           },
           ClassDeclaration(node) {
@@ -188,38 +192,37 @@ const plugin = {
               return;
             }
 
-            const calls = callChain(node.superClass);
-            const innermostCall = calls.at(-1);
-            if (innermostCall === void 0) {
+            const analysis = analyzeSuperclass(node.superClass);
+            if (Option.isNone(analysis)) {
               return;
             }
 
-            const constructorName = staticMemberName(innermostCall.callee);
-            const isExtend = constructorName?.endsWith('.extend') ?? false;
-            if (
-              !isExtend &&
-              (constructorName === void 0 || !deterministicConstructors.has(constructorName))
-            ) {
+            const { calls, constructorName, innermostCall, isExtend } = analysis.value;
+            if (!isExtend && !deterministicConstructors.has(constructorName)) {
               return;
             }
 
             const identifierCall =
-              innermostCall.arguments.length > 0 ? innermostCall : calls.at(-2);
-            const identifierNode = identifierCall?.arguments[0];
-            if (identifierNode === void 0 || identifierNode.type === 'SpreadElement') {
+              innermostCall.arguments.length > 0
+                ? Option.some(innermostCall)
+                : Array.get(calls, calls.length - 2);
+            const identifierNode = identifierCall.pipe(
+              Option.flatMap((call) => expressionArgument(call, 0))
+            );
+            if (Option.isNone(identifierNode)) {
               return;
             }
 
             const expected = expectedIdentifier(context.filename, node.id.name);
-            if (expected === void 0) {
+            if (Option.isNone(expected)) {
               return;
             }
 
-            const actual = evaluateString(identifierNode, constants);
-            if (actual !== expected.identifier) {
+            const actual = evaluateString(identifierNode.value, constants);
+            if (!Option.contains(actual, expected.value.identifier)) {
               context.report({
-                message: `Use the deterministic identifier '${expected.identifier}'.`,
-                node: identifierNode,
+                message: `Use the deterministic identifier '${expected.value.identifier}'.`,
+                node: identifierNode.value,
               });
             }
 
@@ -227,45 +230,47 @@ const plugin = {
               constructorName === 'Schema.TaggedClass' ||
               constructorName === 'Schema.TaggedError'
             ) {
-              const tagCall = calls.at(-2);
-              const tagNode = tagCall?.arguments[0];
+              const tagNode = Array.get(calls, calls.length - 2).pipe(
+                Option.flatMap((call) => expressionArgument(call, 0))
+              );
               if (
-                tagNode !== void 0 &&
-                tagNode.type !== 'SpreadElement' &&
-                evaluateString(tagNode, constants) !== node.id.name
+                Option.isSome(tagNode) &&
+                !Option.contains(evaluateString(tagNode.value, constants), node.id.name)
               ) {
                 context.report({
                   message: `Use the PascalCase class name '${node.id.name}' as the tag.`,
-                  node: tagNode,
+                  node: tagNode.value,
                 });
               }
             }
           },
           CallExpression(node) {
-            if (staticMemberName(node.callee) !== 'Schema.brand') {
+            if (!Option.contains(staticMemberName(node.callee), 'Schema.brand')) {
               return;
             }
 
-            if (node.arguments.length === 0) {
-              return;
-            }
-            const [brandNode] = node.arguments;
-            if (brandNode.type === 'SpreadElement') {
+            const brandNode = expressionArgument(node, 0);
+            if (Option.isNone(brandNode)) {
               return;
             }
 
             const location = expectedIdentifier(context.filename, 'Brand');
-            const brand = evaluateString(brandNode, constants);
+            if (Option.isNone(location)) {
+              return;
+            }
+
+            const brand = evaluateString(brandNode.value, constants);
             if (
-              location === void 0 ||
-              brand?.startsWith(`${location.sourceIdentifier}/`) === true
+              Option.exists(brand, (value) =>
+                value.startsWith(`${location.value.sourceIdentifier}/`)
+              )
             ) {
               return;
             }
 
             context.report({
-              message: `Use a static brand identifier beneath '${location.sourceIdentifier}/'.`,
-              node: brandNode,
+              message: `Use a static brand identifier beneath '${location.value.sourceIdentifier}/'.`,
+              node: brandNode.value,
             });
           },
         };
@@ -278,26 +283,22 @@ const plugin = {
             return;
           }
 
-          const calls = callChain(node.superClass);
-          const innermostCall = calls.at(-1);
-          if (innermostCall === void 0) {
+          const analysis = analyzeSuperclass(node.superClass);
+          if (Option.isNone(analysis)) {
             return;
           }
 
-          const constructorName = staticMemberName(innermostCall.callee);
-          const isExtend = constructorName?.endsWith('.extend') ?? false;
-          const isSchemaClass =
-            constructorName === 'Schema.Class' ||
-            constructorName === 'Schema.Error' ||
-            constructorName === 'Schema.TaggedClass' ||
-            constructorName === 'Schema.TaggedError';
+          const { constructorName, innermostCall, isExtend } = analysis.value;
+          const isSchemaClass = schemaClassConstructors.has(constructorName);
           if (!isExtend && !isSchemaClass) {
             return;
           }
 
           const typeArguments = innermostCall.typeArguments?.params ?? [];
-          const brandType = typeArguments.at(isExtend ? 2 : 1);
-          const brandProperties = brandType === void 0 ? [] : uniqueSymbolProperties(brandType);
+          const brandProperties = Array.get(typeArguments, isExtend ? 2 : 1).pipe(
+            Option.map(uniqueSymbolProperties),
+            Option.getOrElse(() => [])
+          );
           const hasBrand = isExtend
             ? brandProperties.length > 0
             : brandProperties.some(
