@@ -374,7 +374,8 @@ const plugin = eslintCompatPlugin({
             return;
           }
           context.report({
-            message: 'Define named schemas with Schema.Class instead of assigning Schema.Struct.',
+            message:
+              'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
             node: expression,
           });
         };
