@@ -3,16 +3,8 @@ import { RuleTester } from 'oxlint/plugins-dev';
 import { deterministicIdentifiersRule, schemaClassBrandRule } from './effect-conventions.mts';
 
 const filename = '/repo/apps/client/src/domain/models.ts';
-type Rule = Parameters<RuleTester['run']>[1];
 
-// Oxlint 1.78 exposes RuleTester but not its plugin types. The plugin itself is
-// checked against the same runtime shape in effect-conventions.mts.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-const deterministicIdentifiersTestRule = deterministicIdentifiersRule as unknown as Rule;
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-const schemaClassBrandTestRule = schemaClassBrandRule as unknown as Rule;
-
-new RuleTester().run('deterministic-identifiers', deterministicIdentifiersTestRule, {
+new RuleTester().run('deterministic-identifiers', deterministicIdentifiersRule, {
   valid: [
     {
       filename,
@@ -83,7 +75,7 @@ new RuleTester().run('deterministic-identifiers', deterministicIdentifiersTestRu
   ],
 });
 
-new RuleTester().run('schema-class-brand', schemaClassBrandTestRule, {
+new RuleTester().run('schema-class-brand', schemaClassBrandRule, {
   valid: [
     {
       filename,

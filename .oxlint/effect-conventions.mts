@@ -1,21 +1,6 @@
-import type * as ESTree from '@oxc-project/types';
+import { definePlugin } from '@oxlint/plugins';
+import type { ESTree } from '@oxlint/plugins';
 import { Array, Option } from 'effect';
-
-interface RuleContext {
-  readonly filename: string;
-  readonly report: (diagnostic: { readonly message: string; readonly node: ESTree.Node }) => void;
-}
-
-interface Visitor {
-  readonly CallExpression?: (node: ESTree.CallExpression) => void;
-  readonly ClassDeclaration?: (node: ESTree.Class) => void;
-  readonly VariableDeclarator?: (node: ESTree.VariableDeclarator) => void;
-}
-
-interface Plugin {
-  readonly meta: { readonly name: string };
-  readonly rules: Readonly<Record<string, { readonly create: (context: RuleContext) => Visitor }>>;
-}
 
 const schemaClassConstructors = new Set([
   'Schema.Class',
@@ -170,7 +155,7 @@ const uniqueSymbolProperties = (type: ESTree.TSType) =>
       )
     : [];
 
-const plugin = {
+const plugin = definePlugin({
   meta: { name: 'effect-conventions' },
   rules: {
     'deterministic-identifiers': {
@@ -320,7 +305,7 @@ const plugin = {
       }),
     },
   },
-} satisfies Plugin;
+});
 
 export const deterministicIdentifiersRule = plugin.rules['deterministic-identifiers'];
 export const schemaClassBrandRule = plugin.rules['schema-class-brand'];
