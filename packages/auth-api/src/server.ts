@@ -42,7 +42,7 @@ const createServerAuthClient = (config: {
     database: { db: config.database, type: 'sqlite' },
     plugins: [
       expo(),
-      username(),
+      username({ displayUsername: false }),
       admin({ defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
       {
         id: 'voel-init',

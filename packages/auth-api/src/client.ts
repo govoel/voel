@@ -27,7 +27,7 @@ const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPl
     sessionOptions,
     plugins: [
       ...plugins,
-      usernameClient(),
+      usernameClient({ displayUsername: false }),
       adminClient(),
       inferAdditionalFields<BetterAuthInstance>(),
     ] as const,

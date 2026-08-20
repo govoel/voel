@@ -11,7 +11,6 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('createdAt', 'date', (col) => col.notNull())
     .addColumn('updatedAt', 'date', (col) => col.notNull())
     .addColumn('username', 'text', (col) => col.unique())
-    .addColumn('displayUsername', 'text')
     .addColumn('role', 'text')
     .addColumn('banned', 'integer')
     .addColumn('banReason', 'text')
