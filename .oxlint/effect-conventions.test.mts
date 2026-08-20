@@ -158,7 +158,8 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       code: `const User = Schema.Struct({ name: Schema.String })`,
       errors: [
         {
-          message: 'Define named schemas with Schema.Class instead of assigning Schema.Struct.',
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
         },
       ],
     },
@@ -170,7 +171,8 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       `,
       errors: [
         {
-          message: 'Define named schemas with Schema.Class instead of assigning Schema.Struct.',
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
         },
       ],
     },
@@ -181,7 +183,8 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       `,
       errors: [
         {
-          message: 'Define named schemas with Schema.Class instead of assigning Schema.Struct.',
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
         },
       ],
     },
@@ -194,7 +197,8 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       `,
       errors: [
         {
-          message: 'Define named schemas with Schema.Class instead of assigning Schema.Struct.',
+          message:
+            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
         },
       ],
     },
