@@ -70,25 +70,38 @@ export const SyncCheckpoint = Schema.Struct({
   libraryFileMap: Schema.Natural,
 });
 
-const row = <Table extends string, Fields extends Schema.Struct.Fields>(
-  table: Table,
-  fields: Fields
-) => Schema.Struct({ table: Schema.Literal(table), row: Schema.Struct(fields) });
-
 export const SyncRow = Schema.Union(
   [
-    row('mediaType', MediaType.json.fields),
-    row('mediaItem', MediaItem.json.fields),
-    row('audiobook', Audiobook.json.fields),
-    row('audiobookSeries', AudiobookSeries.json.fields),
-    row('audiobookSeriesMap', AudiobookSeriesMap.json.fields),
-    row('audiobookContributor', AudiobookContributor.json.fields),
-    row('audiobookContributorRole', AudiobookContributorRole.json.fields),
-    row('audiobookContributorMap', AudiobookContributorMap.json.fields),
-    row('library', Library.json.fields),
-    row('libraryPath', LibraryPath.json.fields),
-    row('mediaFile', MediaFile.json.fields),
-    row('libraryFileMap', LibraryFileMap.json.fields),
+    Schema.Struct({ table: Schema.Literal('mediaType'), row: MediaType.json }),
+    Schema.Struct({ table: Schema.Literal('mediaItem'), row: MediaItem.json }),
+    Schema.Struct({ table: Schema.Literal('audiobook'), row: Audiobook.json }),
+    Schema.Struct({
+      table: Schema.Literal('audiobookSeries'),
+      row: AudiobookSeries.json,
+    }),
+    Schema.Struct({
+      table: Schema.Literal('audiobookSeriesMap'),
+      row: AudiobookSeriesMap.json,
+    }),
+    Schema.Struct({
+      table: Schema.Literal('audiobookContributor'),
+      row: AudiobookContributor.json,
+    }),
+    Schema.Struct({
+      table: Schema.Literal('audiobookContributorRole'),
+      row: AudiobookContributorRole.json,
+    }),
+    Schema.Struct({
+      table: Schema.Literal('audiobookContributorMap'),
+      row: AudiobookContributorMap.json,
+    }),
+    Schema.Struct({ table: Schema.Literal('library'), row: Library.json }),
+    Schema.Struct({ table: Schema.Literal('libraryPath'), row: LibraryPath.json }),
+    Schema.Struct({ table: Schema.Literal('mediaFile'), row: MediaFile.json }),
+    Schema.Struct({
+      table: Schema.Literal('libraryFileMap'),
+      row: LibraryFileMap.json,
+    }),
   ],
   { mode: 'oneOf' }
 );
