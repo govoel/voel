@@ -33,7 +33,7 @@ export class AuthClientKey extends Data.Class<
   Pick<Selectable<AccountTable>, 'serverUrl' | 'authStorageId'>
 > {}
 
-export class AuthClientGetCookieError extends Schema.TaggedError<AuthClientGetCookieError>(
+class AuthClientGetCookieError extends Schema.TaggedError<AuthClientGetCookieError>(
   'voel/services/auth-client/AuthClientGetCookieError'
 )('AuthClientGetCookieError', {}) {}
 
