@@ -21,6 +21,7 @@
     "effecttsgo/strict-boolean-expressions": "off",
 
     "effect-conventions/deterministic-identifiers": "error",
+    "effect-conventions/no-schema-struct-assignment": "error",
     "effect-conventions/schema-class-brand": "error",
 
     "eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
