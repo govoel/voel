@@ -20,13 +20,14 @@ import {
   markInternalAtom,
 } from '#src/predefined-states.ts';
 
-export const AtomDevToolsTypeId = '@repo/effect-atom-devtools-core/AtomDevTools' as const;
+const AtomDevToolsIdentifier =
+  '@repo/effect-atom-devtools-core/atom-dev-tools/AtomDevTools' as const;
 
-export const AtomId = Schema.String.pipe(Schema.brand(`${AtomDevToolsTypeId}/AtomId`));
+export const AtomId = Schema.String.pipe(Schema.brand(`${AtomDevToolsIdentifier}/AtomId`));
 export type AtomId = typeof AtomId.Type;
 
 export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: unique symbol }>(
-  `${AtomDevToolsTypeId}/AtomSummary`
+  `${AtomDevToolsIdentifier}/AtomSummary`
 )({
   id: AtomId,
   name: Schema.String,
@@ -35,7 +36,7 @@ export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: uni
 }) {}
 
 class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
-  `${AtomDevToolsTypeId}/AtomLink`
+  `${AtomDevToolsIdentifier}/AtomLink`
 )({
   id: AtomId,
   name: Schema.String,
@@ -45,7 +46,7 @@ export class AtomSnapshot extends AtomSummary.extend<
   AtomSnapshot,
   Record<never, never>,
   { readonly atomSnapshotBrand: unique symbol }
->(`${AtomDevToolsTypeId}/AtomSnapshot`)({
+>(`${AtomDevToolsIdentifier}/AtomSnapshot`)({
   value: Schema.String,
   source: Schema.optional(Schema.String),
   keepAlive: Schema.Boolean,
@@ -67,14 +68,14 @@ export class AtomSnapshot extends AtomSummary.extend<
 export class AtomNotFound extends Schema.TaggedError<
   AtomNotFound,
   { readonly brand: unique symbol }
->(`${AtomDevToolsTypeId}/AtomNotFound`)('AtomNotFound', {
+>(`${AtomDevToolsIdentifier}/AtomNotFound`)('AtomNotFound', {
   id: AtomId,
 }) {}
 
 export class PredefinedStateNotFound extends Schema.TaggedError<
   PredefinedStateNotFound,
   { readonly brand: unique symbol }
->(`${AtomDevToolsTypeId}/PredefinedStateNotFound`)('PredefinedStateNotFound', {
+>(`${AtomDevToolsIdentifier}/PredefinedStateNotFound`)('PredefinedStateNotFound', {
   atomId: AtomId,
   stateId: Schema.String,
 }) {}
@@ -90,7 +91,7 @@ interface NodeObservation {
   readonly activePredefinedStateId: Option.Option<string>;
 }
 
-export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsTypeId, {
+export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsIdentifier, {
   make: Effect.gen(function* () {
     const registry = yield* AtomRegistry.AtomRegistry;
 

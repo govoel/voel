@@ -36,7 +36,7 @@ const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPl
 class BetterAuthClientInitializationError extends Schema.TaggedError<
   BetterAuthClientInitializationError,
   { readonly brand: unique symbol }
->('voel/services/auth-client/index/BetterAuthClientInitializationError')(
+>('@repo/auth-api/client/BetterAuthClientInitializationError')(
   'BetterAuthClientInitializationError',
   { error: Schema.Unknown }
 ) {}

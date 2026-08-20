@@ -2,7 +2,6 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
 import {
-  AtomDevToolsTypeId,
   AtomId,
   AtomNotFound,
   AtomSnapshot,
@@ -13,7 +12,7 @@ import {
 export class AtomDevToolsAtomInput extends Schema.Class<
   AtomDevToolsAtomInput,
   { readonly brand: unique symbol }
->(`${AtomDevToolsTypeId}/AtomDevToolsAtomInput`)({
+>('@repo/effect-atom-devtools-core/rpc/AtomDevToolsAtomInput')({
   atomId: AtomId,
 }) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
@@ -23,7 +22,7 @@ export class ActivatePredefinedStateInput extends AtomDevToolsAtomInput.extend<
   ActivatePredefinedStateInput,
   Record<never, never>,
   { readonly activatePredefinedStateInputBrand: unique symbol }
->(`${AtomDevToolsTypeId}/ActivatePredefinedStateInput`)({
+>('@repo/effect-atom-devtools-core/rpc/ActivatePredefinedStateInput')({
   stateId: Schema.String,
 }) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);

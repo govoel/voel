@@ -9,7 +9,7 @@ import { AppRuntime } from '#src/services/runtime.ts';
 export class SetupServerAccountInput extends Schema.Class<
   SetupServerAccountInput,
   { readonly brand: unique symbol }
->('voel/app/accounts/setup/index/SetupServerAccountInput')({
+>('voel/app/accounts/setup/SetupServerAccountInput')({
   serverUrl: Account.fields.serverUrl.check(
     Schema.makeFilter((s) => (URL.canParse(s) ? true : 'Server URL must be a valid URL'))
   ),

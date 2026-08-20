@@ -13,7 +13,7 @@ import { AppRuntime } from '#src/services/runtime.ts';
 export class UserProfileUpdateInput extends Schema.Class<
   UserProfileUpdateInput,
   { readonly brand: unique symbol }
->('voel/app/accounts/profile/index/UserProfileUpdateInput')({
+>('voel/app/accounts/profile/UserProfileUpdateInput')({
   name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
   username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
 }) {}

@@ -15,9 +15,10 @@ import {
 
 import { Database } from '#src/services/database/index.ts';
 
-class LibraryAbsolutePath extends Schema.Class<LibraryAbsolutePath>(
-  '@repo/server/groups/library/LibraryAbsolutePath'
-)({
+class LibraryAbsolutePath extends Schema.Class<
+  LibraryAbsolutePath,
+  { readonly brand: unique symbol }
+>('@repo/server/groups/library/LibraryAbsolutePath')({
   absolutePath: Schema.String.pipe(
     Schema.decodeTo(LibraryPath.fields.absolutePath, {
       decode: SchemaGetter.transformOrFail(

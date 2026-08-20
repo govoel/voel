@@ -4,7 +4,7 @@ import { Schema } from 'effect';
 export class BetterAuthApiError extends Schema.Error<
   BetterAuthApiError,
   { readonly brand: unique symbol }
->('@repo/auth-api/BetterAuthApiError')({
+>('@repo/auth-api/shared/BetterAuthApiError')({
   // Better Auth does not include our discriminator in its error responses.
   _tag: Schema.tagDefaultOmit('BetterAuthApiError'),
   code: Schema.String,
@@ -19,7 +19,7 @@ export class BetterAuthApiError extends Schema.Error<
 export class AuthTransportError extends Schema.TaggedError<
   AuthTransportError,
   { readonly brand: unique symbol }
->('@repo/auth-api/AuthTransportError')('AuthTransportError', {
+>('@repo/auth-api/shared/AuthTransportError')('AuthTransportError', {
   cause: Schema.Defect(),
 }) {}
 
@@ -27,58 +27,65 @@ export class AuthTransportError extends Schema.TaggedError<
 export class InvalidAuthResponseError extends Schema.TaggedError<
   InvalidAuthResponseError,
   { readonly brand: unique symbol }
->('@repo/auth-api/InvalidAuthResponseError')('InvalidAuthResponseError', {}) {}
+>('@repo/auth-api/shared/InvalidAuthResponseError')('InvalidAuthResponseError', {}) {}
 
 export class AuthError extends Schema.TaggedError<AuthError, { readonly brand: unique symbol }>(
-  '@repo/auth-api/AuthError'
+  '@repo/auth-api/shared/AuthError'
 )('AuthError', {
   reason: Schema.Union([BetterAuthApiError, AuthTransportError, InvalidAuthResponseError]),
 }) {}
 
 class AuthUser extends Schema.Class<AuthUser, { readonly brand: unique symbol }>(
-  '@repo/auth-api/AuthUser'
+  '@repo/auth-api/shared/AuthUser'
 )({
-  id: Schema.String.pipe(Schema.brand('@repo/auth-api/AuthUser/id')),
-  username: Schema.String.pipe(Schema.brand('@repo/auth-api/AuthUser/username')),
-  email: Schema.String.pipe(Schema.brand('@repo/auth-api/AuthUser/email')),
-  name: Schema.String.pipe(Schema.brand('@repo/auth-api/AuthUser/name')),
+  id: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUser/id')),
+  username: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUser/username')),
+  email: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUser/email')),
+  name: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUser/name')),
   role: Schema.Literals(['admin', 'user', 'under18']).pipe(
-    Schema.brand('@repo/auth-api/AuthUser/role')
+    Schema.brand('@repo/auth-api/shared/AuthUser/role')
   ),
-  image: Schema.NullishOr(Schema.String).pipe(Schema.brand('@repo/auth-api/AuthUser/image')),
-  createdAt: Schema.DateTimeUtcFromDate.pipe(Schema.brand('@repo/auth-api/AuthUser/createdAt')),
-  updatedAt: Schema.DateTimeUtcFromDate.pipe(Schema.brand('@repo/auth-api/AuthUser/updatedAt')),
+  image: Schema.NullishOr(Schema.String).pipe(Schema.brand('@repo/auth-api/shared/AuthUser/image')),
+  createdAt: Schema.DateTimeUtcFromDate.pipe(
+    Schema.brand('@repo/auth-api/shared/AuthUser/createdAt')
+  ),
+  updatedAt: Schema.DateTimeUtcFromDate.pipe(
+    Schema.brand('@repo/auth-api/shared/AuthUser/updatedAt')
+  ),
 }) {}
 
-export class AuthUserResponse extends Schema.Class<AuthUserResponse>('AuthUserResponse')({
-  token: Schema.String.pipe(Schema.brand('@repo/auth-api/AuthUserResponse/token')),
+export class AuthUserResponse extends Schema.Class<
+  AuthUserResponse,
+  { readonly brand: unique symbol }
+>('@repo/auth-api/shared/AuthUserResponse')({
+  token: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUserResponse/token')),
   user: AuthUser,
 }) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }
 
 export class AuthSession extends Schema.Class<AuthSession, { readonly brand: unique symbol }>(
-  '@repo/auth-api/server/AuthSession'
+  '@repo/auth-api/shared/AuthSession'
 )({
   user: AuthUser,
   session: Schema.Struct({
-    id: Schema.String.pipe(Schema.brand('@repo/auth-api/server/AuthSession/session/id')),
-    userId: Schema.String.pipe(Schema.brand('@repo/auth-api/server/AuthSession/session/userId')),
-    token: Schema.String.pipe(Schema.brand('@repo/auth-api/server/AuthSession/session/token')),
+    id: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/id')),
+    userId: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/userId')),
+    token: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/token')),
     ipAddress: Schema.NullishOr(Schema.String).pipe(
-      Schema.brand('@repo/auth-api/server/AuthSession/session/ipAddress')
+      Schema.brand('@repo/auth-api/shared/AuthSession/session/ipAddress')
     ),
     userAgent: Schema.NullishOr(Schema.String).pipe(
-      Schema.brand('@repo/auth-api/server/AuthSession/session/userAgent')
+      Schema.brand('@repo/auth-api/shared/AuthSession/session/userAgent')
     ),
     expiresAt: Schema.DateTimeUtcFromDate.pipe(
-      Schema.brand('@repo/auth-api/server/AuthSession/session/expiresAt')
+      Schema.brand('@repo/auth-api/shared/AuthSession/session/expiresAt')
     ),
     createdAt: Schema.DateTimeUtcFromDate.pipe(
-      Schema.brand('@repo/auth-api/server/AuthSession/session/createdAt')
+      Schema.brand('@repo/auth-api/shared/AuthSession/session/createdAt')
     ),
     updatedAt: Schema.DateTimeUtcFromDate.pipe(
-      Schema.brand('@repo/auth-api/server/AuthSession/session/updatedAt')
+      Schema.brand('@repo/auth-api/shared/AuthSession/session/updatedAt')
     ),
   }),
 }) {

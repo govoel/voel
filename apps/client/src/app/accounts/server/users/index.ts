@@ -9,7 +9,7 @@ import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
 export class ServerUser extends Schema.Class<ServerUser, { readonly brand: unique symbol }>(
-  'voel/app/accounts/server/users/index/ServerUser'
+  'voel/app/accounts/server/users/ServerUser'
 )({
   id: Schema.String,
   username: Schema.String,
