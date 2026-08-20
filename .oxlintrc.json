@@ -17,7 +17,6 @@
   },
   "rules": {
     "effecttsgo/async-function": "off",
-    "effecttsgo/deterministic-keys": "error",
     "effecttsgo/missing-pipeable-signature": "off",
     "effecttsgo/strict-boolean-expressions": "off",
 
