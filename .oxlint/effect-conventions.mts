@@ -1,131 +1,14 @@
-interface Node {
-  readonly type: string;
-}
-
-interface Identifier extends Node {
-  readonly type: 'Identifier';
-  readonly name: string;
-}
-
-interface Literal extends Node {
-  readonly type: 'Literal';
-  readonly value: bigint | boolean | null | number | RegExp | string;
-}
-
-interface SpreadElement extends Node {
-  readonly type: 'SpreadElement';
-  readonly argument: Expression;
-}
-
-interface CallExpression extends Node {
-  readonly type: 'CallExpression';
-  readonly callee: Expression;
-  readonly arguments: ReadonlyArray<Expression | SpreadElement>;
-  readonly typeArguments?: TypeArguments | null;
-}
-
-interface MemberExpression extends Node {
-  readonly type: 'MemberExpression';
-  readonly object: Expression;
-  readonly property: Expression;
-  readonly computed: boolean;
-}
-
-interface TemplateLiteral extends Node {
-  readonly type: 'TemplateLiteral';
-  readonly expressions: ReadonlyArray<Expression>;
-  readonly quasis: ReadonlyArray<{
-    readonly value: { readonly cooked: string | null };
-  }>;
-}
-
-type WrappedExpression = Node & {
-  readonly type:
-    | 'ChainExpression'
-    | 'ParenthesizedExpression'
-    | 'TSAsExpression'
-    | 'TSInstantiationExpression'
-    | 'TSNonNullExpression'
-    | 'TSSatisfiesExpression'
-    | 'TSTypeAssertion';
-  readonly expression: Expression;
-};
-
-type Expression =
-  | Identifier
-  | Literal
-  | SpreadElement
-  | CallExpression
-  | MemberExpression
-  | TemplateLiteral
-  | WrappedExpression;
-
-interface TypeArguments extends Node {
-  readonly params: ReadonlyArray<TypeNode>;
-}
-
-interface UniqueSymbolType extends Node {
-  readonly type: 'TSTypeOperator';
-  readonly operator: 'keyof' | 'readonly' | 'unique';
-  readonly typeAnnotation: OtherType | SymbolType;
-}
-
-interface TypeAnnotation extends Node {
-  readonly typeAnnotation: OtherType | UniqueSymbolType;
-}
-
-interface TypeProperty extends Node {
-  readonly type: 'TSPropertySignature';
-  readonly computed: boolean;
-  readonly key: Expression;
-  readonly readonly: boolean;
-  readonly typeAnnotation: TypeAnnotation | null;
-}
-
-interface TypeLiteral extends Node {
-  readonly type: 'TSTypeLiteral';
-  readonly members: ReadonlyArray<OtherTypeMember | TypeProperty>;
-}
-
-interface OtherType extends Node {
-  readonly type: 'OtherType';
-}
-
-interface OtherTypeMember extends Node {
-  readonly type: 'OtherTypeMember';
-}
-
-interface SymbolType extends Node {
-  readonly type: 'TSSymbolKeyword';
-}
-
-type TypeNode = OtherType | TypeLiteral;
-
-interface ClassDeclaration extends Node {
-  readonly type: 'ClassDeclaration';
-  readonly id: Identifier | null;
-  readonly superClass: Expression | null;
-}
-
-interface VariableDeclarator extends Node {
-  readonly type: 'VariableDeclarator';
-  readonly id: Identifier | Pattern;
-  readonly init: Expression | null;
-}
-
-interface Pattern extends Node {
-  readonly type: 'ArrayPattern' | 'AssignmentPattern' | 'ObjectPattern' | 'RestElement';
-}
+import type * as ESTree from '@oxc-project/types';
 
 interface RuleContext {
   readonly filename: string;
-  readonly report: (diagnostic: { readonly message: string; readonly node: Node }) => void;
+  readonly report: (diagnostic: { readonly message: string; readonly node: ESTree.Node }) => void;
 }
 
 interface Visitor {
-  readonly CallExpression?: (node: CallExpression) => void;
-  readonly ClassDeclaration?: (node: ClassDeclaration) => void;
-  readonly VariableDeclarator?: (node: VariableDeclarator) => void;
+  readonly CallExpression?: (node: ESTree.CallExpression) => void;
+  readonly ClassDeclaration?: (node: ESTree.Class) => void;
+  readonly VariableDeclarator?: (node: ESTree.VariableDeclarator) => void;
 }
 
 interface Plugin {
@@ -145,7 +28,16 @@ const deterministicConstructors = new Set([
   'Schema.TaggedError',
 ]);
 
-const isWrappedExpression = (expression: Expression): expression is WrappedExpression =>
+const isWrappedExpression = (
+  expression: ESTree.Expression
+): expression is
+  | ESTree.ChainExpression
+  | ESTree.ParenthesizedExpression
+  | ESTree.TSAsExpression
+  | ESTree.TSInstantiationExpression
+  | ESTree.TSNonNullExpression
+  | ESTree.TSSatisfiesExpression
+  | ESTree.TSTypeAssertion =>
   expression.type === 'ChainExpression' ||
   expression.type === 'ParenthesizedExpression' ||
   expression.type === 'TSAsExpression' ||
@@ -154,14 +46,15 @@ const isWrappedExpression = (expression: Expression): expression is WrappedExpre
   expression.type === 'TSSatisfiesExpression' ||
   expression.type === 'TSTypeAssertion';
 
-const unwrapExpression = (expression: Expression): Expression => {
-  if (isWrappedExpression(expression)) {
-    return unwrapExpression(expression.expression);
+const unwrapExpression = (expression: ESTree.Expression) => {
+  let current = expression;
+  while (isWrappedExpression(current)) {
+    current = current.expression;
   }
-  return expression;
+  return current;
 };
 
-const staticMemberName = (expression: Expression): string | undefined => {
+const staticMemberName = (expression: ESTree.Expression) => {
   const unwrapped = unwrapExpression(expression);
   if (unwrapped.type !== 'MemberExpression' || unwrapped.computed) {
     return void 0;
@@ -175,8 +68,8 @@ const staticMemberName = (expression: Expression): string | undefined => {
   return `${object.name}.${unwrapped.property.name}`;
 };
 
-const callChain = (expression: Expression): ReadonlyArray<CallExpression> => {
-  const calls: Array<CallExpression> = [];
+const callChain = (expression: ESTree.Expression) => {
+  const calls: Array<ESTree.CallExpression> = [];
   let current = unwrapExpression(expression);
 
   while (current.type === 'CallExpression') {
@@ -187,9 +80,7 @@ const callChain = (expression: Expression): ReadonlyArray<CallExpression> => {
   return calls;
 };
 
-const getPackageLocation = (
-  filename: string
-): { readonly packageName: string; readonly sourcePath: string } | undefined => {
+const getPackageLocation = (filename: string) => {
   const normalized = filename.replaceAll('\\', '/');
   const match =
     /(?:^|\/)\b(?<workspaceType>apps|packages)\/(?<workspaceName>[^/]+)\/(?<sourcePath>.+)$/u.exec(
@@ -215,10 +106,7 @@ const getPackageLocation = (
   };
 };
 
-const expectedIdentifier = (
-  filename: string,
-  className: string
-): { readonly identifier: string; readonly sourceIdentifier: string } | undefined => {
+const expectedIdentifier = (filename: string, className: string) => {
   const location = getPackageLocation(filename);
   if (location === void 0) {
     return void 0;
@@ -241,7 +129,7 @@ const expectedIdentifier = (
 };
 
 const evaluateString = (
-  expression: Expression,
+  expression: ESTree.Expression,
   constants: ReadonlyMap<string, string>
 ): string | undefined => {
   const unwrapped = unwrapExpression(expression);
@@ -266,10 +154,10 @@ const evaluateString = (
   return value;
 };
 
-const uniqueSymbolProperties = (type: TypeNode): ReadonlyArray<TypeProperty> =>
+const uniqueSymbolProperties = (type: ESTree.TSType) =>
   type.type === 'TSTypeLiteral'
     ? type.members.filter(
-        (member): member is TypeProperty =>
+        (member): member is ESTree.TSPropertySignature =>
           member.type === 'TSPropertySignature' &&
           member.readonly &&
           member.typeAnnotation?.typeAnnotation.type === 'TSTypeOperator' &&
@@ -278,7 +166,7 @@ const uniqueSymbolProperties = (type: TypeNode): ReadonlyArray<TypeProperty> =>
       )
     : [];
 
-const plugin: Plugin = {
+const plugin = {
   meta: { name: 'effect-conventions' },
   rules: {
     'deterministic-identifiers': {
@@ -433,7 +321,7 @@ const plugin: Plugin = {
       },
     },
   },
-};
+} satisfies Plugin;
 
 export const deterministicIdentifiersRule = plugin.rules['deterministic-identifiers'];
 export const schemaClassBrandRule = plugin.rules['schema-class-brand'];

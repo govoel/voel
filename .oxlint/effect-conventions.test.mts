@@ -2,10 +2,10 @@ import { RuleTester } from 'oxlint/plugins-dev';
 
 import { deterministicIdentifiersRule, schemaClassBrandRule } from './effect-conventions.mts';
 
-const filename = `${import.meta.dir}/../apps/client/src/domain/models.ts`;
+const filename = '/repo/apps/client/src/domain/models.ts';
 type Rule = Parameters<RuleTester['run']>[1];
 
-// Oxlint 1.78 exposes RuleTester but not its plugin types. The local plugin is
+// Oxlint 1.78 exposes RuleTester but not its plugin types. The plugin itself is
 // checked against the same runtime shape in effect-conventions.mts.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const deterministicIdentifiersTestRule = deterministicIdentifiersRule as unknown as Rule;
