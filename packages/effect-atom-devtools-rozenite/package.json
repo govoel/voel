@@ -24,25 +24,25 @@
     "test": "bun --bun run vitest --passWithNoTests"
   },
   "dependencies": {
-    "@effect/atom-react": "4.0.0-rc.108",
+    "@effect/atom-react": "4.0.0-rc.110",
     "@repo/effect-atom-devtools-core": "workspace:*",
-    "@rozenite/agent-shared": "2.0.0",
-    "@rozenite/plugin-bridge": "2.0.0",
-    "@rozenite/ui": "2.0.0",
-    "effect": "4.0.0-rc.108"
+    "@rozenite/agent-shared": "2.2.0",
+    "@rozenite/plugin-bridge": "2.2.0",
+    "@rozenite/ui": "2.2.0",
+    "effect": "4.0.0-rc.110"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.108",
+    "@effect/vitest": "4.0.0-rc.110",
     "@repo/tsconfig": "workspace:*",
-    "@rozenite/vite-plugin": "2.0.0",
+    "@rozenite/vite-plugin": "2.2.0",
     "@types/react": "~19.2.2",
     "bun-types": "1.3.14",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native-web": "0.21.2",
-    "rozenite": "2.0.0",
+    "rozenite": "2.2.0",
     "typescript": "~6.0.3",
-    "vite": "7.3.1",
-    "vitest": "4.1.10"
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
   }
 }

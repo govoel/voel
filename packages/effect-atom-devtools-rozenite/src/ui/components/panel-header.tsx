@@ -19,7 +19,7 @@ export const AtomDevToolsPanelHeader = () => {
       <PluginHeader.Actions>
         <Button
           variant="outline"
-          size="compact"
+          size="sm"
           disabled={AsyncResult.isWaiting(clearAllResult)}
           onClick={() => {
             void clearAllPredefinedStates({ payload: void 0 });

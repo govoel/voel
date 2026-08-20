@@ -32,7 +32,7 @@ const DetailSection = ({
 );
 
 const BooleanValue = ({ value }: { readonly value: boolean }) => (
-  <Badge variant={value ? 'default' : 'secondary'}>{value ? 'Yes' : 'No'}</Badge>
+  <Badge tone={value ? 'primary' : 'neutral'}>{value ? 'Yes' : 'No'}</Badge>
 );
 
 const MetadataRow = ({
@@ -89,8 +89,9 @@ const PredefinedStatesSection = ({ snapshot }: { readonly snapshot: AtomSnapshot
                   </code>
                 </div>
                 <Button
-                  variant={isActive ? 'secondary' : 'outline'}
-                  size="compact"
+                  tone="neutral"
+                  variant={isActive ? 'solid' : 'outline'}
+                  size="sm"
                   disabled={isActive || AsyncResult.isWaiting(activateResult)}
                   onClick={() => {
                     void activatePredefinedState({
@@ -228,7 +229,7 @@ const AtomSnapshotView = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => 
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
           <Button
             variant="outline"
-            size="compact"
+            size="sm"
             disabled={AsyncResult.isWaiting(refreshResult)}
             onClick={() => {
               void refreshAtom({ payload: { atomId: snapshot.id } });
@@ -237,7 +238,7 @@ const AtomSnapshotView = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => 
           </Button>
           <Button
             variant="outline"
-            size="compact"
+            size="sm"
             disabled={!hasActivePredefinedState || AsyncResult.isWaiting(clearStateResult)}
             onClick={() => {
               void clearPredefinedState({ payload: { atomId: snapshot.id } });

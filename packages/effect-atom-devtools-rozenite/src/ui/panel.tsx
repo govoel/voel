@@ -16,7 +16,7 @@ const AtomDevToolsPanelContent = () => {
 
   return (
     <PluginShell>
-      <Toast.Provider>
+      <Toast>
         <AtomDevToolsPanelHeader />
 
         <PluginShell.Body className="overflow-hidden">
@@ -38,7 +38,7 @@ const AtomDevToolsPanelContent = () => {
             </Split.Pane>
           </Split>
         </PluginShell.Body>
-      </Toast.Provider>
+      </Toast>
     </PluginShell>
   );
 };

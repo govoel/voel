@@ -27,6 +27,7 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
 
         return ({ request, next }) =>
           authClient.getCookie.pipe(
+            Effect.catchTags({ AuthClientGetCookieError: Effect.die }),
             Effect.flatMap((cookie) =>
               next({
                 ...request,

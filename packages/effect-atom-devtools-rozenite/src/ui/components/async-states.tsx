@@ -28,7 +28,7 @@ export const ErrorState = ({
     }
     action={
       onRetry ? (
-        <Button variant="outline" size="compact" onClick={onRetry}>
+        <Button variant="outline" size="sm" onClick={onRetry}>
           Retry
         </Button>
       ) : null

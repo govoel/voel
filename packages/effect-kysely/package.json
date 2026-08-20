@@ -14,7 +14,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "4.0.0-rc.108",
+    "effect": "4.0.0-rc.110",
     "kysely": "0.29.5"
   },
   "devDependencies": {

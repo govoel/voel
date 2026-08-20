@@ -2,7 +2,7 @@ import { BunPath } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it, vi } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
-import { HttpRouter } from 'effect/unstable/http';
+import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
 
 import { AuthClient } from '@repo/auth-api/client.ts';
 
@@ -54,34 +54,23 @@ it.describe('auth customizations', () => {
   );
 
   it.effect(
-    'should not allow sign in with email',
+    'should disable unused email endpoints',
     Effect.fnUntraced(
       function* () {
-        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+        const disabledPaths = [
+          '/change-email',
+          '/request-password-reset',
+          '/send-verification-email',
+          '/sign-in/email',
+          '/verify-email',
+        ];
 
-        const response = yield* auth.signUp.email({
-          name: 'Test User',
-          username: 'testuser',
-          email: 'test@example.com',
-          password: 'password',
-        });
-        expect(response.user.name).toBe('Test User');
-        expect(response.user.email).toBe('test@example.com');
-        expect(response.user.id).toBeDefined();
-
-        const signInResponse = yield* auth.signIn
-          .email({
-            email: 'test@example.com',
-            password: 'password',
-          })
-          .pipe(Effect.flip);
-
-        expect(signInResponse.reason).toMatchObject({
-          _tag: 'BetterAuthApiError',
-          code: 'MUST_SIGN_IN_WITH_USERNAME',
-        });
+        for (const path of disabledPaths) {
+          const response = yield* HttpClient.get(`http://test/api/auth${path}`);
+          expect(response.status).toBe(404);
+        }
       },
-      (effect) => effect.pipe(Effect.provide(TestServerLayer))
+      (effect) => effect.pipe(Effect.provide([TestServerLayer, FetchHttpClient.layer]))
     )
   );
 

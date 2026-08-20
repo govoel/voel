@@ -27,9 +27,15 @@ const createServerAuthClient = (config: {
   betterAuth({
     appName: 'Voel',
     basePath: '/api/auth',
+    disabledPaths: [
+      '/change-email',
+      '/request-password-reset',
+      '/send-verification-email',
+      '/sign-in/email',
+      '/verify-email',
+    ],
     secret: config.secret,
-    experimental: { joins: true },
-    advanced: { cookiePrefix: 'auth' },
+    advanced: { cookiePrefix: 'auth', database: { joins: true } },
     emailAndPassword: { enabled: true, autoSignIn: true, disableSignUp: true },
     telemetry: { enabled: false },
     trustedOrigins: ['voel://', 'voel-preview://', 'voel-dev://'],
@@ -43,7 +49,7 @@ const createServerAuthClient = (config: {
     database: { db: config.database, type: 'sqlite' },
     plugins: [
       expo(),
-      username(),
+      username({ displayUsername: false }),
       admin({ defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
       {
         id: 'voel-init',
@@ -90,11 +96,6 @@ const createServerAuthClient = (config: {
               };
             }
           }
-        } else if (ctx.path === '/sign-in/email') {
-          throw new APIError('BAD_REQUEST', {
-            code: 'MUST_SIGN_IN_WITH_USERNAME',
-            message: 'Email sign-in is disabled. Please sign in with your username.',
-          });
         }
       }),
     },
