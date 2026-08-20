@@ -564,6 +564,7 @@ export class FiberImpl<A = any, E = any> implements Fiber.Fiber<A, E> {
     }
     this._observers.push(cb)
     return () => {
+      if (this._exit) return
       const index = this._observers.indexOf(cb)
       if (index >= 0) {
         this._observers.splice(index, 1)
@@ -1257,7 +1258,7 @@ const makeFn = (
 ) => {
   const body = typeof bodyOrOptions === "function"
     ? bodyOrOptions
-    : (pipeables.pop()!).bind(bodyOrOptions.self)
+    : (pipeables.shift()!).bind(bodyOrOptions.self)
 
   return defineFunctionLength(body.length, function(this: any, ...args: Array<any>) {
     let result = suspend(() => {
@@ -3792,6 +3793,12 @@ export const scopeCloseUnsafe = <A, E>(self: Scope.Scope, exit_: Exit.Exit<A, E>
   return scopeCloseFinalizers(self, finalizers, exit_)
 }
 
+const combineFinalizerCause = <A, E, XE, XR>(
+  exit_: Exit.Exit<A, E>,
+  finalizer: Effect.Effect<void, XE, XR>
+): Effect.Effect<void, E | XE, XR> =>
+  exitIsSuccess(exit_) ? finalizer : catchCause(finalizer, (cause) => failCause(causeCombine(exit_.cause, cause)))
+
 const scopeCloseFinalizers = fnUntraced(function*<A, E>(
   self: Scope.Scope,
   finalizers: Scope.State.Open["finalizers"],
@@ -3988,7 +3995,7 @@ export const onExitPrimitive: <A, E, R, XE = never, XR = never>(
   [contE](cause, _, exit) {
     exit ??= exitFailCause(cause)
     const eff = this[args][1](exit)
-    return eff ? flatMap(eff, (_) => exit) : exit
+    return eff ? flatMap(combineFinalizerCause(exit, eff), (_) => exit) : exit
   }
 })
 

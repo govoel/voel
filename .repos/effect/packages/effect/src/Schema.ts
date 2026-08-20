@@ -15079,15 +15079,26 @@ export function toEquivalence<T>(schema: Schema<T>): Equivalence.Equivalence<T> 
  * Derives an intermediate `SchemaRepresentation.Document` from the encoded
  * side of a schema.
  *
+ * **When to use**
+ *
+ * Use when you have a `Schema` and need its live structural representation for inspection, persistence, or compilation.
+ *
  * **Details**
  *
  * Use {@link toType} before this function to represent the type side instead.
+ * The optional reference policy controls which candidates are extracted into the document's reference table. By
+ * default, only candidates with a resolved identifier become references; recursive candidates always require one.
+ *
+ * @see {@link SchemaRepresentation.toRepresentation} for converting a `SchemaAST.AST` directly
  *
  * @category converting
  * @since 4.0.0
  */
-export function toRepresentation(schema: Constraint): SchemaRepresentation.Document {
-  return InternalToRepresentation.toRepresentation(schema.ast)
+export function toRepresentation(
+  schema: Constraint,
+  options?: SchemaRepresentation.ToRepresentationOptions
+): SchemaRepresentation.Document {
+  return InternalToRepresentation.toRepresentation(schema.ast, options)
 }
 
 // -----------------------------------------------------------------------------
@@ -15095,12 +15106,23 @@ export function toRepresentation(schema: Constraint): SchemaRepresentation.Docum
 // -----------------------------------------------------------------------------
 
 /**
- * Options for {@link toJsonSchemaDocument}.
+ * Options for reference allocation and JSON Schema generation in {@link toJsonSchemaDocument}.
+ *
+ * **Details**
+ *
+ * The inherited `referencePolicy` runs after the input schema is converted to its canonical JSON codec, so it receives
+ * canonical JSON-encoded ASTs. The remaining options control compilation of the resulting live representation.
+ *
+ * **Gotchas**
+ *
+ * When these options are passed directly to `SchemaRepresentation.toJsonSchemaDocument` or
+ * `SchemaRepresentation.toJsonSchemaMultiDocument`, reference allocation has already happened and `referencePolicy`
+ * has no effect.
  *
  * @category options
  * @since 4.0.0
  */
-export interface ToJsonSchemaOptions {
+export interface ToJsonSchemaOptions extends SchemaRepresentation.ToRepresentationOptions {
   /**
    * Controls how additional properties are handled while resolving the JSON
    * schema.
@@ -15166,20 +15188,37 @@ export interface ToJsonSchemaOptions {
 /**
  * Returns a JSON Schema document using draft 2020-12.
  *
+ * **When to use**
+ *
+ * Use when you need a draft-2020-12 description of the canonical JSON form of a runtime schema.
+ *
  * **Details**
  *
- * The `options` parameter controls generation details such as additional
- * properties and synthesized check descriptions; it does not change the draft
- * target. Declarations are lowered through their `toCodecJson` or `toCodec`
+ * The `options` parameter controls reference extraction and generation details
+ * such as additional properties and synthesized check descriptions; it does
+ * not change the draft target. The reference policy receives canonical JSON
+ * encoded ASTs. By default, anonymous non-recursive candidates remain inline, while candidates with resolved identifiers
+ * become definitions. Declarations are lowered through their `toCodecJson` or `toCodec`
  * annotation when available before the representation document is compiled.
+ * For schemas whose codec JSON AST can be represented exactly in JSON Schema,
+ * importing the emitted document reconstructs a schema that accepts the same
+ * JSON values. This is a semantic round-trip guarantee; the reconstructed AST
+ * may have a different shape.
  *
  * **Gotchas**
  *
  * JSON Schema generation is best-effort. Some Effect schema semantics cannot
  * be represented exactly in JSON Schema, and importing an emitted JSON Schema
  * may produce an equivalent approximation rather than the original schema
- * shape. Opaque declarations without a structural codec are represented by an
- * unconstrained JSON Schema.
+ * shape. Such schemas are outside the exact round-trip subset. When canonical
+ * JSON derivation adds an artificial transformation, checks and annotations on
+ * its source node are not copied to the JSON target, so they do not appear in
+ * the emitted document. Opaque declarations without a structural codec are
+ * represented by an unconstrained JSON Schema. Effect decoding may discard
+ * excess object properties by default; use `onExcessProperty: "error"` when
+ * comparing validation semantics with an emitted JSON Schema.
+ *
+ * @see {@link SchemaRepresentation.toJsonSchemaDocument} for compiling an existing live representation document
  *
  * @category converting
  * @since 4.0.0
@@ -15190,7 +15229,7 @@ export function toJsonSchemaDocument(
 ): JsonSchema.Document<"draft-2020-12"> {
   const document = InternalToRepresentation.toRepresentation(
     toCodecJsonAST(schema.ast),
-    InternalToJsonSchemaDocument.toRepresentationOptions
+    options
   )
   return InternalToJsonSchemaDocument.toJsonSchemaDocument(document, options)
 }
@@ -15231,13 +15270,22 @@ export interface toCodecJson<S extends Constraint> extends
  * Derives a canonical JSON codec from a schema. The encoded form is `Json`, and
  * decoding produces the schema's `Type`.
  *
+ * **Details**
+ *
+ * Derivation does not run transformations. Annotation links may be asynchronous,
+ * may fail, and may use optional services; the consuming parser chooses the
+ * execution and failure handling. Because hooks do not widen the returned
+ * service types, links cannot require services not declared by the input schema.
+ *
  * **Gotchas**
  *
  * Declarations without a `toCodecJson` or `toCodec` annotation use `Json` as
  * their encoded schema. This keeps codec construction total, but encoding or
  * decoding can still fail when declaration values are not JSON values. A
  * `toCodecJson` callback can return `undefined` when the declaration is already
- * in canonical JSON form.
+ * in canonical JSON form. When derivation adds an artificial transformation,
+ * checks and annotations remain on its source node rather than being copied to
+ * the JSON target. Source checks still run after the transformation.
  *
  * @category converting
  * @since 4.0.0
@@ -15356,8 +15404,18 @@ function toCodecJsonASTStep(ast: SchemaAST.AST, recur: (ast: SchemaAST.AST) => S
 }
 
 /**
- * Derives an isomorphism codec from a schema. The encoded form is the
- * schema's `Iso` type — the intermediate representation used for round-tripping.
+ * Derives an isomorphism codec from a schema. The encoded form is the schema's
+ * `Iso` type — the intermediate representation used for round-tripping.
+ *
+ * **Details**
+ *
+ * Annotation links may be asynchronous, may fail, and may use optional services;
+ * the consuming parser chooses the execution and failure handling.
+ *
+ * **Gotchas**
+ *
+ * Links cannot require services because the returned `Codec` does not expose
+ * service requirements.
  *
  * @category converting
  * @since 4.0.0
@@ -15432,6 +15490,13 @@ export interface toCodecStringTree<S extends Constraint> extends
 /**
  * Converts a schema to the StringTree canonical codec, where every leaf value
  * becomes a string while preserving the original structure.
+ *
+ * **Details**
+ *
+ * Derivation does not run transformations. Annotation links may be asynchronous,
+ * may fail, and may use optional services; the consuming parser chooses the
+ * execution and failure handling. Links cannot require services not declared by
+ * the input schema because hooks do not widen the returned service types.
  *
  * **Gotchas**
  *
@@ -15990,10 +16055,11 @@ export const isBetweenBigIntReviver: SchemaRepresentation.FilterReviver<{
  *
  * **Gotchas**
  *
- * Either direction can throw an `Error` with the generic message
- * `"Schema validation failed"` and a `SchemaIssue.Issue` in its `cause`. Format
- * the `cause` explicitly with `SchemaIssue.makeFormatterDefault()` when
- * human-readable details are needed.
+ * This API runs synchronously, so failing, asynchronous, or service-dependent
+ * transformations can throw. Schema failures use `"Schema validation failed"`
+ * with a `SchemaIssue.Issue` in `cause`; format it with
+ * `SchemaIssue.makeFormatterDefault()`. Consume {@link toCodecIso} with an
+ * effectful parser for asynchronous execution or explicit failure handling.
  *
  * @category converting
  * @since 4.0.0
@@ -16101,11 +16167,11 @@ export function overrideToCodecIso<S extends Constraint, Iso>(
  *
  * **Gotchas**
  *
- * Schema encoding or decoding failures throw an `Error` with the generic message
- * `"Schema validation failed"` and a `SchemaIssue.Issue` in its `cause`. Format
- * the `cause` explicitly with `SchemaIssue.makeFormatterDefault()` when
- * human-readable details are needed. Errors produced by {@link JsonPatch.apply}
- * for invalid patch operations are separate from schema validation failures.
+ * This API runs synchronously, so failing, asynchronous, or service-dependent
+ * transformations can throw. Schema failures use `"Schema validation failed"`
+ * with a `SchemaIssue.Issue` in `cause`; format it with
+ * `SchemaIssue.makeFormatterDefault()`. Invalid patch operations instead produce
+ * {@link JsonPatch.apply} errors.
  *
  * @category converting
  * @since 4.0.0
@@ -16218,6 +16284,28 @@ export const Json: Codec<Json> = make(SchemaAST.annotate(SchemaAST.Json, {
     Type: "Schema.Json"
   })
 }))
+
+/**
+ * Schema for readonly string-keyed records whose values are JSON-compatible.
+ *
+ * **When to use**
+ *
+ * Use when you need to validate a JSON object rather than any JSON value.
+ *
+ * **Example** (Validating a JSON object)
+ *
+ * ```ts import.meta.vitest
+ * import { Option, Schema } from "effect"
+ *
+ * Schema.decodeUnknownOption(Schema.JsonObject)({ key: [1, true, null] }) // => Option.some({ key: [1, true, null] })
+ * Schema.decodeUnknownOption(Schema.JsonObject)([1, 2, 3]) // => Option.none()
+ * ```
+ *
+ * @see {@link Json} for a schema that also accepts JSON arrays and primitive values
+ * @category schemas
+ * @since 4.0.0
+ */
+export const JsonObject = Record(String, Json)
 
 /**
  * Reviver for persisted `Json` declarations.
@@ -16543,15 +16631,41 @@ export declare namespace Annotations {
     readonly representation?:
       | SchemaRepresentation.RepresentationAnnotation
       | undefined
+    /**
+     * Returns the fallback link used by canonical codec derivations.
+     *
+     * Transformations may be asynchronous, may fail, and may use optional
+     * services, but cannot require services absent from the derived codec type.
+     */
     readonly toCodec?:
       | ((typeParameters: TypeParameters.Encoded<TypeParameters>) => SchemaAST.Link)
       | undefined
+    /**
+     * Returns the link used to derive the declaration's JSON representation, or
+     * `undefined` when the declaration is already in canonical JSON form.
+     *
+     * Transformations follow the execution and service constraints of `toCodec`.
+     */
     readonly toCodecJson?:
       | ((typeParameters: TypeParameters.Encoded<TypeParameters>) => SchemaAST.Link | undefined)
       | undefined
+    /**
+     * Returns the link used to derive the declaration's StringTree
+     * representation, or `undefined` when it is already canonical.
+     *
+     * Transformations follow the execution and service constraints of `toCodec`.
+     */
     readonly toCodecStringTree?:
       | ((typeParameters: TypeParameters.Encoded<TypeParameters>) => SchemaAST.Link | undefined)
       | undefined
+    /**
+     * Returns the link used to derive the declaration's isomorphism
+     * representation.
+     *
+     * Transformations may be asynchronous, may fail, and may use optional
+     * services, but cannot require services because the derived `Codec` exposes
+     * none.
+     */
     readonly toCodecIso?:
       | ((typeParameters: TypeParameters.Type<TypeParameters>) => SchemaAST.Link)
       | undefined
