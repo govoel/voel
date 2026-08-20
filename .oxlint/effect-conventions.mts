@@ -1,6 +1,13 @@
+/// <reference types="bun-types" />
+
+// oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
+import { existsSync, readFileSync } from 'node:fs';
+// oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
+import path from 'node:path';
+
 import { definePlugin } from '@oxlint/plugins';
 import type { ESTree } from '@oxlint/plugins';
-import { Array, Option } from 'effect';
+import { Array, Option, Schema } from 'effect';
 
 const schemaClassConstructors = new Set([
   'Schema.Class',
@@ -18,8 +25,51 @@ const deterministicConstructors = new Set([
   ...schemaClassConstructors,
 ]);
 
-const packageLocationPattern =
-  /(?:^|\/)\b(?<workspaceType>apps|packages)\/(?<workspaceName>[^/]+)\/(?<sourcePath>.+)$/u;
+const decodePackageManifest = Schema.decodeUnknownOption(
+  Schema.Struct({ name: Schema.NonEmptyString })
+);
+const parseJson = Option.liftThrowable((source: string): unknown => JSON.parse(source));
+const readTextFile = Option.liftThrowable((filePath: string) => readFileSync(filePath, 'utf8'));
+
+const packageCache = new Map<string, { name: string; root: string }>();
+
+const readPackageName = (filePath: string) =>
+  readTextFile(filePath).pipe(
+    Option.flatMap(parseJson),
+    Option.flatMap(decodePackageManifest),
+    Option.map((manifest) => manifest.name)
+  );
+
+const findPackageFromDirectory = (
+  directory: string
+): Option.Option<NonNullable<ReturnType<typeof packageCache.get>>> => {
+  const cached = Option.fromUndefinedOr(packageCache.get(directory));
+  if (Option.isSome(cached)) {
+    return cached;
+  }
+
+  const manifestPath = path.join(directory, 'package.json');
+  if (existsSync(manifestPath)) {
+    const packageLocation = readPackageName(manifestPath).pipe(
+      Option.map((name) => ({ name, root: directory }))
+    );
+    if (Option.isSome(packageLocation)) {
+      packageCache.set(directory, packageLocation.value);
+    }
+    return packageLocation;
+  }
+
+  const parentDirectory = path.dirname(directory);
+  if (parentDirectory === directory) {
+    return Option.none();
+  }
+
+  const packageLocation = findPackageFromDirectory(parentDirectory);
+  if (Option.isSome(packageLocation)) {
+    packageCache.set(directory, packageLocation.value);
+  }
+  return packageLocation;
+};
 
 const isWrappedExpression = (
   expression: ESTree.Expression
@@ -87,20 +137,17 @@ const analyzeSuperclass = (superClass: ESTree.Expression) =>
     };
   });
 
-const getPackageLocation = (filename: string) => {
-  const normalized = filename.replaceAll('\\', '/');
-  return Option.gen(function* () {
-    const match = yield* Option.fromNullOr(packageLocationPattern.exec(normalized));
-    const groups = yield* Option.fromUndefinedOr(match.groups);
-    const { sourcePath: rawSourcePath, workspaceName, workspaceType } = groups;
-
-    return {
-      packageName:
-        workspaceType === 'apps' && workspaceName === 'client' ? 'voel' : `@repo/${workspaceName}`,
-      sourcePath: rawSourcePath.replace(/^src\//u, '').replace(/\.(?:mts|tsx?|cts)$/u, ''),
-    };
-  });
-};
+const getPackageLocation = (filename: string) =>
+  findPackageFromDirectory(path.dirname(filename)).pipe(
+    Option.map((packageLocation) => ({
+      packageName: packageLocation.name,
+      sourcePath: path
+        .relative(packageLocation.root, filename)
+        .replaceAll('\\', '/')
+        .replace(/^src\//u, '')
+        .replace(/\.(?:mts|tsx?|cts)$/u, ''),
+    }))
+  );
 
 const expectedIdentifier = (filename: string, className: string) =>
   Option.gen(function* () {
