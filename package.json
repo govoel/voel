@@ -16,15 +16,15 @@
     "prepare": "effect-tsgo patch --no-typescript --oxlint"
   },
   "devDependencies": {
-    "@effect/tsgo": "0.36.4",
+    "@effect/tsgo": "0.36.5",
     "agent-browser": "0.34.0",
-    "agent-device": "0.20.8",
-    "eslint-plugin-turbo": "2.10.9",
+    "agent-device": "0.20.10",
+    "eslint-plugin-turbo": "2.10.11",
     "opensrc": "0.7.3",
-    "oxfmt": "0.63.0",
-    "oxlint": "1.77.0",
+    "oxfmt": "0.64.0",
+    "oxlint": "1.78.0",
     "oxlint-tsgolint": "7.0.2001",
-    "turbo": "2.10.9",
+    "turbo": "2.10.11",
     "typescript": "7.0.2"
   },
   "engines": {
