@@ -170,7 +170,7 @@ const plugin = {
   meta: { name: 'effect-conventions' },
   rules: {
     'deterministic-identifiers': {
-      create(context) {
+      create: (context) => {
         const constants = new Map<string, string>();
 
         return {
@@ -272,53 +272,51 @@ const plugin = {
       },
     },
     'schema-class-brand': {
-      create(context) {
-        return {
-          ClassDeclaration(node) {
-            if (node.superClass === null) {
-              return;
-            }
+      create: (context) => ({
+        ClassDeclaration: (node) => {
+          if (node.superClass === null) {
+            return;
+          }
 
-            const calls = callChain(node.superClass);
-            const innermostCall = calls.at(-1);
-            if (innermostCall === void 0) {
-              return;
-            }
+          const calls = callChain(node.superClass);
+          const innermostCall = calls.at(-1);
+          if (innermostCall === void 0) {
+            return;
+          }
 
-            const constructorName = staticMemberName(innermostCall.callee);
-            const isExtend = constructorName?.endsWith('.extend') ?? false;
-            const isSchemaClass =
-              constructorName === 'Schema.Class' ||
-              constructorName === 'Schema.Error' ||
-              constructorName === 'Schema.TaggedClass' ||
-              constructorName === 'Schema.TaggedError';
-            if (!isExtend && !isSchemaClass) {
-              return;
-            }
+          const constructorName = staticMemberName(innermostCall.callee);
+          const isExtend = constructorName?.endsWith('.extend') ?? false;
+          const isSchemaClass =
+            constructorName === 'Schema.Class' ||
+            constructorName === 'Schema.Error' ||
+            constructorName === 'Schema.TaggedClass' ||
+            constructorName === 'Schema.TaggedError';
+          if (!isExtend && !isSchemaClass) {
+            return;
+          }
 
-            const typeArguments = innermostCall.typeArguments?.params ?? [];
-            const brandType = typeArguments.at(isExtend ? 2 : 1);
-            const brandProperties = brandType === void 0 ? [] : uniqueSymbolProperties(brandType);
-            const hasBrand = isExtend
-              ? brandProperties.length > 0
-              : brandProperties.some(
-                  (property) =>
-                    !property.computed &&
-                    property.key.type === 'Identifier' &&
-                    property.key.name === 'brand'
-                );
+          const typeArguments = innermostCall.typeArguments?.params ?? [];
+          const brandType = typeArguments.at(isExtend ? 2 : 1);
+          const brandProperties = brandType === void 0 ? [] : uniqueSymbolProperties(brandType);
+          const hasBrand = isExtend
+            ? brandProperties.length > 0
+            : brandProperties.some(
+                (property) =>
+                  !property.computed &&
+                  property.key.type === 'Identifier' &&
+                  property.key.name === 'brand'
+              );
 
-            if (!hasBrand) {
-              context.report({
-                message: isExtend
-                  ? 'Add a readonly unique-symbol brand to this schema subclass.'
-                  : 'Add { readonly brand: unique symbol } to this schema class.',
-                node: innermostCall,
-              });
-            }
-          },
-        };
-      },
+          if (!hasBrand) {
+            context.report({
+              message: isExtend
+                ? 'Add a readonly unique-symbol brand to this schema subclass.'
+                : 'Add { readonly brand: unique symbol } to this schema class.',
+              node: innermostCall,
+            });
+          }
+        },
+      }),
     },
   },
 } satisfies Plugin;
