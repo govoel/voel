@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 // oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
 import path from 'node:path';
 
-import { definePlugin } from '@oxlint/plugins';
+import { eslintCompatPlugin } from '@oxlint/plugins';
 import type { ESTree } from '@oxlint/plugins';
 import { Array, Option, Schema } from 'effect';
 
@@ -202,14 +202,17 @@ const uniqueSymbolProperties = (type: ESTree.TSType) =>
       )
     : [];
 
-const plugin = definePlugin({
+const plugin = eslintCompatPlugin({
   meta: { name: 'effect-conventions' },
   rules: {
     'deterministic-identifiers': {
-      create: (context) => {
+      createOnce: (context) => {
         const constants = new Map<string, string>();
 
         return {
+          before() {
+            constants.clear();
+          },
           VariableDeclarator(node) {
             if (node.id.type !== 'Identifier' || node.init === null) {
               return;
@@ -309,7 +312,7 @@ const plugin = definePlugin({
       },
     },
     'schema-class-brand': {
-      create: (context) => ({
+      createOnce: (context) => ({
         ClassDeclaration: (node) => {
           if (node.superClass === null) {
             return;
