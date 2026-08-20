@@ -1,9 +1,8 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Schema } from 'effect';
 
-class ApiConfigVariables extends Schema.Class<
-  ApiConfigVariables,
-  { readonly brand: unique symbol }
->('@repo/server/services/config/ApiConfigVariables')({
+class ApiConfigSchema extends Schema.Class<ApiConfigSchema, { readonly brand: unique symbol }>(
+  '@repo/server/services/config/ApiConfigSchema'
+)({
   AUTH_SECRET: Schema.RedactedFromValue(Schema.String),
   PORT: Config.Port.pipe(Schema.withDecodingDefaultType(Effect.succeed(8080))),
   DB_FILENAME: Schema.String.pipe(
@@ -15,7 +14,7 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
   '@repo/server/services/config/ApiConfig',
   {
     make: Effect.gen(function* () {
-      const config = yield* Config.schema(ApiConfigVariables);
+      const config = yield* Config.schema(ApiConfigSchema);
       return {
         auth: { secret: config.AUTH_SECRET },
         server: { port: config.PORT },
@@ -30,7 +29,7 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))
   );
 
-  public static readonly layerTest = (config?: Partial<(typeof ApiConfigVariables)['Encoded']>) =>
+  public static readonly layerTest = (config?: Partial<(typeof ApiConfigSchema)['Encoded']>) =>
     this.layerNoDeps.pipe(
       Layer.provide(
         ConfigProvider.layer(
@@ -38,7 +37,7 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
             AUTH_SECRET: 'test',
             DB_FILENAME: ':memory:',
             ...config,
-          } satisfies (typeof ApiConfigVariables)['Encoded'])
+          } satisfies (typeof ApiConfigSchema)['Encoded'])
         )
       )
     );
