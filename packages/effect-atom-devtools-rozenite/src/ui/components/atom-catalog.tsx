@@ -35,7 +35,7 @@ const AtomSidebar = ({ catalog }: { readonly catalog: ReadonlyArray<AtomSummary>
                         title="A predefined state is active"
                       />
                     ) : null}
-                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    <Badge tone="neutral" className="px-1.5 py-0 text-[10px]">
                       {atomSummary.writable ? 'RW' : 'RO'}
                     </Badge>
                   </span>

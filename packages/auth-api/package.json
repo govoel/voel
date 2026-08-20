@@ -19,7 +19,7 @@
     "@better-auth/expo": "1.6.23",
     "@repo/effect-kysely": "workspace:*",
     "better-auth": "1.6.23",
-    "effect": "4.0.0-rc.108"
+    "effect": "4.0.0-rc.110"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
