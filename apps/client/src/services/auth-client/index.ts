@@ -35,7 +35,7 @@ export class AuthClientKey extends Data.Class<
 
 export class AuthClientGetCookieError extends Schema.TaggedError<AuthClientGetCookieError>(
   'voel/services/auth-client/AuthClientGetCookieError'
-)('AuthClientGetCookieError', { cause: Schema.Unknown }) {}
+)('AuthClientGetCookieError', {}) {}
 
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/services/auth-client/AuthClient',
@@ -77,7 +77,7 @@ export class AuthClient extends Context.Service<AuthClient>()(
 
       const getCookie = Effect.tryPromise({
         try: async () => rawClient.getCookie(),
-        catch: (cause) => AuthClientGetCookieError.make({ cause }),
+        catch: () => AuthClientGetCookieError.make(),
       }).pipe(Effect.map(Option.liftPredicate(String.isNonEmpty)));
 
       return {
