@@ -9,6 +9,7 @@
   "scripts": {
     "lint": "oxlint . --ignore-pattern .repos/** --type-aware --type-check --deny-warnings",
     "lint:fix": "oxlint . --ignore-pattern .repos/** --fix --type-aware --type-check --deny-warnings",
+    "test": "node .oxlint/effect-conventions.test.mts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "build": "turbo run build",

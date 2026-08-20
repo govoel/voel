@@ -17,8 +17,12 @@
   },
   "rules": {
     "effecttsgo/async-function": "off",
+    "effecttsgo/deterministic-keys": "error",
     "effecttsgo/missing-pipeable-signature": "off",
     "effecttsgo/strict-boolean-expressions": "off",
+
+    "effect-conventions/deterministic-identifiers": "error",
+    "effect-conventions/schema-class-brand": "error",
 
     "eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
     "eslint/new-cap": "off",
@@ -92,5 +96,5 @@
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"
   },
-  "jsPlugins": ["eslint-plugin-turbo"]
+  "jsPlugins": ["eslint-plugin-turbo", "./.oxlint/effect-conventions.mts"]
 }
