@@ -8,7 +8,7 @@ import { sql } from '@repo/effect-kysely';
 import { MediaFile, MediaType } from '@repo/spec-api/database/schema.ts';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import type { SyncEvent } from '@repo/spec-api/groups/sync.ts';
-import { SyncRpcs, SyncSlowConsumerError } from '@repo/spec-api/groups/sync.ts';
+import { SyncCheckpoint, SyncRpcs, SyncSlowConsumerError } from '@repo/spec-api/groups/sync.ts';
 
 import { LibraryHandlersLayerNoDeps } from '#src/groups/library.ts';
 import { SyncHandlersLayerNoDeps, bufferLiveUpdates } from '#src/groups/sync.ts';
@@ -28,7 +28,7 @@ const TestLayer = Layer.mergeAll(LibraryHandlersLayerNoDeps, SyncHandlersLayerNo
   Layer.provide([ApiConfig.layerTest(), BunPath.layer])
 );
 
-const emptyCheckpoints = {
+const emptyCheckpointFields = {
   mediaItem: 0,
   audiobook: 0,
   audiobookSeries: 0,
@@ -40,6 +40,7 @@ const emptyCheckpoints = {
   mediaFile: 0,
   libraryFileMap: 0,
 };
+const emptyCheckpoints = SyncCheckpoint.make(emptyCheckpointFields);
 
 it.effect(
   'starts consuming live updates before returning the buffered stream',
@@ -110,7 +111,12 @@ it.layer(TestLayer)('sync', (iit) => {
       ]);
 
       const checkpointedHistory = yield* syncClient
-        .sync({ ...emptyCheckpoints, library: libraryHistory.payload.row.updatedAt + 1 })
+        .sync(
+          SyncCheckpoint.make({
+            ...emptyCheckpointFields,
+            library: libraryHistory.payload.row.updatedAt + 1,
+          })
+        )
         .pipe(
           Stream.takeUntil((event) => event.type === 'historyComplete'),
           Stream.runCollect

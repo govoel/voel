@@ -57,7 +57,9 @@ export const syncPrimaryKeys = {
   libraryFileMap: 'id',
 } as const satisfies Record<keyof DatabaseTables, string>;
 
-export const SyncCheckpoint = Schema.Struct({
+export class SyncCheckpoint extends Schema.Class<SyncCheckpoint, { readonly brand: unique symbol }>(
+  '@repo/spec-api/groups/sync/SyncCheckpoint'
+)({
   mediaItem: Schema.Natural,
   audiobook: Schema.Natural,
   audiobookSeries: Schema.Natural,
@@ -68,7 +70,7 @@ export const SyncCheckpoint = Schema.Struct({
   libraryPath: Schema.Natural,
   mediaFile: Schema.Natural,
   libraryFileMap: Schema.Natural,
-});
+}) {}
 
 export const SyncRow = Schema.Union(
   [
@@ -117,7 +119,6 @@ export const SyncEvent = Schema.Union(
 
 export type SyncEvent = typeof SyncEvent.Type;
 export type SyncRow = typeof SyncRow.Type;
-export type SyncCheckpoint = typeof SyncCheckpoint.Type;
 
 export class SyncSlowConsumerError extends Schema.TaggedError<
   SyncSlowConsumerError,
