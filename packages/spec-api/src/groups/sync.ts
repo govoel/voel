@@ -55,7 +55,9 @@ export const syncPrimaryKeys = {
   libraryPath: 'id',
   mediaFile: 'id',
   libraryFileMap: 'id',
-} as const satisfies Record<keyof DatabaseTables, string>;
+} as const satisfies {
+  [Table in keyof DatabaseTables]: keyof DatabaseTables[Table] & string;
+};
 
 export class SyncCheckpoint extends Schema.Class<SyncCheckpoint, { readonly brand: unique symbol }>(
   '@repo/spec-api/groups/sync/SyncCheckpoint'
@@ -74,39 +76,105 @@ export class SyncCheckpoint extends Schema.Class<SyncCheckpoint, { readonly bran
 
 export const SyncRow = Schema.Union(
   [
-    Schema.Struct({ table: Schema.Literal('mediaType'), row: MediaType.json }),
-    Schema.Struct({ table: Schema.Literal('mediaItem'), row: MediaItem.json }),
-    Schema.Struct({ table: Schema.Literal('audiobook'), row: Audiobook.json }),
-    Schema.Struct({
-      table: Schema.Literal('audiobookSeries'),
-      row: AudiobookSeries.json,
-    }),
-    Schema.Struct({
-      table: Schema.Literal('audiobookSeriesMap'),
-      row: AudiobookSeriesMap.json,
-    }),
-    Schema.Struct({
-      table: Schema.Literal('audiobookContributor'),
-      row: AudiobookContributor.json,
-    }),
-    Schema.Struct({
-      table: Schema.Literal('audiobookContributorRole'),
-      row: AudiobookContributorRole.json,
-    }),
-    Schema.Struct({
-      table: Schema.Literal('audiobookContributorMap'),
-      row: AudiobookContributorMap.json,
-    }),
-    Schema.Struct({ table: Schema.Literal('library'), row: Library.json }),
-    Schema.Struct({ table: Schema.Literal('libraryPath'), row: LibraryPath.json }),
-    Schema.Struct({ table: Schema.Literal('mediaFile'), row: MediaFile.json }),
-    Schema.Struct({
-      table: Schema.Literal('libraryFileMap'),
-      row: LibraryFileMap.json,
-    }),
+    Schema.TaggedStruct('mediaType', MediaType.json.fields),
+    Schema.TaggedStruct('mediaItem', MediaItem.json.fields),
+    Schema.TaggedStruct('audiobook', Audiobook.json.fields),
+    Schema.TaggedStruct('audiobookSeries', AudiobookSeries.json.fields),
+    Schema.TaggedStruct('audiobookSeriesMap', AudiobookSeriesMap.json.fields),
+    Schema.TaggedStruct('audiobookContributor', AudiobookContributor.json.fields),
+    Schema.TaggedStruct('audiobookContributorRole', AudiobookContributorRole.json.fields),
+    Schema.TaggedStruct('audiobookContributorMap', AudiobookContributorMap.json.fields),
+    Schema.TaggedStruct('library', Library.json.fields),
+    Schema.TaggedStruct('libraryPath', LibraryPath.json.fields),
+    Schema.TaggedStruct('mediaFile', MediaFile.json.fields),
+    Schema.TaggedStruct('libraryFileMap', LibraryFileMap.json.fields),
   ],
   { mode: 'oneOf' }
-);
+).pipe(Schema.toTaggedUnion('_tag'));
+
+export type SyncRow = typeof SyncRow.Type;
+
+type SyncTable = SyncRow['_tag'];
+type SyncTableRow<Table extends SyncTable> = Omit<Extract<SyncRow, { _tag: Table }>, '_tag'>;
+
+/**
+ * The exact database projection exposed by sync. Keeping this separate from
+ * `select *` makes every protocol column an explicit decision.
+ */
+export const syncColumns = {
+  mediaType: ['type'],
+  mediaItem: ['id', 'type', 'createdAt', 'updatedAt', 'deletedAt'],
+  audiobook: [
+    'id',
+    'asin',
+    'mediaItemId',
+    'title',
+    'subtitle',
+    'cover',
+    'coverThumbhash',
+    'summary',
+    'createdAt',
+    'updatedAt',
+    'deletedAt',
+  ],
+  audiobookSeries: ['id', 'asin', 'name', 'summary', 'createdAt', 'updatedAt', 'deletedAt'],
+  audiobookSeriesMap: [
+    'id',
+    'audiobookId',
+    'audiobookSeriesId',
+    'title',
+    'label',
+    'sort',
+    'createdAt',
+    'updatedAt',
+    'deletedAt',
+  ],
+  audiobookContributor: [
+    'id',
+    'asin',
+    'name',
+    'about',
+    'avatar',
+    'avatarThumbhash',
+    'createdAt',
+    'updatedAt',
+    'deletedAt',
+  ],
+  audiobookContributorRole: ['role'],
+  audiobookContributorMap: [
+    'id',
+    'audiobookId',
+    'audiobookContributorId',
+    'name',
+    'role',
+    'createdAt',
+    'updatedAt',
+    'deletedAt',
+  ],
+  library: ['id', 'type', 'name', 'createdAt', 'updatedAt', 'deletedAt'],
+  libraryPath: ['id', 'libraryId', 'absolutePath', 'createdAt', 'updatedAt', 'deletedAt'],
+  mediaFile: ['id', 'absolutePath', 'durationMs', 'createdAt', 'updatedAt', 'deletedAt'],
+  libraryFileMap: [
+    'id',
+    'libraryId',
+    'mediaFileId',
+    'mediaItemId',
+    'matchFailureReason',
+    'variant',
+    'customOrder',
+    'createdAt',
+    'updatedAt',
+    'deletedAt',
+  ],
+} as const satisfies {
+  [Table in SyncTable]: ReadonlyArray<keyof SyncTableRow<Table> & string>;
+};
+
+export type MissingSyncColumns = AssertNever<
+  {
+    [Table in SyncTable]: Exclude<keyof SyncTableRow<Table>, (typeof syncColumns)[Table][number]>;
+  }[SyncTable]
+>;
 
 export const SyncEvent = Schema.Union(
   [
@@ -118,7 +186,6 @@ export const SyncEvent = Schema.Union(
 );
 
 export type SyncEvent = typeof SyncEvent.Type;
-export type SyncRow = typeof SyncRow.Type;
 
 export class SyncSlowConsumerError extends Schema.TaggedError<
   SyncSlowConsumerError,

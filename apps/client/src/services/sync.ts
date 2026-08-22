@@ -18,33 +18,293 @@ import {
 } from '#src/services/database/account/index.ts';
 import type { AccountDatabaseTables } from '#src/services/database/account/schema.ts';
 
+type SyncTable = SyncRow['_tag'];
+type SyncTableRow<Table extends SyncTable> = Omit<Extract<SyncRow, { _tag: Table }>, '_tag'>;
+type SyncUpdate<Table extends SyncTable> = Omit<
+  SyncTableRow<Table>,
+  Extract<(typeof syncPrimaryKeys)[Table], keyof SyncTableRow<Table>>
+>;
+
+/**
+ * Makes Kysely update objects exhaustive over every replicated non-primary-key
+ * column. Kysely itself validates mentioned columns but intentionally permits
+ * partial updates.
+ */
+const completeSyncUpdate =
+  <Table extends SyncTable>() =>
+  <Update extends { [Column in keyof SyncUpdate<Table>]: unknown }>(
+    update: Update & Record<Exclude<keyof Update, keyof SyncUpdate<Table>>, never>
+  ) =>
+    update;
+
 const upsertRow = Effect.fnUntraced(function* (
   db: EffectKysely<AccountDatabaseTables> | EffectTransaction<AccountDatabaseTables>,
-  table: SyncRow['table'],
-  row: Readonly<Record<string, unknown>>
+  event: SyncRow
 ) {
-  const columns = Object.keys(row);
-  const key = syncPrimaryKeys[table];
-  const updateColumns = columns.filter((column) => column !== key);
-  const conflict =
-    updateColumns.length === 0
-      ? sql`do nothing`
-      : sql`do update set ${sql.join(
-          updateColumns.map((column) => sql`${sql.ref(column)} = ${sql.ref(`excluded.${column}`)}`)
-        )}`;
-
-  yield* db.executeRaw(sql`
-    insert into ${sql.table(table)} (${sql.join(columns.map((column) => sql.ref(column)))})
-    values (${sql.join(columns.map((column) => row[column]))})
-    on conflict (${sql.ref(key)}) ${conflict}
-  `);
+  switch (event._tag) {
+    case 'mediaType': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('mediaType')
+            .values(row)
+            .onConflict((conflict) => conflict.column(syncPrimaryKeys.mediaType).doNothing())
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'mediaItem': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('mediaItem')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.mediaItem).doUpdateSet((eb) =>
+                completeSyncUpdate<'mediaItem'>()({
+                  type: eb.ref('excluded.type'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'audiobook': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('audiobook')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.audiobook).doUpdateSet((eb) =>
+                completeSyncUpdate<'audiobook'>()({
+                  asin: eb.ref('excluded.asin'),
+                  mediaItemId: eb.ref('excluded.mediaItemId'),
+                  title: eb.ref('excluded.title'),
+                  subtitle: eb.ref('excluded.subtitle'),
+                  cover: eb.ref('excluded.cover'),
+                  coverThumbhash: eb.ref('excluded.coverThumbhash'),
+                  summary: eb.ref('excluded.summary'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'audiobookSeries': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('audiobookSeries')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.audiobookSeries).doUpdateSet((eb) =>
+                completeSyncUpdate<'audiobookSeries'>()({
+                  asin: eb.ref('excluded.asin'),
+                  name: eb.ref('excluded.name'),
+                  summary: eb.ref('excluded.summary'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'audiobookSeriesMap': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('audiobookSeriesMap')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.audiobookSeriesMap).doUpdateSet((eb) =>
+                completeSyncUpdate<'audiobookSeriesMap'>()({
+                  audiobookId: eb.ref('excluded.audiobookId'),
+                  audiobookSeriesId: eb.ref('excluded.audiobookSeriesId'),
+                  title: eb.ref('excluded.title'),
+                  label: eb.ref('excluded.label'),
+                  sort: eb.ref('excluded.sort'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'audiobookContributor': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('audiobookContributor')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.audiobookContributor).doUpdateSet((eb) =>
+                completeSyncUpdate<'audiobookContributor'>()({
+                  asin: eb.ref('excluded.asin'),
+                  name: eb.ref('excluded.name'),
+                  about: eb.ref('excluded.about'),
+                  avatar: eb.ref('excluded.avatar'),
+                  avatarThumbhash: eb.ref('excluded.avatarThumbhash'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'audiobookContributorRole': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('audiobookContributorRole')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.audiobookContributorRole).doNothing()
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'audiobookContributorMap': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('audiobookContributorMap')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.audiobookContributorMap).doUpdateSet((eb) =>
+                completeSyncUpdate<'audiobookContributorMap'>()({
+                  audiobookId: eb.ref('excluded.audiobookId'),
+                  audiobookContributorId: eb.ref('excluded.audiobookContributorId'),
+                  name: eb.ref('excluded.name'),
+                  role: eb.ref('excluded.role'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'library': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('library')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.library).doUpdateSet((eb) =>
+                completeSyncUpdate<'library'>()({
+                  type: eb.ref('excluded.type'),
+                  name: eb.ref('excluded.name'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'libraryPath': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('libraryPath')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.libraryPath).doUpdateSet((eb) =>
+                completeSyncUpdate<'libraryPath'>()({
+                  libraryId: eb.ref('excluded.libraryId'),
+                  absolutePath: eb.ref('excluded.absolutePath'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'mediaFile': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('mediaFile')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.mediaFile).doUpdateSet((eb) =>
+                completeSyncUpdate<'mediaFile'>()({
+                  absolutePath: eb.ref('excluded.absolutePath'),
+                  durationMs: eb.ref('excluded.durationMs'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    case 'libraryFileMap': {
+      const { _tag, ...row } = event;
+      return yield* db
+        .execute(
+          db
+            .insertInto('libraryFileMap')
+            .values(row)
+            .onConflict((conflict) =>
+              conflict.column(syncPrimaryKeys.libraryFileMap).doUpdateSet((eb) =>
+                completeSyncUpdate<'libraryFileMap'>()({
+                  libraryId: eb.ref('excluded.libraryId'),
+                  mediaFileId: eb.ref('excluded.mediaFileId'),
+                  mediaItemId: eb.ref('excluded.mediaItemId'),
+                  matchFailureReason: eb.ref('excluded.matchFailureReason'),
+                  variant: eb.ref('excluded.variant'),
+                  customOrder: eb.ref('excluded.customOrder'),
+                  createdAt: eb.ref('excluded.createdAt'),
+                  updatedAt: eb.ref('excluded.updatedAt'),
+                  deletedAt: eb.ref('excluded.deletedAt'),
+                })
+              )
+            )
+        )
+        .pipe(Effect.asVoid);
+    }
+    default: {
+      const unhandledEvent: never = event;
+      return yield* Effect.die(unhandledEvent);
+    }
+  }
 });
 
 export const applySyncRow = Effect.fnUntraced(function* (
   db: EffectKysely<AccountDatabaseTables>,
   event: SyncRow
 ) {
-  yield* upsertRow(db, event.table, event.row);
+  yield* upsertRow(db, event);
 });
 
 const getCheckpoints = Effect.fnUntraced(function* (db: EffectKysely<AccountDatabaseTables>) {
@@ -81,9 +341,7 @@ const synchronizeOnce = Effect.fnUntraced(function* (
     const pending = history.splice(0);
     yield* db.trx().execute(
       Effect.fnUntraced(function* (trx) {
-        yield* Effect.forEach(pending, (event) => upsertRow(trx, event.table, event.row), {
-          discard: true,
-        });
+        yield* Effect.forEach(pending, (event) => upsertRow(trx, event), { discard: true });
       })
     );
   });

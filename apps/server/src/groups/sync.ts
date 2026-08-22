@@ -1,21 +1,21 @@
-import { Array, Effect, Layer, Queue, Schema, Stream } from 'effect';
+import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import type { Cause } from 'effect';
 
-import { sql } from '@repo/effect-kysely';
-import type { UnknownRow } from '@repo/effect-kysely';
 import type { ApiPayload } from '@repo/spec-api';
 import {
   SyncEvent,
   SyncRpcs,
   SyncSlowConsumerError,
-  syncStaticTables,
-  syncTimestampedTables,
+  syncColumns,
 } from '@repo/spec-api/groups/sync.ts';
-import type { SyncEvent as SyncEventType } from '@repo/spec-api/groups/sync.ts';
+import type { SyncEvent as SyncEventType, SyncRow } from '@repo/spec-api/groups/sync.ts';
 
 import { Database } from '#src/services/database/index.ts';
 
 const liveUpdateBufferCapacity = 1024;
+
+type SyncTable = SyncRow['_tag'];
+type SyncTableRow<Table extends SyncTable> = Omit<Extract<SyncRow, { _tag: Table }>, '_tag'>;
 
 export const bufferLiveUpdates = Effect.fnUntraced(function* <A>(
   updates: Stream.Stream<A>,
@@ -63,29 +63,137 @@ export const SyncHandlersLayerNoDeps = SyncRpcs.toLayerHandler(
          * unbounded server memory.
          */
         const liveUpdates = yield* bufferLiveUpdates(sourceTap.updates, liveUpdateBufferCapacity);
-        const events = yield* Effect.forEach(
-          [
-            ...syncStaticTables.map((table) => ({ table, cursor: null })),
-            ...syncTimestampedTables.map((table) => ({ table, cursor: checkpoint[table] })),
-          ],
-          Effect.fnUntraced(function* ({ cursor, table }) {
-            const result = yield* db.executeRaw(
-              cursor === null
-                ? sql<UnknownRow>`select * from ${sql.table(table)}`
-                : sql<UnknownRow>`
-                  select * from ${sql.table(table)}
-                  where updatedAt >= ${cursor}
-                  order by updatedAt
-                `
-            );
-            return yield* Effect.all(
-              result.rows.map((row) =>
-                decode({ type: 'history', payload: { table, row } }).pipe(Effect.orDie)
-              )
-            );
-          })
+        const mediaTypes = yield* db.execute(
+          db.selectFrom('mediaType').select(syncColumns.mediaType)
         );
-        const history = Array.flatten(events);
+        const mediaItems = yield* db.execute(
+          db
+            .selectFrom('mediaItem')
+            .select(syncColumns.mediaItem)
+            .where('updatedAt', '>=', checkpoint.mediaItem)
+            .orderBy('updatedAt')
+        );
+        const audiobooks = yield* db.execute(
+          db
+            .selectFrom('audiobook')
+            .select(syncColumns.audiobook)
+            .where('updatedAt', '>=', checkpoint.audiobook)
+            .orderBy('updatedAt')
+        );
+        const audiobookSeries = yield* db.execute(
+          db
+            .selectFrom('audiobookSeries')
+            .select(syncColumns.audiobookSeries)
+            .where('updatedAt', '>=', checkpoint.audiobookSeries)
+            .orderBy('updatedAt')
+        );
+        const audiobookSeriesMaps = yield* db.execute(
+          db
+            .selectFrom('audiobookSeriesMap')
+            .select(syncColumns.audiobookSeriesMap)
+            .where('updatedAt', '>=', checkpoint.audiobookSeriesMap)
+            .orderBy('updatedAt')
+        );
+        const audiobookContributors = yield* db.execute(
+          db
+            .selectFrom('audiobookContributor')
+            .select(syncColumns.audiobookContributor)
+            .where('updatedAt', '>=', checkpoint.audiobookContributor)
+            .orderBy('updatedAt')
+        );
+        const audiobookContributorRoles = yield* db.execute(
+          db.selectFrom('audiobookContributorRole').select(syncColumns.audiobookContributorRole)
+        );
+        const audiobookContributorMaps = yield* db.execute(
+          db
+            .selectFrom('audiobookContributorMap')
+            .select(syncColumns.audiobookContributorMap)
+            .where('updatedAt', '>=', checkpoint.audiobookContributorMap)
+            .orderBy('updatedAt')
+        );
+        const libraries = yield* db.execute(
+          db
+            .selectFrom('library')
+            .select(syncColumns.library)
+            .where('updatedAt', '>=', checkpoint.library)
+            .orderBy('updatedAt')
+        );
+        const libraryPaths = yield* db.execute(
+          db
+            .selectFrom('libraryPath')
+            .select(syncColumns.libraryPath)
+            .where('updatedAt', '>=', checkpoint.libraryPath)
+            .orderBy('updatedAt')
+        );
+        const mediaFiles = yield* db.execute(
+          db
+            .selectFrom('mediaFile')
+            .select(syncColumns.mediaFile)
+            .where('updatedAt', '>=', checkpoint.mediaFile)
+            .orderBy('updatedAt')
+        );
+        const libraryFileMaps = yield* db.execute(
+          db
+            .selectFrom('libraryFileMap')
+            .select(syncColumns.libraryFileMap)
+            .where('updatedAt', '>=', checkpoint.libraryFileMap)
+            .orderBy('updatedAt')
+        );
+
+        const selectedHistory = {
+          mediaType: mediaTypes,
+          mediaItem: mediaItems,
+          audiobook: audiobooks,
+          audiobookSeries,
+          audiobookSeriesMap: audiobookSeriesMaps,
+          audiobookContributor: audiobookContributors,
+          audiobookContributorRole: audiobookContributorRoles,
+          audiobookContributorMap: audiobookContributorMaps,
+          library: libraries,
+          libraryPath: libraryPaths,
+          mediaFile: mediaFiles,
+          libraryFileMap: libraryFileMaps,
+        } satisfies {
+          [Table in SyncTable]: ReadonlyArray<SyncTableRow<Table>>;
+        };
+
+        const history = yield* Effect.all(
+          [
+            ...selectedHistory.mediaType.map((row) => ({ _tag: 'mediaType' as const, ...row })),
+            ...selectedHistory.mediaItem.map((row) => ({ _tag: 'mediaItem' as const, ...row })),
+            ...selectedHistory.audiobook.map((row) => ({ _tag: 'audiobook' as const, ...row })),
+            ...selectedHistory.audiobookSeries.map((row) => ({
+              _tag: 'audiobookSeries' as const,
+              ...row,
+            })),
+            ...selectedHistory.audiobookSeriesMap.map((row) => ({
+              _tag: 'audiobookSeriesMap' as const,
+              ...row,
+            })),
+            ...selectedHistory.audiobookContributor.map((row) => ({
+              _tag: 'audiobookContributor' as const,
+              ...row,
+            })),
+            ...selectedHistory.audiobookContributorRole.map((row) => ({
+              _tag: 'audiobookContributorRole' as const,
+              ...row,
+            })),
+            ...selectedHistory.audiobookContributorMap.map((row) => ({
+              _tag: 'audiobookContributorMap' as const,
+              ...row,
+            })),
+            ...selectedHistory.library.map((row) => ({ _tag: 'library' as const, ...row })),
+            ...selectedHistory.libraryPath.map((row) => ({
+              _tag: 'libraryPath' as const,
+              ...row,
+            })),
+            ...selectedHistory.mediaFile.map((row) => ({ _tag: 'mediaFile' as const, ...row })),
+            ...selectedHistory.libraryFileMap.map((row) => ({
+              _tag: 'libraryFileMap' as const,
+              ...row,
+            })),
+          ].map((payload) => decode({ type: 'history', payload }).pipe(Effect.orDie))
+        );
 
         return Stream.fromIterable(history).pipe(
           Stream.concat(
@@ -99,7 +207,7 @@ export const SyncHandlersLayerNoDeps = SyncRpcs.toLayerHandler(
                 Stream.fromIterable(
                   update.rows.map((row) => ({
                     type: 'live' as const,
-                    payload: { table: update.table, row },
+                    payload: { _tag: update.table, ...row },
                   }))
                 )
               ),

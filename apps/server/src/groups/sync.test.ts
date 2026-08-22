@@ -8,7 +8,14 @@ import { sql } from '@repo/effect-kysely';
 import { MediaFile, MediaType } from '@repo/spec-api/database/schema.ts';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import type { SyncEvent } from '@repo/spec-api/groups/sync.ts';
-import { SyncCheckpoint, SyncRpcs, SyncSlowConsumerError } from '@repo/spec-api/groups/sync.ts';
+import {
+  SyncCheckpoint,
+  SyncRpcs,
+  SyncSlowConsumerError,
+  syncColumns,
+  syncPrimaryKeys,
+  syncTables,
+} from '@repo/spec-api/groups/sync.ts';
 
 import { LibraryHandlersLayerNoDeps } from '#src/groups/library.ts';
 import { SyncHandlersLayerNoDeps, bufferLiveUpdates } from '#src/groups/sync.ts';
@@ -77,6 +84,31 @@ it.effect(
 
 it.layer(TestLayer)('sync', (iit) => {
   iit.effect(
+    'keeps sync projections aligned with the physical server tables',
+    Effect.fnUntraced(function* () {
+      const { db } = yield* Database;
+
+      for (const table of syncTables) {
+        const result = yield* db.executeRaw(
+          sql<{ readonly name: string; readonly pk: number }>`
+            select name, pk from pragma_table_info(${table})
+            order by cid
+          `
+        );
+        expect(
+          result.rows.map((column) => column.name).toSorted((a, b) => a.localeCompare(b))
+        ).toEqual(syncColumns[table].toSorted((a, b) => a.localeCompare(b)));
+        expect(
+          result.rows
+            .filter((column) => column.pk > 0)
+            .toSorted((a, b) => a.pk - b.pk)
+            .map((column) => column.name)
+        ).toEqual([syncPrimaryKeys[table]]);
+      }
+    })
+  );
+
+  iit.effect(
     'streams ordered history followed by committed live updates',
     Effect.fnUntraced(function* () {
       const authLayer = yield* makeAuthedClient({ username: 'sync.admin', role: 'admin' });
@@ -95,26 +127,26 @@ it.layer(TestLayer)('sync', (iit) => {
 
       expect(history.at(-1)).toEqual({ type: 'historyComplete' });
       const libraryHistory = history.find(
-        (event) => event.type === 'history' && event.payload.table === 'library'
+        (event) => event.type === 'history' && event.payload._tag === 'library'
       );
-      expect(libraryHistory?.type === 'history' && libraryHistory.payload.row).toMatchObject({
+      expect(libraryHistory?.type === 'history' && libraryHistory.payload).toMatchObject({
         id: library.id,
         name: 'History library',
       });
-      if (libraryHistory?.type !== 'history' || libraryHistory.payload.table !== 'library') {
+      if (libraryHistory?.type !== 'history' || libraryHistory.payload._tag !== 'library') {
         return yield* Effect.die('Expected library history');
       }
       expect(history.filter((event) => event.type === 'history').slice(0, 3)).toMatchObject([
-        { payload: { table: 'mediaType' } },
-        { payload: { table: 'mediaType' } },
-        { payload: { table: 'mediaType' } },
+        { payload: { _tag: 'mediaType' } },
+        { payload: { _tag: 'mediaType' } },
+        { payload: { _tag: 'mediaType' } },
       ]);
 
       const checkpointedHistory = yield* syncClient
         .sync(
           SyncCheckpoint.make({
             ...emptyCheckpointFields,
-            library: libraryHistory.payload.row.updatedAt + 1,
+            library: libraryHistory.payload.updatedAt + 1,
           })
         )
         .pipe(
@@ -123,7 +155,7 @@ it.layer(TestLayer)('sync', (iit) => {
         );
       expect(
         checkpointedHistory.some(
-          (event) => event.type === 'history' && event.payload.table === 'library'
+          (event) => event.type === 'history' && event.payload._tag === 'library'
         )
       ).toBe(false);
 
@@ -134,7 +166,7 @@ it.layer(TestLayer)('sync', (iit) => {
           if (event.type === 'historyComplete') {
             return Deferred.succeed(historyComplete, true);
           }
-          if (event.type === 'live' && event.payload.table === 'library') {
+          if (event.type === 'live' && event.payload._tag === 'library') {
             return Deferred.succeed(liveEvent, event);
           }
           return Effect.void;
@@ -153,8 +185,8 @@ it.layer(TestLayer)('sync', (iit) => {
       expect(yield* Deferred.await(liveEvent)).toMatchObject({
         type: 'live',
         payload: {
-          table: 'library',
-          row: { name: 'Live library' },
+          _tag: 'library',
+          name: 'Live library',
         },
       });
       return void 0;

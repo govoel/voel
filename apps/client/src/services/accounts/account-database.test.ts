@@ -7,6 +7,7 @@ import { Effect } from 'effect';
 import { sql } from '@repo/effect-kysely';
 import { BunSqliteDialect } from '@repo/effect-kysely/dialect.ts';
 import { Library, MediaType } from '@repo/spec-api/database/schema.ts';
+import { syncColumns, syncPrimaryKeys, syncTables } from '@repo/spec-api/groups/sync.ts';
 
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import {
@@ -23,6 +24,24 @@ it.effect(
     function* () {
       const db = yield* AccountDatabase;
 
+      for (const table of syncTables) {
+        const result = yield* db.executeRaw(
+          sql<{ readonly name: string; readonly pk: number }>`
+            select name, pk from pragma_table_info(${table})
+            order by cid
+          `
+        );
+        expect(
+          result.rows.map((column) => column.name).toSorted((a, b) => a.localeCompare(b))
+        ).toEqual(syncColumns[table].toSorted((a, b) => a.localeCompare(b)));
+        expect(
+          result.rows
+            .filter((column) => column.pk > 0)
+            .toSorted((a, b) => a.pk - b.pk)
+            .map((column) => column.name)
+        ).toEqual([syncPrimaryKeys[table]]);
+      }
+
       yield* db.executeRaw(sql`
         insert into library (id, type, name, createdAt, updatedAt, deletedAt)
         values (1, 'audiobook', 'Local replica', 10, 10, null)
@@ -34,15 +53,13 @@ it.effect(
       expect(yield* db.execute(db.selectFrom('mediaType').selectAll())).toEqual([]);
 
       yield* applySyncRow(db, {
-        table: 'library',
-        row: {
-          id: Library.fields.id.make(1),
-          type: MediaType.fields.type.make('movie'),
-          name: Library.fields.name.make('Live update'),
-          createdAt: 10,
-          updatedAt: 20,
-          deletedAt: null,
-        },
+        _tag: 'library',
+        id: Library.fields.id.make(1),
+        type: MediaType.fields.type.make('movie'),
+        name: Library.fields.name.make('Live update'),
+        createdAt: 10,
+        updatedAt: 20,
+        deletedAt: null,
       });
       expect(
         yield* db.executeTakeFirstOrUndefined(db.selectFrom('library').selectAll())
