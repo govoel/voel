@@ -8,7 +8,7 @@ Replace the custom database replication protocol with Turso Database (not libsql
 
 - `auth.db`: Better Auth and all server-only state. Never synced.
 - `libraries.db`: only client-safe shared tables and columns. Server writes; clients pull.
-- `users/<user-id>.db`: user-private database for playback history, settings, etc. Bidirectional sync.
+- `users/<user-id>.db`: user-private database for playback history, settings, etc. Server writes; clients pull. Clients use outbox for offline writes instead of Turso sync since Turso sync uses last push wins for conflict resolution.
 
 Turso syncs whole databases, so we need to use files instead of table filters as the security boundary.
 
