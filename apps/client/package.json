@@ -20,7 +20,7 @@
     "@expo-google-fonts/google-sans": "0.4.2",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~57.0.11",
-    "@op-engineering/op-sqlite": "18.1.1",
+    "@op-engineering/op-sqlite": "18.1.4",
     "@repo/auth-api": "workspace:*",
     "@repo/effect-kysely": "workspace:*",
     "@repo/spec-api": "workspace:*",
