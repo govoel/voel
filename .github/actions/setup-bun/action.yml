@@ -9,12 +9,12 @@ runs:
     - name: Authenticate GitHub Packages
       shell: bash
       env:
-        # Callers may set GITHUB_PACKAGES_TOKEN to a PAT with read:packages;
+        # Callers may set GH_PACKAGES_TOKEN to a PAT with read:packages;
         # otherwise the workflow's own token is used.
-        GITHUB_PACKAGES_TOKEN: ${{ env.GITHUB_PACKAGES_TOKEN || github.token }}
+        GH_PACKAGES_TOKEN: ${{ env.GH_PACKAGES_TOKEN || github.token }}
       run: |
-        if [ -n "${GITHUB_PACKAGES_TOKEN}" ]; then
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        if [ -n "${GH_PACKAGES_TOKEN}" ]; then
+          echo "//npm.pkg.github.com/:_authToken=${GH_PACKAGES_TOKEN}" >> ~/.npmrc
         fi
     - name: Install Dependencies
       shell: bash
