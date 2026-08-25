@@ -20,7 +20,7 @@ const AllRoutesLayer = RpcServer.layerHttp({
     LibraryHandlersLayer,
     AuthMiddlewareLayer,
     AdminMiddlewareLayer,
-    RpcSerialization.layerMsgPack,
+    RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true }),
   ])
 );
 
