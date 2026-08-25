@@ -4,7 +4,6 @@ import * as Config from 'effect/Config';
 import * as Context from 'effect/Context';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
-import { identity } from 'effect/Function';
 import * as Layer from 'effect/Layer';
 import * as Predicate from 'effect/Predicate';
 import * as Scope from 'effect/Scope';
@@ -46,6 +45,12 @@ type TursoDatabase = InstanceType<typeof Database>;
 export type RunInfo = Awaited<ReturnType<TursoDatabase['run']>>;
 
 type Row = Record<string, unknown>;
+
+type RunResult<Mode extends 'object' | 'array' | 'info'> = Mode extends 'info'
+  ? RunInfo
+  : Mode extends 'array'
+    ? ReadonlyArray<ReadonlyArray<unknown>>
+    : ReadonlyArray<Row>;
 
 /**
  * Service shape for the Turso SQL client, extending the generic `SqlClient`
@@ -106,7 +111,13 @@ export const make = (
               readonly: options.readonly ?? false,
               timeout: busyTimeoutMillis,
             }),
-          catch: (cause) => classify(cause, 'Failed to connect to database', 'connect'),
+          catch: (cause) =>
+            SqlError.make({
+              reason: classifyTursoError(cause, {
+                message: 'Failed to connect to database',
+                operation: 'connect',
+              }),
+            }),
         }),
         (database) => Effect.ignore(Effect.promise(async () => database.close()))
       );
@@ -114,7 +125,13 @@ export const make = (
       const prepareStatement = (sql: string) =>
         Effect.tryPromise({
           try: async () => db.prepare(sql),
-          catch: (cause) => classify(cause, 'Failed to prepare statement', 'prepare'),
+          catch: (cause) =>
+            SqlError.make({
+              reason: classifyTursoError(cause, {
+                message: 'Failed to prepare statement',
+                operation: 'prepare',
+              }),
+            }),
         });
 
       const runStatement = (
@@ -138,10 +155,17 @@ export const make = (
                 const info = await statement.run(...params);
                 return { changes: info.changes, lastInsertRowid: info.lastInsertRowid };
               }
-              const rows: ReadonlyArray<unknown> = await statement.all(...params);
-              return rows;
+              // The driver types `.all()` loosely; treat rows as opaque.
+              // oxlint-disable-next-line typescript/no-unsafe-return
+              return statement.all(...params);
             },
-            catch: (cause) => classify(cause, 'Failed to execute statement', 'execute'),
+            catch: (cause) =>
+              SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to execute statement',
+                  operation: 'execute',
+                }),
+              }),
           }).pipe(
             Effect.ensuring(
               Effect.sync(() => {
@@ -151,32 +175,19 @@ export const make = (
           );
         });
 
-      function run(
+      const run = <Mode extends 'object' | 'array' | 'info'>(
         sql: string,
         params: ReadonlyArray<unknown>,
-        mode: 'object'
-      ): Effect.Effect<ReadonlyArray<Row>, SqlError>;
-      function run(
-        sql: string,
-        params: ReadonlyArray<unknown>,
-        mode: 'array'
-      ): Effect.Effect<ReadonlyArray<ReadonlyArray<unknown>>, SqlError>;
-      function run(
-        sql: string,
-        params: ReadonlyArray<unknown>,
-        mode: 'info'
-      ): Effect.Effect<RunInfo, SqlError>;
-      function run(
-        sql: string,
-        params: ReadonlyArray<unknown>,
-        mode: 'object' | 'array' | 'info'
-      ): Effect.Effect<ReadonlyArray<unknown> | RunInfo, SqlError> {
-        return Effect.flatMap(prepareStatement(sql), (statement) =>
+        mode: Mode
+      ): Effect.Effect<RunResult<Mode>, SqlError> =>
+        // The conditional `RunResult` is decided by the caller's `mode`
+        // literal, which the implementation cannot observe statically.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        Effect.flatMap(prepareStatement(sql), (statement) =>
           runStatement(statement, params, mode)
-        );
-      }
+        ) as Effect.Effect<RunResult<Mode>, SqlError>;
 
-      return identity<Connection>({
+      return {
         execute(sql, params, transformRows) {
           const effect = run(sql, params, 'object');
           return transformRows ? effect.pipe(Effect.map((rows) => transformRows(rows))) : effect;
@@ -197,7 +208,7 @@ export const make = (
         executeStream(_sql, _params) {
           return Stream.die('executeStream not implemented');
         },
-      });
+      } satisfies Connection;
     });
 
     const semaphore = yield* Semaphore.make(1);
@@ -270,9 +281,6 @@ export class TursoClient extends Context.Service<TursoClient, TursoClientService
 }
 
 // internal
-
-const classify = (cause: unknown, message: string, operation: string): SqlError =>
-  SqlError.make({ reason: classifyTursoError(cause, { message, operation }) });
 
 /**
  * Classifies a `@govoel/turso-database` failure into a `SqlErrorReason`.
