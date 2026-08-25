@@ -6,8 +6,8 @@ import * as Reactivity from 'effect/unstable/reactivity/Reactivity';
 import { SafeIntegers, SqlClient } from 'effect/unstable/sql/SqlClient';
 import { isSqlError } from 'effect/unstable/sql/SqlError';
 
-import { TursoClient } from './turso-client.ts';
-import type { RunInfo, TursoClientConfig } from './turso-client.ts';
+import { TursoClient } from './index.ts';
+import type { RunInfo, TursoClientConfig } from './index.ts';
 
 const isRunInfo = (value: unknown): value is RunInfo =>
   typeof value === 'object' && value !== null && 'changes' in value && 'lastInsertRowid' in value;
