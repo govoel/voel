@@ -1,5 +1,5 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect, Option, Queue, Random } from 'effect';
+import { Effect, Option, Queue, Random, Schema } from 'effect';
 import { RpcServer } from 'effect/unstable/rpc';
 import type { RpcMessage } from 'effect/unstable/rpc';
 
@@ -123,6 +123,7 @@ export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
         supportsTransferables: false,
         supportsSpanPropagation: false,
         supportsNotifications: true,
+        codecFor: Schema.toCodecJson,
       };
     })
   );

@@ -10,7 +10,7 @@
         "agent-browser": "0.34.0",
         "agent-device": "0.20.10",
         "bun-types": "1.4.0",
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
         "eslint-plugin-turbo": "2.10.11",
         "opensrc": "0.7.3",
         "oxfmt": "0.65.0",
@@ -25,7 +25,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.7.1",
-        "@effect/atom-react": "4.0.0-rc.111",
+        "@effect/atom-react": "4.0.0-rc.112",
         "@expo-google-fonts/google-sans": "0.4.2",
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~57.0.13",
@@ -35,7 +35,7 @@
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.5",
         "better-auth": "1.7.1",
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
         "expo": "~57.0.16",
         "expo-build-properties": "~57.0.14",
         "expo-constants": "~57.0.14",
@@ -60,8 +60,8 @@
         "react-native-xxhash": "0.1.10",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.0-rc.111",
-        "@effect/vitest": "4.0.0-rc.111",
+        "@effect/platform-bun": "4.0.0-rc.112",
+        "@effect/vitest": "4.0.0-rc.112",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@repo/effect-atom-devtools-rozenite": "workspace:*",
         "@repo/tsconfig": "workspace:*",
@@ -81,15 +81,15 @@
       "name": "@repo/server",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/platform-bun": "4.0.0-rc.111",
+        "@effect/platform-bun": "4.0.0-rc.112",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-kysely": "workspace:*",
         "@repo/source-tap": "workspace:*",
         "@repo/spec-api": "workspace:*",
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-rc.111",
+        "@effect/vitest": "4.0.0-rc.112",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.0",
         "portless": "0.15.6",
@@ -104,7 +104,7 @@
         "@better-auth/expo": "1.7.1",
         "@repo/effect-kysely": "workspace:*",
         "better-auth": "1.7.1",
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -116,10 +116,10 @@
       "name": "@repo/effect-atom-devtools-core",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-rc.111",
+        "@effect/vitest": "4.0.0-rc.112",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.0",
         "typescript": "7.0.2",
@@ -130,15 +130,15 @@
       "name": "@repo/effect-atom-devtools-rozenite",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/atom-react": "4.0.0-rc.111",
+        "@effect/atom-react": "4.0.0-rc.112",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@rozenite/agent-shared": "2.2.0",
         "@rozenite/plugin-bridge": "2.2.0",
         "@rozenite/ui": "2.2.0",
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-rc.111",
+        "@effect/vitest": "4.0.0-rc.112",
         "@repo/tsconfig": "workspace:*",
         "@rozenite/vite-plugin": "2.2.0",
         "@types/react": "~19.2.2",
@@ -156,7 +156,7 @@
       "name": "@repo/effect-kysely",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
         "kysely": "0.29.5",
       },
       "devDependencies": {
@@ -170,10 +170,10 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/effect-kysely": "workspace:*",
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-rc.111",
+        "@effect/vitest": "4.0.0-rc.112",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.0",
         "typescript": "7.0.2",
@@ -186,7 +186,7 @@
       "dependencies": {
         "@repo/auth-api": "workspace:*",
         "@repo/effect-kysely": "workspace:*",
-        "effect": "4.0.0-rc.111",
+        "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -374,9 +374,9 @@
 
     "@clack/prompts": ["@clack/prompts@0.11.0", "", { "dependencies": { "@clack/core": "0.5.0", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.0.0-rc.111", "", { "peerDependencies": { "effect": "^4.0.0-rc.111", "react": ">=19.2.7 <20.0.0", "scheduler": ">=0.27.0 <0.28.0" } }, "sha512-MQgX2+ayms/J686g19vV2AkLSocMaubZmFf2VFrWN3fwPg60XXsaPtlQKdcsIy/McxVGZYgYUPXBVVtcmUjjSA=="],
+    "@effect/atom-react": ["@effect/atom-react@4.0.0-rc.112", "", { "peerDependencies": { "effect": "^4.0.0-rc.112", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.28.0" } }, "sha512-Ksf90KQa6D4UDnMj4M84arlVKNIuwxxF2GvgXBzuaYi2LsgririsUhKQ5SYaK1euf8oIYeamEuthoZSbUQmIhw=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-rc.111", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.111" }, "peerDependencies": { "effect": "^4.0.0-rc.111" } }, "sha512-z6MF1ztw8oSvh4nlvI90wraB63ib5K67JPaSYtz5K9IIAgjXgXYC0hjbcqF+PlC9ytlQmu8tWzk2+yGePWWe5A=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-rc.112", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.112" }, "peerDependencies": { "effect": "^4.0.0-rc.112" } }, "sha512-Y5n2HhV/vsbrJls9ukX42RL7zqXQxISHegWFsP9njsCyDmGTnq7QYSO82rglwrLPwtTrv5dkSRTuGw4+oXxgMg=="],
 
     "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-rc.112", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.3" }, "peerDependencies": { "effect": "^4.0.0-rc.112" } }, "sha512-ttjz0xKamFN7vL8pNDYVwddJLjZvqKePc05djlz2VcdaKbLsnYbtMnL1rbOfHgEnIUSHGh7FkjaN4DM1Ov81sQ=="],
 
@@ -396,7 +396,7 @@
 
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.36.5", "", { "os": "win32", "cpu": "x64" }, "sha512-pmaKwdYAIs9GFpMV9glIUks0UZDHE1/xwP6+GCGhSFxB76cDLMnrHr/IBt5VfGddT65SK+Dyw/vAtcX7fRp4KA=="],
 
-    "@effect/vitest": ["@effect/vitest@4.0.0-rc.111", "", { "peerDependencies": { "effect": "^4.0.0-rc.111", "vitest": ">=4.1.0 <5.0.0" } }, "sha512-YDaEVT+grREBVMzykRNFtJwGxy02achzT0WXZYwMJA4ukzuB9krkgQ5roc3N6zhC3NQq/j4IyM32/Pcov7AhHw=="],
+    "@effect/vitest": ["@effect/vitest@4.0.0-rc.112", "", { "peerDependencies": { "effect": "^4.0.0-rc.112", "vitest": ">=4.1.0 <5.0.0" } }, "sha512-mEKh/FI64mt8JK1/v9mpOrJYdnp+UFZdRUBMEdZMiKz7klg6NPqVgg/oeAGH6wOOQc2iAPcfc2H9BbAv1KyzMQ=="],
 
     "@electron/get": ["@electron/get@2.0.3", "", { "dependencies": { "debug": "^4.1.1", "env-paths": "^2.2.0", "fs-extra": "^8.1.0", "got": "^11.8.5", "progress": "^2.0.3", "semver": "^6.2.0", "sumchecker": "^3.0.1" }, "optionalDependencies": { "global-agent": "^3.0.0" } }, "sha512-Qkzpg2s9GnVV2I2BjRksUi43U5e6+zaQMcjoJy0C+C5oxaKl+fmckGDQFtRpZpZV0NQekuZZ+tGz7EA9TVnQtQ=="],
 
@@ -1340,7 +1340,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.0-rc.111", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "msgpackr": "^2.0.5" } }, "sha512-ASd5L58EIR0CUNueZNKKjSsyOCd+2alxOAIaTcHaqkJkPsaYSsw5Cg/cfANk5K4Jr2YsX756xvX11shzqsreWA=="],
+    "effect": ["effect@4.0.0-rc.112", "", { "dependencies": { "fast-check": "^4.9.0", "msgpackr": "^2.0.5" } }, "sha512-wXxwuh1Ywnv4cPRM3Wfa0vDwuOHnZ1TsTgHJkG9XgzND6inhBH9n1vBxhg3iIXOia/OrpmvVmd3lrD4vq6bF3A=="],
 
     "ejs": ["ejs@3.1.10", "", { "dependencies": { "jake": "^10.8.5" }, "bin": { "ejs": "bin/cli.js" } }, "sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA=="],
 
