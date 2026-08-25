@@ -166,6 +166,22 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/effect-turso": {
+      "name": "@repo/effect-turso",
+      "version": "0.0.0",
+      "dependencies": {
+        "@govoel/turso-database": "0.8.0-pre.7",
+        "effect": "4.0.0-rc.111",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "4.0.0-rc.111",
+        "@effect/vitest": "4.0.0-rc.111",
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.4.0",
+        "typescript": "7.0.2",
+        "vitest": "4.1.11",
+      },
+    },
     "packages/source-tap": {
       "name": "@repo/source-tap",
       "version": "0.0.0",
@@ -550,6 +566,16 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
 
+    "@govoel/turso-database": ["@govoel/turso-database@0.8.0-pre.7", "https://npm.pkg.github.com/download/@govoel/turso-database/0.8.0-pre.7/8ebe90377fd06e4e4ea45a4385f5940559fb443d", { "dependencies": { "@tursodatabase/database-common": "^0.8.0-pre.7" }, "optionalDependencies": { "@govoel/turso-database-darwin-arm64": "0.8.0-pre.7", "@govoel/turso-database-linux-arm64-gnu": "0.8.0-pre.7", "@govoel/turso-database-linux-x64-gnu": "0.8.0-pre.7", "@govoel/turso-database-win32-x64-msvc": "0.8.0-pre.7" } }, "sha512-0ekVBHdIc5oPSkeEqniIB2O/1q7j8A7Ffq2dO91aNqWFfMd856a2Pzxu66esTe9zcjDKUQcd/WZc/90RaJaj9w=="],
+
+    "@govoel/turso-database-darwin-arm64": ["@govoel/turso-database-darwin-arm64@0.8.0-pre.7", "https://npm.pkg.github.com/download/@govoel/turso-database-darwin-arm64/0.8.0-pre.7/f7c9022c289b3c96591efa1d5821b3402cb085b9", { "os": "darwin", "cpu": "arm64" }, "sha512-lHraEn5zlFrlsxSx2Wpjk8z4mUEPs775Wo7yrbqWqoTrt61CvdH2wQyk15w2HuTVUyMHa87WmBr+wes8lnJxpA=="],
+
+    "@govoel/turso-database-linux-arm64-gnu": ["@govoel/turso-database-linux-arm64-gnu@0.8.0-pre.7", "https://npm.pkg.github.com/download/@govoel/turso-database-linux-arm64-gnu/0.8.0-pre.7/04fa26496fe2ef95f1e304c40e7b4552a6485678", { "os": "linux", "cpu": "arm64" }, "sha512-hNObgur46I3Uz8PPdJaU9yFTsIHDcQKUg/n+y8t1gjckWYss0hUaVaSIJTIDQw8ocob2YBlB5MlPwYYKLh3Nfg=="],
+
+    "@govoel/turso-database-linux-x64-gnu": ["@govoel/turso-database-linux-x64-gnu@0.8.0-pre.7", "https://npm.pkg.github.com/download/@govoel/turso-database-linux-x64-gnu/0.8.0-pre.7/11f61406c16fe30c7c4ce5792360a65ea1581106", { "os": "linux", "cpu": "x64" }, "sha512-PgtDnIhr0BLFKN1bWzx1RH9wxLH1b8uhIcGNZT80t9IlNn0/kiLV/12BOPZ/QJTmlMqC2KO+0+m8xi/FlZhMvQ=="],
+
+    "@govoel/turso-database-win32-x64-msvc": ["@govoel/turso-database-win32-x64-msvc@0.8.0-pre.7", "https://npm.pkg.github.com/download/@govoel/turso-database-win32-x64-msvc/0.8.0-pre.7/495c7b2618d43ab075ab37cc4fb0613959054b59", { "os": "win32", "cpu": "x64" }, "sha512-hHZr3+YlgGD13yOnCTRLN6Ww9njDdX4xSUoq75eFxKIeE4th3DtrfbMs9/F6XmSUSENdhRPMwPQp9Q+CHpXwaA=="],
+
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 
     "@humanfs/node": ["@humanfs/node@0.16.8", "", { "dependencies": { "@humanfs/core": "^0.19.2", "@humanfs/types": "^0.15.0", "@humanwhocodes/retry": "^0.4.0" } }, "sha512-gE1eQNZ3R++kTzFUpdGlpmy8kDZD/MLyHqDwqjkVQI0JMdI1D51sy1H958PNXYkM2rAac7e5/CnIKZrHtPh3BQ=="],
@@ -792,6 +818,8 @@
 
     "@repo/effect-kysely": ["@repo/effect-kysely@workspace:packages/effect-kysely"],
 
+    "@repo/effect-turso": ["@repo/effect-turso@workspace:packages/effect-turso"],
+
     "@repo/server": ["@repo/server@workspace:apps/server"],
 
     "@repo/source-tap": ["@repo/source-tap@workspace:packages/source-tap"],
@@ -987,6 +1015,8 @@
     "@turbo/windows-64": ["@turbo/windows-64@2.10.11", "", { "os": "win32", "cpu": "x64" }, "sha512-4aD7edogJ8arK8DOyvjTI2KKwmchD5M/WM4BZgidrtFf7aSgn8Ce2rJnDwmriw980c2cKlHnhXtlGy38VtKB8g=="],
 
     "@turbo/windows-arm64": ["@turbo/windows-arm64@2.10.11", "", { "os": "win32", "cpu": "arm64" }, "sha512-m8tJkIrTrbQ9O1uHxV0GUq623Zg1678xGna8eMsy4KbygUX/wVFgdZDYV/AxyoyaW/U7nyKoBvaDVwm22p9xqA=="],
+
+    "@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.0-pre.7", "", {}, "sha512-Fh+IdqE3ejvgU4cjlYoYArQsm2vLO+iyRGRUFFyqrNDGsldUYwmY3qaMH9gXAjmvVA5a2+tj1o8tk2CMmJ8iWQ=="],
 
     "@types/argparse": ["@types/argparse@1.0.38", "", {}, "sha512-ebDJ9b0e702Yr7pWgB0jzm+CX4Srzz8RcXtLJDJB+BSccqMa36uyH/zUsSYao5+BD1ytv3k3rPYCq4mAE1hsXA=="],
 
