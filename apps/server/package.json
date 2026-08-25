@@ -17,18 +17,18 @@
     "test": "bun --bun run vitest"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-rc.111",
+    "@effect/platform-bun": "4.0.0-rc.112",
     "@repo/auth-api": "workspace:*",
     "@repo/effect-kysely": "workspace:*",
     "@repo/source-tap": "workspace:*",
     "@repo/spec-api": "workspace:*",
-    "effect": "4.0.0-rc.111"
+    "effect": "4.0.0-rc.112"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/vitest": "4.0.0-rc.112",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.4.0",
-    "portless": "0.15.5",
+    "portless": "0.15.6",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
   }

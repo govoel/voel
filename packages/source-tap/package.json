@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@repo/effect-kysely": "workspace:*",
-    "effect": "4.0.0-rc.111"
+    "effect": "4.0.0-rc.112"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/vitest": "4.0.0-rc.112",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.4.0",
     "typescript": "7.0.2",
