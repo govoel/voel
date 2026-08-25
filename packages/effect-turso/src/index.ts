@@ -240,7 +240,7 @@ export const make = (
  * Service tag for the Turso client implementation.
  */
 export class TursoClient extends Context.Service<TursoClient, TursoClientService>()(
-  '@repo/effect-turso/turso-client/TursoClient'
+  '@repo/effect-turso/TursoClient'
 ) {
   /**
    * See {@link make}.
