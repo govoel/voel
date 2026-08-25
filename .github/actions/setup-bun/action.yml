@@ -8,13 +8,13 @@ runs:
       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
     - name: Authenticate GitHub Packages
       shell: bash
-      env:
-        # Callers may set GH_PACKAGES_TOKEN to a PAT with read:packages;
-        # otherwise the workflow's own token is used.
-        GH_PACKAGES_TOKEN: ${{ env.GH_PACKAGES_TOKEN || github.token }}
+      # Composite actions cannot read the secrets context, so callers export
+      # GH_PACKAGES_TOKEN (a PAT with read:packages) as job-level env.
       run: |
         if [ -n "${GH_PACKAGES_TOKEN}" ]; then
           echo "//npm.pkg.github.com/:_authToken=${GH_PACKAGES_TOKEN}" >> ~/.npmrc
+        else
+          echo "::warning::GH_PACKAGES_TOKEN not set; @govoel packages will fail to install"
         fi
     - name: Install Dependencies
       shell: bash
