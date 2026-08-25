@@ -1,0 +1,29 @@
+{
+  "name": "@repo/effect-turso",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": {
+    ".": "./src/turso-client.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun --bun run vitest"
+  },
+  "dependencies": {
+    "@govoel/turso-database": "0.8.0-pre.7",
+    "effect": "4.0.0-rc.111"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "4.0.0-rc.111",
+    "@effect/vitest": "4.0.0-rc.111",
+    "@repo/tsconfig": "workspace:*",
+    "bun-types": "1.4.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
