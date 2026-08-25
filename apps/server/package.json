@@ -28,7 +28,7 @@
     "@effect/vitest": "4.0.0-rc.111",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.4.0",
-    "portless": "0.15.5",
+    "portless": "0.15.6",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
   }
