@@ -69,6 +69,18 @@ describe('TursoClient', () => {
     }).pipe(Effect.provide(TestLayer))
   );
 
+  it.effect('returns rows from raw queries', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
+      yield* sql`CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)`;
+      yield* sql`INSERT INTO test (name) VALUES ('hello')`;
+
+      const rows = yield* sql`SELECT * FROM test`.raw;
+      expect(rows).toEqual([{ id: 1, name: 'hello' }]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
   it.effect('returns positional values', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
