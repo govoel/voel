@@ -120,7 +120,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
               try: async () => {
                 statement.safeIntegers(useSafeIntegers);
                 if (statement.columns().length > 0) {
-                  statement.raw(true);
+                  statement.raw(false);
                   return statement.all(...params);
                 }
                 return statement.run(...params);
@@ -258,7 +258,7 @@ const classifyTursoError = (
   if (text.includes('syntax error') || text.includes('Parse error')) {
     return SqlError.SqlSyntaxError.make(props);
   }
-  if (text.includes('is locked')) {
+  if (text.includes('is locked') || text.includes('database is busy')) {
     return SqlError.LockTimeoutError.make(props);
   }
   if (text.includes('failed to open database') || text.includes('unable to open database')) {
