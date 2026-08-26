@@ -90,6 +90,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
           ),
       });
 
+      const operationSemaphore = yield* Semaphore.make(1);
       const run = (sql: string, params: ReadonlyArray<unknown>) =>
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
           Effect.withFiber((fiber) => {
@@ -109,7 +110,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
                 }),
             });
           })
-        );
+        ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
@@ -133,7 +134,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
                 }),
             });
           })
-        );
+        ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       const runValues = (sql: string, params: ReadonlyArray<unknown>) =>
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
@@ -154,10 +155,9 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
                 }),
             });
           })
-        );
+        ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       return {
-        handleSyncRequest: db.handleSyncRequest.bind(db),
         connection: {
           execute(sql, params, transformRows) {
             return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
@@ -182,7 +182,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     });
 
     const semaphore = yield* Semaphore.make(1);
-    const { connection, handleSyncRequest } = yield* makeConnection;
+    const { connection } = yield* makeConnection;
 
     const acquirer = Effect.acquireRelease(Effect.as(semaphore.take(1), connection), () =>
       semaphore.release(1)
@@ -206,12 +206,12 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       acquirer,
       compiler,
       transactionAcquirer,
-      beginTransaction: 'BEGIN IMMEDIATE',
+      beginTransaction: options.readonly === true ? 'BEGIN' : 'BEGIN IMMEDIATE',
       spanAttributes,
       transformRows: defaultTransformRows,
     });
 
-    return Object.assign(client, { config: options, handleSyncRequest });
+    return Object.assign(client, { config: options });
   }),
 }) {
   public static readonly layer = (config: Parameters<typeof this.make>[0]) =>
