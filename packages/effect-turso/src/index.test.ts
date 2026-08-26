@@ -6,8 +6,8 @@ import * as Reactivity from 'effect/unstable/reactivity/Reactivity';
 import { SafeIntegers, SqlClient } from 'effect/unstable/sql/SqlClient';
 import { isSqlError } from 'effect/unstable/sql/SqlError';
 
-import { TursoClient } from './index.ts';
-import type { RunInfo, TursoClientConfig } from './index.ts';
+import { TursoClient } from '#src/index.ts';
+import type { RunInfo } from '#src/index.ts';
 
 const isRunInfo = (value: unknown): value is RunInfo =>
   typeof value === 'object' && value !== null && 'changes' in value && 'lastInsertRowid' in value;
@@ -152,12 +152,11 @@ describe('TursoClient', () => {
   it.effect('should use transforms', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const config: TursoClientConfig = {
+      const sql = yield* TursoClient.make({
         filename: `${dir}/test.db`,
         transformQueryNames: (name) => (name === 'firstName' ? 'first_name' : name),
         transformResultNames: (name) => (name === 'first_name' ? 'firstName' : name),
-      };
-      const sql = yield* TursoClient.make(config);
+      });
       yield* sql`CREATE TABLE test (first_name TEXT)`;
       yield* sql`INSERT INTO test (first_name) VALUES ('John')`;
       const rows = yield* sql`SELECT ${sql('first_name')} FROM test`;
