@@ -4,8 +4,9 @@ import {
   Duration,
   Effect,
   Layer,
+  Pool,
   Predicate,
-  Scope,
+  Schema,
   ScopedCache,
   Semaphore,
   Stream,
@@ -17,12 +18,19 @@ import type { SqlConnection } from 'effect/unstable/sql';
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
 
+export class TursoConfigError extends Schema.TaggedError<
+  TursoConfigError,
+  { readonly brand: unique symbol }
+>('@repo/effect-turso/TursoConfigError')('TursoConfigError', {
+  message: Schema.String,
+}) {}
+
 export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-turso/TursoClient', {
   /**
    * Creates a scoped Turso client from the supplied configuration, using a
-   * single serialized connection with WAL (the binding default) and a 5-second
-   * busy timeout. Explicit transactions take the write lock for their duration,
-   * even when they only read.
+   * connection pool with WAL (the binding default) and a 5-second busy timeout.
+   * Explicit transactions take the write lock for their duration, even when
+   * they only read.
    */
   make: Effect.fnUntraced(function* (options: {
     readonly filename: string;
@@ -32,6 +40,14 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
      * `Duration.infinity` is clamped to SQLite's maximum timeout.
      */
     readonly busyTimeout?: Duration.Input;
+
+    /** Defaults to 1. Must not exceed 1 for `:memory:` databases. */
+    readonly minConnections?: number;
+    /** Defaults to 10, or 1 for `:memory:` databases. */
+    readonly maxConnections?: number;
+    /** Defaults to 45 minutes. */
+    readonly connectionTTL?: Duration.Input;
+
     readonly spanAttributes?: Record<string, unknown>;
 
     readonly transformResultNames?: (str: string) => string;
@@ -40,6 +56,16 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     readonly prepareCacheSize?: number | undefined;
     readonly prepareCacheTTL?: Duration.Input | undefined;
   }) {
+    const isInMemory = options.filename === ':memory:';
+    const minConnections = options.minConnections ?? 1;
+    const maxConnections = options.maxConnections ?? (isInMemory ? 1 : 10);
+
+    if (isInMemory && (minConnections > 1 || maxConnections > 1)) {
+      return yield* TursoConfigError.make({
+        message: 'Turso databases using ":memory:" support only one pooled connection',
+      });
+    }
+
     const compiler = Statement.makeCompilerSqlite(options.transformQueryNames);
     const defaultTransformRows = options.transformResultNames
       ? Statement.defaultTransforms(options.transformResultNames).array
@@ -184,50 +210,44 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         );
 
       return {
-        connection: {
-          execute(sql, params, transformRows) {
-            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
-          },
-          executeRaw(sql, params) {
-            return runRaw(sql, params);
-          },
-          executeValues(sql, params) {
-            return runValues(sql, params);
-          },
-          executeValuesUnprepared(sql, params) {
-            return runValues(sql, params);
-          },
-          executeUnprepared(sql, params, transformRows) {
-            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
-          },
-          executeStream(sql, params, transformRows) {
-            const stream = runStream(sql, params);
-            return transformRows
-              ? stream.pipe(
-                  Stream.map((row) => transformRows([row])),
-                  Stream.flattenIterable
-                )
-              : stream;
-          },
-        } satisfies SqlConnection.Connection,
-      };
+        execute(sql, params, transformRows) {
+          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+        },
+        executeRaw(sql, params) {
+          return runRaw(sql, params);
+        },
+        executeValues(sql, params) {
+          return runValues(sql, params);
+        },
+        executeValuesUnprepared(sql, params) {
+          return runValues(sql, params);
+        },
+        executeUnprepared(sql, params, transformRows) {
+          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+        },
+        executeStream(sql, params, transformRows) {
+          return transformRows
+            ? runStream(sql, params).pipe(
+                Stream.map((row) => transformRows([row])),
+                Stream.flattenIterable
+              )
+            : runStream(sql, params);
+        },
+      } satisfies SqlConnection.Connection;
     });
 
-    const semaphore = yield* Semaphore.make(1);
-    const { connection } = yield* makeConnection;
+    const pool = yield* Pool.makeWithTTL({
+      acquire: makeConnection,
+      min: minConnections,
+      max: maxConnections,
+      timeToLive: options.connectionTTL ?? Duration.minutes(45),
+      timeToLiveStrategy: 'creation',
+    });
+    const acquirer = Pool.get(pool);
 
-    const acquirer = Effect.acquireRelease(Effect.as(semaphore.take(1), connection), () =>
-      semaphore.release(1)
-    );
-    const transactionAcquirer = Effect.uninterruptibleMask(
-      Effect.fnUntraced(function* (restore) {
-        const scope = yield* Effect.scope;
-        yield* Effect.tap(restore(semaphore.take(1)), () =>
-          Scope.addFinalizer(scope, semaphore.release(1))
-        );
-        return connection;
-      })
-    );
+    // Make connection failures visible while constructing the client instead
+    // of deferring them until its first statement.
+    yield* Effect.scoped(acquirer);
 
     const spanAttributes: ReadonlyArray<readonly [string, unknown]> = [
       ...(options.spanAttributes ? Object.entries(options.spanAttributes) : []),
@@ -237,7 +257,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     const client = yield* SqlClient.make({
       acquirer,
       compiler,
-      transactionAcquirer,
+      transactionAcquirer: acquirer,
       beginTransaction: options.readonly === true ? 'BEGIN' : 'BEGIN IMMEDIATE',
       spanAttributes,
       transformRows: defaultTransformRows,
