@@ -1,42 +1,22 @@
 import { connect } from '@govoel/turso-database';
-import type { Database } from '@govoel/turso-database';
-import { Context, Duration, Effect, Layer, Predicate, Scope, Semaphore, Stream } from 'effect';
-import * as Reactivity from 'effect/unstable/reactivity/Reactivity';
-import * as Client from 'effect/unstable/sql/SqlClient';
-import type { Connection } from 'effect/unstable/sql/SqlConnection';
 import {
-  ConnectionError,
-  ConstraintError,
-  LockTimeoutError,
-  SqlError,
-  SqlSyntaxError,
-  UniqueViolation,
-  classifySqliteError,
-} from 'effect/unstable/sql/SqlError';
-import type { SqlErrorReason } from 'effect/unstable/sql/SqlError';
-import * as Statement from 'effect/unstable/sql/Statement';
+  Context,
+  Duration,
+  Effect,
+  Layer,
+  Predicate,
+  Scope,
+  ScopedCache,
+  Semaphore,
+  Stream,
+} from 'effect';
+import { Reactivity } from 'effect/unstable/reactivity';
+import { Migrator, SqlClient, SqlError, Statement } from 'effect/unstable/sql';
+import type { SqlConnection } from 'effect/unstable/sql';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
 
-type TursoDatabase = InstanceType<typeof Database>;
-
-/**
- * The result of a write statement, mirroring `node:sqlite` run info.
- */
-export type RunInfo = Awaited<ReturnType<TursoDatabase['run']>>;
-
-type Row = Record<string, unknown>;
-
-type RunResult<Mode extends 'object' | 'array' | 'info'> = Mode extends 'info'
-  ? RunInfo
-  : Mode extends 'array'
-    ? ReadonlyArray<ReadonlyArray<unknown>>
-    : ReadonlyArray<Row>;
-
-/**
- * Service tag for the Turso client implementation.
- */
 export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-turso/TursoClient', {
   /**
    * Creates a scoped Turso client from the supplied configuration, using a
@@ -56,6 +36,9 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
 
     readonly transformResultNames?: (str: string) => string;
     readonly transformQueryNames?: (str: string) => string;
+
+    readonly prepareCacheSize?: number | undefined;
+    readonly prepareCacheTTL?: Duration.Input | undefined;
   }) {
     const compiler = Statement.makeCompilerSqlite(options.transformQueryNames);
     const defaultTransformRows = options.transformResultNames
@@ -63,8 +46,6 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       : void 0;
 
     const makeConnection = Effect.gen(function* () {
-      // The binding's `timeout` option sets the connection busy timeout, the
-      // same knob as SQLite's `busy_timeout` pragma.
       const busyTimeoutMillis = Math.min(
         MAX_BUSY_TIMEOUT,
         Math.max(0, Math.round(Duration.toMillis(options.busyTimeout ?? Duration.seconds(5))))
@@ -77,7 +58,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
               timeout: busyTimeoutMillis,
             }),
           catch: (cause) =>
-            SqlError.make({
+            SqlError.SqlError.make({
               reason: classifyTursoError(cause, {
                 message: 'Failed to connect to database',
                 operation: 'connect',
@@ -87,102 +68,127 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         (database) => Effect.ignore(Effect.promise(async () => database.close()))
       );
 
-      const prepareStatement = (sql: string) =>
-        Effect.tryPromise({
-          try: async () => db.prepare(sql),
-          catch: (cause) =>
-            SqlError.make({
-              reason: classifyTursoError(cause, {
-                message: 'Failed to prepare statement',
-                operation: 'prepare',
-              }),
-            }),
-        });
-
-      const runStatement = (
-        statement: Awaited<ReturnType<typeof db.prepare>>,
-        params: ReadonlyArray<unknown>,
-        mode: 'object' | 'array' | 'info'
-      ) =>
-        Effect.withFiber((fiber) => {
-          const useSafeIntegers = Context.get(fiber.context, Client.SafeIntegers);
-          return Effect.tryPromise({
-            try: async () => {
-              statement.safeIntegers(useSafeIntegers);
-              if (mode === 'array') {
-                statement.raw(true);
-              }
-              // A prepared non-SELECT statement has no columns and `.all()`
-              // still executes it, resolving to `[]`. Only the `info` mode
-              // therefore needs to branch on `columns()` to yield
-              // `{ changes, lastInsertRowid }`.
-              if (mode === 'info' && statement.columns().length === 0) {
-                const info = await statement.run(...params);
-                return { changes: info.changes, lastInsertRowid: info.lastInsertRowid };
-              }
-              return statement.all(...params);
-            },
-            catch: (cause) =>
-              SqlError.make({
-                reason: classifyTursoError(cause, {
-                  message: 'Failed to execute statement',
-                  operation: 'execute',
+      const prepareCache = yield* ScopedCache.make({
+        capacity: options.prepareCacheSize ?? 200,
+        timeToLive: options.prepareCacheTTL ?? Duration.minutes(10),
+        lookup: (sql: string) =>
+          Effect.acquireRelease(
+            Effect.tryPromise({
+              try: async () => db.prepare(sql),
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to prepare statement',
+                    operation: 'prepare',
+                  }),
                 }),
-              }),
-          }).pipe(
-            Effect.ensuring(
+            }),
+            (statement) =>
               Effect.sync(() => {
                 statement.close();
               })
-            )
-          );
-        });
+          ),
+      });
 
-      const run = <Mode extends 'object' | 'array' | 'info'>(
-        sql: string,
-        params: ReadonlyArray<unknown>,
-        mode: Mode
-      ) =>
-        // The conditional `RunResult` is decided by the caller's `mode`
-        // literal, which the implementation cannot observe statically.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        Effect.flatMap(prepareStatement(sql), (statement) =>
-          runStatement(statement, params, mode)
-        ) as Effect.Effect<RunResult<Mode>, SqlError>;
+      const run = (sql: string, params: ReadonlyArray<unknown>) =>
+        Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
+          Effect.withFiber((fiber) => {
+            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
+            return Effect.tryPromise({
+              try: async () => {
+                statement.safeIntegers(useSafeIntegers);
+                statement.raw(false);
+                return statement.all(...params);
+              },
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to execute statement',
+                    operation: 'execute',
+                  }),
+                }),
+            });
+          })
+        );
+
+      const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
+        Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
+          Effect.withFiber((fiber) => {
+            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
+            return Effect.tryPromise({
+              try: async () => {
+                statement.safeIntegers(useSafeIntegers);
+                if (statement.columns().length > 0) {
+                  statement.raw(true);
+                  return statement.all(...params);
+                }
+                return statement.run(...params);
+              },
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to execute statement',
+                    operation: 'execute',
+                  }),
+                }),
+            });
+          })
+        );
+
+      const runValues = (sql: string, params: ReadonlyArray<unknown>) =>
+        Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
+          Effect.withFiber((fiber) => {
+            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
+            return Effect.tryPromise({
+              try: async () => {
+                statement.safeIntegers(useSafeIntegers);
+                statement.raw(true);
+                return statement.all(...params);
+              },
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to execute statement',
+                    operation: 'execute',
+                  }),
+                }),
+            });
+          })
+        );
 
       return {
         handleSyncRequest: db.handleSyncRequest.bind(db),
         connection: {
           execute(sql, params, transformRows) {
-            const effect = run(sql, params, 'object');
-            return transformRows ? effect.pipe(Effect.map((rows) => transformRows(rows))) : effect;
+            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
           },
           executeRaw(sql, params) {
-            return run(sql, params, 'info');
+            return runRaw(sql, params);
           },
           executeValues(sql, params) {
-            return run(sql, params, 'array');
+            return runValues(sql, params);
           },
           executeValuesUnprepared(sql, params) {
-            return run(sql, params, 'array');
+            return runValues(sql, params);
           },
           executeUnprepared(sql, params, transformRows) {
-            const effect = run(sql, params, 'object');
-            return transformRows ? effect.pipe(Effect.map((rows) => transformRows(rows))) : effect;
+            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
           },
           executeStream(_sql, _params) {
             return Stream.die('executeStream not implemented');
           },
-        } satisfies Connection,
+        } satisfies SqlConnection.Connection,
       };
     });
 
     const semaphore = yield* Semaphore.make(1);
     const { connection, handleSyncRequest } = yield* makeConnection;
 
-    const acquirer = semaphore.withPermits(1)(Effect.succeed(connection));
-    const transactionAcquirer = Effect.uninterruptibleMask((restore) =>
-      Effect.gen(function* () {
+    const acquirer = Effect.acquireRelease(Effect.as(semaphore.take(1), connection), () =>
+      semaphore.release(1)
+    );
+    const transactionAcquirer = Effect.uninterruptibleMask(
+      Effect.fnUntraced(function* (restore) {
         const scope = yield* Effect.scope;
         yield* Effect.tap(restore(semaphore.take(1)), () =>
           Scope.addFinalizer(scope, semaphore.release(1))
@@ -196,7 +202,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       [ATTR_DB_SYSTEM_NAME, 'turso'],
     ];
 
-    const client = yield* Client.make({
+    const client = yield* SqlClient.make({
       acquirer,
       compiler,
       transactionAcquirer,
@@ -211,7 +217,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
   public static readonly layer = (config: Parameters<typeof this.make>[0]) =>
     Layer.effectContext(
       Effect.map(this.make(config), (client) =>
-        Context.make(TursoClient, client).pipe(Context.add(Client.SqlClient, client))
+        Context.make(TursoClient, client).pipe(Context.add(SqlClient.SqlClient, client))
       )
     ).pipe(Layer.provide(Reactivity.layer));
 }
@@ -229,7 +235,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
 const classifyTursoError = (
   cause: unknown,
   options: { message?: string; operation?: string }
-): SqlErrorReason => {
+): SqlError.SqlErrorReason => {
   const props = {
     cause,
     message: options.message,
@@ -241,22 +247,25 @@ const classifyTursoError = (
   }
 
   if (text.includes('UNIQUE constraint failed')) {
-    return UniqueViolation.make({ ...props, constraint: uniqueConstraintFromMessage(text) });
+    return SqlError.UniqueViolation.make({
+      ...props,
+      constraint: uniqueConstraintFromMessage(text),
+    });
   }
   if (text.includes('constraint failed')) {
-    return ConstraintError.make(props);
+    return SqlError.ConstraintError.make(props);
   }
   if (text.includes('syntax error') || text.includes('Parse error')) {
-    return SqlSyntaxError.make(props);
+    return SqlError.SqlSyntaxError.make(props);
   }
   if (text.includes('is locked')) {
-    return LockTimeoutError.make(props);
+    return SqlError.LockTimeoutError.make(props);
   }
   if (text.includes('failed to open database') || text.includes('unable to open database')) {
-    return ConnectionError.make(props);
+    return SqlError.ConnectionError.make(props);
   }
 
-  return classifySqliteError(cause, options);
+  return SqlError.classifySqliteError(cause, options);
 };
 
 const uniqueConstraintFromMessage = (message: string): string => {
@@ -267,4 +276,10 @@ const uniqueConstraintFromMessage = (message: string): string => {
   }
   const constraint = message.slice(index + prefix.length).trim();
   return constraint.length > 0 ? constraint : 'unknown';
+};
+
+export const SqliteMigrator = {
+  run: Migrator.make({}),
+  layer: <R>(options: Migrator.MigratorOptions<R>) =>
+    Layer.effectDiscard(SqliteMigrator.run(options)),
 };

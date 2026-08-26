@@ -7,12 +7,11 @@ import { SafeIntegers, SqlClient } from 'effect/unstable/sql/SqlClient';
 import { isSqlError } from 'effect/unstable/sql/SqlError';
 
 import { TursoClient } from '#src/index.ts';
-import type { RunInfo } from '#src/index.ts';
 
-const isRunInfo = (value: unknown): value is RunInfo =>
+const isRunInfo = (value: unknown): value is { changes: number; lastInsertRowid: number } =>
   typeof value === 'object' && value !== null && 'changes' in value && 'lastInsertRowid' in value;
 
-const expectRunInfo = (value: unknown): RunInfo => {
+const expectRunInfo = (value: unknown): { changes: number; lastInsertRowid: number } => {
   if (!isRunInfo(value)) {
     throw new Error('expected run info { changes, lastInsertRowid }');
   }
