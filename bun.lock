@@ -182,6 +182,19 @@
         "vitest": "4.1.11",
       },
     },
+    "packages/effect-turso-rn": {
+      "name": "@repo/effect-turso-rn",
+      "version": "0.0.0",
+      "dependencies": {
+        "@tursodatabase/sync-react-native": "0.7.2",
+        "effect": "4.0.0-rc.112",
+      },
+      "devDependencies": {
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.4.0",
+        "typescript": "7.0.2",
+      },
+    },
     "packages/source-tap": {
       "name": "@repo/source-tap",
       "version": "0.0.0",
@@ -820,6 +833,8 @@
 
     "@repo/effect-turso": ["@repo/effect-turso@workspace:packages/effect-turso"],
 
+    "@repo/effect-turso-rn": ["@repo/effect-turso-rn@workspace:packages/effect-turso-rn"],
+
     "@repo/server": ["@repo/server@workspace:apps/server"],
 
     "@repo/source-tap": ["@repo/source-tap@workspace:packages/source-tap"],
@@ -1017,6 +1032,8 @@
     "@turbo/windows-arm64": ["@turbo/windows-arm64@2.10.11", "", { "os": "win32", "cpu": "arm64" }, "sha512-m8tJkIrTrbQ9O1uHxV0GUq623Zg1678xGna8eMsy4KbygUX/wVFgdZDYV/AxyoyaW/U7nyKoBvaDVwm22p9xqA=="],
 
     "@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.0-pre.7", "", {}, "sha512-Fh+IdqE3ejvgU4cjlYoYArQsm2vLO+iyRGRUFFyqrNDGsldUYwmY3qaMH9gXAjmvVA5a2+tj1o8tk2CMmJ8iWQ=="],
+
+    "@tursodatabase/sync-react-native": ["@tursodatabase/sync-react-native@0.7.2", "", { "dependencies": { "@babel/runtime": "^7.25.0" }, "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.76.0" } }, "sha512-3fk/4ITRlm+KVLpk/SoWRTKBfR1xW3c5MaqfkGRVvQeVic38mAtPFy6aTG8kPUt6ek3DgYosLEhSS5NzTEGE8g=="],
 
     "@types/argparse": ["@types/argparse@1.0.38", "", {}, "sha512-ebDJ9b0e702Yr7pWgB0jzm+CX4Srzz8RcXtLJDJB+BSccqMa36uyH/zUsSYao5+BD1ytv3k3rPYCq4mAE1hsXA=="],
 
