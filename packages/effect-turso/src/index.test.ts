@@ -1,11 +1,22 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Cause, Effect, Exit, FileSystem, Layer, Option, Stream } from 'effect';
+import {
+  Cause,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Stream,
+} from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
-import { TursoClient } from '#src/index.ts';
+import { TursoClient, TursoConfigError } from '#src/index.ts';
 
 const isRunInfo = (value: unknown): value is { changes: number; lastInsertRowid: number } =>
   typeof value === 'object' && value !== null && 'changes' in value && 'lastInsertRowid' in value;
@@ -25,6 +36,28 @@ const makeTempDir = Effect.gen(function* () {
 });
 
 describe('TursoClient', () => {
+  it.effect('uses one connection for in-memory databases by default', () =>
+    Effect.gen(function* () {
+      const sql = yield* TursoClient.make({ filename: ':memory:' });
+      yield* sql`CREATE TABLE test (id INTEGER PRIMARY KEY)`;
+      yield* sql`INSERT INTO test (id) VALUES (1)`;
+      expect(yield* sql`SELECT * FROM test`).toEqual([{ id: 1 }]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('rejects multiple connections for in-memory databases', () =>
+    Effect.gen(function* () {
+      const errors = yield* Effect.all([
+        Effect.flip(TursoClient.make({ filename: ':memory:', minConnections: 2 })),
+        Effect.flip(TursoClient.make({ filename: ':memory:', maxConnections: 2 })),
+      ]);
+
+      for (const error of errors) {
+        expect(error).toBeInstanceOf(TursoConfigError);
+      }
+    }).pipe(Effect.provide(TestLayer))
+  );
+
   it.effect('executes queries and transactions', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
@@ -209,6 +242,58 @@ describe('TursoClient', () => {
 
       const rows = yield* sql`SELECT * FROM test ORDER BY id`;
       expect(rows).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((id) => ({ id, name: `row-${id}` })));
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('preserves result modes for concurrent statements inside a transaction', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
+      yield* sql`CREATE TABLE test (id INTEGER PRIMARY KEY)`;
+      yield* sql`INSERT INTO test (id) VALUES (1), (2)`;
+
+      yield* sql.withTransaction(
+        Effect.gen(function* () {
+          const query = sql`SELECT id FROM test ORDER BY id`;
+          const [objects, values] = yield* Effect.all([query, query.values], {
+            concurrency: 'unbounded',
+          });
+
+          expect(objects).toEqual([{ id: 1 }, { id: 2 }]);
+          expect(values).toEqual([[1], [2]]);
+        })
+      );
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('uses another pooled connection while a transaction reserves one', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({
+        filename: `${dir}/test.db`,
+        minConnections: 1,
+        maxConnections: 2,
+      });
+      yield* sql`CREATE TABLE test (id INTEGER PRIMARY KEY)`;
+
+      const transactionStarted = yield* Deferred.make<boolean>();
+      const releaseTransaction = yield* Deferred.make<boolean>();
+      const transaction = yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* Deferred.succeed(transactionStarted, true);
+            yield* Deferred.await(releaseTransaction);
+          })
+        )
+        .pipe(Effect.forkChild);
+
+      yield* Deferred.await(transactionStarted);
+      expect(
+        yield* sql`SELECT count(*) AS count FROM test`.pipe(Effect.timeout(Duration.seconds(1)))
+      ).toEqual([{ count: 0 }]);
+
+      yield* Deferred.succeed(releaseTransaction, true);
+      yield* Fiber.join(transaction);
     }).pipe(Effect.provide(TestLayer))
   );
 
