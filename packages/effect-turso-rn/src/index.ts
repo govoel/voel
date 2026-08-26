@@ -1,16 +1,12 @@
 import { connect } from '@tursodatabase/sync-react-native';
-import type {
-  BindParams,
-  DatabaseOpts,
-  Statement as NativeStatement,
-  Row,
-} from '@tursodatabase/sync-react-native';
+import type { BindParams, DatabaseOpts, Row } from '@tursodatabase/sync-react-native';
 import {
   Context,
   Duration,
   Effect,
   Layer,
   Predicate,
+  Record,
   Scope,
   ScopedCache,
   Semaphore,
@@ -102,51 +98,47 @@ export class TursoClient extends Context.Service<TursoClient>()(
                     }),
                   }),
               }),
-              (statement) =>
-                Effect.ignore(
-                  Effect.tryPromise({
-                    try: async () => statement.finalize(),
-                    catch: (cause) =>
-                      SqlError.SqlError.make({
-                        reason: classifyTursoError(cause, {
-                          message: 'Failed to finalize statement',
-                          operation: 'finalize',
-                        }),
-                      }),
-                  })
-                )
+              (statement) => Effect.promise(async () => statement.finalize())
             ),
         });
 
         const operationSemaphore = yield* Semaphore.make(1);
-
-        const runPrepared = (sql: string, params: ReadonlyArray<unknown>) =>
+        const run = (sql: string, params: ReadonlyArray<unknown>) =>
           Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-            executeRows(statement, params)
+            // SqlSchema and SqlModel encode domain values into driver values before execution.
+            // Raw queries are intentionally validated by Turso instead of normalized here.
+            // Pass one array because Turso treats a single object argument as named parameters;
+            // spreading could therefore misclassify one positional ArrayBuffer.
+            Effect.tryPromise({
+              try: async () =>
+                // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+                statement.all([...params] as BindParams),
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to execute statement',
+                    operation: 'execute',
+                  }),
+                }),
+            })
           ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
         return {
           connection: {
             execute(sql, params, transformRows) {
-              const rows = runPrepared(sql, params);
-              return transformRows
-                ? rows.pipe(Effect.map((result) => transformRows(result)))
-                : rows;
+              return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
             },
             executeRaw(sql, params) {
-              return runPrepared(sql, params);
+              return run(sql, params);
             },
             executeValues(sql, params) {
-              return Effect.map(runPrepared(sql, params), rowsToValues);
+              return Effect.map(run(sql, params), rowsToValues);
             },
             executeValuesUnprepared(sql, params) {
-              return Effect.map(runPrepared(sql, params), rowsToValues);
+              return Effect.map(run(sql, params), rowsToValues);
             },
             executeUnprepared(sql, params, transformRows) {
-              const rows = runPrepared(sql, params);
-              return transformRows
-                ? rows.pipe(Effect.map((result) => transformRows(result)))
-                : rows;
+              return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
             },
             executeStream(_sql, _params) {
               return Stream.die('executeStream not implemented');
@@ -197,36 +189,14 @@ export class TursoClient extends Context.Service<TursoClient>()(
     ).pipe(Layer.provide(Reactivity.layer));
 }
 
-const executeRows = (statement: NativeStatement, params: ReadonlyArray<unknown>) =>
-  // SqlSchema and SqlModel encode domain values into driver values before execution.
-  // Raw queries are intentionally validated by Turso instead of normalized here.
-  // Pass one array because Turso treats a single object argument as named parameters;
-  // spreading could therefore misclassify one positional ArrayBuffer.
-  Effect.tryPromise({
-    try: async () =>
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-      statement.all([...params] as BindParams),
-    catch: (cause) =>
-      SqlError.SqlError.make({
-        reason: classifyTursoError(cause, {
-          message: 'Failed to execute statement',
-          operation: 'execute',
-        }),
-      }),
-  });
-
-const rowsToValues = (rows: ReadonlyArray<Row>): ReadonlyArray<ReadonlyArray<unknown>> =>
-  rows.map((row) => Object.values(row));
+const rowsToValues = (rows: ReadonlyArray<Row>) => rows.map(Record.values);
 
 /**
  * The React Native binding currently reports SQLite details in error messages
  * rather than exposing structured SQLite result codes. Structured causes are
  * still delegated to Effect's classifier for forward compatibility.
  */
-const classifyTursoError = (
-  cause: unknown,
-  options: { message?: string; operation?: string }
-): SqlError.SqlErrorReason => {
+const classifyTursoError = (cause: unknown, options: { message?: string; operation?: string }) => {
   const props = {
     cause,
     message: options.message,
@@ -263,7 +233,7 @@ const classifyTursoError = (
   return SqlError.classifySqliteError(cause, options);
 };
 
-const uniqueConstraintFromMessage = (message: string): string => {
+const uniqueConstraintFromMessage = (message: string) => {
   const prefix = 'UNIQUE constraint failed:';
   const index = message.indexOf(prefix);
   if (index === -1) {
