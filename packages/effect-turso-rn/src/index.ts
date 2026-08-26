@@ -1,9 +1,9 @@
 import { connect } from '@tursodatabase/sync-react-native';
 import type {
+  BindParams,
   DatabaseOpts,
   Statement as NativeStatement,
   Row,
-  SQLiteValue,
 } from '@tursodatabase/sync-react-native';
 import {
   Context,
@@ -43,8 +43,8 @@ export class TursoClient extends Context.Service<TursoClient>()(
         readonly transformResultNames?: (str: string) => string;
         readonly transformQueryNames?: (str: string) => string;
 
-        readonly prepareCacheSize?: number;
-        readonly prepareCacheTTL?: Duration.Input;
+        readonly prepareCacheSize?: number | undefined;
+        readonly prepareCacheTTL?: Duration.Input | undefined;
       }
     ) {
       const compiler = Statement.makeCompilerSqlite(options.transformQueryNames);
@@ -56,15 +56,18 @@ export class TursoClient extends Context.Service<TursoClient>()(
         const db = yield* Effect.acquireRelease(
           Effect.tryPromise({
             try: async () => connect(options),
-            catch: (cause) => makeSqlError(cause, 'Failed to connect to database', 'connect'),
+            catch: (cause) =>
+              SqlError.SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to connect to database',
+                  operation: 'connect',
+                }),
+              }),
           }),
           (database) =>
             Effect.ignore(
-              Effect.try({
-                try: () => {
-                  database.close();
-                },
-                catch: (cause) => makeSqlError(cause, 'Failed to close database', 'close'),
+              Effect.sync(() => {
+                database.close();
               })
             )
         );
@@ -75,7 +78,13 @@ export class TursoClient extends Context.Service<TursoClient>()(
         );
         yield* Effect.tryPromise({
           try: async () => db.exec(`PRAGMA busy_timeout = ${busyTimeoutMillis}`),
-          catch: (cause) => makeSqlError(cause, 'Failed to configure database', 'configure'),
+          catch: (cause) =>
+            SqlError.SqlError.make({
+              reason: classifyTursoError(cause, {
+                message: 'Failed to configure database',
+                operation: 'configure',
+              }),
+            }),
         });
 
         const prepareCache = yield* ScopedCache.make({
@@ -85,14 +94,25 @@ export class TursoClient extends Context.Service<TursoClient>()(
             Effect.acquireRelease(
               Effect.try({
                 try: () => db.prepare(sql),
-                catch: (cause) => makeSqlError(cause, 'Failed to prepare statement', 'prepare'),
+                catch: (cause) =>
+                  SqlError.SqlError.make({
+                    reason: classifyTursoError(cause, {
+                      message: 'Failed to prepare statement',
+                      operation: 'prepare',
+                    }),
+                  }),
               }),
               (statement) =>
                 Effect.ignore(
                   Effect.tryPromise({
                     try: async () => statement.finalize(),
                     catch: (cause) =>
-                      makeSqlError(cause, 'Failed to finalize statement', 'finalize'),
+                      SqlError.SqlError.make({
+                        reason: classifyTursoError(cause, {
+                          message: 'Failed to finalize statement',
+                          operation: 'finalize',
+                        }),
+                      }),
                   })
                 )
             ),
@@ -178,52 +198,25 @@ export class TursoClient extends Context.Service<TursoClient>()(
 }
 
 const executeRows = (statement: NativeStatement, params: ReadonlyArray<unknown>) =>
+  // SqlSchema and SqlModel encode domain values into driver values before execution.
+  // Raw queries are intentionally validated by Turso instead of normalized here.
+  // Pass one array because Turso treats a single object argument as named parameters;
+  // spreading could therefore misclassify one positional ArrayBuffer.
   Effect.tryPromise({
-    try: async () => statement.all(...normalizeParams(params)),
-    catch: (cause) => makeSqlError(cause, 'Failed to execute statement', 'execute'),
+    try: async () =>
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      statement.all([...params] as BindParams),
+    catch: (cause) =>
+      SqlError.SqlError.make({
+        reason: classifyTursoError(cause, {
+          message: 'Failed to execute statement',
+          operation: 'execute',
+        }),
+      }),
   });
-
-const normalizeParams = (params: ReadonlyArray<unknown>): Array<SQLiteValue> =>
-  params.map(normalizeParam);
-
-const normalizeParam = (value: unknown): SQLiteValue => {
-  if (value === null || value === void 0) {
-    return null;
-  }
-  if (typeof value === 'string' || typeof value === 'number') {
-    return value;
-  }
-  if (typeof value === 'boolean') {
-    return value ? 1 : 0;
-  }
-  if (typeof value === 'bigint') {
-    const number = Number(value);
-    if (!Number.isSafeInteger(number)) {
-      throw new RangeError('React Native Turso cannot bind integers outside the safe number range');
-    }
-    return number;
-  }
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (value instanceof ArrayBuffer) {
-    return value;
-  }
-  if (value instanceof Uint8Array || value instanceof Int8Array) {
-    const bytes = new Uint8Array(value.byteLength);
-    bytes.set(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
-    return bytes.buffer;
-  }
-  throw new TypeError(`Unsupported SQLite parameter type: ${typeof value}`);
-};
 
 const rowsToValues = (rows: ReadonlyArray<Row>): ReadonlyArray<ReadonlyArray<unknown>> =>
   rows.map((row) => Object.values(row));
-
-const makeSqlError = (cause: unknown, message: string, operation: string) =>
-  SqlError.SqlError.make({
-    reason: classifyTursoError(cause, { message, operation }),
-  });
 
 /**
  * The React Native binding currently reports SQLite details in error messages
