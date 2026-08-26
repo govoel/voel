@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Cause, Effect, Exit, FileSystem, Layer, Option } from 'effect';
+import { Cause, Effect, Exit, FileSystem, Layer, Option, Stream } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
@@ -89,6 +89,34 @@ describe('TursoClient', () => {
       yield* sql`INSERT INTO test (name) VALUES ('hello')`;
       const rows = yield* sql`SELECT * FROM test`.values;
       expect(rows).toEqual([[1, 'hello']]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('streams query results', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({
+        filename: `${dir}/test.db`,
+        transformResultNames: (name) => (name === 'row_name' ? 'rowName' : name),
+      });
+      yield* sql`CREATE TABLE test (id INTEGER PRIMARY KEY, row_name TEXT)`;
+      yield* sql`INSERT INTO test (id, row_name) VALUES (1, 'first'), (2, 'second')`;
+
+      const rows =
+        yield* sql`SELECT id, row_name FROM test WHERE id > ${0} ORDER BY id`.stream.pipe(
+          Stream.runCollect
+        );
+      expect(rows).toEqual([
+        { id: 1, rowName: 'first' },
+        { id: 2, rowName: 'second' },
+      ]);
+
+      const first = yield* sql`SELECT id, row_name FROM test ORDER BY id`.stream.pipe(
+        Stream.take(1),
+        Stream.runCollect
+      );
+      expect(first).toEqual([{ id: 1, rowName: 'first' }]);
+      expect(yield* sql`SELECT count(*) AS count FROM test`).toEqual([{ count: 2 }]);
     }).pipe(Effect.provide(TestLayer))
   );
 
