@@ -1,0 +1,24 @@
+{
+  "name": "@repo/effect-turso-rn",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tursodatabase/sync-react-native": "0.7.2",
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "bun-types": "1.4.0",
+    "typescript": "7.0.2"
+  }
+}
