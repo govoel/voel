@@ -157,6 +157,32 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
           })
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
+      const runStream = (sql: string, params: ReadonlyArray<unknown>) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            yield* Effect.acquireRelease(
+              operationSemaphore.take(1),
+              () => operationSemaphore.release(1),
+              { interruptible: true }
+            );
+            const statement = yield* ScopedCache.get(prepareCache, sql);
+            const useSafeIntegers = yield* SqlClient.SafeIntegers;
+            statement.safeIntegers(useSafeIntegers);
+            statement.raw(false);
+
+            return Stream.fromAsyncIterable<Record<string, unknown>, SqlError.SqlError>(
+              statement.iterate(...params),
+              (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to stream statement',
+                    operation: 'executeStream',
+                  }),
+                })
+            );
+          })
+        );
+
       return {
         connection: {
           execute(sql, params, transformRows) {
@@ -174,8 +200,14 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
           executeUnprepared(sql, params, transformRows) {
             return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
           },
-          executeStream(_sql, _params) {
-            return Stream.die('executeStream not implemented');
+          executeStream(sql, params, transformRows) {
+            const stream = runStream(sql, params);
+            return transformRows
+              ? stream.pipe(
+                  Stream.map((row) => transformRows([row])),
+                  Stream.flattenIterable
+                )
+              : stream;
           },
         } satisfies SqlConnection.Connection,
       };
