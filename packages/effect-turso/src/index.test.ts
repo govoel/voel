@@ -10,7 +10,7 @@ import { TursoClient } from '#src/index.ts';
 const isRunInfo = (value: unknown): value is { changes: number; lastInsertRowid: number } =>
   typeof value === 'object' && value !== null && 'changes' in value && 'lastInsertRowid' in value;
 
-const expectRunInfo = (value: unknown): { changes: number; lastInsertRowid: number } => {
+const expectRunInfo = (value: unknown) => {
   if (!isRunInfo(value)) {
     throw new Error('expected run info { changes, lastInsertRowid }');
   }

@@ -232,10 +232,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
  * carry structured codes are delegated to `classifySqliteError`, keeping the
  * driver compatible with future binding versions that expose proper codes.
  */
-const classifyTursoError = (
-  cause: unknown,
-  options: { message?: string; operation?: string }
-): SqlError.SqlErrorReason => {
+const classifyTursoError = (cause: unknown, options: { message?: string; operation?: string }) => {
   const props = {
     cause,
     message: options.message,
@@ -268,7 +265,7 @@ const classifyTursoError = (
   return SqlError.classifySqliteError(cause, options);
 };
 
-const uniqueConstraintFromMessage = (message: string): string => {
+const uniqueConstraintFromMessage = (message: string) => {
   const prefix = 'UNIQUE constraint failed:';
   const index = message.indexOf(prefix);
   if (index === -1) {
