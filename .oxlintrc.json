@@ -96,5 +96,5 @@
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"
   },
-  "jsPlugins": ["eslint-plugin-turbo", "./.oxlint/effect-conventions.mts"]
+  "jsPlugins": ["eslint-plugin-turbo", "./.oxlint/index.mts"]
 }
