@@ -60,10 +60,11 @@ const executeAuthClientRequest = Effect.fnUntraced(
 
     return result.data;
   },
-  Effect.catchTag(
-    ['AuthTransportError', 'BetterAuthApiError', 'InvalidAuthResponseError'],
-    (reason) => AuthError.make({ reason })
-  )
+  Effect.catchTags({
+    AuthTransportError: (reason) => AuthError.make({ reason }),
+    BetterAuthApiError: (reason) => AuthError.make({ reason }),
+    InvalidAuthResponseError: (reason) => AuthError.make({ reason }),
+  })
 );
 
 type CoreAuthClient = ReturnType<typeof createAuthClient<[]>>;
