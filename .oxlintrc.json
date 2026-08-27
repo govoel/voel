@@ -20,6 +20,17 @@
     "effecttsgo/missing-pipeable-signature": "off",
     "effecttsgo/strict-boolean-expressions": "off",
 
+    // Effect conventions enforced by built-in Oxlint rules.
+    "eslint/no-restricted-properties": [
+      "error",
+      {
+        "object": "Effect",
+        "property": "mapError",
+        "message": "Use Effect.catchTag, Effect.catchTags, Effect.catchReason, or Effect.catchReasons instead."
+      }
+    ],
+
+    // Effect conventions enforced by the local plugin.
     "effect-conventions/deterministic-identifiers": "error",
     "effect-conventions/no-context-service-class-make": "error",
     "effect-conventions/no-schema-struct-assignment": "error",
