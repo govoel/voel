@@ -32,7 +32,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
    * Explicit transactions take the write lock for their duration, even when
    * they only read.
    */
-  make: Effect.fnUntraced(function* (options: {
+  make: Effect.fnUntraced(function* <R = never>(options: {
     readonly filename: string;
     readonly readonly?: boolean;
     /**
@@ -42,11 +42,19 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     readonly busyTimeout?: Duration.Input;
 
     /** Defaults to 1. Must not exceed 1 for `:memory:` databases. */
-    readonly minConnections?: number;
+    readonly minConnections?: number | undefined;
     /** Defaults to 10, or 1 for `:memory:` databases. */
-    readonly maxConnections?: number;
+    readonly maxConnections?: number | undefined;
     /** Defaults to 45 minutes. */
-    readonly connectionTTL?: Duration.Input;
+    readonly connectionTTL?: Duration.Input | undefined;
+
+    /**
+     * Runs once for every physical connection, before it enters the pool.
+     * Use this for connection-local settings such as SQLite PRAGMAs.
+     */
+    readonly onConnect?: (connection: {
+      readonly exec: (sql: string) => Effect.Effect<void, SqlError.SqlError>;
+    }) => Effect.Effect<void, SqlError.SqlError, R>;
 
     readonly spanAttributes?: Record<string, unknown>;
 
@@ -92,7 +100,33 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
             }),
         }),
         (database) => Effect.ignore(Effect.promise(async () => database.close()))
+      ).pipe(
+        Effect.catchReason('SqlError', 'UnknownError', (error) =>
+          SqlError.SqlError.make({
+            reason: SqlError.ConnectionError.make({
+              cause: error.cause,
+              message: error.message,
+              operation: error.operation,
+            }),
+          })
+        )
       );
+
+      if (options.onConnect) {
+        yield* options.onConnect({
+          exec: (sql: string) =>
+            Effect.tryPromise({
+              try: async () => db.exec(sql),
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to initialize database connection',
+                    operation: 'onConnect',
+                  }),
+                }),
+            }).pipe(Effect.asVoid, Effect.uninterruptible),
+        });
+      }
 
       const prepareCache = yield* ScopedCache.make({
         capacity: options.prepareCacheSize ?? 200,
@@ -266,7 +300,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     return Object.assign(client, { config: options });
   }),
 }) {
-  public static readonly layer = (config: Parameters<typeof this.make>[0]) =>
+  public static readonly layer = <R = never>(config: Parameters<typeof this.make<R>>[0]) =>
     Layer.effectContext(
       Effect.map(this.make(config), (client) =>
         Context.make(TursoClient, client).pipe(Context.add(SqlClient.SqlClient, client))
@@ -328,6 +362,8 @@ const uniqueConstraintFromMessage = (message: string) => {
 };
 
 export const SqliteMigrator = {
+  fromGlob: Migrator.fromGlob,
+  fromRecord: Migrator.fromRecord,
   run: Migrator.make({}),
   layer: <R>(options: Migrator.MigratorOptions<R>) =>
     Layer.effectDiscard(SqliteMigrator.run(options)),

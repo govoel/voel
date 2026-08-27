@@ -48,8 +48,8 @@ describe('TursoClient', () => {
   it.effect('rejects multiple connections for in-memory databases', () =>
     Effect.gen(function* () {
       const errors = yield* Effect.all([
-        Effect.flip(TursoClient.make({ filename: ':memory:', minConnections: 2 })),
-        Effect.flip(TursoClient.make({ filename: ':memory:', maxConnections: 2 })),
+        Effect.flip(TursoClient.make<never>({ filename: ':memory:', minConnections: 2 })),
+        Effect.flip(TursoClient.make<never>({ filename: ':memory:', maxConnections: 2 })),
       ]);
 
       for (const error of errors) {
@@ -291,6 +291,41 @@ describe('TursoClient', () => {
       expect(
         yield* sql`SELECT count(*) AS count FROM test`.pipe(Effect.timeout(Duration.seconds(1)))
       ).toEqual([{ count: 0 }]);
+
+      yield* Deferred.succeed(releaseTransaction, true);
+      yield* Fiber.join(transaction);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('runs onConnect for every pooled connection', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      let connections = 0;
+      const sql = yield* TursoClient.make({
+        filename: `${dir}/test.db`,
+        minConnections: 1,
+        maxConnections: 2,
+        onConnect: ({ exec }) =>
+          Effect.gen(function* () {
+            connections += 1;
+            yield* exec('PRAGMA foreign_keys = ON');
+          }),
+      });
+
+      const transactionStarted = yield* Deferred.make<boolean>();
+      const releaseTransaction = yield* Deferred.make<boolean>();
+      const transaction = yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* Deferred.succeed(transactionStarted, true);
+            yield* Deferred.await(releaseTransaction);
+          })
+        )
+        .pipe(Effect.forkChild);
+
+      yield* Deferred.await(transactionStarted);
+      expect(yield* sql`PRAGMA foreign_keys`).toEqual([{ foreign_keys: 1 }]);
+      expect(connections).toBe(2);
 
       yield* Deferred.succeed(releaseTransaction, true);
       yield* Fiber.join(transaction);
