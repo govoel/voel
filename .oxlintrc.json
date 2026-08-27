@@ -26,6 +26,14 @@
     "effect-conventions/schema-class-brand": "error",
 
     "eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
+    "eslint/no-restricted-properties": [
+      "error",
+      {
+        "object": "Effect",
+        "property": "mapError",
+        "message": "Use Effect.catchTag, Effect.catchTags, Effect.catchReason, or Effect.catchReasons instead."
+      }
+    ],
     "eslint/new-cap": "off",
     "eslint/max-classes-per-file": "off",
     "eslint/func-names": ["error", "as-needed", { "generators": "never" }],

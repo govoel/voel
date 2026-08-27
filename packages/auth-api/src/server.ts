@@ -134,7 +134,9 @@ export class AuthServerClient extends Context.Service<AuthServerClient>()(
               Effect.map(Option.map(AuthSession.decodeUnknownEffect)),
               Effect.flatMap(Effect.transposeOption),
               Effect.catchTag('SchemaError', () => Effect.fail(InvalidAuthResponseError.make())),
-              Effect.mapError((reason) => AuthError.make({ reason }))
+              Effect.catchTag(['AuthTransportError', 'InvalidAuthResponseError'], (reason) =>
+                AuthError.make({ reason })
+              )
             ),
         },
       };
