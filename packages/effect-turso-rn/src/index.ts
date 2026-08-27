@@ -33,11 +33,11 @@ export class TursoClient extends Context.Service<TursoClient>()(
          * How long SQLite waits when the database is busy. Defaults to 5 seconds.
          * `Duration.infinity` is clamped to SQLite's maximum timeout.
          */
-        readonly busyTimeout?: Duration.Input;
-        readonly spanAttributes?: Record<string, unknown>;
+        readonly busyTimeout?: Duration.Input | undefined;
+        readonly spanAttributes?: Record<string, unknown> | undefined;
 
-        readonly transformResultNames?: (str: string) => string;
-        readonly transformQueryNames?: (str: string) => string;
+        readonly transformResultNames?: ((str: string) => string) | undefined;
+        readonly transformQueryNames?: ((str: string) => string) | undefined;
 
         readonly prepareCacheSize?: number | undefined;
         readonly prepareCacheTTL?: Duration.Input | undefined;
@@ -66,6 +66,16 @@ export class TursoClient extends Context.Service<TursoClient>()(
                 database.close();
               })
             )
+        ).pipe(
+          Effect.catchReason('SqlError', 'UnknownError', (error) =>
+            SqlError.SqlError.make({
+              reason: SqlError.ConnectionError.make({
+                cause: error.cause,
+                message: error.message,
+                operation: error.operation,
+              }),
+            })
+          )
         );
 
         const busyTimeoutMillis = Math.min(
