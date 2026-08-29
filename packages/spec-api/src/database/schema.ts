@@ -1,124 +1,129 @@
-import { Schema } from 'effect';
-import { Model } from 'effect/unstable/schema';
+import { Effect, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Model, VariantSchema } from 'effect/unstable/schema';
 
-import type { TableFromModel } from '@repo/effect-kysely';
+const DbModel = VariantSchema.make({
+  variants: [
+    'select',
+    'insert',
+    'update',
+    'upsert',
+    'json',
+    'jsonCreate',
+    'jsonUpdate',
+    'jsonUpsert',
+  ],
+  defaultVariant: 'select',
+});
 
-class Timestamped extends Model.Class<Timestamped>('@repo/spec-api/database/schema/Timestamped')({
-  createdAt: Model.Field({
-    select: Schema.Natural,
-    json: Schema.Natural,
-  }),
-  updatedAt: Model.Field({
-    select: Schema.Natural,
-    json: Schema.Natural,
-  }),
-  deletedAt: Model.Field({
-    select: Schema.NullOr(Schema.Natural),
-    update: Schema.NullOr(Schema.Natural),
-    json: Schema.NullOr(Schema.Natural),
+class Timestamped extends DbModel.Class<Timestamped>('@repo/spec-api/database/schema/Timestamped')({
+  createdAt: Model.GeneratedByDb(Schema.DateTimeUtcFromMillis),
+  updatedAt: Model.GeneratedByDb(Schema.DateTimeUtcFromMillis),
+  deletedAt: DbModel.Field({
+    select: Schema.NullOr(Schema.DateTimeUtcFromMillis),
+    json: Schema.NullOr(Schema.DateTimeUtcFromMillis),
   }),
 }) {
   public static readonly fullFields = Model.fields(this);
 }
 
-export class MediaType extends Model.Class<MediaType>('@repo/spec-api/database/schema/MediaType')({
-  type: Model.Field({
-    select: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-      Schema.brand('@repo/spec-api/database/schema/MediaType/type')
-    ),
-    json: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-      Schema.brand('@repo/spec-api/database/schema/MediaType/type')
-    ),
-  }),
-}) {}
+export class MediaType extends DbModel.Class<MediaType>('@repo/spec-api/database/schema/MediaType')(
+  {
+    type: DbModel.Field({
+      select: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
+        Schema.brand('@repo/spec-api/database/schema/MediaType/type')
+      ),
+      json: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
+        Schema.brand('@repo/spec-api/database/schema/MediaType/type')
+      ),
+    }),
+  }
+) {}
 
-export type MediaTypesTable = TableFromModel<typeof MediaType>;
+export class MediaItem extends DbModel.Class<MediaItem>('@repo/spec-api/database/schema/MediaItem')(
+  {
+    id: DbModel.Field({
+      select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaItem/id')),
+      json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaItem/id')),
+    }),
+    type: DbModel.Field({ select: MediaType.fields.type, json: MediaType.fields.type }),
+    ...Timestamped.fullFields,
+  }
+) {}
 
-export class MediaItem extends Model.Class<MediaItem>('@repo/spec-api/database/schema/MediaItem')({
-  id: Model.Field({
-    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaItem/id')),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaItem/id')),
-  }),
-  type: Model.Field({ select: MediaType.fields.type, json: MediaType.fields.type }),
-  ...Timestamped.fullFields,
-}) {}
+export class Audiobook extends DbModel.Class<Audiobook>('@repo/spec-api/database/schema/Audiobook')(
+  {
+    id: DbModel.Field({
+      select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/id')),
+      json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/id')),
+    }),
+    asin: DbModel.Field({
+      select: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/asin'))
+      ),
+      json: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/asin'))
+      ),
+    }),
+    mediaItemId: DbModel.Field({
+      select: MediaItem.fields.id,
+      json: MediaItem.fields.id,
+    }),
+    title: DbModel.Field({
+      select: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/title')),
+      json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/title')),
+    }),
+    subtitle: DbModel.Field({
+      select: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/subtitle'))
+      ),
+      json: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/subtitle'))
+      ),
+    }),
+    cover: DbModel.Field({
+      select: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/cover'))
+      ),
+      json: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/cover'))
+      ),
+    }),
+    coverThumbhash: DbModel.Field({
+      select: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/coverThumbhash'))
+      ),
+      json: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/coverThumbhash'))
+      ),
+    }),
+    summary: DbModel.Field({
+      select: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/summary'))
+      ),
+      json: Schema.NullOr(
+        Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/summary'))
+      ),
+    }),
+    ...Timestamped.fullFields,
+  }
+) {}
 
-export type MediaItemTable = TableFromModel<typeof MediaItem>;
-
-export class Audiobook extends Model.Class<Audiobook>('@repo/spec-api/database/schema/Audiobook')({
-  id: Model.Field({
-    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/id')),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/id')),
-  }),
-  asin: Model.Field({
-    select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/asin'))
-    ),
-    json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/asin'))
-    ),
-  }),
-  mediaItemId: Model.Field({
-    select: MediaItem.fields.id,
-    json: MediaItem.fields.id,
-  }),
-  title: Model.Field({
-    select: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/title')),
-    json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/title')),
-  }),
-  subtitle: Model.Field({
-    select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/subtitle'))
-    ),
-    json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/subtitle'))
-    ),
-  }),
-  cover: Model.Field({
-    select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/cover'))
-    ),
-    json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/cover'))
-    ),
-  }),
-  coverThumbhash: Model.Field({
-    select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/coverThumbhash'))
-    ),
-    json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/coverThumbhash'))
-    ),
-  }),
-  summary: Model.Field({
-    select: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/summary'))
-    ),
-    json: Schema.NullOr(
-      Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Audiobook/summary'))
-    ),
-  }),
-  ...Timestamped.fullFields,
-}) {}
-
-export type AudiobookTable = TableFromModel<typeof Audiobook>;
-
-export class AudiobookSeries extends Model.Class<AudiobookSeries>(
+export class AudiobookSeries extends DbModel.Class<AudiobookSeries>(
   '@repo/spec-api/database/schema/AudiobookSeries'
 )({
-  id: Model.Field({
+  id: DbModel.Field({
     select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeries/id')),
     json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeries/id')),
   }),
-  asin: Model.Field({
+  asin: DbModel.Field({
     select: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeries/asin')),
     json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeries/asin')),
   }),
-  name: Model.Field({
+  name: DbModel.Field({
     select: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeries/name')),
     json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeries/name')),
   }),
-  summary: Model.Field({
+  summary: DbModel.Field({
     select: Schema.NullOr(
       Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeries/summary'))
     ),
@@ -129,23 +134,21 @@ export class AudiobookSeries extends Model.Class<AudiobookSeries>(
   ...Timestamped.fullFields,
 }) {}
 
-export type AudiobookSeriesTable = TableFromModel<typeof AudiobookSeries>;
-
-export class AudiobookSeriesMap extends Model.Class<AudiobookSeriesMap>(
+export class AudiobookSeriesMap extends DbModel.Class<AudiobookSeriesMap>(
   '@repo/spec-api/database/schema/AudiobookSeriesMap'
 )({
-  id: Model.Field({
+  id: DbModel.Field({
     select: Schema.Natural.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookSeriesMap/id')
     ),
     json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookSeriesMap/id')),
   }),
-  audiobookId: Model.Field({ select: Audiobook.fields.id, json: Audiobook.fields.id }),
-  audiobookSeriesId: Model.Field({
+  audiobookId: DbModel.Field({ select: Audiobook.fields.id, json: Audiobook.fields.id }),
+  audiobookSeriesId: DbModel.Field({
     select: Schema.NullOr(AudiobookSeries.fields.id),
     json: Schema.NullOr(AudiobookSeries.fields.id),
   }),
-  title: Model.Field({
+  title: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookSeriesMap/title')
     ),
@@ -153,7 +156,7 @@ export class AudiobookSeriesMap extends Model.Class<AudiobookSeriesMap>(
       Schema.brand('@repo/spec-api/database/schema/AudiobookSeriesMap/title')
     ),
   }),
-  label: Model.Field({
+  label: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookSeriesMap/label')
     ),
@@ -161,7 +164,7 @@ export class AudiobookSeriesMap extends Model.Class<AudiobookSeriesMap>(
       Schema.brand('@repo/spec-api/database/schema/AudiobookSeriesMap/label')
     ),
   }),
-  sort: Model.Field({
+  sort: DbModel.Field({
     select: Schema.Natural.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookSeriesMap/sort')
     ),
@@ -172,12 +175,10 @@ export class AudiobookSeriesMap extends Model.Class<AudiobookSeriesMap>(
   ...Timestamped.fullFields,
 }) {}
 
-export type AudiobookSeriesMapTable = TableFromModel<typeof AudiobookSeriesMap>;
-
-export class AudiobookContributor extends Model.Class<AudiobookContributor>(
+export class AudiobookContributor extends DbModel.Class<AudiobookContributor>(
   '@repo/spec-api/database/schema/AudiobookContributor'
 )({
-  id: Model.Field({
+  id: DbModel.Field({
     select: Schema.Natural.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/id')
     ),
@@ -185,7 +186,7 @@ export class AudiobookContributor extends Model.Class<AudiobookContributor>(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/id')
     ),
   }),
-  asin: Model.Field({
+  asin: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/asin')
     ),
@@ -193,7 +194,7 @@ export class AudiobookContributor extends Model.Class<AudiobookContributor>(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/asin')
     ),
   }),
-  name: Model.Field({
+  name: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/name')
     ),
@@ -201,7 +202,7 @@ export class AudiobookContributor extends Model.Class<AudiobookContributor>(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/name')
     ),
   }),
-  about: Model.Field({
+  about: DbModel.Field({
     select: Schema.NullOr(
       Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/about'))
     ),
@@ -209,7 +210,7 @@ export class AudiobookContributor extends Model.Class<AudiobookContributor>(
       Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/about'))
     ),
   }),
-  avatar: Model.Field({
+  avatar: DbModel.Field({
     select: Schema.NullOr(
       Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/avatar'))
     ),
@@ -217,7 +218,7 @@ export class AudiobookContributor extends Model.Class<AudiobookContributor>(
       Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/avatar'))
     ),
   }),
-  avatarThumbhash: Model.Field({
+  avatarThumbhash: DbModel.Field({
     select: Schema.NullOr(
       Schema.String.pipe(
         Schema.brand('@repo/spec-api/database/schema/AudiobookContributor/avatarThumbhash')
@@ -232,12 +233,10 @@ export class AudiobookContributor extends Model.Class<AudiobookContributor>(
   ...Timestamped.fullFields,
 }) {}
 
-export type AudiobookContributorTable = TableFromModel<typeof AudiobookContributor>;
-
-export class AudiobookContributorRole extends Model.Class<AudiobookContributorRole>(
+export class AudiobookContributorRole extends DbModel.Class<AudiobookContributorRole>(
   '@repo/spec-api/database/schema/AudiobookContributorRole'
 )({
-  role: Model.Field({
+  role: DbModel.Field({
     select: Schema.Literals(['author', 'narrator', 'editor', 'translator', 'foreword']).pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributorRole/role')
     ),
@@ -247,12 +246,10 @@ export class AudiobookContributorRole extends Model.Class<AudiobookContributorRo
   }),
 }) {}
 
-export type AudiobookContributorRoleTable = TableFromModel<typeof AudiobookContributorRole>;
-
-export class AudiobookContributorMap extends Model.Class<AudiobookContributorMap>(
+export class AudiobookContributorMap extends DbModel.Class<AudiobookContributorMap>(
   '@repo/spec-api/database/schema/AudiobookContributorMap'
 )({
-  id: Model.Field({
+  id: DbModel.Field({
     select: Schema.Natural.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributorMap/id')
     ),
@@ -260,12 +257,12 @@ export class AudiobookContributorMap extends Model.Class<AudiobookContributorMap
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributorMap/id')
     ),
   }),
-  audiobookId: Model.Field({ select: Audiobook.fields.id, json: Audiobook.fields.id }),
-  audiobookContributorId: Model.Field({
+  audiobookId: DbModel.Field({ select: Audiobook.fields.id, json: Audiobook.fields.id }),
+  audiobookContributorId: DbModel.Field({
     select: Schema.NullOr(AudiobookContributor.fields.id),
     json: Schema.NullOr(AudiobookContributor.fields.id),
   }),
-  name: Model.Field({
+  name: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributorMap/name')
     ),
@@ -273,106 +270,128 @@ export class AudiobookContributorMap extends Model.Class<AudiobookContributorMap
       Schema.brand('@repo/spec-api/database/schema/AudiobookContributorMap/name')
     ),
   }),
-  role: Model.Field({
+  role: DbModel.Field({
     select: AudiobookContributorRole.fields.role,
     json: AudiobookContributorRole.fields.role,
   }),
   ...Timestamped.fullFields,
 }) {}
 
-export type AudiobookContributorMapTable = TableFromModel<typeof AudiobookContributorMap>;
-
-export class Library extends Model.Class<Library>('@repo/spec-api/database/schema/Library')({
-  id: Model.Field({
+export class Library extends DbModel.Class<Library>('@repo/spec-api/database/schema/Library')({
+  id: DbModel.Field({
     select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id')),
+    upsert: Schema.Option(
+      Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id'))
+    ),
     json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id')),
-    jsonUpdate: Schema.Option(
+    jsonUpsert: Schema.Option(
       Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id'))
     ),
   }),
-  type: Model.Field({
+  type: DbModel.Field({
     select: MediaType.fields.type,
-    insert: MediaType.fields.type,
-    update: MediaType.fields.type,
+    upsert: MediaType.fields.type,
     json: MediaType.fields.type,
-    jsonUpdate: MediaType.fields.type,
+    jsonUpsert: MediaType.fields.type,
   }),
-  name: Model.Field({
+  name: DbModel.Field({
     select: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Library/name')),
-    insert: Schema.String,
-    update: Schema.String,
+    upsert: Schema.String,
     json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Library/name')),
-    jsonUpdate: Schema.String,
+    jsonUpsert: Schema.String,
   }),
   ...Timestamped.fullFields,
 }) {}
 
-export type LibraryTable = TableFromModel<typeof Library>;
+const AbsolutePathFromString = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/absolutePath')),
+    {
+      decode: SchemaGetter.transformOrFail(
+        Effect.fnUntraced(function* (absolutePath, options) {
+          const path = yield* Path.Path;
 
-export class LibraryPath extends Model.Class<LibraryPath>(
+          if (!path.isAbsolute(absolutePath)) {
+            return yield* Effect.fail(
+              new SchemaIssue.InvalidValue(
+                { message: 'Expected an absolute path' },
+                absolutePath,
+                options
+              )
+            );
+          }
+
+          return path.resolve(absolutePath);
+        })
+      ),
+      encode: SchemaGetter.passthrough(),
+    }
+  )
+);
+
+export class LibraryPath extends DbModel.Class<LibraryPath>(
   '@repo/spec-api/database/schema/LibraryPath'
 )({
-  id: Model.Field({
+  id: DbModel.Field({
     select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/id')),
     json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/id')),
   }),
-  libraryId: Model.Field({
+  libraryId: DbModel.Field({
     select: Library.fields.id,
-    insert: Library.fields.id,
+    upsert: Library.fields.id,
     json: Library.fields.id,
   }),
-  absolutePath: Model.Field({
-    select: Schema.String.pipe(
-      Schema.brand('@repo/spec-api/database/schema/LibraryPath/absolutePath')
-    ),
-    insert: Schema.String,
-    update: Schema.String,
-    json: Schema.String.pipe(
-      Schema.brand('@repo/spec-api/database/schema/LibraryPath/absolutePath')
-    ),
-    jsonUpdate: Schema.String,
+  absolutePath: DbModel.Field({
+    select: AbsolutePathFromString,
+    upsert: AbsolutePathFromString,
+    json: Schema.toType(AbsolutePathFromString),
+    jsonUpsert: Schema.toEncoded(AbsolutePathFromString),
   }),
   ...Timestamped.fullFields,
-}) {}
+}) {
+  public static readonly decodeAbsolutePathEffect = Schema.decodeEffect(AbsolutePathFromString);
+}
 
-export type LibraryPathTable = TableFromModel<typeof LibraryPath>;
+export class MediaFile extends DbModel.Class<MediaFile>('@repo/spec-api/database/schema/MediaFile')(
+  {
+    id: DbModel.Field({
+      select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
+      json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
+    }),
+    absolutePath: DbModel.Field({
+      select: Schema.String.pipe(
+        Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')
+      ),
+      json: Schema.String.pipe(
+        Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')
+      ),
+    }),
+    durationMs: DbModel.Field({
+      select: Schema.Natural.pipe(
+        Schema.brand('@repo/spec-api/database/schema/MediaFile/durationMs')
+      ),
+      json: Schema.Natural.pipe(
+        Schema.brand('@repo/spec-api/database/schema/MediaFile/durationMs')
+      ),
+    }),
+    ...Timestamped.fullFields,
+  }
+) {}
 
-export class MediaFile extends Model.Class<MediaFile>('@repo/spec-api/database/schema/MediaFile')({
-  id: Model.Field({
-    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
-  }),
-  absolutePath: Model.Field({
-    select: Schema.String.pipe(
-      Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')
-    ),
-    json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')),
-  }),
-  durationMs: Model.Field({
-    select: Schema.Natural.pipe(
-      Schema.brand('@repo/spec-api/database/schema/MediaFile/durationMs')
-    ),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/durationMs')),
-  }),
-  ...Timestamped.fullFields,
-}) {}
-
-export type MediaFileTable = TableFromModel<typeof MediaFile>;
-
-export class LibraryFileMap extends Model.Class<LibraryFileMap>(
+export class LibraryFileMap extends DbModel.Class<LibraryFileMap>(
   '@repo/spec-api/database/schema/LibraryFileMap'
 )({
-  id: Model.Field({
+  id: DbModel.Field({
     select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryFileMap/id')),
     json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryFileMap/id')),
   }),
-  libraryId: Model.Field({ select: Library.fields.id, json: Library.fields.id }),
-  mediaFileId: Model.Field({ select: MediaFile.fields.id, json: MediaFile.fields.id }),
-  mediaItemId: Model.Field({
+  libraryId: DbModel.Field({ select: Library.fields.id, json: Library.fields.id }),
+  mediaFileId: DbModel.Field({ select: MediaFile.fields.id, json: MediaFile.fields.id }),
+  mediaItemId: DbModel.Field({
     select: Schema.NullOr(MediaItem.fields.id),
     json: Schema.NullOr(MediaItem.fields.id),
   }),
-  matchFailureReason: Model.Field({
+  matchFailureReason: DbModel.Field({
     select: Schema.NullOr(
       Schema.String.pipe(
         Schema.brand('@repo/spec-api/database/schema/LibraryFileMap/matchFailureReason')
@@ -384,13 +403,13 @@ export class LibraryFileMap extends Model.Class<LibraryFileMap>(
       )
     ),
   }),
-  variant: Model.Field({
+  variant: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('@repo/spec-api/database/schema/LibraryFileMap/variant')
     ),
     json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryFileMap/variant')),
   }),
-  customOrder: Model.Field({
+  customOrder: DbModel.Field({
     select: Schema.Natural.pipe(
       Schema.brand('@repo/spec-api/database/schema/LibraryFileMap/customOrder')
     ),
@@ -400,20 +419,3 @@ export class LibraryFileMap extends Model.Class<LibraryFileMap>(
   }),
   ...Timestamped.fullFields,
 }) {}
-
-export type LibraryFileMapTable = TableFromModel<typeof LibraryFileMap>;
-
-export interface DatabaseTables {
-  mediaType: MediaTypesTable;
-  mediaItem: MediaItemTable;
-  audiobook: AudiobookTable;
-  audiobookSeries: AudiobookSeriesTable;
-  audiobookSeriesMap: AudiobookSeriesMapTable;
-  audiobookContributor: AudiobookContributorTable;
-  audiobookContributorRole: AudiobookContributorRoleTable;
-  audiobookContributorMap: AudiobookContributorMapTable;
-  library: LibraryTable;
-  libraryPath: LibraryPathTable;
-  mediaFile: MediaFileTable;
-  libraryFileMap: LibraryFileMapTable;
-}
