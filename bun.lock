@@ -186,7 +186,7 @@
       "name": "@repo/effect-turso-rn",
       "version": "0.0.0",
       "dependencies": {
-        "@tursodatabase/sync-react-native": "0.7.2",
+        "@tursodatabase/sync-react-native": "0.8.0-pre.7",
         "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
@@ -231,6 +231,7 @@
   },
   "patchedDependencies": {
     "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
+    "@tursodatabase/sync-react-native@0.8.0-pre.7": "patches/@tursodatabase%2Fsync-react-native@0.8.0-pre.7.patch",
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
@@ -1033,7 +1034,7 @@
 
     "@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.0-pre.7", "", {}, "sha512-Fh+IdqE3ejvgU4cjlYoYArQsm2vLO+iyRGRUFFyqrNDGsldUYwmY3qaMH9gXAjmvVA5a2+tj1o8tk2CMmJ8iWQ=="],
 
-    "@tursodatabase/sync-react-native": ["@tursodatabase/sync-react-native@0.7.2", "", { "dependencies": { "@babel/runtime": "^7.25.0" }, "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.76.0" } }, "sha512-3fk/4ITRlm+KVLpk/SoWRTKBfR1xW3c5MaqfkGRVvQeVic38mAtPFy6aTG8kPUt6ek3DgYosLEhSS5NzTEGE8g=="],
+    "@tursodatabase/sync-react-native": ["@tursodatabase/sync-react-native@0.8.0-pre.7", "", { "dependencies": { "@babel/runtime": "^7.25.0" }, "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.76.0" } }, "sha512-jzJqoQY09aZFOj+pgY4KU+9CvliE3g4L5fPQLB05RG0lUOAgFF6NLq6Gt6tVyZEzifohwx/TSA2BXqf/HJX+Pg=="],
 
     "@types/argparse": ["@types/argparse@1.0.38", "", {}, "sha512-ebDJ9b0e702Yr7pWgB0jzm+CX4Srzz8RcXtLJDJB+BSccqMa36uyH/zUsSYao5+BD1ytv3k3rPYCq4mAE1hsXA=="],
 
