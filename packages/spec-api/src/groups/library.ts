@@ -16,14 +16,14 @@ export class LibraryNameConflictError extends Schema.TaggedError<
   LibraryNameConflictError,
   { readonly brand: unique symbol }
 >('@repo/spec-api/groups/library/LibraryNameConflictError')('LibraryNameConflictError', {
-  name: Library.jsonUpdate.fields.name,
+  name: Library.jsonUpsert.fields.name,
 }) {}
 
 export class LibraryInvalidPathError extends Schema.TaggedError<
   LibraryInvalidPathError,
   { readonly brand: unique symbol }
 >('@repo/spec-api/groups/library/LibraryInvalidPathError')('LibraryInvalidPathError', {
-  paths: Schema.NonEmptyArray(LibraryPath.jsonUpdate.fields.absolutePath),
+  paths: Schema.NonEmptyArray(LibraryPath.jsonUpsert.fields.absolutePath),
 }) {}
 
 export const LibraryRpcs = RpcGroup.make(
@@ -60,16 +60,16 @@ export const LibraryRpcs = RpcGroup.make(
 
   Rpc.make('libraryUpsert', {
     payload: Schema.Struct({
-      id: Library.jsonUpdate.fields.id,
-      type: Library.jsonUpdate.fields.type,
-      name: Library.jsonUpdate.fields.name,
+      id: Library.jsonUpsert.fields.id,
+      type: Library.jsonUpsert.fields.type,
+      name: Library.jsonUpsert.fields.name,
       absolutePaths: Schema.Array(
         Schema.Struct({
-          absolutePath: LibraryPath.jsonUpdate.fields.absolutePath,
+          absolutePath: LibraryPath.jsonUpsert.fields.absolutePath,
         })
       ),
     }),
-    success: Schema.Struct({ id: Library.fields.id }),
+    success: Schema.Struct({ id: Library.json.fields.id }),
     error: Schema.Union([LibraryNotFoundError, LibraryNameConflictError, LibraryInvalidPathError], {
       mode: 'oneOf',
     }),
