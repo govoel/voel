@@ -1,12 +1,15 @@
 import { connect } from '@tursodatabase/sync-react-native';
-import type { BindParams, DatabaseOpts, Row } from '@tursodatabase/sync-react-native';
+import type {
+  BindParams,
+  DatabaseOpts,
+  Statement as TursoStatement,
+} from '@tursodatabase/sync-react-native';
 import {
   Context,
   Duration,
   Effect,
   Layer,
   Predicate,
-  Record,
   Scope,
   ScopedCache,
   Semaphore,
@@ -113,7 +116,11 @@ export class TursoClient extends Context.Service<TursoClient>()(
         });
 
         const operationSemaphore = yield* Semaphore.make(1);
-        const run = (sql: string, params: ReadonlyArray<unknown>) =>
+        const run = <A>(
+          sql: string,
+          params: ReadonlyArray<unknown>,
+          execute: (statement: TursoStatement, params: BindParams) => Promise<A>
+        ) =>
           Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
             // SqlSchema and SqlModel encode domain values into driver values before execution.
             // Raw queries are intentionally validated by Turso instead of normalized here.
@@ -122,7 +129,7 @@ export class TursoClient extends Context.Service<TursoClient>()(
             Effect.tryPromise({
               try: async () =>
                 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-                statement.all([...params] as BindParams),
+                execute(statement, [...params] as BindParams),
               catch: (cause) =>
                 SqlError.SqlError.make({
                   reason: classifyTursoError(cause, {
@@ -132,23 +139,35 @@ export class TursoClient extends Context.Service<TursoClient>()(
                 }),
             })
           ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
+        const runRows = (sql: string, params: ReadonlyArray<unknown>) =>
+          run(sql, params, async (statement, bindParams) => statement.all(bindParams));
+        const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
+          run(sql, params, async (statement, bindParams) =>
+            statement.columnCount() > 0 ? statement.all(bindParams) : statement.run(bindParams)
+          );
+        const runValues = (sql: string, params: ReadonlyArray<unknown>) =>
+          run(sql, params, async (statement, bindParams) => statement.allValues(bindParams));
 
         return {
           connection: {
             execute(sql, params, transformRows) {
-              return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+              return transformRows
+                ? Effect.map(runRows(sql, params), transformRows)
+                : runRows(sql, params);
             },
             executeRaw(sql, params) {
-              return run(sql, params);
+              return runRaw(sql, params);
             },
             executeValues(sql, params) {
-              return Effect.map(run(sql, params), rowsToValues);
+              return runValues(sql, params);
             },
             executeValuesUnprepared(sql, params) {
-              return Effect.map(run(sql, params), rowsToValues);
+              return runValues(sql, params);
             },
             executeUnprepared(sql, params, transformRows) {
-              return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+              return transformRows
+                ? Effect.map(runRows(sql, params), transformRows)
+                : runRows(sql, params);
             },
             executeStream(_sql, _params) {
               return Stream.die('executeStream not implemented');
@@ -198,8 +217,6 @@ export class TursoClient extends Context.Service<TursoClient>()(
       )
     ).pipe(Layer.provide(Reactivity.layer));
 }
-
-const rowsToValues = (rows: ReadonlyArray<Row>) => rows.map(Record.values);
 
 /**
  * The React Native binding currently reports SQLite details in error messages

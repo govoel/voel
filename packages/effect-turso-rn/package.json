@@ -13,7 +13,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@tursodatabase/sync-react-native": "0.7.2",
+    "@tursodatabase/sync-react-native": "0.8.0-pre.7",
     "effect": "4.0.0-rc.112"
   },
   "devDependencies": {
