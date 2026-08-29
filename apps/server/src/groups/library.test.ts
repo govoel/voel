@@ -2,6 +2,7 @@
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
+import { Reactivity } from 'effect/unstable/reactivity';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
 import { Library, MediaType } from '@repo/spec-api/database/schema.js';
@@ -17,7 +18,11 @@ import {
   UnauthorizedError,
 } from '@repo/spec-api/middlewares/auth.ts';
 
-import { LibraryHandlersLayerNoDeps } from '#src/groups/library.ts';
+import {
+  LibraryHandlersLayerNoDeps,
+  LibraryPathRepository,
+  LibraryRepository,
+} from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
 import {
   AdminMiddlewareLayerNoDeps,
@@ -25,14 +30,16 @@ import {
   AuthMiddlewareLayerNoDeps,
 } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
-import { Database } from '#src/services/database/index.ts';
+import { AuthDatabase } from '#src/services/database/auth/index.ts';
+import { LibrariesDatabase } from '#src/services/database/libraries/index.ts';
 
 const makeTestLayer = () =>
   LibraryHandlersLayerNoDeps.pipe(
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
     Layer.provideMerge(AuthLayerNoDeps),
-    Layer.provideMerge(Database.layerNoDeps),
-    Layer.provide([ApiConfig.layerTest(), BunPath.layer])
+    Layer.provide([LibraryRepository.layerNoDeps, LibraryPathRepository.layerNoDeps]),
+    Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibrariesDatabase.layerNoDeps)),
+    Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
   );
 
 const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>

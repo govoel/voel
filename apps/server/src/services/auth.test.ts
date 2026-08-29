@@ -3,20 +3,21 @@ import { BunPath } from '@effect/platform-bun';
 import { expect, it, vi } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
+import { Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient } from '@repo/auth-api/client.ts';
 
 import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
-import { Database } from '#src/services/database/index.ts';
+import { AuthDatabase } from '#src/services/database/auth/index.ts';
 
 const TestServerLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
       AuthRouterLayerNoDeps.pipe(
         Layer.provide(AuthLayerNoDeps),
-        Layer.provide(Database.layerNoDeps),
-        Layer.provide([ApiConfig.layerTest(), BunPath.layer])
+        Layer.provide(AuthDatabase.layerNoDeps),
+        Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
       )
     );
     yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));

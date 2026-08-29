@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.0-rc.112",
+    "@govoel/turso-database": "0.8.0-pre.7",
     "@repo/auth-api": "workspace:*",
-    "@repo/effect-kysely": "workspace:*",
-    "@repo/source-tap": "workspace:*",
+    "@repo/effect-turso": "workspace:*",
     "@repo/spec-api": "workspace:*",
     "effect": "4.0.0-rc.112"
   },

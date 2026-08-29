@@ -1,81 +1,74 @@
-import type { Kysely } from '@repo/effect-kysely';
+import { Effect } from 'effect';
+import { SqlClient } from 'effect/unstable/sql';
 
-export const up = async (db: Kysely<unknown>) => {
-  await db.schema
-    .createTable('user')
-    .addColumn('id', 'text', (col) => col.notNull().primaryKey())
-    .addColumn('name', 'text', (col) => col.notNull())
-    .addColumn('email', 'text', (col) => col.notNull().unique())
-    .addColumn('emailVerified', 'integer', (col) => col.notNull())
-    .addColumn('image', 'text')
-    .addColumn('createdAt', 'date', (col) => col.notNull())
-    .addColumn('updatedAt', 'date', (col) => col.notNull())
-    .addColumn('username', 'text', (col) => col.unique())
-    .addColumn('role', 'text')
-    .addColumn('banned', 'integer')
-    .addColumn('banReason', 'text')
-    .addColumn('banExpires', 'date')
-    .execute();
+export default Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
 
-  await db.schema
-    .createTable('session')
-    .addColumn('id', 'text', (col) => col.notNull().primaryKey())
-    .addColumn('expiresAt', 'date', (col) => col.notNull())
-    .addColumn('token', 'text', (col) => col.notNull().unique())
-    .addColumn('createdAt', 'date', (col) => col.notNull())
-    .addColumn('updatedAt', 'date', (col) => col.notNull())
-    .addColumn('ipAddress', 'text')
-    .addColumn('userAgent', 'text')
-    .addColumn('userId', 'text', (col) => col.notNull().references('user.id').onDelete('cascade'))
-    .addColumn('impersonatedBy', 'text')
-    .execute();
+  yield* sql`
+    create table "user" (
+      "id" text not null primary key,
+      "name" text not null,
+      "email" text not null unique,
+      "emailVerified" integer not null,
+      "image" text,
+      "createdAt" date not null,
+      "updatedAt" date not null,
+      "username" text unique,
+      "role" text,
+      "banned" integer,
+      "banReason" text,
+      "banExpires" date
+    )
+  `;
 
-  await db.schema
-    .createTable('account')
-    .addColumn('id', 'text', (col) => col.notNull().primaryKey())
-    .addColumn('issuer', 'text', (col) => col.notNull())
-    .addColumn('accountId', 'text', (col) => col.notNull())
-    .addColumn('providerId', 'text', (col) => col.notNull())
-    .addColumn('userId', 'text', (col) => col.notNull().references('user.id').onDelete('cascade'))
-    .addColumn('accessToken', 'text')
-    .addColumn('refreshToken', 'text')
-    .addColumn('idToken', 'text')
-    .addColumn('accessTokenExpiresAt', 'date')
-    .addColumn('refreshTokenExpiresAt', 'date')
-    .addColumn('scope', 'text')
-    .addColumn('password', 'text')
-    .addColumn('createdAt', 'date', (col) => col.notNull())
-    .addColumn('updatedAt', 'date', (col) => col.notNull())
-    .execute();
+  yield* sql`
+    create table "session" (
+      "id" text not null primary key,
+      "expiresAt" date not null,
+      "token" text not null unique,
+      "createdAt" date not null,
+      "updatedAt" date not null,
+      "ipAddress" text,
+      "userAgent" text,
+      "userId" text not null references "user" ("id") on delete cascade,
+      "impersonatedBy" text
+    )
+  `;
 
-  await db.schema
-    .createTable('verification')
-    .addColumn('id', 'text', (col) => col.notNull().primaryKey())
-    .addColumn('identifier', 'text', (col) => col.notNull())
-    .addColumn('value', 'text', (col) => col.notNull())
-    .addColumn('expiresAt', 'date', (col) => col.notNull())
-    .addColumn('createdAt', 'date', (col) => col.notNull())
-    .addColumn('updatedAt', 'date', (col) => col.notNull())
-    .execute();
+  yield* sql`
+    create table "account" (
+      "id" text not null primary key,
+      "issuer" text not null,
+      "accountId" text not null,
+      "providerId" text not null,
+      "userId" text not null references "user" ("id") on delete cascade,
+      "accessToken" text,
+      "refreshToken" text,
+      "idToken" text,
+      "accessTokenExpiresAt" date,
+      "refreshTokenExpiresAt" date,
+      "scope" text,
+      "password" text,
+      "createdAt" date not null,
+      "updatedAt" date not null
+    )
+  `;
 
-  await db.schema.createIndex('session_userId_idx').on('session').columns(['userId']).execute();
-  await db.schema.createIndex('account_userId_idx').on('account').columns(['userId']).execute();
-  await db.schema
-    .createIndex('verification_identifier_idx')
-    .on('verification')
-    .columns(['identifier'])
-    .execute();
-  await db.schema
-    .createIndex('account_issuer_accountId_uidx')
-    .unique()
-    .on('account')
-    .columns(['issuer', 'accountId'])
-    .execute();
-};
+  yield* sql`
+    create table "verification" (
+      "id" text not null primary key,
+      "identifier" text not null,
+      "value" text not null,
+      "expiresAt" date not null,
+      "createdAt" date not null,
+      "updatedAt" date not null
+    )
+  `;
 
-export const down = async (db: Kysely<unknown>) => {
-  await db.schema.dropTable('verification').ifExists().execute();
-  await db.schema.dropTable('account').ifExists().execute();
-  await db.schema.dropTable('session').ifExists().execute();
-  await db.schema.dropTable('user').ifExists().execute();
-};
+  yield* sql`create index "session_userId_idx" on "session" ("userId")`;
+  yield* sql`create index "account_userId_idx" on "account" ("userId")`;
+  yield* sql`create index "verification_identifier_idx" on "verification" ("identifier")`;
+  yield* sql`
+    create unique index "account_issuer_accountId_uidx" on "account" ("issuer", "accountId")
+  `;
+});
