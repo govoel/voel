@@ -6,7 +6,6 @@ import { useAppForm } from '#src/components/form';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export const setActiveAccountAtom = AppRuntime.fn(
@@ -50,8 +49,18 @@ export const accountsWithActiveAccount = AppRuntime.atom(
         get.result(activeAccountAtom).pipe(
           Effect.map(
             Option.map((account) => ({
-              ...account,
+              active: account.active,
+              authStorageId: account.authStorageId,
+              createdAt: account.createdAt,
+              email: account.email,
               hostname: new URL(account.serverUrl).hostname,
+              name: account.name,
+              profilePicture: account.profilePicture,
+              role: account.role,
+              serverUrl: account.serverUrl,
+              updatedAt: account.updatedAt,
+              userId: account.userId,
+              username: account.username,
             }))
           )
         ),
@@ -83,8 +92,6 @@ export const accountsWithActiveAccount = AppRuntime.atom(
   ]),
   Atom.withLabel('accountsWithActiveAccount')
 );
-
-export const activeAccountLiteral = Account.fields.active.make(1);
 
 export const useSetActiveAccount = () => {
   const [setActiveAccount, setActiveAccountMutation] = useAtom(setActiveAccountAtom, {
