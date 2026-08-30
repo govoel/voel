@@ -1,13 +1,13 @@
 import { Context, Effect, Layer } from 'effect';
 
 import { Kysely, ParseJSONResultsPlugin, makeFromKysely, sql } from '@repo/effect-kysely';
-import type { Dialect, EffectKysely } from '@repo/effect-kysely';
+import type { Dialect } from '@repo/effect-kysely';
 
 import { AppConfig } from '#src/services/config.ts';
 import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts';
 import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
 
-export class MainDatabase extends Context.Service<MainDatabase, EffectKysely<MainDatabaseTables>>()(
+export class MainDatabase extends Context.Service<MainDatabase>()(
   'voel/services/database/main/MainDatabase',
   {
     make: ({ dialect }: { dialect: Dialect }) =>

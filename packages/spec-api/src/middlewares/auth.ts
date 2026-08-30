@@ -1,10 +1,11 @@
-import { Context, Schema } from 'effect';
+import { Context, Effect, Schema } from 'effect';
 import { RpcMiddleware } from 'effect/unstable/rpc';
 
 import type { AuthSession } from '@repo/auth-api/shared.ts';
 
-export class CurrentSession extends Context.Service<CurrentSession, AuthSession>()(
-  '@repo/spec-api/middlewares/auth/CurrentSession'
+export class CurrentSession extends Context.Service<CurrentSession>()(
+  '@repo/spec-api/middlewares/auth/CurrentSession',
+  { make: (session: AuthSession) => Effect.succeed(session) }
 ) {}
 
 export class UnauthorizedError extends Schema.TaggedError<

@@ -33,6 +33,8 @@
     // Effect conventions enforced by the local plugin.
     "effect-conventions/deterministic-identifiers": "error",
     "effect-conventions/no-context-service-class-make": "error",
+    "effect-conventions/no-context-service-second-type-argument": "error",
+    "effect-conventions/no-effect-namespace-import": "error",
     "effect-conventions/no-schema-struct-assignment": "error",
     "effect-conventions/schema-class-brand": "error",
 
