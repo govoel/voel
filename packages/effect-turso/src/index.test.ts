@@ -684,6 +684,47 @@ describe('TursoClient', () => {
     }).pipe(Effect.provide(TestLayer))
   );
 
+  it.effect('handles Turso Sync protocol requests through the Effect client', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({
+        filename: `${dir}/test.db`,
+        syncRequests: true,
+      });
+      yield* sql`CREATE TABLE synced (value TEXT NOT NULL)`;
+
+      const options = yield* sql.handleSyncRequest({ method: 'OPTIONS', path: '/pull-updates' });
+      expect(options).toMatchObject({ status: 204, contentType: 'text/plain' });
+      expect(options.body).toHaveLength(0);
+
+      const missing = yield* sql.handleSyncRequest({ method: 'POST', path: '/missing' });
+      expect(missing).toMatchObject({ status: 404, contentType: 'text/plain' });
+      expect(new TextDecoder().decode(missing.body)).toBe('Not Found');
+
+      const pipeline = yield* sql.handleSyncRequest({
+        method: 'POST',
+        path: '/v2/pipeline',
+        body: new TextEncoder().encode(
+          `{"requests":[{"type":"execute","stmt":{"sql":"INSERT INTO synced VALUES ('yes')"}}]}`
+        ),
+      });
+      expect(pipeline.status).toBe(200);
+      expect(yield* sql`SELECT value FROM synced`).toEqual([{ value: 'yes' }]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('requires sync requests to be enabled when creating the client', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
+      const error = yield* Effect.flip(
+        sql.handleSyncRequest({ method: 'OPTIONS', path: '/pull-updates' })
+      );
+
+      expect(error).toBeInstanceOf(TursoConfigError);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
   it.effect('supports safe integers', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;

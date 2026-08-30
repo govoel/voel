@@ -1,4 +1,8 @@
 import { connect } from '@govoel/turso-database';
+import type {
+  SyncRequest as NativeSyncRequest,
+  SyncResponse as NativeSyncResponse,
+} from '@govoel/turso-database';
 import {
   Context,
   Duration,
@@ -15,6 +19,8 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { Migrator, SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
+export type { SyncRequest, SyncResponse } from '@govoel/turso-database';
+
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
 
@@ -23,6 +29,13 @@ export class TursoConfigError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/effect-turso/TursoConfigError')('TursoConfigError', {
   message: Schema.String,
+}) {}
+
+export class TursoSyncRequestError extends Schema.TaggedError<
+  TursoSyncRequestError,
+  { readonly brand: unique symbol }
+>('@repo/effect-turso/TursoSyncRequestError')('TursoSyncRequestError', {
+  cause: Schema.Defect(),
 }) {}
 
 export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-turso/TursoClient', {
@@ -35,6 +48,12 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
   make: Effect.fnUntraced(function* <R = never>(options: {
     readonly filename: string;
     readonly readonly?: boolean;
+    /**
+     * Prepares every pooled connection to serve Turso Sync requests without
+     * checkpointing away WAL revisions. Enable this before exposing
+     * `handleSyncRequest` through an HTTP transport.
+     */
+    readonly syncRequests?: boolean;
     /**
      * How long SQLite waits when the database is busy. Defaults to 5 seconds.
      * `Duration.infinity` is clamped to SQLite's maximum timeout.
@@ -88,6 +107,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         Effect.tryPromise({
           try: async () =>
             connect(options.filename, {
+              disableWalAutoActions: options.syncRequests === true,
               readonly: options.readonly ?? false,
               timeout: busyTimeoutMillis,
             }),
@@ -244,30 +264,39 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         );
 
       return {
-        execute(sql, params, transformRows) {
-          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
-        },
-        executeRaw(sql, params) {
-          return runRaw(sql, params);
-        },
-        executeValues(sql, params) {
-          return runValues(sql, params);
-        },
-        executeValuesUnprepared(sql, params) {
-          return runValues(sql, params);
-        },
-        executeUnprepared(sql, params, transformRows) {
-          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
-        },
-        executeStream(sql, params, transformRows) {
-          return transformRows
-            ? runStream(sql, params).pipe(
-                Stream.map((row) => transformRows([row])),
-                Stream.flattenIterable
-              )
-            : runStream(sql, params);
-        },
-      } satisfies SqlConnection.Connection;
+        connection: {
+          execute(sql, params, transformRows) {
+            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+          },
+          executeRaw(sql, params) {
+            return runRaw(sql, params);
+          },
+          executeValues(sql, params) {
+            return runValues(sql, params);
+          },
+          executeValuesUnprepared(sql, params) {
+            return runValues(sql, params);
+          },
+          executeUnprepared(sql, params, transformRows) {
+            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+          },
+          executeStream(sql, params, transformRows) {
+            return transformRows
+              ? runStream(sql, params).pipe(
+                  Stream.map((row) => transformRows([row])),
+                  Stream.flattenIterable
+                )
+              : runStream(sql, params);
+          },
+        } satisfies SqlConnection.Connection,
+        handleSyncRequest: (
+          request: NativeSyncRequest
+        ): Effect.Effect<NativeSyncResponse, TursoSyncRequestError> =>
+          Effect.tryPromise({
+            try: async () => db.handleSyncRequest(request),
+            catch: (cause) => TursoSyncRequestError.make({ cause }),
+          }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore)),
+      };
     });
 
     const pool = yield* Pool.makeWithTTL({
@@ -277,7 +306,8 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       timeToLive: options.connectionTTL ?? Duration.minutes(45),
       timeToLiveStrategy: 'creation',
     });
-    const acquirer = Pool.get(pool);
+    const pooledConnection = Pool.get(pool);
+    const acquirer = pooledConnection.pipe(Effect.map((item) => item.connection));
 
     // Make connection failures visible while constructing the client instead
     // of deferring them until its first statement.
@@ -297,7 +327,19 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       transformRows: defaultTransformRows,
     });
 
-    return Object.assign(client, { config: options });
+    const handleSyncRequest = Effect.fnUntraced(function* (request: NativeSyncRequest) {
+      if (options.syncRequests !== true) {
+        return yield* TursoConfigError.make({
+          message: 'Turso sync requests must be enabled when creating the client',
+        });
+      }
+
+      return yield* Effect.scoped(
+        pooledConnection.pipe(Effect.flatMap((item) => item.handleSyncRequest(request)))
+      );
+    });
+
+    return Object.assign(client, { config: options, handleSyncRequest });
   }),
 }) {
   public static readonly layer = <R = never>(config: Parameters<typeof this.make<R>>[0]) =>
