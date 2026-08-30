@@ -100,7 +100,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               ) as activelibrarypath
           ),
           '[]'
-        ) as absolutepaths
+        ) as "absolutePaths"
       `;
 
       return {
