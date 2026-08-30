@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [".repos/**", ".agents/skills/**"],
+  "jsPlugins": ["eslint-plugin-sql"],
+  "rules": {
+    "sql/format": [
+      "error",
+      { "sqlTag": "sql", "ignoreExpressions": false, "retainBaseIndent": true },
+      {
+        "language": "sqlite",
+        "keywordCase": "lower",
+        "dataTypeCase": "lower",
+        "denseOperators": false,
+        "identifierCase": "lower",
+        "functionCase": "lower"
+      }
+    ]
+  }
+}
