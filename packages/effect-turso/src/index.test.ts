@@ -688,8 +688,8 @@ describe('TursoClient', () => {
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({
+        disableWalAutoActions: true,
         filename: `${dir}/test.db`,
-        syncRequests: true,
       });
       yield* sql`CREATE TABLE synced (value TEXT NOT NULL)`;
 
@@ -713,7 +713,7 @@ describe('TursoClient', () => {
     }).pipe(Effect.provide(TestLayer))
   );
 
-  it.effect('requires sync requests to be enabled when creating the client', () =>
+  it.effect('requires automatic WAL actions to be disabled for sync requests', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
