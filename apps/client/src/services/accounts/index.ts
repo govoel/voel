@@ -143,7 +143,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
           .pipe(
             (effect) => reactivity.mutation(['account'], effect),
             Effect.catchTags({
-              NoSuchElementError: () => AccountDatabaseError.make(),
               SchemaError: () => AccountDatabaseError.make(),
               SqlError: () => AccountDatabaseError.make(),
             })
