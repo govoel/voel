@@ -40,9 +40,9 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               from
                 account
               where
-                serverurl = ${serverUrl}
-                and userid = ${userId}
-                and authstorageid = ${authStorageId}
+                "serverUrl" = ${serverUrl}
+                and "userId" = ${userId}
+                and "authStorageId" = ${authStorageId}
             `,
         }),
 
@@ -59,8 +59,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               from
                 account
               where
-                serverurl = ${serverUrl}
-                and userid = ${userId}
+                "serverUrl" = ${serverUrl}
+                and "userId" = ${userId}
             `,
         }),
 
@@ -70,14 +70,14 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           execute: (account) => sql`
             insert into
               account ${sql.insert(account)}
-            on conflict (serverurl, userid) do update
+            on conflict ("serverUrl", "userId") do update
             set
               username = excluded.username,
               name = excluded.name,
               email = excluded.email,
-              authstorageid = excluded.authstorageid,
+              "authStorageId" = excluded."authStorageId",
               role = excluded.role,
-              profilepicture = excluded.profilepicture,
+              "profilePicture" = excluded."profilePicture",
               active = excluded.active
             returning
               *
@@ -101,8 +101,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               set
                 active = 1
               where
-                serverurl = ${serverUrl}
-                and userid = ${userId}
+                "serverUrl" = ${serverUrl}
+                and "userId" = ${userId}
               returning
                 *
             `,
@@ -117,9 +117,9 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               set
                 ${sql.update(profile)}
               where
-                serverurl = ${serverUrl}
-                and userid = ${userId}
-                and authstorageid = ${authStorageId}
+                "serverUrl" = ${serverUrl}
+                and "userId" = ${userId}
+                and "authStorageId" = ${authStorageId}
               returning
                 *
             `,
@@ -131,7 +131,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             userId: Account.fields.userId,
           }),
           execute: ({ serverUrl, userId }) =>
-            sql`DELETE FROM account WHERE serverUrl = ${serverUrl} AND userId = ${userId}`,
+            sql`DELETE FROM account WHERE "serverUrl" = ${serverUrl} AND "userId" = ${userId}`,
         }),
       };
     }),
