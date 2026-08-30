@@ -1,9 +1,5 @@
 import { connect } from '@tursodatabase/sync-react-native';
-import type {
-  BindParams,
-  DatabaseOpts,
-  Statement as TursoStatement,
-} from '@tursodatabase/sync-react-native';
+import type { BindParams, DatabaseOpts } from '@tursodatabase/sync-react-native';
 import {
   Context,
   Duration,
@@ -116,11 +112,7 @@ export class TursoClient extends Context.Service<TursoClient>()(
         });
 
         const operationSemaphore = yield* Semaphore.make(1);
-        const run = <A>(
-          sql: string,
-          params: ReadonlyArray<unknown>,
-          execute: (statement: TursoStatement, params: BindParams) => Promise<A>
-        ) =>
+        const run = (sql: string, params: ReadonlyArray<unknown>) =>
           Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
             // SqlSchema and SqlModel encode domain values into driver values before execution.
             // Raw queries are intentionally validated by Turso instead of normalized here.
@@ -129,7 +121,7 @@ export class TursoClient extends Context.Service<TursoClient>()(
             Effect.tryPromise({
               try: async () =>
                 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-                execute(statement, [...params] as BindParams),
+                statement.all([...params] as BindParams),
               catch: (cause) =>
                 SqlError.SqlError.make({
                   reason: classifyTursoError(cause, {
@@ -139,21 +131,47 @@ export class TursoClient extends Context.Service<TursoClient>()(
                 }),
             })
           ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
-        const runRows = (sql: string, params: ReadonlyArray<unknown>) =>
-          run(sql, params, async (statement, bindParams) => statement.all(bindParams));
+
         const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
-          run(sql, params, async (statement, bindParams) =>
-            statement.columnCount() > 0 ? statement.all(bindParams) : statement.run(bindParams)
-          );
+          Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
+            Effect.tryPromise({
+              try: async () => {
+                // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+                const bindParams = [...params] as BindParams;
+                return statement.columnCount() > 0
+                  ? statement.all(bindParams)
+                  : statement.run(bindParams);
+              },
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to execute statement',
+                    operation: 'execute',
+                  }),
+                }),
+            })
+          ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
+
         const runValues = (sql: string, params: ReadonlyArray<unknown>) =>
-          run(sql, params, async (statement, bindParams) => statement.allValues(bindParams));
+          Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
+            Effect.tryPromise({
+              try: async () =>
+                // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+                statement.allValues([...params] as BindParams),
+              catch: (cause) =>
+                SqlError.SqlError.make({
+                  reason: classifyTursoError(cause, {
+                    message: 'Failed to execute statement',
+                    operation: 'execute',
+                  }),
+                }),
+            })
+          ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
         return {
           connection: {
             execute(sql, params, transformRows) {
-              return transformRows
-                ? Effect.map(runRows(sql, params), transformRows)
-                : runRows(sql, params);
+              return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
             },
             executeRaw(sql, params) {
               return runRaw(sql, params);
@@ -165,9 +183,7 @@ export class TursoClient extends Context.Service<TursoClient>()(
               return runValues(sql, params);
             },
             executeUnprepared(sql, params, transformRows) {
-              return transformRows
-                ? Effect.map(runRows(sql, params), transformRows)
-                : runRows(sql, params);
+              return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
             },
             executeStream(_sql, _params) {
               return Stream.die('executeStream not implemented');
