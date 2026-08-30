@@ -64,9 +64,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             `,
         }),
 
-        upsert: SqlSchema.findOne({
+        upsert: SqlSchema.void({
           Request: Account.upsert,
-          Result: Account,
           execute: (account) => sql`
             insert into
               account ${sql.insert(account)}
@@ -79,8 +78,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               role = excluded.role,
               "profilePicture" = excluded."profilePicture",
               active = excluded.active
-            returning
-              *
           `,
         }),
 
@@ -94,7 +91,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             serverUrl: Account.fields.serverUrl,
             userId: Account.fields.userId,
           }),
-          Result: Account,
+          Result: Schema.Struct({ userId: Account.fields.userId }),
           execute: ({ serverUrl, userId }) =>
             sql`
               update account
@@ -104,13 +101,12 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
                 "serverUrl" = ${serverUrl}
                 and "userId" = ${userId}
               returning
-                *
+                "userId"
             `,
         }),
 
-        updateProfile: SqlSchema.findOneOption({
+        updateProfile: SqlSchema.void({
           Request: Account.update,
-          Result: Account,
           execute: ({ serverUrl, userId, authStorageId, ...profile }) =>
             sql`
               update account
@@ -120,8 +116,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
                 "serverUrl" = ${serverUrl}
                 and "userId" = ${userId}
                 and "authStorageId" = ${authStorageId}
-              returning
-                *
             `,
         }),
 
