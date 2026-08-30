@@ -1,58 +1,35 @@
 import { Context, Effect, Layer } from 'effect';
-
-import { Kysely, ParseJSONResultsPlugin, makeFromKysely, sql } from '@repo/effect-kysely';
-import type { Dialect } from '@repo/effect-kysely';
+import { Reactivity } from 'effect/unstable/reactivity';
+import { SqlClient } from 'effect/unstable/sql';
 
 import { AppConfig } from '#src/services/config.ts';
-import { runDatabaseMigrations } from '#src/services/database/main/migrations.ts';
-import type { MainDatabaseTables } from '#src/services/database/main/schema.ts';
+import { MainDatabaseMigrations } from '#src/services/database/main/migrations.ts';
 
 export class MainDatabase extends Context.Service<MainDatabase>()(
   'voel/services/database/main/MainDatabase',
   {
-    make: ({ dialect }: { dialect: Dialect }) =>
-      Effect.acquireRelease(
-        Effect.gen(function* () {
-          const kysely = new Kysely<MainDatabaseTables>({
-            dialect,
-            plugins: [new ParseJSONResultsPlugin()],
-          });
-
-          const db = makeFromKysely(kysely);
-
-          yield* db.executeRaw(sql`
-            pragma journal_mode = wal
-          `);
-          yield* db.executeRaw(sql`
-            pragma foreign_keys = on
-          `);
-          yield* db.executeRaw(sql`
-            pragma synchronous = normal
-          `);
-
-          yield* runDatabaseMigrations({ db: kysely });
-
-          return db;
-        }),
-        (db) => Effect.promise(async () => db.destroy())
-      ),
+    make: Effect.fnUntraced(function* ({ filename }: { readonly filename: string }) {
+      const { TursoClient } = yield* Effect.promise(async () => import('@repo/effect-turso-rn'));
+      return yield* TursoClient.make({
+        path: filename,
+        onConnect: ({ exec }) => exec('PRAGMA foreign_keys = ON'),
+      });
+    }),
   }
 ) {
-  public static readonly layerNoDeps = Layer.unwrap(
-    Effect.gen(function* () {
-      const config = yield* AppConfig;
-      const { OpSqliteDialect } = yield* Effect.promise(
-        async () => import('#src/services/database/dialect.ts')
-      );
-
-      return Layer.effect(
-        MainDatabase,
-        MainDatabase.make({
-          dialect: new OpSqliteDialect({ filename: config.mainDb.filename }),
-        })
-      );
-    })
+  public static readonly layerNoDeps = MainDatabaseMigrations.layer.pipe(
+    Layer.provideMerge(
+      Effect.service(AppConfig).pipe(
+        Effect.flatMap((config) => this.make({ filename: config.mainDb.filename })),
+        Effect.map((client) =>
+          Context.make(this, client).pipe(Context.add(SqlClient.SqlClient, client))
+        ),
+        Layer.effectContext
+      )
+    )
   );
 
-  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(AppConfig.layer));
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide([AppConfig.layer, Reactivity.layer])
+  );
 }

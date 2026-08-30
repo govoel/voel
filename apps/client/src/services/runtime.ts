@@ -1,18 +1,19 @@
 import { Layer } from 'effect';
-import { Atom, Reactivity } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/unstable/reactivity';
 
 import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
-import { MainDatabase } from '#src/services/database/main';
 
 export const AppRuntimeLayerNoDeps = AccountManager.layerNoDeps.pipe(
-  Layer.provideMerge(AuthClientMap.layerNoDeps.pipe(Layer.provideMerge(Reactivity.layer)))
+  Layer.provideMerge(AuthClientMap.layerNoDeps),
+  Layer.provideMerge(AccountRepository.layerNoDeps)
 );
 
 const AppRuntimeLayer = AccountManager.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(AuthClientMap.layer, MainDatabase.layer)),
+  Layer.provideMerge(Layer.mergeAll(AccountRepository.layer, AuthClientMap.layer)),
   Layer.orDie
 );
 

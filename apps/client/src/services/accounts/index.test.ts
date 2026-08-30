@@ -8,10 +8,10 @@ import {
   AccountNotFoundError,
   ActiveAccountKey,
 } from '#src/services/accounts/index.ts';
-import { AuthClient, AuthClientKey, acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { AccountRepository } from '#src/services/accounts/repository.ts';
+import { AuthClient, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
@@ -23,32 +23,22 @@ import {
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
 
-const getAccounts = MainDatabase.pipe(
-  Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll().orderBy('username')))
-);
+const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list()));
 
-const getActiveAccount = MainDatabase.pipe(
-  Effect.flatMap((db) =>
-    db.executeTakeFirstOption(
-      db.selectFrom('account').where('active', '=', Account.fields.active.make(1)).selectAll()
-    )
-  )
+const getActiveAccount = AccountRepository.pipe(
+  Effect.flatMap((repository) => repository.getActive())
 );
 
 const forkNextActiveAccountChange = Effect.gen(function* () {
-  const db = yield* MainDatabase;
+  const accountRepository = yield* AccountRepository;
   const subscribed = yield* Deferred.make<true>();
-  const fiber = yield* db
-    .executeTakeFirstOption(
-      db.selectFrom('account').where('active', '=', Account.fields.active.make(1)).selectAll()
-    )
-    .pipe(
-      Reactivity.stream(['account']),
-      Stream.tap(() => Deferred.succeed(subscribed, true)),
-      Stream.drop(1),
-      Stream.runHead,
-      Effect.forkChild
-    );
+  const fiber = yield* accountRepository.getActive().pipe(
+    Reactivity.stream(['account']),
+    Stream.tap(() => Deferred.succeed(subscribed, true)),
+    Stream.drop(1),
+    Stream.runHead,
+    Effect.forkChild
+  );
   yield* Deferred.await(subscribed);
   return fiber;
 });
@@ -121,25 +111,23 @@ describe('AccountManager', () => {
     'restores the active account from the database on startup',
     Effect.fnUntraced(
       function* () {
-        const db = yield* MainDatabase;
+        const accountRepository = yield* AccountRepository;
         const serverUrl = Account.fields.serverUrl.make('http://restored.example.test');
         const userId = Account.fields.userId.make('restored-user-id');
         const username = Account.fields.username.make('restored');
         const authStorageId = Account.fields.authStorageId.make('restored-auth-storage');
 
-        yield* db.execute(
-          db.insertInto('account').values({
-            serverUrl,
-            userId,
-            username,
-            name: Account.fields.name.make('Restored User'),
-            email: Account.fields.email.make('restored@example.test'),
-            authStorageId,
-            role: Account.fields.role.make('user'),
-            profilePicture: Account.fields.profilePicture.make(null),
-            active: Account.fields.active.make(1),
-          })
-        );
+        yield* accountRepository.upsert({
+          serverUrl,
+          userId,
+          username,
+          name: Account.fields.name.make('Restored User'),
+          email: Account.fields.email.make('restored@example.test'),
+          authStorageId,
+          role: Account.fields.role.make('user'),
+          profilePicture: Account.fields.profilePicture.make(null),
+          active: true,
+        });
 
         yield* Effect.gen(function* () {
           const manager = yield* AccountManager;
@@ -244,7 +232,7 @@ describe('AccountManager', () => {
               name: 'Test User',
               email: `${username}@voel.app`,
               role: 'admin',
-              active: 1,
+              active: true,
             },
           ]);
 
@@ -288,7 +276,7 @@ describe('AccountManager', () => {
               name: 'Test Admin',
               email: `${username}@voel.app`,
               role: 'admin',
-              active: 1,
+              active: true,
             },
           ]);
         },
@@ -334,7 +322,7 @@ describe('AccountManager', () => {
             authStorageId: activeAccountKey.authStorageId,
             role: 'admin',
             profilePicture,
-            active: 1,
+            active: true,
           });
           expect(yield* getAccounts).toMatchObject([
             {
@@ -346,7 +334,7 @@ describe('AccountManager', () => {
               authStorageId: activeAccountKey.authStorageId,
               role: 'admin',
               profilePicture,
-              active: 1,
+              active: true,
             },
           ]);
 
@@ -475,7 +463,7 @@ describe('AccountManager', () => {
             userId: activeAccountKey.userId,
             username,
             role: 'admin',
-            active: 1,
+            active: true,
           });
           expect(yield* getAccounts).toMatchObject([
             {
@@ -483,7 +471,7 @@ describe('AccountManager', () => {
               userId: activeAccountKey.userId,
               username,
               role: 'admin',
-              active: 1,
+              active: true,
             },
           ]);
         },
@@ -539,7 +527,7 @@ describe('AccountManager', () => {
             {
               serverUrl: testServer.serverUrl,
               username: account.username,
-              active: 1,
+              active: true,
             },
           ]);
         },
@@ -599,12 +587,12 @@ describe('AccountManager', () => {
             {
               serverUrl: testServer.serverUrl,
               username: firstAccount.username,
-              active: 0,
+              active: false,
             },
             {
               serverUrl: testServer.serverUrl,
               username: secondAccount.username,
-              active: 1,
+              active: true,
             },
           ]);
           const activeAccount = Option.getOrThrow(yield* manager.state);
@@ -639,12 +627,12 @@ describe('AccountManager', () => {
             {
               serverUrl: testServer.serverUrl,
               username: firstAccount.username,
-              active: 1,
+              active: true,
             },
             {
               serverUrl: testServer.serverUrl,
               username: secondAccount.username,
-              active: 0,
+              active: false,
             },
           ]);
         },
@@ -721,12 +709,10 @@ describe('AccountManager', () => {
             expect(yield* manager.state).toBe(Option.none());
           }).pipe(
             Effect.provide(
-              AuthClient.layerNoDeps(
-                new AuthClientKey({
-                  serverUrl: testServer.serverUrl,
-                  authStorageId: verificationAuthStorageId,
-                })
-              ).pipe(
+              AuthClient.layerNoDeps({
+                serverUrl: testServer.serverUrl,
+                authStorageId: verificationAuthStorageId,
+              }).pipe(
                 Layer.provide(
                   Layer.mergeAll(
                     AuthClientStorage.layerTest(
