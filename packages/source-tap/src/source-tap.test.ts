@@ -27,36 +27,35 @@ interface KyselyDB {
   };
 }
 
-class TestDatabase extends Context.Service<
-  TestDatabase,
-  { db: EffectKysely<KyselyDB>; sourceTap: SourceTap<KyselyDB> | undefined }
->()('@repo/source-tap/source-tap.test/TestDatabase', {
-  make: Effect.fnUntraced(function* ({
-    trackTables,
-  }: {
-    trackTables?: Parameters<typeof createDatabase<KyselyDB>>['0']['trackTables'];
-  }) {
-    const { db, sourceTap } = yield* createDatabase<KyselyDB>({
-      filename: ':memory:',
-      enableLogging: true,
-      ...(trackTables !== void 0 ? { trackTables } : {}),
-    });
+class TestDatabase extends Context.Service<TestDatabase>()(
+  '@repo/source-tap/source-tap.test/TestDatabase',
+  {
+    make: Effect.fnUntraced(function* ({
+      trackTables,
+    }: {
+      trackTables?: Parameters<typeof createDatabase<KyselyDB>>['0']['trackTables'];
+    }) {
+      const { db, sourceTap } = yield* createDatabase<KyselyDB>({
+        filename: ':memory:',
+        enableLogging: true,
+        ...(trackTables !== void 0 ? { trackTables } : {}),
+      });
 
-    yield* db.execute(sql`
+      yield* db.execute(sql`
       create table users (
         id integer primary key autoincrement not null,
         name text not null
       );
     `);
 
-    yield* db.execute(sql`
+      yield* db.execute(sql`
       create table users2 (
         id integer primary key autoincrement not null,
         username text not null
       );
     `);
 
-    yield* db.execute(sql`
+      yield* db.execute(sql`
       create table users3 (
         uuid text primary key not null,
         username text unique not null,
@@ -64,9 +63,10 @@ class TestDatabase extends Context.Service<
       );
     `);
 
-    return { db, sourceTap };
-  }),
-}) {
+      return { db, sourceTap };
+    }),
+  }
+) {
   public static readonly layer = (args: Parameters<(typeof this)['make']>['0']) =>
     Layer.effect(this, this.make(args));
 }

@@ -16,18 +16,16 @@ import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import type { AccountTable } from '#src/services/database/main/schema.ts';
 
-export class UuidGenerator extends Context.Service<
-  UuidGenerator,
-  { readonly v4: Effect.Effect<string> }
->()('voel/services/accounts/UuidGenerator') {
-  public static readonly layer = Layer.unwrap(
-    Effect.gen(function* () {
+export class UuidGenerator extends Context.Service<UuidGenerator>()(
+  'voel/services/accounts/UuidGenerator',
+  {
+    make: Effect.gen(function* () {
       const { randomUUID } = yield* Effect.promise(async () => import('expo-crypto'));
-      return Layer.succeed(UuidGenerator, {
-        v4: Effect.sync(() => randomUUID()),
-      });
-    })
-  );
+      return { v4: Effect.sync(() => randomUUID()) };
+    }),
+  }
+) {
+  public static readonly layer = Layer.effect(this, this.make);
 
   public static readonly layerTest = Layer.succeed(this, {
     v4: Effect.all([Random.nextInt, Random.nextInt]).pipe(
