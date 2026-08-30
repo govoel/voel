@@ -5,38 +5,49 @@ export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
   yield* sql`
-    CREATE TABLE account (
-      serverUrl TEXT NOT NULL,
-      userId TEXT NOT NULL,
-      username TEXT NOT NULL,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      authStorageId TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin', 'user', 'under18')),
-      profilePicture TEXT,
-      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
-      createdAt INTEGER NOT NULL DEFAULT (time_to_milli(time_now())),
-      updatedAt INTEGER NOT NULL DEFAULT (time_to_milli(time_now())),
-      CONSTRAINT account_serverUrl_userId_pkey PRIMARY KEY (serverUrl, userId)
-    ) STRICT
+    create table account (
+      serverurl text not null,
+      userid text not null,
+      username text not null,
+      name text not null,
+      email text not null,
+      authstorageid text not null,
+      role text not null check (role in ('admin', 'user', 'under18')),
+      profilepicture text,
+      active integer not null default 0 check (active in (0, 1)),
+      createdat integer not null default (time_to_milli (time_now ())),
+      updatedat integer not null default (time_to_milli (time_now ())),
+      constraint account_serverurl_userid_pkey primary key (serverurl, userid)
+    ) strict
   `;
 
   yield* sql`
-    CREATE UNIQUE INDEX account_serverUrl_userId_authStorageId_uniqueidx
-    ON account (serverUrl, userId, authStorageId)
+    create unique index account_serverurl_userid_authstorageid_uniqueidx on account (serverurl, userid, authstorageid)
   `;
 
   yield* sql`
-    CREATE UNIQUE INDEX account_active_uniqueidx
-    ON account (active) WHERE active = 1
+    create unique index account_active_uniqueidx on account (active)
+    where
+      active = 1
   `;
 
   yield* sql`
-    CREATE TRIGGER IF NOT EXISTS account_updatedAt_trigger
-    AFTER UPDATE OF serverUrl, userId, username, name, email, authStorageId, role,
-      profilePicture, active ON account
-    FOR EACH ROW BEGIN
-      UPDATE account SET updatedAt = (time_to_milli(time_now())) WHERE rowid = new.rowid;
-    END
+    create trigger if not exists account_updatedat_trigger after
+    update of serverurl,
+    userid,
+    username,
+    name,
+    email,
+    authstorageid,
+    role,
+    profilepicture,
+    active on account for each row begin
+    update account
+    set
+      updatedat = (time_to_milli (time_now ()))
+    where
+      rowid = new.rowid;
+
+    end
   `;
 });
