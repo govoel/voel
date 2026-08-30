@@ -45,8 +45,14 @@ const createUpdatedAtTrigger = Effect.fnUntraced(function* ({
   const updateColumns = sql.join(', ', false)(columns.map((column) => sql`${sql(column)}`));
 
   yield* sql`
-    create trigger ${sql(triggerName)} after update of ${updateColumns} on ${sql(table)} for each row begin
-      update ${sql(table)} set updatedAt = (time_to_milli(time_now())) where rowid = new.rowid;
+    create trigger ${sql(triggerName)} after
+    update of ${updateColumns} on ${sql(table)} for each row begin
+    update ${sql(table)}
+    set
+      updatedat = (time_to_milli (time_now ()))
+    where
+      rowid = new.rowid;
+
     end;
   `;
 });
@@ -55,22 +61,20 @@ export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
   yield* sql`
-    create table "mediaType" (
-      "type" text not null primary key
-    ) strict
+    create table "mediaType" ("type" text not null primary key) strict
   `;
 
   yield* sql`
-    insert into "mediaType"
-    ${sql.insert([{ type: 'audiobook' }, { type: 'movie' }, { type: 'show' }])}
+    insert into
+      "mediaType" ${sql.insert([{ type: 'audiobook' }, { type: 'movie' }, { type: 'show' }])}
   `;
 
   yield* sql`
     create table "mediaItem" (
       "id" integer not null primary key autoincrement,
       "type" text not null references "mediaType" ("type") on delete restrict on update cascade,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -95,8 +99,8 @@ export default Effect.gen(function* () {
       "cover" text,
       "coverThumbhash" text,
       "summary" text,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -127,8 +131,8 @@ export default Effect.gen(function* () {
       "asin" text not null unique,
       "name" text not null,
       "summary" text,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -150,8 +154,8 @@ export default Effect.gen(function* () {
       "title" text not null,
       "label" text not null,
       "sort" integer not null,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -183,8 +187,8 @@ export default Effect.gen(function* () {
       "about" text,
       "avatar" text,
       "avatarThumbhash" text,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -199,20 +203,18 @@ export default Effect.gen(function* () {
   });
 
   yield* sql`
-    create table "audiobookContributorRole" (
-      "role" text not null primary key
-    ) strict
+    create table "audiobookContributorRole" ("role" text not null primary key) strict
   `;
 
   yield* sql`
-    insert into "audiobookContributorRole"
-    ${sql.insert([
-      { role: 'author' },
-      { role: 'narrator' },
-      { role: 'editor' },
-      { role: 'translator' },
-      { role: 'foreword' },
-    ])}
+    insert into
+      "audiobookContributorRole" ${sql.insert([
+        { role: 'author' },
+        { role: 'narrator' },
+        { role: 'editor' },
+        { role: 'translator' },
+        { role: 'foreword' },
+      ])}
   `;
 
   yield* sql`
@@ -222,8 +224,8 @@ export default Effect.gen(function* () {
       "audiobookContributorId" integer references "audiobookContributor" ("id") on delete cascade on update cascade,
       "name" text not null,
       "role" text not null references "audiobookContributorRole" ("role") on delete restrict on update cascade,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -256,8 +258,8 @@ export default Effect.gen(function* () {
       "id" integer not null primary key autoincrement,
       "type" text not null references "mediaType" ("type") on delete restrict on update cascade,
       "name" text not null unique,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -276,8 +278,8 @@ export default Effect.gen(function* () {
       "id" integer not null primary key autoincrement,
       "libraryId" integer not null references "library" ("id") on delete cascade on update cascade,
       "absolutePath" text not null,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -303,8 +305,8 @@ export default Effect.gen(function* () {
       "id" integer not null primary key autoincrement,
       "absolutePath" text not null unique,
       "durationMs" integer not null,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
     ) strict
   `;
@@ -318,14 +320,19 @@ export default Effect.gen(function* () {
       "matchFailureReason" text,
       "variant" text default 'default' not null,
       "customOrder" integer not null,
-      "createdAt" integer default (time_to_milli(time_now())) not null,
-      "updatedAt" integer default (time_to_milli(time_now())) not null,
+      "createdAt" integer default (time_to_milli (time_now ())) not null,
+      "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer,
-      constraint "libraryFileMap_match_check"
-        check (
-          (mediaItemId is null and matchFailureReason is not null)
-          or (mediaItemId is not null and matchFailureReason is null)
+      constraint "libraryFileMap_match_check" check (
+        (
+          mediaitemid is null
+          and matchfailurereason is not null
         )
+        or (
+          mediaitemid is not null
+          and matchfailurereason is null
+        )
+      )
     ) strict
   `;
 
