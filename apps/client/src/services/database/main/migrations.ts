@@ -1,30 +1,28 @@
-import { Effect, Schema } from 'effect';
+import { Layer, Schema } from 'effect';
 
-import { Migrator } from '@repo/effect-kysely';
-import type { Kysely, MigrationProvider } from '@repo/effect-kysely';
+import { SqliteMigrator } from '@repo/effect-turso-rn/migrator';
 
-import * as BaseTables from '#src/services/database/main/migrations/000001-base-tables.ts';
-
-export const createMigrationProvider = (): MigrationProvider => ({
-  getMigrations: async () => ({
-    '000001-base-tables': BaseTables,
-  }),
-});
+import baseTablesMigration from '#src/services/database/main/migrations/000001-base-tables.ts';
 
 class DatabaseMigrationError extends Schema.TaggedError<
   DatabaseMigrationError,
   { readonly brand: unique symbol }
->('voel/services/database/main/migrations/DatabaseMigrationError')('DatabaseMigrationError', {}) {}
+>('voel/services/database/main/migrations/DatabaseMigrationError')('DatabaseMigrationError', {
+  cause: Schema.Defect(),
+  database: Schema.Literal('main'),
+}) {}
 
-export const runDatabaseMigrations = Effect.fnUntraced(function* <DB>({ db }: { db: Kysely<DB> }) {
-  const provider = createMigrationProvider();
-  const migrator = new Migrator({ db, provider });
-
-  const { error, results } = yield* Effect.promise(async () => migrator.migrateToLatest());
-
-  if (error !== void 0) {
-    return yield* DatabaseMigrationError.make();
-  }
-
-  return results;
-});
+export const MainDatabaseMigrations = {
+  layer: SqliteMigrator.layer({
+    loader: SqliteMigrator.fromRecord({
+      '000001_base-tables': baseTablesMigration,
+    }),
+  }).pipe(
+    Layer.catchTag('MigrationError', (cause) =>
+      Layer.effectDiscard(DatabaseMigrationError.make({ cause, database: 'main' }))
+    ),
+    Layer.catchTag('SqlError', (cause) =>
+      Layer.effectDiscard(DatabaseMigrationError.make({ cause, database: 'main' }))
+    )
+  ),
+};
