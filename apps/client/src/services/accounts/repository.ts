@@ -34,10 +34,16 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           }),
           Result: Account,
           execute: ({ serverUrl, userId, authStorageId }) =>
-            sql`SELECT * FROM account
-              WHERE serverUrl = ${serverUrl}
-                AND userId = ${userId}
-                AND authStorageId = ${authStorageId}`,
+            sql`
+              select
+                *
+              from
+                account
+              where
+                serverurl = ${serverUrl}
+                and userid = ${userId}
+                and authstorageid = ${authStorageId}
+            `,
         }),
 
         getByKey: SqlSchema.findOne({
@@ -47,24 +53,34 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           }),
           Result: Account,
           execute: ({ serverUrl, userId }) =>
-            sql`SELECT * FROM account
-              WHERE serverUrl = ${serverUrl} AND userId = ${userId}`,
+            sql`
+              select
+                *
+              from
+                account
+              where
+                serverurl = ${serverUrl}
+                and userid = ${userId}
+            `,
         }),
 
         upsert: SqlSchema.findOne({
           Request: Account.upsert,
           Result: Account,
           execute: (account) => sql`
-            INSERT INTO account ${sql.insert(account)}
-            ON CONFLICT(serverUrl, userId) DO UPDATE SET
+            insert into
+              account ${sql.insert(account)}
+            on conflict (serverurl, userid) do update
+            set
               username = excluded.username,
               name = excluded.name,
               email = excluded.email,
-              authStorageId = excluded.authStorageId,
+              authstorageid = excluded.authstorageid,
               role = excluded.role,
-              profilePicture = excluded.profilePicture,
+              profilepicture = excluded.profilepicture,
               active = excluded.active
-            RETURNING *
+            returning
+              *
           `,
         }),
 
@@ -80,20 +96,33 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           }),
           Result: Account,
           execute: ({ serverUrl, userId }) =>
-            sql`UPDATE account SET active = 1
-              WHERE serverUrl = ${serverUrl} AND userId = ${userId}
-              RETURNING *`,
+            sql`
+              update account
+              set
+                active = 1
+              where
+                serverurl = ${serverUrl}
+                and userid = ${userId}
+              returning
+                *
+            `,
         }),
 
         updateProfile: SqlSchema.findOneOption({
           Request: Account.update,
           Result: Account,
           execute: ({ serverUrl, userId, authStorageId, ...profile }) =>
-            sql`UPDATE account SET ${sql.update(profile)}
-              WHERE serverUrl = ${serverUrl}
-                AND userId = ${userId}
-                AND authStorageId = ${authStorageId}
-              RETURNING *`,
+            sql`
+              update account
+              set
+                ${sql.update(profile)}
+              where
+                serverurl = ${serverUrl}
+                and userid = ${userId}
+                and authstorageid = ${authStorageId}
+              returning
+                *
+            `,
         }),
 
         remove: SqlSchema.void({
