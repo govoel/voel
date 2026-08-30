@@ -6,23 +6,23 @@ export default Effect.gen(function* () {
 
   yield* sql`
     create table account (
-      serverurl text not null,
-      userid text not null,
+      "serverUrl" text not null,
+      "userId" text not null,
       username text not null,
       name text not null,
       email text not null,
-      authstorageid text not null,
+      "authStorageId" text not null,
       role text not null check (role in ('admin', 'user', 'under18')),
-      profilepicture text,
+      "profilePicture" text,
       active integer not null default 0 check (active in (0, 1)),
-      createdat integer not null default (time_to_milli (time_now ())),
-      updatedat integer not null default (time_to_milli (time_now ())),
-      constraint account_serverurl_userid_pkey primary key (serverurl, userid)
+      "createdAt" integer not null default (time_to_milli (time_now ())),
+      "updatedAt" integer not null default (time_to_milli (time_now ())),
+      constraint "account_serverUrl_userId_pkey" primary key ("serverUrl", "userId")
     ) strict
   `;
 
   yield* sql`
-    create unique index account_serverurl_userid_authstorageid_uniqueidx on account (serverurl, userid, authstorageid)
+    create unique index "account_serverUrl_userId_authStorageId_uniqueidx" on account ("serverUrl", "userId", "authStorageId")
   `;
 
   yield* sql`
@@ -32,19 +32,19 @@ export default Effect.gen(function* () {
   `;
 
   yield* sql`
-    create trigger if not exists account_updatedat_trigger after
-    update of serverurl,
-    userid,
+    create trigger if not exists "account_updatedAt_trigger" after
+    update of "serverUrl",
+    "userId",
     username,
     name,
     email,
-    authstorageid,
+    "authStorageId",
     role,
-    profilepicture,
+    "profilePicture",
     active on account for each row begin
     update account
     set
-      updatedat = (time_to_milli (time_now ()))
+      "updatedAt" = (time_to_milli (time_now ()))
     where
       rowid = new.rowid;
 
