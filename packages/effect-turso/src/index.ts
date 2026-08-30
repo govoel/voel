@@ -49,11 +49,11 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     readonly filename: string;
     readonly readonly?: boolean;
     /**
-     * Prepares every pooled connection to serve Turso Sync requests without
-     * checkpointing away WAL revisions. Enable this before exposing
-     * `handleSyncRequest` through an HTTP transport.
+     * Disables automatic WAL checkpoints and header restarts on every pooled
+     * connection. Required when serving Turso Sync requests so retained sync
+     * revisions are not discarded.
      */
-    readonly syncRequests?: boolean;
+    readonly disableWalAutoActions?: boolean;
     /**
      * How long SQLite waits when the database is busy. Defaults to 5 seconds.
      * `Duration.infinity` is clamped to SQLite's maximum timeout.
@@ -107,7 +107,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         Effect.tryPromise({
           try: async () =>
             connect(options.filename, {
-              disableWalAutoActions: options.syncRequests === true,
+              disableWalAutoActions: options.disableWalAutoActions === true,
               readonly: options.readonly ?? false,
               timeout: busyTimeoutMillis,
             }),
@@ -328,9 +328,9 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     });
 
     const handleSyncRequest = Effect.fnUntraced(function* (request: NativeSyncRequest) {
-      if (options.syncRequests !== true) {
+      if (options.disableWalAutoActions !== true) {
         return yield* TursoConfigError.make({
-          message: 'Turso sync requests must be enabled when creating the client',
+          message: 'Automatic WAL actions must be disabled before handling Turso Sync requests',
         });
       }
 
