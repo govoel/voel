@@ -12,7 +12,7 @@ import {
   Stream,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
-import { Migrator, SqlClient, SqlError, Statement } from 'effect/unstable/sql';
+import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
@@ -26,13 +26,22 @@ export class TursoClient extends Context.Service<TursoClient>()(
      * Turso connection. Both local-only and embedded-replica configurations
      * accepted by `@tursodatabase/sync-react-native` are supported.
      */
-    make: Effect.fnUntraced(function* (
+    make: Effect.fnUntraced(function* <R = never>(
       options: DatabaseOpts & {
         /**
          * How long SQLite waits when the database is busy. Defaults to 5 seconds.
          * `Duration.infinity` is clamped to SQLite's maximum timeout.
          */
         readonly busyTimeout?: Duration.Input | undefined;
+
+        /**
+         * Runs once for every physical connection, before it enters the pool.
+         * Use this for connection-local settings such as SQLite PRAGMAs.
+         */
+        readonly onConnect?: (connection: {
+          readonly exec: (sql: string) => Effect.Effect<void, SqlError.SqlError>;
+        }) => Effect.Effect<void, SqlError.SqlError, R>;
+
         readonly spanAttributes?: Record<string, unknown> | undefined;
 
         readonly transformResultNames?: ((str: string) => string) | undefined;
@@ -91,6 +100,22 @@ export class TursoClient extends Context.Service<TursoClient>()(
               }),
             }),
         });
+
+        if (options.onConnect) {
+          yield* options.onConnect({
+            exec: (sql: string) =>
+              Effect.tryPromise({
+                try: async () => db.exec(sql),
+                catch: (cause) =>
+                  SqlError.SqlError.make({
+                    reason: classifyTursoError(cause, {
+                      message: 'Failed to initialize database connection',
+                      operation: 'onConnect',
+                    }),
+                  }),
+              }).pipe(Effect.asVoid, Effect.uninterruptible),
+          });
+        }
 
         const prepareCache = yield* ScopedCache.make({
           capacity: options.prepareCacheSize ?? 200,
@@ -226,7 +251,7 @@ export class TursoClient extends Context.Service<TursoClient>()(
     }),
   }
 ) {
-  public static readonly layer = (config: Parameters<typeof this.make>[0]) =>
+  public static readonly layer = <R = never>(config: Parameters<typeof this.make<R>>[0]) =>
     Layer.effectContext(
       Effect.map(this.make(config), (client) =>
         Context.make(TursoClient, client).pipe(Context.add(SqlClient.SqlClient, client))
@@ -284,10 +309,4 @@ const uniqueConstraintFromMessage = (message: string) => {
   }
   const constraint = message.slice(index + prefix.length).trim();
   return constraint.length > 0 ? constraint : 'unknown';
-};
-
-export const SqliteMigrator = {
-  run: Migrator.make({}),
-  layer: <R>(options: Migrator.MigratorOptions<R>) =>
-    Layer.effectDiscard(SqliteMigrator.run(options)),
 };
