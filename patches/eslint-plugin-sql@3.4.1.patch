@@ -1,0 +1,109 @@
+diff --git a/dist/rules/format.js b/dist/rules/format.js
+index ae9089617cd970754d0c99a4e4dc413cf1e6f7fe..84bc9b8fa07461433e5ebd2bf9831fa1c9deab9a 100644
+--- a/dist/rules/format.js
++++ b/dist/rules/format.js
+@@ -36,7 +36,7 @@ const getClosingIndentation = (subject) => {
+     }
+     return { char: ' ', count: 0 };
+ };
+-const calculateIndentConfig = (templateRaw, useTabs, tabWidth) => {
++const calculateIndentConfig = (templateRaw, useTabs, tabWidth, sourceIndent) => {
+     // Detect the original indentation style from the template
+     let detectedIndent = detectIndentation(templateRaw);
+     // If no meaningful content, try to detect from the closing line
+@@ -69,10 +69,20 @@ const calculateIndentConfig = (templateRaw, useTabs, tabWidth) => {
+     const closingCount = indentChar === '\t'
+         ? Math.max(contentCount - 1, 0)
+         : Math.max(contentCount - tabWidth, 0);
++    // Template contents should never escape the indentation of the surrounding
++    // source line. Existing template indentation is still retained when it is
++    // deeper than the source indentation.
++    const sourceIndentWidth = [...sourceIndent].reduce((width, character) => {
++        return width + (character === '\t' ? tabWidth : 1);
++    }, 0);
++    const sourceIndentCount = indentChar === '\t'
++        ? Math.ceil(sourceIndentWidth / tabWidth)
++        : sourceIndentWidth;
++    const sourceIndentOffset = Math.max(sourceIndentCount - closingCount, 0);
+     return {
+         char: indentChar,
+-        closingCount,
+-        contentCount,
++        closingCount: closingCount + sourceIndentOffset,
++        contentCount: contentCount + sourceIndentOffset,
+     };
+ };
+ export const rule = createRule({
+@@ -93,7 +103,7 @@ export const rule = createRule({
+         const useTabs = (_h = (_g = context.options) === null || _g === void 0 ? void 0 : _g[1]) === null || _h === void 0 ? void 0 : _h.useTabs;
+         return {
+             TemplateLiteral(node) {
+-                var _a, _b, _c, _d, _e, _f, _g, _h;
++                var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+                 const tagName = 
+                 // @ts-expect-error TODO
+                 (_e = (_b = (_a = node.parent.tag) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : 
+@@ -120,7 +130,9 @@ export const rule = createRule({
+                     return quasi.value.raw;
+                 })
+                     .join(magic);
+-                const indentConfig = calculateIndentConfig(literal, useTabs, tabWidth);
++                const sourceLine = context.sourceCode.lines[node.loc.start.line - 1];
++                const sourceIndent = (_k = (_j = sourceLine === null || sourceLine === void 0 ? void 0 : sourceLine.match(/^[ \t]*/u)) === null || _j === void 0 ? void 0 : _j[0]) !== null && _k !== void 0 ? _k : '';
++                const indentConfig = calculateIndentConfig(literal, useTabs, tabWidth, sourceIndent);
+                 if (!sqlTagIsPresent && !isSqlQuery(literal, placeholderRule)) {
+                     return;
+                 }
+diff --git a/src/rules/format.ts b/src/rules/format.ts
+index 8b29ade74c792a9c9cdd8c398c8e250591f229b8..c201d642aab32cfcca7e0859c6cf90a12c3506ee 100644
+--- a/src/rules/format.ts
++++ b/src/rules/format.ts
+@@ -112,6 +112,7 @@ const calculateIndentConfig = (
+   templateRaw: string,
+   useTabs: boolean | undefined,
+   tabWidth: number,
++  sourceIndent: string,
+ ): IndentConfig => {
+   // Detect the original indentation style from the template
+   let detectedIndent = detectIndentation(templateRaw);
+@@ -150,10 +151,22 @@ const calculateIndentConfig = (
+       ? Math.max(contentCount - 1, 0)
+       : Math.max(contentCount - tabWidth, 0);
+ 
++  // Template contents should never escape the indentation of the surrounding
++  // source line. Existing template indentation is still retained when it is
++  // deeper than the source indentation.
++  const sourceIndentWidth = [...sourceIndent].reduce((width, character) => {
++    return width + (character === '\t' ? tabWidth : 1);
++  }, 0);
++  const sourceIndentCount =
++    indentChar === '\t'
++      ? Math.ceil(sourceIndentWidth / tabWidth)
++      : sourceIndentWidth;
++  const sourceIndentOffset = Math.max(sourceIndentCount - closingCount, 0);
++
+   return {
+     char: indentChar,
+-    closingCount,
+-    contentCount,
++    closingCount: closingCount + sourceIndentOffset,
++    contentCount: contentCount + sourceIndentOffset,
+   };
+ };
+ 
+@@ -219,7 +232,14 @@ export const rule = createRule<Options, MessageIds>({
+           })
+           .join(magic);
+ 
+-        const indentConfig = calculateIndentConfig(literal, useTabs, tabWidth);
++        const sourceLine = context.sourceCode.lines[node.loc.start.line - 1];
++        const sourceIndent = sourceLine?.match(/^[ \t]*/u)?.[0] ?? '';
++        const indentConfig = calculateIndentConfig(
++          literal,
++          useTabs,
++          tabWidth,
++          sourceIndent,
++        );
+ 
+         if (!sqlTagIsPresent && !isSqlQuery(literal, placeholderRule)) {
+           return;
