@@ -33,10 +33,10 @@ const make = Effect.fnUntraced(function* <R = never>({
   const sql = yield* SqlClient.SqlClient;
 
   const ensureMigrationsTable = sql`
-      CREATE TABLE IF NOT EXISTS ${sql(table)} (
-        migration_id INTEGER PRIMARY KEY NOT NULL,
-        created_at DATETIME NOT NULL DEFAULT current_timestamp,
-        name VARCHAR(255) NOT NULL
+      create table if not exists ${sql(table)} (
+        migration_id integer primary key not null,
+        created_at datetime not null default current_timestamp,
+        name varchar(255) not null
       )
     `;
 
@@ -50,9 +50,14 @@ const make = Effect.fnUntraced(function* <R = never>({
     readonly name: string;
     readonly created_at: Date;
   }>`
-      SELECT migration_id, name, created_at
-      FROM ${sql(table)}
-      ORDER BY migration_id DESC
+      select
+        migration_id,
+        name,
+        created_at
+      from
+        ${sql(table)}
+      order by
+        migration_id desc
     `.withoutTransform.pipe(
     Effect.map((rows) =>
       Option.map(
