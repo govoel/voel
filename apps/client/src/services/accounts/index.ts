@@ -83,7 +83,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/AccountManager',
   {
     make: Effect.gen(function* () {
-      const db = yield* MainDatabase;
+      const sql = yield* MainDatabase;
       const accountRepository = yield* AccountRepository;
       const uuidGenerator = yield* UuidGenerator;
       const xxHash = yield* XxHash;
@@ -101,7 +101,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const changes = reactivity.stream(['account'], state).pipe(Stream.changes);
 
       const setActiveAccount = Effect.fnUntraced(function* ({ serverUrl, userId }: AccountKey) {
-        yield* db
+        yield* sql
           .withTransaction(
             Effect.gen(function* () {
               yield* accountRepository.deactivateAll();
@@ -127,7 +127,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       }: {
         readonly account: Omit<AccountUpsert, 'active'>;
       }) {
-        yield* db
+        yield* sql
           .withTransaction(
             Effect.gen(function* () {
               yield* accountRepository.deactivateAll();
