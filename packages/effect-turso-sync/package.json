@@ -1,0 +1,30 @@
+{
+  "name": "@repo/effect-turso-sync",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun --bun run vitest"
+  },
+  "dependencies": {
+    "@tursodatabase/database-common": "0.8.0-pre.7",
+    "@tursodatabase/sync": "0.8.0-pre.7",
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "4.0.0-rc.112",
+    "@effect/vitest": "4.0.0-rc.112",
+    "@repo/effect-turso": "workspace:*",
+    "@repo/tsconfig": "workspace:*",
+    "bun-types": "1.4.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
