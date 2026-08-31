@@ -11,6 +11,7 @@ import {
   FileSystem,
   Layer,
   Option,
+  Schema,
   Stream,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
@@ -18,15 +19,9 @@ import { SqlClient, SqlError } from 'effect/unstable/sql';
 
 import { TursoClient, TursoConfigError } from '#src/index.ts';
 
-const isRunInfo = (value: unknown): value is { changes: number; lastInsertRowid: number } =>
-  typeof value === 'object' && value !== null && 'changes' in value && 'lastInsertRowid' in value;
-
-const expectRunInfo = (value: unknown) => {
-  if (!isRunInfo(value)) {
-    throw new Error('expected run info { changes, lastInsertRowid }');
-  }
-  return value;
-};
+const decodeRunInfo = Schema.decodeUnknownSync(
+  Schema.Struct({ changes: Schema.Int, lastInsertRowid: Schema.Int })
+);
 
 const TestLayer = Layer.mergeAll(BunFileSystem.layer, Reactivity.layer);
 
@@ -128,7 +123,7 @@ describe('TursoClient', () => {
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
-      const first = expectRunInfo(
+      const first = decodeRunInfo(
         yield* sql`
           insert into
             test (name)
@@ -137,7 +132,7 @@ describe('TursoClient', () => {
         `.raw
       );
       expect(first.changes).toBe(1);
-      const second = expectRunInfo(
+      const second = decodeRunInfo(
         yield* sql`
           insert into
             test (name)
