@@ -1,13 +1,12 @@
-import { StatementPromise as NativeStatement } from '@tursodatabase/database-common';
+import type { StatementPromise } from '@tursodatabase/database-common';
 import { connect } from '@tursodatabase/sync';
-import type { DatabaseOpts } from '@tursodatabase/sync';
+import type { DatabaseOpts as NativeDatabaseOpts } from '@tursodatabase/sync';
 import {
   Context,
   Duration,
   Effect,
   Layer,
   Predicate,
-  Schema,
   Scope,
   ScopedCache,
   Semaphore,
@@ -17,15 +16,17 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
-export type { DatabaseOpts } from '@tursodatabase/sync';
+/**
+ * Turso Sync options supported by this adapter. Remote writes return a
+ * different prepared-statement implementation whose result modes do not match
+ * Effect SQL's positional-value contract.
+ */
+export type DatabaseOpts = Omit<NativeDatabaseOpts, 'remoteWritesExperimental'> & {
+  readonly remoteWritesExperimental?: never;
+};
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
-const decodeColumns = Schema.decodeUnknownSync(Schema.Array(Schema.Unknown));
-const decodeObjectRows = Schema.decodeUnknownSync(
-  Schema.Array(Schema.Record(Schema.String, Schema.Unknown))
-);
-const decodeValueRows = Schema.decodeUnknownSync(Schema.Array(Schema.Array(Schema.Unknown)));
 
 export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
   '@repo/effect-turso-sync/TursoSyncClient',
@@ -113,23 +114,16 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
         });
       }
 
-      const prepare = async (sql: string) => {
-        // `@tursodatabase/sync` currently declares prepare's result as `any`,
-        // even though it returns database-common's Promise statement.
-        const statement: unknown = await db.prepare(sql);
-        if (!(statement instanceof NativeStatement)) {
-          throw new TypeError('Turso returned an invalid prepared statement');
-        }
-        return statement;
-      };
-
       const prepareCache = yield* ScopedCache.make({
         capacity: options.prepareCacheSize ?? 200,
         timeToLive: options.prepareCacheTTL ?? Duration.minutes(10),
         lookup: (sql: string) =>
           Effect.acquireRelease(
             Effect.tryPromise({
-              try: async () => prepare(sql),
+              // Turso declares this as `any`; excluding remote writes makes the
+              // database-common promise statement its only implementation.
+              // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+              try: async () => db.prepare(sql) as Promise<StatementPromise>,
               catch: (cause) =>
                 SqlError.SqlError.make({
                   reason: classifyTursoError(cause, {
@@ -155,8 +149,7 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
           Effect.tryPromise({
             try: async () => {
               statement.raw(false);
-              const rows: unknown = await statement.all(...params);
-              return decodeObjectRows(rows);
+              return statement.all(...params);
             },
             catch: (cause) =>
               SqlError.SqlError.make({
@@ -172,14 +165,11 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
           Effect.tryPromise({
             try: async () => {
-              const columns: unknown = statement.columns();
-              if (decodeColumns(columns).length > 0) {
+              if (statement.columns().length > 0) {
                 statement.raw(false);
-                const rows: unknown = await statement.all(...params);
-                return decodeObjectRows(rows);
+                return statement.all(...params);
               }
-              const result: unknown = await statement.run(...params);
-              return result;
+              return statement.run(...params);
             },
             catch: (cause) =>
               SqlError.SqlError.make({
@@ -196,8 +186,7 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
           Effect.tryPromise({
             try: async () => {
               statement.raw(true);
-              const rows: unknown = await statement.all(...params);
-              return decodeValueRows(rows);
+              return statement.all(...params);
             },
             catch: (cause) =>
               SqlError.SqlError.make({
