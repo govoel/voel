@@ -691,7 +691,9 @@ describe('TursoClient', () => {
         disableWalAutoActions: true,
         filename: `${dir}/test.db`,
       });
-      yield* sql`CREATE TABLE synced (value TEXT NOT NULL)`;
+      yield* sql`
+        create table synced (value text not null)
+      `;
 
       const options = yield* sql.handleSyncRequest({ method: 'OPTIONS', path: '/pull-updates' });
       expect(options).toMatchObject({ status: 204, contentType: 'text/plain' });
@@ -709,7 +711,14 @@ describe('TursoClient', () => {
         ),
       });
       expect(pipeline.status).toBe(200);
-      expect(yield* sql`SELECT value FROM synced`).toEqual([{ value: 'yes' }]);
+      expect(
+        yield* sql`
+          select
+            value
+          from
+            synced
+        `
+      ).toEqual([{ value: 'yes' }]);
     }).pipe(Effect.provide(TestLayer))
   );
 
