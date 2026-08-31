@@ -31,7 +31,7 @@
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~57.0.13",
         "@repo/auth-api": "workspace:*",
-        "@repo/effect-turso-rn": "workspace:*",
+        "@repo/effect-turso-sync-rn": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.5",
         "better-auth": "1.7.1",

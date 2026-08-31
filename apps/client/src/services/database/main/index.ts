@@ -9,8 +9,10 @@ export class MainDatabase extends Context.Service<MainDatabase>()(
   'voel/services/database/main/MainDatabase',
   {
     make: Effect.fnUntraced(function* ({ filename }: { readonly filename: string }) {
-      const { TursoClient } = yield* Effect.promise(async () => import('@repo/effect-turso-rn'));
-      return yield* TursoClient.make({
+      const { TursoSyncClient } = yield* Effect.promise(
+        async () => import('@repo/effect-turso-sync-rn')
+      );
+      return yield* TursoSyncClient.make({
         path: filename,
         onConnect: ({ exec }) => exec('PRAGMA foreign_keys = ON'),
       });
