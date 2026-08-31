@@ -11,9 +11,17 @@ const createIndex = Effect.fnUntraced(function* ({
   readonly columns: ReadonlyArray<string>;
 }) {
   const indexName = `${table}_${columns.join('_')}_idx`;
-  const indexColumns = sql.csv(columns.map((column) => sql`${sql(column)}`));
+  const indexColumns = sql.csv(
+    columns.map(
+      (column) => sql`
+        ${sql(column)}
+      `
+    )
+  );
 
-  yield* sql`create index ${sql(indexName)} on ${sql(table)} (${indexColumns})`;
+  yield* sql`
+    create index ${sql(indexName)} on ${sql(table)} (${indexColumns})
+  `;
 });
 
 const createUniqueIndex = Effect.fnUntraced(function* ({
@@ -26,9 +34,17 @@ const createUniqueIndex = Effect.fnUntraced(function* ({
   readonly columns: ReadonlyArray<string>;
 }) {
   const indexName = `${table}_${columns.join('_')}_uniqueidx`;
-  const indexColumns = sql.csv(columns.map((column) => sql`${sql(column)}`));
+  const indexColumns = sql.csv(
+    columns.map(
+      (column) => sql`
+        ${sql(column)}
+      `
+    )
+  );
 
-  yield* sql`create unique index ${sql(indexName)} on ${sql(table)} (${indexColumns})`;
+  yield* sql`
+    create unique index ${sql(indexName)} on ${sql(table)} (${indexColumns})
+  `;
 });
 
 /** Uses an after trigger so updating the same row cannot invalidate its indexes mid-update. */
@@ -42,14 +58,23 @@ const createUpdatedAtTrigger = Effect.fnUntraced(function* ({
   readonly columns: ReadonlyArray<string>;
 }) {
   const triggerName = `${table}_updatedAt_trigger`;
-  const updateColumns = sql.join(', ', false)(columns.map((column) => sql`${sql(column)}`));
+  const updateColumns = sql.join(
+    ', ',
+    false
+  )(
+    columns.map(
+      (column) => sql`
+        ${sql(column)}
+      `
+    )
+  );
 
   yield* sql`
     create trigger ${sql(triggerName)} after
     update of ${updateColumns} on ${sql(table)} for each row begin
     update ${sql(table)}
     set
-      updatedat = (time_to_milli (time_now ()))
+      "updatedAt" = (time_to_milli (time_now ()))
     where
       rowid = new.rowid;
 
@@ -325,12 +350,12 @@ export default Effect.gen(function* () {
       "deletedAt" integer,
       constraint "libraryFileMap_match_check" check (
         (
-          mediaitemid is null
-          and matchfailurereason is not null
+          "mediaItemId" is null
+          and "matchFailureReason" is not null
         )
         or (
-          mediaitemid is not null
-          and matchfailurereason is null
+          "mediaItemId" is not null
+          and "matchFailureReason" is null
         )
       )
     ) strict

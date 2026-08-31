@@ -27,24 +27,24 @@ export class LibraryPathRepository extends Context.Service<LibraryPathRepository
           }),
           execute: Effect.fnUntraced(function* ({ libraryId, absolutePaths }) {
             yield* sql`
-              update librarypath
+              update "libraryPath"
               set
-                deletedat = time_to_milli (time_now ())
+                "deletedAt" = time_to_milli (time_now ())
               where
-                libraryid = ${libraryId}
-                and deletedat is null
+                "libraryId" = ${libraryId}
+                and "deletedAt" is null
                 and not ${sql.in('absolutePath', absolutePaths)}
             `;
 
             if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
               yield* sql`
                 insert into
-                  librarypath ${sql.insert(
+                  "libraryPath" ${sql.insert(
                     absolutePaths.map((absolutePath) => ({ libraryId, absolutePath }))
                   )}
-                on conflict (libraryid, absolutepath) do update
+                on conflict ("libraryId", "absolutePath") do update
                 set
-                  deletedat = null
+                  "deletedAt" = null
               `;
             }
           }),
@@ -53,7 +53,13 @@ export class LibraryPathRepository extends Context.Service<LibraryPathRepository
         deleteByLibraryId: SqlSchema.void({
           Request: Schema.Struct({ libraryId: LibraryPath.fields.libraryId }),
           execute: ({ libraryId }) =>
-            sql`UPDATE libraryPath SET deletedAt = time_to_milli(time_now()) WHERE libraryId = ${libraryId}`,
+            sql`
+              update "libraryPath"
+              set
+                "deletedAt" = time_to_milli (time_now ())
+              where
+                "libraryId" = ${libraryId}
+            `,
         }),
       };
     }),
@@ -80,24 +86,24 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               json_group_array(
                 json_object(
                   'id',
-                  activelibrarypath.id,
+                  active_library_path.id,
                   'absolutePath',
-                  activelibrarypath.absolutepath
+                  active_library_path."absolutePath"
                 )
               )
             from
               (
                 select
                   lp.id,
-                  lp.absolutepath
+                  lp."absolutePath"
                 from
-                  librarypath as lp
+                  "libraryPath" as lp
                 where
-                  lp.libraryid = l.id
-                  and lp.deletedat is null
+                  lp."libraryId" = l.id
+                  and lp."deletedAt" is null
                 order by
                   lp.id
-              ) as activelibrarypath
+              ) as active_library_path
           ),
           '[]'
         ) as "absolutePaths"
@@ -126,7 +132,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               library as l
             where
               l.id = ${id}
-              and l.deletedat is null
+              and l."deletedAt" is null
           `,
         }),
 
@@ -150,8 +156,10 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           }),
           execute: ({ cursor, limit }) => {
             const afterCursor = Option.match(cursor, {
-              onNone: () => sql``,
-              onSome: (cursorId) => sql`AND l.id > ${cursorId}`,
+              onNone: () => sql.literal(''),
+              onSome: (cursorId) => sql`
+                and l.id > ${cursorId}
+              `,
             });
 
             return sql`
@@ -160,7 +168,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               from
                 library as l
               where
-                l.deletedat is null ${afterCursor}
+                l."deletedAt" is null ${afterCursor}
               order by
                 l.id
               limit
@@ -180,7 +188,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
                 on conflict (name) do update
                 set
                   type = excluded.type,
-                  deletedat = null
+                  "deletedAt" = null
                 returning
                   id
               `,
@@ -200,7 +208,13 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         deleteById: SqlSchema.void({
           Request: Schema.Struct({ id: Library.fields.id }),
           execute: ({ id }) =>
-            sql`UPDATE library SET deletedAt = time_to_milli(time_now()) WHERE id = ${id}`,
+            sql`
+              update library
+              set
+                "deletedAt" = time_to_milli (time_now ())
+              where
+                id = ${id}
+            `,
         }),
       };
     }),

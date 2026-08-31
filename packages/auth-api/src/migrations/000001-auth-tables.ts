@@ -65,9 +65,15 @@ export default Effect.gen(function* () {
     )
   `;
 
-  yield* sql`create index "session_userId_idx" on "session" ("userId")`;
-  yield* sql`create index "account_userId_idx" on "account" ("userId")`;
-  yield* sql`create index "verification_identifier_idx" on "verification" ("identifier")`;
+  yield* sql`
+    create index "session_userId_idx" on "session" ("userId")
+  `;
+  yield* sql`
+    create index "account_userId_idx" on "account" ("userId")
+  `;
+  yield* sql`
+    create index "verification_identifier_idx" on "verification" ("identifier")
+  `;
   yield* sql`
     create unique index "account_issuer_accountId_uidx" on "account" ("issuer", "accountId")
   `;
