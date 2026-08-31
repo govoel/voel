@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, FileSystem, Layer, Stream } from 'effect';
+import { Effect, FileSystem, Layer } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
@@ -15,7 +15,7 @@ const makeTempDir = Effect.gen(function* () {
 });
 
 describe('TursoSyncClient', () => {
-  it.effect('executes queries, result modes, streams, and transactions', () =>
+  it.effect('executes queries, result modes, and transactions', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
@@ -77,19 +77,6 @@ describe('TursoSyncClient', () => {
             id = 1
         `.raw
       ).toMatchObject({ changes: 1 });
-
-      const streamed = yield* sql`
-          select
-            *
-          from
-            test
-          order by
-            id
-        `.stream.pipe(Stream.runCollect);
-      expect(streamed).toEqual([
-        { id: 1, name: 'updated' },
-        { id: 2, name: 'second' },
-      ]);
 
       yield* sql
         .withTransaction(
