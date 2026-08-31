@@ -43,7 +43,13 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
     )
   ).pipe(Effect.orDie);
 
-  yield* db.executeRaw(sql`update "user" set "role" = ${user.role} where "id" = ${savedUser.id}`);
+  yield* db.executeRaw(sql`
+    update "user"
+    set
+      "role" = ${user.role}
+    where
+      "id" = ${savedUser.id}
+  `);
 
   yield* Effect.addFinalizer(() =>
     Effect.tryPromise(async () => test.deleteUser(savedUser.id)).pipe(Effect.orDie)

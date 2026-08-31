@@ -20,9 +20,15 @@ export class MainDatabase extends Context.Service<MainDatabase>()(
 
           const db = makeFromKysely(kysely);
 
-          yield* db.executeRaw(sql`PRAGMA journal_mode = WAL`);
-          yield* db.executeRaw(sql`PRAGMA foreign_keys = ON`);
-          yield* db.executeRaw(sql`PRAGMA synchronous = NORMAL`);
+          yield* db.executeRaw(sql`
+            pragma journal_mode = wal
+          `);
+          yield* db.executeRaw(sql`
+            pragma foreign_keys = on
+          `);
+          yield* db.executeRaw(sql`
+            pragma synchronous = normal
+          `);
 
           yield* runDatabaseMigrations({ db: kysely });
 
