@@ -18,8 +18,8 @@ import type { SqlConnection } from 'effect/unstable/sql';
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
 
-export class TursoClient extends Context.Service<TursoClient>()(
-  '@repo/effect-turso-rn/TursoClient',
+export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
+  '@repo/effect-turso-sync-rn/TursoSyncClient',
   {
     /**
      * Creates a scoped Effect SQL client backed by one serialized React Native
@@ -254,7 +254,7 @@ export class TursoClient extends Context.Service<TursoClient>()(
   public static readonly layer = <R = never>(config: Parameters<typeof this.make<R>>[0]) =>
     Layer.effectContext(
       Effect.map(this.make(config), (client) =>
-        Context.make(TursoClient, client).pipe(Context.add(SqlClient.SqlClient, client))
+        Context.make(TursoSyncClient, client).pipe(Context.add(SqlClient.SqlClient, client))
       )
     ).pipe(Layer.provide(Reactivity.layer));
 }

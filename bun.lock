@@ -182,8 +182,8 @@
         "vitest": "4.1.11",
       },
     },
-    "packages/effect-turso-rn": {
-      "name": "@repo/effect-turso-rn",
+    "packages/effect-turso-sync-rn": {
+      "name": "@repo/effect-turso-sync-rn",
       "version": "0.0.0",
       "dependencies": {
         "@tursodatabase/sync-react-native": "0.8.0-pre.7",
@@ -834,7 +834,7 @@
 
     "@repo/effect-turso": ["@repo/effect-turso@workspace:packages/effect-turso"],
 
-    "@repo/effect-turso-rn": ["@repo/effect-turso-rn@workspace:packages/effect-turso-rn"],
+    "@repo/effect-turso-sync-rn": ["@repo/effect-turso-sync-rn@workspace:packages/effect-turso-sync-rn"],
 
     "@repo/server": ["@repo/server@workspace:apps/server"],
 
