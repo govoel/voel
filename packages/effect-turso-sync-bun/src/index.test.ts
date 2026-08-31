@@ -4,8 +4,12 @@ import { describe, expect, it } from '@effect/vitest';
 import { StatementPromise } from '@tursodatabase/database-common';
 import { connect } from '@tursodatabase/sync';
 import { Cause, Effect, Exit, FileSystem, Layer, Option, Schema } from 'effect';
+import { HttpEffect, HttpServerRequest } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
+
+import { TursoClient as SourceTursoClient } from '@repo/effect-turso';
+import { TursoSyncError } from '@repo/effect-turso-sync';
 
 import { TursoSyncClient } from '#src/index.ts';
 
@@ -19,6 +23,26 @@ const makeTempDir = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   return yield* fs.makeTempDirectoryScoped();
 });
+
+const makeSyncFetch = (
+  source: SourceTursoClient['Service'],
+  onRequest?: (request: Request) => void
+) => {
+  const handler = HttpEffect.toWebHandler(
+    HttpServerRequest.HttpServerRequest.pipe(
+      Effect.flatMap((request) => source.syncHandler(request))
+    )
+  );
+
+  return Object.assign(
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      onRequest?.(request);
+      return handler(request);
+    },
+    { preconnect: fetch.preconnect }
+  );
+};
 
 describe('TursoSyncClient', () => {
   it.effect('uses database-common promise statements', () =>
@@ -510,13 +534,117 @@ describe('TursoSyncClient', () => {
     }).pipe(Effect.provide(TestLayer))
   );
 
+  it.effect('bootstraps and pulls changes through the Turso Sync protocol', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const source = yield* SourceTursoClient.make({
+        disableWalAutoActions: true,
+        filename: `${dir}/source.db`,
+      });
+      yield* source`
+        create table synced (id integer primary key, value text not null)
+      `;
+      yield* source`
+        insert into
+          synced (id, value)
+        values
+          (1, 'bootstrapped')
+      `;
+
+      const authorizationHeaders: Array<string | null> = [];
+      const replica = yield* TursoSyncClient.make({
+        path: `${dir}/replica.db`,
+        url: 'http://sync.test',
+        authToken: async () => 'test-token',
+        longPollTimeoutMs: 10,
+        fetch: makeSyncFetch(source, (request) => {
+          authorizationHeaders.push(request.headers.get('authorization'));
+        }),
+      });
+
+      expect(
+        yield* replica`
+          select
+            *
+          from
+            synced
+        `
+      ).toEqual([{ id: 1, value: 'bootstrapped' }]);
+
+      yield* source`
+        insert into
+          synced (id, value)
+        values
+          (2, 'pulled')
+      `;
+      expect(yield* replica.pull).toBe(true);
+      expect(
+        yield* replica`
+          select
+            *
+          from
+            synced
+          order by
+            id
+        `
+      ).toEqual([
+        { id: 1, value: 'bootstrapped' },
+        { id: 2, value: 'pulled' },
+      ]);
+      expect(yield* replica.pull).toBe(false);
+      expect(authorizationHeaders.length).toBeGreaterThan(0);
+      expect(authorizationHeaders.every((header) => header === 'Bearer test-token')).toBe(true);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('wraps pull failures without affecting local SQL', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const source = yield* SourceTursoClient.make({
+        disableWalAutoActions: true,
+        filename: `${dir}/source.db`,
+      });
+      yield* source`
+        create table synced (id integer primary key)
+      `;
+
+      let rejectRequests = false;
+      const syncFetch = makeSyncFetch(source);
+      const rejectingFetch = Object.assign(
+        async (input: string | URL | Request, init?: RequestInit) =>
+          rejectRequests ? new Response('Unauthorized', { status: 401 }) : syncFetch(input, init),
+        { preconnect: fetch.preconnect }
+      );
+      const replica = yield* TursoSyncClient.make({
+        path: `${dir}/replica.db`,
+        url: 'http://sync.test',
+        longPollTimeoutMs: 10,
+        fetch: rejectingFetch,
+      });
+
+      rejectRequests = true;
+      const error = yield* Effect.flip(replica.pull);
+      expect(error).toBeInstanceOf(TursoSyncError);
+      expect(error.operation).toBe('pull');
+      expect(SqlError.isSqlError(error)).toBe(false);
+      expect(
+        yield* replica`
+          select
+            *
+          from
+            synced
+        `
+      ).toEqual([]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
   it.effect('layer provides the concrete and generic client services', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
       yield* Effect.gen(function* () {
         const concrete = yield* TursoSyncClient;
+        expect(concrete.pull).toBeDefined();
         const generic = yield* SqlClient.SqlClient;
-        expect(concrete).toBe(generic);
         yield* generic`
           create table test (id integer primary key)
         `;
