@@ -15,7 +15,7 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
-import { TursoSyncClient as CoreTursoSyncClient } from '@repo/effect-turso-sync';
+import { TursoSyncClient as CoreTursoSyncClient, TursoSyncError } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 import { makeSyncOperations } from '@repo/effect-turso-sync/operations';
 
@@ -222,7 +222,12 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       yield* onConnect(client);
     }
 
-    return Object.assign(client, { config: options });
+    const pull = Effect.tryPromise({
+      try: async () => db.pull(),
+      catch: (cause) => TursoSyncError.make({ cause, operation: 'pull' }),
+    }).pipe(Effect.uninterruptible, Semaphore.withPermit(connectionSemaphore));
+
+    return Object.assign(client, { config: options, pull });
   });
 
   /** Provides one configured client as both Turso Sync and generic SQL services. */
