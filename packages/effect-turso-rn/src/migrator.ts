@@ -41,9 +41,12 @@ const make = Effect.fnUntraced(function* <R = never>({
     `;
 
   const insertMigrations = (rows: ReadonlyArray<readonly [id: number, name: string]>) =>
-    sql`INSERT INTO ${sql(table)} ${sql.insert(
-      rows.map(([migrationId, name]) => ({ migration_id: migrationId, name }))
-    )}`.withoutTransform;
+    sql`
+      insert into
+        ${sql(table)} ${sql.insert(
+          rows.map(([migrationId, name]) => ({ migration_id: migrationId, name }))
+        )}
+    `.withoutTransform;
 
   const latestMigration = sql<{
     readonly migration_id: number;
