@@ -1,6 +1,6 @@
 import { Layer, Schema } from 'effect';
 
-import { SqliteMigrator } from '@repo/effect-turso-rn/migrator';
+import { SqliteMigrator } from '@repo/effect-turso-sync-rn/migrator';
 
 import baseTablesMigration from '#src/services/database/main/migrations/000001-base-tables.ts';
 
