@@ -7,7 +7,7 @@
       "cache": true,
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", ".output/**", ".tsbuildinfo/**"]
+      "outputs": ["dist/**"]
     },
     "test": {
       "cache": true,
@@ -17,7 +17,7 @@
     },
     "//#test": {
       "cache": true,
-      "inputs": ["$TURBO_DEFAULT$"],
+      "inputs": ["$TURBO_DEFAULT$", "!.repos/effect/**"],
       "outputLogs": "errors-only"
     },
     "voel#test": {
@@ -29,7 +29,7 @@
     "//#lint": {
       "cache": true,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"],
+      "inputs": ["$TURBO_DEFAULT$", "!.repos/effect/**", "$TURBO_ROOT$/.oxlintrc.json"],
       "outputLogs": "errors-only"
     },
     "//#lint:fix": {
@@ -47,45 +47,47 @@
       "cache": true,
       "dependsOn": ["^check-types"],
       "inputs": ["$TURBO_DEFAULT$"],
+      "outputs": ["*.tsbuildinfo"],
       "outputLogs": "errors-only"
     },
     "voel#check-types": {
       "cache": true,
       "dependsOn": ["^check-types", "@repo/effect-atom-devtools-rozenite#build"],
       "inputs": ["$TURBO_DEFAULT$"],
+      "outputs": ["*.tsbuildinfo"],
       "outputLogs": "errors-only"
     },
-    "start": {
+    "voel#start": {
       "cache": false,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "persistent": true
     },
-    "android:dev": {
+    "voel#android:dev": {
       "cache": false,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "persistent": true
     },
-    "android:preview": {
+    "voel#android:preview": {
       "cache": false,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "persistent": true
     },
-    "android:prod": {
+    "voel#android:prod": {
       "cache": false,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "persistent": true
     },
-    "ios:dev": {
+    "voel#ios:dev": {
       "cache": false,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "persistent": true
     },
-    "ios:preview": {
+    "voel#ios:preview": {
       "cache": false,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "persistent": true
     },
-    "ios:prod": {
+    "voel#ios:prod": {
       "cache": false,
       "dependsOn": ["@repo/effect-atom-devtools-rozenite#build"],
       "persistent": true
@@ -93,9 +95,6 @@
     "dev": {
       "cache": false,
       "persistent": true
-    },
-    "clean": {
-      "cache": false
     }
   }
 }
