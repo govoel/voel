@@ -5,7 +5,13 @@
   "rules": {
     "sql/format": [
       "error",
-      { "sqlTag": "sql", "ignoreExpressions": false, "retainBaseIndent": true },
+      {
+        "sqlTag": "sql",
+        "ignoreExpressions": false,
+        "ignoreInline": false,
+        "ignoreTagless": false,
+        "retainBaseIndent": true
+      },
       {
         "language": "sqlite",
         "keywordCase": "lower",
