@@ -14,7 +14,7 @@ import {
   Stream,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
-import { Migrator, SqlClient, SqlError, Statement } from 'effect/unstable/sql';
+import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
 export type { DatabaseOpts } from '@tursodatabase/sync';
@@ -152,77 +152,62 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
       const operationSemaphore = yield* Semaphore.make(1);
       const run = (sql: string, params: ReadonlyArray<unknown>) =>
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-          Effect.withFiber((fiber) => {
-            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
-            return Effect.tryPromise({
-              try: async () => {
-                statement.safeIntegers(useSafeIntegers);
-                statement.raw(false);
-                const rows: unknown = await statement.all(...params);
-                return decodeObjectRows(rows);
-              },
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to execute statement',
-                    operation: 'execute',
-                  }),
+          Effect.tryPromise({
+            try: async () => {
+              statement.raw(false);
+              const rows: unknown = await statement.all(...params);
+              return decodeObjectRows(rows);
+            },
+            catch: (cause) =>
+              SqlError.SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to execute statement',
+                  operation: 'execute',
                 }),
-            });
+              }),
           })
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-          Effect.withFiber((fiber) => {
-            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
-            return Effect.tryPromise({
-              try: async () => {
-                statement.safeIntegers(useSafeIntegers);
-                const columns: unknown = statement.columns();
-                if (decodeColumns(columns).length > 0) {
-                  statement.raw(false);
-                  const rows: unknown = await statement.all(...params);
-                  return decodeObjectRows(rows);
-                }
-                const result: unknown = await statement.run(...params);
-                return result;
-              },
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to execute statement',
-                    operation: 'execute',
-                  }),
+          Effect.tryPromise({
+            try: async () => {
+              const columns: unknown = statement.columns();
+              if (decodeColumns(columns).length > 0) {
+                statement.raw(false);
+                const rows: unknown = await statement.all(...params);
+                return decodeObjectRows(rows);
+              }
+              const result: unknown = await statement.run(...params);
+              return result;
+            },
+            catch: (cause) =>
+              SqlError.SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to execute statement',
+                  operation: 'execute',
                 }),
-            });
+              }),
           })
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       const runValues = (sql: string, params: ReadonlyArray<unknown>) =>
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-          Effect.withFiber((fiber) => {
-            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
-            return Effect.tryPromise({
-              try: async () => {
-                statement.safeIntegers(useSafeIntegers);
-                statement.raw(true);
-                const rows: unknown = await statement.all(...params);
-                return decodeValueRows(rows);
-              },
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to execute statement',
-                    operation: 'execute',
-                  }),
+          Effect.tryPromise({
+            try: async () => {
+              statement.raw(true);
+              const rows: unknown = await statement.all(...params);
+              return decodeValueRows(rows);
+            },
+            catch: (cause) =>
+              SqlError.SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to execute statement',
+                  operation: 'execute',
                 }),
-            });
+              }),
           })
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
-
-      const runStream = (sql: string, params: ReadonlyArray<unknown>) =>
-        Stream.fromEffect(run(sql, params)).pipe(Stream.flattenIterable);
 
       const connection = {
         execute(sql, params, transformRows) {
@@ -240,13 +225,8 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
         executeUnprepared(sql, params, transformRows) {
           return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
         },
-        executeStream(sql, params, transformRows) {
-          return transformRows
-            ? runStream(sql, params).pipe(
-                Stream.map((row) => transformRows([row])),
-                Stream.flattenIterable
-              )
-            : runStream(sql, params);
+        executeStream(_sql, _params) {
+          return Stream.die('executeStream not implemented');
         },
       } satisfies SqlConnection.Connection;
 
@@ -335,12 +315,4 @@ const uniqueConstraintFromMessage = (message: string) => {
   }
   const constraint = message.slice(index + prefix.length).trim();
   return constraint.length > 0 ? constraint : 'unknown';
-};
-
-export const SqliteMigrator = {
-  fromGlob: Migrator.fromGlob,
-  fromRecord: Migrator.fromRecord,
-  run: Migrator.make({}),
-  layer: <R>(options: Migrator.MigratorOptions<R>) =>
-    Layer.effectDiscard(SqliteMigrator.run(options)),
 };
