@@ -40,8 +40,14 @@ const createUpdatedAtTrigger = async ({
   const updateColumns = columns.map((column) => sql.ref(column));
 
   await sql`
-    create trigger ${sql.ref(triggerName)} before update of ${sql.join(updateColumns)} on ${sql.table(table)} for each row begin
-      update ${sql.table(table)} set updatedAt = (unixepoch()) where rowid = new.rowid;
+    create trigger ${sql.ref(triggerName)} before
+    update of ${sql.join(updateColumns)} on ${sql.table(table)} for each row begin
+    update ${sql.table(table)}
+    set
+      "updatedAt" = (unixepoch())
+    where
+      rowid = new.rowid;
+
     end;
   `.execute(db);
 };
@@ -50,7 +56,9 @@ export const up = async (db: Kysely<unknown>) => {
   await db.schema
     .createTable('mediaType')
     .addColumn('type', 'text', (col) => col.notNull().primaryKey())
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await db
@@ -65,10 +73,20 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('type', 'text', (col) =>
       col.notNull().references('mediaType.type').onDelete('restrict').onUpdate('cascade')
     )
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createIndex({ db, table: 'mediaItem', columns: ['type'] });
@@ -89,10 +107,20 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('cover', 'text')
     .addColumn('coverThumbhash', 'text')
     .addColumn('summary', 'text')
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createIndex({ db, table: 'audiobook', columns: ['mediaItemId'] });
@@ -121,10 +149,20 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('asin', 'text', (col) => col.notNull().unique())
     .addColumn('name', 'text', (col) => col.notNull())
     .addColumn('summary', 'text')
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createIndex({ db, table: 'audiobookSeries', columns: ['updatedAt'] });
@@ -148,10 +186,20 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('title', 'text', (col) => col.notNull())
     .addColumn('label', 'text', (col) => col.notNull())
     .addColumn('sort', 'integer', (col) => col.notNull())
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createUniqueIndex({
@@ -181,10 +229,20 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('about', 'text')
     .addColumn('avatar', 'text')
     .addColumn('avatarThumbhash', 'text')
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createIndex({ db, table: 'audiobookContributor', columns: ['updatedAt'] });
@@ -199,7 +257,9 @@ export const up = async (db: Kysely<unknown>) => {
   await db.schema
     .createTable('audiobookContributorRole')
     .addColumn('role', 'text', (col) => col.notNull().primaryKey())
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await db
@@ -231,10 +291,20 @@ export const up = async (db: Kysely<unknown>) => {
         .onDelete('restrict')
         .onUpdate('cascade')
     )
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createUniqueIndex({
@@ -263,10 +333,20 @@ export const up = async (db: Kysely<unknown>) => {
       col.notNull().references('mediaType.type').onDelete('restrict').onUpdate('cascade')
     )
     .addColumn('name', 'text', (col) => col.notNull().unique())
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createIndex({ db, table: 'library', columns: ['updatedAt'] });
@@ -285,10 +365,20 @@ export const up = async (db: Kysely<unknown>) => {
       col.notNull().references('library.id').onDelete('cascade').onUpdate('cascade')
     )
     .addColumn('absolutePath', 'text', (col) => col.notNull())
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createUniqueIndex({ db, table: 'libraryPath', columns: ['libraryId', 'absolutePath'] });
@@ -308,10 +398,20 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('id', 'integer', (col) => col.notNull().primaryKey().autoIncrement())
     .addColumn('absolutePath', 'text', (col) => col.notNull().unique())
     .addColumn('durationMs', 'integer', (col) => col.notNull())
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await db.schema
@@ -329,14 +429,33 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('matchFailureReason', 'text')
     .addColumn('variant', 'text', (col) => col.notNull().defaultTo('default'))
     .addColumn('customOrder', 'integer', (col) => col.notNull())
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
     .addColumn('deletedAt', 'integer')
     .addCheckConstraint(
       'libraryFileMap_match_check',
-      sql`(mediaItemId is null and matchFailureReason is not null) or (mediaItemId is not null and matchFailureReason is null)`
+      sql`
+        (
+          "mediaItemId" is null
+          and "matchFailureReason" is not null
+        )
+        or (
+          "mediaItemId" is not null
+          and "matchFailureReason" is null
+        )
+      `
     )
-    .modifyEnd(sql`strict`)
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createUniqueIndex({
