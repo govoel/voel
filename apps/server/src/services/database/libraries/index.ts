@@ -32,6 +32,7 @@ export class LibrariesDatabase extends Context.Service<LibrariesDatabase>()(
 
       return yield* TursoClient.make({
         filename,
+        disableWalAutoActions: true,
         onConnect: ({ exec }) => exec('PRAGMA foreign_keys = ON'),
       }).pipe(
         Effect.catchTags({

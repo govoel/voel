@@ -4,6 +4,7 @@ import type { BetterAuthOptions } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { testUtils } from 'better-auth/plugins';
 import { admin } from 'better-auth/plugins/admin';
+import { bearer } from 'better-auth/plugins/bearer';
 import { username } from 'better-auth/plugins/username';
 import { Context, Duration, Effect, Option, Schema } from 'effect';
 
@@ -58,6 +59,7 @@ const createServerAuthClient = (config: {
     database: config.database,
     plugins: [
       expo(),
+      bearer(),
       username({ displayUsername: false }),
       admin({ defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
       {
