@@ -23,12 +23,12 @@
     "agent-device": "0.20.10",
     "bun-types": "1.4.0",
     "effect": "4.0.0-rc.112",
-    "eslint-plugin-turbo": "2.10.11",
+    "eslint-plugin-turbo": "2.10.12",
     "opensrc": "0.7.3",
     "oxfmt": "0.65.0",
     "oxlint": "1.78.0",
     "oxlint-tsgolint": "7.0.2001",
-    "turbo": "2.10.11",
+    "turbo": "2.10.12",
     "typescript": "7.0.2"
   },
   "engines": {
