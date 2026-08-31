@@ -21,6 +21,7 @@
   "devDependencies": {
     "@effect/platform-bun": "4.0.0-rc.112",
     "@effect/vitest": "4.0.0-rc.112",
+    "@repo/effect-turso": "workspace:*",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.4.0",
     "typescript": "7.0.2",

@@ -6,6 +6,7 @@ import {
   Effect,
   Layer,
   Predicate,
+  Schema,
   Scope,
   ScopedCache,
   Semaphore,
@@ -17,6 +18,16 @@ import type { SqlConnection } from 'effect/unstable/sql';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
+
+export class TursoSyncError extends Schema.TaggedError<
+  TursoSyncError,
+  { readonly brand: unique symbol }
+>('@repo/effect-turso-sync-rn/TursoSyncError')('TursoSyncError', {
+  cause: Schema.Defect(),
+  operation: Schema.Literal('pull'),
+}) {}
+
+export type TursoSyncFailure = Pick<TursoSyncError, '_tag' | 'cause' | 'operation'>;
 
 export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
   '@repo/effect-turso-sync-rn/TursoSyncClient',
@@ -194,6 +205,7 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
           ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
         return {
+          db,
           connection: {
             execute(sql, params, transformRows) {
               return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
@@ -218,7 +230,7 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
       });
 
       const semaphore = yield* Semaphore.make(1);
-      const { connection } = yield* makeConnection;
+      const { connection, db } = yield* makeConnection;
 
       const acquirer = Effect.acquireRelease(Effect.as(semaphore.take(1), connection), () =>
         semaphore.release(1)
@@ -247,7 +259,12 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
         transformRows: defaultTransformRows,
       });
 
-      return Object.assign(client, { config: options });
+      const pull: Effect.Effect<boolean, TursoSyncFailure> = Effect.tryPromise({
+        try: async () => db.pull(),
+        catch: (cause) => TursoSyncError.make({ cause, operation: 'pull' }),
+      }).pipe(Effect.uninterruptible, Semaphore.withPermit(semaphore));
+
+      return Object.assign(client, { config: options, pull });
     }),
   }
 ) {

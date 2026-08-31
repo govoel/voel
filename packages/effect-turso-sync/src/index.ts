@@ -28,6 +28,16 @@ export type DatabaseOpts = Omit<NativeDatabaseOpts, 'remoteWritesExperimental'> 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
 
+export class TursoSyncError extends Schema.TaggedError<
+  TursoSyncError,
+  { readonly brand: unique symbol }
+>('@repo/effect-turso-sync/TursoSyncError')('TursoSyncError', {
+  cause: Schema.Defect(),
+  operation: Schema.Literal('pull'),
+}) {}
+
+export type TursoSyncFailure = Pick<TursoSyncError, '_tag' | 'cause' | 'operation'>;
+
 export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
   '@repo/effect-turso-sync/TursoSyncClient',
   {
@@ -220,7 +230,8 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
       } satisfies SqlConnection.Connection;
 
       // A single physical connection backs both ordinary statements and
-      // transactions.
+      // transactions. Leasing it prevents statements and pulls from entering a
+      // transaction's BEGIN..COMMIT window.
       const connectionSemaphore = yield* Semaphore.make(1);
       const acquirer = Effect.acquireRelease(
         Effect.as(connectionSemaphore.take(1), connection),
@@ -250,7 +261,12 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
         transformRows: defaultTransformRows,
       });
 
-      return Object.assign(client, { config: options });
+      const pull: Effect.Effect<boolean, TursoSyncFailure> = Effect.tryPromise({
+        try: async () => db.pull(),
+        catch: (cause) => TursoSyncError.make({ cause, operation: 'pull' }),
+      }).pipe(Effect.uninterruptible, Semaphore.withPermit(connectionSemaphore));
+
+      return Object.assign(client, { config: options, pull });
     }),
   }
 ) {

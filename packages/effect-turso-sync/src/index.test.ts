@@ -7,7 +7,10 @@ import { Effect, FileSystem, Layer } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
-import { TursoSyncClient } from '#src/index.ts';
+import { TursoClient as SourceTursoClient } from '@repo/effect-turso';
+
+import { TursoSyncClient, TursoSyncError } from '#src/index.ts';
+import type { DatabaseOpts } from '#src/index.ts';
 
 const TestLayer = Layer.mergeAll(BunFileSystem.layer, Reactivity.layer);
 
@@ -15,6 +18,31 @@ const makeTempDir = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   return yield* fs.makeTempDirectoryScoped();
 });
+
+const makeSyncFetch = (
+  source: SourceTursoClient['Service'],
+  onRequest?: (request: Request) => void
+): NonNullable<DatabaseOpts['fetch']> =>
+  Object.assign(
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      onRequest?.(request);
+
+      const response = await Effect.runPromise(
+        source.handleSyncRequest({
+          method: request.method,
+          path: new URL(request.url).pathname,
+          body: new Uint8Array(await request.arrayBuffer()),
+        })
+      );
+
+      return new Response(response.status === 204 ? null : response.body, {
+        status: response.status,
+        headers: { 'content-type': response.contentType },
+      });
+    },
+    { preconnect: fetch.preconnect }
+  );
 
 describe('TursoSyncClient', () => {
   it.effect('uses database-common promise statements', () =>
@@ -343,6 +371,101 @@ describe('TursoSyncClient', () => {
       const syntaxError = yield* Effect.flip(sql`SELEC 1`);
       expect(SqlError.isSqlError(syntaxError)).toBe(true);
       expect(syntaxError.reason._tag).toBe('SqlSyntaxError');
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('bootstraps and pulls changes through the Turso Sync protocol', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const source = yield* SourceTursoClient.make({
+        disableWalAutoActions: true,
+        filename: `${dir}/source.db`,
+      });
+      yield* source`
+        create table synced (id integer primary key, value text not null)
+      `;
+      yield* source`
+        insert into
+          synced (id, value)
+        values
+          (1, 'bootstrapped')
+      `;
+
+      const authorizationHeaders: Array<string | null> = [];
+      const replica = yield* TursoSyncClient.make({
+        path: `${dir}/replica.db`,
+        url: 'http://sync.test',
+        authToken: async () => 'test-token',
+        longPollTimeoutMs: 10,
+        fetch: makeSyncFetch(source, (request) => {
+          authorizationHeaders.push(request.headers.get('authorization'));
+        }),
+      });
+
+      expect(
+        yield* replica`
+          select
+            *
+          from
+            synced
+        `
+      ).toEqual([{ id: 1, value: 'bootstrapped' }]);
+
+      yield* source`
+        insert into
+          synced (id, value)
+        values
+          (2, 'pulled')
+      `;
+      expect(yield* replica.pull).toBe(true);
+      expect(
+        yield* replica`
+          select
+            *
+          from
+            synced
+          order by
+            id
+        `
+      ).toEqual([
+        { id: 1, value: 'bootstrapped' },
+        { id: 2, value: 'pulled' },
+      ]);
+      expect(yield* replica.pull).toBe(false);
+      expect(authorizationHeaders.length).toBeGreaterThan(0);
+      expect(authorizationHeaders.every((header) => header === 'Bearer test-token')).toBe(true);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('reports pull failures separately from SQL failures', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const source = yield* SourceTursoClient.make({
+        disableWalAutoActions: true,
+        filename: `${dir}/source.db`,
+      });
+      yield* source`
+        create table synced (id integer primary key)
+      `;
+
+      let rejectRequests = false;
+      const syncFetch = makeSyncFetch(source);
+      const rejectingFetch: NonNullable<DatabaseOpts['fetch']> = Object.assign(
+        async (input: string | URL | Request, init?: RequestInit) =>
+          rejectRequests ? new Response('Unauthorized', { status: 401 }) : syncFetch(input, init),
+        { preconnect: fetch.preconnect }
+      );
+      const replica = yield* TursoSyncClient.make({
+        path: `${dir}/replica.db`,
+        url: 'http://sync.test',
+        longPollTimeoutMs: 10,
+        fetch: rejectingFetch,
+      });
+
+      rejectRequests = true;
+      const error = yield* Effect.flip(replica.pull);
+      expect(error).toBeInstanceOf(TursoSyncError);
+      expect(error.operation).toBe('pull');
     }).pipe(Effect.provide(TestLayer))
   );
 
