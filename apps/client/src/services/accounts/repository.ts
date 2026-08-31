@@ -17,13 +17,27 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         list: SqlSchema.findAll({
           Request: Schema.Void,
           Result: Account,
-          execute: () => sql`SELECT * FROM account ORDER BY username`,
+          execute: () => sql`
+            select
+              *
+            from
+              account
+            order by
+              username
+          `,
         }),
 
         getActive: SqlSchema.findOneOption({
           Request: Schema.Void,
           Result: Account,
-          execute: () => sql`SELECT * FROM account WHERE active = 1`,
+          execute: () => sql`
+            select
+              *
+            from
+              account
+            where
+              active = 1
+          `,
         }),
 
         getByStorageKey: SqlSchema.findOneOption({
@@ -83,7 +97,13 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
 
         deactivateAll: SqlSchema.void({
           Request: Schema.Void,
-          execute: () => sql`UPDATE account SET active = 0 WHERE active = 1`,
+          execute: () => sql`
+            update account
+            set
+              active = 0
+            where
+              active = 1
+          `,
         }),
 
         activate: SqlSchema.findOneOption({
@@ -125,7 +145,12 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             userId: Account.fields.userId,
           }),
           execute: ({ serverUrl, userId }) =>
-            sql`DELETE FROM account WHERE "serverUrl" = ${serverUrl} AND "userId" = ${userId}`,
+            sql`
+              delete from account
+              where
+                "serverUrl" = ${serverUrl}
+                and "userId" = ${userId}
+            `,
         }),
       };
     }),
