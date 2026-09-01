@@ -15,11 +15,11 @@ import {
   Semaphore,
   Stream,
 } from 'effect';
+import { HttpMethod, HttpServerError, HttpServerResponse } from 'effect/unstable/http';
+import type { HttpServerRequest } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { Migrator, SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
-
-export type { SyncRequest, SyncResponse } from '@govoel/turso-database';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
@@ -31,7 +31,7 @@ export class TursoConfigError extends Schema.TaggedError<
   message: Schema.String,
 }) {}
 
-export class TursoSyncRequestError extends Schema.TaggedError<
+class TursoSyncRequestError extends Schema.TaggedError<
   TursoSyncRequestError,
   { readonly brand: unique symbol }
 >('@repo/effect-turso/TursoSyncRequestError')('TursoSyncRequestError', {
@@ -306,8 +306,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       timeToLive: options.connectionTTL ?? Duration.minutes(45),
       timeToLiveStrategy: 'creation',
     });
-    const pooledConnection = Pool.get(pool);
-    const acquirer = pooledConnection.pipe(Effect.map((item) => item.connection));
+    const acquirer = Pool.get(pool).pipe(Effect.map((item) => item.connection));
 
     // Make connection failures visible while constructing the client instead
     // of deferring them until its first statement.
@@ -327,19 +326,53 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       transformRows: defaultTransformRows,
     });
 
-    const handleSyncRequest = Effect.fnUntraced(function* (request: NativeSyncRequest) {
+    const syncHandler = Effect.fnUntraced(function* (request: HttpServerRequest.HttpServerRequest) {
       if (options.disableWalAutoActions !== true) {
         return yield* TursoConfigError.make({
           message: 'Automatic WAL actions must be disabled before handling Turso Sync requests',
         });
       }
 
-      return yield* Effect.scoped(
-        pooledConnection.pipe(Effect.flatMap((item) => item.handleSyncRequest(request)))
+      const nativeRequest: NativeSyncRequest = HttpMethod.hasBody(request.method)
+        ? {
+            method: request.method,
+            path: request.url,
+            body: new Uint8Array(yield* request.arrayBuffer),
+          }
+        : { method: request.method, path: request.url };
+      const response = yield* Pool.get(pool).pipe(
+        Effect.flatMap((item) => item.handleSyncRequest(nativeRequest)),
+        Effect.catchTag('TursoSyncRequestError', (cause) =>
+          Effect.fail(
+            new HttpServerError.HttpServerError({
+              reason: new HttpServerError.InternalError({
+                cause,
+                description: 'Failed to handle Turso Sync request',
+                request,
+              }),
+            })
+          )
+        ),
+        Effect.scoped
       );
+
+      if (response.body.length === 0) {
+        return HttpServerResponse.empty({
+          status: response.status,
+          headers: { 'content-type': response.contentType },
+        });
+      }
+
+      // The native response already exists as one complete Buffer. Exposing it
+      // as a one-chunk stream avoids Web Response copying the entire buffer.
+      return HttpServerResponse.stream(Stream.succeed(response.body), {
+        status: response.status,
+        contentType: response.contentType,
+        contentLength: response.body.length,
+      });
     });
 
-    return Object.assign(client, { config: options, handleSyncRequest });
+    return Object.assign(client, { config: options, syncHandler });
   }),
 }) {
   public static readonly layer = <R = never>(config: Parameters<typeof this.make<R>>[0]) =>
