@@ -14,6 +14,7 @@ import {
   Schema,
   Stream,
 } from 'effect';
+import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
@@ -29,6 +30,9 @@ const makeTempDir = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   return yield* fs.makeTempDirectoryScoped();
 });
+
+const makeSyncRequest = (path: string, init: RequestInit) =>
+  HttpServerRequest.fromWeb(new Request(`http://localhost${path}`, init));
 
 describe('TursoClient', () => {
   it.effect('uses one connection for in-memory databases by default', () =>
@@ -695,21 +699,25 @@ describe('TursoClient', () => {
         create table synced (value text not null)
       `;
 
-      const options = yield* sql.handleSyncRequest({ method: 'OPTIONS', path: '/pull-updates' });
-      expect(options).toMatchObject({ status: 204, contentType: 'text/plain' });
-      expect(options.body).toHaveLength(0);
+      const options = yield* sql.syncHandler(
+        makeSyncRequest('/pull-updates', { method: 'OPTIONS' })
+      );
+      expect(options).toMatchObject({ status: 204, body: { _tag: 'Empty' } });
+      expect(options.headers['content-type']).toBe('text/plain');
 
-      const missing = yield* sql.handleSyncRequest({ method: 'POST', path: '/missing' });
-      expect(missing).toMatchObject({ status: 404, contentType: 'text/plain' });
-      expect(new TextDecoder().decode(missing.body)).toBe('Not Found');
+      const missing = yield* sql.syncHandler(makeSyncRequest('/missing', { method: 'POST' }));
+      expect(missing).toMatchObject({ status: 404, body: { _tag: 'Stream' } });
+      expect(missing.headers['content-type']).toBe('text/plain');
+      expect(yield* Effect.promise(async () => HttpServerResponse.toWeb(missing).text())).toBe(
+        'Not Found'
+      );
 
-      const pipeline = yield* sql.handleSyncRequest({
-        method: 'POST',
-        path: '/v2/pipeline',
-        body: new TextEncoder().encode(
-          `{"requests":[{"type":"execute","stmt":{"sql":"INSERT INTO synced VALUES ('yes')"}}]}`
-        ),
-      });
+      const pipeline = yield* sql.syncHandler(
+        makeSyncRequest('/v2/pipeline', {
+          method: 'POST',
+          body: `{"requests":[{"type":"execute","stmt":{"sql":"INSERT INTO synced VALUES ('yes')"}}]}`,
+        })
+      );
       expect(pipeline.status).toBe(200);
       expect(
         yield* sql`
@@ -727,7 +735,7 @@ describe('TursoClient', () => {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       const error = yield* Effect.flip(
-        sql.handleSyncRequest({ method: 'OPTIONS', path: '/pull-updates' })
+        sql.syncHandler(makeSyncRequest('/pull-updates', { method: 'OPTIONS' }))
       );
 
       expect(error).toBeInstanceOf(TursoConfigError);
