@@ -31,13 +31,11 @@ const TestServerLayer = Layer.effectDiscard(
   })
 );
 
-const syncUrl = (path: string) => `http://test/api/sync/libraries${path}`;
-
 it.effect(
   'serves read-only library sync requests authenticated with a bearer token',
   Effect.fnUntraced(
     function* () {
-      const unauthorized = yield* HttpClient.options(syncUrl('/pull-updates'));
+      const unauthorized = yield* HttpClient.options('http://test/api/sync/libraries/pull-updates');
       expect(unauthorized.status).toBe(401);
 
       const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
@@ -49,13 +47,20 @@ it.effect(
       });
       const headers = { authorization: `Bearer ${token}` };
 
-      const options = yield* HttpClient.options(syncUrl('/pull-updates'), { headers });
+      const options = yield* HttpClient.options('http://test/api/sync/libraries/pull-updates', {
+        headers,
+      });
       expect(options.status).toBe(204);
 
-      const pipeline = yield* HttpClient.post(syncUrl('/v2/pipeline'), { headers });
+      const pipeline = yield* HttpClient.post('http://test/api/sync/libraries/v2/pipeline', {
+        headers,
+      });
       expect(pipeline.status).toBe(404);
 
-      const unknownOptions = yield* HttpClient.options(syncUrl('/future-sync-route'), { headers });
+      const unknownOptions = yield* HttpClient.options(
+        'http://test/api/sync/libraries/future-sync-route',
+        { headers }
+      );
       expect(unknownOptions.status).toBe(404);
     },
     (effect) => effect.pipe(Effect.provide([TestServerLayer, FetchHttpClient.layer]))

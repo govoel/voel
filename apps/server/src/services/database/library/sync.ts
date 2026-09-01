@@ -23,16 +23,7 @@ export const LibrariesSyncRouterLayerNoDeps = HttpRouter.use(
         return HttpServerResponse.empty({ status: 401 });
       }
 
-      const response = yield* database.handleSyncRequest({
-        method: request.method,
-        path: request.url,
-        body: new Uint8Array(yield* request.arrayBuffer),
-      });
-
-      return HttpServerResponse.uint8Array(response.body, {
-        status: response.status,
-        contentType: response.contentType,
-      });
+      return yield* database.syncHandler(request);
     });
 
     yield* syncRouter.add('OPTIONS', '/pull-updates', (request) =>
