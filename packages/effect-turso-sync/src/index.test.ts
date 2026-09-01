@@ -4,6 +4,7 @@ import { describe, expect, it } from '@effect/vitest';
 import { StatementPromise } from '@tursodatabase/database-common';
 import { connect } from '@tursodatabase/sync';
 import { Effect, FileSystem, Layer } from 'effect';
+import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
@@ -29,17 +30,10 @@ const makeSyncFetch = (
       onRequest?.(request);
 
       const response = await Effect.runPromise(
-        source.handleSyncRequest({
-          method: request.method,
-          path: new URL(request.url).pathname,
-          body: new Uint8Array(await request.arrayBuffer()),
-        })
+        source.syncHandler(HttpServerRequest.fromWeb(request))
       );
 
-      return new Response(response.status === 204 ? null : response.body, {
-        status: response.status,
-        headers: { 'content-type': response.contentType },
-      });
+      return HttpServerResponse.toWeb(response);
     },
     { preconnect: fetch.preconnect }
   );
