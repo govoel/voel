@@ -1,8 +1,5 @@
 import { connect } from '@govoel/turso-database';
-import type {
-  SyncRequest as NativeSyncRequest,
-  SyncResponse as NativeSyncResponse,
-} from '@govoel/turso-database';
+import type { SyncRequest } from '@govoel/turso-database';
 import {
   Context,
   Duration,
@@ -289,9 +286,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
               : runStream(sql, params);
           },
         } satisfies SqlConnection.Connection,
-        handleSyncRequest: (
-          request: NativeSyncRequest
-        ): Effect.Effect<NativeSyncResponse, TursoSyncRequestError> =>
+        handleSyncRequest: (request: SyncRequest) =>
           Effect.tryPromise({
             try: async () => db.handleSyncRequest(request),
             catch: (cause) => TursoSyncRequestError.make({ cause }),
@@ -333,7 +328,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         });
       }
 
-      const nativeRequest: NativeSyncRequest = HttpMethod.hasBody(request.method)
+      const nativeRequest = HttpMethod.hasBody(request.method)
         ? {
             method: request.method,
             path: request.url,
@@ -342,17 +337,16 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         : { method: request.method, path: request.url };
       const response = yield* Pool.get(pool).pipe(
         Effect.flatMap((item) => item.handleSyncRequest(nativeRequest)),
-        Effect.catchTag('TursoSyncRequestError', (cause) =>
-          Effect.fail(
+        Effect.catchTags({
+          TursoSyncRequestError: (cause) =>
             new HttpServerError.HttpServerError({
               reason: new HttpServerError.InternalError({
                 cause,
                 description: 'Failed to handle Turso Sync request',
                 request,
               }),
-            })
-          )
-        ),
+            }),
+        }),
         Effect.scoped
       );
 
