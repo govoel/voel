@@ -3,7 +3,7 @@ description: Setup Bun and Install Dependencies
 
 inputs:
   packages-token:
-    description: PAT with read:packages for @govoel packages on GitHub Packages.
+    description: Token with read access to @govoel packages on GitHub Packages.
     required: false
     default: ''
 
