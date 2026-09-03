@@ -12,6 +12,10 @@ import {
 } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient } from 'effect/unstable/sql';
+import type { SqlError } from 'effect/unstable/sql';
+
+import { TursoSyncClient } from '@repo/effect-turso-sync-core';
+import type { TursoSyncClientOptions } from '@repo/effect-turso-sync-core';
 
 import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
@@ -81,51 +85,67 @@ const authToken = Effect.fnUntraced(function* (authClient: AuthClient['Service']
   return result.value.value.session.token;
 });
 
+const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
+  account,
+  filename,
+}: {
+  readonly account: ActiveAccountKey;
+  readonly filename: string;
+}) {
+  const authentication = yield* acquireAuthClient(account);
+  const xxHash = yield* XxHash;
+  const identity = yield* xxHash.hash128(
+    `${account.serverUrl}\u0000${account.userId}\u0000${account.authStorageId}`
+  );
+  const runPromise = Effect.runPromiseWith(yield* Effect.context());
+
+  return {
+    path: replicaFilename({ filename, identity }),
+    url: syncUrl(account.serverUrl),
+    // Turso asks for credentials before every request, allowing Better Auth
+    // to rotate or invalidate a session without rebuilding the replica.
+    authToken: async () => runPromise(authToken(authentication)),
+    bootstrapIfEmpty: true,
+    longPollTimeoutMs: 30_000,
+    onConnect: ({ exec }) =>
+      exec('PRAGMA foreign_keys = ON').pipe(Effect.andThen(exec('PRAGMA query_only = ON'))),
+  } satisfies TursoSyncClientOptions;
+});
+
 /** A read-only local replica of one account's server-side `library.db`. */
 export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
   'voel/services/database/library/LibraryDatabase',
-  {
-    make: Effect.fnUntraced(function* ({
-      account,
-      filename,
-    }: {
-      readonly account: ActiveAccountKey;
-      readonly filename: string;
-    }) {
-      const authentication = yield* acquireAuthClient(account);
-      const xxHash = yield* XxHash;
-      const identity = yield* xxHash.hash128(
-        `${account.serverUrl}\u0000${account.userId}\u0000${account.authStorageId}`
-      );
-      const { TursoSyncClient } = yield* Effect.promise(
-        async () => import('@repo/effect-turso-sync-rn')
-      );
-      const runPromise = Effect.runPromiseWith(yield* Effect.context());
-
-      return yield* TursoSyncClient.make({
-        path: replicaFilename({ filename, identity }),
-        url: syncUrl(account.serverUrl),
-        // Turso asks for credentials before every request, allowing Better Auth
-        // to rotate or invalidate a session without rebuilding the replica.
-        authToken: async () => runPromise(authToken(authentication)),
-        bootstrapIfEmpty: true,
-        longPollTimeoutMs: 30_000,
-        onConnect: ({ exec }) =>
-          exec('PRAGMA foreign_keys = ON').pipe(Effect.andThen(exec('PRAGMA query_only = ON'))),
-      });
-    }),
-  }
+  { make: (client: TursoSyncClient['Service']) => Effect.succeed(client) }
 ) {
-  public static readonly layerNoDeps = (account: ActiveAccountKey) =>
-    Layer.effect(
-      this,
-      Effect.service(AppConfig).pipe(
-        Effect.flatMap((config) => this.make({ account, filename: config.libraryDb.filename }))
-      )
+  public static readonly layerNoDeps = (
+    account: ActiveAccountKey,
+    clientLayer: (
+      options: TursoSyncClientOptions
+    ) => Layer.Layer<TursoSyncClient | SqlClient.SqlClient, SqlError.SqlError>
+  ) =>
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const config = yield* AppConfig;
+        const options = yield* makeLibraryDatabaseOptions({
+          account,
+          filename: config.libraryDb.filename,
+        });
+
+        return Layer.effectContext(
+          TursoSyncClient.pipe(
+            Effect.map((client) =>
+              Context.make(LibraryDatabase, client).pipe(Context.add(SqlClient.SqlClient, client))
+            )
+          )
+        ).pipe(Layer.provide(clientLayer(options)));
+      })
     );
 
-  public static readonly layer = (account: ActiveAccountKey) =>
-    this.layerNoDeps(account).pipe(
+  public static readonly layer = (
+    account: ActiveAccountKey,
+    clientLayer: Parameters<typeof this.layerNoDeps>[1]
+  ) =>
+    this.layerNoDeps(account, clientLayer).pipe(
       Layer.provide([AppConfig.layer, AuthClientMap.layer, XxHash.layer])
     );
 }
@@ -154,31 +174,34 @@ const synchronizeLibraryDatabase = Effect.fnUntraced(function* ({
 });
 
 /** Lazily owns, scopes, and synchronizes one physical replica per account. */
-export class LibraryDatabaseMap extends LayerMap.Service<LibraryDatabaseMap>()(
+export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
   'voel/services/database/library/LibraryDatabaseMap',
   {
-    dependencies: [AppConfig.layer, AuthClientMap.layer, Reactivity.layer, XxHash.layer],
-    lookup: (account: ActiveAccountKey) =>
-      Effect.gen(function* () {
-        const config = yield* AppConfig;
-        const database = yield* LibraryDatabase.make({
-          account,
-          filename: config.libraryDb.filename,
-        });
-        return Context.make(LibraryDatabase, database).pipe(
-          Context.add(SqlClient.SqlClient, database)
-        );
-      }).pipe(
-        Layer.effectContext,
-        Layer.tap((context) =>
-          synchronizeLibraryDatabase({
-            account,
-            database: Context.get(context, LibraryDatabase),
-          })
+    make: (clientLayer: Parameters<typeof LibraryDatabase.layerNoDeps>[1]) =>
+      LayerMap.make((account: ActiveAccountKey) =>
+        LibraryDatabase.layerNoDeps(account, clientLayer).pipe(
+          Layer.tap((context) =>
+            synchronizeLibraryDatabase({
+              account,
+              database: Context.get(context, LibraryDatabase),
+            })
+          )
         )
       ),
   }
-) {}
+) {
+  public static readonly layerNoDeps = (
+    clientLayer: Parameters<typeof LibraryDatabase.layerNoDeps>[1]
+  ) => Layer.effect(this, this.make(clientLayer));
+
+  public static readonly layer = (clientLayer: Parameters<typeof this.layerNoDeps>[0]) =>
+    this.layerNoDeps(clientLayer).pipe(
+      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, XxHash.layer])
+    );
+
+  public static readonly contextEffect = (account: ActiveAccountKey) =>
+    Effect.flatMap(this, (databases) => databases.contextEffect(account));
+}
 
 export const acquireLibraryDatabase = (account: ActiveAccountKey) =>
   LibraryDatabaseMap.contextEffect(account).pipe(Effect.map(Context.get(LibraryDatabase)));
