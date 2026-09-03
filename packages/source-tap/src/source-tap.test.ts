@@ -42,26 +42,26 @@ class TestDatabase extends Context.Service<TestDatabase>()(
       });
 
       yield* db.execute(sql`
-      create table users (
-        id integer primary key autoincrement not null,
-        name text not null
-      );
-    `);
+        create table users (
+          id integer primary key autoincrement not null,
+          name text not null
+        );
+      `);
 
       yield* db.execute(sql`
-      create table users2 (
-        id integer primary key autoincrement not null,
-        username text not null
-      );
-    `);
+        create table users2 (
+          id integer primary key autoincrement not null,
+          username text not null
+        );
+      `);
 
       yield* db.execute(sql`
-      create table users3 (
-        uuid text primary key not null,
-        username text unique not null,
-        name text
-      );
-    `);
+        create table users3 (
+          uuid text primary key not null,
+          username text unique not null,
+          name text
+        );
+      `);
 
       return { db, sourceTap };
     }),
