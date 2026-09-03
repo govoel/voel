@@ -27,7 +27,7 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
                 env: {
                   AUTH_SECRET: 'test',
                   AUTH_DB_FILENAME: `${databaseDirectory}/auth.db`,
-                  LIBRARIES_DB_FILENAME: `${databaseDirectory}/libraries.db`,
+                  LIBRARY_DB_FILENAME: `${databaseDirectory}/library.db`,
                   PORT: port.toString(),
                 },
                 extendEnv: true,
