@@ -7,12 +7,12 @@ import { AuthServerClient } from '@repo/auth-api/server.ts';
 import { AuthLayer } from '#src/services/auth.ts';
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
 
-/** Authenticated, read-only Turso Sync routes for the client-safe libraries database. */
-export const LibrariesSyncRouterLayerNoDeps = HttpRouter.use(
+/** Authenticated, read-only Turso Sync routes for the client-safe library database. */
+export const LibrarySyncRouterLayerNoDeps = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
     const auth = yield* AuthServerClient;
     const database = yield* LibraryDatabase;
-    const syncRouter = router.prefixed('/api/sync/libraries');
+    const syncRouter = router.prefixed('/api/sync/library');
 
     const handleSyncRequest = Effect.fnUntraced(function* (
       request: HttpServerRequest.HttpServerRequest
@@ -35,6 +35,6 @@ export const LibrariesSyncRouterLayerNoDeps = HttpRouter.use(
   })
 );
 
-export const LibrariesSyncRouterLayer = LibrariesSyncRouterLayerNoDeps.pipe(
+export const LibrarySyncRouterLayer = LibrarySyncRouterLayerNoDeps.pipe(
   Layer.provide([AuthLayer, LibraryDatabase.layer])
 );

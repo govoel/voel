@@ -8,7 +8,7 @@ import { Api } from '@repo/spec-api';
 import { LibraryHandlersLayer } from '#src/groups/library.ts';
 import { AdminMiddlewareLayer, AuthMiddlewareLayer, AuthRouterLayer } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
-import { LibrariesSyncRouterLayer } from '#src/services/database/libraries/sync.ts';
+import { LibrarySyncRouterLayer } from '#src/services/database/library/sync.ts';
 
 const AllRoutesLayer = RpcServer.layerHttp({
   group: Api,
@@ -18,7 +18,7 @@ const AllRoutesLayer = RpcServer.layerHttp({
 }).pipe(
   Layer.provide([
     AuthRouterLayer,
-    LibrariesSyncRouterLayer,
+    LibrarySyncRouterLayer,
     LibraryHandlersLayer,
     AuthMiddlewareLayer,
     AdminMiddlewareLayer,

@@ -11,11 +11,11 @@ import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { AuthDatabase } from '#src/services/database/auth/index.ts';
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
-import { LibrariesSyncRouterLayerNoDeps } from '#src/services/database/library/sync.ts';
+import { LibrarySyncRouterLayerNoDeps } from '#src/services/database/library/sync.ts';
 
 const TestServerLayer = Layer.effectDiscard(
   Effect.gen(function* () {
-    const routes = Layer.mergeAll(AuthRouterLayerNoDeps, LibrariesSyncRouterLayerNoDeps).pipe(
+    const routes = Layer.mergeAll(AuthRouterLayerNoDeps, LibrarySyncRouterLayerNoDeps).pipe(
       Layer.provideMerge(AuthLayerNoDeps),
       Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
       Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
@@ -35,7 +35,7 @@ it.effect(
   'serves read-only library sync requests authenticated with a bearer token',
   Effect.fnUntraced(
     function* () {
-      const unauthorized = yield* HttpClient.options('http://test/api/sync/libraries/pull-updates');
+      const unauthorized = yield* HttpClient.options('http://test/api/sync/library/pull-updates');
       expect(unauthorized.status).toBe(401);
 
       const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
@@ -47,18 +47,18 @@ it.effect(
       });
       const headers = { authorization: `Bearer ${token}` };
 
-      const options = yield* HttpClient.options('http://test/api/sync/libraries/pull-updates', {
+      const options = yield* HttpClient.options('http://test/api/sync/library/pull-updates', {
         headers,
       });
       expect(options.status).toBe(204);
 
-      const pipeline = yield* HttpClient.post('http://test/api/sync/libraries/v2/pipeline', {
+      const pipeline = yield* HttpClient.post('http://test/api/sync/library/v2/pipeline', {
         headers,
       });
       expect(pipeline.status).toBe(404);
 
       const unknownOptions = yield* HttpClient.options(
-        'http://test/api/sync/libraries/future-sync-route',
+        'http://test/api/sync/library/future-sync-route',
         { headers }
       );
       expect(unknownOptions.status).toBe(404);
