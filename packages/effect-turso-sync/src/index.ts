@@ -16,15 +16,6 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
-/**
- * Turso Sync options supported by this adapter. Remote writes return a
- * different prepared-statement implementation whose result modes do not match
- * Effect SQL's positional-value contract.
- */
-export type DatabaseOpts = Omit<NativeDatabaseOpts, 'remoteWritesExperimental'> & {
-  readonly remoteWritesExperimental?: never;
-};
-
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
 
@@ -36,7 +27,14 @@ export class TursoSyncClient extends Context.Service<TursoSyncClient>()(
      * remote URL bootstraps an empty local database during construction.
      */
     make: Effect.fnUntraced(function* <R = never>(
-      options: DatabaseOpts & {
+      /**
+       * Turso Sync options supported by this adapter. Remote writes return a
+       * different prepared-statement implementation whose result modes do not match
+       * Effect SQL's positional-value contract.
+       */
+      options: Omit<NativeDatabaseOpts, 'remoteWritesExperimental'> & {
+        readonly remoteWritesExperimental?: never;
+      } & {
         /** How long SQLite waits when the database is busy. Defaults to 5 seconds. */
         readonly busyTimeout?: Duration.Input | undefined;
 
