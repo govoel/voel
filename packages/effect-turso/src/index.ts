@@ -12,7 +12,7 @@ import {
   Semaphore,
   Stream,
 } from 'effect';
-import { HttpMethod, HttpServerError, HttpServerResponse } from 'effect/unstable/http';
+import { HttpServerError, HttpServerResponse } from 'effect/unstable/http';
 import type { HttpServerRequest } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { Migrator, SqlClient, SqlError, Statement } from 'effect/unstable/sql';
@@ -328,13 +328,11 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         });
       }
 
-      const nativeRequest = HttpMethod.hasBody(request.method)
-        ? {
-            method: request.method,
-            path: request.url,
-            body: new Uint8Array(yield* request.arrayBuffer),
-          }
-        : { method: request.method, path: request.url };
+      const nativeRequest = {
+        method: request.method,
+        path: request.url,
+        body: new Uint8Array(yield* request.arrayBuffer),
+      };
       const response = yield* Pool.get(pool).pipe(
         Effect.flatMap((item) => item.handleSyncRequest(nativeRequest)),
         Effect.catchTags({
@@ -349,13 +347,6 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         }),
         Effect.scoped
       );
-
-      if (response.body.length === 0) {
-        return HttpServerResponse.empty({
-          status: response.status,
-          headers: { 'content-type': response.contentType },
-        });
-      }
 
       // The native response already exists as one complete Buffer. Exposing it
       // as a one-chunk stream avoids Web Response copying the entire buffer.
