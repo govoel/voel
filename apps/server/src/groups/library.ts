@@ -11,13 +11,13 @@ import {
   LibraryRpcs,
 } from '@repo/spec-api/groups/library.ts';
 
-import { LibrariesDatabase } from '#src/services/database/libraries/index.ts';
+import { LibraryDatabase } from '#src/services/database/library/index.ts';
 
 export class LibraryPathRepository extends Context.Service<LibraryPathRepository>()(
   '@repo/server/groups/library/LibraryPathRepository',
   {
     make: Effect.gen(function* () {
-      const sql = yield* LibrariesDatabase;
+      const sql = yield* LibraryDatabase;
 
       return {
         reconcile: SqlSchema.void({
@@ -67,14 +67,14 @@ export class LibraryPathRepository extends Context.Service<LibraryPathRepository
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
-  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibrariesDatabase.layer));
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibraryDatabase.layer));
 }
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
   '@repo/server/groups/library/LibraryRepository',
   {
     make: Effect.gen(function* () {
-      const sql = yield* LibrariesDatabase;
+      const sql = yield* LibraryDatabase;
 
       const librarySelection = sql`
         l.id,
@@ -222,12 +222,12 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
-  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibrariesDatabase.layer));
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibraryDatabase.layer));
 }
 
 export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
   Effect.gen(function* () {
-    const sql = yield* LibrariesDatabase;
+    const sql = yield* LibraryDatabase;
     const library = yield* LibraryRepository;
     const libraryPath = yield* LibraryPathRepository;
 
@@ -320,7 +320,7 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
 
 export const LibraryHandlersLayer = LibraryHandlersLayerNoDeps.pipe(
   Layer.provide([
-    LibrariesDatabase.layer,
+    LibraryDatabase.layer,
     LibraryRepository.layer,
     LibraryPathRepository.layer,
     BunPath.layer,

@@ -7,8 +7,8 @@ class ApiConfigSchema extends Schema.Class<ApiConfigSchema, { readonly brand: un
   AUTH_SECRET: Schema.RedactedFromValue(Schema.String),
   PORT: Config.Port.pipe(Schema.withDecodingDefaultType(Effect.succeed(8080))),
   AUTH_DB_FILENAME: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed('auth.db'))),
-  LIBRARIES_DB_FILENAME: Schema.String.pipe(
-    Schema.withDecodingDefaultType(Effect.succeed('libraries.db'))
+  LIBRARY_DB_FILENAME: Schema.String.pipe(
+    Schema.withDecodingDefaultType(Effect.succeed('library.db'))
   ),
 }) {}
 
@@ -22,7 +22,7 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
         server: { port: config.PORT },
         db: {
           authFilename: config.AUTH_DB_FILENAME,
-          librariesFilename: config.LIBRARIES_DB_FILENAME,
+          libraryFilename: config.LIBRARY_DB_FILENAME,
         },
       };
     }),
@@ -36,7 +36,7 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
 
   public static readonly layerTest = (
     config?: Partial<
-      Omit<(typeof ApiConfigSchema)['Encoded'], 'AUTH_DB_FILENAME' | 'LIBRARIES_DB_FILENAME'>
+      Omit<(typeof ApiConfigSchema)['Encoded'], 'AUTH_DB_FILENAME' | 'LIBRARY_DB_FILENAME'>
     >
   ) =>
     Layer.unwrap(
@@ -51,7 +51,7 @@ export class ApiConfig extends Context.Service<ApiConfig>()(
                 AUTH_SECRET: 'test',
                 ...config,
                 AUTH_DB_FILENAME: `${directory}/auth.db`,
-                LIBRARIES_DB_FILENAME: `${directory}/libraries.db`,
+                LIBRARY_DB_FILENAME: `${directory}/library.db`,
               } satisfies (typeof ApiConfigSchema)['Encoded'])
             )
           )

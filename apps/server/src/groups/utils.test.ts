@@ -22,7 +22,7 @@ import {
 } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { AuthDatabase } from '#src/services/database/auth/index.ts';
-import { LibrariesDatabase } from '#src/services/database/libraries/index.ts';
+import { LibraryDatabase } from '#src/services/database/library/index.ts';
 
 class AuthUserRow extends Schema.Class<AuthUserRow, { readonly brand: unique symbol }>(
   '@repo/server/groups/utils.test/AuthUserRow'
@@ -76,7 +76,7 @@ const makeTestLayer = () =>
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
     Layer.provideMerge(AuthLayerNoDeps),
     Layer.provide([LibraryRepository.layerNoDeps, LibraryPathRepository.layerNoDeps]),
-    Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibrariesDatabase.layerNoDeps)),
+    Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
     Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
   );
 
