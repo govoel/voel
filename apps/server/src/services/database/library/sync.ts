@@ -17,21 +17,27 @@ export const LibrarySyncRouterLayerNoDeps = HttpRouter.use(
     const handleSyncRequest = Effect.fnUntraced(function* (
       request: HttpServerRequest.HttpServerRequest
     ) {
-      const session = yield* auth.api.getSession({ headers: request.headers }).pipe(Effect.orDie);
+      const session = yield* auth.api.getSession({ headers: request.headers }).pipe(
+        Effect.catchTags({
+          AuthError: Effect.die,
+        })
+      );
 
       if (Option.isNone(session)) {
         return HttpServerResponse.empty({ status: 401 });
       }
 
-      return yield* database.syncHandler(request);
+      return yield* database.syncHandler(request).pipe(
+        Effect.catchTags({
+          HttpServerError: Effect.die,
+          SqlError: Effect.die,
+          TursoConfigError: Effect.die,
+        })
+      );
     });
 
-    yield* syncRouter.add('OPTIONS', '/pull-updates', (request) =>
-      handleSyncRequest(request).pipe(Effect.orDie)
-    );
-    yield* syncRouter.add('POST', '/pull-updates', (request) =>
-      handleSyncRequest(request).pipe(Effect.orDie)
-    );
+    yield* syncRouter.add('OPTIONS', '/pull-updates', handleSyncRequest);
+    yield* syncRouter.add('POST', '/pull-updates', handleSyncRequest);
   })
 );
 
