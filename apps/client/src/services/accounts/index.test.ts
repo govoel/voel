@@ -701,7 +701,11 @@ describe('AccountManager', () => {
             )
           );
         },
-        (effect) => effect.pipe(Effect.scoped, Effect.provide(makeClientTestLayers(storageItems)))
+        (effect) =>
+          effect.pipe(
+            Effect.scoped,
+            Effect.provide(makeClientTestLayers({ authClientStorageMap: storageItems }))
+          )
       )
     );
   });

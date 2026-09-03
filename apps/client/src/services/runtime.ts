@@ -3,6 +3,7 @@ import { Atom } from 'effect/unstable/reactivity';
 
 import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
 
+import { ActiveAccountResources } from '#src/services/accounts/active-account-resources.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
@@ -14,8 +15,12 @@ export const AppRuntimeLayerNoDeps = AccountManager.layerNoDeps.pipe(
   Layer.provideMerge(AccountRepository.layerNoDeps)
 );
 
-const AppRuntimeLayer = AccountManager.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(AccountRepository.layer, AuthClientMap.layer)),
+const AppRuntimeLayer = Layer.merge(
+  AccountManager.layer.pipe(
+    Layer.provideMerge(Layer.mergeAll(AccountRepository.layer, AuthClientMap.layer))
+  ),
+  ActiveAccountResources.layer
+).pipe(
   Layer.provide(MainDatabase.layer),
   Layer.provide(TursoSyncClientFactoryReactNativeLayer),
   Layer.orDie

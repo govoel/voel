@@ -15,7 +15,13 @@ import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
 import { AppRuntimeLayerNoDeps } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
-export const makeClientTestLayers = (authClientStorageMap = new Map<string, string>()) =>
+export const makeClientTestLayers = ({
+  authClientStorageMap = new Map<string, string>(),
+  config,
+}: {
+  readonly authClientStorageMap?: Map<string, string>;
+  readonly config?: Parameters<typeof AppConfig.layerTest>[0];
+} = {}) =>
   AppRuntimeLayerNoDeps.pipe(
     Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
@@ -23,7 +29,7 @@ export const makeClientTestLayers = (authClientStorageMap = new Map<string, stri
         AuthClientStorage.layerTest(authClientStorageMap),
         UuidGenerator.layerTest,
         XxHash.layerTest,
-        AppConfig.layerTest(),
+        AppConfig.layerTest(config),
         Reactivity.layer
       )
     )
