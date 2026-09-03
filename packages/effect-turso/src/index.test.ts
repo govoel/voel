@@ -702,7 +702,7 @@ describe('TursoClient', () => {
       const options = yield* sql.syncHandler(
         makeSyncRequest('/pull-updates', { method: 'OPTIONS' })
       );
-      expect(options).toMatchObject({ status: 204, body: { _tag: 'Empty' } });
+      expect(options).toMatchObject({ status: 204, body: { _tag: 'Stream' } });
       expect(options.headers['content-type']).toBe('text/plain');
 
       const missing = yield* sql.syncHandler(makeSyncRequest('/missing', { method: 'POST' }));
