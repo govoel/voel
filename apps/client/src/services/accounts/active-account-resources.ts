@@ -61,7 +61,5 @@ const make = Effect.gen(function* () {
 export const ActiveAccountResources = {
   layerNoDeps: Layer.effectDiscard(make),
 
-  layer: Layer.effectDiscard(make).pipe(
-    Layer.provide([AccountManager.layer, AuthClientMap.layer, LibraryDatabaseMap.layer])
-  ),
+  layer: Layer.effectDiscard(make).pipe(Layer.provide([AccountManager.layer, AuthClientMap.layer])),
 };

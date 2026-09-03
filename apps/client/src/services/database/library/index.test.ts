@@ -1,12 +1,14 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Deferred, Effect, FileSystem, Layer, Option, Redacted } from 'effect';
+import { Context, Deferred, Effect, FileSystem, Layer, Option, Redacted } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
-import { vi } from 'vitest';
+import { Reactivity } from 'effect/unstable/reactivity';
+import { SqlClient } from 'effect/unstable/sql';
 
-import { TursoSyncClient as TestTursoSyncClient } from '@repo/effect-turso-sync';
-import type { TursoSyncClient as ReactNativeTursoSyncClient } from '@repo/effect-turso-sync-rn';
+import { make as makeTestTursoSyncClient } from '@repo/effect-turso-sync';
+import { TursoSyncClient } from '@repo/effect-turso-sync-core';
+import type { TursoSyncClientOptions } from '@repo/effect-turso-sync-core';
 
 import { ActiveAccountResources } from '#src/services/accounts/active-account-resources.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -14,31 +16,33 @@ import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/services/testing/utils.ts';
 
-type LibraryOptions = Parameters<typeof ReactNativeTursoSyncClient.make<never>>[0];
+type LibraryOptions = Omit<TursoSyncClientOptions, 'onConnect'>;
 
-const turso = vi.hoisted(() => ({
+const turso = {
   onPull: null as (() => Effect.Effect<boolean>) | null,
   optionsSeen: [] as Array<LibraryOptions>,
-}));
+  pragmas: [] as Array<string>,
+};
 
-vi.mock('@repo/effect-turso-sync-rn', async () => {
-  const { Effect: ActualEffect } = await vi.importActual<{ readonly Effect: typeof Effect }>(
-    'effect'
-  );
-  return {
-    TursoSyncClient: {
-      make: (options: LibraryOptions) =>
-        ActualEffect.sync(() => {
-          turso.optionsSeen.push(options);
-          return {
-            pull: turso.onPull
-              ? ActualEffect.as(turso.onPull(), false)
-              : ActualEffect.succeed(false),
-          };
-        }),
-    },
-  };
-});
+const tursoSyncClientTestLayer = (options: TursoSyncClientOptions) =>
+  Layer.effectContext(
+    Effect.gen(function* () {
+      const { onConnect, ...observed } = options;
+      turso.optionsSeen.push(observed);
+      if (onConnect) {
+        yield* onConnect({
+          exec: (sql) => Effect.sync(() => turso.pragmas.push(sql)),
+        });
+      }
+      const client = yield* makeTestTursoSyncClient({ path: ':memory:' });
+      const testClient = Object.assign(client, {
+        pull: turso.onPull ? Effect.as(turso.onPull(), false) : Effect.succeed(false),
+      });
+      return Context.make(TursoSyncClient, testClient).pipe(
+        Context.add(SqlClient.SqlClient, testClient)
+      );
+    })
+  ).pipe(Layer.provide(Reactivity.layer));
 
 it.layer(TestServerControllerClient.layer)('library database', (iit) => {
   iit.effect(
@@ -46,6 +50,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
     Effect.fnUntraced(
       function* () {
         turso.optionsSeen.length = 0;
+        turso.pragmas.length = 0;
         const firstPull = yield* Deferred.make<true>();
         turso.onPull = () => Deferred.succeed(firstPull, true);
 
@@ -75,14 +80,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         expect(options.bootstrapIfEmpty).toBe(true);
         expect(options.longPollTimeoutMs).toBe(30_000);
 
-        const pragmas: Array<string> = [];
-        const initialize = yield* options.onConnect
-          ? Effect.succeed(options.onConnect)
-          : Effect.die(new Error('Turso did not receive a connection initializer'));
-        yield* initialize({
-          exec: (sql: string) => Effect.sync(() => pragmas.push(sql)),
-        });
-        expect(pragmas).toEqual(['PRAGMA foreign_keys = ON', 'PRAGMA query_only = ON']);
+        expect(turso.pragmas).toEqual(['PRAGMA foreign_keys = ON', 'PRAGMA query_only = ON']);
 
         const provideToken = yield* typeof options.authToken === 'function'
           ? Effect.succeed(options.authToken)
@@ -95,7 +93,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
 
         const fs = yield* FileSystem.FileSystem;
         const directory = yield* fs.makeTempDirectoryScoped();
-        const replica = yield* TestTursoSyncClient.make({
+        const replica = yield* makeTestTursoSyncClient({
           path: `${directory}/library.db`,
           url,
           authToken: provideToken,
@@ -117,7 +115,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
           Effect.provide([
             ActiveAccountResources.layerNoDeps.pipe(
               Layer.provideMerge(
-                LibraryDatabaseMap.layerNoDeps.pipe(
+                LibraryDatabaseMap.layerNoDeps(tursoSyncClientTestLayer).pipe(
                   Layer.provideMerge(
                     makeClientTestLayers({
                       config: {
