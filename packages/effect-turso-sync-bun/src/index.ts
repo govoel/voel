@@ -6,7 +6,6 @@ import {
   Effect,
   Layer,
   Predicate,
-  Schema,
   Scope,
   ScopedCache,
   Semaphore,
