@@ -1,5 +1,5 @@
 {
-  "name": "@repo/effect-turso-sync-rn",
+  "name": "@repo/effect-turso-sync-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,15 +7,12 @@
     "#src/*": "./src/*"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./migrator": "./src/migrator.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/effect-turso-sync-core": "workspace:*",
-    "@tursodatabase/sync-react-native": "0.8.0-pre.7",
     "effect": "4.0.0-rc.112"
   },
   "devDependencies": {

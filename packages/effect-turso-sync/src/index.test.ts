@@ -7,7 +7,9 @@ import { Cause, Effect, Exit, FileSystem, Layer, Option, Schema } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
-import { TursoSyncClient } from '#src/index.ts';
+import { TursoSyncClient } from '@repo/effect-turso-sync-core';
+
+import { layer, make } from '#src/index.ts';
 
 const decodeRunInfo = Schema.decodeUnknownSync(
   Schema.Struct({ changes: Schema.Int, lastInsertRowid: Schema.Int })
@@ -64,7 +66,7 @@ describe('TursoSyncClient', () => {
   it.effect('executes queries and transactions', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       const created = yield* sql`
         create table test (id integer primary key, name text)
       `;
@@ -113,7 +115,7 @@ describe('TursoSyncClient', () => {
   it.effect('returns raw run info', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
@@ -152,7 +154,7 @@ describe('TursoSyncClient', () => {
   it.effect('returns rows from raw queries', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key, name text)
       `;
@@ -176,7 +178,7 @@ describe('TursoSyncClient', () => {
   it.effect('returns positional values', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
@@ -199,7 +201,7 @@ describe('TursoSyncClient', () => {
   it.effect('commits transactions', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key, name text)
       `;
@@ -222,7 +224,7 @@ describe('TursoSyncClient', () => {
   it.effect('rolls back failed transactions', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key, name text)
       `;
@@ -245,7 +247,7 @@ describe('TursoSyncClient', () => {
   it.effect('nested transactions use savepoints', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key, name text)
       `;
@@ -285,7 +287,7 @@ describe('TursoSyncClient', () => {
   it.effect('executes concurrent statements', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
@@ -323,7 +325,7 @@ describe('TursoSyncClient', () => {
   it.effect('serializes concurrent statements inside a transaction', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key, name text)
       `;
@@ -359,7 +361,7 @@ describe('TursoSyncClient', () => {
   it.effect('preserves result modes for concurrent statements inside a transaction', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key)
       `;
@@ -395,7 +397,7 @@ describe('TursoSyncClient', () => {
   it.effect('applies query and result name transforms', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({
+      const sql = yield* make({
         path: `${dir}/local.db`,
         transformQueryNames: (name) => (name === 'firstName' ? 'first_name' : name),
         transformResultNames: (name) => (name === 'first_name' ? 'firstName' : name),
@@ -431,7 +433,7 @@ describe('TursoSyncClient', () => {
   it.effect('classifies unique violations with the constraint name', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key, name text unique not null)
       `;
@@ -460,7 +462,7 @@ describe('TursoSyncClient', () => {
   it.effect('classifies constraint violations', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       yield* sql`
         create table test (id integer primary key, name text not null)
       `;
@@ -478,7 +480,7 @@ describe('TursoSyncClient', () => {
   it.effect('classifies syntax errors', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       // oxlint-disable-next-line sql/format -- malformed intentionally to exercise syntax errors
       const error = yield* Effect.flip(sql`SELEC 1`);
       expect(SqlError.isSqlError(error)).toBe(true);
@@ -489,8 +491,8 @@ describe('TursoSyncClient', () => {
   it.effect('fails a contended transaction with a typed retryable error', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const client = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
-      const contender = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const client = yield* make({ path: `${dir}/local.db` });
+      const contender = yield* make({ path: `${dir}/local.db` });
       yield* contender`
         pragma busy_timeout = 1
       `;
@@ -525,7 +527,7 @@ describe('TursoSyncClient', () => {
   it.effect('uses a 5 second busy timeout by default', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       expect(
         yield* sql`
           pragma busy_timeout
@@ -537,7 +539,7 @@ describe('TursoSyncClient', () => {
   it.effect('defaults to WAL journal mode', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      const sql = yield* make({ path: `${dir}/local.db` });
       expect(
         yield* sql`
           pragma journal_mode
@@ -551,8 +553,8 @@ describe('TursoSyncClient', () => {
       const dir = yield* makeTempDir;
       yield* Effect.gen(function* () {
         const concrete = yield* TursoSyncClient;
-        expect(concrete.config.spanAttributes?.['db.example']).toBe('voel');
         const generic = yield* SqlClient.SqlClient;
+        expect(concrete).toBe(generic);
         yield* generic`
           create table test (id integer primary key)
         `;
@@ -566,7 +568,7 @@ describe('TursoSyncClient', () => {
         ).toEqual([]);
       }).pipe(
         Effect.provide(
-          TursoSyncClient.layer({
+          layer({
             path: `${dir}/local.db`,
             spanAttributes: { 'db.example': 'voel' },
           })
