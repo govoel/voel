@@ -158,5 +158,5 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
-  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(MainDatabase.layer));
+  public static readonly layer = this.layerNoDeps;
 }
