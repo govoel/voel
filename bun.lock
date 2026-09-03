@@ -182,23 +182,11 @@
         "vitest": "4.1.11",
       },
     },
-    "packages/effect-turso-sync-rn": {
-      "name": "@repo/effect-turso-sync-rn",
-      "version": "0.0.0",
-      "dependencies": {
-        "@tursodatabase/sync-react-native": "0.8.0-pre.7",
-        "effect": "4.0.0-rc.112",
-      },
-      "devDependencies": {
-        "@repo/tsconfig": "workspace:*",
-        "bun-types": "1.4.0",
-        "typescript": "7.0.2",
-      },
-    },
     "packages/effect-turso-sync": {
       "name": "@repo/effect-turso-sync",
       "version": "0.0.0",
       "dependencies": {
+        "@repo/effect-turso-sync-core": "workspace:*",
         "@tursodatabase/database-common": "0.8.0-pre.7",
         "@tursodatabase/sync": "0.8.0-pre.7",
         "effect": "4.0.0-rc.112",
@@ -210,6 +198,32 @@
         "bun-types": "1.4.0",
         "typescript": "7.0.2",
         "vitest": "4.1.11",
+      },
+    },
+    "packages/effect-turso-sync-core": {
+      "name": "@repo/effect-turso-sync-core",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "4.0.0-rc.112",
+      },
+      "devDependencies": {
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.4.0",
+        "typescript": "7.0.2",
+      },
+    },
+    "packages/effect-turso-sync-rn": {
+      "name": "@repo/effect-turso-sync-rn",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/effect-turso-sync-core": "workspace:*",
+        "@tursodatabase/sync-react-native": "0.8.0-pre.7",
+        "effect": "4.0.0-rc.112",
+      },
+      "devDependencies": {
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.4.0",
+        "typescript": "7.0.2",
       },
     },
     "packages/source-tap": {
@@ -851,9 +865,11 @@
 
     "@repo/effect-turso": ["@repo/effect-turso@workspace:packages/effect-turso"],
 
-    "@repo/effect-turso-sync-rn": ["@repo/effect-turso-sync-rn@workspace:packages/effect-turso-sync-rn"],
-
     "@repo/effect-turso-sync": ["@repo/effect-turso-sync@workspace:packages/effect-turso-sync"],
+
+    "@repo/effect-turso-sync-core": ["@repo/effect-turso-sync-core@workspace:packages/effect-turso-sync-core"],
+
+    "@repo/effect-turso-sync-rn": ["@repo/effect-turso-sync-rn@workspace:packages/effect-turso-sync-rn"],
 
     "@repo/server": ["@repo/server@workspace:apps/server"],
 

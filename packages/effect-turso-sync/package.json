@@ -14,6 +14,7 @@
     "test": "bun --bun run vitest"
   },
   "dependencies": {
+    "@repo/effect-turso-sync-core": "workspace:*",
     "@tursodatabase/database-common": "0.8.0-pre.7",
     "@tursodatabase/sync": "0.8.0-pre.7",
     "effect": "4.0.0-rc.112"
