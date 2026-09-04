@@ -14,7 +14,7 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
-import { TursoSyncClient as CoreTursoSyncClient } from '@repo/effect-turso-sync';
+import { TursoSyncClient as CoreTursoSyncClient, TursoSyncError } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
@@ -168,6 +168,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       return {
+        db,
         connection: {
           execute(sql, params, transformRows) {
             return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
@@ -192,7 +193,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     });
 
     const semaphore = yield* Semaphore.make(1);
-    const { connection } = yield* makeConnection;
+    const { connection, db } = yield* makeConnection;
 
     const acquirer = Effect.acquireRelease(Effect.as(semaphore.take(1), connection), () =>
       semaphore.release(1)
@@ -215,7 +216,12 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       spanAttributes: [[ATTR_DB_SYSTEM_NAME, 'turso']],
     });
 
-    return Object.assign(client, { config: options });
+    const pull = Effect.tryPromise({
+      try: async () => db.pull(),
+      catch: (cause) => TursoSyncError.make({ cause, operation: 'pull' }),
+    }).pipe(Effect.uninterruptible, Semaphore.withPermit(semaphore));
+
+    return Object.assign(client, { config: options, pull });
   });
 
   /** Provides one configured client as both Turso Sync and generic SQL services. */
