@@ -133,7 +133,7 @@
         "@effect/atom-react": "4.0.0-rc.112",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@rozenite/agent-shared": "2.2.0",
-        "@rozenite/plugin-bridge": "2.2.0",
+        "@rozenite/plugin-bridge": "2.3.0",
         "@rozenite/ui": "2.2.0",
         "effect": "4.0.0-rc.112",
       },
@@ -892,7 +892,7 @@
 
     "@rozenite/middleware": ["@rozenite/middleware@2.2.0", "", { "dependencies": { "@rozenite/agent-shared": "2.2.0", "@rozenite/app": "2.2.0", "@rozenite/runtime": "2.2.0", "@rozenite/shell": "2.2.0", "@rozenite/tools": "2.2.0", "express": "^5.1.0", "semver": "^7.7.2", "tslib": "^2.3.0", "ws": "^8.18.3" } }, "sha512-NQplES9bGiBEpLcctt6JSrm+a2tbOqFWpzPYYWlbi0h2yAVpRSkFqvo/f7prYV2A6x0ggxUqrl7nXrudjPlaGA=="],
 
-    "@rozenite/plugin-bridge": ["@rozenite/plugin-bridge@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "react": ">=17" } }, "sha512-P4U14h6XOHDLNDYpeq4YN41mTNkpe+mSryHGK2vhkWOWotDgqLEXJhbnKuRhodwSAowU49Ljpz9VsTN+xWEULg=="],
+    "@rozenite/plugin-bridge": ["@rozenite/plugin-bridge@2.3.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "react": ">=17" } }, "sha512-mvxb2sKnkI+WtLVhwDd3ijay4Jew9bLnSOpOgmkMhRukUh9MaTpmXdHcAdJGstgCpg1ndKyPCIkTaSTCqCbfGQ=="],
 
     "@rozenite/runtime": ["@rozenite/runtime@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-xMqtibvKL79yYZsvTueRa5ZIYaooJaa4xi/lYTF7Z8YIxppEm2a0enj8ims460eqWbChtUrdEb66g2fgElKdBA=="],
 
@@ -2392,7 +2392,11 @@
 
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
 
+    "@rozenite/app/@rozenite/plugin-bridge": ["@rozenite/plugin-bridge@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "react": ">=17" } }, "sha512-P4U14h6XOHDLNDYpeq4YN41mTNkpe+mSryHGK2vhkWOWotDgqLEXJhbnKuRhodwSAowU49Ljpz9VsTN+xWEULg=="],
+
     "@rozenite/middleware/ws": ["ws@8.21.3", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw=="],
+
+    "@rozenite/shell/@rozenite/plugin-bridge": ["@rozenite/plugin-bridge@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "react": ">=17" } }, "sha512-P4U14h6XOHDLNDYpeq4YN41mTNkpe+mSryHGK2vhkWOWotDgqLEXJhbnKuRhodwSAowU49Ljpz9VsTN+xWEULg=="],
 
     "@rozenite/vite-plugin/@vitejs/plugin-react": ["@vitejs/plugin-react@4.7.0", "", { "dependencies": { "@babel/core": "^7.28.0", "@babel/plugin-transform-react-jsx-self": "^7.27.1", "@babel/plugin-transform-react-jsx-source": "^7.27.1", "@rolldown/pluginutils": "1.0.0-beta.27", "@types/babel__core": "^7.20.5", "react-refresh": "^0.17.0" }, "peerDependencies": { "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0" } }, "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA=="],
 
