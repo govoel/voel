@@ -18,4 +18,4 @@ export class TursoSyncClientFactory extends Context.Service<
       Reactivity.Reactivity | Scope.Scope | R
     >;
   }
->()('voel/services/database/turso-sync-client-factory/TursoSyncClientFactory') {}
+>()('voel/services/database/factory/TursoSyncClientFactory') {}

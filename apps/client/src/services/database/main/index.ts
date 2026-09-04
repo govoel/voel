@@ -3,8 +3,8 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient } from 'effect/unstable/sql';
 
 import { AppConfig } from '#src/services/config.ts';
+import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
 import { MainDatabaseMigrations } from '#src/services/database/main/migrations.ts';
-import { TursoSyncClientFactory } from '#src/services/database/turso-sync-client-factory.ts';
 
 export class MainDatabase extends Context.Service<MainDatabase>()(
   'voel/services/database/main/MainDatabase',

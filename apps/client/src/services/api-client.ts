@@ -1,4 +1,4 @@
-import { Effect, Layer, Option } from 'effect';
+import { Context, Effect, Layer, Option } from 'effect';
 import { FetchHttpClient, Headers, HttpClient, HttpClientRequest } from 'effect/unstable/http';
 import { AtomRpc } from 'effect/unstable/reactivity';
 import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc';
@@ -8,13 +8,16 @@ import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
-import { TursoSyncClientFactoryReactNativeLayer } from '#src/services/database/turso-sync-client-factory-react-native.ts';
+import { AppRuntime } from '#src/services/runtime.ts';
 
 export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-client/ApiClient', {
   group: Api,
   protocol: (get) => {
     const activeAccountKey = get.result(activeAccountKeyAtom);
+    const AuthClientMapLayer = Layer.effect(
+      AuthClientMap,
+      get.result(AppRuntime).pipe(Effect.map((context) => Context.get(context, AuthClientMap)))
+    );
 
     const AuthMiddlewareClientLayer = RpcMiddleware.layerClient(
       AuthMiddleware,
@@ -66,13 +69,9 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
     ).pipe(
       Layer.provide(
         Layer.mergeAll(
-          AuthClientMap.layer,
+          AuthClientMapLayer,
           FetchHttpClient.layer,
           RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true })
-        ).pipe(
-          Layer.provide(
-            MainDatabase.layer.pipe(Layer.provide(TursoSyncClientFactoryReactNativeLayer))
-          )
         )
       )
     );
