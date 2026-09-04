@@ -56,7 +56,7 @@
     "@repo/effect-atom-devtools-core": "workspace:*",
     "@repo/effect-atom-devtools-rozenite": "workspace:*",
     "@repo/tsconfig": "workspace:*",
-    "@rozenite/metro": "2.2.0",
+    "@rozenite/metro": "2.3.0",
     "@srsholmes/vitest-react-native": "0.1.5",
     "@testing-library/react-native": "14.0.1",
     "@types/react": "~19.2.2",
