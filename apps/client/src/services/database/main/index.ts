@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient } from 'effect/unstable/sql';
 
-import { TursoSyncClient } from '@repo/effect-turso-sync';
+import type { TursoSyncClient } from '@repo/effect-turso-sync';
 
 import { AppConfig } from '#src/services/config.ts';
 import { MainDatabaseMigrations } from '#src/services/database/main/migrations.ts';
