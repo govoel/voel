@@ -1,5 +1,5 @@
 import { BunServices } from '@effect/platform-bun';
-import { Context, Effect, Layer, Schedule } from 'effect';
+import { Context, Effect, FileSystem, Layer, Schedule } from 'effect';
 import { TestClock } from 'effect/testing';
 import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
@@ -12,16 +12,22 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
     make: Effect.gen(function* () {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const httpClient = yield* HttpClient.HttpClient;
+      const fs = yield* FileSystem.FileSystem;
 
       return {
         start: Effect.fnUntraced(function* ({ port }: { readonly port: number }) {
+          const databaseDirectory = yield* fs.makeTempDirectoryScoped({
+            prefix: 'voel-client-test-server-',
+          });
+
           yield* Effect.acquireRelease(
             spawner.spawn(
               ChildProcess.make('bun', ['run', 'src/index.ts'], {
                 cwd: serverDirectory,
                 env: {
                   AUTH_SECRET: 'test',
-                  DB_FILENAME: ':memory:',
+                  AUTH_DB_FILENAME: `${databaseDirectory}/auth.db`,
+                  LIBRARY_DB_FILENAME: `${databaseDirectory}/library.db`,
                   PORT: port.toString(),
                 },
                 extendEnv: true,

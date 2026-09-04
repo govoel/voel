@@ -83,9 +83,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-rc.112",
+        "@govoel/turso-database": "0.8.0-pre.7",
         "@repo/auth-api": "workspace:*",
-        "@repo/effect-kysely": "workspace:*",
-        "@repo/source-tap": "workspace:*",
+        "@repo/effect-turso": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "effect": "4.0.0-rc.112",
       },
@@ -103,7 +103,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.7.1",
-        "@repo/effect-kysely": "workspace:*",
         "better-auth": "1.7.1",
         "effect": "4.0.0-rc.112",
       },
@@ -246,7 +245,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/auth-api": "workspace:*",
-        "@repo/effect-kysely": "workspace:*",
         "effect": "4.0.0-rc.112",
       },
       "devDependencies": {
