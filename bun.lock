@@ -186,7 +186,19 @@
       "name": "@repo/effect-turso-sync",
       "version": "0.0.0",
       "dependencies": {
-        "@repo/effect-turso-sync-core": "workspace:*",
+        "effect": "4.0.0-rc.112",
+      },
+      "devDependencies": {
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.4.0",
+        "typescript": "7.0.2",
+      },
+    },
+    "packages/effect-turso-sync-bun": {
+      "name": "@repo/effect-turso-sync-bun",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/effect-turso-sync": "workspace:*",
         "@tursodatabase/database-common": "0.8.0-pre.7",
         "@tursodatabase/sync": "0.8.0-pre.7",
         "effect": "4.0.0-rc.112",
@@ -200,23 +212,11 @@
         "vitest": "4.1.11",
       },
     },
-    "packages/effect-turso-sync-core": {
-      "name": "@repo/effect-turso-sync-core",
-      "version": "0.0.0",
-      "dependencies": {
-        "effect": "4.0.0-rc.112",
-      },
-      "devDependencies": {
-        "@repo/tsconfig": "workspace:*",
-        "bun-types": "1.4.0",
-        "typescript": "7.0.2",
-      },
-    },
     "packages/effect-turso-sync-rn": {
       "name": "@repo/effect-turso-sync-rn",
       "version": "0.0.0",
       "dependencies": {
-        "@repo/effect-turso-sync-core": "workspace:*",
+        "@repo/effect-turso-sync": "workspace:*",
         "@tursodatabase/sync-react-native": "0.8.0-pre.7",
         "effect": "4.0.0-rc.112",
       },
@@ -867,7 +867,7 @@
 
     "@repo/effect-turso-sync": ["@repo/effect-turso-sync@workspace:packages/effect-turso-sync"],
 
-    "@repo/effect-turso-sync-core": ["@repo/effect-turso-sync-core@workspace:packages/effect-turso-sync-core"],
+    "@repo/effect-turso-sync-bun": ["@repo/effect-turso-sync-bun@workspace:packages/effect-turso-sync-bun"],
 
     "@repo/effect-turso-sync-rn": ["@repo/effect-turso-sync-rn@workspace:packages/effect-turso-sync-rn"],
 

@@ -7,7 +7,7 @@ import { Cause, Effect, Exit, FileSystem, Layer, Option, Schema } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
-import { TursoSyncClient } from '@repo/effect-turso-sync-core';
+import { TursoSyncClient } from '@repo/effect-turso-sync';
 
 import { layer, make } from '#src/index.ts';
 

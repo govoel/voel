@@ -14,8 +14,8 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
 
-import { TursoSyncClient } from '@repo/effect-turso-sync-core';
-import type { TursoSyncClientOptions as CoreTursoSyncClientOptions } from '@repo/effect-turso-sync-core';
+import { TursoSyncClient } from '@repo/effect-turso-sync';
+import type { TursoSyncClientOptions as CoreTursoSyncClientOptions } from '@repo/effect-turso-sync';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
