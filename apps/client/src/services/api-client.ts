@@ -3,14 +3,13 @@ import { FetchHttpClient, Headers, HttpClient, HttpClientRequest } from 'effect/
 import { AtomRpc } from 'effect/unstable/reactivity';
 import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc';
 
-import { make as makeReactNativeTursoSyncClient } from '@repo/effect-turso-sync-rn';
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
-import { TursoSyncClientFactory } from '#src/services/database/turso-sync-client-factory.ts';
+import { TursoSyncClientFactoryReactNativeLayer } from '#src/services/database/turso-sync-client-factory-react-native.ts';
 
 export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-client/ApiClient', {
   group: Api,
@@ -72,9 +71,7 @@ export class ApiClient extends AtomRpc.Service<ApiClient>()('voel/services/api-c
           RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true })
         ).pipe(
           Layer.provide(
-            MainDatabase.layer.pipe(
-              Layer.provide(TursoSyncClientFactory.layer(makeReactNativeTursoSyncClient))
-            )
+            MainDatabase.layer.pipe(Layer.provide(TursoSyncClientFactoryReactNativeLayer))
           )
         )
       )
