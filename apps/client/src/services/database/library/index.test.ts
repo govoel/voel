@@ -9,8 +9,8 @@ import { TursoSyncClient as TestTursoSyncClient } from '@repo/effect-turso-sync-
 
 import { ActiveAccountResources } from '#src/services/accounts/active-account-resources.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
 import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
+import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/services/testing/utils.ts';
 
