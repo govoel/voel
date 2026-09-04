@@ -16,9 +16,7 @@ export const AppRuntimeLayerNoDeps = AccountManager.layerNoDeps.pipe(
   Layer.provideMerge(AccountRepository.layerNoDeps)
 );
 
-const DatabaseLayers = LibraryDatabaseMap.layer.pipe(
-  Layer.provideMerge(MainDatabase.layer)
-);
+const DatabaseLayers = LibraryDatabaseMap.layer.pipe(Layer.provideMerge(MainDatabase.layer));
 
 const AppRuntimeLayer = Layer.merge(
   AccountManager.layer.pipe(

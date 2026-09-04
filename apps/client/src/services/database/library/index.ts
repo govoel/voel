@@ -13,7 +13,7 @@ import {
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient } from 'effect/unstable/sql';
 
-import type { TursoSyncClient, TursoSyncClientOptions } from '@repo/effect-turso-sync';
+import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
 import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
@@ -114,21 +114,26 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
 /** A read-only local replica of one account's server-side `library.db`. */
 export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
   'voel/services/database/library/LibraryDatabase',
-  { make: (client: TursoSyncClient['Service']) => Effect.succeed(client) }
+  {
+    make: Effect.fnUntraced(function* (account: ActiveAccountKey) {
+      const config = yield* AppConfig;
+      const factory = yield* TursoSyncClientFactory;
+      const options = yield* makeLibraryDatabaseOptions({
+        account,
+        filename: config.libraryDb.filename,
+      });
+
+      return yield* factory.make(options);
+    }),
+  }
 ) {
   public static readonly layerNoDeps = (account: ActiveAccountKey) =>
     Layer.effectContext(
-      Effect.gen(function* () {
-        const config = yield* AppConfig;
-        const factory = yield* TursoSyncClientFactory;
-        const options = yield* makeLibraryDatabaseOptions({
-          account,
-          filename: config.libraryDb.filename,
-        });
-        const client = yield* factory.make(options);
-
-        return Context.make(LibraryDatabase, client).pipe(Context.add(SqlClient.SqlClient, client));
-      })
+      this.make(account).pipe(
+        Effect.map((client) =>
+          Context.make(this, client).pipe(Context.add(SqlClient.SqlClient, client))
+        )
+      )
     );
 
   public static readonly layer = (account: ActiveAccountKey) =>
