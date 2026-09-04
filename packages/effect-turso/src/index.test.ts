@@ -14,6 +14,7 @@ import {
   Schema,
   Stream,
 } from 'effect';
+import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 
@@ -681,6 +682,71 @@ describe('TursoClient', () => {
           pragma journal_mode
         `
       ).toEqual([{ journal_mode: 'wal' }]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('handles Turso Sync protocol requests through the Effect client', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({
+        disableWalAutoActions: true,
+        filename: `${dir}/test.db`,
+      });
+      yield* sql`
+        create table synced (value text not null)
+      `;
+
+      const options = yield* sql.syncHandler(
+        HttpServerRequest.fromWeb(
+          new Request('http://localhost/pull-updates', { method: 'OPTIONS' })
+        )
+      );
+      const optionsResponse = HttpServerResponse.toWeb(options);
+      expect(optionsResponse.status).toBe(204);
+      expect(optionsResponse.headers.get('content-type')).toBe('text/plain');
+      expect(yield* Effect.promise(async () => optionsResponse.text())).toBe('');
+
+      const missing = yield* sql.syncHandler(
+        HttpServerRequest.fromWeb(new Request('http://localhost/missing', { method: 'POST' }))
+      );
+      const missingResponse = HttpServerResponse.toWeb(missing);
+      expect(missingResponse.status).toBe(404);
+      expect(missingResponse.headers.get('content-type')).toBe('text/plain');
+      expect(yield* Effect.promise(async () => missingResponse.text())).toBe('Not Found');
+
+      const pipeline = yield* sql.syncHandler(
+        HttpServerRequest.fromWeb(
+          new Request('http://localhost/v2/pipeline', {
+            method: 'POST',
+            body: `{"requests":[{"type":"execute","stmt":{"sql":"INSERT INTO synced VALUES ('yes')"}}]}`,
+          })
+        )
+      );
+      expect(pipeline.status).toBe(200);
+      expect(
+        yield* sql`
+          select
+            value
+          from
+            synced
+        `
+      ).toEqual([{ value: 'yes' }]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('requires automatic WAL actions to be disabled for sync requests', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
+      const error = yield* Effect.flip(
+        sql.syncHandler(
+          HttpServerRequest.fromWeb(
+            new Request('http://localhost/pull-updates', { method: 'OPTIONS' })
+          )
+        )
+      );
+
+      expect(error).toBeInstanceOf(TursoConfigError);
     }).pipe(Effect.provide(TestLayer))
   );
 
