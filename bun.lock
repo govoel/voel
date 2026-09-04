@@ -132,7 +132,7 @@
       "dependencies": {
         "@effect/atom-react": "4.0.0-rc.112",
         "@repo/effect-atom-devtools-core": "workspace:*",
-        "@rozenite/agent-shared": "2.2.0",
+        "@rozenite/agent-shared": "2.3.0",
         "@rozenite/plugin-bridge": "2.2.0",
         "@rozenite/ui": "2.2.0",
         "effect": "4.0.0-rc.112",
@@ -882,7 +882,7 @@
 
     "@rozenite/agent-sdk": ["@rozenite/agent-sdk@2.2.0", "", { "dependencies": { "@rozenite/agent-shared": "2.2.0", "tslib": "^2.3.0" } }, "sha512-IrF1JuGDHhsPYqzBjgbpGm3DcuuuJmPaTTepxhbxsUkoJE9PGAG1s45Mzv9drra1jumTZASFe02uhoF+pX26AA=="],
 
-    "@rozenite/agent-shared": ["@rozenite/agent-shared@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-RysggPQYRsFAz1URbbYF/95cE/RuaduxY08t63prlXYUsWBtLkM9U7bxKmlj7JNbcOQhMjJglVBCpQxxXU4TNQ=="],
+    "@rozenite/agent-shared": ["@rozenite/agent-shared@2.3.0", "", { "dependencies": { "@rozenite/tools": "2.3.0", "tslib": "^2.3.0" } }, "sha512-oi27kPf5MrSYnqxUY5rqYrD8NMSnzRPW5NNiSAtgjcx1mNnHDqofpllOSpsaKPVnySmJrl7ym11O88Io/XEGTQ=="],
 
     "@rozenite/app": ["@rozenite/app@2.2.0", "", { "dependencies": { "@rozenite/plugin-bridge": "2.2.0", "@rozenite/shell": "2.2.0", "@rozenite/ui": "2.2.0", "react": "19.2.3", "react-dom": "19.2.3" } }, "sha512-lD+3Av1f7sgvsaLyepT98TC7VqD51mgbFRtIhnst5IzElrdoO/UEA7dnsGqvkJka+HyRaofmJr25s3IggMpC9Q=="],
 
@@ -2392,6 +2392,12 @@
 
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
 
+    "@rozenite/agent-sdk/@rozenite/agent-shared": ["@rozenite/agent-shared@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-RysggPQYRsFAz1URbbYF/95cE/RuaduxY08t63prlXYUsWBtLkM9U7bxKmlj7JNbcOQhMjJglVBCpQxxXU4TNQ=="],
+
+    "@rozenite/agent-shared/@rozenite/tools": ["@rozenite/tools@2.3.0", "", {}, "sha512-XHmO3n/SyokjsxD/rTHG1V+sNTVNJHT64RpxAgyV2AOfbNQl6PsTIkrT5XuYet2beL5umXTp0ZGe29YrE3YLRA=="],
+
+    "@rozenite/middleware/@rozenite/agent-shared": ["@rozenite/agent-shared@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-RysggPQYRsFAz1URbbYF/95cE/RuaduxY08t63prlXYUsWBtLkM9U7bxKmlj7JNbcOQhMjJglVBCpQxxXU4TNQ=="],
+
     "@rozenite/middleware/ws": ["ws@8.21.3", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw=="],
 
     "@rozenite/vite-plugin/@vitejs/plugin-react": ["@vitejs/plugin-react@4.7.0", "", { "dependencies": { "@babel/core": "^7.28.0", "@babel/plugin-transform-react-jsx-self": "^7.27.1", "@babel/plugin-transform-react-jsx-source": "^7.27.1", "@rolldown/pluginutils": "1.0.0-beta.27", "@types/babel__core": "^7.20.5", "react-refresh": "^0.17.0" }, "peerDependencies": { "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0" } }, "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA=="],
@@ -2533,6 +2539,8 @@
     "restore-cursor/signal-exit": ["signal-exit@3.0.7", "", {}, "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="],
 
     "roarr/sprintf-js": ["sprintf-js@1.1.3", "", {}, "sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA=="],
+
+    "rozenite/@rozenite/agent-shared": ["@rozenite/agent-shared@2.2.0", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-RysggPQYRsFAz1URbbYF/95cE/RuaduxY08t63prlXYUsWBtLkM9U7bxKmlj7JNbcOQhMjJglVBCpQxxXU4TNQ=="],
 
     "send/debug": ["debug@2.6.9", "", { "dependencies": { "ms": "2.0.0" } }, "sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA=="],
 
