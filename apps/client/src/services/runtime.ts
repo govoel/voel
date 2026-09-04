@@ -2,7 +2,6 @@ import { Layer } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
-import { TursoSyncClient } from '@repo/effect-turso-sync-rn';
 
 import { ActiveAccountResources } from '#src/services/accounts/active-account-resources.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -17,7 +16,7 @@ export const AppRuntimeLayerNoDeps = AccountManager.layerNoDeps.pipe(
   Layer.provideMerge(AccountRepository.layerNoDeps)
 );
 
-const DatabaseLayers = LibraryDatabaseMap.layer(TursoSyncClient.layer).pipe(
+const DatabaseLayers = LibraryDatabaseMap.layer.pipe(
   Layer.provideMerge(MainDatabase.layer)
 );
 
