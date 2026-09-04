@@ -1,25 +1,21 @@
-import { Context, Effect, Layer } from 'effect';
-import type { Scope } from 'effect';
+import { Context } from 'effect';
+import type { Effect, Scope } from 'effect';
 import type { Reactivity } from 'effect/unstable/reactivity';
 import type { SqlError } from 'effect/unstable/sql';
 
 import type { TursoSyncClient, TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
 /** Acquires platform-specific Turso clients inside the requesting layer's scope. */
-export class TursoSyncClientFactory extends Context.Service<TursoSyncClientFactory>()(
-  'voel/services/database/turso-sync-client-factory/TursoSyncClientFactory',
+export class TursoSyncClientFactory extends Context.Service<
+  TursoSyncClientFactory,
+  // oxlint-disable-next-line effect-conventions/no-context-service-second-type-argument -- Platform-specific files provide the shared service shape.
   {
-    make: (
-      makeClient: <R = never>(
-        options: TursoSyncClientOptions<R>
-      ) => Effect.Effect<
-        TursoSyncClient['Service'],
-        SqlError.SqlError,
-        Reactivity.Reactivity | Scope.Scope | R
-      >
-    ) => Effect.succeed({ make: makeClient }),
+    readonly make: <R = never>(
+      options: TursoSyncClientOptions<R>
+    ) => Effect.Effect<
+      TursoSyncClient['Service'],
+      SqlError.SqlError,
+      Reactivity.Reactivity | Scope.Scope | R
+    >;
   }
-) {
-  public static readonly layer = (makeClient: Parameters<typeof this.make>[0]) =>
-    Layer.effect(this, this.make(makeClient));
-}
+>()('voel/services/database/turso-sync-client-factory/TursoSyncClientFactory') {}
