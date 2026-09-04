@@ -1,18 +1,16 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Context, Deferred, Effect, FileSystem, Layer, Option, Redacted } from 'effect';
+import { Deferred, Effect, FileSystem, Layer, Option, Redacted } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
-import { Reactivity } from 'effect/unstable/reactivity';
-import { SqlClient } from 'effect/unstable/sql';
 
-import { make as makeTestTursoSyncClient } from '@repo/effect-turso-sync';
-import { TursoSyncClient } from '@repo/effect-turso-sync-core';
-import type { TursoSyncClientOptions } from '@repo/effect-turso-sync-core';
+import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
+import { TursoSyncClient as TestTursoSyncClient } from '@repo/effect-turso-sync-bun';
 
 import { ActiveAccountResources } from '#src/services/accounts/active-account-resources.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
+import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/services/testing/utils.ts';
 
@@ -24,25 +22,25 @@ const turso = {
   pragmas: [] as Array<string>,
 };
 
-const tursoSyncClientTestLayer = (options: TursoSyncClientOptions) =>
-  Layer.effectContext(
-    Effect.gen(function* () {
-      const { onConnect, ...observed } = options;
-      turso.optionsSeen.push(observed);
-      if (onConnect) {
-        yield* onConnect({
-          exec: (sql) => Effect.sync(() => turso.pragmas.push(sql)),
-        });
-      }
-      const client = yield* makeTestTursoSyncClient({ path: ':memory:' });
-      const testClient = Object.assign(client, {
-        pull: turso.onPull ? Effect.as(turso.onPull(), false) : Effect.succeed(false),
-      });
-      return Context.make(TursoSyncClient, testClient).pipe(
-        Context.add(SqlClient.SqlClient, testClient)
-      );
-    })
-  ).pipe(Layer.provide(Reactivity.layer));
+const makeTursoSyncTestClient = Effect.fnUntraced(function* <R = never>(
+  options: TursoSyncClientOptions<R>
+) {
+  const { onConnect, ...observed } = options;
+  turso.optionsSeen.push(observed);
+  if (onConnect) {
+    yield* onConnect({
+      exec: (sql) => Effect.sync(() => turso.pragmas.push(sql)),
+    });
+  }
+  const client = yield* TestTursoSyncClient.make({ path: ':memory:' });
+  return Object.assign(client, {
+    pull: turso.onPull ? Effect.as(turso.onPull(), false) : Effect.succeed(false),
+  });
+});
+
+const TursoSyncClientFactoryTestLayer = Layer.succeed(TursoSyncClientFactory, {
+  make: makeTursoSyncTestClient,
+});
 
 it.layer(TestServerControllerClient.layer)('library database', (iit) => {
   iit.effect(
@@ -93,7 +91,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
 
         const fs = yield* FileSystem.FileSystem;
         const directory = yield* fs.makeTempDirectoryScoped();
-        const replica = yield* makeTestTursoSyncClient({
+        const replica = yield* TestTursoSyncClient.make({
           path: `${directory}/library.db`,
           url,
           authToken: provideToken,
@@ -115,7 +113,8 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
           Effect.provide([
             ActiveAccountResources.layerNoDeps.pipe(
               Layer.provideMerge(
-                LibraryDatabaseMap.layerNoDeps(tursoSyncClientTestLayer).pipe(
+                LibraryDatabaseMap.layerNoDeps.pipe(
+                  Layer.provide(TursoSyncClientFactoryTestLayer),
                   Layer.provideMerge(
                     makeClientTestLayers({
                       config: {

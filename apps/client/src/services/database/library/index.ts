@@ -12,16 +12,15 @@ import {
 } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient } from 'effect/unstable/sql';
-import type { SqlError } from 'effect/unstable/sql';
 
-import { TursoSyncClient } from '@repo/effect-turso-sync-core';
-import type { TursoSyncClientOptions } from '@repo/effect-turso-sync-core';
+import type { TursoSyncClient, TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
 import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { AppConfig } from '#src/services/config.ts';
+import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
 
 class LibraryAuthenticationError extends Schema.TaggedError<
   LibraryAuthenticationError,
@@ -117,36 +116,24 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
   'voel/services/database/library/LibraryDatabase',
   { make: (client: TursoSyncClient['Service']) => Effect.succeed(client) }
 ) {
-  public static readonly layerNoDeps = (
-    account: ActiveAccountKey,
-    clientLayer: (
-      options: TursoSyncClientOptions
-    ) => Layer.Layer<TursoSyncClient | SqlClient.SqlClient, SqlError.SqlError>
-  ) =>
-    Layer.unwrap(
+  public static readonly layerNoDeps = (account: ActiveAccountKey) =>
+    Layer.effectContext(
       Effect.gen(function* () {
         const config = yield* AppConfig;
+        const factory = yield* TursoSyncClientFactory;
         const options = yield* makeLibraryDatabaseOptions({
           account,
           filename: config.libraryDb.filename,
         });
+        const client = yield* factory.make(options);
 
-        return Layer.effectContext(
-          TursoSyncClient.pipe(
-            Effect.map((client) =>
-              Context.make(LibraryDatabase, client).pipe(Context.add(SqlClient.SqlClient, client))
-            )
-          )
-        ).pipe(Layer.provide(clientLayer(options)));
+        return Context.make(LibraryDatabase, client).pipe(Context.add(SqlClient.SqlClient, client));
       })
     );
 
-  public static readonly layer = (
-    account: ActiveAccountKey,
-    clientLayer: Parameters<typeof this.layerNoDeps>[1]
-  ) =>
-    this.layerNoDeps(account, clientLayer).pipe(
-      Layer.provide([AppConfig.layer, AuthClientMap.layer, XxHash.layer])
+  public static readonly layer = (account: ActiveAccountKey) =>
+    this.layerNoDeps(account).pipe(
+      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, XxHash.layer])
     );
 }
 
@@ -174,34 +161,21 @@ const synchronizeLibraryDatabase = Effect.fnUntraced(function* ({
 });
 
 /** Lazily owns, scopes, and synchronizes one physical replica per account. */
-export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
+export class LibraryDatabaseMap extends LayerMap.Service<LibraryDatabaseMap>()(
   'voel/services/database/library/LibraryDatabaseMap',
   {
-    make: (clientLayer: Parameters<typeof LibraryDatabase.layerNoDeps>[1]) =>
-      LayerMap.make((account: ActiveAccountKey) =>
-        LibraryDatabase.layerNoDeps(account, clientLayer).pipe(
-          Layer.tap((context) =>
-            synchronizeLibraryDatabase({
-              account,
-              database: Context.get(context, LibraryDatabase),
-            })
-          )
+    lookup: (account: ActiveAccountKey) =>
+      LibraryDatabase.layerNoDeps(account).pipe(
+        Layer.tap((context) =>
+          synchronizeLibraryDatabase({
+            account,
+            database: Context.get(context, LibraryDatabase),
+          })
         )
       ),
+    dependencies: [AppConfig.layer, AuthClientMap.layer, Reactivity.layer, XxHash.layer],
   }
-) {
-  public static readonly layerNoDeps = (
-    clientLayer: Parameters<typeof LibraryDatabase.layerNoDeps>[1]
-  ) => Layer.effect(this, this.make(clientLayer));
-
-  public static readonly layer = (clientLayer: Parameters<typeof this.layerNoDeps>[0]) =>
-    this.layerNoDeps(clientLayer).pipe(
-      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, XxHash.layer])
-    );
-
-  public static readonly contextEffect = (account: ActiveAccountKey) =>
-    Effect.flatMap(this, (databases) => databases.contextEffect(account));
-}
+) {}
 
 export const acquireLibraryDatabase = (account: ActiveAccountKey) =>
   LibraryDatabaseMap.contextEffect(account).pipe(Effect.map(Context.get(LibraryDatabase)));
