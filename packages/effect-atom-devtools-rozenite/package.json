@@ -28,7 +28,7 @@
     "@repo/effect-atom-devtools-core": "workspace:*",
     "@rozenite/agent-shared": "2.2.0",
     "@rozenite/plugin-bridge": "2.2.0",
-    "@rozenite/ui": "2.2.0",
+    "@rozenite/ui": "2.3.0",
     "effect": "4.0.0-rc.112"
   },
   "devDependencies": {
