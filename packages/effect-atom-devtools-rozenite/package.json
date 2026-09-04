@@ -40,7 +40,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native-web": "0.21.2",
-    "rozenite": "2.2.0",
+    "rozenite": "2.3.0",
     "typescript": "~6.0.3",
     "vite": "7.3.6",
     "vitest": "4.1.11"
