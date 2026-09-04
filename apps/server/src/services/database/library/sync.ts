@@ -1,0 +1,46 @@
+import { Effect, Layer, Option } from 'effect';
+import { HttpRouter, HttpServerResponse } from 'effect/unstable/http';
+import type { HttpServerRequest } from 'effect/unstable/http';
+
+import { AuthServerClient } from '@repo/auth-api/server.ts';
+
+import { AuthLayer } from '#src/services/auth.ts';
+import { LibraryDatabase } from '#src/services/database/library/index.ts';
+
+/** Authenticated, read-only Turso Sync routes for the client-safe library database. */
+export const LibrarySyncRouterLayerNoDeps = HttpRouter.use(
+  Effect.fnUntraced(function* (router) {
+    const auth = yield* AuthServerClient;
+    const database = yield* LibraryDatabase;
+    const syncRouter = router.prefixed('/api/sync/library');
+
+    const handleSyncRequest = Effect.fnUntraced(function* (
+      request: HttpServerRequest.HttpServerRequest
+    ) {
+      const session = yield* auth.api.getSession({ headers: request.headers }).pipe(
+        Effect.catchTags({
+          AuthError: Effect.die,
+        })
+      );
+
+      if (Option.isNone(session)) {
+        return HttpServerResponse.empty({ status: 401 });
+      }
+
+      return yield* database.syncHandler(request).pipe(
+        Effect.catchTags({
+          HttpServerError: Effect.die,
+          SqlError: Effect.die,
+          TursoConfigError: Effect.die,
+        })
+      );
+    });
+
+    yield* syncRouter.add('OPTIONS', '/pull-updates', handleSyncRequest);
+    yield* syncRouter.add('POST', '/pull-updates', handleSyncRequest);
+  })
+);
+
+export const LibrarySyncRouterLayer = LibrarySyncRouterLayerNoDeps.pipe(
+  Layer.provide([AuthLayer, LibraryDatabase.layer])
+);
