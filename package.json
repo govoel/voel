@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@effect/tsgo": "0.36.5",
-    "@oxlint/plugins": "1.78.0",
+    "@oxlint/plugins": "1.81.0",
     "agent-browser": "0.34.0",
     "agent-device": "0.20.10",
     "bun-types": "1.4.0",
@@ -26,7 +26,7 @@
     "eslint-plugin-turbo": "2.10.11",
     "opensrc": "0.7.3",
     "oxfmt": "0.65.0",
-    "oxlint": "1.78.0",
+    "oxlint": "1.81.0",
     "oxlint-tsgolint": "7.0.2001",
     "turbo": "2.10.11",
     "typescript": "7.0.2"
