@@ -7,7 +7,7 @@
       "devDependencies": {
         "@effect/tsgo": "0.36.5",
         "@oxlint/plugins": "1.78.0",
-        "agent-browser": "0.34.0",
+        "agent-browser": "0.36.0",
         "agent-device": "0.20.10",
         "bun-types": "1.4.0",
         "effect": "4.0.0-rc.112",
@@ -1120,7 +1120,7 @@
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
-    "agent-browser": ["agent-browser@0.34.0", "", { "bin": { "agent-browser": "./bin/agent-browser.js" } }, "sha512-eR6Ey4I/DMs9zZ60b3ziV6pgLIgpxXWzggr3dfFbtskLmeXPJAgXCIIwVL4PihVYJqEUpvWgUKlZ2CIjY1u44g=="],
+    "agent-browser": ["agent-browser@0.36.0", "", { "bin": { "agent-browser": "./bin/agent-browser.js" } }, "sha512-Ljjj4nRKUEqtrFF0pgev8lxTfC79tNgPj67sNi6BLnUAWIG8y9Cu2VQIeZ0MY3N2fTQagoBlfQ/pUY/4NWPD3w=="],
 
     "agent-cli-detector": ["agent-cli-detector@0.1.6", "", { "bin": { "agent-cli-detector": "dist/cli.js" } }, "sha512-vKrPeEVN3upDF3GjWxsWBbwQgMtNJ8VB1cduPvK3svmmz4ENpS7yaPxbogsbe3w+xp9xp2Cu+0Ar41rjAR4+lA=="],
 
