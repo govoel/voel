@@ -3,10 +3,12 @@ import { Atom } from 'effect/unstable/reactivity';
 
 import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
 
+import { ActiveAccountResources } from '#src/services/accounts/active-account-resources.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import { TursoSyncClientFactoryReactNativeLayer } from '#src/services/database/factory/react-native.ts';
+import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 
 export const AppRuntimeLayerNoDeps = AccountManager.layerNoDeps.pipe(
@@ -14,9 +16,15 @@ export const AppRuntimeLayerNoDeps = AccountManager.layerNoDeps.pipe(
   Layer.provideMerge(AccountRepository.layerNoDeps)
 );
 
-const AppRuntimeLayer = AccountManager.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(AccountRepository.layer, AuthClientMap.layer)),
-  Layer.provide(MainDatabase.layer),
+const DatabaseLayers = LibraryDatabaseMap.layer.pipe(Layer.provideMerge(MainDatabase.layer));
+
+const AppRuntimeLayer = Layer.merge(
+  AccountManager.layer.pipe(
+    Layer.provideMerge(Layer.mergeAll(AccountRepository.layer, AuthClientMap.layer))
+  ),
+  ActiveAccountResources.layer
+).pipe(
+  Layer.provide(DatabaseLayers),
   Layer.provide(TursoSyncClientFactoryReactNativeLayer),
   Layer.orDie
 );
