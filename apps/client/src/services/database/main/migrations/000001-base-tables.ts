@@ -1,84 +1,53 @@
-import { sql } from '@repo/effect-kysely';
-import type { Kysely } from '@repo/effect-kysely';
+import { Effect } from 'effect';
+import { SqlClient } from 'effect/unstable/sql';
 
-const createUpdatedAtTrigger = async ({
-  db,
-  table,
-  columns,
-}: {
-  db: Kysely<unknown>;
-  table: string;
-  columns: Array<string>;
-}) => {
-  const triggerName = `${table}_updatedAt_trigger`;
-  const updateColumns = columns.map((column) => sql.ref(column));
+export default Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
 
-  await sql`
-    create trigger ${sql.ref(triggerName)} before
-    update of ${sql.join(updateColumns)} on ${sql.table(table)} for each row begin
-    update ${sql.table(table)}
+  yield* sql`
+    create table account (
+      "serverUrl" text not null,
+      "userId" text not null,
+      username text not null,
+      name text not null,
+      email text not null,
+      "authStorageId" text not null,
+      role text not null check (role in ('admin', 'user', 'under18')),
+      "profilePicture" text,
+      active integer not null default 0 check (active in (0, 1)),
+      "createdAt" integer not null default (time_to_milli (time_now ())),
+      "updatedAt" integer not null default (time_to_milli (time_now ())),
+      constraint "account_serverUrl_userId_pkey" primary key ("serverUrl", "userId")
+    ) strict
+  `;
+
+  yield* sql`
+    create unique index "account_serverUrl_userId_authStorageId_uniqueidx" on account ("serverUrl", "userId", "authStorageId")
+  `;
+
+  yield* sql`
+    create unique index account_active_uniqueidx on account (active)
+    where
+      active = 1
+  `;
+
+  yield* sql`
+    create trigger if not exists "account_updatedAt_trigger" after
+    update of "serverUrl",
+    "userId",
+    username,
+    name,
+    email,
+    "authStorageId",
+    role,
+    "profilePicture",
+    active on account for each row begin
+    update account
     set
-      "updatedAt" = (unixepoch())
+      "updatedAt" = (time_to_milli (time_now ()))
     where
       rowid = new.rowid;
 
-    end;
-  `.execute(db);
-};
-
-export const up = async (db: Kysely<unknown>) => {
-  await db.schema
-    .createTable('account')
-    .addColumn('serverUrl', 'text', (col) => col.notNull())
-    .addColumn('userId', 'text', (col) => col.notNull())
-    .addPrimaryKeyConstraint('account_serverUrl_userId_pkey', ['serverUrl', 'userId'])
-    .addColumn('username', 'text', (col) => col.notNull())
-    .addColumn('name', 'text', (col) => col.notNull())
-    .addColumn('email', 'text', (col) => col.notNull())
-    .addColumn('authStorageId', 'text', (col) => col.notNull())
-    .addColumn('role', 'text', (col) =>
-      col.notNull().check(sql`
-        "role" in ('admin', 'user', 'under18')
-      `)
-    )
-    .addColumn('profilePicture', 'text')
-    .addColumn('active', 'integer', (col) =>
-      col.notNull().defaultTo(0).check(sql`
-          "active" in (0, 1)
-        `)
-    )
-    .addColumn('createdAt', 'integer', (col) =>
-      col.notNull().defaultTo(sql`
-        (unixepoch())
-      `)
-    )
-    .addColumn('updatedAt', 'integer', (col) =>
-      col.notNull().defaultTo(sql`
-        (unixepoch())
-      `)
-    )
-    .modifyEnd(sql`
-      strict
-    `)
-    .execute();
-
-  await createUpdatedAtTrigger({
-    db,
-    table: 'account',
-    columns: [
-      'serverUrl',
-      'userId',
-      'username',
-      'name',
-      'email',
-      'authStorageId',
-      'role',
-      'profilePicture',
-      'active',
-    ],
-  });
-};
-
-export const down = async (db: Kysely<unknown>) => {
-  await db.schema.dropTable('account').execute();
-};
+    end
+  `;
+});

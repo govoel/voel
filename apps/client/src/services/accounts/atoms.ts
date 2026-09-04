@@ -1,15 +1,15 @@
-import { Cause, Effect, Equal, Option, Stream } from 'effect';
+import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { AccountManager } from '#src/services/accounts/index.ts';
+import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export const accountsAtom = AppRuntime.atom(
-  Effect.service(MainDatabase).pipe(
-    Effect.flatMap((db) => db.execute(db.selectFrom('account').selectAll())),
+  Effect.service(AccountRepository).pipe(
+    Effect.flatMap((repository) => repository.list()),
     Reactivity.stream(['account'])
   )
 ).pipe(
@@ -30,15 +30,15 @@ export const accountsAtom = AppRuntime.atom(
       atom: Atom.make(() =>
         AsyncResult.success([
           {
-            active: Account.fields.active.make(0),
+            active: Account.fields.active.make(false),
             authStorageId: Account.fields.authStorageId.make('predefined-auth-storage'),
-            createdAt: 0,
+            createdAt: DateTime.makeUnsafe(0),
             email: Account.fields.email.make('alex@example.com'),
             name: Account.fields.name.make('Alex Reader'),
             profilePicture: Account.fields.profilePicture.make(null),
             role: Account.fields.role.make('admin'),
             serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
-            updatedAt: 0,
+            updatedAt: DateTime.makeUnsafe(0),
             userId: Account.fields.userId.make('predefined-user'),
             username: Account.fields.username.make('alex'),
           },
@@ -63,16 +63,9 @@ export const activeAccountAtom = AppRuntime.atom((get) =>
     Option.match({
       onNone: () => Stream.make(Option.none()),
       onSome: ({ authStorageId, serverUrl, userId }) =>
-        MainDatabase.pipe(
-          Effect.flatMap((db) =>
-            db.executeTakeFirstOption(
-              db
-                .selectFrom('account')
-                .where('serverUrl', '=', serverUrl)
-                .where('authStorageId', '=', authStorageId)
-                .where('userId', '=', userId)
-                .selectAll()
-            )
+        AccountRepository.pipe(
+          Effect.flatMap((repository) =>
+            repository.getByStorageKey({ serverUrl, authStorageId, userId })
           ),
           Reactivity.stream(['account'])
         ),
