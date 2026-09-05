@@ -17,7 +17,7 @@
     "prepare": "effect-tsgo patch --no-typescript --oxlint"
   },
   "devDependencies": {
-    "@effect/tsgo": "0.36.5",
+    "@effect/tsgo": "0.39.1",
     "@oxlint/plugins": "1.78.0",
     "agent-browser": "0.34.0",
     "agent-device": "0.20.10",
