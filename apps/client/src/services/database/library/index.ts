@@ -1,15 +1,4 @@
-import {
-  Cause,
-  Context,
-  Duration,
-  Effect,
-  Layer,
-  LayerMap,
-  Option,
-  Schedule,
-  Schema,
-  Stream,
-} from 'effect';
+import { Context, Duration, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient } from 'effect/unstable/sql';
 
@@ -18,16 +7,8 @@ import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
-import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
-
-class LibraryAuthenticationError extends Schema.TaggedError<
-  LibraryAuthenticationError,
-  { readonly brand: unique symbol }
->('voel/services/database/library/LibraryAuthenticationError')('LibraryAuthenticationError', {
-  cause: Schema.Defect(),
-}) {}
 
 const syncUrl = (serverUrl: string) => new URL('/api/sync/library', serverUrl).toString();
 
@@ -38,76 +19,51 @@ const retrySchedule = Schedule.exponential('1 second').pipe(
   Schedule.jittered
 );
 
-/**
- * Keeps replicas for different accounts in separate files. A Turso Sync
- * database persists remote identity alongside the database, so reusing one
- * file after switching servers would cross a security boundary.
- */
-const replicaFilename = ({ filename, identity }: { filename: string; identity: string }) => {
-  if (filename === ':memory:') {
-    return filename;
-  }
-
-  const safeIdentity = encodeURIComponent(identity);
-  const separator = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
-  const extension = filename.lastIndexOf('.');
-  return extension > separator
-    ? `${filename.slice(0, extension)}.${safeIdentity}${filename.slice(extension)}`
-    : `${filename}.${safeIdentity}`;
-};
-
 const authToken = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
-  const result = yield* authClient.sessionChanges.pipe(
+  return yield* authClient.sessionChanges.pipe(
     Stream.filter((session) => !session.waiting),
+    Stream.filter(AsyncResult.isSuccess),
+    Stream.map((result) => result.value),
+    Stream.filter(Option.isSome),
+    Stream.map((session) => session.value.session.token),
     Stream.runHead,
     Effect.flatMap(
       Option.match({
-        onNone: () =>
-          Effect.fail(
-            LibraryAuthenticationError.make({
-              cause: new Error('The authentication session stream ended'),
-            })
-          ),
+        // An ended session stream cannot supply credentials; cancel this request.
+        onNone: () => Effect.interrupt,
         onSome: Effect.succeed,
       })
     )
   );
-
-  if (!AsyncResult.isSuccess(result) || Option.isNone(result.value)) {
-    return yield* LibraryAuthenticationError.make({
-      cause: AsyncResult.isFailure(result)
-        ? Cause.squash(result.cause)
-        : new Error('The account is not authenticated'),
-    });
-  }
-
-  return result.value.value.session.token;
 });
 
 const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   account,
-  filename,
+  filenameSuffix,
 }: {
   readonly account: ActiveAccountKey;
-  readonly filename: string;
+  readonly filenameSuffix: string;
 }) {
   const authentication = yield* acquireAuthClient(account);
-  const xxHash = yield* XxHash;
-  const identity = yield* xxHash.hash128(
-    `${account.serverUrl}\u0000${account.userId}\u0000${account.authStorageId}`
-  );
-  const runPromise = Effect.runPromiseWith(yield* Effect.context());
 
   return {
-    path: replicaFilename({ filename, identity }),
+    // Auth storage identity is unique to each sign-in, including across servers.
+    path: `${filenameSuffix}-${account.authStorageId}.db`,
     url: syncUrl(account.serverUrl),
     // Turso asks for credentials before every request, allowing Better Auth
     // to rotate or invalidate a session without rebuilding the replica.
-    authToken: async () => runPromise(authToken(authentication)),
+    authToken: authToken(authentication),
     bootstrapIfEmpty: true,
     longPollTimeoutMs: 30_000,
-    onConnect: ({ exec }) =>
-      exec('PRAGMA foreign_keys = ON').pipe(Effect.andThen(exec('PRAGMA query_only = ON'))),
+    onConnect: (sql) =>
+      Effect.gen(function* () {
+        yield* sql`
+          pragma foreign_keys = on
+        `;
+        yield* sql`
+          pragma query_only = 1
+        `;
+      }),
   } satisfies TursoSyncClientOptions;
 });
 
@@ -120,7 +76,7 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
       const factory = yield* TursoSyncClientFactory;
       const options = yield* makeLibraryDatabaseOptions({
         account,
-        filename: config.libraryDb.filename,
+        filenameSuffix: config.libraryDb.filenameSuffix,
       });
 
       return yield* factory.make(options);
@@ -138,7 +94,7 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
 
   public static readonly layer = (account: ActiveAccountKey) =>
     this.layerNoDeps(account).pipe(
-      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, XxHash.layer])
+      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer])
     );
 }
 
@@ -178,7 +134,7 @@ export class LibraryDatabaseMap extends LayerMap.Service<LibraryDatabaseMap>()(
           })
         )
       ),
-    dependencies: [AppConfig.layer, AuthClientMap.layer, Reactivity.layer, XxHash.layer],
+    dependencies: [AppConfig.layer, AuthClientMap.layer, Reactivity.layer],
   }
 ) {}
 

@@ -7,8 +7,8 @@ class AppConfigVariables extends Schema.Class<
   MAIN_DB_FILENAME: Schema.String.pipe(
     Schema.withDecodingDefaultType(Effect.succeed('main.sqlite'))
   ),
-  LIBRARY_DB_FILENAME: Schema.String.pipe(
-    Schema.withDecodingDefaultType(Effect.succeed('library.db'))
+  LIBRARY_DB_FILENAME_SUFFIX: Schema.String.pipe(
+    Schema.withDecodingDefaultType(Effect.succeed('library'))
   ),
 }) {}
 
@@ -21,7 +21,7 @@ export class AppConfig extends Context.Service<AppConfig>()('voel/services/confi
   make: Effect.gen(function* () {
     const config = yield* Config.schema(AppConfigVariables);
     return {
-      libraryDb: { filename: config.LIBRARY_DB_FILENAME },
+      libraryDb: { filenameSuffix: config.LIBRARY_DB_FILENAME_SUFFIX },
       mainDb: { filename: config.MAIN_DB_FILENAME },
     };
   }).pipe(Effect.catchTags({ ConfigError: () => AppConfigError.make() })),
@@ -37,7 +37,6 @@ export class AppConfig extends Context.Service<AppConfig>()('voel/services/confi
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
-            LIBRARY_DB_FILENAME: ':memory:',
             MAIN_DB_FILENAME: ':memory:',
             ...config,
           } satisfies (typeof AppConfigVariables)['Encoded'])
