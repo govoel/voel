@@ -15,7 +15,10 @@ export class MainDatabase extends Context.Service<MainDatabase>()(
 
       return yield* factory.make({
         path: config.mainDb.filename,
-        onConnect: ({ exec }) => exec('PRAGMA foreign_keys = ON'),
+        onConnect: (sql) =>
+          sql`
+            pragma foreign_keys = on
+          `.pipe(Effect.asVoid),
       });
     }),
   }
