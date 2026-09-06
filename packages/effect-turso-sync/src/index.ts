@@ -13,13 +13,12 @@ export interface TursoSyncClientOptions<R = never> {
   readonly path: string;
   /** Omitting the URL creates a local-only database. */
   readonly url?: string | (() => string | null);
-  readonly authToken?: string | (() => Promise<string>);
+  /** Evaluated before each remote request; interrupted when its sync operation is cancelled. */
+  readonly authToken?: Effect.Effect<string, never, R>;
   readonly longPollTimeoutMs?: number;
   readonly bootstrapIfEmpty?: boolean;
-  /** Runs once after the physical connection has been established. */
+  /** Runs once with the SQL client after connecting, before the client is exposed. */
   readonly onConnect?:
-    | ((connection: {
-        readonly exec: (sql: string) => Effect.Effect<void, SqlError.SqlError>;
-      }) => Effect.Effect<void, SqlError.SqlError, R>)
+    | ((client: SqlClient.SqlClient) => Effect.Effect<void, SqlError.SqlError, R>)
     | undefined;
 }

@@ -16,31 +16,51 @@ import type { SqlConnection } from 'effect/unstable/sql';
 
 import { TursoSyncClient as CoreTursoSyncClient } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
+import { makeSyncOperations } from '@repo/effect-turso-sync/operations';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
 
+const mapConnectionError = (cause: unknown) => {
+  const reason = classifyTursoError(cause, {
+    message: 'Failed to connect to database',
+    operation: 'connect',
+  });
+  return SqlError.SqlError.make({
+    reason:
+      reason._tag === 'UnknownError'
+        ? SqlError.ConnectionError.make({
+            cause: reason.cause,
+            message: reason.message,
+            operation: reason.operation,
+          })
+        : reason,
+  });
+};
+
 export class TursoSyncClient extends CoreTursoSyncClient {
   /** Creates a scoped Effect SQL client backed by one serialized React Native Turso connection. */
-  public static readonly make = Effect.fnUntraced(function* <R = never>(
-    options: TursoSyncClientOptions<R>
-  ) {
-    const { connect } = yield* Effect.promise(
+  public static readonly make = Effect.fnUntraced(function* <R = never>({
+    authToken,
+    onConnect,
+    ...options
+  }: TursoSyncClientOptions<R>) {
+    const { Database } = yield* Effect.promise(
       async () => import('@tursodatabase/sync-react-native')
     );
     const compiler = Statement.makeCompilerSqlite();
+    const sync = yield* makeSyncOperations({ authToken });
 
     const makeConnection = Effect.gen(function* () {
+      // Own the handle before bootstrapping, so failed/cancelled connects close it too.
       const db = yield* Effect.acquireRelease(
-        Effect.tryPromise({
-          try: async () => connect(options),
-          catch: (cause) =>
-            SqlError.SqlError.make({
-              reason: classifyTursoError(cause, {
-                message: 'Failed to connect to database',
-                operation: 'connect',
-              }),
+        Effect.try({
+          try: () =>
+            new Database({
+              ...options,
+              ...(sync.authToken ? { authToken: sync.authToken } : {}),
             }),
+          catch: mapConnectionError,
         }),
         (database) =>
           Effect.ignore(
@@ -48,16 +68,12 @@ export class TursoSyncClient extends CoreTursoSyncClient {
               database.close();
             })
           )
-      ).pipe(
-        Effect.catchReason('SqlError', 'UnknownError', (error) =>
-          SqlError.SqlError.make({
-            reason: SqlError.ConnectionError.make({
-              cause: error.cause,
-              message: error.message,
-              operation: error.operation,
-            }),
-          })
-        )
+      );
+      yield* sync.withSyncOperation(
+        Effect.tryPromise({
+          try: async () => db.connect(),
+          catch: mapConnectionError,
+        })
       );
 
       const busyTimeoutMillis = Math.min(
@@ -74,22 +90,6 @@ export class TursoSyncClient extends CoreTursoSyncClient {
             }),
           }),
       });
-
-      if (options.onConnect) {
-        yield* options.onConnect({
-          exec: (sql: string) =>
-            Effect.tryPromise({
-              try: async () => db.exec(sql),
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to initialize database connection',
-                    operation: 'onConnect',
-                  }),
-                }),
-            }).pipe(Effect.asVoid, Effect.uninterruptible),
-        });
-      }
 
       const prepareCache = yield* ScopedCache.make({
         capacity: 200,
@@ -214,6 +214,10 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       beginTransaction: 'BEGIN IMMEDIATE',
       spanAttributes: [[ATTR_DB_SYSTEM_NAME, 'turso']],
     });
+
+    if (onConnect) {
+      yield* onConnect(client);
+    }
 
     return Object.assign(client, { config: options });
   });

@@ -2,10 +2,11 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
 import { StatementPromise } from '@tursodatabase/database-common';
-import { connect } from '@tursodatabase/sync';
+import { Database, connect } from '@tursodatabase/sync';
 import { Cause, Effect, Exit, FileSystem, Layer, Option, Schema } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
+import { vi } from 'vitest';
 
 import { TursoSyncClient } from '#src/index.ts';
 
@@ -21,6 +22,71 @@ const makeTempDir = Effect.gen(function* () {
 });
 
 describe('TursoSyncClient', () => {
+  it.effect('initializes once with the SQL client before returning it', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      let calls = 0;
+      const sql = yield* TursoSyncClient.make({
+        path: `${dir}/local.db`,
+        onConnect: (client) =>
+          Effect.gen(function* () {
+            calls += 1;
+            yield* client`PRAGMA foreign_keys = ON`;
+            yield* client`PRAGMA busy_timeout = 10000`;
+            yield* client`create table initialized (value text not null)`;
+            yield* client.withTransaction(client`
+              insert into
+                initialized
+              values
+                (${'ready'})
+            `);
+          }),
+      });
+
+      expect(
+        yield* sql`
+          pragma foreign_keys
+        `
+      ).toEqual([{ foreign_keys: 1 }]);
+      expect(
+        yield* sql`
+          pragma busy_timeout
+        `
+      ).toEqual([{ busy_timeout: 10_000 }]);
+      expect(
+        yield* sql`
+          select
+            *
+          from
+            initialized
+        `
+      ).toEqual([{ value: 'ready' }]);
+      expect(calls).toBe(1);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('fails construction and closes the connection when initialization fails', () =>
+    Effect.gen(function* () {
+      const dir = yield* makeTempDir;
+      const close = yield* Effect.acquireRelease(
+        Effect.sync(() => vi.spyOn(Database.prototype, 'close')),
+        (spy) =>
+          Effect.sync(() => {
+            spy.mockRestore();
+          })
+      );
+      const error = yield* TursoSyncClient.make({
+        path: `${dir}/local.db`,
+        // oxlint-disable-next-line sql/format -- malformed intentionally to exercise syntax errors
+        onConnect: (sql) => sql`SELEC 1`.pipe(Effect.asVoid),
+      }).pipe(Effect.scoped, Effect.flip);
+
+      expect(SqlError.isSqlError(error)).toBe(true);
+      expect(error.reason._tag).toBe('SqlSyntaxError');
+      expect(close).toHaveBeenCalledTimes(1);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
   it.effect('uses database-common promise statements', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
