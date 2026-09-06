@@ -8,26 +8,18 @@ import { AccountManager } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import { TursoSyncClientFactoryReactNativeLayer } from '#src/services/database/factory/react-native.ts';
-import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
 
 export const AppRuntimeLayerNoDeps = AccountManager.layerNoDeps.pipe(
   Layer.provideMerge(AuthClientMap.layerNoDeps),
   Layer.provideMerge(AccountRepository.layerNoDeps)
 );
 
-const DatabaseLayers = LibraryDatabaseMap.layer.pipe(Layer.provideMerge(MainDatabase.layer));
-
-const AppRuntimeLayer = Layer.merge(
-  AccountManager.layer.pipe(
-    Layer.provideMerge(Layer.mergeAll(AccountRepository.layer, AuthClientMap.layer))
-  ),
+const AppRuntimeLayer = Layer.mergeAll(
+  AccountManager.layer,
+  AccountRepository.layer,
+  AuthClientMap.layer,
   ActiveAccountResources.layer
-).pipe(
-  Layer.provide(DatabaseLayers),
-  Layer.provide(TursoSyncClientFactoryReactNativeLayer),
-  Layer.orDie
-);
+).pipe(Layer.provide(TursoSyncClientFactoryReactNativeLayer), Layer.orDie);
 
 export const AppRuntime = Atom.runtime(
   AppRuntimeLayer.pipe(Layer.provideMerge(AtomDevToolsLayer))

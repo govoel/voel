@@ -289,7 +289,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
         AuthClientStorage.layer,
         Reactivity.layer,
         UuidGenerator.layer,
-        XxHash.layer
+        XxHash.layer,
+        MainDatabase.layer
       )
     )
   );
