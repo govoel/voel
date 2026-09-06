@@ -222,10 +222,12 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       yield* onConnect(client);
     }
 
-    const pull = Effect.tryPromise({
-      try: async () => db.pull(),
-      catch: (cause) => TursoSyncError.make({ cause, operation: 'pull' }),
-    }).pipe(Effect.uninterruptible, Semaphore.withPermit(connectionSemaphore));
+    const pull = sync.withSyncOperation(
+      Effect.tryPromise({
+        try: async () => db.pull(),
+        catch: (cause) => TursoSyncError.make({ cause, operation: 'pull' }),
+      })
+    );
 
     return Object.assign(client, { config: options, pull });
   });
