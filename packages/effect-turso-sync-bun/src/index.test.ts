@@ -2,7 +2,8 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
 import { Database } from '@tursodatabase/sync';
-import { Cause, Effect, Exit, FileSystem, Layer, Option, Schema } from 'effect';
+import { Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Option, Schema } from 'effect';
+import { TestClock } from 'effect/testing';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
 import { vi } from 'vitest';
@@ -284,6 +285,62 @@ describe('TursoSyncClient', () => {
       `;
       expect(rows).toEqual([{ id: 1, name: 'kept' }]);
     }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect(
+    'times out queued statements without waiting for the transaction to release its connection',
+    () =>
+      Effect.gen(function* () {
+        const dir = yield* makeTempDir;
+        const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+        yield* sql`
+          create table test (name text)
+        `;
+        const entered = yield* Deferred.make<true>();
+        const release = yield* Deferred.make<true>();
+        const transaction = yield* sql
+          .withTransaction(
+            Deferred.succeed(entered, true).pipe(Effect.andThen(Deferred.await(release)))
+          )
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(entered);
+
+        const queued = yield* sql`
+          insert into
+            test (name)
+          values
+            ('cancelled')
+        `.pipe(
+          Effect.timeout('1 second'),
+          Effect.exit,
+          Effect.forkChild({ startImmediately: true })
+        );
+        yield* Effect.gen(function* () {
+          yield* TestClock.adjust('1 second');
+          expect(queued.pollUnsafe()).toBeDefined();
+          const exit = yield* Fiber.join(queued);
+          expect(Exit.isFailure(exit)).toBe(true);
+          if (Exit.isFailure(exit)) {
+            expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))._tag).toBe('TimeoutError');
+          }
+        }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
+
+        yield* Fiber.join(transaction);
+        yield* sql`
+          insert into
+            test (name)
+          values
+            ('after timeout')
+        `;
+        expect(
+          yield* sql`
+            select
+              name
+            from
+              test
+          `
+        ).toEqual([{ name: 'after timeout' }]);
+      }).pipe(Effect.provide(TestLayer))
   );
 
   it.effect('executes concurrent statements', () =>

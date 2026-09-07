@@ -199,9 +199,9 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     const semaphore = yield* Semaphore.make(1);
     const { connection } = yield* makeConnection;
 
-    const acquirer = Effect.acquireRelease(Effect.as(semaphore.take(1), connection), () =>
-      semaphore.release(1)
-    );
+    const acquirer = Effect.acquireRelease(semaphore.take(1), () => semaphore.release(1), {
+      interruptible: true,
+    }).pipe(Effect.as(connection));
     const transactionAcquirer = Effect.uninterruptibleMask(
       Effect.fnUntraced(function* (restore) {
         const scope = yield* Effect.scope;

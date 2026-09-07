@@ -195,9 +195,11 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     // transactions. Leasing it prevents other statements from entering a
     // transaction's BEGIN..COMMIT window. Sync uses independent ownership.
     const connectionSemaphore = yield* Semaphore.make(1);
-    const acquirer = Effect.acquireRelease(Effect.as(connectionSemaphore.take(1), connection), () =>
-      connectionSemaphore.release(1)
-    );
+    const acquirer = Effect.acquireRelease(
+      connectionSemaphore.take(1),
+      () => connectionSemaphore.release(1),
+      { interruptible: true }
+    ).pipe(Effect.as(connection));
     const transactionAcquirer = Effect.uninterruptibleMask(
       Effect.fnUntraced(function* (restore) {
         const scope = yield* Effect.scope;
