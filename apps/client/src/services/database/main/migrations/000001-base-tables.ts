@@ -14,8 +14,14 @@ const createUpdatedAtTrigger = async ({
   const updateColumns = columns.map((column) => sql.ref(column));
 
   await sql`
-    create trigger ${sql.ref(triggerName)} before update of ${sql.join(updateColumns)} on ${sql.table(table)} for each row begin
-      update ${sql.table(table)} set updatedAt = (unixepoch()) where rowid = new.rowid;
+    create trigger ${sql.ref(triggerName)} before
+    update of ${sql.join(updateColumns)} on ${sql.table(table)} for each row begin
+    update ${sql.table(table)}
+    set
+      "updatedAt" = (unixepoch())
+    where
+      rowid = new.rowid;
+
     end;
   `.execute(db);
 };
@@ -31,18 +37,29 @@ export const up = async (db: Kysely<unknown>) => {
     .addColumn('email', 'text', (col) => col.notNull())
     .addColumn('authStorageId', 'text', (col) => col.notNull())
     .addColumn('role', 'text', (col) =>
-      col.notNull().check(sql`"role" in ('admin', 'user', 'under18')`)
+      col.notNull().check(sql`
+        "role" in ('admin', 'user', 'under18')
+      `)
     )
     .addColumn('profilePicture', 'text')
     .addColumn('active', 'integer', (col) =>
-      col
-        .notNull()
-        .defaultTo(0)
-        .check(sql`"active" in (0, 1)`)
+      col.notNull().defaultTo(0).check(sql`
+          "active" in (0, 1)
+        `)
     )
-    .addColumn('createdAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .addColumn('updatedAt', 'integer', (col) => col.notNull().defaultTo(sql`(unixepoch())`))
-    .modifyEnd(sql`strict`)
+    .addColumn('createdAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .addColumn('updatedAt', 'integer', (col) =>
+      col.notNull().defaultTo(sql`
+        (unixepoch())
+      `)
+    )
+    .modifyEnd(sql`
+      strict
+    `)
     .execute();
 
   await createUpdatedAtTrigger({

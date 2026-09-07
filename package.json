@@ -10,8 +10,8 @@
     "lint": "oxlint . --ignore-pattern .repos/** --type-aware --type-check --deny-warnings",
     "lint:fix": "oxlint . --ignore-pattern .repos/** --fix --type-aware --type-check --deny-warnings",
     "test": "node --test .oxlint/rules/*.test.mts",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
+    "format": "oxfmt && oxlint --config .oxlint.sql.json --fix .",
+    "format:check": "oxfmt --check && oxlint --config .oxlint.sql.json",
     "build": "turbo run build",
     "clean": "find . \\( -type d -name node_modules -o -type d -name .turbo \\) -prune -exec rm -rf -- {} \\;",
     "prepare": "effect-tsgo patch --no-typescript --oxlint"
@@ -23,6 +23,7 @@
     "agent-device": "0.20.10",
     "bun-types": "1.4.0",
     "effect": "4.0.0-rc.112",
+    "eslint-plugin-sql": "3.4.1",
     "eslint-plugin-turbo": "2.10.11",
     "opensrc": "0.7.3",
     "oxfmt": "0.65.0",
@@ -34,5 +35,8 @@
   "engines": {
     "bun": "1.4.0"
   },
-  "packageManager": "bun@1.4.0"
+  "packageManager": "bun@1.4.0",
+  "patchedDependencies": {
+    "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch"
+  }
 }

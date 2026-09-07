@@ -47,7 +47,18 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
           readonly email: string;
           readonly username: string;
           readonly role: string;
-        }>`select id, name, email, username, role from "user" where username = ${'utils_library_admin'}`
+        }>`
+          select
+            id,
+            name,
+            email,
+            username,
+            role
+          from
+            "user"
+          where
+            username = ${'utils_library_admin'}
+        `
       );
 
       expect(users.rows).toHaveLength(1);
@@ -63,7 +74,16 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
           readonly id: string;
           readonly token: string;
           readonly userId: string;
-        }>`select id, token, userId from "session" where userId = ${user?.id}`
+        }>`
+          select
+            id,
+            token,
+            "userId"
+          from
+            "session"
+          where
+            "userId" = ${user?.id}
+        `
       );
 
       expect(sessions.rows).toHaveLength(1);
@@ -86,25 +106,53 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
           const users = yield* db.executeRaw(
             sql<{
               readonly id: string;
-            }>`select id from "user" where username = ${'utils_library_cleanup'}`
+            }>`
+              select
+                id
+              from
+                "user"
+              where
+                username = ${'utils_library_cleanup'}
+            `
           );
           expect(users.rows).toHaveLength(1);
           userId = users.rows[0]?.id ?? '';
 
           const sessions = yield* db.executeRaw(
-            sql<{ readonly id: string }>`select id from "session" where userId = ${userId}`
+            sql<{ readonly id: string }>`
+              select
+                id
+              from
+                "session"
+              where
+                "userId" = ${userId}
+            `
           );
           expect(sessions.rows).toHaveLength(1);
         })
       );
 
       const users = yield* db.executeRaw(
-        sql<{ readonly id: string }>`select id from "user" where id = ${userId}`
+        sql<{ readonly id: string }>`
+          select
+            id
+          from
+            "user"
+          where
+            id = ${userId}
+        `
       );
       const sessions = yield* db.executeRaw(
         sql<{
           readonly id: string;
-        }>`select id from "session" where userId = ${userId}`
+        }>`
+          select
+            id
+          from
+            "session"
+          where
+            "userId" = ${userId}
+        `
       );
       expect(users.rows).toEqual([]);
       expect(sessions.rows).toEqual([]);
@@ -117,7 +165,12 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       const { db } = yield* Database;
 
       const existingUsers = yield* db.executeRaw(
-        sql<{ readonly id: string }>`select id from "user"`
+        sql<{ readonly id: string }>`
+          select
+            id
+          from
+            "user"
+        `
       );
       expect(existingUsers.rows).toEqual([]);
 
@@ -127,7 +180,15 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         sql<{
           readonly username: string;
           readonly role: string;
-        }>`select username, role from "user" where username = ${'utils_library_first_user'}`
+        }>`
+          select
+            username,
+            role
+          from
+            "user"
+          where
+            username = ${'utils_library_first_user'}
+        `
       );
 
       expect(users.rows).toEqual([{ username: 'utils_library_first_user', role: 'user' }]);
