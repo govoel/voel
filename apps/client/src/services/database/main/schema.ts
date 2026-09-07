@@ -1,63 +1,66 @@
 import { Match, Schema, SchemaGetter } from 'effect';
-import { Model } from 'effect/unstable/schema';
+import { VariantSchema } from 'effect/unstable/schema';
 
 import { AuthSession } from '@repo/auth-api/shared.ts';
-import type { TableFromModel } from '@repo/effect-kysely';
 
-export class Account extends Model.Class<Account>('voel/services/database/main/schema/Account')({
-  serverUrl: Model.Field({
+const DbModel = VariantSchema.make({
+  variants: ['select', 'upsert', 'update'],
+  defaultVariant: 'select',
+});
+
+export class Account extends DbModel.Class<Account>('voel/services/database/main/schema/Account')({
+  serverUrl: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('voel/services/database/main/schema/Account/serverUrl')
     ),
-    insert: Schema.String,
+    upsert: Schema.String,
     update: Schema.String,
   }),
-  userId: Model.Field({
+  userId: DbModel.Field({
     select: AuthSession.fields.user.fields.id,
-    insert: AuthSession.fields.user.fields.id,
+    upsert: AuthSession.fields.user.fields.id,
     update: AuthSession.fields.user.fields.id,
   }),
-  username: Model.Field({
+  username: DbModel.Field({
     select: AuthSession.fields.user.fields.username,
-    insert: AuthSession.fields.user.fields.username,
+    upsert: AuthSession.fields.user.fields.username,
     update: AuthSession.fields.user.fields.username,
   }),
-  name: Model.Field({
+  name: DbModel.Field({
     select: AuthSession.fields.user.fields.name,
-    insert: AuthSession.fields.user.fields.name,
+    upsert: AuthSession.fields.user.fields.name,
     update: AuthSession.fields.user.fields.name,
   }),
-  email: Model.Field({
+  email: DbModel.Field({
     select: AuthSession.fields.user.fields.email,
-    insert: AuthSession.fields.user.fields.email,
+    upsert: AuthSession.fields.user.fields.email,
     update: AuthSession.fields.user.fields.email,
   }),
-  authStorageId: Model.Field({
+  authStorageId: DbModel.Field({
     select: Schema.String.pipe(
       Schema.brand('voel/services/database/main/schema/Account/authStorageId')
     ),
-    insert: Schema.String,
+    upsert: Schema.String,
     update: Schema.String,
   }),
-  role: Model.Field({
+  role: DbModel.Field({
     select: AuthSession.fields.user.fields.role,
-    insert: AuthSession.fields.user.fields.role,
+    upsert: AuthSession.fields.user.fields.role,
     update: AuthSession.fields.user.fields.role,
   }),
-  profilePicture: Model.Field({
+  profilePicture: DbModel.Field({
     select: AuthSession.fields.user.fields.image,
-    insert: AuthSession.fields.user.fields.image,
+    upsert: AuthSession.fields.user.fields.image,
     update: AuthSession.fields.user.fields.image,
   }),
-  active: Model.Field({
-    select: Schema.Literals([0, 1]).pipe(
+  active: DbModel.Field({
+    select: Schema.BooleanFromBit.pipe(
       Schema.brand('voel/services/database/main/schema/Account/active')
     ),
-    insert: Schema.Literals([0, 1]),
-    update: Schema.Literals([0, 1]),
+    upsert: Schema.BooleanFromBit,
   }),
-  createdAt: Model.Field({ select: Schema.Natural }),
-  updatedAt: Model.Field({ select: Schema.Natural }),
+  createdAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
+  updatedAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
 }) {
   public static readonly roleToDisplayString = this.fields.role.pipe(
     Schema.decodeTo(
@@ -85,10 +88,4 @@ export class Account extends Model.Class<Account>('voel/services/database/main/s
     ),
     Schema.decodeSync
   );
-}
-
-export type AccountTable = TableFromModel<typeof Account>;
-
-export interface MainDatabaseTables {
-  account: AccountTable;
 }

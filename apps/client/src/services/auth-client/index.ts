@@ -14,12 +14,11 @@ import {
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
-import type { Selectable } from '@repo/effect-kysely';
 
+import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
-import type { AccountTable } from '#src/services/database/main/schema.ts';
+import type { Account } from '#src/services/database/main/schema.ts';
 
 export const makeAuthStorageKey = ({
   serverUrl,
@@ -29,9 +28,9 @@ export const makeAuthStorageKey = ({
   readonly authStorageId: string;
 }) => `voel::auth::${serverUrl}::${authStorageId}`;
 
-export class AuthClientKey extends Data.Class<
-  Pick<Selectable<AccountTable>, 'serverUrl' | 'authStorageId'>
-> {}
+export type AuthClientKey = Pick<Account, 'serverUrl' | 'authStorageId'>;
+
+class AuthClientCacheKey extends Data.Class<AuthClientKey> {}
 
 class AuthClientGetCookieError extends Schema.TaggedError<
   AuthClientGetCookieError,
@@ -100,7 +99,7 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
   key: AuthClientKey,
   authClient: AuthClient['Service']
 ) {
-  const db = yield* MainDatabase;
+  const accountRepository = yield* AccountRepository;
 
   yield* authClient.sessionChanges.pipe(
     Stream.runForEach(
@@ -110,14 +109,11 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
             return;
           }
 
-          const account = yield* db.executeTakeFirstOption(
-            db
-              .selectFrom('account')
-              .where('serverUrl', '=', key.serverUrl)
-              .where('userId', '=', session.value.value.user.id)
-              .where('authStorageId', '=', key.authStorageId)
-              .selectAll()
-          );
+          const account = yield* accountRepository.getByStorageKey({
+            serverUrl: key.serverUrl,
+            userId: session.value.value.user.id,
+            authStorageId: key.authStorageId,
+          });
           if (Option.isNone(account)) {
             return;
           }
@@ -132,29 +128,27 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
             return;
           }
 
-          yield* db
-            .executeTakeFirstOption(
-              db
-                .updateTable('account')
-                .set({
-                  username: session.value.value.user.username,
-                  name: session.value.value.user.name,
-                  email: session.value.value.user.email,
-                  role: session.value.value.user.role,
-                  profilePicture: session.value.value.user.image,
-                })
-                .where('serverUrl', '=', key.serverUrl)
-                .where('userId', '=', session.value.value.user.id)
-                .where('authStorageId', '=', key.authStorageId)
-                .returningAll()
-            )
+          yield* accountRepository
+            .updateProfile({
+              serverUrl: key.serverUrl,
+              userId: session.value.value.user.id,
+              authStorageId: key.authStorageId,
+              username: session.value.value.user.username,
+              name: session.value.value.user.name,
+              email: session.value.value.user.email,
+              role: session.value.value.user.role,
+              profilePicture: session.value.value.user.image,
+            })
             .pipe(Reactivity.mutation(['account']));
         },
         (effect) =>
           effect.pipe(
-            Effect.catchTag('DatabaseSqlError', (error) =>
-              Effect.logError('Failed to synchronize account from session', error)
-            )
+            Effect.catchTags({
+              SchemaError: (error) =>
+                Effect.logError('Failed to synchronize account from session', error),
+              SqlError: (error) =>
+                Effect.logError('Failed to synchronize account from session', error),
+            })
           )
       )
     ),
@@ -165,7 +159,13 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
 export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   'voel/services/auth-client/AuthClientMap',
   {
-    dependencies: [AuthClientStorage.layer, MainDatabase.layer, Reactivity.layer, XxHash.layer],
+    idleTimeToLive: '5 minutes',
+    dependencies: [
+      AccountRepository.layer,
+      AuthClientStorage.layer,
+      Reactivity.layer,
+      XxHash.layer,
+    ],
     lookup: (key: AuthClientKey) =>
       AuthClient.layerNoDeps(key).pipe(
         Layer.tap((context) => synchronizeAccountFromSession(key, Context.get(context, AuthClient)))
@@ -174,13 +174,7 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
 ) {}
 
 // Ignore extra account/profile fields when identifying the shared auth client.
-export const acquireAuthClient = ({
-  authStorageId,
-  serverUrl,
-}: {
-  readonly authStorageId: AuthClientKey['authStorageId'];
-  readonly serverUrl: AuthClientKey['serverUrl'];
-}) =>
-  AuthClientMap.contextEffect(new AuthClientKey({ authStorageId, serverUrl })).pipe(
+export const acquireAuthClient = ({ authStorageId, serverUrl }: AuthClientKey) =>
+  AuthClientMap.contextEffect(new AuthClientCacheKey({ authStorageId, serverUrl })).pipe(
     Effect.map(Context.get(AuthClient))
   );

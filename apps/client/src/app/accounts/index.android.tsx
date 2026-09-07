@@ -22,7 +22,6 @@ import { useRef, useState } from 'react';
 
 import {
   accountsWithActiveAccount,
-  activeAccountLiteral,
   useRemoveAccountForm,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
@@ -281,7 +280,7 @@ export default function AccountsScreen() {
                           key={`${account.serverUrl.toString()}-${account.userId}`}
                           index={index}
                           count={accountList.length}
-                          selected={account.active === activeAccountLiteral}
+                          selected={account.active}
                           enabled={!AsyncResult.isWaiting(setActiveAccount)}
                           onClick={() => {
                             void setActiveAccountAndDismiss({

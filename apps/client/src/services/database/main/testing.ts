@@ -1,23 +1,9 @@
-import BunSqliteDatabase from 'bun:sqlite';
+import { Layer } from 'effect';
+import { Reactivity } from 'effect/unstable/reactivity';
 
-import { Effect, Layer } from 'effect';
-
-import { BunSqliteDialect } from '@repo/effect-kysely/dialect.ts';
-
-import { AppConfig } from '#src/services/config.ts';
+import { TursoSyncClientFactoryBunLayer } from '#src/services/database/factory/bun.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 
-export const MainDatabaseTestLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const config = yield* AppConfig;
-
-    return Layer.effect(
-      MainDatabase,
-      MainDatabase.make({
-        dialect: new BunSqliteDialect({
-          database: new BunSqliteDatabase(config.mainDb.filename),
-        }),
-      })
-    );
-  })
+export const MainDatabaseTestLayer = MainDatabase.layerNoDeps.pipe(
+  Layer.provide([Reactivity.layer, TursoSyncClientFactoryBunLayer])
 );

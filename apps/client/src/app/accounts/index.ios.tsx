@@ -32,7 +32,6 @@ import type { PropsWithChildren } from 'react';
 
 import {
   accountsWithActiveAccount,
-  activeAccountLiteral,
   useRemoveAccountForm,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
@@ -285,7 +284,7 @@ export default function AccountsScreen() {
                           <HStack alignment="center" spacing={Spacing.two}>
                             <Icon
                               name={
-                                account.active === activeAccountLiteral
+                                account.active
                                   ? 'person.crop.circle.fill.badge.checkmark'
                                   : 'person.crop.circle.fill'
                               }
