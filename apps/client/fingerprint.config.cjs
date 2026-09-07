@@ -1,4 +1,5 @@
 /// <reference types="bun-types" />
+/* oxlint-disable typescript/no-var-requires -- Expo loads fingerprint configuration as CommonJS. */
 // oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs, effecttsgo/node-builtin-import
 const fs = require('node:fs');
 // oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs, effecttsgo/node-builtin-import
