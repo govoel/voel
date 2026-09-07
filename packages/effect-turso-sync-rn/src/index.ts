@@ -11,8 +11,13 @@ import {
   Stream,
 } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
-import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
 import type { SqlConnection } from 'effect/unstable/sql';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlClient from 'effect/unstable/sql/SqlClient';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlError from 'effect/unstable/sql/SqlError';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as Statement from 'effect/unstable/sql/Statement';
 
 import { TursoSyncClient as CoreTursoSyncClient } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';

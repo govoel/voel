@@ -1,6 +1,7 @@
 import { Array, Data, Effect, Layer, Option, Order, pipe } from 'effect';
-import { SqlClient } from 'effect/unstable/sql';
 import type { SqlError } from 'effect/unstable/sql';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlClient from 'effect/unstable/sql/SqlClient';
 
 /**
  * Metro-safe SQLite specialization of Effect's SQL migrator.
