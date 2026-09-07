@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
-import { SqlClient } from 'effect/unstable/sql';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlClient from 'effect/unstable/sql/SqlClient';
 
 import { AppConfig } from '#src/services/config.ts';
 import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';

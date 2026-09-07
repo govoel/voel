@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Schema } from 'effect';
-import { SqlSchema } from 'effect/unstable/sql';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlSchema from 'effect/unstable/sql/SqlSchema';
 
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
