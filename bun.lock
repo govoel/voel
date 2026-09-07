@@ -153,19 +153,6 @@
         "vitest": "4.1.11",
       },
     },
-    "packages/effect-kysely": {
-      "name": "@repo/effect-kysely",
-      "version": "0.0.0",
-      "dependencies": {
-        "effect": "4.0.0-rc.112",
-        "kysely": "0.29.5",
-      },
-      "devDependencies": {
-        "@repo/tsconfig": "workspace:*",
-        "bun-types": "1.4.0",
-        "typescript": "7.0.2",
-      },
-    },
     "packages/effect-turso": {
       "name": "@repo/effect-turso",
       "version": "0.0.0",
@@ -225,21 +212,6 @@
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.0",
         "typescript": "7.0.2",
-      },
-    },
-    "packages/source-tap": {
-      "name": "@repo/source-tap",
-      "version": "0.0.0",
-      "dependencies": {
-        "@repo/effect-kysely": "workspace:*",
-        "effect": "4.0.0-rc.112",
-      },
-      "devDependencies": {
-        "@effect/vitest": "4.0.0-rc.112",
-        "@repo/tsconfig": "workspace:*",
-        "bun-types": "1.4.0",
-        "typescript": "7.0.2",
-        "vitest": "4.1.11",
       },
     },
     "packages/spec-api": {
@@ -853,8 +825,6 @@
 
     "@repo/effect-atom-devtools-rozenite": ["@repo/effect-atom-devtools-rozenite@workspace:packages/effect-atom-devtools-rozenite"],
 
-    "@repo/effect-kysely": ["@repo/effect-kysely@workspace:packages/effect-kysely"],
-
     "@repo/effect-turso": ["@repo/effect-turso@workspace:packages/effect-turso"],
 
     "@repo/effect-turso-sync": ["@repo/effect-turso-sync@workspace:packages/effect-turso-sync"],
@@ -864,8 +834,6 @@
     "@repo/effect-turso-sync-rn": ["@repo/effect-turso-sync-rn@workspace:packages/effect-turso-sync-rn"],
 
     "@repo/server": ["@repo/server@workspace:apps/server"],
-
-    "@repo/source-tap": ["@repo/source-tap@workspace:packages/source-tap"],
 
     "@repo/spec-api": ["@repo/spec-api@workspace:packages/spec-api"],
 
