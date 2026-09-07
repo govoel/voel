@@ -1,8 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { StatementPromise } from '@tursodatabase/database-common';
-import { Database, connect } from '@tursodatabase/sync';
+import { Database } from '@tursodatabase/sync';
 import { Cause, Effect, Exit, FileSystem, Layer, Option, Schema } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { SqlClient, SqlError } from 'effect/unstable/sql';
@@ -84,46 +83,6 @@ describe('TursoSyncClient', () => {
       expect(SqlError.isSqlError(error)).toBe(true);
       expect(error.reason._tag).toBe('SqlSyntaxError');
       expect(close).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(TestLayer))
-  );
-
-  it.effect('uses database-common promise statements', () =>
-    Effect.gen(function* () {
-      const dir = yield* makeTempDir;
-      const db = yield* Effect.acquireRelease(
-        Effect.promise(async () => connect({ path: `${dir}/local.db` })),
-        (database) => Effect.promise(async () => database.close())
-      );
-      const statement: unknown = yield* Effect.promise(async (): Promise<unknown> => {
-        const prepared: unknown = await db.prepare('select 1 as value');
-        return prepared;
-      });
-
-      expect(statement).toBeInstanceOf(StatementPromise);
-      if (!(statement instanceof StatementPromise)) {
-        return;
-      }
-      expect(statement.columns()).toEqual([
-        {
-          column: null,
-          database: null,
-          name: 'value',
-          table: null,
-          type: null,
-        },
-      ]);
-      const objectRows = yield* Effect.promise(async (): Promise<unknown> => {
-        const rows: unknown = await statement.all();
-        return rows;
-      });
-      expect(objectRows).toEqual([{ value: 1 }]);
-      statement.raw(true);
-      const valueRows = yield* Effect.promise(async (): Promise<unknown> => {
-        const rows: unknown = await statement.all();
-        return rows;
-      });
-      expect(valueRows).toEqual([[1]]);
-      statement.close();
     }).pipe(Effect.provide(TestLayer))
   );
 
@@ -262,29 +221,6 @@ describe('TursoSyncClient', () => {
     }).pipe(Effect.provide(TestLayer))
   );
 
-  it.effect('commits transactions', () =>
-    Effect.gen(function* () {
-      const dir = yield* makeTempDir;
-      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
-      yield* sql`
-        create table test (id integer primary key, name text)
-      `;
-      yield* sql.withTransaction(sql`
-        insert into
-          test (name)
-        values
-          ('hello')
-      `);
-      const rows = yield* sql`
-        select
-          *
-        from
-          test
-      `;
-      expect(rows).toEqual([{ id: 1, name: 'hello' }]);
-    }).pipe(Effect.provide(TestLayer))
-  );
-
   it.effect('rolls back failed transactions', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
@@ -292,12 +228,13 @@ describe('TursoSyncClient', () => {
       yield* sql`
         create table test (id integer primary key, name text)
       `;
-      yield* sql`
+      const error = yield* sql`
         insert into
           test (name)
         values
           ('hello')
-      `.pipe(Effect.andThen(Effect.fail('boom')), sql.withTransaction, Effect.ignore);
+      `.pipe(Effect.andThen(Effect.fail('boom')), sql.withTransaction, Effect.flip);
+      expect(error).toBe('boom');
       const rows = yield* sql`
         select
           *
@@ -323,7 +260,7 @@ describe('TursoSyncClient', () => {
             values
               ('kept')
           `;
-          yield* sql
+          const error = yield* sql
             .withTransaction(
               Effect.gen(function* () {
                 yield* sql`
@@ -335,7 +272,8 @@ describe('TursoSyncClient', () => {
                 return yield* Effect.fail('boom');
               })
             )
-            .pipe(Effect.ignore);
+            .pipe(Effect.flip);
+          expect(error).toBe('boom');
         })
       );
       const rows = yield* sql`
@@ -371,7 +309,7 @@ describe('TursoSyncClient', () => {
         from
           test
         order by
-          id
+          name
       `;
       expect(rows.map((row) => row['name'])).toEqual([
         'row-1',
@@ -583,8 +521,14 @@ describe('TursoSyncClient', () => {
         const concrete = yield* TursoSyncClient;
         const generic = yield* SqlClient.SqlClient;
         expect(concrete).toBe(generic);
-        yield* generic`
+        yield* concrete`
           create table test (id integer primary key)
+        `;
+        yield* concrete`
+          insert into
+            test (id)
+          values
+            (1)
         `;
         expect(
           yield* generic`
@@ -593,7 +537,7 @@ describe('TursoSyncClient', () => {
           from
             test
         `
-        ).toEqual([]);
+        ).toEqual([{ id: 1 }]);
       }).pipe(Effect.provide(TursoSyncClient.layer({ path: `${dir}/local.db` })));
     }).pipe(Effect.provide(BunFileSystem.layer))
   );
