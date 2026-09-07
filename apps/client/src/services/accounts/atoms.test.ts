@@ -115,6 +115,16 @@ const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClien
   );
 });
 
+// A reused client can still hold its pre-sign-in result before Better Auth starts refetching.
+const waitForAuthenticatedSession = (authClient: AuthClient['Service']) =>
+  authClient.sessionChanges.pipe(
+    Stream.filter(
+      (session) =>
+        AsyncResult.isSuccess(session) && !session.waiting && Option.isSome(session.value)
+    ),
+    Stream.runHead
+  );
+
 it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
   iit.effect(
     'reacts to account table mutations',
@@ -355,7 +365,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
 
         const activeAccount = Option.getOrThrow(yield* manager.state);
         const authClient = yield* acquireAuthClient(activeAccount);
-        yield* waitForSessionRequest(authClient);
+        yield* waitForAuthenticatedSession(authClient);
         const validSession = yield* authClient.getSession;
         expect(validSession).toMatchObject({ _tag: 'Success', waiting: false });
         expect(Option.isSome(Option.flatten(AsyncResult.value(validSession)))).toBe(true);
@@ -388,7 +398,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         const activeAccount = Option.getOrThrow(yield* manager.state);
         const authClient = yield* acquireAuthClient(activeAccount);
         yield* Atom.mount(accountsSheetAtom);
-        yield* waitForSessionRequest(authClient);
+        yield* waitForAuthenticatedSession(authClient);
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
@@ -406,13 +416,14 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         expect(revokeResult).toEqual({ success: true });
 
         yield* authClient.refreshSession({ query: { disableCookieCache: true } });
-        yield* waitForSessionRequest(authClient);
         yield* Fiber.join(invalidSessionFiber);
 
-        yield* drainAtomTasks;
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-          AccountsSheet.InvalidSession({ dismissable: true })
-        );
+        expect(
+          yield* Atom.toStreamResult(accountsSheetAtom).pipe(
+            Stream.filter(AccountsSheet.$is('InvalidSession')),
+            Stream.runHead
+          )
+        ).toEqual(Option.some(AccountsSheet.InvalidSession({ dismissable: true })));
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -432,7 +443,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           userId: firstAccount.userId,
         });
         const firstClient = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
-        yield* waitForSessionRequest(firstClient);
+        yield* waitForAuthenticatedSession(firstClient);
 
         yield* Atom.mount(accountsSheetAtom);
         yield* drainAtomTasks;
@@ -445,14 +456,16 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           userId: secondAccount.userId,
         });
         const secondClient = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
-        yield* waitForSessionRequest(secondClient);
+        yield* waitForAuthenticatedSession(secondClient);
         yield* secondClient.signOut();
         yield* secondClient.refreshSession({ query: { disableCookieCache: true } });
 
-        yield* drainAtomTasks;
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-          AccountsSheet.InvalidSession({ dismissable: true })
-        );
+        expect(
+          yield* Atom.toStreamResult(accountsSheetAtom).pipe(
+            Stream.filter(AccountsSheet.$is('InvalidSession')),
+            Stream.runHead
+          )
+        ).toEqual(Option.some(AccountsSheet.InvalidSession({ dismissable: true })));
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -467,7 +480,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
         const client = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
-        yield* waitForSessionRequest(client);
+        yield* waitForAuthenticatedSession(client);
 
         yield* Atom.mount(accountsSheetAtom);
         yield* manager.setActiveAccount({
