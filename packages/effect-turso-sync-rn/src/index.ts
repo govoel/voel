@@ -19,7 +19,7 @@ import * as SqlError from 'effect/unstable/sql/SqlError';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as Statement from 'effect/unstable/sql/Statement';
 
-import { TursoSyncClient as CoreTursoSyncClient } from '@repo/effect-turso-sync';
+import { TursoSyncClient as CoreTursoSyncClient, TursoSyncError } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 import { makeSyncOperations } from '@repo/effect-turso-sync/operations';
 
@@ -173,6 +173,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       return {
+        db,
         connection: {
           execute(sql, params, transformRows) {
             return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
@@ -197,7 +198,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     });
 
     const semaphore = yield* Semaphore.make(1);
-    const { connection } = yield* makeConnection;
+    const { connection, db } = yield* makeConnection;
 
     const acquirer = Effect.acquireRelease(semaphore.take(1), () => semaphore.release(1), {
       interruptible: true,
@@ -224,7 +225,14 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       yield* onConnect(client);
     }
 
-    return Object.assign(client, { config: options });
+    const pull = sync.withSyncOperation(
+      Effect.tryPromise({
+        try: async () => db.pull(),
+        catch: (cause) => TursoSyncError.make({ cause, operation: 'pull' }),
+      })
+    );
+
+    return Object.assign(client, { config: options, pull });
   });
 
   /** Provides one configured client as both Turso Sync and generic SQL services. */
