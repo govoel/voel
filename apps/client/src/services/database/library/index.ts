@@ -1,6 +1,7 @@
 import { Context, Duration, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
-import { SqlClient } from 'effect/unstable/sql';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlClient from 'effect/unstable/sql/SqlClient';
 
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
@@ -125,6 +126,7 @@ const synchronizeLibraryDatabase = Effect.fnUntraced(function* ({
 export class LibraryDatabaseMap extends LayerMap.Service<LibraryDatabaseMap>()(
   'voel/services/database/library/LibraryDatabaseMap',
   {
+    idleTimeToLive: '5 minutes',
     lookup: (account: ActiveAccountKey) =>
       LibraryDatabase.layerNoDeps(account).pipe(
         Layer.tap((context) =>

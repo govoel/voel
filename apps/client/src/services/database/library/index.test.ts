@@ -1,17 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import {
-  Deferred,
-  Effect,
-  Fiber,
-  FileSystem,
-  Layer,
-  Option,
-  Redacted,
-  Schedule,
-  Stream,
-} from 'effect';
+import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Redacted, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { FetchHttpClient, Headers } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
@@ -21,16 +11,10 @@ import { Api } from '@repo/spec-api';
 import { MediaType } from '@repo/spec-api/database/schema.ts';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { ActiveAccountResources } from '#src/services/accounts/active-account-resources.ts';
 import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppConfig } from '#src/services/config.ts';
-import { TursoSyncClientFactoryBunLayer } from '#src/services/database/factory/bun.ts';
-import {
-  LibraryDatabase,
-  LibraryDatabaseMap,
-  acquireLibraryDatabase,
-} from '#src/services/database/library/index.ts';
+import { LibraryDatabase, acquireLibraryDatabase } from '#src/services/database/library/index.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/services/testing/utils.ts';
 
@@ -39,17 +23,12 @@ const ClientTestLayer = Layer.unwrap(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'voel-library-test-' });
-    return LibraryDatabaseMap.layerNoDeps.pipe(
-      Layer.provideMerge(
-        makeClientTestLayers({
-          config: {
-            LIBRARY_DB_FILENAME_SUFFIX: `${directory}/library`,
-            MAIN_DB_FILENAME: `${directory}/main.db`,
-          },
-        })
-      ),
-      Layer.provideMerge(TursoSyncClientFactoryBunLayer)
-    );
+    return makeClientTestLayers({
+      config: {
+        LIBRARY_DB_FILENAME_SUFFIX: `${directory}/library`,
+        MAIN_DB_FILENAME: `${directory}/main.db`,
+      },
+    });
   })
 ).pipe(Layer.provideMerge(BunFileSystem.layer));
 
@@ -152,41 +131,29 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
   );
 
   iit.effect(
-    'eagerly opens the active replica and reactively publishes subsequent server changes',
+    'reactively publishes subsequent server changes after acquisition',
     Effect.fnUntraced(
       function* () {
-        yield* Effect.gen(function* () {
-          const { createLibrary, account } = yield* setupLibrary('Audiobooks');
-          const fs = yield* FileSystem.FileSystem;
-          const config = yield* AppConfig;
-          // No consumer has acquired the replica yet: active-account retention must open it.
-          yield* fs
-            .exists(`${config.libraryDb.filenameSuffix}-${account.authStorageId}.db`)
-            .pipe(
-              Effect.repeat({ schedule: Schedule.spaced('10 millis'), until: (exists) => exists }),
-              Effect.timeout('10 seconds'),
-              TestClock.withLive
-            );
-          const database = yield* acquireLibraryDatabase(account);
-          const subscribed = yield* Deferred.make<true>();
-          const changes = yield* libraryNames(database).pipe(
-            Reactivity.stream(['library']),
-            Stream.tap(() => Deferred.succeed(subscribed, true)),
-            Stream.filter((rows) => rows.some((row) => row.name === 'Movies')),
-            Stream.runHead,
-            Effect.forkChild
-          );
-          yield* Deferred.await(subscribed);
-          yield* createLibrary('Movies');
-          yield* TestClock.adjust('1 second');
+        const { createLibrary, account } = yield* setupLibrary('Audiobooks');
+        const database = yield* acquireLibraryDatabase(account);
+        const subscribed = yield* Deferred.make<true>();
+        const changes = yield* libraryNames(database).pipe(
+          Reactivity.stream(['library']),
+          Stream.tap(() => Deferred.succeed(subscribed, true)),
+          Stream.filter((rows) => rows.some((row) => row.name === 'Movies')),
+          Stream.runHead,
+          Effect.forkChild
+        );
+        yield* Deferred.await(subscribed);
+        yield* createLibrary('Movies');
+        yield* TestClock.adjust('1 second');
 
-          expect(
-            Option.getOrThrow(
-              yield* Fiber.join(changes).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
-            )
-          ).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
-          expect(yield* database`pragma query_only`).toEqual([{ query_only: 1 }]);
-        }).pipe(Effect.provide(ActiveAccountResources.layerNoDeps));
+        expect(
+          Option.getOrThrow(
+            yield* Fiber.join(changes).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
+          )
+        ).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
+        expect(yield* database`pragma query_only`).toEqual([{ query_only: 1 }]);
       },
       (effect) => effect.pipe(Effect.provide(ClientTestLayer))
     )
@@ -201,7 +168,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         const config = yield* AppConfig;
         const fs = yield* FileSystem.FileSystem;
 
-        const closed = yield* Effect.gen(function* () {
+        const idle = yield* Effect.gen(function* () {
           const firstDatabase = yield* acquireLibraryDatabase(first.account);
           const reused = yield* acquireLibraryDatabase(new ActiveAccountKey(first.account));
           const secondDatabase = yield* acquireLibraryDatabase(second.account);
@@ -217,8 +184,13 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
             yield* fs.exists(`${config.libraryDb.filenameSuffix}-${account.authStorageId}.db`)
           ).toBe(true);
         }
+        yield* TestClock.adjust('1 minute');
+        const retained = yield* acquireLibraryDatabase(first.account).pipe(Effect.scoped);
+        expect(retained).toBe(idle);
+
+        yield* TestClock.adjust('5 minutes');
         const reopened = yield* acquireLibraryDatabase(first.account);
-        expect(reopened).not.toBe(closed);
+        expect(reopened).not.toBe(idle);
         expect(yield* libraryNames(reopened)).toEqual([{ name: 'First server' }]);
       },
       (effect) => effect.pipe(Effect.provide(ClientTestLayer))
