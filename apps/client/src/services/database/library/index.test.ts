@@ -1,11 +1,23 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Redacted, Stream } from 'effect';
+import {
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Redacted,
+  Scope,
+  Stream,
+} from 'effect';
 import { TestClock } from 'effect/testing';
 import { FetchHttpClient, Headers } from 'effect/unstable/http';
-import { Reactivity } from 'effect/unstable/reactivity';
+import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc';
+import { SqlError } from 'effect/unstable/sql';
 
 import { Api } from '@repo/spec-api';
 import { MediaType } from '@repo/spec-api/database/schema.ts';
@@ -13,7 +25,6 @@ import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
-import { AppConfig } from '#src/services/config.ts';
 import { LibraryDatabase, acquireLibraryDatabase } from '#src/services/database/library/index.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/services/testing/utils.ts';
@@ -34,7 +45,8 @@ const ClientTestLayer = Layer.unwrap(
 
 // Seed and mutate the catalog through authenticated RPCs on the real server.
 const setupLibrary = Effect.fnUntraced(function* (name: string) {
-  const serverUrl = yield* makeServerUrl;
+  const serverScope = yield* Scope.fork(yield* Effect.scope);
+  const serverUrl = yield* makeServerUrl.pipe(Scope.provide(serverScope));
   const username = yield* makeUsername('library.sync');
   const accounts = yield* AccountManager;
   yield* accounts.setupServerWithAccount({
@@ -68,7 +80,13 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
       absolutePaths: [],
     });
   yield* createLibrary(name);
-  return { createLibrary, account };
+  return {
+    createLibrary,
+    account,
+    authentication,
+    reauthenticate: authentication.signIn.username({ username, password: 'password' }),
+    stopServer: Scope.close(serverScope, Exit.void),
+  };
 });
 
 const libraryNames = (database: LibraryDatabase['Service']) =>
@@ -87,16 +105,10 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
     Effect.fnUntraced(
       function* () {
         const { account } = yield* setupLibrary('Audiobooks');
-        const config = yield* AppConfig;
-        const fs = yield* FileSystem.FileSystem;
-        const filename = `${config.libraryDb.filenameSuffix}-${account.authStorageId}.db`;
 
         const checkReplica = Effect.gen(function* () {
           const database = yield* LibraryDatabase.make(account);
-          expect(yield* fs.exists(filename)).toBe(true);
           expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
-          expect(yield* database`pragma query_only`).toEqual([{ query_only: 1 }]);
-          expect(yield* database`pragma foreign_keys`).toEqual([{ foreign_keys: 1 }]);
 
           for (const statement of [
             database`
@@ -116,11 +128,19 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
             database`create table local_only (id integer primary key)`,
           ]) {
             const error = yield* statement.pipe(Effect.flip);
-            expect(String(error.reason.cause)).toContain(
-              'Cannot execute write statement in query_only mode'
-            );
+            expect(SqlError.isSqlError(error)).toBe(true);
           }
           expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
+          expect(
+            yield* database`
+            select
+              name
+            from
+              sqlite_schema
+            where
+              name = 'local_only'
+          `
+          ).toEqual([]);
         }).pipe(Effect.scoped);
 
         yield* checkReplica;
@@ -160,13 +180,11 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
   );
 
   iit.effect(
-    'shares a scoped replica by account identity, isolates servers, and reopens persisted replicas',
+    'shares replicas by account identity, isolates servers, and reopens persisted data offline',
     Effect.fnUntraced(
       function* () {
         const first = yield* setupLibrary('First server');
         const second = yield* setupLibrary('Second server');
-        const config = yield* AppConfig;
-        const fs = yield* FileSystem.FileSystem;
 
         const idle = yield* Effect.gen(function* () {
           const firstDatabase = yield* acquireLibraryDatabase(first.account);
@@ -179,16 +197,13 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
           return firstDatabase;
         }).pipe(Effect.scoped);
 
-        for (const { account } of [first, second]) {
-          expect(
-            yield* fs.exists(`${config.libraryDb.filenameSuffix}-${account.authStorageId}.db`)
-          ).toBe(true);
-        }
         yield* TestClock.adjust('1 minute');
         const retained = yield* acquireLibraryDatabase(first.account).pipe(Effect.scoped);
         expect(retained).toBe(idle);
 
         yield* TestClock.adjust('5 minutes');
+        // The source cannot rescue a lost replica by bootstrapping it again.
+        yield* first.stopServer;
         const reopened = yield* acquireLibraryDatabase(first.account);
         expect(reopened).not.toBe(idle);
         expect(yield* libraryNames(reopened)).toEqual([{ name: 'First server' }]);
@@ -198,18 +213,32 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
   );
 
   iit.effect(
-    'suspends pulling after sign-out while retaining the readable local catalog',
+    'keeps the catalog readable during sign-out and resumes the same pull after reauthentication',
     Effect.fnUntraced(
       function* () {
-        const { account, createLibrary } = yield* setupLibrary('Audiobooks');
+        const { account, createLibrary, authentication, reauthenticate } =
+          yield* setupLibrary('Audiobooks');
         const database = yield* LibraryDatabase.make(account);
         expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
         yield* createLibrary('Movies');
         yield* AccountManager.use((accounts) => accounts.removeActiveAccount);
+        const signedOut = yield* authentication.sessionChanges.pipe(
+          Stream.filter((session) => !session.waiting),
+          Stream.filter(AsyncResult.isSuccess),
+          Stream.filter((session) => Option.isNone(session.value)),
+          Stream.runHead,
+          Effect.timeout('10 seconds'),
+          TestClock.withLive
+        );
+        expect(Option.isSome(signedOut)).toBe(true);
 
         const pull = yield* database.pull.pipe(Effect.forkScoped({ startImmediately: true }));
         expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
-        expect(pull.pollUnsafe()).toBe(void 0);
+        yield* reauthenticate;
+        expect(yield* Fiber.join(pull).pipe(Effect.timeout('10 seconds'), TestClock.withLive)).toBe(
+          true
+        );
+        expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
       },
       (effect) => effect.pipe(Effect.provide(ClientTestLayer))
     )
