@@ -1,11 +1,12 @@
-import { BunPath } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { expect, it, vi } from '@effect/vitest';
-import { Effect, Layer } from 'effect';
-import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
+import { BunHttpServer } from '@effect/platform-bun';
+import { expect, it } from '@effect/vitest';
+import { Effect, FileSystem, Layer } from 'effect';
+import { HttpBody, HttpClient, HttpRouter, HttpServer } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient } from '@repo/auth-api/client.ts';
+import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 
 import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
@@ -13,32 +14,31 @@ import { AuthDatabase } from '#src/services/database/auth/index.ts';
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
 import { LibrarySyncRouterLayerNoDeps } from '#src/services/database/library/sync.ts';
 
-const TestServerLayer = Layer.effectDiscard(
-  Effect.gen(function* () {
-    const routes = Layer.mergeAll(AuthRouterLayerNoDeps, LibrarySyncRouterLayerNoDeps).pipe(
-      Layer.provideMerge(AuthLayerNoDeps),
-      Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
-      Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
-    );
-    const { handler, dispose } = HttpRouter.toWebHandler(routes);
-    yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));
-
-    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
-      const request = input instanceof Request ? input : new Request(String(input), init);
-      return handler(request);
-    });
-    yield* Effect.addFinalizer(() => Effect.sync(() => vi.unstubAllGlobals()));
-  })
+const TestServerLayer = HttpRouter.serve(
+  Layer.mergeAll(AuthRouterLayerNoDeps, LibrarySyncRouterLayerNoDeps),
+  { disableLogger: true, disableListenLog: true }
+).pipe(
+  Layer.provide(AuthLayerNoDeps),
+  Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
+  Layer.provide(ApiConfig.layerTest()),
+  Layer.provideMerge(Reactivity.layer),
+  Layer.provideMerge(BunHttpServer.layerTest)
 );
 
 it.effect(
   'serves read-only library sync requests authenticated with a bearer token',
   Effect.fnUntraced(
     function* () {
-      const unauthorized = yield* HttpClient.options('http://test/api/sync/library/pull-updates');
+      const server = yield* HttpServer.HttpServer;
+      const baseURL = HttpServer.formatAddress(server.address);
+      const source = yield* LibraryDatabase;
+      const fs = yield* FileSystem.FileSystem;
+      const directory = yield* fs.makeTempDirectoryScoped();
+
+      const unauthorized = yield* HttpClient.post('/api/sync/library/pull-updates');
       expect(unauthorized.status).toBe(401);
 
-      const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+      const auth = yield* AuthClient.make({ baseURL, plugins: [] });
       const { token } = yield* auth.signUp.email({
         name: 'Sync User',
         username: 'syncuser',
@@ -46,23 +46,71 @@ it.effect(
         password: 'password',
       });
       const headers = { authorization: `Bearer ${token}` };
-
-      const options = yield* HttpClient.options('http://test/api/sync/library/pull-updates', {
-        headers,
+      yield* source`
+        insert into
+          library (type, name)
+        values
+          ('audiobook', 'Audiobooks')
+      `;
+      const replica = yield* TursoSyncClient.make({
+        path: `${directory}/replica.db`,
+        url: `${baseURL}/api/sync/library`,
+        authToken: Effect.succeed(token),
+        longPollTimeoutMs: 10,
       });
+      expect(
+        yield* replica`
+        select
+          name
+        from
+          library
+      `
+      ).toEqual([{ name: 'Audiobooks' }]);
+
+      yield* source`
+        insert into
+          library (type, name)
+        values
+          ('movie', 'Movies')
+      `;
+      expect(yield* replica.pull).toBe(true);
+      expect(
+        yield* replica`
+        select
+          name
+        from
+          library
+        order by
+          name
+      `
+      ).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
+
+      const options = yield* HttpClient.options('/api/sync/library/pull-updates', { headers });
       expect(options.status).toBe(204);
 
-      const pipeline = yield* HttpClient.post('http://test/api/sync/library/v2/pipeline', {
+      const pipeline = yield* HttpClient.post('/api/sync/library/v2/pipeline', {
         headers,
+        body: HttpBody.jsonUnsafe({
+          requests: [{ type: 'execute', stmt: { sql: 'DELETE FROM library' } }],
+        }),
       });
       expect(pipeline.status).toBe(404);
+      expect(
+        yield* source`
+        select
+          name
+        from
+          library
+        order by
+          name
+      `
+      ).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
 
-      const unknownOptions = yield* HttpClient.options(
-        'http://test/api/sync/library/future-sync-route',
-        { headers }
-      );
+      const unknownOptions = yield* HttpClient.options('/api/sync/library/future-sync-route', {
+        headers,
+      });
       expect(unknownOptions.status).toBe(404);
     },
-    (effect) => effect.pipe(Effect.provide([TestServerLayer, FetchHttpClient.layer]))
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
