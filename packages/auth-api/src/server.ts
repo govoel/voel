@@ -7,8 +7,6 @@ import { admin } from 'better-auth/plugins/admin';
 import { username } from 'better-auth/plugins/username';
 import { Context, Duration, Effect, Option, Schema } from 'effect';
 
-import type { Kysely } from '@repo/effect-kysely';
-
 import {
   AuthError,
   AuthSession,
@@ -20,8 +18,19 @@ export type { TestHelpers } from 'better-auth/plugins';
 
 const createServerAuthClient = (config: {
   secret: NonNullable<BetterAuthOptions['secret']>;
-  // oxlint-disable-next-line typescript/no-explicit-any
-  database: Kysely<any>;
+  database: {
+    readonly close: () => void;
+    readonly prepare: (sql: unknown) => {
+      readonly reader: boolean;
+      readonly all: (parameters: ReadonlyArray<unknown>) => Array<unknown>;
+      readonly run: (parameters: ReadonlyArray<unknown>) => {
+        readonly changes: number | bigint;
+        readonly lastInsertRowid: number | bigint;
+      };
+      readonly iterate: (parameters: ReadonlyArray<unknown>) => IterableIterator<unknown>;
+    };
+    readonly aggregate: (name: unknown, options: unknown) => void;
+  };
   logger: BetterAuthOptions['logger'];
 }) =>
   betterAuth({
@@ -46,7 +55,7 @@ const createServerAuthClient = (config: {
         maxAge: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
       },
     },
-    database: { db: config.database, type: 'sqlite' },
+    database: config.database,
     plugins: [
       expo(),
       username({ displayUsername: false }),

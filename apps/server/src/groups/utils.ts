@@ -4,10 +4,9 @@ import { RpcMiddleware } from 'effect/unstable/rpc';
 
 import { AuthServerClient } from '@repo/auth-api/server.ts';
 import type { TestHelpers } from '@repo/auth-api/server.ts';
-import { sql } from '@repo/effect-kysely';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { Database } from '#src/services/database/index.ts';
+import { AuthDatabase } from '#src/services/database/auth/index.ts';
 
 const isTestHelpers = (value: unknown): value is TestHelpers =>
   typeof value === 'object' &&
@@ -24,7 +23,7 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
   readonly name?: string;
 }) {
   const auth = yield* AuthServerClient;
-  const { db } = yield* Database;
+  const database = yield* AuthDatabase;
   const context = yield* auth.$context;
 
   if (!('test' in context) || !isTestHelpers(context.test)) {
@@ -43,13 +42,9 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
     )
   ).pipe(Effect.orDie);
 
-  yield* db.executeRaw(sql`
-    update "user"
-    set
-      "role" = ${user.role}
-    where
-      "id" = ${savedUser.id}
-  `);
+  yield* Effect.sync(() => {
+    database.prepare('update "user" set "role" = ? where "id" = ?').run([user.role, savedUser.id]);
+  });
 
   yield* Effect.addFinalizer(() =>
     Effect.tryPromise(async () => test.deleteUser(savedUser.id)).pipe(Effect.orDie)

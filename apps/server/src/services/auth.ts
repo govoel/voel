@@ -11,19 +11,19 @@ import {
 } from '@repo/spec-api/middlewares/auth.ts';
 
 import { ApiConfig } from '#src/services/config.ts';
-import { Database } from '#src/services/database/index.ts';
+import { AuthDatabase } from '#src/services/database/auth/index.ts';
 
 export const AuthLayerNoDeps = Layer.effect(
   AuthServerClient,
   Effect.gen(function* () {
     const config = yield* ApiConfig;
-    const sql = yield* Database;
+    const database = yield* AuthDatabase;
 
     const runtime = Effect.runSyncWith(yield* Effect.context());
 
     return yield* AuthServerClient.make({
       secret: Redacted.value(config.auth.secret),
-      database: sql.kysely,
+      database,
       logger: {
         log: (level, message, ...args) => {
           Match.value(level).pipe(
@@ -52,7 +52,7 @@ export const AuthLayerNoDeps = Layer.effect(
 );
 
 export const AuthLayer = AuthLayerNoDeps.pipe(
-  Layer.provide(Layer.mergeAll(ApiConfig.layer, Database.layer))
+  Layer.provide(Layer.mergeAll(ApiConfig.layer, AuthDatabase.layer))
 );
 
 export const AuthRouterLayerNoDeps = HttpRouter.use(
