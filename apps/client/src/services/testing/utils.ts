@@ -10,12 +10,19 @@ import { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { AppConfig } from '#src/services/config.ts';
+import { TursoSyncClientFactoryBunLayer } from '#src/services/database/factory/bun.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
 import { AppRuntimeLayerNoDeps } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
-export const makeClientTestLayers = (authClientStorageMap = new Map<string, string>()) =>
+export const makeClientTestLayers = ({
+  authClientStorageMap = new Map<string, string>(),
+  config,
+}: {
+  readonly authClientStorageMap?: Map<string, string>;
+  readonly config?: Parameters<typeof AppConfig.layerTest>[0];
+} = {}) =>
   AppRuntimeLayerNoDeps.pipe(
     Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
@@ -23,8 +30,9 @@ export const makeClientTestLayers = (authClientStorageMap = new Map<string, stri
         AuthClientStorage.layerTest(authClientStorageMap),
         UuidGenerator.layerTest,
         XxHash.layerTest,
-        AppConfig.layerTest(),
-        Reactivity.layer
+        AppConfig.layerTest(config),
+        Reactivity.layer,
+        TursoSyncClientFactoryBunLayer
       )
     )
   );

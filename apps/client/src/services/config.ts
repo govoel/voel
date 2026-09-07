@@ -7,6 +7,9 @@ class AppConfigVariables extends Schema.Class<
   MAIN_DB_FILENAME: Schema.String.pipe(
     Schema.withDecodingDefaultType(Effect.succeed('main.sqlite'))
   ),
+  LIBRARY_DB_FILENAME_SUFFIX: Schema.String.pipe(
+    Schema.withDecodingDefaultType(Effect.succeed('library'))
+  ),
 }) {}
 
 export class AppConfigError extends Schema.TaggedError<
@@ -17,7 +20,10 @@ export class AppConfigError extends Schema.TaggedError<
 export class AppConfig extends Context.Service<AppConfig>()('voel/services/config/AppConfig', {
   make: Effect.gen(function* () {
     const config = yield* Config.schema(AppConfigVariables);
-    return { mainDb: { filename: config.MAIN_DB_FILENAME } };
+    return {
+      libraryDb: { filenameSuffix: config.LIBRARY_DB_FILENAME_SUFFIX },
+      mainDb: { filename: config.MAIN_DB_FILENAME },
+    };
   }).pipe(Effect.catchTags({ ConfigError: () => AppConfigError.make() })),
 }) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
