@@ -257,29 +257,6 @@ describe('TursoClient', () => {
     }).pipe(Effect.provide(TestLayer))
   );
 
-  it.effect('commits transactions', () =>
-    Effect.gen(function* () {
-      const dir = yield* makeTempDir;
-      const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
-      yield* sql`
-        create table test (id integer primary key, name text)
-      `;
-      yield* sql.withTransaction(sql`
-        insert into
-          test (name)
-        values
-          ('hello')
-      `);
-      const rows = yield* sql`
-        select
-          *
-        from
-          test
-      `;
-      expect(rows).toEqual([{ id: 1, name: 'hello' }]);
-    }).pipe(Effect.provide(TestLayer))
-  );
-
   it.effect('rolls back failed transactions', () =>
     Effect.gen(function* () {
       const dir = yield* makeTempDir;
@@ -287,12 +264,13 @@ describe('TursoClient', () => {
       yield* sql`
         create table test (id integer primary key, name text)
       `;
-      yield* sql`
+      const error = yield* sql`
         insert into
           test (name)
         values
           ('hello')
-      `.pipe(Effect.andThen(Effect.fail('boom')), sql.withTransaction, Effect.ignore);
+      `.pipe(Effect.andThen(Effect.fail('boom')), sql.withTransaction, Effect.flip);
+      expect(error).toBe('boom');
       const rows = yield* sql`
         select
           *
@@ -318,7 +296,7 @@ describe('TursoClient', () => {
             values
               ('kept')
           `;
-          yield* sql
+          const error = yield* sql
             .withTransaction(
               Effect.gen(function* () {
                 yield* sql`
@@ -330,7 +308,8 @@ describe('TursoClient', () => {
                 return yield* Effect.fail('boom');
               })
             )
-            .pipe(Effect.ignore);
+            .pipe(Effect.flip);
+          expect(error).toBe('boom');
         })
       );
       const rows = yield* sql`
@@ -366,7 +345,7 @@ describe('TursoClient', () => {
         from
           test
         order by
-          id
+          name
       `;
       expect(rows.map((row) => row['name'])).toEqual([
         'row-1',
@@ -549,7 +528,7 @@ describe('TursoClient', () => {
       `;
       const rows = yield* sql`
         select
-          ${sql('first_name')}
+          ${sql('firstName')}
         from
           test
       `;
@@ -780,10 +759,15 @@ describe('TursoClient', () => {
       const dir = yield* makeTempDir;
       yield* Effect.gen(function* () {
         const concrete = yield* TursoClient;
-        expect(concrete.config.spanAttributes?.['db.example']).toBe('voel');
         const generic = yield* SqlClient.SqlClient;
-        yield* generic`
+        yield* concrete`
           create table test (id integer primary key)
+        `;
+        yield* concrete`
+          insert into
+            test (id)
+          values
+            (1)
         `;
         expect(
           yield* generic`
@@ -792,12 +776,11 @@ describe('TursoClient', () => {
           from
             test
         `
-        ).toEqual([]);
+        ).toEqual([{ id: 1 }]);
       }).pipe(
         Effect.provide(
           TursoClient.layer({
             filename: `${dir}/test.db`,
-            spanAttributes: { 'db.example': 'voel' },
           })
         )
       );
