@@ -38,7 +38,6 @@ export default Effect.gen(function* () {
   yield* sql`
     create table "account" (
       "id" text not null primary key,
-      "issuer" text not null,
       "accountId" text not null,
       "providerId" text not null,
       "userId" text not null references "user" ("id") on delete cascade,
@@ -73,8 +72,5 @@ export default Effect.gen(function* () {
   `;
   yield* sql`
     create index "verification_identifier_idx" on "verification" ("identifier")
-  `;
-  yield* sql`
-    create unique index "account_issuer_accountId_uidx" on "account" ("issuer", "accountId")
   `;
 });
