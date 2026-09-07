@@ -173,7 +173,14 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   }
 ) {}
 
-export const acquireAuthClient = (key: {
+// Ignore extra account/profile fields when identifying the shared auth client.
+export const acquireAuthClient = ({
+  authStorageId,
+  serverUrl,
+}: {
   readonly authStorageId: AuthClientKey['authStorageId'];
   readonly serverUrl: AuthClientKey['serverUrl'];
-}) => AuthClientMap.contextEffect(new AuthClientKey(key)).pipe(Effect.map(Context.get(AuthClient)));
+}) =>
+  AuthClientMap.contextEffect(new AuthClientKey({ authStorageId, serverUrl })).pipe(
+    Effect.map(Context.get(AuthClient))
+  );
