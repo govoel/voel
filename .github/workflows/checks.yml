@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -36,6 +37,8 @@ jobs:
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
+        with:
+          packages-token: ${{ github.token }}
 
       - name: Format
         run: bun turbo run format:check
