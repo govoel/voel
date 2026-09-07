@@ -1,6 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
+import { TestClock } from 'effect/testing';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import {
@@ -641,7 +642,7 @@ describe('AccountManager', () => {
     );
 
     iit.effect(
-      'does not retain the active account auth client',
+      'reuses idle auth clients until their idle timeout expires',
       Effect.fnUntraced(
         function* () {
           const manager = yield* AccountManager;
@@ -652,7 +653,11 @@ describe('AccountManager', () => {
           const firstClient = yield* acquireAuthClient(activeAccount).pipe(Effect.scoped);
           const secondClient = yield* acquireAuthClient(activeAccount).pipe(Effect.scoped);
 
-          expect(secondClient).not.toBe(firstClient);
+          expect(secondClient).toBe(firstClient);
+
+          yield* TestClock.adjust('5 minutes');
+          const reopened = yield* acquireAuthClient(activeAccount);
+          expect(reopened).not.toBe(firstClient);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

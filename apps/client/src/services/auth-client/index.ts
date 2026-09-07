@@ -1,5 +1,16 @@
 import { expoClient } from '@better-auth/expo/client';
-import { Context, Data, Duration, Effect, Layer, LayerMap, Option, Schema, Stream, String } from 'effect';
+import {
+  Context,
+  Data,
+  Duration,
+  Effect,
+  Layer,
+  LayerMap,
+  Option,
+  Schema,
+  Stream,
+  String,
+} from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
@@ -17,7 +28,9 @@ export const makeAuthStorageKey = ({
   readonly authStorageId: string;
 }) => `voel::auth::${serverUrl}::${authStorageId}`;
 
-export class AuthClientKey extends Data.Class<Pick<Account, 'serverUrl' | 'authStorageId'>> {}
+export type AuthClientKey = Pick<Account, 'serverUrl' | 'authStorageId'>;
+
+class AuthClientCacheKey extends Data.Class<AuthClientKey> {}
 
 class AuthClientGetCookieError extends Schema.TaggedError<
   AuthClientGetCookieError,
@@ -146,6 +159,7 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
 export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
   'voel/services/auth-client/AuthClientMap',
   {
+    idleTimeToLive: '5 minutes',
     dependencies: [
       AccountRepository.layer,
       AuthClientStorage.layer,
@@ -160,13 +174,7 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
 ) {}
 
 // Ignore extra account/profile fields when identifying the shared auth client.
-export const acquireAuthClient = ({
-  authStorageId,
-  serverUrl,
-}: {
-  readonly authStorageId: AuthClientKey['authStorageId'];
-  readonly serverUrl: AuthClientKey['serverUrl'];
-}) =>
-  AuthClientMap.contextEffect(new AuthClientKey({ authStorageId, serverUrl })).pipe(
+export const acquireAuthClient = ({ authStorageId, serverUrl }: AuthClientKey) =>
+  AuthClientMap.contextEffect(new AuthClientCacheKey({ authStorageId, serverUrl })).pipe(
     Effect.map(Context.get(AuthClient))
   );
