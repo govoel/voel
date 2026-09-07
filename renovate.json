@@ -11,6 +11,67 @@
     {
       "groupName": "effect",
       "matchPackageNames": ["effect", "@effect/*", "!@effect/tsgo"]
+    },
+    {
+      "description": "Review Effect's Oxlint patcher and the lint toolchain together; verify compatibility with prepare and lint.",
+      "groupName": "effect oxlint tooling",
+      "matchPackageNames": ["@effect/tsgo", "oxlint", "@oxlint/plugins", "oxlint-tsgolint"]
+    },
+    {
+      "groupName": "rozenite",
+      "matchPackageNames": ["rozenite", "@rozenite/*"]
+    },
+    {
+      "groupName": "turso",
+      "matchPackageNames": [
+        "@tursodatabase/database-common",
+        "@tursodatabase/sync",
+        "@tursodatabase/sync-react-native"
+      ]
+    },
+    {
+      "groupName": "bun",
+      "matchPackageNames": ["bun", "bun-types", "@types/bun"]
+    },
+    {
+      "groupName": "vite",
+      "matchPackageNames": ["vite", "@vitejs/plugin-react"]
+    },
+    {
+      "description": "Preserve intentional TypeScript and React type ranges instead of pinning them.",
+      "matchPackageNames": ["typescript", "@types/react"],
+      "rangeStrategy": "replace"
+    },
+    {
+      "description": "Update SDK-managed client dependencies with expo install --fix; keep expo itself eligible for upgrade PRs.",
+      "matchFileNames": ["apps/client/package.json"],
+      "matchPackageNames": [
+        "@expo/ui",
+        "expo-build-properties",
+        "expo-constants",
+        "expo-crypto",
+        "expo-font",
+        "expo-image",
+        "expo-linear-gradient",
+        "expo-linking",
+        "expo-network",
+        "expo-router",
+        "expo-secure-store",
+        "expo-splash-screen",
+        "expo-status-bar",
+        "expo-system-ui",
+        "expo-web-browser",
+        "react-native",
+        "react-native-safe-area-context",
+        "react-native-screens",
+        "react-native-worklets"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Align React and React DOM across workspaces with the Expo SDK during manual SDK upgrades.",
+      "matchPackageNames": ["react", "react-dom"],
+      "enabled": false
     }
   ],
   "ignorePaths": ["**/node_modules/**", ".repos/**"],
