@@ -3,7 +3,11 @@ import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
 
-import { AccountManager, AccountNotFoundError } from '#src/services/accounts/index.ts';
+import {
+  AccountManager,
+  AccountNotFoundError,
+  ActiveAccountKey,
+} from '#src/services/accounts/index.ts';
 import { AuthClient, AuthClientKey, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
@@ -70,12 +74,34 @@ describe('AccountManager', () => {
           serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
           authStorageId: Account.fields.authStorageId.make('auth-storage-id'),
         };
-        const [firstClient, secondClient] = yield* Effect.all([
-          acquireAuthClient(authStorage),
-          acquireAuthClient(authStorage),
-        ]).pipe(Effect.scoped);
+        const activeAccount = new ActiveAccountKey({
+          ...authStorage,
+          userId: Account.fields.userId.make('user-id'),
+        });
+        const accountProfile = {
+          ...authStorage,
+          userId: activeAccount.userId,
+          username: Account.fields.username.make('renamed-user'),
+        };
+        const [firstClient, activeClient, profileClient, otherServerClient, otherSignInClient] =
+          yield* Effect.all([
+            acquireAuthClient(authStorage),
+            acquireAuthClient(activeAccount),
+            acquireAuthClient(accountProfile),
+            acquireAuthClient({
+              ...authStorage,
+              serverUrl: Account.fields.serverUrl.make('https://other.voel.example.com'),
+            }),
+            acquireAuthClient({
+              ...authStorage,
+              authStorageId: Account.fields.authStorageId.make('other-auth-storage-id'),
+            }),
+          ]).pipe(Effect.scoped);
 
-        expect(secondClient).toBe(firstClient);
+        expect(activeClient).toBe(firstClient);
+        expect(profileClient).toBe(firstClient);
+        expect(otherServerClient).not.toBe(firstClient);
+        expect(otherSignInClient).not.toBe(firstClient);
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
