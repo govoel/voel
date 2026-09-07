@@ -2,7 +2,7 @@ import { RuleTester } from 'oxlint/plugins-dev';
 
 import { noSchemaStructAssignmentRule } from './no-schema-struct-assignment.mts';
 
-const filename = `${import.meta.dirname}/../../packages/effect-kysely/src/domain/models.ts`;
+const filename = `${import.meta.dirname}/../../packages/effect-turso/src/domain/models.ts`;
 
 new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule, {
   valid: [
