@@ -99,8 +99,8 @@ export const setupTestServerWithUsers = Effect.fnUntraced(function* <
         name: `Test User ${index + 1}`,
         email: `${username}@voel.app`,
         password: Redacted.value(password),
-        role: 'user',
-        data: { username },
+        role: Account.fields.role.make('user'),
+        username,
       });
       return void 0;
     }),

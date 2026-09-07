@@ -7,12 +7,13 @@ import { Stack, router } from 'expo-router';
 import type { ComponentType } from 'react';
 import { PlatformColor as platformColor } from 'react-native';
 
+import type { AuthUser } from '@repo/auth-api/shared.ts';
+
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
-import type { ServerUser } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
 
 interface ServerUsersListProps {
-  readonly users: ReadonlyArray<ServerUser>;
+  readonly users: ReadonlyArray<Pick<AuthUser, 'id' | 'username'>>;
   readonly waiting: boolean;
   readonly done: boolean;
   readonly onEndReached: () => void;
@@ -44,7 +45,7 @@ export default function ServerUsersScreen() {
             <List modifiers={[headerProminence('increased')]}>
               <Section title="Users">
                 <ServerUsersList
-                  users={items}
+                  users={items.map(({ id, username }) => ({ id, username }))}
                   waiting={waiting}
                   done={done}
                   onTap={({ nativeEvent: { id } }) => {

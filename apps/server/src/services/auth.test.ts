@@ -37,16 +37,15 @@ it.describe('auth customizations', () => {
       function* () {
         const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
 
-        const response = yield* auth.signUp
-          .email({
+        const response = yield* Effect.promise(async () =>
+          auth.rawClient.signUp.email({
             name: 'Test User',
             email: 'test@example.com',
             password: 'password',
           })
-          .pipe(Effect.flip);
+        );
 
-        expect(response.reason).toMatchObject({
-          _tag: 'BetterAuthApiError',
+        expect(response.error).toMatchObject({
           code: 'MUST_SIGN_UP_WITH_USERNAME',
         });
       },

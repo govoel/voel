@@ -20,10 +20,34 @@ import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import type { Account } from '#src/services/database/main/schema.ts';
 
-export const makeAuthStorageKey = ({ serverUrl, authStorageId }: AuthClientKey) =>
+const makeAuthStorageKey = ({ serverUrl, authStorageId }: AuthClientKey) =>
   `voel::auth::${serverUrl}::${authStorageId}`;
 
 export type AuthClientKey = Pick<Account, 'serverUrl' | 'authStorageId'>;
+
+/** Owns Expo credential storage independently of a live auth client. */
+export class AuthCredentialStorage extends Context.Service<AuthCredentialStorage>()(
+  'voel/services/auth-client/AuthCredentialStorage',
+  {
+    make: Effect.gen(function* () {
+      const storage = yield* AuthClientStorage;
+      const xxHash = yield* XxHash;
+      return {
+        clear: Effect.fnUntraced(function* (key: AuthClientKey) {
+          const prefix = yield* xxHash.hash128(makeAuthStorageKey(key));
+          // Both removals are safe to repeat after an interrupted cleanup.
+          yield* storage.removeItem(`${prefix}_cookie`);
+          yield* storage.removeItem(`${prefix}_session_data`);
+        }),
+      };
+    }),
+  }
+) {
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide([AuthClientStorage.layer, XxHash.layer])
+  );
+}
 
 class AuthClientCacheKey extends Data.Class<AuthClientKey> {}
 

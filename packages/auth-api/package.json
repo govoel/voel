@@ -13,7 +13,8 @@
     "./shared.ts": "./src/shared.ts"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@better-auth/expo": "1.7.3",

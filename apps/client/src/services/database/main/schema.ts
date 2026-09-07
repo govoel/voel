@@ -3,19 +3,15 @@ import { VariantSchema } from 'effect/unstable/schema';
 
 import { AuthSession } from '@repo/auth-api/shared.ts';
 
+import { ServerUrl } from '#src/services/accounts/schema.ts';
+
 const DbModel = VariantSchema.make({
   variants: ['select', 'upsert', 'update'],
   defaultVariant: 'select',
 });
 
 export class Account extends DbModel.Class<Account>('voel/services/database/main/schema/Account')({
-  serverUrl: DbModel.Field({
-    select: Schema.String.pipe(
-      Schema.brand('voel/services/database/main/schema/Account/serverUrl')
-    ),
-    upsert: Schema.String,
-    update: Schema.String,
-  }),
+  serverUrl: ServerUrl,
   userId: DbModel.Field({
     select: AuthSession.fields.user.fields.id,
     upsert: AuthSession.fields.user.fields.id,
