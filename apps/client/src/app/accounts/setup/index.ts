@@ -8,21 +8,17 @@ import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
-export class SetupServerAccountInput extends Schema.Class<
-  SetupServerAccountInput,
-  { readonly brand: unique symbol }
->('voel/app/accounts/setup/SetupServerAccountInput')({
-  serverUrl: ServerUrl,
-  name: AuthSignUpInput.fields.name,
-  email: AuthSignUpInput.fields.email,
-  username: AuthSignUpInput.fields.username,
-  password: AuthSignUpInput.fields.password.pipe(
-    Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
-      decode: SchemaGetter.transform((password) => Redacted.make(password)),
-      encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
-    })
-  ),
-}) {}
+class SetupServerAccountInput extends AuthSignUpInput.pipe(
+  Schema.fieldsAssign({
+    serverUrl: ServerUrl,
+    password: AuthSignUpInput.fields.password.pipe(
+      Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
+        decode: SchemaGetter.transform((password) => Redacted.make(password)),
+        encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+      })
+    ),
+  })
+) {}
 
 const setupServerWithAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setupServerWithAccount>[0]) =>

@@ -67,7 +67,7 @@ export const listUsersAtom = AppRuntime.pull(
         id: PredefinedStateId.make('loading'),
         label: 'Loading',
         atom: Atom.writable(
-          (): Atom.PullResult<AuthUser> => AsyncResult.initial(true),
+          (): Atom.PullResult<typeof AuthUser.Type> => AsyncResult.initial(true),
           () => void 0
         ),
       },
@@ -76,7 +76,8 @@ export const listUsersAtom = AppRuntime.pull(
         label: 'Page available',
         description: 'Starts with one user and adds another when more users are requested.',
         atom: Atom.writable(
-          (): Atom.PullResult<AuthUser> => AsyncResult.success({ items: [alex], done: false }),
+          (): Atom.PullResult<typeof AuthUser.Type> =>
+            AsyncResult.success({ items: [alex], done: false }),
           (context) => {
             context.setSelf(AsyncResult.success({ items: [alex, sam], done: true }));
           }
@@ -86,7 +87,8 @@ export const listUsersAtom = AppRuntime.pull(
         id: PredefinedStateId.make('loaded'),
         label: 'All users loaded',
         atom: Atom.writable(
-          (): Atom.PullResult<AuthUser> => AsyncResult.success({ items: [alex, sam], done: true }),
+          (): Atom.PullResult<typeof AuthUser.Type> =>
+            AsyncResult.success({ items: [alex, sam], done: true }),
           () => void 0
         ),
       },
@@ -94,7 +96,7 @@ export const listUsersAtom = AppRuntime.pull(
         id: PredefinedStateId.make('failure'),
         label: 'No active account error',
         atom: Atom.writable(
-          (): Atom.PullResult<AuthUser, NoActiveAccountError> =>
+          (): Atom.PullResult<typeof AuthUser.Type, NoActiveAccountError> =>
             AsyncResult.fail(NoActiveAccountError.make()),
           () => void 0
         ),

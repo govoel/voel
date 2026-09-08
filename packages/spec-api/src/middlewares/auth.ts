@@ -5,7 +5,7 @@ import type { AuthSession } from '@repo/auth-api/shared.ts';
 
 export class CurrentSession extends Context.Service<CurrentSession>()(
   '@repo/spec-api/middlewares/auth/CurrentSession',
-  { make: (session: AuthSession) => Effect.succeed(session) }
+  { make: (session: typeof AuthSession.Type) => Effect.succeed(session) }
 ) {}
 
 export class UnauthorizedError extends Schema.TaggedError<

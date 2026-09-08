@@ -49,9 +49,7 @@ export class AuthError extends Schema.TaggedError<AuthError, { readonly brand: u
 const AuthUserId = Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUserId'));
 const AuthSessionToken = Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSessionToken'));
 
-export class AuthUser extends Schema.Class<AuthUser, { readonly brand: unique symbol }>(
-  '@repo/auth-api/shared/AuthUser'
-)({
+export class AuthUser extends Schema.Struct({
   id: AuthUserId,
   username: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUser/username')),
   email: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthUser/email')),
@@ -68,17 +66,12 @@ export class AuthUser extends Schema.Class<AuthUser, { readonly brand: unique sy
   ),
 }) {}
 
-export class AuthUserResponse extends Schema.Class<
-  AuthUserResponse,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthUserResponse')({
+export class AuthUserResponse extends Schema.Struct({
   token: AuthSessionToken,
   user: AuthUser,
 }) {}
 
-export class AuthSession extends Schema.Class<AuthSession, { readonly brand: unique symbol }>(
-  '@repo/auth-api/shared/AuthSession'
-)({
+export class AuthSession extends Schema.Struct({
   user: AuthUser,
   session: Schema.Struct({
     id: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/id')),
@@ -105,14 +98,9 @@ export class AuthSession extends Schema.Class<AuthSession, { readonly brand: uni
 }
 
 /** Admin operations return the same user domain as authentication. */
-export class AuthAdminUserResponse extends Schema.Class<
-  AuthAdminUserResponse,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthAdminUserResponse')({ user: AuthUser }) {}
+export class AuthAdminUserResponse extends Schema.Struct({ user: AuthUser }) {}
 
-export class AuthUsersPage extends Schema.Class<AuthUsersPage, { readonly brand: unique symbol }>(
-  '@repo/auth-api/shared/AuthUsersPage'
-)({
+export class AuthUsersPage extends Schema.Struct({
   users: Schema.Array(AuthUser),
   total: Schema.Natural,
   limit: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),

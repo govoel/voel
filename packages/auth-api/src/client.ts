@@ -69,7 +69,7 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
     const coreClient = client as typeof client & CoreAuthClient;
 
     const sessionState = yield* SubscriptionRef.make<
-      AsyncResult.AsyncResult<Option.Option<AuthSession>, AuthError>
+      AsyncResult.AsyncResult<Option.Option<typeof AuthSession.Type>, AuthError>
     >(AsyncResult.initial(true));
 
     yield* Stream.callback<ReturnType<typeof client.useSession.get>>((queue) =>

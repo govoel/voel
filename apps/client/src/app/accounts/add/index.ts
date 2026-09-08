@@ -8,18 +8,17 @@ import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
-class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: unique symbol }>(
-  'voel/app/accounts/add/AddAccountInput'
-)({
-  serverUrl: ServerUrl,
-  username: AuthSignInInput.fields.username,
-  password: AuthSignInInput.fields.password.pipe(
-    Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
-      decode: SchemaGetter.transform((password) => Redacted.make(password)),
-      encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
-    })
-  ),
-}) {}
+class AddAccountInput extends AuthSignInInput.pipe(
+  Schema.fieldsAssign({
+    serverUrl: ServerUrl,
+    password: AuthSignInInput.fields.password.pipe(
+      Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
+        decode: SchemaGetter.transform((password) => Redacted.make(password)),
+        encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+      })
+    ),
+  })
+) {}
 
 const signInAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>

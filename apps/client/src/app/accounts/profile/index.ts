@@ -1,4 +1,4 @@
-import { Effect, Match, Option, Schema } from 'effect';
+import { Effect, Match, Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
@@ -13,13 +13,10 @@ import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
-export class UserProfileUpdateInput extends Schema.Class<
-  UserProfileUpdateInput,
-  { readonly brand: unique symbol }
->('voel/app/accounts/profile/UserProfileUpdateInput')({
-  name: AuthSignUpInput.fields.name,
-  username: AuthSignUpInput.fields.username,
-}) {}
+class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username }) => ({
+  name,
+  username,
+})) {}
 
 export const activeUserProfileAtom = activeAccountAtom.pipe(
   Atom.map((result) =>

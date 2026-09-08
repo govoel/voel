@@ -1,7 +1,7 @@
 import { Match, Schema, SchemaGetter } from 'effect';
 import { VariantSchema } from 'effect/unstable/schema';
 
-import { AuthSession } from '@repo/auth-api/shared.ts';
+import { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 
@@ -13,37 +13,37 @@ const DbModel = VariantSchema.make({
 export class Account extends DbModel.Class<Account>('voel/services/database/main/schema/Account')({
   serverUrl: ServerUrl,
   userId: DbModel.Field({
-    select: AuthSession.fields.user.fields.id,
-    upsert: AuthSession.fields.user.fields.id,
-    update: AuthSession.fields.user.fields.id,
+    select: AuthUser.fields.id,
+    upsert: AuthUser.fields.id,
+    update: AuthUser.fields.id,
   }),
   username: DbModel.Field({
-    select: AuthSession.fields.user.fields.username,
-    upsert: AuthSession.fields.user.fields.username,
-    update: AuthSession.fields.user.fields.username,
+    select: AuthUser.fields.username,
+    upsert: AuthUser.fields.username,
+    update: AuthUser.fields.username,
   }),
   name: DbModel.Field({
-    select: AuthSession.fields.user.fields.name,
-    upsert: AuthSession.fields.user.fields.name,
-    update: AuthSession.fields.user.fields.name,
+    select: AuthUser.fields.name,
+    upsert: AuthUser.fields.name,
+    update: AuthUser.fields.name,
   }),
   email: DbModel.Field({
-    select: AuthSession.fields.user.fields.email,
-    upsert: AuthSession.fields.user.fields.email,
-    update: AuthSession.fields.user.fields.email,
+    select: AuthUser.fields.email,
+    upsert: AuthUser.fields.email,
+    update: AuthUser.fields.email,
   }),
   authStorageId: Schema.String.pipe(
     Schema.brand('voel/services/database/main/schema/Account/authStorageId')
   ),
   role: DbModel.Field({
-    select: AuthSession.fields.user.fields.role,
-    upsert: AuthSession.fields.user.fields.role,
-    update: AuthSession.fields.user.fields.role,
+    select: AuthUser.fields.role,
+    upsert: AuthUser.fields.role,
+    update: AuthUser.fields.role,
   }),
   profilePicture: DbModel.Field({
-    select: AuthSession.fields.user.fields.image,
-    upsert: AuthSession.fields.user.fields.image,
-    update: AuthSession.fields.user.fields.image,
+    select: AuthUser.fields.image,
+    upsert: AuthUser.fields.image,
+    update: AuthUser.fields.image,
   }),
   active: DbModel.Field({
     select: Schema.BooleanFromBit.pipe(

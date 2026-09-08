@@ -13,7 +13,7 @@ import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
 
 interface ServerUsersListProps {
-  readonly users: ReadonlyArray<Pick<AuthUser, 'id' | 'username'>>;
+  readonly users: ReadonlyArray<Pick<typeof AuthUser.Type, 'id' | 'username'>>;
   readonly waiting: boolean;
   readonly done: boolean;
   readonly onEndReached: () => void;
