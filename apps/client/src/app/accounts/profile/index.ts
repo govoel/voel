@@ -1,8 +1,8 @@
 import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
+import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { useAppForm } from '#src/components/form';
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';

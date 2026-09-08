@@ -1,8 +1,8 @@
 import { DateTime, Effect, Option, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 import { AuthUser } from '@repo/auth-api/shared.ts';
+import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms';
 import { NoActiveAccountError } from '#src/services/accounts/index.ts';
