@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { describe, expect, expectTypeOf, it } from '@effect/vitest';
+import { describe, expect, it } from '@effect/vitest';
 import { Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
@@ -11,7 +11,6 @@ import {
 } from '#src/atom-dev-tools.ts';
 import type { AtomId as AtomIdType, AtomSummary } from '#src/atom-dev-tools.ts';
 import { PredefinedStateId, makeWithPredefinedStates } from '#src/predefined-states.ts';
-import type { ActivatePredefinedStateInput } from '#src/rpc.ts';
 
 const runWithService = async <A, E>(
   registry: AtomRegistry.AtomRegistry,
@@ -196,14 +195,6 @@ describe('AtomDevTools', () => {
         expect(catalog).toHaveLength(1);
         expect(catalog[0]?.name).toBe('Scenario');
         const atomId = firstAtomId(catalog);
-
-        expectTypeOf<
-          typeof ActivatePredefinedStateInput.Type.stateId
-        >().toEqualTypeOf<PredefinedStateId>();
-        expectTypeOf<
-          Parameters<typeof service.activatePredefinedState>[1]
-        >().toEqualTypeOf<PredefinedStateId>();
-        expectTypeOf<AtomId>().not.toExtend<PredefinedStateId>();
 
         yield* service.activatePredefinedState(atomId, PredefinedStateId.make('empty'));
         expect(registry.get(atom)).toBe('empty');

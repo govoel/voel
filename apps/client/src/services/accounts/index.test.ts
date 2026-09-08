@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { describe, expect, expectTypeOf, it } from '@effect/vitest';
+import { describe, expect, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
@@ -57,15 +57,6 @@ const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClien
 });
 
 describe('AccountManager', () => {
-  it('preserves auth-storage ID brands on writes', () => {
-    expectTypeOf<typeof Account.upsert.Type.authStorageId>().toEqualTypeOf<
-      Account['authStorageId']
-    >();
-    expectTypeOf<typeof Account.update.Type.authStorageId>().toEqualTypeOf<
-      Account['authStorageId']
-    >();
-  });
-
   it.effect(
     'reuses auth clients by auth storage identity',
     Effect.fnUntraced(

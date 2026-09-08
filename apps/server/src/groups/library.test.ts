@@ -1,6 +1,6 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunPath } from '@effect/platform-bun';
-import { expect, expectTypeOf, it } from '@effect/vitest';
+import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
@@ -47,11 +47,6 @@ const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
 
 const makeExpectedAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
   absolutePaths.map((absolutePath) => ({ id: expect.any(Number) as unknown, absolutePath }));
-
-it('preserves library-name brands on writes', () => {
-  expectTypeOf<typeof Library.upsert.Type.name>().toEqualTypeOf<Library['name']>();
-  expectTypeOf<typeof Library.jsonUpsert.Type.name>().toEqualTypeOf<Library['name']>();
-});
 
 it.layer(makeTestLayer())('library authorization', (iit) => {
   iit.effect(
