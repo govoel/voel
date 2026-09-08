@@ -17,7 +17,7 @@ const isSchemaStructCall = (expression: ESTree.Expression): boolean => {
   return callee.type === 'MemberExpression' && isSchemaStructCall(callee.object);
 };
 
-/** Prefer schema classes over assigning named Schema.Struct values. */
+/** Give named structural schemas a class namespace for their static helpers. */
 export const noSchemaStructAssignmentRule = defineRule({
   meta: {
     type: 'problem',
@@ -32,7 +32,7 @@ export const noSchemaStructAssignmentRule = defineRule({
       }
       context.report({
         message:
-          'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+          'Define named structural schemas with a class extending Schema.Struct, Schema.TaggedStruct, or Schema.Opaque so schema helpers can be declared as static fields.',
         node: expression,
       });
     };

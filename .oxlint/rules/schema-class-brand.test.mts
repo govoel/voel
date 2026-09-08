@@ -18,6 +18,22 @@ new RuleTester().run('schema-class-brand', schemaClassBrandRule, {
     },
     {
       filename,
+      code: `class User extends Schema.Struct({ name: Schema.String }) {}`,
+    },
+    {
+      filename,
+      code: `class Event extends Schema.TaggedStruct("Event", { id: Schema.String }) {}`,
+    },
+    {
+      filename,
+      code: `
+        class User extends Schema.Opaque<User>()(
+          Schema.Struct({ name: Schema.String })
+        ) {}
+      `,
+    },
+    {
+      filename,
       code: `
         class Admin extends User.extend<
           Admin,
@@ -31,14 +47,24 @@ new RuleTester().run('schema-class-brand', schemaClassBrandRule, {
     {
       filename,
       code: `class User extends Schema.Class<User>("User")({}) {}`,
-      errors: [{ message: 'Add { readonly brand: unique symbol } to this schema class.' }],
+      errors: [
+        {
+          message:
+            'Add { readonly brand: unique symbol } to this schema class. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.',
+        },
+      ],
     },
     {
       filename,
       code: `
         class Admin extends User.extend<Admin, Record<never, never>>("Admin")({}) {}
       `,
-      errors: [{ message: 'Add a readonly unique-symbol brand to this schema subclass.' }],
+      errors: [
+        {
+          message:
+            'Add a readonly unique-symbol brand to this schema subclass. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.',
+        },
+      ],
     },
   ],
 });
