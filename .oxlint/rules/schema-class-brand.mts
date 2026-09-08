@@ -23,7 +23,7 @@ const uniqueSymbolProperties = (type: ESTree.TSType) =>
       )
     : [];
 
-/** Require nominal unique-symbol brands on schema classes and subclasses. */
+/** Make Schema.Class constructors explicitly nominal and point structural schemas elsewhere. */
 export const schemaClassBrandRule = defineRule({
   meta: {
     type: 'problem',
@@ -65,8 +65,8 @@ export const schemaClassBrandRule = defineRule({
       if (!hasBrand) {
         context.report({
           message: isExtend
-            ? 'Add a readonly unique-symbol brand to this schema subclass.'
-            : 'Add { readonly brand: unique symbol } to this schema class.',
+            ? 'Add a readonly unique-symbol brand to this schema subclass. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.'
+            : 'Add { readonly brand: unique symbol } to this schema class. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.',
           node: innermostCall,
         });
       }

@@ -9,10 +9,25 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
     {
       filename,
       code: `
-        class User extends Schema.Class<
-          User,
-          { readonly brand: unique symbol }
-        >("User")({ name: Schema.String }) {}
+        class User extends Schema.Struct({ name: Schema.String }) {
+          public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this)
+        }
+      `,
+    },
+    {
+      filename,
+      code: `
+        class UserCreated extends Schema.TaggedStruct("UserCreated", {
+          name: Schema.String
+        }) {}
+      `,
+    },
+    {
+      filename,
+      code: `
+        class User extends Schema.Opaque<User>()(
+          Schema.Struct({ name: Schema.String })
+        ) {}
       `,
     },
     {
@@ -38,7 +53,7 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       errors: [
         {
           message:
-            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+            'Define named structural schemas with a class extending Schema.Struct, Schema.TaggedStruct, or Schema.Opaque so schema helpers can be declared as static fields.',
         },
       ],
     },
@@ -51,7 +66,7 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       errors: [
         {
           message:
-            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+            'Define named structural schemas with a class extending Schema.Struct, Schema.TaggedStruct, or Schema.Opaque so schema helpers can be declared as static fields.',
         },
       ],
     },
@@ -63,7 +78,7 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       errors: [
         {
           message:
-            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+            'Define named structural schemas with a class extending Schema.Struct, Schema.TaggedStruct, or Schema.Opaque so schema helpers can be declared as static fields.',
         },
       ],
     },
@@ -77,7 +92,7 @@ new RuleTester().run('no-schema-struct-assignment', noSchemaStructAssignmentRule
       errors: [
         {
           message:
-            'Define named schemas with Schema.Class/Schema.TaggedClass instead of assigning Schema.Struct.',
+            'Define named structural schemas with a class extending Schema.Struct, Schema.TaggedStruct, or Schema.Opaque so schema helpers can be declared as static fields.',
         },
       ],
     },
