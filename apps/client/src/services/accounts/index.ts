@@ -57,8 +57,8 @@ export class AccountNotFoundError extends Schema.TaggedError<
   AccountNotFoundError,
   { readonly brand: unique symbol }
 >('voel/services/accounts/AccountNotFoundError')('AccountNotFoundError', {
-  serverUrl: Schema.String,
-  userId: Schema.String,
+  serverUrl: Account.fields.serverUrl,
+  userId: Account.fields.userId,
 }) {}
 
 export class NoActiveAccountError extends Schema.TaggedError<

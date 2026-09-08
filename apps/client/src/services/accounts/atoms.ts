@@ -1,6 +1,8 @@
 import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
+import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
@@ -15,17 +17,17 @@ export const accountsAtom = AppRuntime.atom(
 ).pipe(
   withPredefinedStates(() => [
     {
-      id: 'loading',
+      id: PredefinedStateId.make('loading'),
       label: 'Loading',
       atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
-      id: 'empty',
+      id: PredefinedStateId.make('empty'),
       label: 'No accounts',
       atom: Atom.make(() => AsyncResult.success([])),
     },
     {
-      id: 'account-available',
+      id: PredefinedStateId.make('account-available'),
       label: 'Account available',
       atom: Atom.make(() =>
         AsyncResult.success([
@@ -46,7 +48,7 @@ export const accountsAtom = AppRuntime.atom(
       ),
     },
     {
-      id: 'failure',
+      id: PredefinedStateId.make('failure'),
       label: 'Database failure',
       atom: Atom.make(() =>
         AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts database failure')))
@@ -74,17 +76,17 @@ export const activeAccountAtom = AppRuntime.atom((get) =>
 ).pipe(
   withPredefinedStates(() => [
     {
-      id: 'loading',
+      id: PredefinedStateId.make('loading'),
       label: 'Loading',
       atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
-      id: 'none',
+      id: PredefinedStateId.make('none'),
       label: 'No active account',
       atom: Atom.make(() => AsyncResult.success(Option.none())),
     },
     {
-      id: 'failure',
+      id: PredefinedStateId.make('failure'),
       label: 'Active account database failure',
       atom: Atom.make(() =>
         AsyncResult.failure<never>(

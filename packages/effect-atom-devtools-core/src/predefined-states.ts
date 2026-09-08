@@ -1,4 +1,4 @@
-import { Function, Option } from 'effect';
+import { Function, Option, Schema } from 'effect';
 import type { NoInfer } from 'effect/Types';
 import { Atom } from 'effect/unstable/reactivity';
 import type { AtomRegistry } from 'effect/unstable/reactivity';
@@ -9,8 +9,13 @@ export const PredefinedStatesTypeId: unique symbol = Symbol.for(
   '@repo/effect-atom-devtools-core/predefined-states/PredefinedStates'
 );
 
+export const PredefinedStateId = Schema.String.pipe(
+  Schema.brand('@repo/effect-atom-devtools-core/predefined-states/PredefinedStateId')
+);
+export type PredefinedStateId = typeof PredefinedStateId.Type;
+
 interface PredefinedStateFor<T extends AnyAtom> {
-  readonly id: string;
+  readonly id: PredefinedStateId;
   readonly label: string;
   readonly description?: string;
   readonly atom: Atom.Atom<NoInfer<Atom.Type<T>>> &
@@ -22,8 +27,10 @@ interface HasPredefinedStates<T extends AnyAtom> {
     readonly getStates: () => ReadonlyArray<PredefinedStateFor<T>>;
     readonly activate: (registry: AtomRegistry.AtomRegistry, state: PredefinedStateFor<T>) => void;
     readonly clear: (registry: AtomRegistry.AtomRegistry) => void;
-    readonly getActiveStateId: (registry: AtomRegistry.AtomRegistry) => Option.Option<string>;
-    readonly readActiveStateId: (get: Atom.AtomContext) => Option.Option<string>;
+    readonly getActiveStateId: (
+      registry: AtomRegistry.AtomRegistry
+    ) => Option.Option<PredefinedStateId>;
+    readonly readActiveStateId: (get: Atom.AtomContext) => Option.Option<PredefinedStateId>;
     readonly refresh: (registry: AtomRegistry.AtomRegistry) => void;
   };
 }

@@ -36,13 +36,9 @@ export class Account extends DbModel.Class<Account>('voel/services/database/main
     upsert: AuthSession.fields.user.fields.email,
     update: AuthSession.fields.user.fields.email,
   }),
-  authStorageId: DbModel.Field({
-    select: Schema.String.pipe(
-      Schema.brand('voel/services/database/main/schema/Account/authStorageId')
-    ),
-    upsert: Schema.String,
-    update: Schema.String,
-  }),
+  authStorageId: Schema.String.pipe(
+    Schema.brand('voel/services/database/main/schema/Account/authStorageId')
+  ),
   role: DbModel.Field({
     select: AuthSession.fields.user.fields.role,
     upsert: AuthSession.fields.user.fields.role,

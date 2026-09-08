@@ -20,7 +20,7 @@ import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc'
 import { SqlError } from 'effect/unstable/sql';
 
 import { Api } from '@repo/spec-api';
-import { MediaType } from '@repo/spec-api/database/schema.ts';
+import { Library, MediaType } from '@repo/spec-api/database/schema.ts';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
@@ -75,7 +75,7 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
   const createLibrary = (libraryName: string) =>
     rpc.libraryUpsert({
       id: Option.none(),
-      name: libraryName,
+      name: Library.fields.name.make(libraryName),
       type: MediaType.fields.type.make('audiobook'),
       absolutePaths: [],
     });

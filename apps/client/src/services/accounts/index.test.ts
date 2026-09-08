@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { describe, expect, it } from '@effect/vitest';
+import { describe, expect, expectTypeOf, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
@@ -10,7 +10,11 @@ import {
   ActiveAccountKey,
 } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
-import { AuthClient, acquireAuthClient } from '#src/services/auth-client/index.ts';
+import {
+  AuthClient,
+  acquireAuthClient,
+  makeAuthStorageKey,
+} from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -57,6 +61,32 @@ const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClien
 });
 
 describe('AccountManager', () => {
+  it('preserves account identity brands across writes, storage keys, and errors', () => {
+    expectTypeOf<typeof Account.upsert.Type.authStorageId>().toEqualTypeOf<
+      Account['authStorageId']
+    >();
+    expectTypeOf<typeof Account.update.Type.authStorageId>().toEqualTypeOf<
+      Account['authStorageId']
+    >();
+    expectTypeOf<Parameters<typeof makeAuthStorageKey>[0]>().toEqualTypeOf<
+      Pick<Account, 'serverUrl' | 'authStorageId'>
+    >();
+    expectTypeOf<AccountNotFoundError['serverUrl']>().toEqualTypeOf<Account['serverUrl']>();
+    expectTypeOf<AccountNotFoundError['userId']>().toEqualTypeOf<Account['userId']>();
+    expectTypeOf<Account['userId']>().not.toExtend<Account['authStorageId']>();
+
+    const authStorageId = Schema.decodeSync(Account.upsert.fields.authStorageId)('storage-id');
+    expect(Schema.encodeSync(Account.update.fields.authStorageId)(authStorageId)).toBe(
+      'storage-id'
+    );
+    expect(
+      makeAuthStorageKey({
+        serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
+        authStorageId,
+      })
+    ).toBe('voel::auth::https://voel.example.com::storage-id');
+  });
+
   it.effect(
     'reuses auth clients by auth storage identity',
     Effect.fnUntraced(

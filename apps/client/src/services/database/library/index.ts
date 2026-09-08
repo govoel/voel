@@ -11,8 +11,6 @@ import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
 
-const syncUrl = (serverUrl: string) => new URL('/api/sync/library', serverUrl).toString();
-
 const retrySchedule = Schedule.exponential('1 second').pipe(
   Schedule.modifyDelay(({ duration }) =>
     Effect.succeed(Duration.min(duration, Duration.minutes(1)))
@@ -50,7 +48,7 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   return {
     // Auth storage identity is unique to each sign-in, including across servers.
     path: `${filenameSuffix}-${account.authStorageId}.db`,
-    url: syncUrl(account.serverUrl),
+    url: new URL('/api/sync/library', account.serverUrl).toString(),
     // Turso asks for credentials before every request, allowing Better Auth
     // to rotate or invalidate a session without rebuilding the replica.
     authToken: authToken(authentication),

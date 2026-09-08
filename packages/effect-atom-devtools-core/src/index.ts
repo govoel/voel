@@ -1,1 +1,1 @@
-export { makeWithPredefinedStates } from '#src/predefined-states.ts';
+export { PredefinedStateId, makeWithPredefinedStates } from '#src/predefined-states.ts';

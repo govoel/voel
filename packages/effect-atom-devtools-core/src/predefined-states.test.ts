@@ -3,6 +3,7 @@ import { Effect, Option } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import {
+  PredefinedStateId,
   PredefinedStatesTypeId,
   hasPredefinedStates,
   isInternalAtom,
@@ -30,7 +31,7 @@ describe('makeWithPredefinedStates', () => {
     const alternate = Atom.make(2);
     const atom = Atom.make(1).pipe(
       makeWithPredefinedStates({ enabled: true })(() => [
-        { id: 'alternate', label: 'Alternate', atom: alternate },
+        { id: PredefinedStateId.make('alternate'), label: 'Alternate', atom: alternate },
       ])
     );
     const writable: Atom.Writable<number, number> = atom;
@@ -46,7 +47,7 @@ describe('makeWithPredefinedStates', () => {
     let evaluations = 0;
     const atom = makeWithPredefinedStates({ enabled: true })(original, () => {
       evaluations += 1;
-      return [{ id: 'alternate', label: 'Alternate', atom: alternate }];
+      return [{ id: PredefinedStateId.make('alternate'), label: 'Alternate', atom: alternate }];
     });
 
     expect(Atom.isWritable(atom)).toBe(true);
@@ -102,7 +103,7 @@ describe('makeWithPredefinedStates', () => {
       },
     });
     const atom = makeWithPredefinedStates({ enabled: true })(Atom.make('normal'), () => [
-      { id: 'alternate', label: 'Alternate', atom: Atom.make('alternate') },
+      { id: PredefinedStateId.make('alternate'), label: 'Alternate', atom: Atom.make('alternate') },
     ]);
 
     expect(registry.get(atom)).toBe('normal');
@@ -137,8 +138,8 @@ describe('makeWithPredefinedStates', () => {
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make(Effect.succeed('original')),
       () => [
-        { id: 'one', label: 'One', atom: makeStateAtom('one') },
-        { id: 'two', label: 'Two', atom: makeStateAtom('two') },
+        { id: PredefinedStateId.make('one'), label: 'One', atom: makeStateAtom('one') },
+        { id: PredefinedStateId.make('two'), label: 'Two', atom: makeStateAtom('two') },
       ]
     );
 
@@ -187,11 +188,15 @@ const writableWithStringInput = Atom.writable(
 );
 const readOnlyNumber = Atom.make(() => 1);
 
-withPredefinedStates(writableNumber, () => [{ id: 'valid', label: 'Valid', atom: Atom.make(2) }]);
-withPredefinedStates(readOnlyNumber, () => [{ id: 'valid', label: 'Valid', atom: Atom.make(2) }]);
+withPredefinedStates(writableNumber, () => [
+  { id: PredefinedStateId.make('valid'), label: 'Valid', atom: Atom.make(2) },
+]);
+withPredefinedStates(readOnlyNumber, () => [
+  { id: PredefinedStateId.make('valid'), label: 'Valid', atom: Atom.make(2) },
+]);
 withPredefinedStates(writableWithStringInput, () => [
   {
-    id: 'valid',
+    id: PredefinedStateId.make('valid'),
     label: 'Valid',
     atom: Atom.writable(
       () => 2,
@@ -205,7 +210,7 @@ withPredefinedStates(writableWithStringInput, () => [
 
 const decoratedWritable = withPredefinedStates(writableWithStringInput, () => [
   {
-    id: 'valid',
+    id: PredefinedStateId.make('valid'),
     label: 'Valid',
     atom: Atom.writable(
       () => 2,
@@ -227,13 +232,13 @@ void stateAtom;
 
 withPredefinedStates(writableNumber, () => [
   // @ts-expect-error A writable decorated atom requires a writable state atom.
-  { id: 'invalid', label: 'Invalid', atom: readOnlyNumber },
+  { id: PredefinedStateId.make('invalid'), label: 'Invalid', atom: readOnlyNumber },
 ]);
 withPredefinedStates(readOnlyNumber, () => [
   // @ts-expect-error A state atom must have a compatible read type.
-  { id: 'invalid', label: 'Invalid', atom: Atom.make('wrong') },
+  { id: PredefinedStateId.make('invalid'), label: 'Invalid', atom: Atom.make('wrong') },
 ]);
 withPredefinedStates(writableWithStringInput, () => [
   // @ts-expect-error A writable state atom must accept the decorated atom's write input.
-  { id: 'invalid', label: 'Invalid', atom: Atom.make(2) },
+  { id: PredefinedStateId.make('invalid'), label: 'Invalid', atom: Atom.make(2) },
 ]);

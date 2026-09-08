@@ -1,6 +1,8 @@
 import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { useAppForm } from '#src/components/form';
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
@@ -34,17 +36,17 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
   ),
   withPredefinedStates(() => [
     {
-      id: 'loading',
+      id: PredefinedStateId.make('loading'),
       label: 'Loading',
       atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
-      id: 'no-active-user',
+      id: PredefinedStateId.make('no-active-user'),
       label: 'No active user',
       atom: Atom.make(() => AsyncResult.success(Option.none())),
     },
     {
-      id: 'loaded',
+      id: PredefinedStateId.make('loaded'),
       label: 'Loaded profile',
       atom: Atom.make(() =>
         AsyncResult.success(

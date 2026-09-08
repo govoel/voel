@@ -1,6 +1,8 @@
 import { Data, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { accountsAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
@@ -51,24 +53,24 @@ export const accountsSheetAtom = AppRuntime.atom(
 ).pipe(
   withPredefinedStates(() => [
     {
-      id: 'idle',
+      id: PredefinedStateId.make('idle'),
       label: 'Idle',
       atom: Atom.make(() => AsyncResult.success(AccountsSheet.Idle({ dismissable: true }))),
     },
     {
-      id: 'onboarding',
+      id: PredefinedStateId.make('onboarding'),
       label: 'Onboarding',
       atom: Atom.make(() => AsyncResult.success(AccountsSheet.Onboarding({ dismissable: false }))),
     },
     {
-      id: 'must-pick-account',
+      id: PredefinedStateId.make('must-pick-account'),
       label: 'Must pick an account',
       atom: Atom.make(() =>
         AsyncResult.success(AccountsSheet.MustPickAccount({ dismissable: false }))
       ),
     },
     {
-      id: 'invalid-session',
+      id: PredefinedStateId.make('invalid-session'),
       label: 'Invalid session',
       atom: Atom.make(() =>
         AsyncResult.success(AccountsSheet.InvalidSession({ dismissable: true }))

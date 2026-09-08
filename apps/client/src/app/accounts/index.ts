@@ -2,6 +2,8 @@ import { useAtom } from '@effect/atom-react';
 import { Cause, Effect, Exit, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { useAppForm } from '#src/components/form';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
@@ -73,17 +75,17 @@ export const accountsWithActiveAccount = AppRuntime.atom(
 ).pipe(
   withPredefinedStates(() => [
     {
-      id: 'loading',
+      id: PredefinedStateId.make('loading'),
       label: 'Loading',
       atom: Atom.make(() => AsyncResult.initial(true)),
     },
     {
-      id: 'empty',
+      id: PredefinedStateId.make('empty'),
       label: 'No accounts',
       atom: Atom.make(() => AsyncResult.success({ accounts: [], activeAccount: Option.none() })),
     },
     {
-      id: 'failure',
+      id: PredefinedStateId.make('failure'),
       label: 'Failed to load accounts',
       atom: Atom.make(() =>
         AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts screen failure')))

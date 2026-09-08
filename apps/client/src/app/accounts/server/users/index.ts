@@ -1,6 +1,8 @@
 import { Effect, Option, Schema, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms';
 import { NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
@@ -56,7 +58,7 @@ export const listUsersAtom = AppRuntime.pull(
 
     return [
       {
-        id: 'loading',
+        id: PredefinedStateId.make('loading'),
         label: 'Loading',
         atom: Atom.writable(
           (): Atom.PullResult<ServerUser> => AsyncResult.initial(true),
@@ -64,7 +66,7 @@ export const listUsersAtom = AppRuntime.pull(
         ),
       },
       {
-        id: 'paginated',
+        id: PredefinedStateId.make('paginated'),
         label: 'Page available',
         description: 'Starts with one user and adds another when more users are requested.',
         atom: Atom.writable(
@@ -75,7 +77,7 @@ export const listUsersAtom = AppRuntime.pull(
         ),
       },
       {
-        id: 'loaded',
+        id: PredefinedStateId.make('loaded'),
         label: 'All users loaded',
         atom: Atom.writable(
           (): Atom.PullResult<ServerUser> =>
@@ -84,7 +86,7 @@ export const listUsersAtom = AppRuntime.pull(
         ),
       },
       {
-        id: 'failure',
+        id: PredefinedStateId.make('failure'),
         label: 'No active account error',
         atom: Atom.writable(
           (): Atom.PullResult<ServerUser, NoActiveAccountError> =>

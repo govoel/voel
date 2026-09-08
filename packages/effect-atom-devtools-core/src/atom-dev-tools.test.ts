@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { describe, expect, it } from '@effect/vitest';
+import { describe, expect, expectTypeOf, it } from '@effect/vitest';
 import { Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
@@ -10,7 +10,8 @@ import {
   PredefinedStateNotFound,
 } from '#src/atom-dev-tools.ts';
 import type { AtomId as AtomIdType, AtomSummary } from '#src/atom-dev-tools.ts';
-import { makeWithPredefinedStates } from '#src/predefined-states.ts';
+import { PredefinedStateId, makeWithPredefinedStates } from '#src/predefined-states.ts';
+import { ActivatePredefinedStateInput } from '#src/rpc.ts';
 
 const runWithService = async <A, E>(
   registry: AtomRegistry.AtomRegistry,
@@ -183,7 +184,7 @@ describe('AtomDevTools', () => {
     const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('normal').pipe(Atom.withLabel('Scenario'), Atom.keepAlive),
-      () => [{ id: 'empty', label: 'Empty', atom: Atom.make('empty') }]
+      () => [{ id: PredefinedStateId.make('empty'), label: 'Empty', atom: Atom.make('empty') }]
     );
     registry.get(atom);
 
@@ -196,10 +197,29 @@ describe('AtomDevTools', () => {
         expect(catalog[0]?.name).toBe('Scenario');
         const atomId = firstAtomId(catalog);
 
-        yield* service.activatePredefinedState(atomId, 'empty');
+        const command = yield* Schema.decodeEffect(ActivatePredefinedStateInput)({
+          atomId,
+          stateId: 'empty',
+        });
+        expectTypeOf(command.stateId).toEqualTypeOf<PredefinedStateId>();
+        expectTypeOf<
+          Parameters<typeof service.activatePredefinedState>[1]
+        >().toEqualTypeOf<PredefinedStateId>();
+        expectTypeOf<AtomId>().not.toExtend<PredefinedStateId>();
+        expectTypeOf<string>().not.toExtend<PredefinedStateId>();
+        expect(yield* Schema.encodeEffect(ActivatePredefinedStateInput)(command)).toEqual({
+          atomId,
+          stateId: 'empty',
+        });
+
+        yield* service.activatePredefinedState(command.atomId, command.stateId);
         expect(registry.get(atom)).toBe('empty');
         expect((yield* firstCatalog(service))[0]?.hasActivePredefinedState).toBe(true);
         const active = yield* firstSnapshot(service, atomId);
+        expectTypeOf(active.activePredefinedStateId).toEqualTypeOf<
+          Option.Option<PredefinedStateId>
+        >();
+        expectTypeOf<PredefinedStateNotFound['stateId']>().toEqualTypeOf<PredefinedStateId>();
         expect(active.value).toBe('empty');
         expect(active.activePredefinedStateId).toEqual(Option.some('empty'));
         expect(active.dependencies).toEqual([]);
@@ -233,7 +253,7 @@ describe('AtomDevTools', () => {
         expect(missingAtom).toBeInstanceOf(AtomNotFound);
 
         const missingState = yield* service
-          .activatePredefinedState(atomId, 'missing')
+          .activatePredefinedState(atomId, PredefinedStateId.make('missing'))
           .pipe(Effect.flip);
         expect(missingState).toBeInstanceOf(PredefinedStateNotFound);
       })
@@ -260,7 +280,7 @@ describe('AtomDevTools', () => {
     const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('same').pipe(Atom.withLabel('Equal state'), Atom.keepAlive),
-      () => [{ id: 'equal', label: 'Equal', atom: Atom.make('same') }]
+      () => [{ id: PredefinedStateId.make('equal'), label: 'Equal', atom: Atom.make('same') }]
     );
     registry.get(atom);
 
@@ -272,7 +292,7 @@ describe('AtomDevTools', () => {
         const atomId = firstAtomId(catalog);
         const initialObserved = yield* Latch.make();
         const stateObserved = yield* Latch.make();
-        const snapshots: Array<Option.Option<string>> = [];
+        const snapshots: Array<Option.Option<PredefinedStateId>> = [];
         const snapshotsFiber = yield* service.watch(atomId).pipe(
           Stream.tap(({ activePredefinedStateId }) =>
             Effect.sync(() => {
@@ -289,7 +309,7 @@ describe('AtomDevTools', () => {
         );
 
         yield* initialObserved.await;
-        yield* service.activatePredefinedState(atomId, 'equal');
+        yield* service.activatePredefinedState(atomId, PredefinedStateId.make('equal'));
         yield* stateObserved.await;
         expect(snapshots).toEqual([Option.none(), Option.some('equal')]);
         yield* Fiber.interrupt(snapshotsFiber);
@@ -301,7 +321,7 @@ describe('AtomDevTools', () => {
     const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('same').pipe(Atom.withLabel('Shared watch'), Atom.keepAlive),
-      () => [{ id: 'equal', label: 'Equal', atom: Atom.make('same') }]
+      () => [{ id: PredefinedStateId.make('equal'), label: 'Equal', atom: Atom.make('same') }]
     );
     registry.get(atom);
 
@@ -323,7 +343,7 @@ describe('AtomDevTools', () => {
         const secondFiber = yield* collect(secondReady);
 
         yield* Effect.all([firstReady.await, secondReady.await]);
-        yield* service.activatePredefinedState(atomId, 'equal');
+        yield* service.activatePredefinedState(atomId, PredefinedStateId.make('equal'));
 
         const [first, second] = yield* Effect.all([
           Fiber.join(firstFiber),
