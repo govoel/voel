@@ -20,13 +20,8 @@ import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import type { Account } from '#src/services/database/main/schema.ts';
 
-export const makeAuthStorageKey = ({
-  serverUrl,
-  authStorageId,
-}: {
-  readonly serverUrl: string;
-  readonly authStorageId: string;
-}) => `voel::auth::${serverUrl}::${authStorageId}`;
+export const makeAuthStorageKey = ({ serverUrl, authStorageId }: AuthClientKey) =>
+  `voel::auth::${serverUrl}::${authStorageId}`;
 
 export type AuthClientKey = Pick<Account, 'serverUrl' | 'authStorageId'>;
 

@@ -30,6 +30,7 @@ import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+import type { Account } from '#src/services/database/main/schema.ts';
 
 const StackNavigationRow = ({
   index,
@@ -61,11 +62,7 @@ const RemoveAccountForm = ({
   account,
   onDismiss,
 }: {
-  readonly account: {
-    readonly serverUrl: string;
-    readonly userId: string;
-    readonly username: string;
-  };
+  readonly account: Pick<Account, 'serverUrl' | 'userId' | 'username'>;
   readonly onDismiss: () => void;
 }) => {
   const colors = useMaterialColors({ seedColor: '#00AAFF' });

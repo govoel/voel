@@ -62,7 +62,7 @@ it.layer(makeTestLayer())('library authorization', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make('movie'),
-          name: 'Unauthorized Library',
+          name: Library.fields.name.make('Unauthorized Library'),
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flip);
@@ -87,7 +87,7 @@ it.layer(makeTestLayer())('library authorization', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make('movie'),
-          name: `${role} Unauthorized Library`,
+          name: Library.fields.name.make(`${role} Unauthorized Library`),
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flip);
@@ -136,13 +136,13 @@ it.layer(makeTestLayer())('library authorization', (iit) => {
       const marker = yield* adminClient.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: `${role} Read Marker Library`,
+        name: Library.fields.name.make(`${role} Read Marker Library`),
         absolutePaths: makeAbsolutePaths([]),
       });
       const library = yield* adminClient.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('show'),
-        name: `${role} Read Library`,
+        name: Library.fields.name.make(`${role} Read Library`),
         absolutePaths: makeAbsolutePaths([`/show/${role}-read`]),
       });
       const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
@@ -177,19 +177,19 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'List Movie Library',
+        name: Library.fields.name.make('List Movie Library'),
         absolutePaths: makeAbsolutePaths(['/movie/list-path']),
       });
       const result2 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('show'),
-        name: 'List Show Library',
+        name: Library.fields.name.make('List Show Library'),
         absolutePaths: makeAbsolutePaths(['/show/list-path-1', '/show/list-path-2']),
       });
       const result3 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('audiobook'),
-        name: 'List Audiobook Library',
+        name: Library.fields.name.make('List Audiobook Library'),
         absolutePaths: makeAbsolutePaths([]),
       });
 
@@ -227,14 +227,14 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'List Active Path Library',
+        name: Library.fields.name.make('List Active Path Library'),
         absolutePaths: makeAbsolutePaths(['/movie/list-active-path-old']),
       });
 
       yield* client.libraryUpsert({
         id: Option.some(result1.id),
         type: MediaType.fields.type.make('movie'),
-        name: 'List Active Path Library',
+        name: Library.fields.name.make('List Active Path Library'),
         absolutePaths: makeAbsolutePaths(['/movie/list-active-path-new']),
       });
 
@@ -259,31 +259,31 @@ it.layer(makeTestLayer())('library', (iit) => {
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'Page Cursor Marker Library',
+        name: Library.fields.name.make('Page Cursor Marker Library'),
         absolutePaths: makeAbsolutePaths([]),
       });
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'Page Movie Library',
+        name: Library.fields.name.make('Page Movie Library'),
         absolutePaths: makeAbsolutePaths(['/movie/page-path']),
       });
       const result2 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('show'),
-        name: 'Page Show Library',
+        name: Library.fields.name.make('Page Show Library'),
         absolutePaths: makeAbsolutePaths(['/show/page-path']),
       });
       const result3 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('audiobook'),
-        name: 'Page Audiobook Library',
+        name: Library.fields.name.make('Page Audiobook Library'),
         absolutePaths: makeAbsolutePaths(['/audiobook/page-path']),
       });
       const result4 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'Page Extra Movie Library',
+        name: Library.fields.name.make('Page Extra Movie Library'),
         absolutePaths: makeAbsolutePaths([]),
       });
 
@@ -352,7 +352,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'Empty Page Movie Library',
+        name: Library.fields.name.make('Empty Page Movie Library'),
         absolutePaths: makeAbsolutePaths([]),
       });
 
@@ -375,19 +375,19 @@ it.layer(makeTestLayer())('library', (iit) => {
       const marker = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'Large Page Cursor Marker Library',
+        name: Library.fields.name.make('Large Page Cursor Marker Library'),
         absolutePaths: makeAbsolutePaths([]),
       });
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'Large Page Movie Library',
+        name: Library.fields.name.make('Large Page Movie Library'),
         absolutePaths: makeAbsolutePaths(['/movie/large-page-path']),
       });
       const result2 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('audiobook'),
-        name: 'Large Page Audiobook Library',
+        name: Library.fields.name.make('Large Page Audiobook Library'),
         absolutePaths: makeAbsolutePaths([]),
       });
 
@@ -424,7 +424,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type}`,
+          name: Library.fields.name.make(`My ${type}`),
           absolutePaths: makeAbsolutePaths([`/${type}/path`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -447,7 +447,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} None`,
+          name: Library.fields.name.make(`My ${type} None`),
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -470,7 +470,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Multi`,
+          name: Library.fields.name.make(`My ${type} Multi`),
           absolutePaths: makeAbsolutePaths([`/${type}/path1`, `/${type}/path2`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -495,7 +495,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make('movie'),
-          name: 'Relative Path Library',
+          name: Library.fields.name.make('Relative Path Library'),
           absolutePaths: makeAbsolutePaths([
             '/valid/path',
             'relative/path',
@@ -521,7 +521,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make(type),
-        name: `My ${type} Delete`,
+        name: Library.fields.name.make(`My ${type} Delete`),
         absolutePaths: makeAbsolutePaths([`/${type}/path-delete`]),
       });
 
@@ -531,7 +531,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Delete`,
+          name: Library.fields.name.make(`My ${type} Delete`),
           absolutePaths: makeAbsolutePaths([`/${type}/path-delete`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -553,7 +553,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make(type),
-        name: `My ${type} Restore By Id`,
+        name: Library.fields.name.make(`My ${type} Restore By Id`),
         absolutePaths: makeAbsolutePaths([`/${type}/path-restore-by-id`]),
       });
 
@@ -566,7 +566,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.some(result1.id),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Restored By Id`,
+          name: Library.fields.name.make(`My ${type} Restored By Id`),
           absolutePaths: makeAbsolutePaths([`/${type}/path-restore-by-id`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -591,7 +591,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Paths`,
+          name: Library.fields.name.make(`My ${type} Paths`),
           absolutePaths: makeAbsolutePaths([`/${type}/path-old`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -601,7 +601,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Paths`,
+          name: Library.fields.name.make(`My ${type} Paths`),
           absolutePaths: makeAbsolutePaths([`/${type}/path-new`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -612,7 +612,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.some(result1.id),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Path Delete`,
+          name: Library.fields.name.make(`My ${type} Path Delete`),
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -635,7 +635,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Duplicate Paths`,
+          name: Library.fields.name.make(`My ${type} Duplicate Paths`),
           absolutePaths: makeAbsolutePaths([`/${type}/duplicate-path`, `/${type}/duplicate-path`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -656,7 +656,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make(type),
-        name: `My ${type} Restore Path`,
+        name: Library.fields.name.make(`My ${type} Restore Path`),
         absolutePaths: makeAbsolutePaths([`/${type}/restore-path`]),
       });
 
@@ -664,7 +664,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.some(result1.id),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Restore Path`,
+          name: Library.fields.name.make(`My ${type} Restore Path`),
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -676,7 +676,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.some(result1.id),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Restore Path`,
+          name: Library.fields.name.make(`My ${type} Restore Path`),
           absolutePaths: makeAbsolutePaths([`/${type}/restore-path`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -697,7 +697,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} Old Name`,
+          name: Library.fields.name.make(`My ${type} Old Name`),
           absolutePaths: makeAbsolutePaths([`/${type}/path-name`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -708,7 +708,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.some(result1.id),
           type: MediaType.fields.type.make(type),
-          name: `My ${type} New Name`,
+          name: Library.fields.name.make(`My ${type} New Name`),
           absolutePaths: makeAbsolutePaths([`/${type}/path-name`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -730,7 +730,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make(type),
-        name: `My ${type} Type`,
+        name: Library.fields.name.make(`My ${type} Type`),
         absolutePaths: makeAbsolutePaths([`/${type}/path-type`]),
       });
 
@@ -741,7 +741,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.none(),
           type: differentType,
-          name: `My ${type} Type`,
+          name: Library.fields.name.make(`My ${type} Type`),
           absolutePaths: makeAbsolutePaths([`/${type}/path-type`]),
         })
         .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
@@ -777,7 +777,7 @@ it.layer(makeTestLayer())('library', (iit) => {
       const result1 = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: `Deleted Library`,
+        name: Library.fields.name.make(`Deleted Library`),
         absolutePaths: makeAbsolutePaths([]),
       });
 
@@ -812,7 +812,7 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.some(id),
           type: MediaType.fields.type.make('movie'),
-          name: 'Ghost Library',
+          name: Library.fields.name.make('Ghost Library'),
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flip);
@@ -831,13 +831,13 @@ it.layer(makeTestLayer())('library', (iit) => {
       const existingLibrary = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('movie'),
-        name: 'Existing Name Library',
+        name: Library.fields.name.make('Existing Name Library'),
         absolutePaths: makeAbsolutePaths(['/movie/existing-name']),
       });
       const library = yield* client.libraryUpsert({
         id: Option.none(),
         type: MediaType.fields.type.make('show'),
-        name: 'Rename Collision Library',
+        name: Library.fields.name.make('Rename Collision Library'),
         absolutePaths: makeAbsolutePaths([]),
       });
 
@@ -845,12 +845,14 @@ it.layer(makeTestLayer())('library', (iit) => {
         .libraryUpsert({
           id: Option.some(library.id),
           type: MediaType.fields.type.make('show'),
-          name: 'Existing Name Library',
+          name: Library.fields.name.make('Existing Name Library'),
           absolutePaths: makeAbsolutePaths([]),
         })
         .pipe(Effect.flip);
 
-      expect(result).toEqual(LibraryNameConflictError.make({ name: 'Existing Name Library' }));
+      expect(result).toEqual(
+        LibraryNameConflictError.make({ name: Library.fields.name.make('Existing Name Library') })
+      );
 
       expect(yield* client.libraryGet({ id: existingLibrary.id })).toEqual({
         id: existingLibrary.id,

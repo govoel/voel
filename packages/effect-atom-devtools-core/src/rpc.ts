@@ -8,6 +8,7 @@ import {
   AtomSummary,
   PredefinedStateNotFound,
 } from '#src/atom-dev-tools.ts';
+import { PredefinedStateId } from '#src/predefined-states.ts';
 
 export class AtomDevToolsAtomInput extends Schema.Struct({
   atomId: AtomId,
@@ -16,7 +17,7 @@ export class AtomDevToolsAtomInput extends Schema.Struct({
 }
 
 export class ActivatePredefinedStateInput extends AtomDevToolsAtomInput.pipe(
-  Schema.fieldsAssign({ stateId: Schema.String })
+  Schema.fieldsAssign({ stateId: PredefinedStateId })
 ) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }

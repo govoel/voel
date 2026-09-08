@@ -14,6 +14,7 @@ import {
 import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
 
 import {
+  PredefinedStateId,
   PredefinedStatesTypeId,
   hasPredefinedStates,
   isInternalAtom,
@@ -52,12 +53,12 @@ export class AtomSnapshot extends AtomSummary.pipe(
     dependents: Schema.Array(AtomLink),
     predefinedStates: Schema.Array(
       Schema.Struct({
-        id: Schema.String,
+        id: PredefinedStateId,
         label: Schema.String,
         description: Schema.optional(Schema.String),
       })
     ),
-    activePredefinedStateId: Schema.Option(Schema.String),
+    activePredefinedStateId: Schema.Option(PredefinedStateId),
   })
 ) {}
 
@@ -75,7 +76,7 @@ export class PredefinedStateNotFound extends Schema.TaggedError<
   'PredefinedStateNotFound',
   {
     atomId: AtomId,
-    stateId: Schema.String,
+    stateId: PredefinedStateId,
   }
 ) {}
 
@@ -87,7 +88,7 @@ interface TrackedNode {
 
 interface NodeObservation {
   readonly value: unknown;
-  readonly activePredefinedStateId: Option.Option<string>;
+  readonly activePredefinedStateId: Option.Option<PredefinedStateId>;
 }
 
 export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsIdentifier, {
@@ -320,7 +321,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsId
         ),
       activatePredefinedState: Effect.fnUntraced(function* (
         targetId: AtomId,
-        stateId: string
+        stateId: PredefinedStateId
       ): Effect.fn.Return<void, AtomNotFound | PredefinedStateNotFound> {
         const {
           node: { atom },

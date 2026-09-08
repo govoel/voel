@@ -38,6 +38,7 @@ import {
 import { Text } from '#src/components/text';
 import { iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
+import type { Account } from '#src/services/database/main/schema.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => (
   <Button
@@ -74,11 +75,7 @@ const RemoveAccountForm = ({
   account,
   onDismiss,
 }: {
-  readonly account: {
-    readonly serverUrl: string;
-    readonly userId: string;
-    readonly username: string;
-  };
+  readonly account: Pick<Account, 'serverUrl' | 'userId' | 'username'>;
   readonly onDismiss: () => void;
 }) => {
   const form = useRemoveAccountForm({

@@ -277,6 +277,8 @@ export class AudiobookContributorMap extends DbModel.Class<AudiobookContributorM
   ...Timestamped.fullFields,
 }) {}
 
+const LibraryName = Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Library/name'));
+
 export class Library extends DbModel.Class<Library>('@repo/spec-api/database/schema/Library')({
   id: DbModel.Field({
     select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id')),
@@ -295,10 +297,10 @@ export class Library extends DbModel.Class<Library>('@repo/spec-api/database/sch
     jsonUpsert: MediaType.fields.type,
   }),
   name: DbModel.Field({
-    select: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Library/name')),
-    upsert: Schema.String,
-    json: Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Library/name')),
-    jsonUpsert: Schema.String,
+    select: LibraryName,
+    upsert: LibraryName,
+    json: LibraryName,
+    jsonUpsert: LibraryName,
   }),
   ...Timestamped.fullFields,
 }) {}
