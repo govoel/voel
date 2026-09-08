@@ -13,6 +13,20 @@ import {
 
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
 
+class LibraryRow extends Schema.Struct({
+  id: Library.fields.id,
+  type: Library.fields.type,
+  name: Library.fields.name,
+  absolutePaths: Schema.fromJsonString(
+    Schema.Array(
+      Schema.Struct({
+        id: LibraryPath.fields.id,
+        absolutePath: Schema.toType(LibraryPath.fields.absolutePath),
+      })
+    )
+  ),
+}) {}
+
 export class LibraryPathRepository extends Context.Service<LibraryPathRepository>()(
   '@repo/server/groups/library/LibraryPathRepository',
   {
@@ -112,19 +126,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
       return {
         getById: SqlSchema.findOne({
           Request: Schema.Struct({ id: Library.fields.id }),
-          Result: Schema.Struct({
-            id: Library.fields.id,
-            type: Library.fields.type,
-            name: Library.fields.name,
-            absolutePaths: Schema.fromJsonString(
-              Schema.Array(
-                Schema.Struct({
-                  id: LibraryPath.fields.id,
-                  absolutePath: Schema.toType(LibraryPath.fields.absolutePath),
-                })
-              )
-            ),
-          }),
+          Result: LibraryRow,
           execute: ({ id }) => sql`
             select
               ${librarySelection}
@@ -141,19 +143,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             cursor: Schema.Option(Library.fields.id),
             limit: Schema.Natural,
           }),
-          Result: Schema.Struct({
-            id: Library.fields.id,
-            type: Library.fields.type,
-            name: Library.fields.name,
-            absolutePaths: Schema.fromJsonString(
-              Schema.Array(
-                Schema.Struct({
-                  id: LibraryPath.fields.id,
-                  absolutePath: Schema.toType(LibraryPath.fields.absolutePath),
-                })
-              )
-            ),
-          }),
+          Result: LibraryRow,
           execute: ({ cursor, limit }) => {
             const afterCursor = Option.match(cursor, {
               onNone: () => sql.literal(''),

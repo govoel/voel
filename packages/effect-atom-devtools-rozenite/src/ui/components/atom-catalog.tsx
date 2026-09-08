@@ -8,7 +8,7 @@ import type { AtomSummary } from '@repo/effect-atom-devtools-core/atom-dev-tools
 import { atomCatalogAtom, selectedAtomIdAtom } from '#src/ui/atoms.ts';
 import { ErrorState, LoadingState } from '#src/ui/components/async-states.tsx';
 
-const AtomSidebar = ({ catalog }: { readonly catalog: ReadonlyArray<AtomSummary> }) => {
+const AtomSidebar = ({ catalog }: { readonly catalog: ReadonlyArray<typeof AtomSummary.Type> }) => {
   const [selectedAtomId, setSelectedAtomId] = useAtom(selectedAtomIdAtom);
 
   return (

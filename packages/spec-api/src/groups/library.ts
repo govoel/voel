@@ -26,35 +26,27 @@ export class LibraryInvalidPathError extends Schema.TaggedError<
   paths: Schema.NonEmptyArray(LibraryPath.jsonUpsert.fields.absolutePath),
 }) {}
 
+class LibraryResponse extends Schema.Struct({
+  id: Library.json.fields.id,
+  type: Library.json.fields.type,
+  name: Library.json.fields.name,
+  absolutePaths: Schema.Array(
+    Schema.Struct({
+      id: LibraryPath.json.fields.id,
+      absolutePath: LibraryPath.json.fields.absolutePath,
+    })
+  ),
+}) {}
+
 export const LibraryRpcs = RpcGroup.make(
   makeCursorPaginated('libraryList', {
     cursor: Library.json.fields.id,
-    success: Schema.Struct({
-      id: Library.json.fields.id,
-      type: Library.json.fields.type,
-      name: Library.json.fields.name,
-      absolutePaths: Schema.Array(
-        Schema.Struct({
-          id: LibraryPath.json.fields.id,
-          absolutePath: LibraryPath.json.fields.absolutePath,
-        })
-      ),
-    }),
+    success: LibraryResponse,
   }),
 
   Rpc.make('libraryGet', {
     payload: Schema.Struct({ id: Library.json.fields.id }),
-    success: Schema.Struct({
-      id: Library.json.fields.id,
-      type: Library.json.fields.type,
-      name: Library.json.fields.name,
-      absolutePaths: Schema.Array(
-        Schema.Struct({
-          id: LibraryPath.json.fields.id,
-          absolutePath: LibraryPath.json.fields.absolutePath,
-        })
-      ),
-    }),
+    success: LibraryResponse,
     error: LibraryNotFoundError,
   }),
 

@@ -28,44 +28,38 @@ export const AtomId = Schema.String.pipe(
 );
 export type AtomId = typeof AtomId.Type;
 
-export class AtomSummary extends Schema.Class<AtomSummary, { readonly brand: unique symbol }>(
-  '@repo/effect-atom-devtools-core/atom-dev-tools/AtomSummary'
-)({
+export class AtomSummary extends Schema.Struct({
   id: AtomId,
   name: Schema.String,
   writable: Schema.Boolean,
   hasActivePredefinedState: Schema.Boolean,
 }) {}
 
-class AtomLink extends Schema.Class<AtomLink, { readonly brand: unique symbol }>(
-  '@repo/effect-atom-devtools-core/atom-dev-tools/AtomLink'
-)({
+class AtomLink extends Schema.Struct({
   id: AtomId,
   name: Schema.String,
 }) {}
 
-export class AtomSnapshot extends AtomSummary.extend<
-  AtomSnapshot,
-  Record<never, never>,
-  { readonly atomSnapshotBrand: unique symbol }
->('@repo/effect-atom-devtools-core/atom-dev-tools/AtomSnapshot')({
-  value: Schema.String,
-  source: Schema.optional(Schema.String),
-  keepAlive: Schema.Boolean,
-  lazy: Schema.Boolean,
-  idleTTL: Schema.optional(Schema.Finite),
-  subscriberCount: Schema.Finite,
-  dependencies: Schema.Array(AtomLink),
-  dependents: Schema.Array(AtomLink),
-  predefinedStates: Schema.Array(
-    Schema.Struct({
-      id: Schema.String,
-      label: Schema.String,
-      description: Schema.optional(Schema.String),
-    })
-  ),
-  activePredefinedStateId: Schema.Option(Schema.String),
-}) {}
+export class AtomSnapshot extends AtomSummary.pipe(
+  Schema.fieldsAssign({
+    value: Schema.String,
+    source: Schema.optional(Schema.String),
+    keepAlive: Schema.Boolean,
+    lazy: Schema.Boolean,
+    idleTTL: Schema.optional(Schema.Finite),
+    subscriberCount: Schema.Finite,
+    dependencies: Schema.Array(AtomLink),
+    dependents: Schema.Array(AtomLink),
+    predefinedStates: Schema.Array(
+      Schema.Struct({
+        id: Schema.String,
+        label: Schema.String,
+        description: Schema.optional(Schema.String),
+      })
+    ),
+    activePredefinedStateId: Schema.Option(Schema.String),
+  })
+) {}
 
 export class AtomNotFound extends Schema.TaggedError<
   AtomNotFound,
@@ -100,7 +94,9 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsId
   make: Effect.gen(function* () {
     const registry = yield* AtomRegistry.AtomRegistry;
 
-    const catalogPubSub = yield* PubSub.unbounded<ReadonlyArray<AtomSummary>>({ replay: 1 });
+    const catalogPubSub = yield* PubSub.unbounded<ReadonlyArray<typeof AtomSummary.Type>>({
+      replay: 1,
+    });
     const trackedNodesById = new Map<AtomId, TrackedNode>();
     const runtimeIdsByAtom = new WeakMap<Atom.Atom<unknown>, AtomId>();
 
@@ -288,7 +284,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsId
         Stream.unwrap(
           getTrackedNode(id).pipe(
             Effect.map((tracked) =>
-              Stream.callback<AtomSnapshot, AtomNotFound>((queue) =>
+              Stream.callback<typeof AtomSnapshot.Type, AtomNotFound>((queue) =>
                 Effect.acquireRelease(
                   Effect.sync(() => {
                     let watched = tracked;

@@ -27,16 +27,16 @@ const runWithService = async <A, E>(
 
 const firstCatalog = (
   service: AtomDevTools['Service']
-): Effect.Effect<ReadonlyArray<AtomSummary>> =>
+): Effect.Effect<ReadonlyArray<typeof AtomSummary.Type>> =>
   service.catalog.pipe(
     Stream.runHead,
-    Effect.map(Option.getOrElse((): ReadonlyArray<AtomSummary> => []))
+    Effect.map(Option.getOrElse((): ReadonlyArray<typeof AtomSummary.Type> => []))
   );
 
-const findAtomId = (catalog: ReadonlyArray<AtomSummary>, name: string): AtomIdType =>
+const findAtomId = (catalog: ReadonlyArray<typeof AtomSummary.Type>, name: string): AtomIdType =>
   Option.getOrThrow(Option.fromNullishOr(catalog.find((summary) => summary.name === name))).id;
 
-const firstAtomId = (catalog: ReadonlyArray<AtomSummary>): AtomIdType =>
+const firstAtomId = (catalog: ReadonlyArray<typeof AtomSummary.Type>): AtomIdType =>
   Option.getOrThrow(Option.fromNullishOr(catalog[0])).id;
 
 const firstSnapshot = (service: AtomDevTools['Service'], id: AtomIdType) =>

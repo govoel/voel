@@ -48,7 +48,7 @@ const MetadataRow = ({
   </div>
 );
 
-const PredefinedStatesSection = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
+const PredefinedStatesSection = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Type }) => {
   const [activateResult, activatePredefinedState] = useToastMutation(
     activatePredefinedStateMutation,
     {
@@ -109,7 +109,7 @@ const PredefinedStatesSection = ({ snapshot }: { readonly snapshot: AtomSnapshot
   );
 };
 
-const CurrentValueSection = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
+const CurrentValueSection = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Type }) => (
   <DetailSection title="Current value">
     <pre className="max-h-[24rem] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-xs leading-5 text-foreground">
       {snapshot.value}
@@ -122,7 +122,7 @@ const AtomLinksSection = ({
   links,
 }: {
   readonly title: string;
-  readonly links: AtomSnapshot['dependencies'];
+  readonly links: (typeof AtomSnapshot.Type)['dependencies'];
 }) => {
   const setSelectedAtomId = useAtomSet(selectedAtomIdAtom);
 
@@ -154,7 +154,11 @@ const AtomLinksSection = ({
   );
 };
 
-const AtomRelationshipsSection = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
+const AtomRelationshipsSection = ({
+  snapshot,
+}: {
+  readonly snapshot: typeof AtomSnapshot.Type;
+}) => (
   <div className="grid gap-4 xl:grid-cols-2">
     <AtomLinksSection
       title={`Dependencies (${snapshot.dependencies.length})`}
@@ -167,7 +171,7 @@ const AtomRelationshipsSection = ({ snapshot }: { readonly snapshot: AtomSnapsho
   </div>
 );
 
-const AtomMetadataSection = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
+const AtomMetadataSection = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Type }) => (
   <DetailSection title="Atom metadata">
     <dl>
       <MetadataRow label="Keep alive">
@@ -188,7 +192,7 @@ const AtomMetadataSection = ({ snapshot }: { readonly snapshot: AtomSnapshot }) 
   </DetailSection>
 );
 
-const AtomSourceSection = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => (
+const AtomSourceSection = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Type }) => (
   <DetailSection title="Source">
     {snapshot.source !== void 0 ? (
       <pre className="max-h-[36rem] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-xs leading-5 text-foreground">
@@ -202,7 +206,7 @@ const AtomSourceSection = ({ snapshot }: { readonly snapshot: AtomSnapshot }) =>
   </DetailSection>
 );
 
-const AtomSnapshotView = ({ snapshot }: { readonly snapshot: AtomSnapshot }) => {
+const AtomSnapshotView = ({ snapshot }: { readonly snapshot: typeof AtomSnapshot.Type }) => {
   const [clearStateResult, clearPredefinedState] = useToastMutation(clearPredefinedStateMutation, {
     id: 'clear-predefined-state-error',
     title: 'Unable to clear predefined state',

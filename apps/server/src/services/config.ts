@@ -1,9 +1,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { Config, ConfigProvider, Context, Effect, FileSystem, Layer, Schema } from 'effect';
 
-class ApiConfigSchema extends Schema.Class<ApiConfigSchema, { readonly brand: unique symbol }>(
-  '@repo/server/services/config/ApiConfigSchema'
-)({
+class ApiConfigSchema extends Schema.Struct({
   AUTH_SECRET: Schema.RedactedFromValue(Schema.String),
   PORT: Config.Port.pipe(Schema.withDecodingDefaultType(Effect.succeed(8080))),
   AUTH_DB_FILENAME: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed('auth.db'))),
