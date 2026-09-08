@@ -1,20 +1,19 @@
 import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
+import { AuthSignInInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
-import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: unique symbol }>(
   'voel/app/accounts/add/AddAccountInput'
 )({
   serverUrl: ServerUrl,
-  username: Account.fields.username.check(Schema.isNonEmpty({ message: 'Username is required' })),
-  password: AuthSignUpInput.fields.password.pipe(
+  username: AuthSignInInput.fields.username,
+  password: AuthSignInInput.fields.password.pipe(
     Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
       decode: SchemaGetter.transform((password) => Redacted.make(password)),
       encode: SchemaGetter.forbidden(() => 'Cannot encode password'),

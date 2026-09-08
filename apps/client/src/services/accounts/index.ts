@@ -193,9 +193,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
           serverUrl,
           username,
           password,
-        }: Pick<Account, 'serverUrl' | 'username'> & {
-          password: Redacted.Redacted;
-        }) {
+        }: Pick<Account, 'serverUrl'> &
+          Omit<Parameters<AuthClient['Service']['signIn']['username']>[0], 'password'> & {
+            password: Redacted.Redacted;
+          }) {
           const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
           const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
 
@@ -231,8 +232,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
           email,
           username,
           password,
-        }: Pick<Account, 'serverUrl' | 'username'> &
-          Pick<Parameters<AuthClient['Service']['signUp']['email']>[0], 'name' | 'email'> & {
+        }: Pick<Account, 'serverUrl'> &
+          Omit<Parameters<AuthClient['Service']['signUp']['email']>[0], 'password'> & {
             password: Redacted.Redacted;
           }) {
           const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);

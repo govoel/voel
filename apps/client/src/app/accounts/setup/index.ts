@@ -6,7 +6,6 @@ import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
 import { useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
-import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export class SetupServerAccountInput extends Schema.Class<
@@ -16,7 +15,7 @@ export class SetupServerAccountInput extends Schema.Class<
   serverUrl: ServerUrl,
   name: AuthSignUpInput.fields.name,
   email: AuthSignUpInput.fields.email,
-  username: Account.fields.username.check(Schema.isNonEmpty({ message: 'Username is required' })),
+  username: AuthSignUpInput.fields.username,
   password: AuthSignUpInput.fields.password.pipe(
     Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
       decode: SchemaGetter.transform((password) => Redacted.make(password)),

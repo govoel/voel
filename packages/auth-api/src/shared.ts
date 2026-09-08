@@ -144,10 +144,9 @@ export class AuthSignUpInput extends Schema.Struct({
   password: PasswordInput,
 }) {}
 
-export class AuthCreateUserInput extends Schema.Struct({
-  ...AuthSignUpInput.fields,
-  role: AuthUser.fields.role,
-}) {}
+export class AuthCreateUserInput extends AuthSignUpInput.pipe(
+  Schema.fieldsAssign({ role: AuthUser.fields.role })
+) {}
 
 export class AuthSetRoleInput extends Schema.Struct({
   userId: AuthUserId,
