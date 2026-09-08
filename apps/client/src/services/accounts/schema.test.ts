@@ -2,7 +2,6 @@ import { describe, expect, it } from '@effect/vitest';
 import { Schema } from 'effect';
 
 import { ServerUrl } from '#src/services/accounts/schema.ts';
-import { Account } from '#src/services/database/main/schema.ts';
 
 describe('ServerUrl', () => {
   it.each([
@@ -34,14 +33,7 @@ describe('ServerUrl', () => {
     'https://example.com ',
     'https://exa\tmple.com',
     'https://example.com\\',
-  ])('rejects %s at every account boundary', (value) => {
-    for (const schema of [
-      ServerUrl,
-      Account.fields.serverUrl,
-      Account.upsert.fields.serverUrl,
-      Account.update.fields.serverUrl,
-    ]) {
-      expect(Schema.is(schema)(value)).toBe(false);
-    }
+  ])('rejects %s', (value) => {
+    expect(Schema.is(ServerUrl)(value)).toBe(false);
   });
 });

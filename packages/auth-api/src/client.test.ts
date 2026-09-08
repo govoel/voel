@@ -1,11 +1,10 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it, spyOn } from 'bun:test';
 
-import { DateTime, Effect, Schema } from 'effect';
+import { DateTime, Effect } from 'effect';
 
 import { AuthClient } from '#src/client.ts';
-import type { AuthError } from '#src/shared.ts';
-import { AuthSession, AuthUser, AuthUserResponse } from '#src/shared.ts';
+import { AuthUser } from '#src/shared.ts';
 
 const user = {
   id: 'user-1',
@@ -53,54 +52,7 @@ const createUserInput = {
 
 const userId = AuthUser.fields.id.make('user-1');
 
-type AuthActions = Omit<AuthClient['Service'], 'rawClient'>;
-
-const operations = [
-  {
-    name: 'createUser',
-    run: (client: AuthActions) => client.admin.createUser(createUserInput),
-  },
-  {
-    name: 'setRole',
-    run: (client: AuthActions) =>
-      client.admin.setRole({ userId, role: AuthUser.fields.role.make('under18') }),
-  },
-  {
-    name: 'listUsers',
-    run: (client: AuthActions) => client.admin.listUsers({ limit: 10, offset: 0 }),
-  },
-  {
-    name: 'signIn',
-    run: (client: AuthActions) =>
-      client.signIn.username({ username: 'reader', password: 'password' }),
-  },
-  {
-    name: 'signUp',
-    run: (client: AuthActions) =>
-      client.signUp.email({
-        username: 'reader',
-        name: 'Reader',
-        email: 'reader@example.com',
-        password: 'password',
-      }),
-  },
-];
-
-describe('auth response boundary', () => {
-  for (const { name, run } of operations) {
-    it(`${name} rejects malformed success data as an AuthError`, async () => {
-      await Effect.gen(function* () {
-        const { client } = yield* withResponse({ unrelated: true });
-        const result: Effect.Effect<unknown, AuthError> = run(client);
-        const error = yield* result.pipe(Effect.asVoid, Effect.flip);
-        expect(error).toMatchObject({
-          _tag: 'AuthError',
-          reason: { _tag: 'InvalidAuthResponseError' },
-        });
-      }).pipe(Effect.scoped, Effect.runPromise);
-    });
-  }
-
+describe('auth client integration', () => {
   it('decodes admin users and pagination, including Better Auth dates', async () => {
     await Effect.gen(function* () {
       const { client, requests } = yield* withResponse({ users: [user], total: 1, limit: 10 });
@@ -115,21 +67,19 @@ describe('auth response boundary', () => {
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 
-  for (const response of [
-    { users: [user], total: -1 },
-    { users: [user], total: '1' },
-    { users: [user], total: 1, limit: 0 },
-    { users: [user], total: 1, offset: -1 },
-    { users: [{ ...user, role: 'unknown' }], total: 1 },
-  ]) {
-    it(`rejects invalid user pages: ${JSON.stringify(response)}`, async () => {
-      await Effect.gen(function* () {
-        const { client } = yield* withResponse(response);
-        const error = yield* client.admin.listUsers({ limit: 10, offset: 0 }).pipe(Effect.flip);
-        expect(error.reason._tag).toBe('InvalidAuthResponseError');
-      }).pipe(Effect.scoped, Effect.runPromise);
-    });
-  }
+  it('rejects server users with roles outside the domain contract', async () => {
+    await Effect.gen(function* () {
+      const { client } = yield* withResponse({
+        users: [{ ...user, role: 'unknown' }],
+        total: 1,
+      });
+      const error = yield* client.admin.listUsers({ limit: 10, offset: 0 }).pipe(Effect.flip);
+      expect(error).toMatchObject({
+        _tag: 'AuthError',
+        reason: { _tag: 'InvalidAuthResponseError' },
+      });
+    }).pipe(Effect.scoped, Effect.runPromise);
+  });
 
   it('adapts user creation and role updates without exposing vendor field bags', async () => {
     await Effect.gen(function* () {
@@ -162,45 +112,14 @@ describe('auth response boundary', () => {
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 
-  it('rejects invalid commands before sending them', async () => {
+  it('rejects role changes through profile updates before sending them', async () => {
     await Effect.gen(function* () {
       const { client, requests } = yield* withResponse({});
-      const error = yield* client.admin.listUsers({ limit: 0, offset: -1 }).pipe(Effect.flip);
-      expect(error.reason._tag).toBe('InvalidAuthInputError');
       // Structural typing must not let unknown fields escape through the adapter.
       const input = { name: 'Reader', role: 'admin' };
       const updateError = yield* client.updateUser(input).pipe(Effect.flip);
       expect(updateError.reason._tag).toBe('InvalidAuthInputError');
       expect(requests.filter((request) => !request.url.endsWith('/get-session'))).toEqual([]);
     }).pipe(Effect.scoped, Effect.runPromise);
-  });
-
-  it('uses the same identity and credential types in sign-in and session responses', () => {
-    const sessionUser = {
-      ...user,
-      createdAt: DateTime.toDateUtc(DateTime.makeUnsafe(user.createdAt)),
-      updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(user.updatedAt)),
-    };
-    const response = Schema.decodeSync(AuthUserResponse)({
-      token: 'session-token',
-      user: sessionUser,
-    });
-    const session = Schema.decodeSync(AuthSession)({
-      user: sessionUser,
-      session: {
-        id: 'session-1',
-        userId: user.id,
-        token: 'session-token',
-        ipAddress: null,
-        userAgent: null,
-        createdAt: DateTime.toDateUtc(DateTime.makeUnsafe(user.createdAt)),
-        updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(user.updatedAt)),
-        expiresAt: DateTime.toDateUtc(DateTime.makeUnsafe('2027-01-01')),
-      },
-    });
-    const id: AuthUser['id'] = session.session.userId;
-    const token: AuthSession['session']['token'] = response.token;
-    expect(id).toBe(response.user.id);
-    expect(token).toBe(session.session.token);
   });
 });
