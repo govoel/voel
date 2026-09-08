@@ -7,6 +7,13 @@
   "timezone": "America/Chicago",
   "schedule": ["at any time"],
   "labels": ["dependencies"],
+  "hostRules": [
+    {
+      "hostType": "npm",
+      "matchHost": "npm.pkg.github.com",
+      "token": "{{ secrets.GH_PACKAGES_TOKEN }}"
+    }
+  ],
   "packageRules": [
     {
       "groupName": "effect",
