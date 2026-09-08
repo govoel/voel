@@ -1,6 +1,7 @@
-import { Effect, Match, Option, Schema } from 'effect';
+import { Effect, Match, Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { useAppForm } from '#src/components/form';
@@ -12,13 +13,10 @@ import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
-export class UserProfileUpdateInput extends Schema.Class<
-  UserProfileUpdateInput,
-  { readonly brand: unique symbol }
->('voel/app/accounts/profile/UserProfileUpdateInput')({
-  name: Schema.String.check(Schema.isNonEmpty({ message: 'Name is required' })),
-  username: Schema.String.check(Schema.isNonEmpty({ message: 'Username is required' })),
-}) {}
+class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username }) => ({
+  name,
+  username,
+})) {}
 
 export const activeUserProfileAtom = activeAccountAtom.pipe(
   Atom.map((result) =>
@@ -102,6 +100,7 @@ export const useUserProfileForm = ({
                   authReason.message || 'Unable to update the profile. Try again.',
                 AuthTransportError: () =>
                   'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthInputError: () => 'Check the profile details and try again.',
                 InvalidAuthResponseError: () =>
                   'The server returned an invalid authentication response. Try again.',
               })

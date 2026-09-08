@@ -1,25 +1,24 @@
 import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
+import { AuthSignInInput } from '@repo/auth-api/shared.ts';
+
 import { useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/services/accounts/index.ts';
-import { Account } from '#src/services/database/main/schema.ts';
+import { ServerUrl } from '#src/services/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
-class AddAccountInput extends Schema.Class<AddAccountInput, { readonly brand: unique symbol }>(
-  'voel/app/accounts/add/AddAccountInput'
-)({
-  serverUrl: Account.fields.serverUrl.check(
-    Schema.makeFilter((s) => (URL.canParse(s) ? true : 'Server URL must be a valid URL'))
-  ),
-  username: Account.fields.username.check(Schema.isNonEmpty({ message: 'Username is required' })),
-  password: Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' })).pipe(
-    Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
-      decode: SchemaGetter.transform((password) => Redacted.make(password)),
-      encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
-    })
-  ),
-}) {}
+class AddAccountInput extends AuthSignInInput.pipe(
+  Schema.fieldsAssign({
+    serverUrl: ServerUrl,
+    password: AuthSignInInput.fields.password.pipe(
+      Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
+        decode: SchemaGetter.transform((password) => Redacted.make(password)),
+        encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+      })
+    ),
+  })
+) {}
 
 const signInAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.signInAccount>[0]) =>
@@ -43,6 +42,7 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
                   authReason.message || 'Failed to sign in. Check your credentials and try again.',
                 AuthTransportError: () =>
                   'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthInputError: () => 'Check the account details and try again.',
                 InvalidAuthResponseError: () =>
                   'The server returned an invalid authentication response. Try again.',
               })

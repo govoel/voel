@@ -1,6 +1,7 @@
-import { Effect, Option, Schema, Stream } from 'effect';
+import { DateTime, Effect, Option, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
+import { AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms';
@@ -9,17 +10,6 @@ import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
-
-export class ServerUser extends Schema.Class<ServerUser, { readonly brand: unique symbol }>(
-  'voel/app/accounts/server/users/ServerUser'
-)({
-  id: Schema.String,
-  username: Schema.String,
-}) {
-  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
-
-  public static readonly decodeUnknownArrayEffect = Schema.decodeUnknownEffect(Schema.Array(this));
-}
 
 export const listUsersAtom = AppRuntime.pull(
   Effect.fnUntraced(
@@ -34,13 +24,11 @@ export const listUsersAtom = AppRuntime.pull(
         0,
         Effect.fnUntraced(function* (offset) {
           const data = yield* authClient.admin.listUsers({
-            query: {
-              limit: 10,
-              offset,
-            },
+            limit: 10,
+            offset,
           });
 
-          const users = yield* ServerUser.decodeUnknownArrayEffect(data.users);
+          const { users } = data;
           const nextOffset = offset + users.length;
           const hasMore = users.length > 0 && nextOffset < data.total;
 
@@ -53,15 +41,33 @@ export const listUsersAtom = AppRuntime.pull(
 ).pipe(
   swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
   withPredefinedStates(() => {
-    const alex = ServerUser.make({ id: 'predefined-user-alex', username: 'alex' });
-    const sam = ServerUser.make({ id: 'predefined-user-sam', username: 'sam' });
+    const alex = AuthUser.make({
+      id: AuthUser.fields.id.make('predefined-user-alex'),
+      username: AuthUser.fields.username.make('alex'),
+      name: AuthUser.fields.name.make('Alex'),
+      email: AuthUser.fields.email.make('alex@example.com'),
+      role: AuthUser.fields.role.make('user'),
+      image: AuthUser.fields.image.make(null),
+      createdAt: AuthUser.fields.createdAt.make(DateTime.makeUnsafe(0)),
+      updatedAt: AuthUser.fields.updatedAt.make(DateTime.makeUnsafe(0)),
+    });
+    const sam = AuthUser.make({
+      id: AuthUser.fields.id.make('predefined-user-sam'),
+      username: AuthUser.fields.username.make('sam'),
+      name: AuthUser.fields.name.make('Sam'),
+      email: AuthUser.fields.email.make('sam@example.com'),
+      role: AuthUser.fields.role.make('user'),
+      image: AuthUser.fields.image.make(null),
+      createdAt: AuthUser.fields.createdAt.make(DateTime.makeUnsafe(0)),
+      updatedAt: AuthUser.fields.updatedAt.make(DateTime.makeUnsafe(0)),
+    });
 
     return [
       {
         id: PredefinedStateId.make('loading'),
         label: 'Loading',
         atom: Atom.writable(
-          (): Atom.PullResult<ServerUser> => AsyncResult.initial(true),
+          (): Atom.PullResult<typeof AuthUser.Type> => AsyncResult.initial(true),
           () => void 0
         ),
       },
@@ -70,7 +76,8 @@ export const listUsersAtom = AppRuntime.pull(
         label: 'Page available',
         description: 'Starts with one user and adds another when more users are requested.',
         atom: Atom.writable(
-          (): Atom.PullResult<ServerUser> => AsyncResult.success({ items: [alex], done: false }),
+          (): Atom.PullResult<typeof AuthUser.Type> =>
+            AsyncResult.success({ items: [alex], done: false }),
           (context) => {
             context.setSelf(AsyncResult.success({ items: [alex, sam], done: true }));
           }
@@ -80,7 +87,7 @@ export const listUsersAtom = AppRuntime.pull(
         id: PredefinedStateId.make('loaded'),
         label: 'All users loaded',
         atom: Atom.writable(
-          (): Atom.PullResult<ServerUser> =>
+          (): Atom.PullResult<typeof AuthUser.Type> =>
             AsyncResult.success({ items: [alex, sam], done: true }),
           () => void 0
         ),
@@ -89,7 +96,7 @@ export const listUsersAtom = AppRuntime.pull(
         id: PredefinedStateId.make('failure'),
         label: 'No active account error',
         atom: Atom.writable(
-          (): Atom.PullResult<ServerUser, NoActiveAccountError> =>
+          (): Atom.PullResult<typeof AuthUser.Type, NoActiveAccountError> =>
             AsyncResult.fail(NoActiveAccountError.make()),
           () => void 0
         ),

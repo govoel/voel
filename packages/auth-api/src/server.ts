@@ -8,6 +8,7 @@ import { bearer } from 'better-auth/plugins/bearer';
 import { username } from 'better-auth/plugins/username';
 import { Context, Duration, Effect, Option, Schema } from 'effect';
 
+import { authRoles } from '#src/roles.ts';
 import {
   AuthError,
   AuthSession,
@@ -61,7 +62,7 @@ const createServerAuthClient = (config: {
       expo(),
       bearer(),
       username({ displayUsername: false }),
-      admin({ defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
+      admin({ roles: authRoles, defaultRole: 'under18' as const, adminRoles: ['admin' as const] }),
       {
         id: 'voel-init',
         init: (ctx) => ({

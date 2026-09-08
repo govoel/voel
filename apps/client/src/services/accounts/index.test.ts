@@ -450,7 +450,7 @@ describe('AccountManager', () => {
 
           yield* adminAuthClient.admin.setRole({
             userId: activeAccountKey.userId,
-            role: 'admin',
+            role: Account.fields.role.make('admin'),
           });
 
           const nextAccountChange = yield* forkNextActiveAccountChange;

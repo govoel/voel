@@ -412,8 +412,8 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           Stream.runHead,
           Effect.forkChild
         );
-        const revokeResult = yield* authClient.signOut();
-        expect(revokeResult).toEqual({ success: true });
+        const revokeResult = yield* authClient.signOut;
+        expect(revokeResult).toBe(void 0);
 
         yield* authClient.refreshSession({ query: { disableCookieCache: true } });
         yield* Fiber.join(invalidSessionFiber);
@@ -457,7 +457,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         });
         const secondClient = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
         yield* waitForAuthenticatedSession(secondClient);
-        yield* secondClient.signOut();
+        yield* secondClient.signOut;
         yield* secondClient.refreshSession({ query: { disableCookieCache: true } });
 
         expect(
