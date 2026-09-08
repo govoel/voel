@@ -11,7 +11,11 @@ const DbModel = VariantSchema.make({
 });
 
 export class Account extends DbModel.Class<Account>('voel/services/database/main/schema/Account')({
-  serverUrl: ServerUrl,
+  serverUrl: DbModel.Field({
+    select: ServerUrl,
+    upsert: ServerUrl,
+    update: ServerUrl,
+  }),
   userId: DbModel.Field({
     select: AuthUser.fields.id,
     upsert: AuthUser.fields.id,
