@@ -1,9 +1,6 @@
 import { Config, ConfigProvider, Context, Effect, Layer, Schema } from 'effect';
 
-class AppConfigVariables extends Schema.Class<
-  AppConfigVariables,
-  { readonly brand: unique symbol }
->('voel/services/config/AppConfigVariables')({
+class AppConfigVariables extends Schema.Struct({
   MAIN_DB_FILENAME: Schema.String.pipe(
     Schema.withDecodingDefaultType(Effect.succeed('main.sqlite'))
   ),

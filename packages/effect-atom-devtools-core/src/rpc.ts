@@ -9,22 +9,15 @@ import {
   PredefinedStateNotFound,
 } from '#src/atom-dev-tools.ts';
 
-export class AtomDevToolsAtomInput extends Schema.Class<
-  AtomDevToolsAtomInput,
-  { readonly brand: unique symbol }
->('@repo/effect-atom-devtools-core/rpc/AtomDevToolsAtomInput')({
+export class AtomDevToolsAtomInput extends Schema.Struct({
   atomId: AtomId,
 }) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }
 
-export class ActivatePredefinedStateInput extends AtomDevToolsAtomInput.extend<
-  ActivatePredefinedStateInput,
-  Record<never, never>,
-  { readonly activatePredefinedStateInputBrand: unique symbol }
->('@repo/effect-atom-devtools-core/rpc/ActivatePredefinedStateInput')({
-  stateId: Schema.String,
-}) {
+export class ActivatePredefinedStateInput extends AtomDevToolsAtomInput.pipe(
+  Schema.fieldsAssign({ stateId: Schema.String })
+) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }
 
