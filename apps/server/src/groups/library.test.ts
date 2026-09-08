@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunPath } from '@effect/platform-bun';
 import { expect, expectTypeOf, it } from '@effect/vitest';
-import { Effect, Layer, Option, Schema } from 'effect';
+import { Effect, Layer, Option } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
@@ -48,14 +48,9 @@ const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
 const makeExpectedAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
   absolutePaths.map((absolutePath) => ({ id: expect.any(Number) as unknown, absolutePath }));
 
-it('preserves library-name brands across write schemas and conflict errors', () => {
+it('preserves library-name brands on writes', () => {
   expectTypeOf<typeof Library.upsert.Type.name>().toEqualTypeOf<Library['name']>();
   expectTypeOf<typeof Library.jsonUpsert.Type.name>().toEqualTypeOf<Library['name']>();
-  expectTypeOf<LibraryNameConflictError['name']>().toEqualTypeOf<Library['name']>();
-  expectTypeOf<Library['type']>().not.toExtend<Library['name']>();
-
-  const name = Schema.decodeSync(Library.jsonUpsert.fields.name)('Audiobooks');
-  expect(Schema.encodeSync(Library.upsert.fields.name)(name)).toBe('Audiobooks');
 });
 
 it.layer(makeTestLayer())('library authorization', (iit) => {

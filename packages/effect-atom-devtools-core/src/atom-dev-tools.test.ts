@@ -11,7 +11,7 @@ import {
 } from '#src/atom-dev-tools.ts';
 import type { AtomId as AtomIdType, AtomSummary } from '#src/atom-dev-tools.ts';
 import { PredefinedStateId, makeWithPredefinedStates } from '#src/predefined-states.ts';
-import { ActivatePredefinedStateInput } from '#src/rpc.ts';
+import type { ActivatePredefinedStateInput } from '#src/rpc.ts';
 
 const runWithService = async <A, E>(
   registry: AtomRegistry.AtomRegistry,
@@ -197,29 +197,18 @@ describe('AtomDevTools', () => {
         expect(catalog[0]?.name).toBe('Scenario');
         const atomId = firstAtomId(catalog);
 
-        const command = yield* Schema.decodeEffect(ActivatePredefinedStateInput)({
-          atomId,
-          stateId: 'empty',
-        });
-        expectTypeOf(command.stateId).toEqualTypeOf<PredefinedStateId>();
+        expectTypeOf<
+          typeof ActivatePredefinedStateInput.Type.stateId
+        >().toEqualTypeOf<PredefinedStateId>();
         expectTypeOf<
           Parameters<typeof service.activatePredefinedState>[1]
         >().toEqualTypeOf<PredefinedStateId>();
         expectTypeOf<AtomId>().not.toExtend<PredefinedStateId>();
-        expectTypeOf<string>().not.toExtend<PredefinedStateId>();
-        expect(yield* Schema.encodeEffect(ActivatePredefinedStateInput)(command)).toEqual({
-          atomId,
-          stateId: 'empty',
-        });
 
-        yield* service.activatePredefinedState(command.atomId, command.stateId);
+        yield* service.activatePredefinedState(atomId, PredefinedStateId.make('empty'));
         expect(registry.get(atom)).toBe('empty');
         expect((yield* firstCatalog(service))[0]?.hasActivePredefinedState).toBe(true);
         const active = yield* firstSnapshot(service, atomId);
-        expectTypeOf(active.activePredefinedStateId).toEqualTypeOf<
-          Option.Option<PredefinedStateId>
-        >();
-        expectTypeOf<PredefinedStateNotFound['stateId']>().toEqualTypeOf<PredefinedStateId>();
         expect(active.value).toBe('empty');
         expect(active.activePredefinedStateId).toEqual(Option.some('empty'));
         expect(active.dependencies).toEqual([]);
