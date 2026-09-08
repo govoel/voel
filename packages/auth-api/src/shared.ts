@@ -132,46 +132,34 @@ const EmailInput = Schema.toEncoded(AuthUser.fields.email).check(
 );
 const PasswordInput = Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' }));
 
-export class AuthSignInInput extends Schema.Class<
-  AuthSignInInput,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthSignInInput')({ username: UsernameInput, password: PasswordInput }) {}
+export class AuthSignInInput extends Schema.Struct({
+  username: UsernameInput,
+  password: PasswordInput,
+}) {}
 
-export class AuthSignUpInput extends Schema.Class<
-  AuthSignUpInput,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthSignUpInput')({
+export class AuthSignUpInput extends Schema.Struct({
   username: UsernameInput,
   name: NameInput,
   email: EmailInput,
   password: PasswordInput,
 }) {}
 
-export class AuthCreateUserInput extends Schema.Class<
-  AuthCreateUserInput,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthCreateUserInput')({
+export class AuthCreateUserInput extends Schema.Struct({
   ...AuthSignUpInput.fields,
   role: AuthUser.fields.role,
 }) {}
 
-export class AuthSetRoleInput extends Schema.Class<
-  AuthSetRoleInput,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthSetRoleInput')({ userId: AuthUserId, role: AuthUser.fields.role }) {}
+export class AuthSetRoleInput extends Schema.Struct({
+  userId: AuthUserId,
+  role: AuthUser.fields.role,
+}) {}
 
-export class AuthListUsersInput extends Schema.Class<
-  AuthListUsersInput,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthListUsersInput')({
+export class AuthListUsersInput extends Schema.Struct({
   limit: Schema.Int.check(Schema.isGreaterThan(0)),
   offset: Schema.Natural,
 }) {}
 
-export class AuthUpdateUserInput extends Schema.Class<
-  AuthUpdateUserInput,
-  { readonly brand: unique symbol }
->('@repo/auth-api/shared/AuthUpdateUserInput')({
+export class AuthUpdateUserInput extends Schema.Struct({
   name: Schema.optional(NameInput),
   username: Schema.optional(UsernameInput),
   image: Schema.optional(Schema.NullOr(Schema.String)),

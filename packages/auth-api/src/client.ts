@@ -4,9 +4,9 @@ import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/
 import { Context, Effect, Option, Queue, Schema, Stream, SubscriptionRef } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 
+import * as AuthClientSchema from '#src/auth-client-schema.ts';
 import { authRoles } from '#src/roles.ts';
 import type { BetterAuthInstance } from '#src/server.ts';
-import type { AuthUser } from '#src/shared.ts';
 import {
   AuthAdminUserResponse,
   AuthCreateUserInput,
@@ -21,7 +21,6 @@ import {
   AuthUserResponse,
   AuthUsersPage,
   BetterAuthApiError,
-  InvalidAuthInputError,
   InvalidAuthResponseError,
 } from '#src/shared.ts';
 
@@ -51,64 +50,6 @@ class BetterAuthClientInitializationError extends Schema.TaggedError<
   'BetterAuthClientInitializationError',
   { error: Schema.Unknown }
 ) {}
-
-const executeAuthClientRequest = Effect.fnUntraced(
-  function* <Response extends Schema.Constraint>({
-    request,
-    response,
-  }: {
-    readonly request: () => Promise<{ readonly data: unknown; readonly error: unknown }>;
-    readonly response: Response;
-  }) {
-    const result = yield* Effect.tryPromise({
-      try: request,
-      catch: (cause) => AuthTransportError.make({ cause }),
-    });
-
-    if (result.error !== null) {
-      return yield* Option.getOrElse(BetterAuthApiError.decodeUnknownOption(result.error), () =>
-        InvalidAuthResponseError.make()
-      );
-    }
-
-    if (result.data === null) {
-      return yield* InvalidAuthResponseError.make();
-    }
-
-    // oxlint-disable-next-line effecttsgo/prefer-typed-schema-decoder -- The generic constraint has unknown Encoded; the actual transport payload is untrusted.
-    return yield* Schema.decodeUnknownEffect(response)(result.data).pipe(
-      Effect.catchTag('SchemaError', () => InvalidAuthResponseError.make())
-    );
-  },
-  Effect.catchTags({
-    AuthTransportError: (reason) => AuthError.make({ reason }),
-    BetterAuthApiError: (reason) => AuthError.make({ reason }),
-    InvalidAuthResponseError: (reason) => AuthError.make({ reason }),
-  })
-);
-
-// Validate commands before transport and responses before exposing domain values.
-const executeAuthClientCommand = Effect.fnUntraced(function* <
-  Input extends Schema.Constraint,
-  Response extends Schema.Constraint,
->({
-  input,
-  schema,
-  request,
-  response,
-}: {
-  readonly input: Input['Encoded'];
-  readonly schema: Input;
-  readonly request: (
-    input: Input['Type']
-  ) => Promise<{ readonly data: unknown; readonly error: unknown }>;
-  readonly response: Response;
-}) {
-  const command = yield* Schema.decodeEffect(schema, { onExcessProperty: 'error' })(input).pipe(
-    Effect.catchTag('SchemaError', () => AuthError.make({ reason: InvalidAuthInputError.make() }))
-  );
-  return yield* executeAuthClientRequest({ request: async () => request(command), response });
-});
 
 type CoreAuthClient = ReturnType<typeof createAuthClient<[]>>;
 
@@ -195,33 +136,27 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
-        createUser: (input: typeof AuthCreateUserInput.Encoded & Pick<AuthUser, 'role'>) =>
-          executeAuthClientCommand({
-            input,
-            schema: AuthCreateUserInput,
-            request: async ({ username, ...user }) =>
-              coreClient.admin.createUser({
-                ...user,
-                data: { username },
-              }),
-            response: AuthAdminUserResponse,
-          }),
+        createUser: AuthClientSchema.request({
+          Request: AuthCreateUserInput,
+          execute: async ({ username, ...user }) =>
+            coreClient.admin.createUser({
+              ...user,
+              data: { username },
+            }),
+          Result: AuthAdminUserResponse,
+        }),
 
-        listUsers: (input: typeof AuthListUsersInput.Encoded) =>
-          executeAuthClientCommand({
-            input,
-            schema: AuthListUsersInput,
-            request: async (query) => coreClient.admin.listUsers({ query }),
-            response: AuthUsersPage,
-          }),
+        listUsers: AuthClientSchema.request({
+          Request: AuthListUsersInput,
+          execute: async (query) => coreClient.admin.listUsers({ query }),
+          Result: AuthUsersPage,
+        }),
 
-        setRole: (input: Pick<AuthSetRoleInput, 'userId' | 'role'>) =>
-          executeAuthClientCommand({
-            input,
-            schema: AuthSetRoleInput,
-            request: async (command) => coreClient.admin.setRole(command),
-            response: AuthAdminUserResponse,
-          }),
+        setRole: AuthClientSchema.request({
+          Request: AuthSetRoleInput,
+          execute: async (command) => coreClient.admin.setRole(command),
+          Result: AuthAdminUserResponse,
+        }),
       },
 
       getSession: SubscriptionRef.get(sessionState),
@@ -235,37 +170,32 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
         }),
 
       signIn: {
-        username: (input: typeof AuthSignInInput.Encoded) =>
-          executeAuthClientCommand({
-            input,
-            schema: AuthSignInInput,
-            request: async (command) => coreClient.signIn.username(command),
-            response: AuthUserResponse,
-          }),
+        username: AuthClientSchema.request({
+          Request: AuthSignInInput,
+          execute: async (command) => coreClient.signIn.username(command),
+          Result: AuthUserResponse,
+        }),
       },
 
-      signOut: executeAuthClientRequest({
-        request: async () => coreClient.signOut(),
-        response: Schema.Struct({ success: Schema.Literal(true) }),
-      }).pipe(Effect.asVoid),
+      signOut: AuthClientSchema.request({
+        Request: Schema.Void,
+        execute: async () => coreClient.signOut(),
+        Result: Schema.Void,
+      })(),
 
       signUp: {
-        email: (input: typeof AuthSignUpInput.Encoded) =>
-          executeAuthClientCommand({
-            input,
-            schema: AuthSignUpInput,
-            request: async (command) => coreClient.signUp.email(command),
-            response: AuthUserResponse,
-          }),
+        email: AuthClientSchema.request({
+          Request: AuthSignUpInput,
+          execute: async (command) => coreClient.signUp.email(command),
+          Result: AuthUserResponse,
+        }),
       },
 
-      updateUser: (input: typeof AuthUpdateUserInput.Encoded) =>
-        executeAuthClientCommand({
-          input,
-          schema: AuthUpdateUserInput,
-          request: async (command) => coreClient.updateUser(command),
-          response: Schema.Struct({ status: Schema.Literal(true) }),
-        }).pipe(Effect.asVoid),
+      updateUser: AuthClientSchema.request({
+        Request: AuthUpdateUserInput,
+        execute: async (command) => coreClient.updateUser(command),
+        Result: Schema.Void,
+      }),
     };
   }),
 }) {}

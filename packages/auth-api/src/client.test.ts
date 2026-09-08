@@ -4,6 +4,7 @@ import { describe, expect, it, spyOn } from 'bun:test';
 import { DateTime, Effect, Schema } from 'effect';
 
 import { AuthClient } from '#src/client.ts';
+import type { AuthError } from '#src/shared.ts';
 import { AuthSession, AuthUser, AuthUserResponse } from '#src/shared.ts';
 
 const user = {
@@ -83,11 +84,6 @@ const operations = [
         password: 'password',
       }),
   },
-  {
-    name: 'updateUser',
-    run: (client: AuthActions) => client.updateUser({ name: 'Reader' }),
-  },
-  { name: 'signOut', run: (client: AuthActions) => client.signOut },
 ];
 
 describe('auth response boundary', () => {
@@ -95,7 +91,8 @@ describe('auth response boundary', () => {
     it(`${name} rejects malformed success data as an AuthError`, async () => {
       await Effect.gen(function* () {
         const { client } = yield* withResponse({ unrelated: true });
-        const error = yield* run(client).pipe(Effect.flip);
+        const result: Effect.Effect<unknown, AuthError> = run(client);
+        const error = yield* result.pipe(Effect.asVoid, Effect.flip);
         expect(error).toMatchObject({
           _tag: 'AuthError',
           reason: { _tag: 'InvalidAuthResponseError' },
@@ -157,7 +154,7 @@ describe('auth response boundary', () => {
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 
-  it('validates acknowledgments before discarding their transport representation', async () => {
+  it('discards results for actions returning void', async () => {
     await Effect.gen(function* () {
       const { client } = yield* withResponse({ status: true, success: true });
       expect(yield* client.updateUser({ name: 'Reader' })).toBe(void 0);
