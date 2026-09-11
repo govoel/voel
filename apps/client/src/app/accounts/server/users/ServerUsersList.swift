@@ -1,7 +1,7 @@
 internal import ExpoModulesCore
 import SwiftUI
 
-struct ServerUsersListUser: Record {
+struct ServerUsersListUser: Record, Identifiable {
   @Field var id: String = ""
   @Field var username: String = ""
 }
@@ -23,9 +23,13 @@ struct ServerUsersListView: ExpoSwiftUI.View {
   }
 
   var body: some View {
-    let thresholdIndex = props.users.count - 5
-
-    ForEach(props.users.enumerated(), id: \.element.id) { offset, user in
+    PaginatedList(
+      items: props.users,
+      waiting: props.waiting,
+      done: props.done,
+      onEndReached: { props.onEndReached([:]) },
+      loadingAccessibilityLabel: "Loading more users"
+    ) { user in
       Button {
         props.onTap([
           "id": user.id
@@ -40,11 +44,6 @@ struct ServerUsersListView: ExpoSwiftUI.View {
         }
       }
       .tint(.primary)
-      .task {
-        if offset >= thresholdIndex, !props.waiting, !props.done {
-          props.onEndReached([:])
-        }
-      }
     }
   }
 }
