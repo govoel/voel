@@ -2,7 +2,12 @@ import { useAtom } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LoadingIndicator, useMaterialColors } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
+import type { PrimitiveBaseProps } from '@expo/ui/jetpack-compose';
+import {
+  createViewModifierEventListener,
+  fillMaxWidth,
+  padding,
+} from '@expo/ui/jetpack-compose/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
 import { router } from 'expo-router';
@@ -15,14 +20,23 @@ import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-const ServerUsersList = requireNativeView<{
+type ServerUsersListProps = PrimitiveBaseProps & {
   readonly users: ReadonlyArray<Pick<typeof AuthUser.Type, 'id' | 'username'>>;
   readonly waiting: boolean;
   readonly done: boolean;
   readonly onEndReached: () => void;
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
   readonly children: ReactNode;
-}>('ServerUsersList');
+};
+
+const NativeServerUsersList = requireNativeView<ServerUsersListProps>('ServerUsersList');
+
+const ServerUsersList = ({ modifiers, ...props }: ServerUsersListProps) => (
+  <NativeServerUsersList
+    {...props}
+    {...(modifiers ? { modifiers, ...createViewModifierEventListener(modifiers) } : {})}
+  />
+);
 
 const Slot = requireNativeView<{
   readonly slotName: 'header' | 'leadingContent' | 'trailingContent';
@@ -52,6 +66,7 @@ export default function ServerUsersScreen() {
         ),
         onSuccess: ({ value: { items, done }, waiting }) => (
           <ServerUsersList
+            modifiers={[fillMaxWidth()]}
             users={items.map(({ id, username }) => ({ id, username }))}
             waiting={waiting}
             done={done}

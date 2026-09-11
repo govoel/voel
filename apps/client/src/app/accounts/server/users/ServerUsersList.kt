@@ -23,6 +23,8 @@ import expo.modules.kotlin.views.ComposeProps
 import expo.modules.kotlin.views.FunctionalComposableScope
 import expo.modules.kotlin.views.OptimizedComposeProps
 import expo.modules.ui.ExpoUIView
+import expo.modules.ui.ModifierList
+import expo.modules.ui.ModifierRegistry
 import expo.modules.ui.TextContent
 import expo.modules.ui.TextProps
 import expo.modules.ui.TypographyStyle
@@ -37,9 +39,6 @@ data class ServerUsersListUser(
 ) : Record
 
 @OptimizedRecord
-class ServerUsersListEndReachedEvent : Record, Serializable
-
-@OptimizedRecord
 data class ServerUsersListTapEvent(
     @Field val id: String = ""
 ) : Record, Serializable
@@ -48,17 +47,18 @@ data class ServerUsersListTapEvent(
 data class ServerUsersListProps(
     val users: List<ServerUsersListUser> = emptyList(),
     val waiting: Boolean = false,
-    val done: Boolean = false
+    val done: Boolean = false,
+    val modifiers: ModifierList = emptyList()
 ) : ComposeProps
 
 class ServerUsersList : Module() {
     override fun definition() = ModuleDefinition {
         ExpoUIView<ServerUsersListProps>("ServerUsersList") {
-            val onEndReached by Event<ServerUsersListEndReachedEvent>()
+            val onEndReached by Event<Unit>()
             val onTap by Event<ServerUsersListTapEvent>()
 
             Content { props ->
-                ServerUsersListContent(props, { onEndReached(it) }, { onTap(it) })
+                ServerUsersListContent(props, { onEndReached(Unit) }, { onTap(it) })
             }
         }
     }
@@ -67,7 +67,7 @@ class ServerUsersList : Module() {
 @Composable
 private fun FunctionalComposableScope.ServerUsersListContent(
     props: ServerUsersListProps,
-    onEndReached: (ServerUsersListEndReachedEvent) -> Unit,
+    onEndReached: () -> Unit,
     onTap: (ServerUsersListTapEvent) -> Unit
 ) {
     val header = findChildSlotView(view, "header")
@@ -79,8 +79,13 @@ private fun FunctionalComposableScope.ServerUsersListContent(
         key = { it.id },
         waiting = props.waiting,
         done = props.done,
-        onEndReached = { onEndReached(ServerUsersListEndReachedEvent()) },
-        modifier = Modifier.fillMaxWidth(),
+        onEndReached = onEndReached,
+        modifier = ModifierRegistry.applyModifiers(
+            props.modifiers,
+            appContext,
+            composableScope,
+            globalEventDispatcher
+        ),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         header = {

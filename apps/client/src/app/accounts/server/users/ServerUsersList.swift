@@ -1,4 +1,5 @@
 internal import ExpoModulesCore
+internal import ExpoUI
 import SwiftUI
 
 struct ServerUsersListUser: Record, Identifiable {
@@ -6,7 +7,7 @@ struct ServerUsersListUser: Record, Identifiable {
   @Field var username: String = ""
 }
 
-final class ServerUsersListViewProps: ExpoSwiftUI.ViewProps {
+final class ServerUsersListViewProps: UIBaseViewProps {
   @Field var users: [ServerUsersListUser] = []
   @Field var waiting: Bool = false
   @Field var done: Bool = false
@@ -50,6 +51,6 @@ struct ServerUsersListView: ExpoSwiftUI.View {
 
 final class ServerUsersList: Module {
   public func definition() -> ModuleDefinition {
-    View(ServerUsersListView.self)
+    ExpoUIView(ServerUsersListView.self)
   }
 }
