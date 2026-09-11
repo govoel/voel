@@ -17,43 +17,43 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/** The payload stays native after a page response. The engine never inspects feature fields. */
-class PageItem(val id: String, val value: Any)
+/** Payloads are decoded at the bridge; the engine preserves their type without inspecting fields. */
+class PageItem<T : Any>(val id: String, val value: T)
 
 class PageRequest(val id: Int, val offset: Int, val limit: Int)
 
 enum class PageStatus { LOADING, READY, COMPLETE, FAILED }
 
-class PageSnapshot(
-    val items: List<PageItem>,
+class PageSnapshot<T : Any>(
+    val items: List<PageItem<T>>,
     val refresh: PageStatus,
     val prepend: PageStatus,
     val append: PageStatus,
 )
 
-private class Page(val items: List<PageItem>, val total: Int)
+private class Page<T : Any>(val items: List<PageItem<T>>, val total: Int)
 private class PageFailure : Exception("Page request failed")
 
 /**
  * One main-thread-confined paging session per query. Both native front ends use the same
  * presenter, eviction policy and request protocol. JS only sees individual page requests.
  */
-class PagingSession(
+class PagingSession<T : Any>(
     private val pageSize: Int,
     maxItems: Int,
     prefetchDistance: Int,
     private val onRequest: (PageRequest) -> Unit,
     private val onCancel: (Int) -> Unit,
-    private val onSnapshot: (PageSnapshot) -> Unit,
+    private val onSnapshot: (PageSnapshot<T>) -> Unit,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val pending = mutableMapOf<Int, CompletableDeferred<Page>>()
+    private val pending = mutableMapOf<Int, CompletableDeferred<Page<T>>>()
     private var nextRequestId = 0
     private var started = false
     private var closed = false
     private var states: CombinedLoadStates? = null
-    private val presenter = object : PagingDataPresenter<PageItem>(Dispatchers.Main.immediate) {
-        override suspend fun presentPagingDataEvent(event: PagingDataEvent<PageItem>) = Unit
+    private val presenter = object : PagingDataPresenter<PageItem<T>>(Dispatchers.Main.immediate) {
+        override suspend fun presentPagingDataEvent(event: PagingDataEvent<PageItem<T>>) = Unit
     }
     private val pager = Pager(
         PagingConfig(
@@ -94,7 +94,7 @@ class PagingSession(
         if (!closed) presenter.refresh()
     }
 
-    fun resolve(id: Int, items: List<PageItem>, total: Int) {
+    fun resolve(id: Int, items: List<PageItem<T>>, total: Int) {
         pending.remove(id)?.complete(Page(items, total))
     }
 
@@ -127,7 +127,7 @@ class PagingSession(
         is LoadState.NotLoading -> if (state.endOfPaginationReached) PageStatus.COMPLETE else PageStatus.READY
     }
 
-    private inner class Source : PagingSource<Int, PageItem>() {
+    private inner class Source : PagingSource<Int, PageItem<T>>() {
         private val requests = mutableSetOf<Int>()
 
         init {
@@ -136,13 +136,13 @@ class PagingSession(
             }
         }
 
-        override fun getRefreshKey(state: PagingState<Int, PageItem>): Int? =
+        override fun getRefreshKey(state: PagingState<Int, PageItem<T>>): Int? =
             state.anchorPosition?.let { state.closestPageToPosition(it)?.itemsBefore }
 
-        override suspend fun load(params: LoadParams<Int>): LoadResult<Int, PageItem> {
+        override suspend fun load(params: LoadParams<Int>): LoadResult<Int, PageItem<T>> {
             val offset = params.key ?: 0
             val id = ++nextRequestId
-            val response = CompletableDeferred<Page>()
+            val response = CompletableDeferred<Page<T>>()
             pending[id] = response
             requests.add(id)
             try {

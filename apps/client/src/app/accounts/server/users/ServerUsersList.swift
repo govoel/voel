@@ -3,8 +3,20 @@ internal import ExpoUI
 import SwiftUI
 internal import VoelNativePaging
 
+final class ServerUser: Record {
+  @Field(.required) var username: String = ""
+
+  init() {}
+}
+
+final class ServerUsersPager: NativePager<ServerUser> {
+  init(options: PagingOptions, appContext: AppContext) {
+    super.init(options: options, decode: { try ServerUser(from: $0, appContext: appContext) })
+  }
+}
+
 final class ServerUsersListViewProps: UIBaseViewProps {
-  @Field var pager: NativePager?
+  @Field var pager: ServerUsersPager?
   var onTap = EventDispatcher()
 }
 
@@ -24,7 +36,7 @@ struct ServerUsersListView: ExpoSwiftUI.View {
           ])
         } label: {
           HStack {
-            Text("@\((user.value as? [String: Any])?["username"] as? String ?? "")")
+            Text("@\(user.value.username)")
             Spacer()
             Image(systemName: "chevron.right")
               .font(.footnote.weight(.semibold))
@@ -39,6 +51,9 @@ struct ServerUsersListView: ExpoSwiftUI.View {
 
 final class ServerUsersList: Module {
   public func definition() -> ModuleDefinition {
+    NativePagerDefinition(ServerUsersPager.self) { options in
+      ServerUsersPager(options: options, appContext: self.appContext!)
+    }
     ExpoUIView(ServerUsersListView.self)
   }
 }

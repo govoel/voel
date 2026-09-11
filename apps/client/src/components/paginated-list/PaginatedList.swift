@@ -3,10 +3,10 @@ internal import VoelNativePaging
 
 /// Owns scrolling as well as row identity, so prepending/dropping pages preserves the anchor.
 /// Only the bounded resident window participates in SwiftUI identity/layout work.
-struct PaginatedList<Header: View, Row: View>: View {
-  @ObservedObject var pager: NativePager
+struct PaginatedList<Value: AnyObject, Header: View, Row: View>: View {
+  @ObservedObject var pager: NativePager<Value>
   @ViewBuilder let header: () -> Header
-  @ViewBuilder let row: (PageItem) -> Row
+  @ViewBuilder let row: (PageItem<Value>) -> Row
   @State private var anchor: String?
 
   var body: some View {

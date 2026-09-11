@@ -15,9 +15,10 @@ import type { NativePager } from '@repo/native-paging';
 
 import { usersPagerAtom } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
+import type { ServerUser } from '#src/services/users.ts';
 
 type ServerUsersListProps = CommonViewModifierProps & {
-  readonly pager: NativePager;
+  readonly pager: NativePager<typeof ServerUser.Type>;
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
 };
 

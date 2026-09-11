@@ -19,9 +19,10 @@ import { usersPagerAtom } from '#src/app/accounts/server/users/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+import type { ServerUser } from '#src/services/users.ts';
 
 type ServerUsersListProps = PrimitiveBaseProps & {
-  readonly pager: NativePager;
+  readonly pager: NativePager<typeof ServerUser.Type>;
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
   readonly children: ReactNode;
 };

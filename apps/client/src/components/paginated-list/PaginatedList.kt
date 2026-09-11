@@ -28,13 +28,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** Native rows and stable keys survive prepend/drop operations without a JS item list. */
 @Composable
-fun PaginatedList(
-    pager: NativePager,
+fun <Value : Any> PaginatedList(
+    pager: NativePager<Value>,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     header: (@Composable () -> Unit)? = null,
-    row: @Composable (item: PageItem, index: Int, count: Int) -> Unit
+    row: @Composable (item: PageItem<Value>, index: Int, count: Int) -> Unit
 ) {
     val snapshot by pager.snapshots.collectAsState()
     val listState = rememberLazyListState()
@@ -70,7 +70,7 @@ fun PaginatedList(
 }
 
 @Composable
-private fun PagingStatus(state: PageStatus, pager: NativePager) {
+private fun PagingStatus(state: PageStatus, pager: NativePager<*>) {
     when (state) {
         PageStatus.LOADING -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             LoadingIndicator()

@@ -4,10 +4,14 @@ import { Deferred, Effect, Schema } from 'effect';
 
 import { PageRequest, PageResponse, connectPager } from './model.ts';
 
+class User extends Schema.Struct({ username: Schema.NonEmptyString }) {}
+const UsersPage = PageResponse(User);
+
 const makePager = () => {
   const listeners = new Map<string, Set<(request: typeof PageRequest.Type) => void>>();
   const resolved: Array<typeof PageRequest.Type.id> = [];
   const rejected: Array<typeof PageRequest.Type.id> = [];
+  const pages: Array<typeof UsersPage.Type> = [];
   let starts = 0;
   let closes = 0;
   const addListener: Parameters<typeof connectPager>[0]['pager']['addListener'] = (
@@ -34,8 +38,13 @@ const makePager = () => {
     close: () => {
       closes += 1;
     },
-    resolve: (id: typeof PageRequest.Type.id) => {
+    resolve: (
+      id: typeof PageRequest.Type.id,
+      items: typeof UsersPage.Type.items,
+      total: typeof UsersPage.Type.total
+    ) => {
       resolved.push(id);
+      pages.push({ items, total });
     },
     reject: (id: typeof PageRequest.Type.id) => {
       rejected.push(id);
@@ -52,11 +61,12 @@ const makePager = () => {
     },
     resolved,
     rejected,
+    pages,
     counts: () => ({ starts, closes }),
   };
 };
 
-const page = PageResponse.make({
+const page = UsersPage.make({
   items: [{ id: 'user', value: { username: 'reader' } }],
   total: 1,
 });
@@ -66,10 +76,11 @@ describe('native paging transport', () => {
     const pager = makePager();
     let loads = 0;
     await Effect.gen(function* () {
-      const response = yield* Deferred.make<typeof PageResponse.Type>();
+      const response = yield* Deferred.make<typeof UsersPage.Type>();
       const started = yield* Deferred.make<true>();
       yield* connectPager({
         pager,
+        schema: User,
         load: () =>
           Effect.gen(function* () {
             loads += 1;
@@ -84,6 +95,7 @@ describe('native paging transport', () => {
       yield* Deferred.succeed(response, page);
       yield* Effect.yieldNow;
       expect(pager.resolved).toEqual([PageRequest.fields.id.make(1)]);
+      expect(pager.pages).toEqual([page]);
     }).pipe(Effect.scoped, Effect.runPromise);
     expect(pager.counts()).toEqual({ starts: 1, closes: 1 });
   });
@@ -95,6 +107,7 @@ describe('native paging transport', () => {
       const started = yield* Deferred.make<true>();
       yield* connectPager({
         pager,
+        schema: User,
         load: () =>
           Effect.gen(function* () {
             yield* Effect.addFinalizer(() =>
@@ -127,6 +140,7 @@ describe('native paging transport', () => {
       let fail = true;
       yield* connectPager({
         pager,
+        schema: User,
         load: () => (fail ? Effect.fail('offline') : Effect.succeed(page)),
       });
       pager.emit('request', 1);
@@ -137,6 +151,50 @@ describe('native paging transport', () => {
       yield* Effect.yieldNow;
       expect(pager.resolved).toEqual([PageRequest.fields.id.make(2)]);
     }).pipe(Effect.scoped, Effect.runPromise);
-    expect(Schema.decodeOption(PageResponse)({ items: page.items, total: -1 })._tag).toBe('None');
+    expect(Schema.decodeOption(UsersPage)({ items: page.items, total: -1 })._tag).toBe('None');
+  });
+
+  it('rejects invalid feature payloads before delivering any rows and accepts a retry', async () => {
+    const pager = makePager();
+    await Effect.gen(function* () {
+      let response = { items: [{ id: 'user', value: { username: '' } }], total: 1 };
+      yield* connectPager({ pager, schema: User, load: () => Effect.succeed(response) });
+      pager.emit('request', 1);
+      yield* Effect.yieldNow;
+      expect(pager.rejected).toEqual([PageRequest.fields.id.make(1)]);
+      expect(pager.pages).toEqual([]);
+      response = { items: [...page.items], total: page.total };
+      pager.emit('request', 2);
+      yield* Effect.yieldNow;
+      expect(pager.pages).toEqual([page]);
+    }).pipe(Effect.scoped, Effect.runPromise);
+  });
+
+  it('turns synchronous native decoding errors into retryable request failures', async () => {
+    const pager = makePager();
+    await Effect.gen(function* () {
+      let fail = true;
+      yield* connectPager({
+        pager: {
+          ...pager,
+          resolve: (...args) => {
+            if (fail) {
+              throw new Error('Invalid native user payload');
+            }
+            pager.resolve(...args);
+          },
+        },
+        schema: User,
+        load: () => Effect.succeed(page),
+      });
+      pager.emit('request', 1);
+      yield* Effect.yieldNow;
+      expect(pager.rejected).toEqual([PageRequest.fields.id.make(1)]);
+      expect(pager.pages).toEqual([]);
+      fail = false;
+      pager.emit('request', 2);
+      yield* Effect.yieldNow;
+      expect(pager.pages).toEqual([page]);
+    }).pipe(Effect.scoped, Effect.runPromise);
   });
 });

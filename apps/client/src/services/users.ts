@@ -1,12 +1,15 @@
-import { Effect, Option } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
+import { AuthUser } from '@repo/auth-api/shared.ts';
 import type { PageRequest } from '@repo/native-paging/model';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms';
 import { NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
+
+export class ServerUser extends Schema.Struct({ username: AuthUser.fields.username }) {}
 
 export const usersPageLoaderAtom = AppRuntime.atom((get) =>
   Effect.gen(function* () {

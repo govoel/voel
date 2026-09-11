@@ -10,17 +10,41 @@ import kotlinx.coroutines.test.setMain
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PagingSessionTest {
+    private data class User(val username: String)
+
+    @Test
+    fun preservesTypedPayloadsThroughThePresenter() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val user = User("reader")
+        val requests = mutableListOf<PageRequest>()
+        var snapshot = PageSnapshot<User>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
+        val session = PagingSession(10, 30, 2, requests::add, {}, { snapshot = it })
+        try {
+            session.start()
+            runCurrent()
+            session.resolve(requests.single().id, listOf(PageItem("user", user)), 1)
+            runCurrent()
+            assertEquals("reader", snapshot.items.single().value.username)
+            assertSame(user, snapshot.items.single().value)
+        } finally {
+            session.close()
+            runCurrent()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun evictsAndReloadsInBothDirections() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        var snapshot = PageSnapshot(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
+        var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
         val offsets = mutableListOf<Int>()
         var largestWindow = 0
-        lateinit var session: PagingSession
+        lateinit var session: PagingSession<Int>
         session = PagingSession(10, 30, 2, onRequest = { request ->
             offsets.add(request.offset)
             session.resolve(request.id, (request.offset until minOf(request.offset + request.limit, 1000))
@@ -60,7 +84,7 @@ class PagingSessionTest {
     @Test
     fun retriesWithoutLosingRowsAndIgnoresDuplicateReplies() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        var snapshot = PageSnapshot(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
+        var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
         val requests = mutableListOf<PageRequest>()
         val session = PagingSession(10, 30, 2, requests::add, {}, { snapshot = it })
         try {
@@ -95,7 +119,7 @@ class PagingSessionTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val requests = mutableListOf<PageRequest>()
         val canceled = mutableListOf<Int>()
-        var snapshot = PageSnapshot(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
+        var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
         val session = PagingSession(10, 30, 2, requests::add, canceled::add, { snapshot = it })
         session.start()
         runCurrent()
@@ -116,7 +140,7 @@ class PagingSessionTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val requests = mutableListOf<PageRequest>()
         val canceled = mutableListOf<Int>()
-        var snapshot = PageSnapshot(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
+        var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
         val session = PagingSession(10, 30, 2, requests::add, canceled::add, { snapshot = it })
         try {
             session.start()
@@ -151,7 +175,7 @@ class PagingSessionTest {
     fun anEmptyDatasetIsSuccessfulAndTerminal() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val requests = mutableListOf<PageRequest>()
-        var snapshot = PageSnapshot(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
+        var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
         val session = PagingSession(10, 30, 2, requests::add, {}, { snapshot = it })
         session.start()
         runCurrent()

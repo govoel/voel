@@ -15,10 +15,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.voel.paging.NativePager
+import app.voel.paging.NativePagerDefinition
+import app.voel.paging.PagingOptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
+import expo.modules.kotlin.records.Required
+import expo.modules.kotlin.records.recordFromMap
+import expo.modules.kotlin.runtime.Runtime
 import expo.modules.kotlin.types.OptimizedRecord
 import expo.modules.kotlin.views.ComposeProps
 import expo.modules.kotlin.views.FunctionalComposableScope
@@ -34,18 +39,27 @@ import expo.modules.ui.renderSlot
 import java.io.Serializable
 
 @OptimizedRecord
+class ServerUser : Record {
+    @Field @Required val username: String = ""
+}
+
+class ServerUsersPager(runtime: Runtime, options: PagingOptions) :
+    NativePager<ServerUser>(runtime, options, { recordFromMap<ServerUser>(it) })
+
+@OptimizedRecord
 data class ServerUsersListTapEvent(
     @Field val id: String = ""
 ) : Record, Serializable
 
 @OptimizedComposeProps
 data class ServerUsersListProps(
-    val pager: NativePager? = null,
+    val pager: ServerUsersPager? = null,
     val modifiers: ModifierList = emptyList()
 ) : ComposeProps
 
 class ServerUsersList : Module() {
     override fun definition() = ModuleDefinition {
+        NativePagerDefinition { options -> ServerUsersPager(runtime, options) }
         ExpoUIView<ServerUsersListProps>("ServerUsersList") {
             val onTap by Event<ServerUsersListTapEvent>()
 
@@ -93,7 +107,7 @@ private fun FunctionalComposableScope.ServerUsersListContent(
         ) {
             TextContent(
                 TextProps(
-                    text = "@${(user.value as? Map<*, *>)?.get("username") as? String ?: ""}",
+                    text = "@${user.value.username}",
                     fontFamily = "Google Sans",
                     typography = TypographyStyle.BODY_LARGE
                 )
