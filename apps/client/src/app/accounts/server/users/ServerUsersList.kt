@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.voel.paging.NativePager
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
@@ -33,32 +34,23 @@ import expo.modules.ui.renderSlot
 import java.io.Serializable
 
 @OptimizedRecord
-data class ServerUsersListUser(
-    @Field val id: String = "",
-    @Field val username: String = ""
-) : Record
-
-@OptimizedRecord
 data class ServerUsersListTapEvent(
     @Field val id: String = ""
 ) : Record, Serializable
 
 @OptimizedComposeProps
 data class ServerUsersListProps(
-    val users: List<ServerUsersListUser> = emptyList(),
-    val waiting: Boolean = false,
-    val done: Boolean = false,
+    val pager: NativePager? = null,
     val modifiers: ModifierList = emptyList()
 ) : ComposeProps
 
 class ServerUsersList : Module() {
     override fun definition() = ModuleDefinition {
         ExpoUIView<ServerUsersListProps>("ServerUsersList") {
-            val onEndReached by Event<Unit>()
             val onTap by Event<ServerUsersListTapEvent>()
 
             Content { props ->
-                ServerUsersListContent(props, { onEndReached(Unit) }, { onTap(it) })
+                ServerUsersListContent(props, { onTap(it) })
             }
         }
     }
@@ -67,19 +59,15 @@ class ServerUsersList : Module() {
 @Composable
 private fun FunctionalComposableScope.ServerUsersListContent(
     props: ServerUsersListProps,
-    onEndReached: () -> Unit,
     onTap: (ServerUsersListTapEvent) -> Unit
 ) {
+    val pager = props.pager ?: return
     val header = findChildSlotView(view, "header")
     val leadingContent = findChildSlotView(view, "leadingContent")
     val trailingContent = findChildSlotView(view, "trailingContent")
 
     PaginatedList(
-        items = props.users,
-        key = { it.id },
-        waiting = props.waiting,
-        done = props.done,
-        onEndReached = onEndReached,
+        pager = pager,
         modifier = ModifierRegistry.applyModifiers(
             props.modifiers,
             appContext,
@@ -93,11 +81,11 @@ private fun FunctionalComposableScope.ServerUsersListContent(
                 header?.renderSlot()
             }
         }
-    ) { user, index ->
+    ) { user, index, count ->
         ComposeSegmentedListItem(
             selected = false,
             onClick = { onTap(ServerUsersListTapEvent(user.id)) },
-            shapes = ListItemDefaults.segmentedShapes(index = index, count = props.users.size),
+            shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
             modifier = Modifier.fillMaxWidth(),
             leadingContent = { leadingContent?.renderSlot() },
             trailingContent = { trailingContent?.renderSlot() },
@@ -105,7 +93,7 @@ private fun FunctionalComposableScope.ServerUsersListContent(
         ) {
             TextContent(
                 TextProps(
-                    text = "@${user.username}",
+                    text = "@${(user.value as? Map<*, *>)?.get("username") as? String ?: ""}",
                     fontFamily = "Google Sans",
                     typography = TypographyStyle.BODY_LARGE
                 )

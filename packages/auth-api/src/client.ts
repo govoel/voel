@@ -148,7 +148,20 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
 
         listUsers: AuthClientSchema.request({
           Request: AuthListUsersInput,
-          execute: async (query) => coreClient.admin.listUsers({ query }),
+          // A unique, deterministic order makes evicted offset pages reloadable.
+          execute: async (query, signal) =>
+            coreClient.admin.listUsers({
+              query: { ...query, sortBy: 'id', sortDirection: 'asc' },
+              fetchOptions: {
+                // RN and DOM declare incompatible types for the same runtime AbortSignal.
+                // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-assertion
+                signal: signal as NonNullable<
+                  NonNullable<
+                    Parameters<CoreAuthClient['admin']['listUsers']>[0]['fetchOptions']
+                  >['signal']
+                >,
+              },
+            }),
           Result: AuthUsersPage,
         }),
 

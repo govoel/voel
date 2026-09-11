@@ -1,27 +1,23 @@
-import { useAtom } from '@effect/atom-react';
-import { Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
+import { useAtomValue } from '@effect/atom-react';
+import { Host, ProgressView } from '@expo/ui/swift-ui';
 import type { CommonViewModifierProps } from '@expo/ui/swift-ui';
 import {
   containerRelativeFrame,
   createViewModifierEventListener,
   frame,
-  headerProminence,
 } from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
 import { Stack, router } from 'expo-router';
 import { PlatformColor as platformColor } from 'react-native';
 
-import type { AuthUser } from '@repo/auth-api/shared.ts';
+import type { NativePager } from '@repo/native-paging';
 
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { usersPagerAtom } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
 
 type ServerUsersListProps = CommonViewModifierProps & {
-  readonly users: ReadonlyArray<Pick<typeof AuthUser.Type, 'id' | 'username'>>;
-  readonly waiting: boolean;
-  readonly done: boolean;
-  readonly onEndReached: () => void;
+  readonly pager: NativePager;
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
 };
 
@@ -35,13 +31,13 @@ const ServerUsersList = ({ modifiers, ...props }: ServerUsersListProps) => (
 );
 
 export default function ServerUsersScreen() {
-  const [users, loadMoreUsers] = useAtom(listUsersAtom);
+  const pager = useAtomValue(usersPagerAtom);
 
   return (
     <>
       <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
       <Host style={{ flex: 1, backgroundColor: platformColor('systemGroupedBackground') }}>
-        {AsyncResult.matchWithError(users, {
+        {AsyncResult.matchWithError(pager, {
           onInitial: () => (
             <ProgressView
               modifiers={[
@@ -50,24 +46,13 @@ export default function ServerUsersScreen() {
               ]}
             />
           ),
-          onSuccess: ({ value: { items, done }, waiting }) => (
-            <List modifiers={[headerProminence('increased')]}>
-              <Section title="Users">
-                <ServerUsersList
-                  users={items.map(({ id, username }) => ({ id, username }))}
-                  waiting={waiting}
-                  done={done}
-                  onTap={({ nativeEvent: { id } }) => {
-                    router.push(`/accounts/server/users/${id}`);
-                  }}
-                  onEndReached={() => {
-                    if (!waiting && !done) {
-                      loadMoreUsers();
-                    }
-                  }}
-                />
-              </Section>
-            </List>
+          onSuccess: ({ value }) => (
+            <ServerUsersList
+              pager={value}
+              onTap={({ nativeEvent: { id } }) => {
+                router.push(`/accounts/server/users/${id}`);
+              }}
+            />
           ),
           onError: () => <Text>Error</Text>,
           onDefect: () => <Text>Defect</Text>,

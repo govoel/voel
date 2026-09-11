@@ -1,4 +1,4 @@
-import { useAtom } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LoadingIndicator, useMaterialColors } from '@expo/ui/jetpack-compose';
@@ -13,18 +13,15 @@ import { requireNativeView } from 'expo';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 
-import type { AuthUser } from '@repo/auth-api/shared.ts';
+import type { NativePager } from '@repo/native-paging';
 
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { usersPagerAtom } from '#src/app/accounts/server/users/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 type ServerUsersListProps = PrimitiveBaseProps & {
-  readonly users: ReadonlyArray<Pick<typeof AuthUser.Type, 'id' | 'username'>>;
-  readonly waiting: boolean;
-  readonly done: boolean;
-  readonly onEndReached: () => void;
+  readonly pager: NativePager;
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
   readonly children: ReactNode;
 };
@@ -53,30 +50,23 @@ const ServerUsersStatus = ({ children }: { readonly children: ReactNode }) => (
 );
 
 export default function ServerUsersScreen() {
-  const [users, loadMoreUsers] = useAtom(listUsersAtom);
+  const pager = useAtomValue(usersPagerAtom);
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
     <AndroidAccountsSheet>
-      {AsyncResult.matchWithError(users, {
+      {AsyncResult.matchWithError(pager, {
         onInitial: () => (
           <ServerUsersStatus>
             <LoadingIndicator modifiers={[fillMaxWidth()]} />
           </ServerUsersStatus>
         ),
-        onSuccess: ({ value: { items, done }, waiting }) => (
+        onSuccess: ({ value }) => (
           <ServerUsersList
             modifiers={[fillMaxWidth()]}
-            users={items.map(({ id, username }) => ({ id, username }))}
-            waiting={waiting}
-            done={done}
+            pager={value}
             onTap={({ nativeEvent: { id } }) => {
               router.push(`/accounts/server/users/${id}`);
-            }}
-            onEndReached={() => {
-              if (!waiting && !done) {
-                loadMoreUsers();
-              }
             }}>
             <Slot slotName="header">
               <Text variant="h3">Manage Users</Text>

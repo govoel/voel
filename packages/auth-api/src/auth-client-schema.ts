@@ -17,7 +17,8 @@ export const request = <Request extends Schema.Constraint, Result extends Schema
   readonly Request: Request;
   readonly Result: Result;
   readonly execute: (
-    request: Request['Encoded']
+    request: Request['Encoded'],
+    signal: AbortSignal
   ) => Promise<{ readonly data: unknown; readonly error: unknown }>;
 }) => {
   const encode = Schema.encodeEffect(Request, { onExcessProperty: 'error' });
@@ -30,7 +31,7 @@ export const request = <Request extends Schema.Constraint, Result extends Schema
         Effect.catchTag('SchemaError', () => InvalidAuthInputError.make())
       );
       const result = yield* Effect.tryPromise({
-        try: async () => execute(encoded),
+        try: async (signal) => execute(encoded, signal),
         catch: (cause) => AuthTransportError.make({ cause }),
       });
 

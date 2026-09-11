@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it, spyOn } from 'bun:test';
 
-import { DateTime, Effect } from 'effect';
+import { DateTime, Deferred, Effect, Fiber } from 'effect';
 
 import { AuthClient } from '#src/client.ts';
 import { AuthUser } from '#src/shared.ts';
@@ -58,6 +58,47 @@ const decodedUser = {
 };
 
 describe('auth client integration', () => {
+  it('aborts the underlying page request when its Effect fiber is interrupted', async () => {
+    await Effect.gen(function* () {
+      const started = yield* Deferred.make<Request>();
+      const runSync = Effect.runSyncWith(yield* Effect.context());
+      const fetch = spyOn(globalThis, 'fetch').mockImplementation(
+        Object.assign(
+          async (input: string | URL | Request, init?: RequestInit) => {
+            const request =
+              input instanceof Request
+                ? new Request(input, init)
+                : new Request(String(input), init);
+            if (!request.url.includes('/admin/list-users')) {
+              return Response.json(null);
+            }
+            const response = Promise.withResolvers<Response>();
+            request.signal.addEventListener(
+              'abort',
+              () => {
+                response.reject(new DOMException('Aborted', 'AbortError'));
+              },
+              { once: true }
+            );
+            runSync(Deferred.succeed(started, request));
+            return response.promise;
+          },
+          { preconnect: globalThis.fetch.preconnect }
+        )
+      );
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          fetch.mockRestore();
+        })
+      );
+      const client = yield* AuthClient.make({ baseURL: 'http://auth.test', plugins: [] });
+      const fiber = yield* client.admin.listUsers({ offset: 0, limit: 50 }).pipe(Effect.forkScoped);
+      const request = yield* Deferred.await(started);
+      yield* Fiber.interrupt(fiber);
+      expect(request.signal.aborted).toBe(true);
+    }).pipe(Effect.scoped, Effect.runPromise);
+  });
+
   it('decodes admin users and pagination, including Better Auth dates', async () => {
     await Effect.gen(function* () {
       const { client, requests } = yield* withResponse({ users: [user], total: 1, limit: 10 });
@@ -65,6 +106,8 @@ describe('auth client integration', () => {
       expect(page).toMatchObject({ users: [decodedUser], total: 1, limit: 10 });
       const request = requests.find((item) => item.url.includes('/admin/list-users'));
       expect(request && new URL(request.url).searchParams.get('offset')).toBe('0');
+      expect(request && new URL(request.url).searchParams.get('sortBy')).toBe('id');
+      expect(request && new URL(request.url).searchParams.get('sortDirection')).toBe('asc');
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 

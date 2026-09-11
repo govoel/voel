@@ -1,0 +1,26 @@
+{
+  "name": "@repo/native-paging",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Native-owned bounded paging with a shared AndroidX Paging engine",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./model": "./src/model.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun test && core/gradlew -p core jvmTest"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "bun-types": "1.4.2",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "expo": "*"
+  }
+}

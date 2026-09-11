@@ -1,18 +1,10 @@
 internal import ExpoModulesCore
 internal import ExpoUI
 import SwiftUI
-
-struct ServerUsersListUser: Record, Identifiable {
-  @Field var id: String = ""
-  @Field var username: String = ""
-}
+internal import VoelNativePaging
 
 final class ServerUsersListViewProps: UIBaseViewProps {
-  @Field var users: [ServerUsersListUser] = []
-  @Field var waiting: Bool = false
-  @Field var done: Bool = false
-
-  var onEndReached = EventDispatcher()
+  @Field var pager: NativePager?
   var onTap = EventDispatcher()
 }
 
@@ -24,27 +16,23 @@ struct ServerUsersListView: ExpoSwiftUI.View {
   }
 
   var body: some View {
-    PaginatedList(
-      items: props.users,
-      waiting: props.waiting,
-      done: props.done,
-      onEndReached: { props.onEndReached([:]) },
-      loadingAccessibilityLabel: "Loading more users"
-    ) { user in
-      Button {
-        props.onTap([
-          "id": user.id
-        ])
-      } label: {
-        HStack {
-          Text("@\(user.username)")
-          Spacer()
-          Image(systemName: "chevron.right")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
+    if let pager = props.pager {
+      PaginatedList(pager: pager, header: { Text("Users").font(.headline) }) { user in
+        Button {
+          props.onTap([
+            "id": user.id
+          ])
+        } label: {
+          HStack {
+            Text("@\((user.value as? [String: Any])?["username"] as? String ?? "")")
+            Spacer()
+            Image(systemName: "chevron.right")
+              .font(.footnote.weight(.semibold))
+              .foregroundStyle(.secondary)
+          }
         }
+        .tint(.primary)
       }
-      .tint(.primary)
     }
   }
 }

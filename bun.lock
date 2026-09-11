@@ -33,6 +33,7 @@
         "@repo/auth-api": "workspace:*",
         "@repo/effect-turso-sync": "workspace:*",
         "@repo/effect-turso-sync-rn": "workspace:*",
+        "@repo/native-paging": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.5",
         "better-auth": "1.7.3",
@@ -213,6 +214,21 @@
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.2",
         "typescript": "7.0.2",
+      },
+    },
+    "packages/native-paging": {
+      "name": "@repo/native-paging",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "4.0.0-rc.112",
+      },
+      "devDependencies": {
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.4.2",
+        "typescript": "7.0.2",
+      },
+      "peerDependencies": {
+        "expo": "*",
       },
     },
     "packages/spec-api": {
@@ -847,6 +863,8 @@
     "@repo/effect-turso-sync-rn": ["@repo/effect-turso-sync-rn@workspace:packages/effect-turso-sync-rn"],
 
     "@repo/server": ["@repo/server@workspace:apps/server"],
+
+    "@repo/native-paging": ["@repo/native-paging@workspace:packages/native-paging"],
 
     "@repo/spec-api": ["@repo/spec-api@workspace:packages/spec-api"],
 
