@@ -16,6 +16,7 @@ import type { PropsWithChildren } from 'react';
 
 import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
 import { ChangePassword } from '#src/components/account-management/change-password.tsx';
+import { OwnSessions } from '#src/components/account-management/sessions.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -131,6 +132,7 @@ const LoadedProfile = ({
           <Text>Edit Profile</Text>
         </Button>
         <ChangePassword />
+        <OwnSessions />
       </ProfileList>
 
       {isEditingProfile ? (

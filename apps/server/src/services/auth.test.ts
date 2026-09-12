@@ -193,3 +193,19 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'lists only the signed-in user’s sessions and identifies the current device',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest, token } = yield* setupAdmin();
+      const second = yield* guest.signIn.username({ username: 'admin', password: 'password' });
+      const sessions = yield* admin.listSessions;
+      expect(sessions.map((session) => session.token).sort()).toEqual([token, second.token].sort());
+      const current = yield* admin.readSession;
+      expect(current.session.token).toBe(token);
+      yield* guest.listSessions.pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
