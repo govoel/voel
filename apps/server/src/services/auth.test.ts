@@ -6,6 +6,7 @@ import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient } from '@repo/auth-api/client.ts';
+import { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
@@ -224,6 +225,28 @@ it.effect(
       expect((yield* admin.readSession).session.token).toBe(token);
       yield* admin.revokeSessions;
       yield* admin.readSession.pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
+
+it.effect(
+  'gets full admin user details and rejects unauthenticated access and missing users',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest, user } = yield* setupAdmin();
+      const details = yield* admin.admin.getUser({ userId: user.id });
+      expect(details).toMatchObject({
+        id: user.id,
+        username: 'admin',
+        role: 'admin',
+        emailVerified: false,
+      });
+      yield* guest.admin.getUser({ userId: user.id }).pipe(Effect.flip);
+      const missing = yield* admin.admin
+        .getUser({ userId: AuthUser.fields.id.make('missing-user') })
+        .pipe(Effect.flip);
+      expect(missing.reason).toMatchObject({ status: 404 });
     },
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )

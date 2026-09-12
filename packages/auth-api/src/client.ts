@@ -8,6 +8,7 @@ import * as AuthClientSchema from '#src/auth-client-schema.ts';
 import { authRoles } from '#src/roles.ts';
 import type { BetterAuthInstance } from '#src/server.ts';
 import {
+  AuthAdminUserDetails,
   AuthAdminUserResponse,
   AuthChangePasswordInput,
   AuthCreateUserInput,
@@ -21,6 +22,7 @@ import {
   AuthSignUpInput,
   AuthTransportError,
   AuthUpdateUserInput,
+  AuthUserIdInput,
   AuthUserResponse,
   AuthUsersPage,
   BetterAuthApiError,
@@ -139,6 +141,12 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        getUser: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async ({ userId }) => coreClient.admin.getUser({ query: { id: userId } }),
+          Result: AuthAdminUserDetails,
+        }),
+
         createUser: AuthClientSchema.request({
           Request: AuthCreateUserInput,
           execute: async ({ username, ...user }) =>
