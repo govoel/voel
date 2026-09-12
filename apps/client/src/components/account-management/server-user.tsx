@@ -9,6 +9,7 @@ import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 import { accountAuthAtom, authFailureMessage } from '#src/components/account-management/atoms.ts';
 import { Action, EditorSheet, Page, Panel } from '#src/components/account-management/ui';
 import { serverUserAtom } from '#src/components/account-management/user-atoms.ts';
+import { UserBan } from '#src/components/account-management/user-ban.tsx';
 import { UserPasswordForm } from '#src/components/account-management/user-password.tsx';
 import { UserProfileForm } from '#src/components/account-management/user-profile.tsx';
 import { UserRoleForm } from '#src/components/account-management/user-role.tsx';
@@ -60,6 +61,7 @@ const OtherUserActions = ({ user }: { user: typeof AuthAdminUserDetails.Type }) 
           {({ onSuccess }) => <UserPasswordForm userId={user.id} onSuccess={onSuccess} />}
         </EditorSheet>
       </Panel>
+      <UserBan user={user} />
     </>
   );
 };

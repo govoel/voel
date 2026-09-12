@@ -375,3 +375,35 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'bans and unbans a user, revoking existing sessions and enforcing sign-in restrictions',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      const login = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const reader = yield* authenticatedClient(login.token);
+      yield* reader.admin.banUser({ userId: user.id, banReason: 'not allowed' }).pipe(Effect.flip);
+      yield* reader.admin.unbanUser({ userId: user.id }).pipe(Effect.flip);
+      yield* admin.admin.banUser({ userId: user.id, banReason: 'Test suspension' });
+      expect(yield* admin.admin.getUser({ userId: user.id })).toMatchObject({
+        banned: true,
+        banReason: 'Test suspension',
+      });
+      yield* reader.readSession.pipe(Effect.flip);
+      yield* guest.signIn
+        .username({ username: 'reader', password: 'reader-password' })
+        .pipe(Effect.flip);
+      yield* admin.admin.unbanUser({ userId: user.id });
+      yield* admin.admin.unbanUser({ userId: user.id });
+      expect((yield* admin.admin.getUser({ userId: user.id })).banned).toBe(false);
+      yield* guest.signIn.username({ username: 'reader', password: 'reader-password' });
+      yield* reader.readSession.pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
