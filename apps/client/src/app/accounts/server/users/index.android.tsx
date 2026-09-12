@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { Action } from '#src/components/account-management/ui';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
@@ -39,6 +40,12 @@ export default function ServerUsersScreen() {
         modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}
         verticalArrangement={{ spacedBy: Spacing.two }}>
         <Text variant="h3">Manage Users</Text>
+        <Action
+          title="Create user"
+          onPress={() => {
+            router.push('/accounts/server/users/create');
+          }}
+        />
         {AsyncResult.matchWithError(users, {
           onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
           onSuccess: ({ value: { items, done }, waiting }) => (
