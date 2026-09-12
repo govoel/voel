@@ -4,7 +4,6 @@ import { containerRelativeFrame, frame, headerProminence } from '@expo/ui/swift-
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
 import { Stack, router } from 'expo-router';
-import type { ComponentType } from 'react';
 import { PlatformColor as platformColor } from 'react-native';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
@@ -12,18 +11,13 @@ import type { AuthUser } from '@repo/auth-api/shared.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
 
-interface ServerUsersListProps {
+const NativeServerUsersList = requireNativeView<{
   readonly users: ReadonlyArray<Pick<typeof AuthUser.Type, 'id' | 'username'>>;
   readonly waiting: boolean;
   readonly done: boolean;
   readonly onEndReached: () => void;
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
-}
-
-const NativeServerUsersList: ComponentType<ServerUsersListProps> =
-  requireNativeView('ServerUsersList');
-
-const ServerUsersList = (props: ServerUsersListProps) => <NativeServerUsersList {...props} />;
+}>('ServerUsersList');
 
 export default function ServerUsersScreen() {
   const [users, loadMoreUsers] = useAtom(listUsersAtom);
@@ -44,7 +38,7 @@ export default function ServerUsersScreen() {
           onSuccess: ({ value: { items, done }, waiting }) => (
             <List modifiers={[headerProminence('increased')]}>
               <Section title="Users">
-                <ServerUsersList
+                <NativeServerUsersList
                   users={items.map(({ id, username }) => ({ id, username }))}
                   waiting={waiting}
                   done={done}
