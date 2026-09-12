@@ -282,3 +282,28 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'changes roles with admin authorization and denies ordinary users',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      const login = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const reader = yield* authenticatedClient(login.token);
+      yield* reader.admin
+        .setRole({ userId: user.id, role: AuthUser.fields.role.make('admin') })
+        .pipe(Effect.flip);
+      yield* admin.admin.setRole({ userId: user.id, role: AuthUser.fields.role.make('user') });
+      expect((yield* admin.admin.getUser({ userId: user.id })).role).toBe('user');
+      yield* admin.admin.setRole({ userId: user.id, role: AuthUser.fields.role.make('admin') });
+      expect((yield* reader.admin.listUsers({ limit: 10, offset: 0 })).total).toBe(2);
+      yield* admin.admin.setRole({ userId: user.id, role: AuthUser.fields.role.make('under18') });
+      yield* reader.admin.listUsers({ limit: 10, offset: 0 }).pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
