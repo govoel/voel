@@ -9,6 +9,7 @@ import { PlatformColor as platformColor } from 'react-native';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { Action } from '#src/components/account-management/ui';
 import { Text } from '#src/components/text';
 
 const NativeServerUsersList = requireNativeView<{
@@ -37,6 +38,14 @@ export default function ServerUsersScreen() {
           ),
           onSuccess: ({ value: { items, done }, waiting }) => (
             <List modifiers={[headerProminence('increased')]}>
+              <Section title="Manage users">
+                <Action
+                  title="Create user"
+                  onPress={() => {
+                    router.push('/accounts/server/users/create');
+                  }}
+                />
+              </Section>
               <Section title="Users">
                 <NativeServerUsersList
                   users={items.map(({ id, username }) => ({ id, username }))}
