@@ -23,7 +23,7 @@ class PagingSessionTest {
         val user = User("reader")
         val requests = mutableListOf<PageRequest>()
         var snapshot = PageSnapshot<User>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
-        val session = PagingSession(10, 30, 2, requests::add, {}, { snapshot = it })
+        val session = PagingSession(10, 30, requests::add, {}, { snapshot = it })
         try {
             session.start()
             runCurrent()
@@ -45,7 +45,7 @@ class PagingSessionTest {
         val offsets = mutableListOf<Int>()
         var largestWindow = 0
         lateinit var session: PagingSession<Int>
-        session = PagingSession(10, 30, 2, onRequest = { request ->
+        session = PagingSession(10, 30, onRequest = { request ->
             offsets.add(request.offset)
             session.resolve(request.id, (request.offset until minOf(request.offset + request.limit, 1000))
                 .map { PageItem("item-$it", it) }, 1000)
@@ -86,7 +86,7 @@ class PagingSessionTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
         val requests = mutableListOf<PageRequest>()
-        val session = PagingSession(10, 30, 2, requests::add, {}, { snapshot = it })
+        val session = PagingSession(10, 30, requests::add, {}, { snapshot = it })
         try {
             session.start()
             runCurrent()
@@ -120,7 +120,7 @@ class PagingSessionTest {
         val requests = mutableListOf<PageRequest>()
         val canceled = mutableListOf<Int>()
         var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
-        val session = PagingSession(10, 30, 2, requests::add, canceled::add, { snapshot = it })
+        val session = PagingSession(10, 30, requests::add, canceled::add, { snapshot = it })
         session.start()
         runCurrent()
         session.close()
@@ -141,7 +141,7 @@ class PagingSessionTest {
         val requests = mutableListOf<PageRequest>()
         val canceled = mutableListOf<Int>()
         var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
-        val session = PagingSession(10, 30, 2, requests::add, canceled::add, { snapshot = it })
+        val session = PagingSession(10, 30, requests::add, canceled::add, { snapshot = it })
         try {
             session.start()
             runCurrent()
@@ -176,7 +176,7 @@ class PagingSessionTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val requests = mutableListOf<PageRequest>()
         var snapshot = PageSnapshot<Int>(emptyList(), PageStatus.LOADING, PageStatus.READY, PageStatus.READY)
-        val session = PagingSession(10, 30, 2, requests::add, {}, { snapshot = it })
+        val session = PagingSession(10, 30, requests::add, {}, { snapshot = it })
         session.start()
         runCurrent()
         session.resolve(requests.single().id, emptyList(), 0)

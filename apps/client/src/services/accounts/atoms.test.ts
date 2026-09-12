@@ -524,7 +524,9 @@ it.layer(TestServerControllerClient.layer)('usersPageLoaderAtom', (iit) => {
           password: testServer.password,
         });
         yield* Atom.mount(usersPageLoaderAtom);
-        const load = yield* Atom.getResult(usersPageLoaderAtom, { suspendOnWaiting: true });
+        const { fetchPage: load } = yield* Atom.getResult(usersPageLoaderAtom, {
+          suspendOnWaiting: true,
+        });
         const firstPage = yield* load({ offset: 0, limit: 10 });
         const secondPage = yield* load({ offset: 10, limit: 10 });
         expect(firstPage.items).toHaveLength(10);
@@ -550,7 +552,7 @@ it.layer(TestServerControllerClient.layer)('usersPageLoaderAtom', (iit) => {
           username: firstServer.adminUsername,
           password: firstServer.password,
         });
-        const firstLoader = yield* Atom.getResult(usersPageLoaderAtom);
+        const { fetchPage: firstLoader } = yield* Atom.getResult(usersPageLoaderAtom);
         const firstResult = yield* firstLoader({ offset: 0, limit: 10 });
         const firstUsernames = firstResult.items.map((user) => user.value.username);
         expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
@@ -563,7 +565,7 @@ it.layer(TestServerControllerClient.layer)('usersPageLoaderAtom', (iit) => {
           username: secondServer.adminUsername,
           password: secondServer.password,
         });
-        const secondLoader = yield* Atom.getResult(usersPageLoaderAtom);
+        const { fetchPage: secondLoader } = yield* Atom.getResult(usersPageLoaderAtom);
         const secondResult = yield* secondLoader({ offset: 0, limit: 10 });
         const secondUsernames = secondResult.items.map((user) => user.value.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(

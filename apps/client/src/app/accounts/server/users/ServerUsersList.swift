@@ -9,14 +9,7 @@ final class ServerUser: Record {
   init() {}
 }
 
-final class ServerUsersPager: NativePager<ServerUser> {
-  init(options: PagingOptions, appContext: AppContext) {
-    super.init(options: options, decode: { try ServerUser(from: $0, appContext: appContext) })
-  }
-}
-
-final class ServerUsersListViewProps: UIBaseViewProps {
-  @Field var pager: ServerUsersPager?
+final class ServerUsersListViewProps: PagingViewProps<ServerUser> {
   var onTap = EventDispatcher()
 }
 
@@ -28,7 +21,8 @@ struct ServerUsersListView: ExpoSwiftUI.View {
   }
 
   var body: some View {
-    if let pager = props.pager {
+    if let options = props.paging {
+      let pager = props.pager(options: options)
       PaginatedList(pager: pager, header: { Text("Users").font(.headline) }) { user in
         Button {
           props.onTap([
@@ -45,15 +39,20 @@ struct ServerUsersListView: ExpoSwiftUI.View {
         }
         .tint(.primary)
       }
+      .onAppear { pager.start() }
     }
   }
 }
 
 final class ServerUsersList: Module {
   public func definition() -> ModuleDefinition {
-    NativePagerDefinition(ServerUsersPager.self) { options in
-      ServerUsersPager(options: options, appContext: self.appContext!)
+    ExpoUIView(ServerUsersListView.self) {
+      AsyncFunction("resolvePage") { (view: ServerUsersListView, page: PageDelivery) in
+        try view.props.resolvePage(page)
+      }
+      AsyncFunction("rejectPage") { (view: ServerUsersListView, request: PageCancellation) in
+        view.props.rejectPage(request)
+      }
     }
-    ExpoUIView(ServerUsersListView.self)
   }
 }

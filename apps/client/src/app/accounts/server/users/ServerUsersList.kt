@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.voel.paging.NativePager
-import app.voel.paging.NativePagerDefinition
 import app.voel.paging.PagingOptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -23,9 +22,7 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import expo.modules.kotlin.records.Required
 import expo.modules.kotlin.records.recordFromMap
-import expo.modules.kotlin.runtime.Runtime
 import expo.modules.kotlin.types.OptimizedRecord
-import expo.modules.kotlin.views.ComposeProps
 import expo.modules.kotlin.views.FunctionalComposableScope
 import expo.modules.kotlin.views.OptimizedComposeProps
 import expo.modules.ui.ExpoUIView
@@ -43,9 +40,6 @@ class ServerUser : Record {
     @Field @Required val username: String = ""
 }
 
-class ServerUsersPager(runtime: Runtime, options: PagingOptions) :
-    NativePager<ServerUser>(runtime, options, { recordFromMap<ServerUser>(it) })
-
 @OptimizedRecord
 data class ServerUsersListTapEvent(
     @Field val id: String = ""
@@ -53,18 +47,17 @@ data class ServerUsersListTapEvent(
 
 @OptimizedComposeProps
 data class ServerUsersListProps(
-    val pager: ServerUsersPager? = null,
+    override val paging: PagingOptions? = null,
     val modifiers: ModifierList = emptyList()
-) : ComposeProps
+) : PagingViewProps
 
 class ServerUsersList : Module() {
     override fun definition() = ModuleDefinition {
-        NativePagerDefinition { options -> ServerUsersPager(runtime, options) }
         ExpoUIView<ServerUsersListProps>("ServerUsersList") {
             val onTap by Event<ServerUsersListTapEvent>()
 
-            Content { props ->
-                ServerUsersListContent(props, { onTap(it) })
+            PagingContent(decode = { recordFromMap<ServerUser>(it) }) { props, pager ->
+                ServerUsersListContent(props, pager, { onTap(it) })
             }
         }
     }
@@ -73,9 +66,9 @@ class ServerUsersList : Module() {
 @Composable
 private fun FunctionalComposableScope.ServerUsersListContent(
     props: ServerUsersListProps,
+    pager: NativePager<ServerUser>,
     onTap: (ServerUsersListTapEvent) -> Unit
 ) {
-    val pager = props.pager ?: return
     val header = findChildSlotView(view, "header")
     val leadingContent = findChildSlotView(view, "leadingContent")
     val trailingContent = findChildSlotView(view, "trailingContent")

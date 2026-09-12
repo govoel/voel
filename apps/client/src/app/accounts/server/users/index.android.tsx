@@ -13,24 +13,25 @@ import { requireNativeView } from 'expo';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 
-import type { NativePager } from '@repo/native-paging';
+import { createPagedView } from '@repo/native-paging';
 
-import { usersPagerAtom } from '#src/app/accounts/server/users/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+import { usersPageLoaderAtom } from '#src/services/users.ts';
 import type { ServerUser } from '#src/services/users.ts';
 
 type ServerUsersListProps = PrimitiveBaseProps & {
-  readonly pager: NativePager<typeof ServerUser.Type>;
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
   readonly children: ReactNode;
 };
 
-const NativeServerUsersList = requireNativeView<ServerUsersListProps>('ServerUsersList');
+const PagedServerUsersList = createPagedView<ServerUsersListProps, ServerUser>({
+  name: 'ServerUsersList',
+});
 
-const ServerUsersList = ({ modifiers, ...props }: ServerUsersListProps) => (
-  <NativeServerUsersList
+const ServerUsersList = ({ modifiers, ...props }: Parameters<typeof PagedServerUsersList>[0]) => (
+  <PagedServerUsersList
     {...props}
     {...(modifiers ? { modifiers, ...createViewModifierEventListener(modifiers) } : {})}
   />
@@ -51,12 +52,12 @@ const ServerUsersStatus = ({ children }: { readonly children: ReactNode }) => (
 );
 
 export default function ServerUsersScreen() {
-  const pager = useAtomValue(usersPagerAtom);
+  const pages = useAtomValue(usersPageLoaderAtom);
   const colors = useMaterialColors({ seedColor: '#00AAFF' });
 
   return (
     <AndroidAccountsSheet>
-      {AsyncResult.matchWithError(pager, {
+      {AsyncResult.matchWithError(pages, {
         onInitial: () => (
           <ServerUsersStatus>
             <LoadingIndicator modifiers={[fillMaxWidth()]} />
@@ -65,7 +66,8 @@ export default function ServerUsersScreen() {
         onSuccess: ({ value }) => (
           <ServerUsersList
             modifiers={[fillMaxWidth()]}
-            pager={value}
+            key={value.key}
+            fetchPage={value.fetchPage}
             onTap={({ nativeEvent: { id } }) => {
               router.push(`/accounts/server/users/${id}`);
             }}>

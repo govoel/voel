@@ -41,7 +41,6 @@ private class PageFailure : Exception("Page request failed")
 class PagingSession<T : Any>(
     private val pageSize: Int,
     maxItems: Int,
-    prefetchDistance: Int,
     private val onRequest: (PageRequest) -> Unit,
     private val onCancel: (Int) -> Unit,
     private val onSnapshot: (PageSnapshot<T>) -> Unit,
@@ -59,7 +58,6 @@ class PagingSession<T : Any>(
         PagingConfig(
             pageSize = pageSize,
             initialLoadSize = pageSize,
-            prefetchDistance = prefetchDistance,
             maxSize = maxItems,
             enablePlaceholders = false,
         )
