@@ -1,13 +1,14 @@
 import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
-import { Context, Effect, Option, Queue, Schema, Stream, SubscriptionRef } from 'effect';
+import { Context, Effect, Option, Predicate, Queue, Schema, Stream, SubscriptionRef } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 
 import * as AuthClientSchema from '#src/auth-client-schema.ts';
 import { authRoles } from '#src/roles.ts';
 import type { BetterAuthInstance } from '#src/server.ts';
 import {
+  AuthAdminUpdateUserInput,
   AuthAdminUserDetails,
   AuthAdminUserResponse,
   AuthChangePasswordInput,
@@ -141,6 +142,29 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        updateUser: AuthClientSchema.request({
+          Request: AuthAdminUpdateUserInput,
+          execute: async ({ userId, username, ...data }) => {
+            const current = await coreClient.admin.getUser({ query: { id: userId } });
+            if (current.error) {
+              return current;
+            }
+            // Better Auth's username hook checks the acting admin rather than the target.
+            // Only send a username when it changes, including on retries of the same update.
+            return coreClient.admin.updateUser({
+              userId,
+              data: {
+                ...data,
+                ...(Predicate.hasProperty(current.data, 'username') &&
+                current.data.username === username.toLowerCase()
+                  ? {}
+                  : { username }),
+              },
+            });
+          },
+          Result: AuthAdminUserDetails,
+        }),
+
         getUser: AuthClientSchema.request({
           Request: AuthUserIdInput,
           execute: async ({ userId }) => coreClient.admin.getUser({ query: { id: userId } }),

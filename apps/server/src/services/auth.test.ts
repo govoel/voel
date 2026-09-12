@@ -307,3 +307,42 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'edits another user’s profile without allowing role fields through the profile adapter',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      const input = {
+        userId: user.id,
+        name: 'Updated Reader',
+        username: 'updatedreader',
+        email: 'updated@example.com',
+        image: null,
+      };
+      const updated = yield* admin.admin.updateUser(input);
+      expect(updated).toMatchObject({
+        name: input.name,
+        username: input.username,
+        email: input.email,
+        image: null,
+        role: 'under18',
+      });
+      const repeated = yield* admin.admin.updateUser(input);
+      expect(repeated.username).toBe(input.username);
+      const renamed = yield* admin.admin.updateUser({ ...input, name: 'Name only' });
+      expect(renamed).toMatchObject({ name: 'Name only', username: input.username });
+      const extraFields = { ...input, role: 'admin' };
+      const invalid = yield* admin.admin.updateUser(extraFields).pipe(Effect.flip);
+      expect(invalid.reason._tag).toBe('InvalidAuthInputError');
+      const signedIn = yield* guest.signIn.username({
+        username: input.username,
+        password: 'reader-password',
+      });
+      const reader = yield* authenticatedClient(signedIn.token);
+      yield* reader.admin.updateUser(input).pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
