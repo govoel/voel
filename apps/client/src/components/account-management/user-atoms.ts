@@ -2,6 +2,7 @@ import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import type {
+  AuthAdminRevokeSessionInput,
   AuthAdminUpdateUserInput,
   AuthBanUserInput,
   AuthCreateUserInput,
@@ -93,4 +94,21 @@ export const serverUserSessionsAtom = Atom.family((userId: typeof AuthUser.field
       return yield* client.admin.listUserSessions({ userId });
     })
   ).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }))
+);
+
+export const revokeServerUserSessionAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
+  AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
+    Effect.fnUntraced(function* (input, get) {
+      const { client } = yield* get.result(accountAuthAtom);
+      yield* client.admin.revokeUserSession(input);
+      get.refresh(serverUserSessionsAtom(userId));
+    })
+  )
+);
+export const revokeServerUserSessionsAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    yield* client.admin.revokeUserSessions(input);
+    get.refresh(serverUserSessionsAtom(input.userId));
+  })
 );
