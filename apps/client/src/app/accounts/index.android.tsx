@@ -286,6 +286,7 @@ export default function AccountsScreen() {
                               },
                               onSuccess: async () => {
                                 await switchAccountSheetRef.current?.hide();
+                                setIsSwitchAccountPresented(false);
                               },
                             });
                           }}>

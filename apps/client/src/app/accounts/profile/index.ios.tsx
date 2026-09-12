@@ -31,6 +31,7 @@ import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import { ChangePassword } from '#src/components/account-management/change-password.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
@@ -154,6 +155,7 @@ const LoadedProfile = ({
               </Text>
             </LabeledContent>
           </Section>
+          <ChangePassword />
         </ProfileList>
 
         <VStack modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>

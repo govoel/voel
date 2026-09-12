@@ -137,3 +137,59 @@ it.describe('auth customizations', () => {
     )
   );
 });
+
+// Use the actual client and server with a per-client bearer token, like separate devices.
+const authenticatedClient = (token: string) =>
+  AuthClient.make({
+    baseURL: 'http://test/',
+    plugins: [
+      {
+        id: 'test-device',
+        fetchPlugins: [
+          {
+            id: 'test-device',
+            name: 'Test device',
+            hooks: {
+              onRequest: (context) => {
+                const headers = new Headers(context.headers);
+                headers.set('authorization', `Bearer ${token}`);
+                return { ...context, headers };
+              },
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+const setupAdmin = Effect.fnUntraced(function* () {
+  const guest = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+  const { token, user } = yield* guest.signUp.email({
+    name: 'Admin',
+    username: 'admin',
+    email: 'admin@example.com',
+    password: 'password',
+  });
+  return { guest, admin: yield* authenticatedClient(token), user, token };
+});
+
+it.effect(
+  'changes a signed-in password only after verifying the current password',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest } = yield* setupAdmin();
+      const denied = yield* admin
+        .changePassword({ currentPassword: 'incorrect', newPassword: 'new-password' })
+        .pipe(Effect.flip);
+      expect(denied.reason).toMatchObject({ code: 'INVALID_PASSWORD' });
+      yield* admin.changePassword({ currentPassword: 'password', newPassword: 'new-password' });
+      yield* guest.signIn.username({ username: 'admin', password: 'password' }).pipe(Effect.flip);
+      const signedIn = yield* guest.signIn.username({
+        username: 'admin',
+        password: 'new-password',
+      });
+      expect(signedIn.user.username).toBe('admin');
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);

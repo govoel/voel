@@ -1,6 +1,7 @@
 import { Column } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
+import { router } from 'expo-router';
 import { useRef } from 'react';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
@@ -13,6 +14,7 @@ export default function AddAccountScreen() {
   const form = useAddAccountForm({
     onSuccess: async () => {
       await sheetRef.current?.hide();
+      router.dismissTo('/accounts');
     },
   });
 

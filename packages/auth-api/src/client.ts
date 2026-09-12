@@ -9,6 +9,7 @@ import { authRoles } from '#src/roles.ts';
 import type { BetterAuthInstance } from '#src/server.ts';
 import {
   AuthAdminUserResponse,
+  AuthChangePasswordInput,
   AuthCreateUserInput,
   AuthError,
   AuthListUsersInput,
@@ -190,6 +191,12 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           Result: AuthUserResponse,
         }),
       },
+
+      changePassword: AuthClientSchema.request({
+        Request: AuthChangePasswordInput,
+        execute: async (command) => coreClient.changePassword(command),
+        Result: Schema.Void,
+      }),
 
       updateUser: AuthClientSchema.request({
         Request: AuthUpdateUserInput,

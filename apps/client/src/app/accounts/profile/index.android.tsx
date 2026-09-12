@@ -15,6 +15,7 @@ import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import { ChangePassword } from '#src/components/account-management/change-password.tsx';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -129,6 +130,7 @@ const LoadedProfile = ({
           }}>
           <Text>Edit Profile</Text>
         </Button>
+        <ChangePassword />
       </ProfileList>
 
       {isEditingProfile ? (
@@ -145,6 +147,7 @@ const LoadedProfile = ({
               profile={{ name, username }}
               onSuccess={async () => {
                 await editProfileSheetRef.current?.hide();
+                setIsEditingProfile(false);
               }}
             />
           </Column>
