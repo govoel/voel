@@ -14,6 +14,7 @@ import { UserDelete } from '#src/components/account-management/user-delete.tsx';
 import { UserPassword } from '#src/components/account-management/user-password.tsx';
 import { UserProfile } from '#src/components/account-management/user-profile.tsx';
 import { UserRole } from '#src/components/account-management/user-role.tsx';
+import { UserSessions } from '#src/components/account-management/user-sessions.tsx';
 import { Text } from '#src/components/text';
 
 const UserDetails = ({ user }: { user: typeof AuthAdminUserDetails.Type }) => (
@@ -84,6 +85,7 @@ const LoadedUserScreen = ({ userId }: { userId: typeof AuthUser.fields.id.Type }
           <>
             <UserDetails user={value} />
             <OtherUserActions user={value} />
+            <UserSessions user={value} />
           </>
         ),
       })}
