@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import type { AuthCreateUserInput, AuthUser } from '@repo/auth-api/shared.ts';
+import type { AuthCreateUserInput, AuthSetRoleInput, AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { accountAuthAtom } from '#src/components/account-management/atoms.ts';
@@ -23,5 +23,14 @@ export const createServerUserAtom = AppRuntime.fn<typeof AuthCreateUserInput.Typ
     const result = yield* client.admin.createUser(input);
     get.refresh(listUsersAtom);
     return result;
+  })
+);
+
+export const setServerUserRoleAtom = AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    yield* client.admin.setRole(input);
+    get.refresh(serverUserAtom(input.userId));
+    get.refresh(listUsersAtom);
   })
 );

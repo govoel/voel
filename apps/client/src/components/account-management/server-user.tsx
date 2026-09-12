@@ -6,9 +6,10 @@ import { useLocalSearchParams } from 'expo-router';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 
-import { authFailureMessage } from '#src/components/account-management/atoms.ts';
+import { accountAuthAtom, authFailureMessage } from '#src/components/account-management/atoms.ts';
 import { Action, Page, Panel } from '#src/components/account-management/ui';
 import { serverUserAtom } from '#src/components/account-management/user-atoms.ts';
+import { UserRole } from '#src/components/account-management/user-role.tsx';
 import { Text } from '#src/components/text';
 
 const UserDetails = ({ user }: { user: typeof AuthAdminUserDetails.Type }) => (
@@ -30,6 +31,18 @@ const UserDetails = ({ user }: { user: typeof AuthAdminUserDetails.Type }) => (
     </Text>
   </Panel>
 );
+
+const OtherUserActions = ({ user }: { user: typeof AuthAdminUserDetails.Type }) => {
+  const auth = useAtomValue(accountAuthAtom);
+  if (!AsyncResult.isSuccess(auth) || auth.value.key.userId === user.id) {
+    return (
+      <Panel title="Manage user">
+        <Text>Use your profile to manage your own account.</Text>
+      </Panel>
+    );
+  }
+  return <UserRole user={user} />;
+};
 
 const LoadedUserScreen = ({ userId }: { userId: typeof AuthUser.fields.id.Type }) => {
   const state = useAtomValue(serverUserAtom(userId));
@@ -55,7 +68,12 @@ const LoadedUserScreen = ({ userId }: { userId: typeof AuthUser.fields.id.Type }
             <Text>Unable to load this user. Try refreshing.</Text>
           </Panel>
         ),
-        onSuccess: ({ value }) => <UserDetails user={value} />,
+        onSuccess: ({ value }) => (
+          <>
+            <UserDetails user={value} />
+            <OtherUserActions user={value} />
+          </>
+        ),
       })}
     </Page>
   );
