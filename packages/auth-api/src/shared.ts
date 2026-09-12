@@ -77,11 +77,11 @@ export class AuthSession extends Schema.Struct({
     id: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/id')),
     userId: AuthUserId,
     token: AuthSessionToken,
-    ipAddress: Schema.NullishOr(Schema.String).pipe(
-      Schema.brand('@repo/auth-api/shared/AuthSession/session/ipAddress')
+    ipAddress: Schema.NullishOr(
+      Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/ipAddress'))
     ),
-    userAgent: Schema.NullishOr(Schema.String).pipe(
-      Schema.brand('@repo/auth-api/shared/AuthSession/session/userAgent')
+    userAgent: Schema.NullishOr(
+      Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/userAgent'))
     ),
     expiresAt: Schema.DateTimeUtcFromDate.pipe(
       Schema.brand('@repo/auth-api/shared/AuthSession/session/expiresAt')
@@ -157,3 +157,5 @@ export class AuthChangePasswordInput extends Schema.Struct({
   currentPassword: PasswordInput,
   newPassword: PasswordInput.check(Schema.isMinLength(8), Schema.isMaxLength(128)),
 }) {}
+
+export class AuthDeviceSession extends AuthSession.fields.session {}
