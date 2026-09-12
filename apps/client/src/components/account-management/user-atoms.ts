@@ -75,3 +75,12 @@ export const unbanServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
     get.refresh(listUsersAtom);
   })
 );
+
+export const deleteServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    yield* client.admin.removeUser(input);
+    get.refresh(listUsersAtom);
+    get.refresh(serverUserAtom(input.userId));
+  })
+);

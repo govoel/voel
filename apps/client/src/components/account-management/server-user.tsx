@@ -1,14 +1,18 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { DateTime, Option, Predicate, Schema } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 
 import { accountAuthAtom, authFailureMessage } from '#src/components/account-management/atoms.ts';
+import { MutationAction } from '#src/components/account-management/mutation-action.tsx';
 import { Action, EditorSheet, Page, Panel } from '#src/components/account-management/ui';
-import { serverUserAtom } from '#src/components/account-management/user-atoms.ts';
+import {
+  deleteServerUserAtom,
+  serverUserAtom,
+} from '#src/components/account-management/user-atoms.ts';
 import { UserBan } from '#src/components/account-management/user-ban.tsx';
 import { UserPasswordForm } from '#src/components/account-management/user-password.tsx';
 import { UserProfileForm } from '#src/components/account-management/user-profile.tsx';
@@ -62,6 +66,17 @@ const OtherUserActions = ({ user }: { user: typeof AuthAdminUserDetails.Type }) 
         </EditorSheet>
       </Panel>
       <UserBan user={user} />
+      <Panel title="Delete user">
+        <MutationAction
+          mutation={deleteServerUserAtom}
+          input={{ userId: user.id }}
+          title="Delete server user"
+          message={`Permanently delete @${user.username} (${user.email}) from this server? Their credentials and sessions will be removed. This cannot be undone.`}
+          onSuccess={() => {
+            router.replace('/accounts/server/users');
+          }}
+        />
+      </Panel>
     </>
   );
 };
