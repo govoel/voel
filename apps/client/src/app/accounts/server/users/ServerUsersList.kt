@@ -3,13 +3,16 @@
 package app
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
@@ -85,6 +88,7 @@ private fun FunctionalComposableScope.ServerUsersListContent(
         snapshotFlow {
             val layout = state.layoutInfo
             val lastVisibleItem = layout.visibleItemsInfo.lastOrNull()
+            // Loading is already false; wait for layout to remove the footer too.
             layout.totalItemsCount == props.users.size &&
                 lastVisibleItem != null && lastVisibleItem.index >= props.users.size - 5
         }.first { it }
@@ -113,6 +117,16 @@ private fun FunctionalComposableScope.ServerUsersListContent(
                     style = MaterialTheme.typography.bodyLarge,
                     fontFamily = fontFamily
                 )
+            }
+        }
+        if (props.waiting) {
+            item(key = "loading") {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LoadingIndicator()
+                }
             }
         }
     }

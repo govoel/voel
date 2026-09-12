@@ -72,6 +72,16 @@ export const listUsersAtom = AppRuntime.pull(
         ),
       },
       {
+        id: PredefinedStateId.make('loading-more'),
+        label: 'Loading more',
+        description: 'Keeps existing users visible while the next page is loading.',
+        atom: Atom.writable(
+          (): Atom.PullResult<typeof AuthUser.Type> =>
+            AsyncResult.waiting(AsyncResult.success({ items: [alex, sam], done: false })),
+          () => void 0
+        ),
+      },
+      {
         id: PredefinedStateId.make('paginated'),
         label: 'Page available',
         description: 'Starts with one user and adds another when more users are requested.',
