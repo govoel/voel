@@ -144,6 +144,12 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        removeUser: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async (command) => coreClient.admin.removeUser(command),
+          Result: Schema.Void,
+        }),
+
         banUser: AuthClientSchema.request({
           Request: AuthBanUserInput,
           execute: async (command) => coreClient.admin.banUser(command),

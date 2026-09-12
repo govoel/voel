@@ -407,3 +407,29 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'deletes another user and their credentials and sessions but rejects non-admins and self-deletion',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest, user: administrator } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      const login = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const reader = yield* authenticatedClient(login.token);
+      yield* reader.admin.removeUser({ userId: user.id }).pipe(Effect.flip);
+      yield* admin.admin.removeUser({ userId: administrator.id }).pipe(Effect.flip);
+      yield* admin.admin.removeUser({ userId: user.id });
+      const missing = yield* admin.admin.getUser({ userId: user.id }).pipe(Effect.flip);
+      expect(missing.reason).toMatchObject({ status: 404 });
+      yield* reader.readSession.pipe(Effect.flip);
+      yield* guest.signIn
+        .username({ username: 'reader', password: 'reader-password' })
+        .pipe(Effect.flip);
+      expect((yield* admin.admin.listUsers({ limit: 10, offset: 0 })).total).toBe(1);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
