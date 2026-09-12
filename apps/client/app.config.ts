@@ -74,6 +74,7 @@ project(':expo') {
       }
     }
 
+    dependencies.add('implementation', project(':voel-native-paging'))
     dependencies.add('implementation', '${getExpoUiAndroidDependencyVersion('androidx.compose.foundation:foundation-android')}')
     dependencies.add('implementation', '${getExpoUiAndroidDependencyVersion('androidx.compose.ui:ui-android')}')
     dependencies.add('implementation', '${getExpoUiAndroidDependencyVersion('androidx.compose.material3:material3')}')
@@ -89,9 +90,10 @@ project(':expo') {
       );
     }
 
-    if (!config.modResults.contents.includes("project(':expo')")) {
-      config.modResults.contents = `${config.modResults.contents.trimEnd()}\n${expoComposeProject}`;
-    }
+    // Replace the generated block so dependency changes also converge on existing prebuilds.
+    config.modResults.contents = `${config.modResults.contents
+      .replace(/\nproject\(':expo'\) \{[\s\S]*?\n\}\s*$/u, '')
+      .trimEnd()}\n${expoComposeProject}`;
 
     return config;
   })) satisfies ConfigPlugin;
@@ -126,6 +128,7 @@ export default function app({ config }: ConfigContext): ExpoConfig {
     userInterfaceStyle: 'automatic',
 
     ios: {
+      deploymentTarget: '18.0',
       supportsTablet: false,
       bundleIdentifier: Match.value(env.releaseChannel).pipe(
         Match.when('prod', () => 'app.voel.rn'),

@@ -1,38 +1,44 @@
-import { useAtom } from '@effect/atom-react';
-import { Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
-import { containerRelativeFrame, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
+import { useAtomValue } from '@effect/atom-react';
+import { Host, ProgressView } from '@expo/ui/swift-ui';
+import type { CommonViewModifierProps } from '@expo/ui/swift-ui';
+import {
+  containerRelativeFrame,
+  createViewModifierEventListener,
+  frame,
+} from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { requireNativeView } from 'expo';
 import { Stack, router } from 'expo-router';
-import type { ComponentType } from 'react';
 import { PlatformColor as platformColor } from 'react-native';
 
-import type { AuthUser } from '@repo/auth-api/shared.ts';
+import { createPagedView } from '@repo/native-paging';
 
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { Text } from '#src/components/text';
+import { usersPageLoaderAtom } from '#src/services/users.ts';
+import type { ServerUser } from '#src/services/users.ts';
 
-interface ServerUsersListProps {
-  readonly users: ReadonlyArray<Pick<typeof AuthUser.Type, 'id' | 'username'>>;
-  readonly waiting: boolean;
-  readonly done: boolean;
-  readonly onEndReached: () => void;
+type ServerUsersListProps = CommonViewModifierProps & {
   readonly onTap: (event: { readonly nativeEvent: { readonly id: string } }) => void;
-}
+};
 
-const NativeServerUsersList: ComponentType<ServerUsersListProps> =
-  requireNativeView('ServerUsersList');
+const PagedServerUsersList = createPagedView<ServerUsersListProps, ServerUser>({
+  name: 'ServerUsersList',
+});
 
-const ServerUsersList = (props: ServerUsersListProps) => <NativeServerUsersList {...props} />;
+const ServerUsersList = ({ modifiers, ...props }: Parameters<typeof PagedServerUsersList>[0]) => (
+  <PagedServerUsersList
+    {...props}
+    {...(modifiers ? { modifiers, ...createViewModifierEventListener(modifiers) } : {})}
+  />
+);
 
 export default function ServerUsersScreen() {
-  const [users, loadMoreUsers] = useAtom(listUsersAtom);
+  const pages = useAtomValue(usersPageLoaderAtom);
 
   return (
     <>
       <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
       <Host style={{ flex: 1, backgroundColor: platformColor('systemGroupedBackground') }}>
-        {AsyncResult.matchWithError(users, {
+        {AsyncResult.matchWithError(pages, {
           onInitial: () => (
             <ProgressView
               modifiers={[
@@ -41,24 +47,14 @@ export default function ServerUsersScreen() {
               ]}
             />
           ),
-          onSuccess: ({ value: { items, done }, waiting }) => (
-            <List modifiers={[headerProminence('increased')]}>
-              <Section title="Users">
-                <ServerUsersList
-                  users={items.map(({ id, username }) => ({ id, username }))}
-                  waiting={waiting}
-                  done={done}
-                  onTap={({ nativeEvent: { id } }) => {
-                    router.push(`/accounts/server/users/${id}`);
-                  }}
-                  onEndReached={() => {
-                    if (!waiting && !done) {
-                      loadMoreUsers();
-                    }
-                  }}
-                />
-              </Section>
-            </List>
+          onSuccess: ({ value }) => (
+            <ServerUsersList
+              key={value.key}
+              fetchPage={value.fetchPage}
+              onTap={({ nativeEvent: { id } }) => {
+                router.push(`/accounts/server/users/${id}`);
+              }}
+            />
           ),
           onError: () => <Text>Error</Text>,
           onDefect: () => <Text>Defect</Text>,

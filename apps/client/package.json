@@ -23,6 +23,7 @@
     "@repo/auth-api": "workspace:*",
     "@repo/effect-turso-sync": "workspace:*",
     "@repo/effect-turso-sync-rn": "workspace:*",
+    "@repo/native-paging": "workspace:*",
     "@repo/spec-api": "workspace:*",
     "@tanstack/react-form": "1.33.5",
     "better-auth": "1.7.3",

@@ -1,0 +1,26 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.voel'
+version = '0.0.0'
+
+def coreVersions = new Properties()
+file('../core/gradle.properties').withInputStream { coreVersions.load(it) }
+
+android {
+  namespace 'app.voel.paging'
+  defaultConfig {
+    versionCode 1
+    versionName project.version.toString()
+  }
+  // Compile the shared source with Expo's Kotlin compiler on Android. The standalone KMP
+  // build uses the current Kotlin/Native toolchain for Xcode, without upgrading Expo's AGP/Kotlin.
+  sourceSets.main.java.srcDir '../core/src/commonMain/kotlin'
+}
+
+dependencies {
+  implementation "androidx.paging:paging-common:${coreVersions.pagingVersion}"
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:${coreVersions.coroutinesVersion}"
+}

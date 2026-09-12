@@ -1,17 +1,15 @@
 internal import ExpoModulesCore
+internal import ExpoUI
 import SwiftUI
+internal import VoelNativePaging
 
-struct ServerUsersListUser: Record {
-  @Field var id: String = ""
-  @Field var username: String = ""
+final class ServerUser: Record {
+  @Field(.required) var username: String = ""
+
+  init() {}
 }
 
-final class ServerUsersListViewProps: ExpoSwiftUI.ViewProps {
-  @Field var users: [ServerUsersListUser] = []
-  @Field var waiting: Bool = false
-  @Field var done: Bool = false
-
-  var onEndReached = EventDispatcher()
+final class ServerUsersListViewProps: PagingViewProps<ServerUser> {
   var onTap = EventDispatcher()
 }
 
@@ -23,34 +21,38 @@ struct ServerUsersListView: ExpoSwiftUI.View {
   }
 
   var body: some View {
-    let thresholdIndex = props.users.count - 5
-
-    ForEach(props.users.enumerated(), id: \.element.id) { offset, user in
-      Button {
-        props.onTap([
-          "id": user.id
-        ])
-      } label: {
-        HStack {
-          Text("@\(user.username)")
-          Spacer()
-          Image(systemName: "chevron.right")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
+    if let options = props.paging {
+      let pager = props.pager(options: options)
+      PaginatedList(pager: pager, header: { Text("Users").font(.headline) }) { user in
+        Button {
+          props.onTap([
+            "id": user.id
+          ])
+        } label: {
+          HStack {
+            Text("@\(user.value.username)")
+            Spacer()
+            Image(systemName: "chevron.right")
+              .font(.footnote.weight(.semibold))
+              .foregroundStyle(.secondary)
+          }
         }
+        .tint(.primary)
       }
-      .tint(.primary)
-      .task {
-        if offset >= thresholdIndex, !props.waiting, !props.done {
-          props.onEndReached([:])
-        }
-      }
+      .onAppear { pager.start() }
     }
   }
 }
 
 final class ServerUsersList: Module {
   public func definition() -> ModuleDefinition {
-    View(ServerUsersListView.self)
+    ExpoUIView(ServerUsersListView.self) {
+      AsyncFunction("resolvePage") { (view: ServerUsersListView, page: PageDelivery) in
+        try view.props.resolvePage(page)
+      }
+      AsyncFunction("rejectPage") { (view: ServerUsersListView, request: PageCancellation) in
+        view.props.rejectPage(request)
+      }
+    }
   }
 }

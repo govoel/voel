@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react(), reactNative()],
   resolve: {
     tsconfigPaths: true,
+    // Workspace peers must use the same Expo instance as native-module mocks.
+    dedupe: ['expo'],
   },
   test: {
     globals: true,

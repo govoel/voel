@@ -14,7 +14,6 @@ import {
 import { AsyncResult, Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { vi } from 'vitest';
 
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
@@ -31,6 +30,7 @@ import {
   setupTestServerWithUsers,
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
+import { usersPageLoaderAtom } from '#src/services/users.ts';
 
 class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
   'voel/services/accounts/atoms.test/AtomTaskScheduler',
@@ -499,12 +499,12 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
   );
 });
 
-it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
+it.layer(TestServerControllerClient.layer)('usersPageLoaderAtom', (iit) => {
   iit.effect(
     'fails with NoActiveAccountError without an active account',
     Effect.fnUntraced(
       function* () {
-        const error = yield* Atom.getResult(listUsersAtom).pipe(Effect.flip);
+        const error = yield* Atom.getResult(usersPageLoaderAtom).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(NoActiveAccountError);
       },
@@ -513,7 +513,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   );
 
   iit.effect(
-    'loads successive pages until all users are returned',
+    'loads and reloads independent pages without accumulating records',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
@@ -523,27 +523,19 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        yield* Atom.mount(listUsersAtom);
-
-        const firstPage = yield* Atom.getResult(listUsersAtom, {
+        yield* Atom.mount(usersPageLoaderAtom);
+        const { fetchPage: load } = yield* Atom.getResult(usersPageLoaderAtom, {
           suspendOnWaiting: true,
         });
-        expect(firstPage).toMatchObject({ done: false });
+        const firstPage = yield* load({ offset: 0, limit: 10 });
+        const secondPage = yield* load({ offset: 10, limit: 10 });
         expect(firstPage.items).toHaveLength(10);
-
-        yield* Atom.set(listUsersAtom, void 0);
-        const allUsers = yield* Atom.getResult(listUsersAtom, {
-          suspendOnWaiting: true,
-        });
-        expect(allUsers).toMatchObject({ done: false });
-        expect(allUsers.items).toHaveLength(12);
-
-        yield* Atom.set(listUsersAtom, void 0);
-        expect(
-          yield* Atom.getResult(listUsersAtom, {
-            suspendOnWaiting: true,
-          })
-        ).toMatchObject({ done: true, items: allUsers.items });
+        expect(secondPage.items).toHaveLength(2);
+        expect(firstPage.total).toBe(12);
+        expect(yield* load({ offset: 0, limit: 10 })).toEqual(firstPage);
+        expect(new Set([...firstPage.items, ...secondPage.items].map(({ id }) => id)).size).toBe(
+          12
+        );
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -554,15 +546,15 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
-        // yield* Atom.mount(listUsersAtom); -- TODO: comment back in
         const firstServer = yield* setupTestServerWithUsers({ userCount: 3 });
         yield* manager.signInAccount({
           serverUrl: firstServer.serverUrl,
           username: firstServer.adminUsername,
           password: firstServer.password,
         });
-        const firstResult = yield* Atom.getResult(listUsersAtom);
-        const firstUsernames = firstResult.items.map((user) => user.username);
+        const { fetchPage: firstLoader } = yield* Atom.getResult(usersPageLoaderAtom);
+        const firstResult = yield* firstLoader({ offset: 0, limit: 10 });
+        const firstUsernames = firstResult.items.map((user) => user.value.username);
         expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           firstServer.usernames.sort((first, second) => first.localeCompare(second))
         );
@@ -573,8 +565,9 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           username: secondServer.adminUsername,
           password: secondServer.password,
         });
-        const secondResult = yield* Atom.getResult(listUsersAtom);
-        const secondUsernames = secondResult.items.map((user) => user.username);
+        const { fetchPage: secondLoader } = yield* Atom.getResult(usersPageLoaderAtom);
+        const secondResult = yield* secondLoader({ offset: 0, limit: 10 });
+        const secondUsernames = secondResult.items.map((user) => user.value.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
         );

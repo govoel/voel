@@ -64,6 +64,19 @@ const collectNativeSources = (directory) => {
 };
 
 // oxlint-disable-next-line import/no-commonjs
-module.exports = /** @type {import('expo/fingerprint').Config} */ ({
-  extraSources: collectNativeSources(path.join(__dirname, 'src')),
+module.exports = /** @satisfies {import('expo/fingerprint').Config} */ ({
+  extraSources: [
+    ...collectNativeSources(path.join(__dirname, 'src')),
+    // The Kotlin core also ships in the iOS binary; it is outside Expo's inline source tree.
+    {
+      type: 'dir',
+      filePath: '../../packages/native-paging/core/src',
+      reasons: ['sharedPagingEngine'],
+    },
+    ...['build.gradle.kts', 'gradle.properties', 'settings.gradle.kts'].map((file) => ({
+      type: /** @type {const} */ ('file'),
+      filePath: `../../packages/native-paging/core/${file}`,
+      reasons: ['sharedPagingEngine'],
+    })),
+  ],
 });
