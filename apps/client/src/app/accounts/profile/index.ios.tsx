@@ -37,7 +37,12 @@ import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
-  <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
+  <List
+    modifiers={[
+      headerProminence('increased'),
+      frame({ maxHeight: Infinity }),
+      padding({ bottom: 80 }),
+    ]}>
     {children}
   </List>
 );

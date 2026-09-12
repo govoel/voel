@@ -209,3 +209,22 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'revokes another device without signing out the current one, then revokes all',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest, token } = yield* setupAdmin();
+      const second = yield* guest.signIn.username({ username: 'admin', password: 'password' });
+      const device = yield* authenticatedClient(second.token);
+      yield* device.readSession;
+      yield* admin.revokeSession({ token: second.token });
+      yield* admin.revokeSession({ token: second.token });
+      yield* device.readSession.pipe(Effect.flip);
+      expect((yield* admin.readSession).session.token).toBe(token);
+      yield* admin.revokeSessions;
+      yield* admin.readSession.pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);

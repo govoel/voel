@@ -159,3 +159,5 @@ export class AuthChangePasswordInput extends Schema.Struct({
 }) {}
 
 export class AuthDeviceSession extends AuthSession.fields.session {}
+
+export class AuthRevokeSessionInput extends Schema.Struct({ token: AuthSessionToken }) {}

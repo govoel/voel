@@ -14,6 +14,7 @@ import {
   AuthDeviceSession,
   AuthError,
   AuthListUsersInput,
+  AuthRevokeSessionInput,
   AuthSession,
   AuthSetRoleInput,
   AuthSignInInput,
@@ -160,6 +161,17 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           Result: AuthAdminUserResponse,
         }),
       },
+
+      revokeSession: AuthClientSchema.request({
+        Request: AuthRevokeSessionInput,
+        execute: async (command) => coreClient.revokeSession(command),
+        Result: Schema.Void,
+      }),
+      revokeSessions: AuthClientSchema.request({
+        Request: Schema.Void,
+        execute: async () => coreClient.revokeSessions(),
+        Result: Schema.Void,
+      })(),
 
       listSessions: AuthClientSchema.request({
         Request: Schema.Void,

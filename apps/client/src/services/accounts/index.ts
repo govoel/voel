@@ -149,15 +149,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
           );
       });
 
-      const removeActiveAccount = Effect.gen(function* () {
-        const activeAccount = yield* state;
-        if (Option.isNone(activeAccount)) {
-          return;
-        }
-
+      const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
         // we ignore errors here because the server may be offline
         // which causes better-auth to throw
-        yield* acquireAuthClient(activeAccount.value).pipe(
+        yield* acquireAuthClient(key).pipe(
           Effect.flatMap((authClient) => authClient.signOut),
           Effect.ignore,
           Effect.scoped,
@@ -167,8 +162,8 @@ export class AccountManager extends Context.Service<AccountManager>()(
         // Mimic Better Auth and remove the auth storage items for this account
         const storagePrefix = yield* xxHash.hash128(
           makeAuthStorageKey({
-            serverUrl: activeAccount.value.serverUrl,
-            authStorageId: activeAccount.value.authStorageId,
+            serverUrl: key.serverUrl,
+            authStorageId: key.authStorageId,
           })
         );
         yield* Effect.all(
@@ -179,7 +174,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           { concurrency: 'unbounded' }
         );
 
-        yield* accountRepository.remove(activeAccount.value).pipe(
+        yield* accountRepository.remove(key).pipe(
           (effect) => reactivity.mutation(['account'], effect),
           Effect.catchTags({
             SchemaError: () => AccountDatabaseError.make(),
@@ -187,6 +182,21 @@ export class AccountManager extends Context.Service<AccountManager>()(
           })
         );
       });
+
+      const removeActiveAccount = state.pipe(
+        Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: removeAccount }))
+      );
+
+      const signOutEverywhere = Effect.fnUntraced(
+        function* (key: ActiveAccountKey) {
+          const client = yield* acquireAuthClient(key);
+          // Keep local credentials if revocation fails so the user can retry.
+          yield* client.revokeSessions;
+          yield* removeAccount(key);
+        },
+        Effect.scoped,
+        Effect.provideService(AuthClientMap, authClientMap)
+      );
 
       const signInAccount = Effect.fnUntraced(
         function* ({
@@ -274,6 +284,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         state,
         setActiveAccount,
         removeActiveAccount,
+        signOutEverywhere,
         signInAccount,
         setupServerWithAccount,
       };
