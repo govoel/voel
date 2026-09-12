@@ -46,6 +46,14 @@ struct ServerUsersListView: ExpoSwiftUI.View {
         }
       }
     }
+
+    if props.waiting {
+      HStack {
+        Spacer()
+        ProgressView()
+        Spacer()
+      }
+    }
   }
 }
 
