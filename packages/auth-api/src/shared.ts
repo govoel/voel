@@ -182,3 +182,8 @@ export class AuthAdminUpdateUserInput extends Schema.Struct({
   email: EmailInput,
   image: Schema.NullOr(Schema.String),
 }) {}
+
+export class AuthSetUserPasswordInput extends Schema.Struct({
+  userId: AuthUserId,
+  newPassword: NewPasswordInput,
+}) {}

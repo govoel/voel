@@ -9,6 +9,7 @@ import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 import { accountAuthAtom, authFailureMessage } from '#src/components/account-management/atoms.ts';
 import { Action, EditorSheet, Page, Panel } from '#src/components/account-management/ui';
 import { serverUserAtom } from '#src/components/account-management/user-atoms.ts';
+import { UserPasswordForm } from '#src/components/account-management/user-password.tsx';
 import { UserProfileForm } from '#src/components/account-management/user-profile.tsx';
 import { UserRoleForm } from '#src/components/account-management/user-role.tsx';
 import { Text } from '#src/components/text';
@@ -52,6 +53,11 @@ const OtherUserActions = ({ user }: { user: typeof AuthAdminUserDetails.Type }) 
       <Panel title="Profile">
         <EditorSheet title="Edit user profile">
           {({ onSuccess }) => <UserProfileForm user={user} onSuccess={onSuccess} />}
+        </EditorSheet>
+      </Panel>
+      <Panel title="Set / reset password">
+        <EditorSheet title="Set a new password">
+          {({ onSuccess }) => <UserPasswordForm userId={user.id} onSuccess={onSuccess} />}
         </EditorSheet>
       </Panel>
     </>

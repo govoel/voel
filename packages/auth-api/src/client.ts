@@ -19,6 +19,7 @@ import {
   AuthRevokeSessionInput,
   AuthSession,
   AuthSetRoleInput,
+  AuthSetUserPasswordInput,
   AuthSignInInput,
   AuthSignUpInput,
   AuthTransportError,
@@ -142,6 +143,12 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        setUserPassword: AuthClientSchema.request({
+          Request: AuthSetUserPasswordInput,
+          execute: async (command) => coreClient.admin.setUserPassword(command),
+          Result: Schema.Void,
+        }),
+
         updateUser: AuthClientSchema.request({
           Request: AuthAdminUpdateUserInput,
           execute: async ({ userId, username, ...data }) => {

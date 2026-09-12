@@ -5,6 +5,7 @@ import type {
   AuthAdminUpdateUserInput,
   AuthCreateUserInput,
   AuthSetRoleInput,
+  AuthSetUserPasswordInput,
   AuthUser,
 } from '@repo/auth-api/shared.ts';
 
@@ -46,5 +47,12 @@ export const updateServerUserAtom = AppRuntime.fn<typeof AuthAdminUpdateUserInpu
     yield* client.admin.updateUser(input);
     get.refresh(serverUserAtom(input.userId));
     get.refresh(listUsersAtom);
+  })
+);
+
+export const setServerUserPasswordAtom = AppRuntime.fn<typeof AuthSetUserPasswordInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
   })
 );
