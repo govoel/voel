@@ -8,6 +8,7 @@ import * as AuthClientSchema from '#src/auth-client-schema.ts';
 import { authRoles } from '#src/roles.ts';
 import type { BetterAuthInstance } from '#src/server.ts';
 import {
+  AuthAdminRevokeSessionInput,
   AuthAdminUpdateUserInput,
   AuthAdminUserDetails,
   AuthAdminUserResponse,
@@ -145,6 +146,17 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        revokeUserSession: AuthClientSchema.request({
+          Request: AuthAdminRevokeSessionInput,
+          execute: async (command) => coreClient.admin.revokeUserSession(command),
+          Result: Schema.Void,
+        }),
+        revokeUserSessions: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async (command) => coreClient.admin.revokeUserSessions(command),
+          Result: Schema.Void,
+        }),
+
         listUserSessions: AuthClientSchema.request({
           Request: AuthUserIdInput,
           execute: async (command) => coreClient.admin.listUserSessions(command),

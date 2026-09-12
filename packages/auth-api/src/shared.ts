@@ -197,3 +197,7 @@ export class AuthBanUserInput extends Schema.Struct({
 export class AuthUserSessions extends Schema.Struct({
   sessions: Schema.Array(AuthDeviceSession),
 }) {}
+
+export class AuthAdminRevokeSessionInput extends Schema.Struct({
+  sessionToken: AuthSessionToken,
+}) {}

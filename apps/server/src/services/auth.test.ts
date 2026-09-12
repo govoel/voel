@@ -460,3 +460,40 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'revokes one or all user sessions without affecting the administrator',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest, token } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      const first = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const second = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const device1 = yield* authenticatedClient(first.token);
+      const device2 = yield* authenticatedClient(second.token);
+      yield* device1.admin.revokeUserSession({ sessionToken: second.token }).pipe(Effect.flip);
+      yield* device1.admin.revokeUserSessions({ userId: user.id }).pipe(Effect.flip);
+      yield* admin.admin.revokeUserSession({ sessionToken: first.token });
+      yield* admin.admin.revokeUserSession({ sessionToken: first.token });
+      yield* device1.readSession.pipe(Effect.flip);
+      yield* device2.readSession;
+      expect(
+        (yield* admin.admin.listUserSessions({ userId: user.id })).sessions.map(
+          (session) => session.token
+        )
+      ).toEqual([second.token]);
+      yield* admin.admin.revokeUserSessions({ userId: user.id });
+      yield* admin.admin.revokeUserSessions({ userId: user.id });
+      yield* device2.readSession.pipe(Effect.flip);
+      expect((yield* admin.admin.listUserSessions({ userId: user.id })).sessions).toEqual([]);
+      expect((yield* admin.readSession).session.token).toBe(token);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
