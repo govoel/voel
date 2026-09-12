@@ -161,3 +161,14 @@ export class AuthChangePasswordInput extends Schema.Struct({
 export class AuthDeviceSession extends AuthSession.fields.session {}
 
 export class AuthRevokeSessionInput extends Schema.Struct({ token: AuthSessionToken }) {}
+
+export class AuthUserIdInput extends Schema.Struct({ userId: AuthUserId }) {}
+
+export class AuthAdminUserDetails extends AuthUser.pipe(
+  Schema.fieldsAssign({
+    emailVerified: Schema.Boolean,
+    banned: Schema.NullishOr(Schema.Boolean),
+    banReason: Schema.NullishOr(Schema.String),
+    banExpires: Schema.NullishOr(Schema.DateTimeUtcFromDate),
+  })
+) {}
