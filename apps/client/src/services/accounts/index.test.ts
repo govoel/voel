@@ -664,6 +664,51 @@ describe('AccountManager', () => {
     );
   });
 
+  it.layer(TestServerControllerClient.layer)('signOutEverywhere', (iit) => {
+    iit.effect(
+      'revokes sessions and removes only the captured local sign-in, even after switching accounts',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+          const [first, second] = yield* signInTestServerUsers(manager, testServer);
+          const firstKey = new ActiveAccountKey({
+            serverUrl: first.serverUrl,
+            userId: first.userId,
+            authStorageId: first.authStorageId,
+          });
+          const secondKey = new ActiveAccountKey({
+            serverUrl: second.serverUrl,
+            userId: second.userId,
+            authStorageId: second.authStorageId,
+          });
+          const firstClient = yield* acquireAuthClient(firstKey);
+          const secondClient = yield* acquireAuthClient(secondKey);
+          const storage = yield* AuthClientStorage;
+          const xxHash = yield* XxHash;
+          const prefix = yield* xxHash.hash128(
+            `voel::auth::${first.serverUrl}::${first.authStorageId}`
+          );
+          expect(Option.isSome(yield* storage.getItem(`${prefix}_cookie`))).toBe(true);
+
+          yield* manager.signOutEverywhere(firstKey);
+
+          expect(yield* manager.state).toEqual(Option.some(secondKey));
+          expect((yield* getAccounts).map((account) => account.userId)).toEqual([second.userId]);
+          expect(yield* storage.getItem(`${prefix}_cookie`)).toEqual(Option.none());
+          expect(yield* storage.getItem(`${prefix}_session_data`)).toEqual(Option.none());
+          yield* firstClient.listSessions.pipe(Effect.flip);
+          expect((yield* secondClient.readSession).user.id).toBe(second.userId);
+
+          yield* manager.signOutEverywhere(secondKey);
+          expect(yield* manager.state).toEqual(Option.none());
+          expect(yield* getAccounts).toEqual([]);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+  });
+
   it.layer(TestServerControllerClient.layer)('removeActiveAccount', (iit) => {
     const storageItems = new Map<string, string>();
 

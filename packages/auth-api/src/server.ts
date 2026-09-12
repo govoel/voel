@@ -6,7 +6,7 @@ import { testUtils } from 'better-auth/plugins';
 import { admin } from 'better-auth/plugins/admin';
 import { bearer } from 'better-auth/plugins/bearer';
 import { username } from 'better-auth/plugins/username';
-import { Context, Duration, Effect, Option, Schema } from 'effect';
+import { Context, Effect, Option, Schema } from 'effect';
 
 import { authRoles } from '#src/roles.ts';
 import {
@@ -51,12 +51,8 @@ const createServerAuthClient = (config: {
     telemetry: { enabled: false },
     trustedOrigins: ['voel://', 'voel-preview://', 'voel-dev://'],
     logger: config.logger,
-    session: {
-      cookieCache: {
-        enabled: true,
-        maxAge: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
-      },
-    },
+    // Revocations and role changes must take effect on the very next request.
+    session: { cookieCache: { enabled: false } },
     database: config.database,
     plugins: [
       expo(),

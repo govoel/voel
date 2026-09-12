@@ -1,9 +1,13 @@
 import { Effect, Match, Option } from 'effect';
 
-import type { AuthChangePasswordInput, AuthError } from '@repo/auth-api/shared.ts';
+import type {
+  AuthChangePasswordInput,
+  AuthError,
+  AuthRevokeSessionInput,
+} from '@repo/auth-api/shared.ts';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
-import { NoActiveAccountError } from '#src/services/accounts/index.ts';
+import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
@@ -27,13 +31,15 @@ export const authFailureMessage = ({
         readonly _tag:
           | 'NoActiveAccountError'
           | 'AccountDatabaseError'
-          | 'BetterAuthClientInitializationError';
+          | 'BetterAuthClientInitializationError'
+          | 'AuthClientStorageRemoveItemError';
       };
 }) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
       NoActiveAccountError: () => 'No signed-in account is available.',
       AccountDatabaseError: () => 'Unable to read the account. Try again.',
+      AuthClientStorageRemoveItemError: () => 'Unable to clear account storage. Try again.',
       BetterAuthClientInitializationError: () => 'Unable to initialize authentication. Try again.',
       AuthError: ({ reason }) =>
         Match.value(reason).pipe(
@@ -67,3 +73,19 @@ export const ownSessionsAtom = AppRuntime.atom(
     return { sessions, currentId: current.session.id };
   })
 ).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }));
+
+export const revokeOwnSessionAtom = AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    yield* client.revokeSession(input);
+    get.refresh(ownSessionsAtom);
+  })
+);
+
+export const signOutEverywhereAtom = AppRuntime.fn<null>()(
+  Effect.fnUntraced(function* (_, get) {
+    const { key } = yield* get.result(accountAuthAtom);
+    const manager = yield* AccountManager;
+    yield* manager.signOutEverywhere(key);
+  })
+);
