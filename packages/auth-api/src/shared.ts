@@ -193,3 +193,7 @@ export class AuthBanUserInput extends Schema.Struct({
   banReason: Schema.String.check(Schema.isNonEmpty({ message: 'A ban reason is required' })),
   banExpiresIn: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
 }) {}
+
+export class AuthUserSessions extends Schema.Struct({
+  sessions: Schema.Array(AuthDeviceSession),
+}) {}

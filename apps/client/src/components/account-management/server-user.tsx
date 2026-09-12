@@ -17,6 +17,7 @@ import { UserBan } from '#src/components/account-management/user-ban.tsx';
 import { UserPasswordForm } from '#src/components/account-management/user-password.tsx';
 import { UserProfileForm } from '#src/components/account-management/user-profile.tsx';
 import { UserRoleForm } from '#src/components/account-management/user-role.tsx';
+import { UserSessions } from '#src/components/account-management/user-sessions.tsx';
 import { Text } from '#src/components/text';
 
 const UserDetails = ({ user }: { user: typeof AuthAdminUserDetails.Type }) => (
@@ -109,6 +110,7 @@ const LoadedUserScreen = ({ userId }: { userId: typeof AuthUser.fields.id.Type }
           <>
             <UserDetails user={value} />
             <OtherUserActions user={value} />
+            <UserSessions user={value} />
           </>
         ),
       })}

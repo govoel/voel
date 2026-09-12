@@ -63,6 +63,7 @@ export const banServerUserAtom = AppRuntime.fn<typeof AuthBanUserInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const { client } = yield* get.result(accountAuthAtom);
     yield* client.admin.banUser(input);
+    get.refresh(serverUserSessionsAtom(input.userId));
     get.refresh(serverUserAtom(input.userId));
     get.refresh(listUsersAtom);
   })
@@ -83,4 +84,13 @@ export const deleteServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()
     get.refresh(listUsersAtom);
     get.refresh(serverUserAtom(input.userId));
   })
+);
+
+export const serverUserSessionsAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
+  AppRuntime.atom(
+    Effect.fnUntraced(function* (get) {
+      const { client } = yield* get.result(accountAuthAtom);
+      return yield* client.admin.listUserSessions({ userId });
+    })
+  ).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }))
 );
