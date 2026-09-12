@@ -187,3 +187,9 @@ export class AuthSetUserPasswordInput extends Schema.Struct({
   userId: AuthUserId,
   newPassword: NewPasswordInput,
 }) {}
+
+export class AuthBanUserInput extends Schema.Struct({
+  userId: AuthUserId,
+  banReason: Schema.String.check(Schema.isNonEmpty({ message: 'A ban reason is required' })),
+  banExpiresIn: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
+}) {}
