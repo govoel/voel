@@ -3,10 +3,12 @@ import { Atom } from 'effect/unstable/reactivity';
 
 import type {
   AuthAdminUpdateUserInput,
+  AuthBanUserInput,
   AuthCreateUserInput,
   AuthSetRoleInput,
   AuthSetUserPasswordInput,
   AuthUser,
+  AuthUserIdInput,
 } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
@@ -54,5 +56,22 @@ export const setServerUserPasswordAtom = AppRuntime.fn<typeof AuthSetUserPasswor
   Effect.fnUntraced(function* (input, get) {
     const { client } = yield* get.result(accountAuthAtom);
     yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
+  })
+);
+
+export const banServerUserAtom = AppRuntime.fn<typeof AuthBanUserInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    yield* client.admin.banUser(input);
+    get.refresh(serverUserAtom(input.userId));
+    get.refresh(listUsersAtom);
+  })
+);
+export const unbanServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    yield* client.admin.unbanUser(input);
+    get.refresh(serverUserAtom(input.userId));
+    get.refresh(listUsersAtom);
   })
 );
