@@ -152,28 +152,27 @@ export default function AccountsScreen() {
                       onClick={() => {
                         setIsSwitchAccountPresented(true);
                       }}>
-                      {Option.match(activeAccount, {
-                        onNone: () => (
-                          <SegmentedListItem.HeadlineContent>
-                            <Text>Pick an account</Text>
-                          </SegmentedListItem.HeadlineContent>
-                        ),
-                        onSome: (account) => (
-                          <>
-                            <SegmentedListItem.LeadingContent>
-                              <Icon source={AccountCircle} size={32} />
-                            </SegmentedListItem.LeadingContent>
-                            <SegmentedListItem.HeadlineContent>
-                              <Text>@{account.username}</Text>
-                            </SegmentedListItem.HeadlineContent>
-                            <SegmentedListItem.SupportingContent>
-                              <Text variant="caption" color={colors.onSurfaceVariant}>
-                                {account.serverUrl.toString()}
-                              </Text>
-                            </SegmentedListItem.SupportingContent>
-                          </>
-                        ),
-                      })}
+                      {Option.isSome(activeAccount) ? (
+                        <SegmentedListItem.LeadingContent>
+                          <Icon source={AccountCircle} size={32} />
+                        </SegmentedListItem.LeadingContent>
+                      ) : null}
+                      {/* Keep the native headline slot mounted when the active account is removed. */}
+                      <SegmentedListItem.HeadlineContent>
+                        <Text>
+                          {Option.match(activeAccount, {
+                            onNone: () => 'Pick an account',
+                            onSome: (account) => `@${account.username}`,
+                          })}
+                        </Text>
+                      </SegmentedListItem.HeadlineContent>
+                      {Option.isSome(activeAccount) ? (
+                        <SegmentedListItem.SupportingContent>
+                          <Text variant="caption" color={colors.onSurfaceVariant}>
+                            {activeAccount.value.serverUrl.toString()}
+                          </Text>
+                        </SegmentedListItem.SupportingContent>
+                      ) : null}
                       <SegmentedListItem.TrailingContent>
                         <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
                       </SegmentedListItem.TrailingContent>
