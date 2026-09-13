@@ -35,8 +35,10 @@ const makeBridgeClient = (loopback = false) => {
     send: (type, payload) => {
       sent.push({ type, payload });
       if (loopback && !mutedEvents.has(type)) {
+        // The panel's postMessage clones messages across the transport boundary.
+        const received = structuredClone(payload);
         for (const listener of listeners[type]) {
-          listener(payload);
+          listener(received);
         }
       }
     },
@@ -61,8 +63,9 @@ const makeBridgeClient = (loopback = false) => {
     type: Event,
     payload: RpcBridgeEventMap[Event]
   ): void => {
+    const received = structuredClone(payload);
     for (const listener of listeners[type]) {
-      listener(payload);
+      listener(received);
     }
   };
 
@@ -137,7 +140,7 @@ describe('Rozenite RPC server protocol sessions', () => {
 
         const routedRequest = yield* Queue.take(requests);
         expect(routedRequest).toEqual({ clientId: 1, message: ping });
-        expect(routedRequest.message).toBe(ping);
+        expect(routedRequest.message).not.toBe(ping);
       })
     )
   );
@@ -227,7 +230,7 @@ describe('Rozenite RPC client protocol sessions', () => {
             RPC_SERVER_EVENT,
             RpcBridgeServerMessage.Response({ sessionId: '1:1', message: pong })
           );
-          expect(yield* Queue.take(responses)).toBe(pong);
+          expect(yield* Queue.take(responses)).toEqual(pong);
         })
       );
 

@@ -1,18 +1,20 @@
 import { describe, expect, it } from '@effect/vitest';
-import { Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 
 describe('ServerUrl', () => {
-  it.each([
+  it.effect.each([
     'https://example.com',
     'https://EXAMPLE.com:443/',
     'http://localhost:3000',
     'http://192.168.1.10:8080/',
     'http://[::1]:3000',
-  ])('validates %s without changing account/storage identity', (value) => {
-    expect(Schema.decodeSync(ServerUrl)(value)).toBe(value);
-  });
+  ])('validates %s without changing account/storage identity', (value) =>
+    Effect.gen(function* () {
+      expect(yield* Schema.decodeEffect(ServerUrl)(value)).toBe(value);
+    })
+  );
 
   it.each([
     '',

@@ -309,7 +309,7 @@ const AbsolutePathFromString = Schema.String.pipe(
   Schema.decodeTo(
     Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/absolutePath')),
     {
-      decode: SchemaGetter.transformOrFail(
+      decode: SchemaGetter.transformEffect(
         Effect.fnUntraced(function* (absolutePath, options) {
           const path = yield* Path.Path;
 

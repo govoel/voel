@@ -20,7 +20,7 @@ const TestServerLayer = Layer.effectDiscard(
         Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
       )
     );
-    yield* Effect.addFinalizer(() => Effect.tryPromise(async () => dispose()));
+    yield* Effect.addFinalizer(() => Effect.promise(dispose));
 
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const request = input instanceof Request ? input : new Request(String(input), init);
