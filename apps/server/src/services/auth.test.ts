@@ -251,3 +251,34 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+const createReader = (admin: Effect.Success<ReturnType<typeof setupAdmin>>['admin']) =>
+  admin.admin.createUser({
+    name: 'Reader',
+    username: 'reader',
+    email: 'reader@example.com',
+    password: 'reader-password',
+    role: AuthUser.fields.role.make('under18'),
+  });
+
+it.effect(
+  'creates additional users as admin without replacing the admin session',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest, token } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      expect(user).toMatchObject({ username: 'reader', role: 'under18' });
+      expect((yield* admin.readSession).session.token).toBe(token);
+      const signedIn = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const reader = yield* authenticatedClient(signedIn.token);
+      yield* createReader(reader).pipe(Effect.flip);
+      yield* createReader(admin).pipe(Effect.flip);
+      const page = yield* admin.admin.listUsers({ limit: 10, offset: 0 });
+      expect(page.total).toBe(2);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
