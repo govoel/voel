@@ -144,13 +144,15 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Request: Schema.Struct({
             serverUrl: Account.fields.serverUrl,
             userId: Account.fields.userId,
+            authStorageId: Account.fields.authStorageId,
           }),
-          execute: ({ serverUrl, userId }) =>
+          execute: ({ serverUrl, userId, authStorageId }) =>
             sql`
               delete from account
               where
                 "serverUrl" = ${serverUrl}
                 and "userId" = ${userId}
+                and "authStorageId" = ${authStorageId}
             `,
         }),
       };
