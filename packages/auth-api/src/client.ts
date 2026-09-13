@@ -11,6 +11,7 @@ import {
   AuthAdminUserResponse,
   AuthChangePasswordInput,
   AuthCreateUserInput,
+  AuthDeviceSession,
   AuthError,
   AuthListUsersInput,
   AuthSession,
@@ -159,6 +160,18 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           Result: AuthAdminUserResponse,
         }),
       },
+
+      listSessions: AuthClientSchema.request({
+        Request: Schema.Void,
+        execute: async () => coreClient.listSessions(),
+        Result: Schema.Array(AuthDeviceSession),
+      })(),
+
+      readSession: AuthClientSchema.request({
+        Request: Schema.Void,
+        execute: async () => coreClient.getSession({ query: { disableCookieCache: true } }),
+        Result: AuthSession,
+      })(),
 
       getSession: SubscriptionRef.get(sessionState),
 

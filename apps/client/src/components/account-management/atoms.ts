@@ -6,6 +6,7 @@ import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
+import { swr } from '#src/services/swr.ts';
 
 export const accountAuthAtom = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {
@@ -57,3 +58,12 @@ export const changePasswordAtom = AppRuntime.fn<typeof AuthChangePasswordInput.T
     });
   })
 );
+
+export const ownSessionsAtom = AppRuntime.atom(
+  Effect.fnUntraced(function* (get) {
+    const { client } = yield* get.result(accountAuthAtom);
+    const current = yield* client.readSession;
+    const sessions = yield* client.listSessions;
+    return { sessions, currentId: current.session.id };
+  })
+).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }));
