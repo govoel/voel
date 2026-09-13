@@ -433,3 +433,30 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'lists only the selected user’s sessions for administrators',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest, token } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      expect((yield* admin.admin.listUserSessions({ userId: user.id })).sessions).toEqual([]);
+      const first = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const second = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const { sessions } = yield* admin.admin.listUserSessions({ userId: user.id });
+      expect(sessions.map((session) => session.token).sort()).toEqual(
+        [first.token, second.token].sort()
+      );
+      expect(sessions.some((session) => session.token === token)).toBe(false);
+      const reader = yield* authenticatedClient(first.token);
+      yield* reader.admin.listUserSessions({ userId: user.id }).pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);

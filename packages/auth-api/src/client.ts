@@ -27,6 +27,7 @@ import {
   AuthUpdateUserInput,
   AuthUserIdInput,
   AuthUserResponse,
+  AuthUserSessions,
   AuthUsersPage,
   BetterAuthApiError,
   InvalidAuthResponseError,
@@ -144,6 +145,12 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        listUserSessions: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async (command) => coreClient.admin.listUserSessions(command),
+          Result: AuthUserSessions,
+        }),
+
         removeUser: AuthClientSchema.request({
           Request: AuthUserIdInput,
           execute: async (command) => coreClient.admin.removeUser(command),
