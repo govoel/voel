@@ -346,3 +346,32 @@ it.effect(
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )
 );
+
+it.effect(
+  'resets another user’s password without requiring their old password',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      const login = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reader-password',
+      });
+      const reader = yield* authenticatedClient(login.token);
+      yield* reader.admin
+        .setUserPassword({ userId: user.id, newPassword: 'unauthorized-password' })
+        .pipe(Effect.flip);
+      yield* admin.admin.setUserPassword({ userId: user.id, newPassword: 'reset-password' });
+      yield* guest.signIn
+        .username({ username: 'reader', password: 'reader-password' })
+        .pipe(Effect.flip);
+      const updated = yield* guest.signIn.username({
+        username: 'reader',
+        password: 'reset-password',
+      });
+      expect(updated.user.id).toBe(user.id);
+      yield* reader.readSession;
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
