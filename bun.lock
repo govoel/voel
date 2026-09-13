@@ -238,7 +238,7 @@
     "@tursodatabase/sync-react-native@0.8.0-pre.7": "patches/@tursodatabase%2Fsync-react-native@0.8.0-pre.7.patch",
   },
   "overrides": {
-    "@tursodatabase/sync-common": "0.8.0-pre.8",
+    "@tursodatabase/sync-common": "0.8.0-pre.10",
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
@@ -1035,7 +1035,7 @@
 
     "@tursodatabase/sync": ["@tursodatabase/sync@0.8.0-pre.7", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.0-pre.7", "@tursodatabase/sync-common": "^0.8.0-pre.7" }, "optionalDependencies": { "@tursodatabase/sync-darwin-arm64": "0.8.0-pre.7", "@tursodatabase/sync-linux-arm64-gnu": "0.8.0-pre.7", "@tursodatabase/sync-linux-x64-gnu": "0.8.0-pre.7", "@tursodatabase/sync-win32-x64-msvc": "0.8.0-pre.7" } }, "sha512-z2aAnNEYRJbKszUn7guEUNMZ3XyqGoTWQ+v5Rf1HzyrCurHQ9V20kD0Aw931mwAqbXRiAiLRLP7PbYC4q+G7Jg=="],
 
-    "@tursodatabase/sync-common": ["@tursodatabase/sync-common@0.8.0-pre.8", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.0-pre.8", "@tursodatabase/serverless": "^0.2.2" } }, "sha512-k8LLBCJplvLhIvIO7fd42GGcyL0wRnmtJfjCwHl7exegPm2vN53wevMjc2zhmalmOXdaXFf+SDxYZZsfN9PkOA=="],
+    "@tursodatabase/sync-common": ["@tursodatabase/sync-common@0.8.0-pre.10", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.0-pre.10", "@tursodatabase/serverless": "^0.2.2" } }, "sha512-GqKPtjt5RJcSIrdWXTVS7mrFXyKOjXonrwlFO5qgfB3JgaGPs8IV88KuB6f+hAXRRbKmXZxTDF8nMMIttsvDBA=="],
 
     "@tursodatabase/sync-darwin-arm64": ["@tursodatabase/sync-darwin-arm64@0.8.0-pre.7", "", { "os": "darwin", "cpu": "arm64" }, "sha512-jk80GhIiG7EeUPcjNdOhIZWnCXxUgZydl55B53jAvz9n6kpqS/E665N3uFqY7CWvXerC1m+5gkUw2IQbKiTifA=="],
 
