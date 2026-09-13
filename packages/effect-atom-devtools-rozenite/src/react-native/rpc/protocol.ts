@@ -76,12 +76,7 @@ export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
           return;
         }
 
-        // Effect RPC decodes request envelopes in place. Keep the bridge's encoded
-        // message intact so clients can replay it when the runtime server reloads.
-        yield* writeRequest(
-          activeSession.value.clientId,
-          message._tag === 'Request' ? { ...message } : message
-        );
+        yield* writeRequest(activeSession.value.clientId, message);
       });
 
       const handleIncomingMessage = RpcBridgeClientMessage.$match({
