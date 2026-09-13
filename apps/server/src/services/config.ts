@@ -3,7 +3,9 @@ import { Config, ConfigProvider, Context, Effect, FileSystem, Layer, Schema } fr
 
 class ApiConfigSchema extends Schema.Struct({
   AUTH_SECRET: Schema.RedactedFromValue(Schema.String),
-  PORT: Config.Port.pipe(Schema.withDecodingDefaultType(Effect.succeed(8080))),
+  PORT: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65_535 })).pipe(
+    Schema.withDecodingDefaultType(Effect.succeed(8080))
+  ),
   AUTH_DB_FILENAME: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed('auth.db'))),
   LIBRARY_DB_FILENAME: Schema.String.pipe(
     Schema.withDecodingDefaultType(Effect.succeed('library.db'))
