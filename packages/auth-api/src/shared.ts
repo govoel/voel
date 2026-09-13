@@ -173,3 +173,12 @@ export class AuthAdminUserDetails extends AuthUser.pipe(
     banExpires: Schema.NullishOr(Schema.DateTimeUtcFromDate),
   })
 ) {}
+
+/** Deliberately excludes role and ban fields; those have dedicated commands. */
+export class AuthAdminUpdateUserInput extends Schema.Struct({
+  userId: AuthUserId,
+  name: NameInput,
+  username: UsernameInput,
+  email: EmailInput,
+  image: Schema.NullOr(Schema.String),
+}) {}

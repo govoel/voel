@@ -9,6 +9,7 @@ import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 import { accountAuthAtom, authFailureMessage } from '#src/components/account-management/atoms.ts';
 import { Action, Page, Panel } from '#src/components/account-management/ui';
 import { serverUserAtom } from '#src/components/account-management/user-atoms.ts';
+import { UserProfile } from '#src/components/account-management/user-profile.tsx';
 import { UserRole } from '#src/components/account-management/user-role.tsx';
 import { Text } from '#src/components/text';
 
@@ -41,7 +42,12 @@ const OtherUserActions = ({ user }: { user: typeof AuthAdminUserDetails.Type }) 
       </Panel>
     );
   }
-  return <UserRole user={user} />;
+  return (
+    <>
+      <UserRole user={user} />
+      <UserProfile user={user} />
+    </>
+  );
 };
 
 const LoadedUserScreen = ({ userId }: { userId: typeof AuthUser.fields.id.Type }) => {
