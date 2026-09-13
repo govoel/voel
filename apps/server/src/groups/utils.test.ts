@@ -33,7 +33,7 @@ class AuthUserRow extends Schema.Class<AuthUserRow, { readonly brand: unique sym
   username: Schema.String,
   role: Schema.Literals(['admin', 'user', 'under18']),
 }) {
-  public static readonly decodeUnknownArraySync = Schema.decodeUnknownSync(Schema.Array(this));
+  public static readonly decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
 class AuthSessionRow extends Schema.Class<AuthSessionRow, { readonly brand: unique symbol }>(
@@ -43,7 +43,7 @@ class AuthSessionRow extends Schema.Class<AuthSessionRow, { readonly brand: uniq
   token: Schema.String,
   userId: Schema.String,
 }) {
-  public static readonly decodeUnknownArraySync = Schema.decodeUnknownSync(Schema.Array(this));
+  public static readonly decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
 class AuthUserIdRow extends Schema.Class<AuthUserIdRow, { readonly brand: unique symbol }>(
@@ -51,7 +51,7 @@ class AuthUserIdRow extends Schema.Class<AuthUserIdRow, { readonly brand: unique
 )({
   id: AuthUserRow.fields.id,
 }) {
-  public static readonly decodeUnknownArraySync = Schema.decodeUnknownSync(Schema.Array(this));
+  public static readonly decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
 class AuthSessionIdRow extends Schema.Class<AuthSessionIdRow, { readonly brand: unique symbol }>(
@@ -59,7 +59,7 @@ class AuthSessionIdRow extends Schema.Class<AuthSessionIdRow, { readonly brand: 
 )({
   id: AuthSessionRow.fields.id,
 }) {
-  public static readonly decodeUnknownArraySync = Schema.decodeUnknownSync(Schema.Array(this));
+  public static readonly decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
 class UserRoleRow extends Schema.Class<UserRoleRow, { readonly brand: unique symbol }>(
@@ -68,7 +68,7 @@ class UserRoleRow extends Schema.Class<UserRoleRow, { readonly brand: unique sym
   username: AuthUserRow.fields.username,
   role: AuthUserRow.fields.role,
 }) {
-  public static readonly decodeUnknownArraySync = Schema.decodeUnknownSync(Schema.Array(this));
+  public static readonly decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
 const makeTestLayer = () =>
@@ -93,8 +93,8 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         name: 'Utils Library Admin',
       });
 
-      const users = yield* Effect.sync(() =>
-        AuthUserRow.decodeUnknownArraySync(
+      const users = yield* Effect.suspend(() =>
+        AuthUserRow.decodeUnknownArray(
           database
             .prepare(
               'select "id", "name", "email", "username", "role" from "user" where "username" = ?'
@@ -111,8 +111,8 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
       expect(user?.username).toBe('utils_library_admin');
       expect(user?.role).toBe('admin');
 
-      const sessions = yield* Effect.sync(() =>
-        AuthSessionRow.decodeUnknownArraySync(
+      const sessions = yield* Effect.suspend(() =>
+        AuthSessionRow.decodeUnknownArray(
           database
             .prepare('select "id", "token", "userId" from "session" where "userId" = ?')
             .all([user?.id ?? ''])
@@ -136,8 +136,8 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         Effect.gen(function* () {
           yield* makeAuthedClient({ username: 'utils_library_cleanup', role: 'admin' });
 
-          const users = yield* Effect.sync(() =>
-            AuthUserIdRow.decodeUnknownArraySync(
+          const users = yield* Effect.suspend(() =>
+            AuthUserIdRow.decodeUnknownArray(
               database
                 .prepare('select "id" from "user" where "username" = ?')
                 .all(['utils_library_cleanup'])
@@ -146,8 +146,8 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
           expect(users).toHaveLength(1);
           userId = users[0]?.id ?? '';
 
-          const sessions = yield* Effect.sync(() =>
-            AuthSessionIdRow.decodeUnknownArraySync(
+          const sessions = yield* Effect.suspend(() =>
+            AuthSessionIdRow.decodeUnknownArray(
               database.prepare('select "id" from "session" where "userId" = ?').all([userId])
             )
           );
@@ -155,13 +155,13 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
         })
       );
 
-      const users = yield* Effect.sync(() =>
-        AuthUserIdRow.decodeUnknownArraySync(
+      const users = yield* Effect.suspend(() =>
+        AuthUserIdRow.decodeUnknownArray(
           database.prepare('select "id" from "user" where "id" = ?').all([userId])
         )
       );
-      const sessions = yield* Effect.sync(() =>
-        AuthSessionIdRow.decodeUnknownArraySync(
+      const sessions = yield* Effect.suspend(() =>
+        AuthSessionIdRow.decodeUnknownArray(
           database.prepare('select "id" from "session" where "userId" = ?').all([userId])
         )
       );
@@ -175,15 +175,15 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
     Effect.fnUntraced(function* () {
       const database = yield* AuthDatabase;
 
-      const existingUsers = yield* Effect.sync(() =>
-        AuthUserIdRow.decodeUnknownArraySync(database.prepare('select "id" from "user"').all())
+      const existingUsers = yield* Effect.suspend(() =>
+        AuthUserIdRow.decodeUnknownArray(database.prepare('select "id" from "user"').all())
       );
       expect(existingUsers).toEqual([]);
 
       yield* makeAuthedClient({ username: 'utils_library_first_user', role: 'user' });
 
-      const users = yield* Effect.sync(() =>
-        UserRoleRow.decodeUnknownArraySync(
+      const users = yield* Effect.suspend(() =>
+        UserRoleRow.decodeUnknownArray(
           database
             .prepare('select "username", "role" from "user" where "username" = ?')
             .all(['utils_library_first_user'])

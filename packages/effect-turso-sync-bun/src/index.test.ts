@@ -14,7 +14,7 @@ import { TursoSyncError } from '@repo/effect-turso-sync';
 
 import { TursoSyncClient } from '#src/index.ts';
 
-const decodeRunInfo = Schema.decodeUnknownSync(
+const decodeRunInfo = Schema.decodeUnknownEffect(
   Schema.Struct({ changes: Schema.Int, lastInsertRowid: Schema.Int })
 );
 
@@ -167,7 +167,7 @@ describe('TursoSyncClient', () => {
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
-      const first = decodeRunInfo(
+      const first = yield* decodeRunInfo(
         yield* sql`
           insert into
             test (name)
@@ -176,7 +176,7 @@ describe('TursoSyncClient', () => {
         `.raw
       );
       expect(first.changes).toBe(1);
-      const second = decodeRunInfo(
+      const second = yield* decodeRunInfo(
         yield* sql`
           insert into
             test (name)
