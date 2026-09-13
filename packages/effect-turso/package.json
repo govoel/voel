@@ -14,7 +14,7 @@
     "test": "bun --bun run vitest"
   },
   "dependencies": {
-    "@govoel/turso-database": "0.8.0-pre.7",
+    "@govoel/turso-database": "0.8.0-pre.11",
     "effect": "4.0.0-rc.115"
   },
   "devDependencies": {

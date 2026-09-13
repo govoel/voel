@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@repo/effect-turso-sync": "workspace:*",
-    "@tursodatabase/sync-react-native": "0.8.0-pre.7",
+    "@tursodatabase/sync-react-native": "0.8.0-pre.11",
     "effect": "4.0.0-rc.115"
   },
   "devDependencies": {
