@@ -151,3 +151,9 @@ export class AuthUpdateUserInput extends Schema.Struct({
   username: Schema.optional(UsernameInput),
   image: Schema.optional(Schema.NullOr(Schema.String)),
 }) {}
+
+/** Match Better Auth's configured password limits without weakening sign-in validation. */
+export class AuthChangePasswordInput extends Schema.Struct({
+  currentPassword: PasswordInput,
+  newPassword: PasswordInput.check(Schema.isMinLength(8), Schema.isMaxLength(128)),
+}) {}
