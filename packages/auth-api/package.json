@@ -17,8 +17,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@better-auth/expo": "1.7.3",
-    "better-auth": "1.7.3",
+    "@better-auth/expo": "1.7.4",
+    "better-auth": "1.7.4",
     "effect": "4.0.0-rc.115"
   },
   "devDependencies": {
