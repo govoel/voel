@@ -14,8 +14,8 @@ import {
 import { AsyncResult, Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { vi } from 'vitest';
 
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
+import { listUsersAtom } from '#src/features/accounts/server-users/list-atoms.ts';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';

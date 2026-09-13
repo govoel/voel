@@ -1,1 +1,1 @@
-export { default } from '#src/components/account-management/create-user.tsx';
+export { default } from '#src/features/accounts/server-users/create-user';
