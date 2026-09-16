@@ -2,32 +2,30 @@ import { Button, Column, LazyColumn, ModalBottomSheet } from '@expo/ui/jetpack-c
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { useState } from 'react';
-import type { PropsWithChildren, ReactNode } from 'react';
 
+import type {
+  ActionComponent,
+  EditorSheetComponent,
+  FormLayoutComponent,
+  PageComponent,
+  PanelComponent,
+} from '#src/components/account-management/ui';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const Panel = ({ title, children }: PropsWithChildren<{ title: string }>) => (
+export const Panel = (({ title, children }) => (
   <Column verticalArrangement={{ spacedBy: Spacing.two }} modifiers={[fillMaxWidth()]}>
     <Text variant="h4">{title}</Text>
     {children}
   </Column>
-);
-export const Action = ({
-  title,
-  onPress,
-  busy = false,
-}: {
-  title: string;
-  onPress: () => void;
-  busy?: boolean;
-}) => (
+)) satisfies PanelComponent;
+export const Action = (({ title, onPress, busy = false }) => (
   <Button onClick={onPress} enabled={!busy} modifiers={[fillMaxWidth()]}>
     <Text>{title}</Text>
   </Button>
-);
-export const Page = ({ children }: PropsWithChildren) => (
+)) satisfies ActionComponent;
+export const Page = (({ children }) => (
   <AndroidAccountsSheet>
     <LazyColumn
       verticalArrangement={{ spacedBy: Spacing.three }}
@@ -35,15 +33,9 @@ export const Page = ({ children }: PropsWithChildren) => (
       {children}
     </LazyColumn>
   </AndroidAccountsSheet>
-);
+)) satisfies PageComponent;
 
-export const EditorSheet = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: (props: { onSuccess: () => void | Promise<void> }) => ReactNode;
-}) => {
+export const EditorSheet = (({ title, children }) => {
   const [presented, setPresented] = useState(false);
   const [sheet, setSheet] = useState<ModalBottomSheetRef | null>(null);
   return (
@@ -71,16 +63,9 @@ export const EditorSheet = ({
       ) : null}
     </>
   );
-};
+}) satisfies EditorSheetComponent;
 
-export const FormLayout = ({
-  title,
-  children,
-  footer,
-}: PropsWithChildren<{
-  title: string;
-  footer: ReactNode;
-}>) => (
+export const FormLayout = (({ title, children, footer }) => (
   <LazyColumn
     contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
     verticalArrangement={{ spacedBy: Spacing.two }}>
@@ -88,4 +73,4 @@ export const FormLayout = ({
     {children}
     <Column modifiers={[fillMaxWidth(), padding(0, Spacing.two, 0, 0)]}>{footer}</Column>
   </LazyColumn>
-);
+)) satisfies FormLayoutComponent;
