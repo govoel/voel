@@ -119,7 +119,6 @@ const EmailInput = Schema.toEncoded(AuthUser.fields.email).check(
   Schema.isNonEmpty({ message: 'Email is required' })
 );
 const PasswordInput = Schema.String.check(Schema.isNonEmpty({ message: 'Password is required' }));
-const NewPasswordInput = PasswordInput.check(Schema.isMinLength(8), Schema.isMaxLength(128));
 
 export class AuthSignInInput extends Schema.Struct({
   username: UsernameInput,
@@ -134,7 +133,7 @@ export class AuthSignUpInput extends Schema.Struct({
 }) {}
 
 export class AuthCreateUserInput extends AuthSignUpInput.pipe(
-  Schema.fieldsAssign({ role: AuthUser.fields.role, password: NewPasswordInput })
+  Schema.fieldsAssign({ role: AuthUser.fields.role })
 ) {}
 
 export class AuthSetRoleInput extends Schema.Struct({
@@ -153,10 +152,9 @@ export class AuthUpdateUserInput extends Schema.Struct({
   image: Schema.optional(Schema.NullOr(Schema.String)),
 }) {}
 
-/** Match Better Auth's configured password limits without weakening sign-in validation. */
 export class AuthChangePasswordInput extends Schema.Struct({
   currentPassword: PasswordInput,
-  newPassword: NewPasswordInput,
+  newPassword: PasswordInput,
 }) {}
 
 export class AuthDeviceSession extends AuthSession.fields.session {}
@@ -185,7 +183,7 @@ export class AuthAdminUpdateUserInput extends Schema.Struct({
 
 export class AuthSetUserPasswordInput extends Schema.Struct({
   userId: AuthUserId,
-  newPassword: NewPasswordInput,
+  newPassword: PasswordInput,
 }) {}
 
 export class AuthBanUserInput extends Schema.Struct({

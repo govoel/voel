@@ -51,8 +51,6 @@ const createServerAuthClient = (config: {
     telemetry: { enabled: false },
     trustedOrigins: ['voel://', 'voel-preview://', 'voel-dev://'],
     logger: config.logger,
-    // Revocations and role changes must take effect on the very next request.
-    session: { cookieCache: { enabled: false } },
     database: config.database,
     plugins: [
       expo(),
