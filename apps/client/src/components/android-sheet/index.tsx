@@ -3,6 +3,8 @@ import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { router } from 'expo-router';
 import type { ReactNode, Ref } from 'react';
 
+import { materialSeedColor } from '#src/constants/material.ts';
+
 export const AndroidAccountsSheet = ({
   children,
   dismissable = true,
@@ -12,7 +14,7 @@ export const AndroidAccountsSheet = ({
   readonly dismissable?: boolean;
   readonly ref?: Ref<ModalBottomSheetRef>;
 }) => (
-  <Host seedColor="#00AAFF" style={{ flex: 1 }}>
+  <Host seedColor={materialSeedColor} style={{ flex: 1 }}>
     <ModalBottomSheet
       {...(ref ? { ref } : {})}
       skipPartiallyExpanded

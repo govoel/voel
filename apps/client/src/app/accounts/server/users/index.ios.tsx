@@ -1,5 +1,5 @@
 import { useAtom } from '@effect/atom-react';
-import { Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
+import { Button, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
 import { containerRelativeFrame, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
@@ -9,7 +9,6 @@ import { PlatformColor as platformColor } from 'react-native';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
-import { Action } from '#src/components/account-management/ui';
 import { Text } from '#src/components/text';
 
 const NativeServerUsersList = requireNativeView<{
@@ -39,12 +38,12 @@ export default function ServerUsersScreen() {
           onSuccess: ({ value: { items, done }, waiting }) => (
             <List modifiers={[headerProminence('increased')]}>
               <Section title="Manage users">
-                <Action
-                  title="Create user"
+                <Button
                   onPress={() => {
                     router.push('/accounts/server/users/create');
-                  }}
-                />
+                  }}>
+                  <Text>Create user</Text>
+                </Button>
               </Section>
               <Section title="Users">
                 <NativeServerUsersList

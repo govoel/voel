@@ -1,9 +1,11 @@
-import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
+import { Effect, Match, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { AuthSignInInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
+import { authReasonMessage } from '#src/services/accounts/auth.ts';
+import { redactPassword } from '#src/services/accounts/form-schema.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -11,12 +13,7 @@ import { AppRuntime } from '#src/services/runtime.ts';
 class AddAccountInput extends AuthSignInInput.pipe(
   Schema.fieldsAssign({
     serverUrl: ServerUrl,
-    password: AuthSignInInput.fields.password.pipe(
-      Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
-        decode: SchemaGetter.transform((password) => Redacted.make(password)),
-        encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
-      })
-    ),
+    password: AuthSignInInput.fields.password.pipe(redactPassword),
   })
 ) {}
 
@@ -36,17 +33,12 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
           AccountSignInError: (signInError) =>
-            Match.value(signInError.reason).pipe(
-              Match.tagsExhaustive({
-                BetterAuthApiError: (authReason) =>
-                  authReason.message || 'Failed to sign in. Check your credentials and try again.',
-                AuthTransportError: () =>
-                  'Unable to reach the server. Check your connection and try again.',
-                InvalidAuthInputError: () => 'Check the account details and try again.',
-                InvalidAuthResponseError: () =>
-                  'The server returned an invalid authentication response. Try again.',
-              })
-            ),
+            authReasonMessage({
+              reason: signInError.reason,
+              rejected: 'Failed to sign in. Check your credentials and try again.',
+              invalidInput: 'Check the account details and try again.',
+              invalidResponse: 'The server returned an invalid authentication response. Try again.',
+            }),
           AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),

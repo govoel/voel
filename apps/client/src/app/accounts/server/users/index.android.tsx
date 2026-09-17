@@ -1,7 +1,13 @@
 import { useAtom } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import { Column, Icon, LoadingIndicator, useMaterialColors } from '@expo/ui/jetpack-compose';
+import {
+  Button,
+  Column,
+  Icon,
+  LoadingIndicator,
+  useMaterialColors,
+} from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
@@ -11,9 +17,9 @@ import type { ReactNode } from 'react';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
-import { Action } from '#src/components/account-management/ui';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { Text } from '#src/components/text';
+import { materialSeedColor } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
 const NativeServerUsersList = requireNativeView<{
@@ -32,7 +38,7 @@ const SlotNativeView = requireNativeView<{
 
 export default function ServerUsersScreen() {
   const [users, loadMoreUsers] = useAtom(listUsersAtom);
-  const colors = useMaterialColors({ seedColor: '#00AAFF' });
+  const colors = useMaterialColors({ seedColor: materialSeedColor });
 
   return (
     <AndroidAccountsSheet>
@@ -40,12 +46,13 @@ export default function ServerUsersScreen() {
         modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}
         verticalArrangement={{ spacedBy: Spacing.two }}>
         <Text variant="h3">Manage Users</Text>
-        <Action
-          title="Create user"
-          onPress={() => {
+        <Button
+          modifiers={[fillMaxWidth()]}
+          onClick={() => {
             router.push('/accounts/server/users/create');
-          }}
-        />
+          }}>
+          <Text>Create user</Text>
+        </Button>
         {AsyncResult.matchWithError(users, {
           onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
           onSuccess: ({ value: { items, done }, waiting }) => (

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ScreenHostComponent } from '#src/components/screen-host';
 import { StatusBarGradient } from '#src/components/screen-host/status-bar-gradient.tsx';
+import { materialSeedColor } from '#src/constants/material.ts';
 
 export const ScreenHost = (({ children }) => {
   const { top } = useSafeAreaInsets();
@@ -12,14 +13,14 @@ export const ScreenHost = (({ children }) => {
   const colorScheme = useColorScheme();
   const { background } = getMaterialColors({
     scheme: colorScheme === 'light' ? 'light' : 'dark',
-    seedColor: '#00AAFF',
+    seedColor: materialSeedColor,
   });
 
   return (
     <>
       <StatusBarGradient backgroundColor={background} height={top} visible={headerHeight === 0} />
 
-      <Host seedColor="#00AAFF" style={{ flex: 1 }}>
+      <Host seedColor={materialSeedColor} style={{ flex: 1 }}>
         <Surface>{children(headerHeight > 0 ? 0 : top)}</Surface>
       </Host>
     </>

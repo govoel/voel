@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
+import { createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
@@ -7,9 +7,9 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Cause, Exit, Option, Schema } from 'effect';
+import { Array, Cause, Exit, Option, Predicate, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -250,4 +250,47 @@ export const createEffectSchemaFormHook = <
   };
 
   return { ...formHook, useAppForm };
+};
+
+/** Share form binding while leaving native value synchronization in each platform component. */
+export const useTextFieldState = () => {
+  const field = useFieldContext<string>();
+  const form = useFormContext();
+  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  const hasFocused = useRef(false);
+  return {
+    field,
+    isSubmitting,
+    errorMessage: field.state.meta.isTouched ? Array.head(field.state.meta.errors) : Option.none(),
+    onFocusChange: (focused: boolean) => {
+      // Native controls can emit an initial unfocused event. Only real blur marks a field touched.
+      if (focused) {
+        hasFocused.current = true;
+      } else if (hasFocused.current) {
+        field.handleBlur();
+      }
+    },
+  };
+};
+
+export const useSubmitState = () => {
+  const form = useFormContext();
+  const submissionError = useFormSubmissionError();
+  const [canSubmit, isSubmitting, validationErrors] = useSelector(
+    form.store,
+    (state) =>
+      [
+        state.canSubmit,
+        state.isSubmitting,
+        state.errors.filter(
+          (error): error is string => Predicate.isString(error) && error.length > 0
+        ),
+      ] as const
+  );
+  return {
+    form,
+    canSubmit,
+    isSubmitting,
+    errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
+  };
 };
