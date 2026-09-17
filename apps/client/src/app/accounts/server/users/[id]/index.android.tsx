@@ -1,12 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import {
-  Button,
-  Column,
-  LazyColumn,
-  LoadingIndicator,
-  TextButton,
-  useMaterialColors,
-} from '@expo/ui/jetpack-compose';
+import { Button, Column, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option, Schema } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
@@ -38,7 +31,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
-import { materialSeedColor } from '#src/constants/material.ts';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountAuthAtom, authFailureMessage } from '#src/services/accounts/auth.ts';
 
@@ -194,7 +187,7 @@ const BanForm = (props: Parameters<typeof useBanUserForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
-  const colors = useMaterialColors({ seedColor: materialSeedColor });
+  const colors = useMaterialColors();
   const auth = useAtomValue(accountAuthAtom);
   const isOtherUser = AsyncResult.isSuccess(auth) && auth.value.key.userId !== user.id;
   const state = useAtomValue(serverUserSessionsAtom(user.id));
@@ -293,7 +286,7 @@ const LoadedUser = ({
   const auth = useAtomValue(accountAuthAtom);
   const isOtherUser = AsyncResult.isSuccess(auth) && auth.value.key.userId !== user.id;
   const [editor, setEditor] = useState<'role' | 'profile' | 'password' | 'ban' | null>(null);
-  const colors = useMaterialColors({ seedColor: materialSeedColor });
+  const colors = useMaterialColors();
   return (
     <>
       <LazyColumn

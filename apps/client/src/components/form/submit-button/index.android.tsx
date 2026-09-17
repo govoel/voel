@@ -6,7 +6,6 @@ import {
   LoadingIndicator,
   Row,
   TextButton,
-  useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import { padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
@@ -14,7 +13,7 @@ import { Option } from 'effect';
 import { useSubmitState } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.ts';
 import { Text } from '#src/components/text';
-import { materialSeedColor } from '#src/constants/material.ts';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const SubmitButton = (({
@@ -24,7 +23,7 @@ export const SubmitButton = (({
   containerModifiers = {},
 }) => {
   const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
-  const colors = useMaterialColors({ seedColor: materialSeedColor });
+  const colors = useMaterialColors();
   const ButtonComponent =
     'android' in platformProps && platformProps.android.variant === 'text' ? TextButton : Button;
 

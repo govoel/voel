@@ -1,12 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import {
-  Button,
-  Column,
-  LazyColumn,
-  LoadingIndicator,
-  TextButton,
-  useMaterialColors,
-} from '@expo/ui/jetpack-compose';
+import { Button, Column, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
@@ -30,7 +23,7 @@ import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { materialSeedColor } from '#src/constants/material.ts';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { authFailureMessage } from '#src/services/accounts/auth.ts';
 
@@ -224,7 +217,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 };
 
 const OwnSessions = () => {
-  const colors = useMaterialColors({ seedColor: materialSeedColor });
+  const colors = useMaterialColors();
   const state = useAtomValue(ownSessionsAtom);
   const refresh = useAtomRefresh(ownSessionsAtom);
   return (

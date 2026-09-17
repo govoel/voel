@@ -1,18 +1,12 @@
-import {
-  AlertDialog,
-  Column,
-  LoadingIndicator,
-  TextButton,
-  useMaterialColors,
-} from '@expo/ui/jetpack-compose';
+import { AlertDialog, Column, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
 
 import type { ConfirmationComponent } from '#src/components/confirmation';
 import { Text } from '#src/components/text';
-import { materialSeedColor } from '#src/constants/material.ts';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
 export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...props }) => {
-  const colors = useMaterialColors({ seedColor: materialSeedColor });
+  const colors = useMaterialColors();
   const color = props.role === 'default' ? colors.primary : colors.error;
   return (
     <>

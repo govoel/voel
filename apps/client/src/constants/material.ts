@@ -1,7 +1,11 @@
+import { useMaterialColors as useExpoMaterialColors } from '@expo/ui/jetpack-compose';
 import type { TextFieldProps } from '@expo/ui/jetpack-compose';
 import type { Theme } from 'expo-router/react-navigation';
 
 export const materialSeedColor = '#00AAFF';
+
+export const useMaterialColors = () => useExpoMaterialColors({ seedColor: materialSeedColor });
+
 export const materialFonts = {
   regular: { fontFamily: 'Google Sans', fontWeight: '400' },
   medium: { fontFamily: 'Google Sans Medium', fontWeight: '500' },

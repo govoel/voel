@@ -2,7 +2,7 @@ import { useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
-import { Column, Icon, LoadingIndicator, Row, useMaterialColors } from '@expo/ui/jetpack-compose';
+import { Column, Icon, LoadingIndicator, Row } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
@@ -22,7 +22,7 @@ import { ControlledSheet } from '#src/components/controlled-sheet';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
-import { materialSeedColor } from '#src/constants/material.ts';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
 const StackNavigationRow = ({
@@ -59,7 +59,7 @@ export default function AccountsScreen() {
   const accounts = useAtomValue(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
-  const colors = useMaterialColors({ seedColor: materialSeedColor });
+  const colors = useMaterialColors();
 
   return (
     <AndroidAccountsSheet dismissable={accountsSheet.value.dismissable}>

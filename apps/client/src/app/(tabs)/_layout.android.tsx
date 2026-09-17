@@ -1,20 +1,14 @@
-import { getMaterialColors } from '@expo/ui/jetpack-compose';
 import { Stack } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { materialFonts, materialSeedColor } from '#src/constants/material.ts';
+import { materialFonts, useMaterialColors } from '#src/constants/material.ts';
 
 export const unstable_settings = {
   initialRouteName: '(home)',
 };
 
 export default function TabsLayoutAndroid() {
-  const colorScheme = useColorScheme();
-  const colors = getMaterialColors({
-    scheme: colorScheme === 'light' ? 'light' : 'dark',
-    seedColor: materialSeedColor,
-  });
+  const colors = useMaterialColors();
 
   return (
     <>
