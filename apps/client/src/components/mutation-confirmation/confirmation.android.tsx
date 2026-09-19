@@ -1,4 +1,14 @@
-import { AlertDialog, Column, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
+import {
+  AlertDialog,
+  AnimatedVisibility,
+  Column,
+  EnterTransition,
+  ExitTransition,
+  LoadingIndicator,
+  Row,
+  TextButton,
+} from '@expo/ui/jetpack-compose';
+import { size } from '@expo/ui/jetpack-compose/modifiers';
 
 import type { ConfirmationComponent } from '#src/components/mutation-confirmation/confirmation';
 import { Text } from '#src/components/text';
@@ -22,7 +32,6 @@ export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...pro
               {state.feedback.length > 0 ? (
                 <Text color={colors.error}>{state.feedback}</Text>
               ) : null}
-              {state.busy ? <LoadingIndicator /> : null}
             </Column>
           </AlertDialog.Text>
           <AlertDialog.ConfirmButton>
@@ -31,7 +40,23 @@ export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...pro
               onClick={() => {
                 void state.execute();
               }}>
-              <Text color={color}>{confirmLabel}</Text>
+              <Row
+                horizontalAlignment="center"
+                verticalAlignment="center"
+                horizontalArrangement={{ spacedBy: Spacing.one }}>
+                <AnimatedVisibility
+                  visible={state.busy}
+                  enterTransition={EnterTransition.fadeIn().plus(
+                    EnterTransition.expandHorizontally()
+                  )}
+                  exitTransition={ExitTransition.fadeOut().plus(
+                    ExitTransition.shrinkHorizontally()
+                  )}>
+                  <LoadingIndicator modifiers={[size(Spacing.four, Spacing.four)]} />
+                </AnimatedVisibility>
+
+                <Text color={color}>{confirmLabel}</Text>
+              </Row>
             </TextButton>
           </AlertDialog.ConfirmButton>
           <AlertDialog.DismissButton>

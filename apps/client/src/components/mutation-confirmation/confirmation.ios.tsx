@@ -1,9 +1,12 @@
-import { BottomSheet, Button, ProgressView, VStack } from '@expo/ui/swift-ui';
+import { BottomSheet, Button, HStack, ProgressView, VStack } from '@expo/ui/swift-ui';
 import {
+  Animation,
+  animation,
   buttonStyle,
   disabled,
   fixedSize,
   frame,
+  hidden,
   interactiveDismissDisabled,
   padding,
 } from '@expo/ui/swift-ui/modifiers';
@@ -37,14 +40,20 @@ export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...pro
             {props.message}
           </Text>
           {state.feedback.length > 0 ? <Text>{state.feedback}</Text> : null}
-          {state.busy ? <ProgressView /> : null}
           <Button
             {...role}
             onPress={() => {
               void state.execute();
             }}
             modifiers={[buttonStyle('bordered'), disabled(state.busy)]}>
-            <Text modifiers={[frame({ maxWidth: Infinity })]}>{confirmLabel}</Text>
+            <HStack
+              alignment="center"
+              spacing={Spacing.one}
+              modifiers={[animation(Animation.default, state.busy)]}>
+              {state.busy ? <ProgressView modifiers={[hidden(!state.busy)]} /> : null}
+
+              <Text modifiers={[frame({ maxWidth: Infinity })]}>{confirmLabel}</Text>
+            </HStack>
           </Button>
           <Button
             role="cancel"
