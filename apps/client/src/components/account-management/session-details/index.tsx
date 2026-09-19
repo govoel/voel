@@ -13,9 +13,18 @@ export const SessionDetails = ({
     details={[
       { label: 'Device', value: session.userAgent ?? 'Unknown device' },
       { label: 'IP address', value: session.ipAddress ?? 'Unknown' },
-      { label: 'Signed in', value: DateTime.formatIso(session.createdAt) },
-      { label: 'Last updated', value: DateTime.formatIso(session.updatedAt) },
-      { label: 'Expires', value: DateTime.formatIso(session.expiresAt) },
+      {
+        label: 'Signed in',
+        value: DateTime.formatLocal(session.createdAt, { dateStyle: 'medium', timeStyle: 'short' }),
+      },
+      {
+        label: 'Last updated',
+        value: DateTime.formatLocal(session.updatedAt, { dateStyle: 'medium', timeStyle: 'short' }),
+      },
+      {
+        label: 'Expires',
+        value: DateTime.formatLocal(session.expiresAt, { dateStyle: 'medium', timeStyle: 'short' }),
+      },
     ]}
   />
 );

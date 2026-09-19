@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
 import {
   activeUserProfileAtom,
   ownSessionsAtom,
@@ -25,7 +26,6 @@ import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { authFailureMessage } from '#src/services/accounts/auth.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn

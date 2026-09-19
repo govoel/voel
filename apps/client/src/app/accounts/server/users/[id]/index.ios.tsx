@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 
+import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
 import {
   deleteServerUserAtom,
   revokeServerUserSessionAtom,
@@ -30,7 +31,6 @@ import { FormLayout } from '#src/components/form/layout';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
-import { authFailureMessage } from '#src/services/accounts/auth.ts';
 
 const UserPasswordForm = (props: Parameters<typeof useUserPasswordForm>[0]) => {
   const form = useUserPasswordForm(props);

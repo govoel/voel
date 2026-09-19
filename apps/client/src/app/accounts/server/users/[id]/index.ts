@@ -14,10 +14,10 @@ import {
   AuthSetUserPasswordInput,
 } from '@repo/auth-api/shared.ts';
 
+import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { useAppForm } from '#src/components/form';
 import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
-import { authFailureMessage } from '#src/services/accounts/auth.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
@@ -213,12 +213,20 @@ export const userDetails = ({ user }: { readonly user: typeof AuthAdminUserDetai
     label: 'Profile image',
     value: Option.getOrElse(Option.fromNullishOr(user.image), () => 'None'),
   },
-  { label: 'Created', value: DateTime.formatIso(user.createdAt) },
-  { label: 'Updated', value: DateTime.formatIso(user.updatedAt) },
+  {
+    label: 'Created',
+    value: DateTime.formatLocal(user.createdAt, { dateStyle: 'medium', timeStyle: 'short' }),
+  },
+  {
+    label: 'Updated',
+    value: DateTime.formatLocal(user.updatedAt, { dateStyle: 'medium', timeStyle: 'short' }),
+  },
   { label: 'Banned', value: user.banned === true ? 'Yes' : 'No' },
   { label: 'Ban reason', value: user.banReason ?? 'None' },
   {
     label: 'Ban expires',
-    value: Predicate.isNotNullish(user.banExpires) ? DateTime.formatIso(user.banExpires) : 'Never',
+    value: Predicate.isNotNullish(user.banExpires)
+      ? DateTime.formatLocal(user.banExpires, { dateStyle: 'medium', timeStyle: 'short' })
+      : 'Never',
   },
 ];
