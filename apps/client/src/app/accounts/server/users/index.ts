@@ -4,7 +4,7 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountAuthAtom } from '#src/services/accounts/auth.ts';
+import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
 import { NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -13,7 +13,7 @@ import { swr } from '#src/services/swr.ts';
 export const listUsersAtom = AppRuntime.pull(
   Effect.fnUntraced(
     function* (get) {
-      const { client: authClient } = yield* get.result(accountAuthAtom);
+      const authClient = yield* get.result(activeAccountAuthClientAtom);
 
       return Stream.paginate(
         0,

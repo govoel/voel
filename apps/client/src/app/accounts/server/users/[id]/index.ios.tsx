@@ -29,7 +29,8 @@ import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { accountAuthAtom, authFailureMessage } from '#src/services/accounts/auth.ts';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { authFailureMessage } from '#src/services/accounts/auth.ts';
 
 const UserPasswordForm = (props: Parameters<typeof useUserPasswordForm>[0]) => {
   const form = useUserPasswordForm(props);
@@ -138,8 +139,11 @@ const BanForm = (props: Parameters<typeof useBanUserForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
-  const auth = useAtomValue(accountAuthAtom);
-  const isOtherUser = AsyncResult.isSuccess(auth) && auth.value.key.userId !== user.id;
+  const activeKey = useAtomValue(activeAccountKeyAtom);
+  const isOtherUser =
+    AsyncResult.isSuccess(activeKey) &&
+    Option.isSome(activeKey.value) &&
+    activeKey.value.value.userId !== user.id;
   const state = useAtomValue(serverUserSessionsAtom(user.id));
   const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
   return (
@@ -225,8 +229,11 @@ const LoadedUser = ({
   readonly waiting: boolean;
   readonly refresh: () => void;
 }) => {
-  const auth = useAtomValue(accountAuthAtom);
-  const isOtherUser = AsyncResult.isSuccess(auth) && auth.value.key.userId !== user.id;
+  const activeKey = useAtomValue(activeAccountKeyAtom);
+  const isOtherUser =
+    AsyncResult.isSuccess(activeKey) &&
+    Option.isSome(activeKey.value) &&
+    activeKey.value.value.userId !== user.id;
   const [editor, setEditor] = useState<'role' | 'profile' | 'password' | 'ban' | null>(null);
   return (
     <>

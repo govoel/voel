@@ -16,14 +16,15 @@ import {
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { useAppForm } from '#src/components/form';
-import { accountAuthAtom, authFailureMessage } from '#src/services/accounts/auth.ts';
+import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
+import { authFailureMessage } from '#src/services/accounts/auth.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
 export const serverUserAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
   AppRuntime.atom(
     Effect.fnUntraced(function* (get) {
-      const { client } = yield* get.result(accountAuthAtom);
+      const client = yield* get.result(activeAccountAuthClientAtom);
       return yield* client.admin.getUser({ userId });
     })
   ).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }))
@@ -31,7 +32,7 @@ export const serverUserAtom = Atom.family((userId: typeof AuthUser.fields.id.Typ
 
 const setServerUserRoleAtom = AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
-    const { client } = yield* get.result(accountAuthAtom);
+    const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.setRole(input);
     get.refresh(serverUserAtom(input.userId));
     get.refresh(listUsersAtom);
@@ -40,7 +41,7 @@ const setServerUserRoleAtom = AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
 
 const updateServerUserAtom = AppRuntime.fn<typeof AuthAdminUpdateUserInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
-    const { client } = yield* get.result(accountAuthAtom);
+    const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.updateUser(input);
     get.refresh(serverUserAtom(input.userId));
     get.refresh(listUsersAtom);
@@ -49,14 +50,14 @@ const updateServerUserAtom = AppRuntime.fn<typeof AuthAdminUpdateUserInput.Type>
 
 const setServerUserPasswordAtom = AppRuntime.fn<typeof AuthSetUserPasswordInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
-    const { client } = yield* get.result(accountAuthAtom);
+    const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
   })
 );
 
 const banServerUserAtom = AppRuntime.fn<typeof AuthBanUserInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
-    const { client } = yield* get.result(accountAuthAtom);
+    const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.banUser(input);
     get.refresh(serverUserSessionsAtom(input.userId));
     get.refresh(serverUserAtom(input.userId));
@@ -65,7 +66,7 @@ const banServerUserAtom = AppRuntime.fn<typeof AuthBanUserInput.Type>()(
 );
 export const unbanServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
-    const { client } = yield* get.result(accountAuthAtom);
+    const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.unbanUser(input);
     get.refresh(serverUserAtom(input.userId));
     get.refresh(listUsersAtom);
@@ -74,7 +75,7 @@ export const unbanServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
 
 export const deleteServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
-    const { client } = yield* get.result(accountAuthAtom);
+    const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.removeUser(input);
     get.refresh(listUsersAtom);
     get.refresh(serverUserAtom(input.userId));
@@ -84,7 +85,7 @@ export const deleteServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()
 export const serverUserSessionsAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
   AppRuntime.atom(
     Effect.fnUntraced(function* (get) {
-      const { client } = yield* get.result(accountAuthAtom);
+      const client = yield* get.result(activeAccountAuthClientAtom);
       return yield* client.admin.listUserSessions({ userId });
     })
   ).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }))
@@ -93,7 +94,7 @@ export const serverUserSessionsAtom = Atom.family((userId: typeof AuthUser.field
 export const revokeServerUserSessionAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
   AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
-      const { client } = yield* get.result(accountAuthAtom);
+      const client = yield* get.result(activeAccountAuthClientAtom);
       yield* client.admin.revokeUserSession(input);
       get.refresh(serverUserSessionsAtom(userId));
     })
@@ -101,7 +102,7 @@ export const revokeServerUserSessionAtom = Atom.family((userId: typeof AuthUser.
 );
 export const revokeServerUserSessionsAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
-    const { client } = yield* get.result(accountAuthAtom);
+    const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.revokeUserSessions(input);
     get.refresh(serverUserSessionsAtom(input.userId));
   })
