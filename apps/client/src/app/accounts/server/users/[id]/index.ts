@@ -17,7 +17,6 @@ import {
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { useAppForm } from '#src/components/form';
 import { accountAuthAtom, authFailureMessage } from '#src/services/accounts/auth.ts';
-import { passwordsMatch } from '#src/services/accounts/form-schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
@@ -112,7 +111,11 @@ class PasswordInput extends AuthSetUserPasswordInput.pipe(
   Schema.fieldsAssign({
     confirmPassword: Schema.String,
   })
-).check(passwordsMatch) {}
+).check(
+  Schema.makeFilter(
+    ({ newPassword, confirmPassword }) => newPassword === confirmPassword || 'Passwords must match'
+  )
+) {}
 
 export const useUserPasswordForm = ({
   userId,

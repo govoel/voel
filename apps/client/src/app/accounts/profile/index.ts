@@ -12,7 +12,6 @@ import {
   authFailureMessage,
   authReasonMessage,
 } from '#src/services/accounts/auth.ts';
-import { passwordsMatch } from '#src/services/accounts/form-schema.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -149,7 +148,11 @@ class PasswordFormInput extends AuthChangePasswordInput.pipe(
   Schema.fieldsAssign({
     confirmPassword: Schema.String,
   })
-).check(passwordsMatch) {}
+).check(
+  Schema.makeFilter(
+    ({ newPassword, confirmPassword }) => newPassword === confirmPassword || 'Passwords must match'
+  )
+) {}
 
 export const useChangePasswordForm = ({ onSuccess }: { onSuccess: () => void | Promise<void> }) => {
   const form = useAppForm({

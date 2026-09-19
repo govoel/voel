@@ -1,11 +1,10 @@
-import { Effect, Match, Schema } from 'effect';
+import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { AuthSignInInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
 import { authReasonMessage } from '#src/services/accounts/auth.ts';
-import { redactPassword } from '#src/services/accounts/form-schema.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -13,7 +12,12 @@ import { AppRuntime } from '#src/services/runtime.ts';
 class AddAccountInput extends AuthSignInInput.pipe(
   Schema.fieldsAssign({
     serverUrl: ServerUrl,
-    password: AuthSignInInput.fields.password.pipe(redactPassword),
+    password: AuthSignInInput.fields.password.pipe(
+      Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
+        decode: SchemaGetter.transform((password) => Redacted.make(password)),
+        encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+      })
+    ),
   })
 ) {}
 
