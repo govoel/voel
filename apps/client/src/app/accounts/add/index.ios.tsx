@@ -1,19 +1,10 @@
-import { Group, Host, List, Section, VStack, ZStack } from '@expo/ui/swift-ui';
-import {
-  autocorrectionDisabled,
-  buttonStyle,
-  frame,
-  headerProminence,
-  keyboardType,
-  padding,
-  textContentType,
-  textInputAutocapitalization,
-} from '@expo/ui/swift-ui/modifiers';
+import { Group, Host } from '@expo/ui/swift-ui';
+import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
 import { Stack, router } from 'expo-router';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
+import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
-import { Spacing } from '#src/constants/theme.ts';
 
 export default function AddAccountScreen() {
   const form = useAddAccountForm({
@@ -28,66 +19,51 @@ export default function AddAccountScreen() {
       <Host style={{ flex: 1 }}>
         <Group>
           <form.AppForm>
-            <ZStack alignment="bottom">
-              <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-                <Section title="Add Account">
-                  <form.AppField name="serverUrl">
-                    {(field) => (
-                      <field.TextField
-                        label="Server URL"
-                        platformProps={{
-                          ios: {
-                            placeholder: 'https://demo.voel.app',
-                            modifiers: [
-                              keyboardType('url'),
-                              textContentType('URL'),
-                              textInputAutocapitalization('never'),
-                              autocorrectionDisabled(),
-                            ],
-                          },
-                        }}
-                      />
-                    )}
-                  </form.AppField>
-                  <form.AppField name="username">
-                    {(field) => (
-                      <field.TextField
-                        label="Username"
-                        platformProps={{
-                          ios: {
-                            placeholder: 'you',
-                            modifiers: [
-                              keyboardType('ascii-capable'),
-                              textContentType('username'),
-                              textInputAutocapitalization('never'),
-                              autocorrectionDisabled(),
-                            ],
-                          },
-                        }}
-                      />
-                    )}
-                  </form.AppField>
-                  <form.AppField name="password">
-                    {(field) => (
-                      <field.SecureField
-                        label="Password"
-                        platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
-                      />
-                    )}
-                  </form.AppField>
-                </Section>
-              </List>
-
-              <VStack
-                spacing={Spacing.two}
-                modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
+            <FormLayout
+              title="Add Account"
+              footer={
                 <form.SubmitButton
                   platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
                   containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
                   <Text>Login</Text>
                 </form.SubmitButton>
-              </VStack>
-            </ZStack>
+              }>
+              <form.AppField name="serverUrl">
+                {(field) => (
+                  <field.TextField
+                    purpose="url"
+                    label="Server URL"
+                    platformProps={{
+                      ios: {
+                        placeholder: 'https://demo.voel.app',
+                      },
+                    }}
+                  />
+                )}
+              </form.AppField>
+              <form.AppField name="username">
+                {(field) => (
+                  <field.TextField
+                    purpose="username"
+                    label="Username"
+                    platformProps={{
+                      ios: {
+                        placeholder: 'you',
+                      },
+                    }}
+                  />
+                )}
+              </form.AppField>
+              <form.AppField name="password">
+                {(field) => (
+                  <field.SecureField
+                    purpose="currentPassword"
+                    label="Password"
+                    platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+                  />
+                )}
+              </form.AppField>
+            </FormLayout>
           </form.AppForm>
         </Group>
       </Host>

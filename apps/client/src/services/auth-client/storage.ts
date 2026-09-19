@@ -16,7 +16,7 @@ class AuthClientStorageSetItemError extends Schema.TaggedError<
   { key: Schema.String }
 ) {}
 
-class AuthClientStorageRemoveItemError extends Schema.TaggedError<
+export class AuthClientStorageRemoveItemError extends Schema.TaggedError<
   AuthClientStorageRemoveItemError,
   { readonly brand: unique symbol }
 >('voel/services/auth-client/storage/AuthClientStorageRemoveItemError')(

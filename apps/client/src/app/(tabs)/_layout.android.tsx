@@ -1,18 +1,14 @@
-import { getMaterialColors } from '@expo/ui/jetpack-compose';
 import { Stack } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+
+import { materialFonts, useMaterialColors } from '#src/constants/material.ts';
 
 export const unstable_settings = {
   initialRouteName: '(home)',
 };
 
 export default function TabsLayoutAndroid() {
-  const colorScheme = useColorScheme();
-  const colors = getMaterialColors({
-    scheme: colorScheme === 'light' ? 'light' : 'dark',
-    seedColor: '#00AAFF',
-  });
+  const colors = useMaterialColors();
 
   return (
     <>
@@ -24,8 +20,8 @@ export default function TabsLayoutAndroid() {
         tintColor={colors.onSecondaryContainer}
         iconColor={{ default: colors.onSurfaceVariant, selected: colors.onSecondaryContainer }}
         labelStyle={{
-          default: { color: colors.onSurfaceVariant, fontFamily: 'Google Sans' },
-          selected: { color: colors.onSurface, fontFamily: 'Google Sans' },
+          default: { color: colors.onSurfaceVariant, fontFamily: materialFonts.regular.fontFamily },
+          selected: { color: colors.onSurface, fontFamily: materialFonts.regular.fontFamily },
         }}
         indicatorColor={colors.secondaryContainer}
         rippleColor={colors.primary}>

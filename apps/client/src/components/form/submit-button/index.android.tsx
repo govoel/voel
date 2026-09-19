@@ -6,35 +6,15 @@ import {
   LoadingIndicator,
   Row,
   TextButton,
-  useMaterialColors,
 } from '@expo/ui/jetpack-compose';
 import { padding, size } from '@expo/ui/jetpack-compose/modifiers';
-import { useSelector } from '@tanstack/react-form';
-import { Array, Option, Predicate } from 'effect';
+import { Option } from 'effect';
 
-import { useFormContext, useFormSubmissionError } from '#src/components/form/hooks.tsx';
+import { useSubmitState } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.ts';
 import { Text } from '#src/components/text';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-
-const SubmitErrorMessage = ({
-  color,
-  formErrorMessages,
-}: {
-  readonly color: string;
-  readonly formErrorMessages: Array<string>;
-}) => {
-  const errorMessage = Array.head(formErrorMessages);
-
-  return Option.match(errorMessage, {
-    onNone: () => null,
-    onSome: (message) => (
-      <Text color={color} modifiers={[padding(0, 0, 0, Spacing.one)]}>
-        {message}
-      </Text>
-    ),
-  });
-};
 
 export const SubmitButton = (({
   children,
@@ -42,31 +22,22 @@ export const SubmitButton = (({
   platformProps = { android: { variant: 'default' } },
   containerModifiers = {},
 }) => {
-  const form = useFormContext();
-  const submissionError = useFormSubmissionError();
-  const [canSubmit, isSubmitting, validationErrorMessages] = useSelector(
-    form.store,
-    (state): readonly [boolean, boolean, Array<string>] => [
-      state.canSubmit,
-      state.isSubmitting,
-      state.errors.filter(
-        (error): error is string => Predicate.isString(error) && error.length > 0
-      ),
-    ]
-  );
-  const formErrorMessages = Option.match(submissionError, {
-    onNone: () => validationErrorMessages,
-    onSome: (error) => [error, ...validationErrorMessages],
-  });
-
-  const colors = useMaterialColors({ seedColor: '#00AAFF' });
+  const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+  const colors = useMaterialColors();
   const ButtonComponent =
     'android' in platformProps && platformProps.android.variant === 'text' ? TextButton : Button;
 
   return (
     <>
       <Row>
-        <SubmitErrorMessage color={colors.error} formErrorMessages={formErrorMessages} />
+        {Option.match(errorMessage, {
+          onNone: () => null,
+          onSome: (message) => (
+            <Text color={colors.error} modifiers={[padding(0, 0, 0, Spacing.one)]}>
+              {message}
+            </Text>
+          ),
+        })}
       </Row>
 
       <Row>

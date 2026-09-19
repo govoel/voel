@@ -1,23 +1,32 @@
-import { useAtomValue } from '@effect/atom-react';
-import {
-  Button,
-  Column,
-  LazyColumn,
-  LoadingIndicator,
-  ModalBottomSheet,
-} from '@expo/ui/jetpack-compose';
-import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Option } from 'effect';
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { Button, Column, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { useRef, useState } from 'react';
+import { router } from 'expo-router';
+import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+
+import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
+import {
+  activeUserProfileAtom,
+  ownSessionsAtom,
+  revokeOwnSessionAtom,
+  signOutEverywhereAtom,
+  useChangePasswordForm,
+  useUserProfileForm,
+} from '#src/app/accounts/profile/index.ts';
+import { SessionDetails } from '#src/components/account-management/session-details';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { ControlledSheet } from '#src/components/controlled-sheet';
+import { DetailRows } from '#src/components/detail-rows';
+import { FormLayout } from '#src/components/form/layout';
+import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
@@ -28,21 +37,25 @@ const ProfileList = ({ children }: PropsWithChildren) => (
   </LazyColumn>
 );
 
-const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProfileForm>[0]) => {
-  const form = useUserProfileForm({ onSuccess, profile });
-
+const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
+  const form = useUserProfileForm(props);
   return (
     <form.AppForm>
-      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-        <Text variant="h3">Edit Profile</Text>
+      <FormLayout
+        title="Edit Profile"
+        footer={
+          <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+            <Text>Save Changes</Text>
+          </form.SubmitButton>
+        }>
         <form.AppField name="name">
           {(field) => (
             <field.TextField
+              purpose="name"
               label="Name"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
-                  keyboardOptions: { capitalization: 'words' },
                 },
               }}
             />
@@ -51,24 +64,17 @@ const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProf
         <form.AppField name="username">
           {(field) => (
             <field.TextField
+              purpose="username"
               label="Username"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
-                  keyboardOptions: {
-                    keyboardType: 'ascii',
-                    capitalization: 'none',
-                    autoCorrectEnabled: false,
-                  },
                 },
               }}
             />
           )}
         </form.AppField>
-        <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-          <Text>Save Changes</Text>
-        </form.SubmitButton>
-      </Column>
+      </FormLayout>
     </form.AppForm>
   );
 };
@@ -81,75 +87,55 @@ const LoadedProfile = ({
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const editProfileSheetRef = useRef<ModalBottomSheetRef>(null);
+  const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
 
   return (
     <>
       <ProfileList>
         <Text variant="h4">Your Profile</Text>
-        <SegmentedList>
-          <SegmentedListItem index={0} count={4}>
-            <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Name</Text>
-            </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>{name}</Text>
-            </SegmentedListItem.SupportingContent>
-          </SegmentedListItem>
-          <SegmentedListItem index={1} count={4}>
-            <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Username</Text>
-            </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>@{username}</Text>
-            </SegmentedListItem.SupportingContent>
-          </SegmentedListItem>
-          <SegmentedListItem index={2} count={4}>
-            <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Email</Text>
-            </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>{email}</Text>
-            </SegmentedListItem.SupportingContent>
-          </SegmentedListItem>
-          <SegmentedListItem index={3} count={4}>
-            <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Role</Text>
-            </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>{role}</Text>
-            </SegmentedListItem.SupportingContent>
-          </SegmentedListItem>
-        </SegmentedList>
+        <DetailRows
+          details={[
+            { label: 'Name', value: name },
+            { label: 'Username', value: `@${username}` },
+            { label: 'Email', value: email },
+            { label: 'Role', value: role },
+          ]}
+        />
         <Button
           modifiers={[fillMaxWidth()]}
           onClick={() => {
-            setIsEditingProfile(true);
+            setEditor('profile');
           }}>
           <Text>Edit Profile</Text>
         </Button>
+        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+          <Text variant="h4">Password</Text>
+          <Button
+            onClick={() => {
+              setEditor('password');
+            }}>
+            <Text>Change password</Text>
+          </Button>
+        </Column>
+        <OwnSessions />
       </ProfileList>
 
-      {isEditingProfile ? (
-        <ModalBottomSheet
-          ref={editProfileSheetRef}
-          skipPartiallyExpanded
-          onDismissRequest={() => {
-            setIsEditingProfile(false);
-          }}>
-          <Column
-            modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
-            verticalArrangement={{ spacedBy: Spacing.two }}>
-            <UserProfileEditor
-              profile={{ name, username }}
-              onSuccess={async () => {
-                await editProfileSheetRef.current?.hide();
-              }}
-            />
-          </Column>
-        </ModalBottomSheet>
-      ) : null}
+      <ControlledSheet
+        presented={editor !== null}
+        onDismiss={() => {
+          setEditor(null);
+        }}>
+        {({ close }) =>
+          Match.value(editor).pipe(
+            Match.when('profile', () => (
+              <UserProfileEditor profile={{ name, username }} onSuccess={close} />
+            )),
+            Match.when('password', () => <PasswordForm onSuccess={close} />),
+            Match.when(null, () => null),
+            Match.exhaustive
+          )
+        }
+      </ControlledSheet>
     </>
   );
 };
@@ -188,3 +174,130 @@ export default function ProfileScreen() {
     </AndroidAccountsSheet>
   );
 }
+
+const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
+  const form = useChangePasswordForm(props);
+  return (
+    <form.AppForm>
+      <FormLayout
+        title="Change password"
+        footer={
+          <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+            <Text>Save password</Text>
+          </form.SubmitButton>
+        }>
+        <form.AppField name="currentPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="currentPassword"
+              label="Current password"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="newPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="New password (8–128 characters)"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="confirmPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="Confirm new password"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+      </FormLayout>
+    </form.AppForm>
+  );
+};
+
+const OwnSessions = () => {
+  const colors = useMaterialColors();
+  const state = useAtomValue(ownSessionsAtom);
+  const refresh = useAtomRefresh(ownSessionsAtom);
+  return (
+    <>
+      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+        <Text variant="h4">Active sessions / devices</Text>
+        <Button onClick={refresh} enabled={!state.waiting}>
+          <Text>Refresh sessions</Text>
+        </Button>
+      </Column>
+      {AsyncResult.matchWithError(state, {
+        onInitial: () => (
+          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+            <Text variant="h4">Sessions</Text>
+            <LoadingIndicator />
+          </Column>
+        ),
+        onError: (error) => (
+          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+            <Text variant="h4">Sessions</Text>
+            <Text>{authFailureMessage({ error })}</Text>
+          </Column>
+        ),
+        onDefect: () => (
+          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+            <Text variant="h4">Sessions</Text>
+            <Text>Unable to load sessions. Try refreshing.</Text>
+          </Column>
+        ),
+        onSuccess: ({ value: { sessions, currentId } }) =>
+          sessions.length === 0 ? (
+            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+              <Text variant="h4">Sessions</Text>
+              <Text>No active sessions.</Text>
+            </Column>
+          ) : (
+            sessions.map((session) => (
+              <Column key={session.id} verticalArrangement={{ spacedBy: Spacing.two }}>
+                <Text variant="h4">
+                  {session.id === currentId ? 'This device' : 'Other device'}
+                </Text>
+                <SessionDetails session={session} />
+                {session.id !== currentId ? (
+                  <MutationConfirmation
+                    onFailure={authFailureMessage}
+                    trigger={({ open, busy }) => (
+                      <TextButton onClick={open} enabled={!busy}>
+                        <Text color={colors.error}>Sign out this device</Text>
+                      </TextButton>
+                    )}
+                    mutation={revokeOwnSessionAtom}
+                    schema={AuthRevokeSessionInput}
+                    defaultValues={{ token: session.token }}
+                    title="Sign out this device"
+                    message="This device will need to sign in again."
+                  />
+                ) : null}
+              </Column>
+            ))
+          ),
+      })}
+      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+        <Text variant="h4">Sign out</Text>
+        <MutationConfirmation
+          onFailure={authFailureMessage}
+          trigger={({ open, busy }) => (
+            <TextButton onClick={open} enabled={!busy}>
+              <Text color={colors.error}>Sign out everywhere</Text>
+            </TextButton>
+          )}
+          mutation={signOutEverywhereAtom}
+          title="Sign out everywhere"
+          message="Sign out all devices for this account on this server, including this device?"
+          onSuccess={() => {
+            router.dismissTo('/accounts');
+          }}
+        />
+      </Column>
+    </>
+  );
+};

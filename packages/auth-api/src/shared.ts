@@ -77,11 +77,11 @@ export class AuthSession extends Schema.Struct({
     id: Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/id')),
     userId: AuthUserId,
     token: AuthSessionToken,
-    ipAddress: Schema.NullishOr(Schema.String).pipe(
-      Schema.brand('@repo/auth-api/shared/AuthSession/session/ipAddress')
+    ipAddress: Schema.NullishOr(
+      Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/ipAddress'))
     ),
-    userAgent: Schema.NullishOr(Schema.String).pipe(
-      Schema.brand('@repo/auth-api/shared/AuthSession/session/userAgent')
+    userAgent: Schema.NullishOr(
+      Schema.String.pipe(Schema.brand('@repo/auth-api/shared/AuthSession/session/userAgent'))
     ),
     expiresAt: Schema.DateTimeUtcFromDate.pipe(
       Schema.brand('@repo/auth-api/shared/AuthSession/session/expiresAt')
@@ -150,4 +150,52 @@ export class AuthUpdateUserInput extends Schema.Struct({
   name: Schema.optional(NameInput),
   username: Schema.optional(UsernameInput),
   image: Schema.optional(Schema.NullOr(Schema.String)),
+}) {}
+
+export class AuthChangePasswordInput extends Schema.Struct({
+  currentPassword: PasswordInput,
+  newPassword: PasswordInput,
+}) {}
+
+export class AuthDeviceSession extends AuthSession.fields.session {}
+
+export class AuthRevokeSessionInput extends Schema.Struct({ token: AuthSessionToken }) {}
+
+export class AuthUserIdInput extends Schema.Struct({ userId: AuthUserId }) {}
+
+export class AuthAdminUserDetails extends AuthUser.pipe(
+  Schema.fieldsAssign({
+    emailVerified: Schema.Boolean,
+    banned: Schema.NullishOr(Schema.Boolean),
+    banReason: Schema.NullishOr(Schema.String),
+    banExpires: Schema.NullishOr(Schema.DateTimeUtcFromDate),
+  })
+) {}
+
+/** Deliberately excludes role and ban fields; those have dedicated commands. */
+export class AuthAdminUpdateUserInput extends Schema.Struct({
+  userId: AuthUserId,
+  name: NameInput,
+  username: UsernameInput,
+  email: EmailInput,
+  image: Schema.NullOr(Schema.String),
+}) {}
+
+export class AuthSetUserPasswordInput extends Schema.Struct({
+  userId: AuthUserId,
+  newPassword: PasswordInput,
+}) {}
+
+export class AuthBanUserInput extends Schema.Struct({
+  userId: AuthUserId,
+  banReason: Schema.String.check(Schema.isNonEmpty({ message: 'A ban reason is required' })),
+  banExpiresIn: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
+}) {}
+
+export class AuthUserSessions extends Schema.Struct({
+  sessions: Schema.Array(AuthDeviceSession),
+}) {}
+
+export class AuthAdminRevokeSessionInput extends Schema.Struct({
+  sessionToken: AuthSessionToken,
 }) {}

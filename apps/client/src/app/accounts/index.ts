@@ -1,10 +1,9 @@
 import { useAtom } from '@effect/atom-react';
-import { Cause, Effect, Exit, Match, Option, Schema } from 'effect';
+import { Cause, Effect, Exit, Match, Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { useAppForm } from '#src/components/form';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
@@ -19,29 +18,17 @@ export const removeAccountAtom = AppRuntime.fn(() =>
   AccountManager.pipe(Effect.flatMap((manager) => manager.removeActiveAccount))
 ).pipe(Atom.withLabel('removeAccountAtom'));
 
-export const useRemoveAccountForm = ({
-  onSuccess,
+export const removeAccountFailureMessage = ({
+  error,
 }: {
-  readonly onSuccess: () => Promise<void>;
-}) => {
-  const form = useAppForm({
-    schema: Schema.Void,
-    mutation: removeAccountAtom,
-    onFailure: ({ error }) =>
-      Match.value(error).pipe(
-        Match.tagsExhaustive({
-          AuthClientStorageRemoveItemError: () => 'Failed to clear account storage. Try again.',
-          AccountDatabaseError: () => 'A database error occurred. Try again.',
-        })
-      ),
-    onSuccess: async ({ formApi }) => {
-      formApi.reset();
-      await onSuccess();
-    },
-  });
-
-  return form;
-};
+  readonly error: Atom.Failure<typeof removeAccountAtom>;
+}) =>
+  Match.value(error).pipe(
+    Match.tagsExhaustive({
+      AuthClientStorageRemoveItemError: () => 'Failed to clear account storage. Try again.',
+      AccountDatabaseError: () => 'A database error occurred. Try again.',
+    })
+  );
 
 export const accountsWithActiveAccount = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {

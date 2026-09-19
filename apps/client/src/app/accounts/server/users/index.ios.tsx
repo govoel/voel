@@ -1,5 +1,5 @@
 import { useAtom } from '@effect/atom-react';
-import { Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
+import { Button, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
 import { containerRelativeFrame, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
@@ -37,6 +37,14 @@ export default function ServerUsersScreen() {
           ),
           onSuccess: ({ value: { items, done }, waiting }) => (
             <List modifiers={[headerProminence('increased')]}>
+              <Section title="Manage users">
+                <Button
+                  onPress={() => {
+                    router.push('/accounts/server/users/create');
+                  }}>
+                  <Text>Create user</Text>
+                </Button>
+              </Section>
               <Section title="Users">
                 <NativeServerUsersList
                   users={items.map(({ id, username }) => ({ id, username }))}
