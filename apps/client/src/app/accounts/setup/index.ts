@@ -25,8 +25,8 @@ const setupServerWithAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.setupServerWithAccount(input)))
 ).pipe(Atom.withLabel('setupServerWithAccountAtom'));
 
-export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
-  const form = useAppForm({
+export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) =>
+  useAppForm({
     schema: SetupServerAccountInput,
     mutation: setupServerWithAccountAtom,
     defaultValues: { serverUrl: '', name: '', email: '', username: '', password: '' },
@@ -55,6 +55,3 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
       await onSuccess();
     },
   });
-
-  return form;
-};

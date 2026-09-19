@@ -122,16 +122,14 @@ export const useUserPasswordForm = ({
 }: {
   userId: typeof AuthUser.fields.id.Type;
   onSuccess: () => void | Promise<void>;
-}) => {
-  const form = useAppForm({
+}) =>
+  useAppForm({
     schema: PasswordInput,
     mutation: setServerUserPasswordAtom,
     defaultValues: { userId, newPassword: '', confirmPassword: '' },
     onFailure: authFailureMessage,
     onSuccess,
   });
-  return form;
-};
 
 class ProfileInput extends AuthAdminUpdateUserInput.mapFields((fields) => ({
   ...fields,
@@ -149,8 +147,8 @@ export const useServerUserProfileForm = ({
 }: {
   user: typeof AuthUser.Type;
   onSuccess: () => void | Promise<void>;
-}) => {
-  const form = useAppForm({
+}) =>
+  useAppForm({
     schema: ProfileInput,
     mutation: updateServerUserAtom,
     defaultValues: {
@@ -163,8 +161,6 @@ export const useServerUserProfileForm = ({
     onFailure: authFailureMessage,
     onSuccess,
   });
-  return form;
-};
 
 export const useUserRoleForm = ({
   user,
@@ -172,16 +168,14 @@ export const useUserRoleForm = ({
 }: {
   user: typeof AuthUser.Type;
   onSuccess: () => void | Promise<void>;
-}) => {
-  const form = useAppForm({
+}) =>
+  useAppForm({
     schema: AuthSetRoleInput,
     mutation: setServerUserRoleAtom,
     defaultValues: { userId: user.id, role: user.role },
     onFailure: authFailureMessage,
     onSuccess,
   });
-  return form;
-};
 
 export const useBanUserForm = ({
   user,
@@ -189,16 +183,14 @@ export const useBanUserForm = ({
 }: {
   user: typeof AuthAdminUserDetails.Type;
   onSuccess: () => void | Promise<void>;
-}) => {
-  const form = useAppForm({
+}) =>
+  useAppForm({
     schema: AuthBanUserInput,
     mutation: banServerUserAtom,
     defaultValues: { userId: user.id, banReason: '' },
     onFailure: authFailureMessage,
     onSuccess,
   });
-  return form;
-};
 
 export const userDetails = ({ user }: { readonly user: typeof AuthAdminUserDetails.Type }) => [
   { label: 'User ID', value: user.id },

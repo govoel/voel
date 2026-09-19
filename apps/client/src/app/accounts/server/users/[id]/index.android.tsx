@@ -6,7 +6,7 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
-import { AuthUser } from '@repo/auth-api/shared.ts';
+import { AuthAdminRevokeSessionInput, AuthUser, AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 
 import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
@@ -243,7 +243,8 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
                       </TextButton>
                     )}
                     mutation={revokeServerUserSessionAtom}
-                    input={{ sessionToken: session.token }}
+                    schema={AuthAdminRevokeSessionInput}
+                    defaultValues={{ sessionToken: session.token }}
                     title="Revoke session"
                     message={`Sign out this device for @${user.username}?`}
                   />
@@ -263,7 +264,8 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
               </TextButton>
             )}
             mutation={revokeServerUserSessionsAtom}
-            input={{ userId: user.id }}
+            schema={AuthUserIdInput}
+            defaultValues={{ userId: user.id }}
             title="Sign out all user devices"
             message={`Sign out all devices for @${user.username}? They will need to sign in again.`}
           />
@@ -357,7 +359,8 @@ const LoadedUser = ({
                     </TextButton>
                   )}
                   mutation={unbanServerUserAtom}
-                  input={{ userId: user.id }}
+                  schema={AuthUserIdInput}
+                  defaultValues={{ userId: user.id }}
                   role="default"
                   title="Unban user"
                   message={`Allow @${user.username} to sign in again? Revoked sessions will not be restored.`}
@@ -381,7 +384,8 @@ const LoadedUser = ({
                   </TextButton>
                 )}
                 mutation={deleteServerUserAtom}
-                input={{ userId: user.id }}
+                schema={AuthUserIdInput}
+                defaultValues={{ userId: user.id }}
                 title="Delete server user"
                 message={`Permanently delete @${user.username} (${user.email}) from this server? Their credentials and sessions will be removed. This cannot be undone.`}
                 onSuccess={() => {

@@ -8,6 +8,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+
 import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
 import {
   activeUserProfileAtom,
@@ -269,7 +271,8 @@ const OwnSessions = () => {
                       </TextButton>
                     )}
                     mutation={revokeOwnSessionAtom}
-                    input={{ token: session.token }}
+                    schema={AuthRevokeSessionInput}
+                    defaultValues={{ token: session.token }}
                     title="Sign out this device"
                     message="This device will need to sign in again."
                   />
@@ -288,7 +291,6 @@ const OwnSessions = () => {
             </TextButton>
           )}
           mutation={signOutEverywhereAtom}
-          input={null}
           title="Sign out everywhere"
           message="Sign out all devices for this account on this server, including this device?"
           onSuccess={() => {

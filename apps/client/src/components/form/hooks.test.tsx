@@ -4,7 +4,7 @@ import { Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import {
   createEffectSchemaFormHook,
@@ -82,6 +82,59 @@ const RetrySubmitButton = () => {
 };
 
 describe('createEffectSchemaFormHook', () => {
+  it('only allows schema-less forms for void-input mutations', () => {
+    type DataOptions = Parameters<
+      typeof useAppForm<TestFormInput, typeof TestFormInput.Encoded, undefined, never>
+    >[0];
+    type NoInputOptions = Parameters<typeof useAppForm<undefined, undefined, undefined, never>>[0];
+    expectTypeOf<Pick<DataOptions, 'mutation' | 'onFailure'>>().not.toExtend<DataOptions>();
+    expectTypeOf<Pick<NoInputOptions, 'mutation' | 'onFailure'>>().toExtend<NoInputOptions>();
+  });
+
+  it('submits void without validating TanStack values and can retry a failure', async () => {
+    const inputs: Array<void> = [];
+    const mutation = runtime.fn((input: undefined) => {
+      inputs.push(input);
+      return inputs.length === 1
+        ? Effect.fail(TestSubmitError.make({ message: 'failed' }))
+        : Effect.succeed('removed');
+    });
+    const onSuccess = vi.fn();
+
+    const TestForm = () => {
+      const form = useAppForm({
+        mutation,
+        onFailure: ({ error }) => error.message,
+        onSuccess,
+      });
+      return (
+        <form.AppForm>
+          <RetrySubmitButton />
+          <ErrorProbe />
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    const user = makeUser();
+    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    expect(screen.getByTestId('form-error')).toHaveTextContent('failed');
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledOnce();
+    });
+    expect(inputs).toEqual([void 0, void 0]);
+    expect(onSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        value: void 0,
+        result: 'removed',
+      })
+    );
+    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
   });

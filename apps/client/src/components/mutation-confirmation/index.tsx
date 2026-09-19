@@ -1,18 +1,65 @@
+import { Option } from 'effect';
+import { useState } from 'react';
 import type { ComponentProps, ReactElement } from 'react';
 
 import { Confirmation } from '#src/components/confirmation';
-import { useConfirmation } from '#src/components/confirmation/use-confirmation.ts';
+import { useAppForm } from '#src/components/form';
+import { useSubmitState } from '#src/components/form/hooks.tsx';
 
-/** Bind an atom mutation to native confirmation without choosing its trigger or error policy. */
-export const MutationConfirmation = <Input, Success, Failure>({
+type PresentationProps = Omit<ComponentProps<typeof Confirmation>, 'state' | 'trigger'> & {
+  readonly trigger: (state: { readonly open: () => void; readonly busy: boolean }) => ReactElement;
+};
+
+const ConfirmationForm = ({
+  presented,
+  setPresented,
   trigger,
   ...props
-}: Parameters<typeof useConfirmation<Input, Success, Failure>>[0] &
-  Omit<ComponentProps<typeof Confirmation>, 'state' | 'trigger'> & {
-    readonly trigger: (
-      state: Pick<ReturnType<typeof useConfirmation>, 'open' | 'busy'>
-    ) => ReactElement;
-  }) => {
-  const state = useConfirmation(props);
-  return <Confirmation {...props} state={state} trigger={trigger(state)} />;
+}: PresentationProps & {
+  readonly presented: boolean;
+  readonly setPresented: (presented: boolean) => void;
+}) => {
+  const { form, isSubmitting, errorMessage } = useSubmitState();
+  return (
+    <Confirmation
+      {...props}
+      trigger={trigger({
+        busy: isSubmitting,
+        open: () => {
+          form.reset();
+          setPresented(true);
+        },
+      })}
+      state={{
+        presented,
+        busy: isSubmitting,
+        feedback: Option.getOrElse(errorMessage, () => ''),
+        execute: async () => form.handleSubmit(),
+        handleDismiss: () => {
+          if (!isSubmitting) {
+            setPresented(false);
+          }
+        },
+      }}
+    />
+  );
+};
+
+export const MutationConfirmation = <Input, Encoded, Success, Failure, EncodingServices = never>(
+  props: Parameters<typeof useAppForm<Input, Encoded, Success, Failure, EncodingServices>>[0] &
+    PresentationProps
+) => {
+  const [presented, setPresented] = useState(false);
+  const form = useAppForm({
+    ...props,
+    onSuccess: async (result) => {
+      setPresented(false);
+      await props.onSuccess?.(result);
+    },
+  });
+  return (
+    <form.AppForm>
+      <ConfirmationForm {...props} presented={presented} setPresented={setPresented} />
+    </form.AppForm>
+  );
 };

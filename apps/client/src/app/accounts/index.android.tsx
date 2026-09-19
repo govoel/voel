@@ -157,7 +157,6 @@ export default function AccountsScreen() {
                         <MutationConfirmation
                           key={`${account.serverUrl}-${account.userId}`}
                           mutation={removeAccountAtom}
-                          input={void 0}
                           onFailure={removeAccountFailureMessage}
                           title="Remove account from this device?"
                           confirmLabel="Remove"

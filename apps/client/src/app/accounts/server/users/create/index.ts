@@ -22,8 +22,8 @@ export const useCreateUserForm = ({
   readonly onSuccess: (props: {
     readonly userId: typeof AuthUser.fields.id.Type;
   }) => void | Promise<void>;
-}) => {
-  const form = useAppForm({
+}) =>
+  useAppForm({
     schema: AuthCreateUserInput,
     mutation: createServerUserAtom,
     defaultValues: { name: '', username: '', email: '', password: '', role: 'under18' },
@@ -32,5 +32,3 @@ export const useCreateUserForm = ({
       await onSuccess({ userId: result.user.id });
     },
   });
-  return form;
-};

@@ -81,8 +81,8 @@ export const useUserProfileForm = ({
 }: {
   onSuccess: () => Promise<void>;
   profile: typeof UserProfileUpdateInput.Encoded;
-}) => {
-  const form = useAppForm({
+}) =>
+  useAppForm({
     schema: UserProfileUpdateInput,
     mutation: updateCurrentUserAtom,
     defaultValues: profile,
@@ -111,9 +111,6 @@ export const useUserProfileForm = ({
       await onSuccess();
     },
   });
-
-  return form;
-};
 
 const changePasswordAtom = AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
@@ -146,7 +143,7 @@ export const revokeOwnSessionAtom = AppRuntime.fn<typeof AuthRevokeSessionInput.
   { reactivityKeys: ['auth.sessions'] }
 );
 
-export const signOutEverywhereAtom = AppRuntime.fn<null>()(
+export const signOutEverywhereAtom = AppRuntime.fn<Schema.Void['Type']>()(
   Effect.fnUntraced(function* (_, get) {
     const key = yield* get.result(activeAccountKeyAtom);
     if (Option.isNone(key)) {
@@ -168,13 +165,11 @@ class PasswordFormInput extends AuthChangePasswordInput.pipe(
   )
 ) {}
 
-export const useChangePasswordForm = ({ onSuccess }: { onSuccess: () => void | Promise<void> }) => {
-  const form = useAppForm({
+export const useChangePasswordForm = ({ onSuccess }: { onSuccess: () => void | Promise<void> }) =>
+  useAppForm({
     schema: PasswordFormInput,
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
     mutation: changePasswordAtom,
     onFailure: authFailureMessage,
     onSuccess,
   });
-  return form;
-};

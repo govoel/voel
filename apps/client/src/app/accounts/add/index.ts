@@ -25,8 +25,8 @@ const signInAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.signInAccount(input)))
 ).pipe(Atom.withLabel('signInAccountAtom'));
 
-export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
-  const form = useAppForm({
+export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) =>
+  useAppForm({
     schema: AddAccountInput,
     mutation: signInAccountAtom,
     defaultValues: { serverUrl: '', username: '', password: '' },
@@ -55,6 +55,3 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
       await onSuccess();
     },
   });
-
-  return form;
-};

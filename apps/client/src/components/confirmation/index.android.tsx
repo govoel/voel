@@ -11,7 +11,6 @@ export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...pro
   return (
     <>
       {trigger}
-      {!state.presented && state.feedback.length > 0 ? <Text>{state.feedback}</Text> : null}
       {state.presented ? (
         <AlertDialog onDismissRequest={state.handleDismiss}>
           <AlertDialog.Title>
