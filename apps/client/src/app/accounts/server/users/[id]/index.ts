@@ -112,7 +112,11 @@ class PasswordInput extends AuthSetUserPasswordInput.pipe(
   })
 ).check(
   Schema.makeFilter(
-    ({ newPassword, confirmPassword }) => newPassword === confirmPassword || 'Passwords must match'
+    ({ newPassword, confirmPassword }) =>
+      newPassword === confirmPassword || {
+        path: ['confirmPassword'],
+        issue: 'Passwords must match',
+      }
   )
 ) {}
 

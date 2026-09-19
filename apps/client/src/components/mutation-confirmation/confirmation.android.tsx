@@ -1,6 +1,6 @@
 import { AlertDialog, Column, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
 
-import type { ConfirmationComponent } from '#src/components/confirmation';
+import type { ConfirmationComponent } from '#src/components/mutation-confirmation/confirmation';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';

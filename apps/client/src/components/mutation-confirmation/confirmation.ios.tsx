@@ -8,7 +8,7 @@ import {
   padding,
 } from '@expo/ui/swift-ui/modifiers';
 
-import type { ConfirmationComponent } from '#src/components/confirmation';
+import type { ConfirmationComponent } from '#src/components/mutation-confirmation/confirmation';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 

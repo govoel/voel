@@ -2,9 +2,9 @@ import { Option } from 'effect';
 import { useState } from 'react';
 import type { ComponentProps, ReactElement } from 'react';
 
-import { Confirmation } from '#src/components/confirmation';
 import { useAppForm } from '#src/components/form';
 import { useSubmitState } from '#src/components/form/hooks.tsx';
+import { Confirmation } from '#src/components/mutation-confirmation/confirmation';
 
 type PresentationProps = Omit<ComponentProps<typeof Confirmation>, 'state' | 'trigger'> & {
   readonly trigger: (state: { readonly open: () => void; readonly busy: boolean }) => ReactElement;
