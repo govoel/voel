@@ -1,14 +1,13 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
-import { Column } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding, verticalScroll } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { router } from 'expo-router';
 import { useRef } from 'react';
 
 import { useCreateUserForm } from '#src/app/accounts/server/users/create/index.ts';
 import { RoleField } from '#src/components/account-management/role-field';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
+import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
-import { Spacing } from '#src/constants/theme.ts';
 
 export default function CreateUserScreen() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
@@ -21,10 +20,13 @@ export default function CreateUserScreen() {
   return (
     <AndroidAccountsSheet ref={sheetRef}>
       <form.AppForm>
-        <Column
-          modifiers={[verticalScroll(), padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
-          verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h3">Create user</Text>
+        <FormLayout
+          title="Create user"
+          footer={
+            <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+              <Text>Create user</Text>
+            </form.SubmitButton>
+          }>
           <form.AppField name="name">
             {(field) => (
               <field.TextField
@@ -78,10 +80,7 @@ export default function CreateUserScreen() {
             )}
           </form.AppField>
           <form.AppField name="role">{() => <RoleField />}</form.AppField>
-          <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-            <Text>Create user</Text>
-          </form.SubmitButton>
-        </Column>
+        </FormLayout>
       </form.AppForm>
     </AndroidAccountsSheet>
   );
