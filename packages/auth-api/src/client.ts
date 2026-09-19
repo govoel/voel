@@ -53,7 +53,7 @@ const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPl
     ] as const,
   });
 
-class BetterAuthClientInitializationError extends Schema.TaggedError<
+export class BetterAuthClientInitializationError extends Schema.TaggedError<
   BetterAuthClientInitializationError,
   { readonly brand: unique symbol }
 >('@repo/auth-api/client/BetterAuthClientInitializationError')(

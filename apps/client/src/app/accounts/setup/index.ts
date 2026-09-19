@@ -4,7 +4,6 @@ import { Atom } from 'effect/unstable/reactivity';
 import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
-import { authReasonMessage } from '#src/services/accounts/auth.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -37,12 +36,17 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
           BetterAuthClientInitializationError: () =>
             'Unexpected error during account setup. Try again.',
           AccountSignUpError: (signUpError) =>
-            authReasonMessage({
-              reason: signUpError.reason,
-              rejected: 'Failed to create the account. Check the server and try again.',
-              invalidInput: 'Check the account details and try again.',
-              invalidResponse: 'The server returned an invalid authentication response. Try again.',
-            }),
+            Match.value(signUpError.reason).pipe(
+              Match.tagsExhaustive({
+                BetterAuthApiError: ({ message }) =>
+                  message || 'Failed to create the account. Check the server and try again.',
+                AuthTransportError: () =>
+                  'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthInputError: () => 'Check the account details and try again.',
+                InvalidAuthResponseError: () =>
+                  'The server returned an invalid authentication response. Try again.',
+              })
+            ),
           AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),

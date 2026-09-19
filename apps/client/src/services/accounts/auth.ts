@@ -1,10 +1,13 @@
 import { Effect, Match, Option } from 'effect';
 
+import type { BetterAuthClientInitializationError } from '@repo/auth-api/client.ts';
 import type { AuthError } from '@repo/auth-api/shared.ts';
 
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { NoActiveAccountError } from '#src/services/accounts/index.ts';
+import type { AccountDatabaseError } from '#src/services/accounts/index.ts';
 import { acquireAuthClient } from '#src/services/auth-client/index.ts';
+import type { AuthClientStorageRemoveItemError } from '#src/services/auth-client/storage.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export const accountAuthAtom = AppRuntime.atom(
@@ -22,13 +25,10 @@ export const authFailureMessage = ({
 }: {
   error:
     | AuthError
-    | {
-        readonly _tag:
-          | 'NoActiveAccountError'
-          | 'AccountDatabaseError'
-          | 'BetterAuthClientInitializationError'
-          | 'AuthClientStorageRemoveItemError';
-      };
+    | NoActiveAccountError
+    | AccountDatabaseError
+    | BetterAuthClientInitializationError
+    | AuthClientStorageRemoveItemError;
 }) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
@@ -37,31 +37,15 @@ export const authFailureMessage = ({
       AuthClientStorageRemoveItemError: () => 'Unable to clear account storage. Try again.',
       BetterAuthClientInitializationError: () => 'Unable to initialize authentication. Try again.',
       AuthError: ({ reason }) =>
-        authReasonMessage({
-          reason,
-          rejected: 'The server rejected this request.',
-          invalidInput: 'Check the details and try again.',
-          invalidResponse: 'The server returned an invalid response. Refresh before retrying.',
-        }),
-    })
-  );
-
-export const authReasonMessage = ({
-  reason,
-  rejected,
-  invalidInput,
-  invalidResponse,
-}: {
-  readonly reason: AuthError['reason'];
-  readonly rejected: string;
-  readonly invalidInput: string;
-  readonly invalidResponse: string;
-}) =>
-  Match.value(reason).pipe(
-    Match.tagsExhaustive({
-      BetterAuthApiError: ({ message }) => message || rejected,
-      AuthTransportError: () => 'Unable to reach the server. Check your connection and try again.',
-      InvalidAuthInputError: () => invalidInput,
-      InvalidAuthResponseError: () => invalidResponse,
+        Match.value(reason).pipe(
+          Match.tagsExhaustive({
+            BetterAuthApiError: ({ message }) => message || 'The server rejected this request.',
+            AuthTransportError: () =>
+              'Unable to reach the server. Check your connection and try again.',
+            InvalidAuthInputError: () => 'Check the details and try again.',
+            InvalidAuthResponseError: () =>
+              'The server returned an invalid response. Refresh before retrying.',
+          })
+        ),
     })
   );

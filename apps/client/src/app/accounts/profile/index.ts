@@ -7,11 +7,7 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { useAppForm } from '#src/components/form';
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
-import {
-  accountAuthAtom,
-  authFailureMessage,
-  authReasonMessage,
-} from '#src/services/accounts/auth.ts';
+import { accountAuthAtom, authFailureMessage } from '#src/services/accounts/auth.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -93,12 +89,17 @@ export const useUserProfileForm = ({
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
           AuthError: (authError) =>
-            authReasonMessage({
-              reason: authError.reason,
-              rejected: 'Unable to update the profile. Try again.',
-              invalidInput: 'Check the profile details and try again.',
-              invalidResponse: 'The server returned an invalid authentication response. Try again.',
-            }),
+            Match.value(authError.reason).pipe(
+              Match.tagsExhaustive({
+                BetterAuthApiError: ({ message }) =>
+                  message || 'Unable to update the profile. Try again.',
+                AuthTransportError: () =>
+                  'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthInputError: () => 'Check the profile details and try again.',
+                InvalidAuthResponseError: () =>
+                  'The server returned an invalid authentication response. Try again.',
+              })
+            ),
         })
       ),
     onSuccess: async () => {

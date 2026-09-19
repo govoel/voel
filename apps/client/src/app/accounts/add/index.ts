@@ -4,7 +4,6 @@ import { Atom } from 'effect/unstable/reactivity';
 import { AuthSignInInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
-import { authReasonMessage } from '#src/services/accounts/auth.ts';
 import { AccountManager } from '#src/services/accounts/index.ts';
 import { ServerUrl } from '#src/services/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -37,12 +36,17 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
           AccountSignInError: (signInError) =>
-            authReasonMessage({
-              reason: signInError.reason,
-              rejected: 'Failed to sign in. Check your credentials and try again.',
-              invalidInput: 'Check the account details and try again.',
-              invalidResponse: 'The server returned an invalid authentication response. Try again.',
-            }),
+            Match.value(signInError.reason).pipe(
+              Match.tagsExhaustive({
+                BetterAuthApiError: ({ message }) =>
+                  message || 'Failed to sign in. Check your credentials and try again.',
+                AuthTransportError: () =>
+                  'Unable to reach the server. Check your connection and try again.',
+                InvalidAuthInputError: () => 'Check the account details and try again.',
+                InvalidAuthResponseError: () =>
+                  'The server returned an invalid authentication response. Try again.',
+              })
+            ),
           AccountDatabaseError: () => 'A database error occurred. Try again.',
         })
       ),
