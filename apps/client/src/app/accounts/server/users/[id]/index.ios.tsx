@@ -186,7 +186,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
                         <Text>Revoke session</Text>
                       </Button>
                     )}
-                    mutation={revokeServerUserSessionAtom(user.id)}
+                    mutation={revokeServerUserSessionAtom}
                     input={{ sessionToken: session.token }}
                     title="Revoke session"
                     message={`Sign out this device for @${user.username}?`}

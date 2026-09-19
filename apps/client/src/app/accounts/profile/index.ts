@@ -71,7 +71,8 @@ const updateCurrentUserAtom = AppRuntime.fn<typeof UserProfileUpdateInput.Type>(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     return yield* client.updateUser(input);
-  })
+  }),
+  { reactivityKeys: ['auth.users'] }
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
 export const useUserProfileForm = ({
@@ -121,7 +122,8 @@ const changePasswordAtom = AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
       currentPassword: input.currentPassword,
       newPassword: input.newPassword,
     });
-  })
+  }),
+  { reactivityKeys: ['auth.sessions'] }
 );
 
 export const ownSessionsAtom = AppRuntime.atom(
@@ -131,14 +133,17 @@ export const ownSessionsAtom = AppRuntime.atom(
     const sessions = yield* client.listSessions;
     return { sessions, currentId: current.session.id };
   })
-).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }));
+).pipe(
+  Atom.withReactivity(['auth.sessions']),
+  swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+);
 
 export const revokeOwnSessionAtom = AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.revokeSession(input);
-    get.refresh(ownSessionsAtom);
-  })
+  }),
+  { reactivityKeys: ['auth.sessions'] }
 );
 
 export const signOutEverywhereAtom = AppRuntime.fn<null>()(
@@ -149,7 +154,8 @@ export const signOutEverywhereAtom = AppRuntime.fn<null>()(
     }
     const manager = yield* AccountManager;
     return yield* manager.signOutEverywhere(key.value);
-  })
+  }),
+  { reactivityKeys: ['auth.sessions'] }
 );
 
 class PasswordFormInput extends AuthChangePasswordInput.pipe(

@@ -34,6 +34,7 @@ export const listUsersAtom = AppRuntime.pull(
     (effect) => Stream.unwrap(effect)
   )
 ).pipe(
+  Atom.withReactivity(['auth.users']),
   swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
   withPredefinedStates(() => {
     const alex = AuthUser.make({

@@ -15,7 +15,6 @@ import {
 } from '@repo/auth-api/shared.ts';
 
 import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { useAppForm } from '#src/components/form';
 import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -27,59 +26,57 @@ export const serverUserAtom = Atom.family((userId: typeof AuthUser.fields.id.Typ
       const client = yield* get.result(activeAccountAuthClientAtom);
       return yield* client.admin.getUser({ userId });
     })
-  ).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }))
+  ).pipe(
+    Atom.withReactivity(['auth.users']),
+    swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+  )
 );
 
 const setServerUserRoleAtom = AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.setRole(input);
-    get.refresh(serverUserAtom(input.userId));
-    get.refresh(listUsersAtom);
-  })
+  }),
+  { reactivityKeys: ['auth.users'] }
 );
 
 const updateServerUserAtom = AppRuntime.fn<typeof AuthAdminUpdateUserInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.updateUser(input);
-    get.refresh(serverUserAtom(input.userId));
-    get.refresh(listUsersAtom);
-  })
+  }),
+  { reactivityKeys: ['auth.users'] }
 );
 
 const setServerUserPasswordAtom = AppRuntime.fn<typeof AuthSetUserPasswordInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
-  })
+  }),
+  { reactivityKeys: ['auth.sessions'] }
 );
 
 const banServerUserAtom = AppRuntime.fn<typeof AuthBanUserInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.banUser(input);
-    get.refresh(serverUserSessionsAtom(input.userId));
-    get.refresh(serverUserAtom(input.userId));
-    get.refresh(listUsersAtom);
-  })
+  }),
+  { reactivityKeys: ['auth.users', 'auth.sessions'] }
 );
 export const unbanServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.unbanUser(input);
-    get.refresh(serverUserAtom(input.userId));
-    get.refresh(listUsersAtom);
-  })
+  }),
+  { reactivityKeys: ['auth.users'] }
 );
 
 export const deleteServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.removeUser(input);
-    get.refresh(listUsersAtom);
-    get.refresh(serverUserAtom(input.userId));
-  })
+  }),
+  { reactivityKeys: ['auth.users', 'auth.sessions'] }
 );
 
 export const serverUserSessionsAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
@@ -88,24 +85,25 @@ export const serverUserSessionsAtom = Atom.family((userId: typeof AuthUser.field
       const client = yield* get.result(activeAccountAuthClientAtom);
       return yield* client.admin.listUserSessions({ userId });
     })
-  ).pipe(swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true }))
+  ).pipe(
+    Atom.withReactivity(['auth.sessions']),
+    swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+  )
 );
 
-export const revokeServerUserSessionAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
-  AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
-    Effect.fnUntraced(function* (input, get) {
-      const client = yield* get.result(activeAccountAuthClientAtom);
-      yield* client.admin.revokeUserSession(input);
-      get.refresh(serverUserSessionsAtom(userId));
-    })
-  )
+export const revokeServerUserSessionAtom = AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const client = yield* get.result(activeAccountAuthClientAtom);
+    yield* client.admin.revokeUserSession(input);
+  }),
+  { reactivityKeys: ['auth.sessions'] }
 );
 export const revokeServerUserSessionsAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
     yield* client.admin.revokeUserSessions(input);
-    get.refresh(serverUserSessionsAtom(input.userId));
-  })
+  }),
+  { reactivityKeys: ['auth.sessions'] }
 );
 
 class PasswordInput extends AuthSetUserPasswordInput.pipe(
