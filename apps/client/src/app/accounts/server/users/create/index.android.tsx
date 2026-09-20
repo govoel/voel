@@ -14,7 +14,7 @@ export default function CreateUserScreen() {
   const form = useCreateUserForm({
     onSuccess: async ({ userId }) => {
       await sheetRef.current?.hide();
-      router.replace(`/accounts/server/users/${userId}`);
+      router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
     },
   });
   return (
@@ -70,7 +70,7 @@ export default function CreateUserScreen() {
             {(field) => (
               <field.SecureField
                 purpose="newPassword"
-                label="Password (8–128 characters)"
+                label="Password"
                 platformProps={{
                   android: {
                     modifiers: [fillMaxWidth()],

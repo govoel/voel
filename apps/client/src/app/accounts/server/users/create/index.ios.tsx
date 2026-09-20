@@ -10,7 +10,7 @@ import { Text } from '#src/components/text';
 export default function CreateUserScreen() {
   const form = useCreateUserForm({
     onSuccess: ({ userId }) => {
-      router.replace(`/accounts/server/users/${userId}`);
+      router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
     },
   });
   return (
@@ -37,9 +37,7 @@ export default function CreateUserScreen() {
               {(field) => <field.TextField purpose="email" label="Email" />}
             </form.AppField>
             <form.AppField name="password">
-              {(field) => (
-                <field.SecureField purpose="newPassword" label="Password (8–128 characters)" />
-              )}
+              {(field) => <field.SecureField purpose="newPassword" label="Password" />}
             </form.AppField>
             <form.AppField name="role">{() => <RoleField />}</form.AppField>
           </FormLayout>
