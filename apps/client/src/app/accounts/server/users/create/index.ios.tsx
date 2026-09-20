@@ -32,7 +32,7 @@ export default function CreateUserScreen() {
                 <field.TextField
                   purpose="name"
                   label="Name"
-                  platformProps={{ ios: { placeholder: 'Your Name' } }}
+                  platformProps={{ ios: { placeholder: 'Someone Else' } }}
                 />
               )}
             </form.AppField>
@@ -41,7 +41,7 @@ export default function CreateUserScreen() {
                 <field.TextField
                   purpose="username"
                   label="Username"
-                  platformProps={{ ios: { placeholder: 'you' } }}
+                  platformProps={{ ios: { placeholder: 'someoneElse' } }}
                 />
               )}
             </form.AppField>
@@ -50,7 +50,7 @@ export default function CreateUserScreen() {
                 <field.TextField
                   purpose="email"
                   label="Email"
-                  platformProps={{ ios: { placeholder: 'you@example.com' } }}
+                  platformProps={{ ios: { placeholder: 'someone@else.com' } }}
                 />
               )}
             </form.AppField>
@@ -59,7 +59,7 @@ export default function CreateUserScreen() {
                 <field.SecureField
                   purpose="newPassword"
                   label="Password"
-                  platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+                  platformProps={{ ios: { placeholder: 'iKnowYourPassword!' } }}
                 />
               )}
             </form.AppField>

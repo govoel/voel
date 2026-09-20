@@ -8,19 +8,16 @@ import { Account } from '#src/services/database/main/schema.ts';
 export const RoleField = () => {
   const field = useRoleField();
   return (
-    <>
-      <Picker
-        label="Role"
-        selection={field.value}
-        onSelectionChange={field.handleSelect}
-        modifiers={[pickerStyle('menu'), disabled(field.disabled)]}>
-        {roles.map((role) => (
-          <Text key={role} modifiers={[tag(role)]}>
-            {Account.roleToDisplayString(role)}
-          </Text>
-        ))}
-      </Picker>
-      <Text variant="caption">Administrators can manage all users and server settings.</Text>
-    </>
+    <Picker
+      label="Role"
+      selection={field.value}
+      onSelectionChange={field.handleSelect}
+      modifiers={[pickerStyle('menu'), disabled(field.disabled)]}>
+      {roles.map((role) => (
+        <Text key={role} modifiers={[tag(role)]}>
+          {Account.roleToDisplayString(role)}
+        </Text>
+      ))}
+    </Picker>
   );
 };

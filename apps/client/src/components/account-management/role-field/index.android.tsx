@@ -1,7 +1,7 @@
-import { RadioButton } from '@expo/ui/jetpack-compose';
+import { SegmentedButton, SingleChoiceSegmentedButtonRow } from '@expo/ui/jetpack-compose';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 
 import { roles, useRoleField } from '#src/components/account-management/role-field/index.tsx';
-import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { Account } from '#src/services/database/main/schema.ts';
 
@@ -9,28 +9,22 @@ export const RoleField = () => {
   const field = useRoleField();
   return (
     <>
-      <Text variant="caption">Role</Text>
-      <SegmentedList>
-        {roles.map((role, index) => (
-          <SegmentedListItem
+      <Text>Role</Text>
+      <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+        {roles.map((role) => (
+          <SegmentedButton
             key={role}
-            index={index}
-            count={roles.length}
             selected={field.value === role}
             enabled={!field.disabled}
             onClick={() => {
               field.handleSelect(role);
             }}>
-            <SegmentedListItem.LeadingContent>
-              <RadioButton selected={field.value === role} enabled={!field.disabled} />
-            </SegmentedListItem.LeadingContent>
-            <SegmentedListItem.HeadlineContent>
+            <SegmentedButton.Label>
               <Text>{Account.roleToDisplayString(role)}</Text>
-            </SegmentedListItem.HeadlineContent>
-          </SegmentedListItem>
+            </SegmentedButton.Label>
+          </SegmentedButton>
         ))}
-      </SegmentedList>
-      <Text variant="caption">Administrators can manage all users and server settings.</Text>
+      </SingleChoiceSegmentedButtonRow>
     </>
   );
 };
