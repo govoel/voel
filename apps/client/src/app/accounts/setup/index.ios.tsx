@@ -34,49 +34,21 @@ export default function SetupServerScreen() {
                   <field.TextField
                     purpose="url"
                     label="Server URL"
-                    platformProps={{
-                      ios: {
-                        placeholder: 'https://demo.voel.app',
-                      },
-                    }}
+                    placeholder="https://demo.voel.app"
                   />
                 )}
               </form.AppField>
               <form.AppField name="name">
-                {(field) => (
-                  <field.TextField
-                    purpose="name"
-                    label="Name"
-                    platformProps={{
-                      ios: { placeholder: 'Your Name' },
-                    }}
-                  />
-                )}
+                {(field) => <field.TextField purpose="name" label="Name" placeholder="Your Name" />}
               </form.AppField>
               <form.AppField name="email">
                 {(field) => (
-                  <field.TextField
-                    purpose="email"
-                    label="Email"
-                    platformProps={{
-                      ios: {
-                        placeholder: 'you@example.com',
-                      },
-                    }}
-                  />
+                  <field.TextField purpose="email" label="Email" placeholder="you@example.com" />
                 )}
               </form.AppField>
               <form.AppField name="username">
                 {(field) => (
-                  <field.TextField
-                    purpose="username"
-                    label="Username"
-                    platformProps={{
-                      ios: {
-                        placeholder: 'you',
-                      },
-                    }}
-                  />
+                  <field.TextField purpose="username" label="Username" placeholder="you" />
                 )}
               </form.AppField>
               <form.AppField name="password">
@@ -84,7 +56,7 @@ export default function SetupServerScreen() {
                   <field.SecureField
                     purpose="newPassword"
                     label="Password"
-                    platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+                    placeholder="ha!NiceTry"
                   />
                 )}
               </form.AppField>

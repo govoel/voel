@@ -35,11 +35,9 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
         <Text>{label}</Text>
       </ComposeTextField.Label>
 
-      {typeof placeholder === 'string' && placeholder.length > 0 ? (
-        <ComposeTextField.Placeholder>
-          <Text>{placeholder}</Text>
-        </ComposeTextField.Placeholder>
-      ) : null}
+      <ComposeTextField.Placeholder>
+        <Text>{placeholder}</Text>
+      </ComposeTextField.Placeholder>
 
       {Option.match(errorMessage, {
         onNone: () => null,

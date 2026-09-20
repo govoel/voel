@@ -53,6 +53,7 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
             <field.TextField
               purpose="name"
               label="Name"
+              placeholder="Still You"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
@@ -66,6 +67,7 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
             <field.TextField
               purpose="username"
               label="Username"
+              placeholder="stillYou"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],

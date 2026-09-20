@@ -29,29 +29,17 @@ export default function CreateUserScreen() {
             }>
             <form.AppField name="name">
               {(field) => (
-                <field.TextField
-                  purpose="name"
-                  label="Name"
-                  platformProps={{ ios: { placeholder: 'Someone Else' } }}
-                />
+                <field.TextField purpose="name" label="Name" placeholder="Someone Else" />
               )}
             </form.AppField>
             <form.AppField name="username">
               {(field) => (
-                <field.TextField
-                  purpose="username"
-                  label="Username"
-                  platformProps={{ ios: { placeholder: 'someoneElse' } }}
-                />
+                <field.TextField purpose="username" label="Username" placeholder="someoneElse" />
               )}
             </form.AppField>
             <form.AppField name="email">
               {(field) => (
-                <field.TextField
-                  purpose="email"
-                  label="Email"
-                  platformProps={{ ios: { placeholder: 'someone@else.com' } }}
-                />
+                <field.TextField purpose="email" label="Email" placeholder="someone@else.com" />
               )}
             </form.AppField>
             <form.AppField name="password">
@@ -59,7 +47,7 @@ export default function CreateUserScreen() {
                 <field.SecureField
                   purpose="newPassword"
                   label="Password"
-                  platformProps={{ ios: { placeholder: 'iKnowYourPassword!' } }}
+                  placeholder="iKnowYourPassword!"
                 />
               )}
             </form.AppField>
@@ -68,7 +56,7 @@ export default function CreateUserScreen() {
                 <field.SecureField
                   purpose="newPassword"
                   label="Confirm password"
-                  platformProps={{ ios: { placeholder: 'iKnowYourPassword!' } }}
+                  placeholder="iKnowYourPassword!"
                 />
               )}
             </form.AppField>

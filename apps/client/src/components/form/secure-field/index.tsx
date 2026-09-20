@@ -7,9 +7,9 @@ import type { PasswordInputPurpose } from '#src/components/form/input-presets/in
 export type SecureFieldComponent = ComponentType<{
   label: string;
   purpose?: PasswordInputPurpose;
-  placeholder?: string;
+  placeholder: string;
   platformProps?:
-    | { ios: SwiftSecureFieldProps }
+    | { ios: Omit<SwiftSecureFieldProps, 'placeholder'> }
     | { android: Omit<ComposeTextFieldProps, 'visualTransformation'> };
 }>;
 

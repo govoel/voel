@@ -18,8 +18,8 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
       <Text variant="caption">{label}</Text>
 
       <SwiftTextField
-        {...(typeof placeholder === 'string' ? { placeholder } : {})}
         {...('ios' in platformProps ? platformProps.ios : {})}
+        placeholder={placeholder}
         modifiers={[
           ...(purpose ? textInputPresets[purpose] : []),
           disabled(isSubmitting),

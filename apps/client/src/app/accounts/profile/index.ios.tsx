@@ -50,10 +50,12 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
           </form.SubmitButton>
         }>
         <form.AppField name="name">
-          {(field) => <field.TextField purpose="name" label="Name" />}
+          {(field) => <field.TextField purpose="name" label="Name" placeholder="Still You" />}
         </form.AppField>
         <form.AppField name="username">
-          {(field) => <field.TextField purpose="username" label="Username" />}
+          {(field) => (
+            <field.TextField purpose="username" label="Username" placeholder="stillYou" />
+          )}
         </form.AppField>
       </FormLayout>
     </form.AppForm>
@@ -215,7 +217,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
             <field.SecureField
               purpose="currentPassword"
               label="Current password"
-              platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+              placeholder="ha!NiceTry"
             />
           )}
         </form.AppField>
@@ -224,7 +226,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
             <field.SecureField
               purpose="newPassword"
               label="New password"
-              platformProps={{ ios: { placeholder: 'notThisTime!' } }}
+              placeholder="notThisTime!"
             />
           )}
         </form.AppField>
@@ -233,7 +235,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
             <field.SecureField
               purpose="newPassword"
               label="Confirm new password"
-              platformProps={{ ios: { placeholder: 'notThisTime!' } }}
+              placeholder="notThisTime!"
             />
           )}
         </form.AppField>

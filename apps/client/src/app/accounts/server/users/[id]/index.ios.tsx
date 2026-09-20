@@ -53,7 +53,7 @@ const UserPasswordForm = (props: Parameters<typeof useUserPasswordForm>[0]) => {
             <field.SecureField
               purpose="newPassword"
               label="New password"
-              platformProps={{ ios: { placeholder: 'unguessableThisTime!' } }}
+              placeholder="unguessableThisTime!"
             />
           )}
         </form.AppField>
@@ -62,7 +62,7 @@ const UserPasswordForm = (props: Parameters<typeof useUserPasswordForm>[0]) => {
             <field.SecureField
               purpose="newPassword"
               label="Confirm new password"
-              platformProps={{ ios: { placeholder: 'unguessableThisTime!' } }}
+              placeholder="unguessableThisTime!"
             />
           )}
         </form.AppField>
@@ -85,16 +85,26 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
           </form.SubmitButton>
         }>
         <form.AppField name="name">
-          {(field) => <field.TextField purpose="name" label="Name" />}
+          {(field) => <field.TextField purpose="name" label="Name" placeholder="Someone Else" />}
         </form.AppField>
         <form.AppField name="username">
-          {(field) => <field.TextField purpose="username" label="Username" />}
+          {(field) => (
+            <field.TextField purpose="username" label="Username" placeholder="someoneElse" />
+          )}
         </form.AppField>
         <form.AppField name="email">
-          {(field) => <field.TextField purpose="email" label="Email" />}
+          {(field) => (
+            <field.TextField purpose="email" label="Email" placeholder="someone@else.com" />
+          )}
         </form.AppField>
         <form.AppField name="image">
-          {(field) => <field.TextField purpose="url" label="Profile image URL (empty to remove)" />}
+          {(field) => (
+            <field.TextField
+              purpose="url"
+              label="Profile image URL (empty to remove)"
+              placeholder="https://example.com/myGoodSide.png"
+            />
+          )}
         </form.AppField>
       </FormLayout>
     </form.AppForm>

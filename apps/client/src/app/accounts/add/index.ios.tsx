@@ -33,25 +33,13 @@ export default function AddAccountScreen() {
                   <field.TextField
                     purpose="url"
                     label="Server URL"
-                    platformProps={{
-                      ios: {
-                        placeholder: 'https://demo.voel.app',
-                      },
-                    }}
+                    placeholder="https://demo.voel.app"
                   />
                 )}
               </form.AppField>
               <form.AppField name="username">
                 {(field) => (
-                  <field.TextField
-                    purpose="username"
-                    label="Username"
-                    platformProps={{
-                      ios: {
-                        placeholder: 'you',
-                      },
-                    }}
-                  />
+                  <field.TextField purpose="username" label="Username" placeholder="you" />
                 )}
               </form.AppField>
               <form.AppField name="password">
@@ -59,7 +47,7 @@ export default function AddAccountScreen() {
                   <field.SecureField
                     purpose="currentPassword"
                     label="Password"
-                    platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+                    placeholder="ha!NiceTry"
                   />
                 )}
               </form.AppField>

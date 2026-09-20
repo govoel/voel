@@ -7,9 +7,9 @@ import type { TextInputPurpose } from '#src/components/form/input-presets/index.
 export type TextFieldComponent = ComponentType<{
   label: string;
   purpose?: TextInputPurpose;
-  placeholder?: string;
+  placeholder: string;
   platformProps?:
-    | { ios: SwiftTextFieldProps }
+    | { ios: Omit<SwiftTextFieldProps, 'placeholder'> }
     | { android: Omit<ComposeTextFieldProps, 'visualTransformation'> };
 }>;
 

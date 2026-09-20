@@ -95,6 +95,7 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
             <field.TextField
               purpose="name"
               label="Name"
+              placeholder="Someone Else"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
@@ -108,6 +109,7 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
             <field.TextField
               purpose="username"
               label="Username"
+              placeholder="someoneElse"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
@@ -121,6 +123,7 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
             <field.TextField
               purpose="email"
               label="Email"
+              placeholder="someone@else.com"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
@@ -134,6 +137,7 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
             <field.TextField
               purpose="url"
               label="Profile image URL (empty to remove)"
+              placeholder="https://example.com/myGoodSide.png"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],

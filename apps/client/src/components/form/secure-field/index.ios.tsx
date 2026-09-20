@@ -23,8 +23,8 @@ export const SecureField = (({
       <Text variant="caption">{label}</Text>
 
       <SwiftSecureField
-        {...(typeof placeholder === 'string' ? { placeholder } : {})}
         {...('ios' in platformProps ? platformProps.ios : {})}
+        placeholder={placeholder}
         modifiers={[
           ...passwordInputPresets[purpose],
           disabled(isSubmitting),
