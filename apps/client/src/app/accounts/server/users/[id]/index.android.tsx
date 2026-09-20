@@ -9,7 +9,6 @@ import { useState } from 'react';
 import { AuthAdminRevokeSessionInput, AuthUser, AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
 
-import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
 import {
   deleteServerUserAtom,
   revokeServerUserSessionAtom,
@@ -23,6 +22,7 @@ import {
   useUserRoleForm,
   userDetails,
 } from '#src/app/accounts/server/users/[id]/index.ts';
+import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { RoleField } from '#src/components/account-management/role-field';
 import { SessionDetails } from '#src/components/account-management/session-details';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';

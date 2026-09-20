@@ -14,7 +14,7 @@ import {
   AuthSetUserPasswordInput,
 } from '@repo/auth-api/shared.ts';
 
-import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
+import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { useAppForm } from '#src/components/form';
 import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
 import { AppRuntime } from '#src/services/runtime.ts';

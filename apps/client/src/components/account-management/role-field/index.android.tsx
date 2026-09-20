@@ -1,6 +1,6 @@
 import { RadioButton } from '@expo/ui/jetpack-compose';
 
-import { roles, useRoleField } from '#src/components/account-management/role-field/index.ts';
+import { roles, useRoleField } from '#src/components/account-management/role-field/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 

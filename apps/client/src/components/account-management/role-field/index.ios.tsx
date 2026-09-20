@@ -1,7 +1,7 @@
 import { Picker } from '@expo/ui/swift-ui';
 import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 
-import { roles, useRoleField } from '#src/components/account-management/role-field/index.ts';
+import { roles, useRoleField } from '#src/components/account-management/role-field/index.tsx';
 import { Text } from '#src/components/text';
 
 export const RoleField = () => {

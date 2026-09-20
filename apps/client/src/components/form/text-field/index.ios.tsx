@@ -5,7 +5,7 @@ import { PlatformColor } from 'react-native';
 
 import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { textInputPresets } from '#src/components/form/input-presets/index.ios.ts';
-import type { TextFieldComponent } from '#src/components/form/text-field/index.ts';
+import type { TextFieldComponent } from '#src/components/form/text-field/index.tsx';
 import { Text, iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 

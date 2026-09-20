@@ -10,7 +10,6 @@ import type { PropsWithChildren } from 'react';
 
 import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 
-import { authFailureMessage } from '#src/app/accounts/auth-failure-message.ts';
 import {
   activeUserProfileAtom,
   ownSessionsAtom,
@@ -19,6 +18,7 @@ import {
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/profile/index.ts';
+import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { SessionDetails } from '#src/components/account-management/session-details';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
