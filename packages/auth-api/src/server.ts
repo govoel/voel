@@ -39,6 +39,8 @@ const createServerAuthClient = (config: {
     appName: 'Voel',
     basePath: '/api/auth',
     disabledPaths: [
+      '/admin/ban-user',
+      '/admin/unban-user',
       '/change-email',
       '/request-password-reset',
       '/send-verification-email',

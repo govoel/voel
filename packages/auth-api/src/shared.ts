@@ -166,13 +166,10 @@ export class AuthUserIdInput extends Schema.Struct({ userId: AuthUserId }) {}
 export class AuthAdminUserDetails extends AuthUser.pipe(
   Schema.fieldsAssign({
     emailVerified: Schema.Boolean,
-    banned: Schema.NullishOr(Schema.Boolean),
-    banReason: Schema.NullishOr(Schema.String),
-    banExpires: Schema.NullishOr(Schema.DateTimeUtcFromDate),
   })
 ) {}
 
-/** Deliberately excludes role and ban fields; those have dedicated commands. */
+/** Profile fields only; role changes have a dedicated command. */
 export class AuthAdminUpdateUserInput extends Schema.Struct({
   userId: AuthUserId,
   name: NameInput,
@@ -184,12 +181,6 @@ export class AuthAdminUpdateUserInput extends Schema.Struct({
 export class AuthSetUserPasswordInput extends Schema.Struct({
   userId: AuthUserId,
   newPassword: PasswordInput,
-}) {}
-
-export class AuthBanUserInput extends Schema.Struct({
-  userId: AuthUserId,
-  banReason: Schema.String.check(Schema.isNonEmpty({ message: 'A ban reason is required' })),
-  banExpiresIn: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
 }) {}
 
 export class AuthUserSessions extends Schema.Struct({

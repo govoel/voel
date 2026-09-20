@@ -55,10 +55,12 @@ it.describe('auth customizations', () => {
   );
 
   it.effect(
-    'should disable unused email endpoints',
+    'should disable unused auth endpoints',
     Effect.fnUntraced(
       function* () {
         const disabledPaths = [
+          '/admin/ban-user',
+          '/admin/unban-user',
           '/change-email',
           '/request-password-reset',
           '/send-verification-email',
@@ -182,6 +184,37 @@ const createReader = (admin: Effect.Success<ReturnType<typeof setupAdmin>>['admi
     password: 'reader-password',
     role: AuthUser.fields.role.make('under18'),
   });
+
+it.effect(
+  'denies admins permission to write ban fields through generic user endpoints',
+  Effect.fnUntraced(
+    function* () {
+      const { admin } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      for (const data of [
+        { banned: true },
+        { banReason: 'Reason' },
+        { banExpires: '2030-01-01T00:00:00.000Z' },
+      ]) {
+        const updated = yield* Effect.promise(async () =>
+          admin.rawClient.admin.updateUser({ userId: user.id, data })
+        );
+        expect(updated.error).toMatchObject({ status: 403 });
+        const created = yield* Effect.promise(async () =>
+          admin.rawClient.admin.createUser({
+            name: 'Blocked',
+            email: 'blocked@example.com',
+            password: 'password',
+            data,
+          })
+        );
+        expect(created.error).toMatchObject({ status: 403 });
+      }
+      expect((yield* admin.admin.listUsers({ limit: 10, offset: 0 })).total).toBe(2);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
 
 it.effect(
   'edits another user’s profile without allowing role fields through the profile adapter',

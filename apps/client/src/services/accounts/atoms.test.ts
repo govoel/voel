@@ -19,7 +19,6 @@ import {
   deleteServerUserAtom,
   serverUserAtom,
   serverUserSessionsAtom,
-  unbanServerUserAtom,
 } from '#src/app/accounts/server/users/[id]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
@@ -640,8 +639,8 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
             users.users.find((user) => user.username !== testServer.adminUsername)
           )
         );
-        yield* client.admin.banUser({ userId: target.id, banReason: 'Test ban' });
-        const detail = serverUserAtom(target.id);
+        const currentUser = (yield* client.readSession).user;
+        const detail = serverUserAtom(currentUser.id);
         yield* Atom.mount(detail);
         yield* Atom.mount(listUsersAtom);
         yield* Atom.getResult(detail, { suspendOnWaiting: true });
@@ -650,13 +649,15 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const list = vi.spyOn(client.admin, 'listUsers');
         const { drainAtomTasks } = yield* AtomTaskScheduler;
 
-        yield* Atom.set(unbanServerUserAtom, { userId: target.id });
-        yield* Atom.getResult(unbanServerUserAtom, { suspendOnWaiting: true });
+        yield* Atom.set(deleteServerUserAtom, { userId: target.id });
+        yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({
-          banned: false,
+          id: currentUser.id,
         });
-        yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        expect(refreshed.items.some((user) => user.id === target.id)).toBe(false);
+        expect(read).toHaveBeenCalled();
         expect(list).toHaveBeenCalled();
         read.mockClear();
         list.mockClear();

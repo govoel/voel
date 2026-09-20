@@ -12,7 +12,6 @@ import {
   AuthAdminUpdateUserInput,
   AuthAdminUserDetails,
   AuthAdminUserResponse,
-  AuthBanUserInput,
   AuthChangePasswordInput,
   AuthCreateUserInput,
   AuthDeviceSession,
@@ -169,17 +168,6 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           Request: AuthUserIdInput,
           execute: async (command) => coreClient.admin.removeUser(command),
           Result: Schema.Void,
-        }),
-
-        banUser: AuthClientSchema.request({
-          Request: AuthBanUserInput,
-          execute: async (command) => coreClient.admin.banUser(command),
-          Result: AuthAdminUserResponse,
-        }),
-        unbanUser: AuthClientSchema.request({
-          Request: AuthUserIdInput,
-          execute: async (command) => coreClient.admin.unbanUser(command),
-          Result: AuthAdminUserResponse,
         }),
 
         setUserPassword: AuthClientSchema.request({
