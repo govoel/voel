@@ -36,6 +36,10 @@ const ProfileList = ({ children }: PropsWithChildren) => (
   </List>
 );
 
+const ProfileSection = ({ children }: PropsWithChildren) => (
+  <Section title="Your Profile">{children}</Section>
+);
+
 const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
   const form = useUserProfileForm(props);
   return (
@@ -75,7 +79,7 @@ const LoadedProfile = ({
   return (
     <>
       <ProfileList>
-        <Section title="Your Profile">
+        <ProfileSection>
           <DetailRows
             details={[
               { label: 'Name', value: name },
@@ -84,7 +88,7 @@ const LoadedProfile = ({
               { label: 'Role', value: role },
             ]}
           />
-        </Section>
+        </ProfileSection>
         <Section>
           <Button
             onPress={() => {
@@ -152,42 +156,42 @@ export default function ProfileScreen() {
           {AsyncResult.matchWithError(state, {
             onInitial: () => (
               <ProfileList>
-                <Section>
+                <ProfileSection>
                   <ProgressView
                     modifiers={[
                       containerRelativeFrame({ axes: 'horizontal', alignment: 'center' }),
                     ]}
                   />
-                </Section>
+                </ProfileSection>
               </ProfileList>
             ),
             onError: () => (
               <ProfileList>
-                <Section>
+                <ProfileSection>
                   <Text>Unable to load your profile.</Text>
                   <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
                     <Text>Retry</Text>
                   </Button>
-                </Section>
+                </ProfileSection>
               </ProfileList>
             ),
             onDefect: () => (
               <ProfileList>
-                <Section>
+                <ProfileSection>
                   <Text>Unable to load your profile.</Text>
                   <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
                     <Text>Retry</Text>
                   </Button>
-                </Section>
+                </ProfileSection>
               </ProfileList>
             ),
             onSuccess: ({ value }) =>
               Option.match(value, {
                 onNone: () => (
                   <ProfileList>
-                    <Section>
+                    <ProfileSection>
                       <Text>No active user</Text>
-                    </Section>
+                    </ProfileSection>
                   </ProfileList>
                 ),
                 onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,

@@ -33,6 +33,7 @@ const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
     verticalArrangement={{ spacedBy: Spacing.two }}
     contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+    <Text variant="h4">Your Profile</Text>
     {children}
   </LazyColumn>
 );
@@ -95,7 +96,6 @@ const LoadedProfile = ({
   return (
     <>
       <ProfileList>
-        <Text variant="h4">Your Profile</Text>
         <DetailRows
           details={[
             { label: 'Name', value: name },
