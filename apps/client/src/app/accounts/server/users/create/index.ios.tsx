@@ -63,6 +63,15 @@ export default function CreateUserScreen() {
                 />
               )}
             </form.AppField>
+            <form.AppField name="confirmPassword">
+              {(field) => (
+                <field.SecureField
+                  purpose="newPassword"
+                  label="Confirm password"
+                  platformProps={{ ios: { placeholder: 'iKnowYourPassword!' } }}
+                />
+              )}
+            </form.AppField>
             <form.AppField name="role">{() => <RoleField />}</form.AppField>
           </FormLayout>
         </form.AppForm>

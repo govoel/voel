@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
@@ -11,10 +11,30 @@ import { AppRuntime } from '#src/services/runtime.ts';
 const createServerUserAtom = AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
   Effect.fnUntraced(function* (input, get) {
     const client = yield* get.result(activeAccountAuthClientAtom);
-    return yield* client.admin.createUser(input);
+    return yield* client.admin.createUser({
+      name: input.name,
+      username: input.username,
+      email: input.email,
+      password: input.password,
+      role: input.role,
+    });
   }),
   { reactivityKeys: ['auth.users'] }
 );
+
+class CreateUserInput extends AuthCreateUserInput.pipe(
+  Schema.fieldsAssign({
+    confirmPassword: Schema.String,
+  })
+).check(
+  Schema.makeFilter(
+    ({ password, confirmPassword }) =>
+      password === confirmPassword || {
+        path: ['confirmPassword'],
+        issue: 'Passwords must match',
+      }
+  )
+) {}
 
 export const useCreateUserForm = ({
   onSuccess,
@@ -24,9 +44,16 @@ export const useCreateUserForm = ({
   }) => void | Promise<void>;
 }) =>
   useAppForm({
-    schema: AuthCreateUserInput,
+    schema: CreateUserInput,
     mutation: createServerUserAtom,
-    defaultValues: { name: '', username: '', email: '', password: '', role: 'under18' },
+    defaultValues: {
+      name: '',
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      role: 'under18',
+    },
     onFailure: authFailureMessage,
     onSuccess: async ({ result }) => {
       await onSuccess({ userId: result.user.id });
