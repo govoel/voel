@@ -1,4 +1,4 @@
-import { DateTime, Effect, Option, Schema, SchemaGetter } from 'effect';
+import { DateTime, Effect, Option, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import type {
@@ -133,16 +133,6 @@ export const useUserPasswordForm = ({
     onSuccess,
   });
 
-class ProfileInput extends AuthAdminUpdateUserInput.mapFields((fields) => ({
-  ...fields,
-  image: Schema.String.pipe(
-    Schema.decodeTo(Schema.NullOr(Schema.String), {
-      decode: SchemaGetter.transform((value) => (value === '' ? null : value)),
-      encode: SchemaGetter.transform((value) => value ?? ''),
-    })
-  ),
-})) {}
-
 export const useServerUserProfileForm = ({
   user,
   onSuccess,
@@ -151,14 +141,13 @@ export const useServerUserProfileForm = ({
   onSuccess: () => void | Promise<void>;
 }) =>
   useAppForm({
-    schema: ProfileInput,
+    schema: AuthAdminUpdateUserInput,
     mutation: updateServerUserAtom,
     defaultValues: {
       userId: user.id,
       name: user.name,
       username: user.username,
       email: user.email,
-      image: Option.getOrElse(Option.fromNullishOr(user.image), () => ''),
     },
     onFailure: authFailureMessage,
     onSuccess,

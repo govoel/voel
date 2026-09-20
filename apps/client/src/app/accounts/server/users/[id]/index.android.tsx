@@ -132,20 +132,6 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
             />
           )}
         </form.AppField>
-        <form.AppField name="image">
-          {(field) => (
-            <field.TextField
-              purpose="url"
-              label="Profile image URL (empty to remove)"
-              placeholder="https://example.com/myGoodSide.png"
-              platformProps={{
-                android: {
-                  modifiers: [fillMaxWidth()],
-                },
-              }}
-            />
-          )}
-        </form.AppField>
       </FormLayout>
     </form.AppForm>
   );

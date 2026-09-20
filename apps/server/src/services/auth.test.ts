@@ -227,7 +227,6 @@ it.effect(
         name: 'Updated Reader',
         username: 'updatedreader',
         email: 'updated@example.com',
-        image: null,
       };
       const updated = yield* admin.admin.updateUser(input);
       expect(updated).toMatchObject({

@@ -97,15 +97,6 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
             <field.TextField purpose="email" label="Email" placeholder="someone@else.com" />
           )}
         </form.AppField>
-        <form.AppField name="image">
-          {(field) => (
-            <field.TextField
-              purpose="url"
-              label="Profile image URL (empty to remove)"
-              placeholder="https://example.com/myGoodSide.png"
-            />
-          )}
-        </form.AppField>
       </FormLayout>
     </form.AppForm>
   );
