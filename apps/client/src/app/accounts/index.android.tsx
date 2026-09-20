@@ -89,39 +89,42 @@ export default function AccountsScreen() {
 
                 <SegmentedList>
                   {accountList.length === 0 ? (
-                    <SegmentedListItem index={0} count={1} enabled={false}>
+                    <SegmentedListItem key="empty" index={0} count={1} enabled={false}>
                       <SegmentedListItem.HeadlineContent>
                         <Text color={colors.onSurfaceVariant}>No accounts</Text>
                       </SegmentedListItem.HeadlineContent>
                     </SegmentedListItem>
                   ) : (
                     <SegmentedListItem
+                      // Native slot discovery needs a fresh row when the slot layout changes.
+                      key={Option.isSome(activeAccount) ? 'active-account' : 'pick-account'}
                       index={0}
                       count={1}
                       onClick={() => {
                         setIsSwitchAccountPresented(true);
                       }}>
-                      {Option.isSome(activeAccount) ? (
-                        <SegmentedListItem.LeadingContent>
-                          <Icon source={AccountCircle} size={32} />
-                        </SegmentedListItem.LeadingContent>
-                      ) : null}
-                      {/* Keep the native headline slot mounted when the active account is removed. */}
-                      <SegmentedListItem.HeadlineContent>
-                        <Text>
-                          {Option.match(activeAccount, {
-                            onNone: () => 'Pick an account',
-                            onSome: (account) => `@${account.username}`,
-                          })}
-                        </Text>
-                      </SegmentedListItem.HeadlineContent>
-                      {Option.isSome(activeAccount) ? (
-                        <SegmentedListItem.SupportingContent>
-                          <Text variant="caption" color={colors.onSurfaceVariant}>
-                            {activeAccount.value.serverUrl.toString()}
-                          </Text>
-                        </SegmentedListItem.SupportingContent>
-                      ) : null}
+                      {Option.match(activeAccount, {
+                        onNone: () => (
+                          <SegmentedListItem.HeadlineContent>
+                            <Text>Pick an account</Text>
+                          </SegmentedListItem.HeadlineContent>
+                        ),
+                        onSome: (account) => (
+                          <>
+                            <SegmentedListItem.LeadingContent>
+                              <Icon source={AccountCircle} size={32} />
+                            </SegmentedListItem.LeadingContent>
+                            <SegmentedListItem.HeadlineContent>
+                              <Text>@{account.username}</Text>
+                            </SegmentedListItem.HeadlineContent>
+                            <SegmentedListItem.SupportingContent>
+                              <Text variant="caption" color={colors.onSurfaceVariant}>
+                                {account.serverUrl.toString()}
+                              </Text>
+                            </SegmentedListItem.SupportingContent>
+                          </>
+                        ),
+                      })}
                       <SegmentedListItem.TrailingContent>
                         <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
                       </SegmentedListItem.TrailingContent>
