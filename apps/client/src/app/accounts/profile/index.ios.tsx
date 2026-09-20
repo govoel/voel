@@ -101,23 +101,21 @@ const LoadedProfile = ({
 
         <OwnSessions />
 
-        <Section title="Account Access">
-          <MutationConfirmation
-            onFailure={authFailureMessage}
-            trigger={({ open, busy }) => (
-              <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
-                <Text>Sign out everywhere</Text>
-              </Button>
-            )}
-            mutation={signOutEverywhereAtom}
-            title="Sign out everywhere"
-            confirmLabel="Sign out"
-            message="Sign out all devices for this account on this server, including this device?"
-            onSuccess={() => {
-              router.dismissTo('/accounts');
-            }}
-          />
-        </Section>
+        <MutationConfirmation
+          onFailure={authFailureMessage}
+          trigger={({ open, busy }) => (
+            <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
+              <Text>Sign out everywhere</Text>
+            </Button>
+          )}
+          mutation={signOutEverywhereAtom}
+          title="Sign out everywhere"
+          confirmLabel="Sign out"
+          message="Sign out all devices for this account on this server, including this device?"
+          onSuccess={() => {
+            router.dismissTo('/accounts');
+          }}
+        />
       </ProfileList>
 
       <ControlledSheet
