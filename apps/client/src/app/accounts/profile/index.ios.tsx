@@ -213,13 +213,31 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
           </form.SubmitButton>
         }>
         <form.AppField name="currentPassword">
-          {(field) => <field.SecureField purpose="currentPassword" label="Current password" />}
+          {(field) => (
+            <field.SecureField
+              purpose="currentPassword"
+              label="Current password"
+              platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+            />
+          )}
         </form.AppField>
         <form.AppField name="newPassword">
-          {(field) => <field.SecureField purpose="newPassword" label="New password" />}
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="New password"
+              platformProps={{ ios: { placeholder: 'notThisTime!' } }}
+            />
+          )}
         </form.AppField>
         <form.AppField name="confirmPassword">
-          {(field) => <field.SecureField purpose="newPassword" label="Confirm new password" />}
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="Confirm new password"
+              platformProps={{ ios: { placeholder: 'notThisTime!' } }}
+            />
+          )}
         </form.AppField>
       </FormLayout>
     </form.AppForm>

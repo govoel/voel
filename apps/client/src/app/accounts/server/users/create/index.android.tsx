@@ -32,6 +32,7 @@ export default function CreateUserScreen() {
               <field.TextField
                 purpose="name"
                 label="Name"
+                placeholder="Your Name"
                 platformProps={{
                   android: {
                     modifiers: [fillMaxWidth()],
@@ -45,6 +46,7 @@ export default function CreateUserScreen() {
               <field.TextField
                 purpose="username"
                 label="Username"
+                placeholder="you"
                 platformProps={{
                   android: {
                     modifiers: [fillMaxWidth()],
@@ -58,6 +60,7 @@ export default function CreateUserScreen() {
               <field.TextField
                 purpose="email"
                 label="Email"
+                placeholder="you@example.com"
                 platformProps={{
                   android: {
                     modifiers: [fillMaxWidth()],
@@ -71,6 +74,7 @@ export default function CreateUserScreen() {
               <field.SecureField
                 purpose="newPassword"
                 label="Password"
+                placeholder="ha!NiceTry"
                 platformProps={{
                   android: {
                     modifiers: [fillMaxWidth()],

@@ -28,16 +28,40 @@ export default function CreateUserScreen() {
               </form.SubmitButton>
             }>
             <form.AppField name="name">
-              {(field) => <field.TextField purpose="name" label="Name" />}
+              {(field) => (
+                <field.TextField
+                  purpose="name"
+                  label="Name"
+                  platformProps={{ ios: { placeholder: 'Your Name' } }}
+                />
+              )}
             </form.AppField>
             <form.AppField name="username">
-              {(field) => <field.TextField purpose="username" label="Username" />}
+              {(field) => (
+                <field.TextField
+                  purpose="username"
+                  label="Username"
+                  platformProps={{ ios: { placeholder: 'you' } }}
+                />
+              )}
             </form.AppField>
             <form.AppField name="email">
-              {(field) => <field.TextField purpose="email" label="Email" />}
+              {(field) => (
+                <field.TextField
+                  purpose="email"
+                  label="Email"
+                  platformProps={{ ios: { placeholder: 'you@example.com' } }}
+                />
+              )}
             </form.AppField>
             <form.AppField name="password">
-              {(field) => <field.SecureField purpose="newPassword" label="Password" />}
+              {(field) => (
+                <field.SecureField
+                  purpose="newPassword"
+                  label="Password"
+                  platformProps={{ ios: { placeholder: 'ha!NiceTry' } }}
+                />
+              )}
             </form.AppField>
             <form.AppField name="role">{() => <RoleField />}</form.AppField>
           </FormLayout>

@@ -232,6 +232,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
             <field.SecureField
               purpose="currentPassword"
               label="Current password"
+              placeholder="ha!NiceTry"
               platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
             />
           )}
@@ -241,6 +242,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
             <field.SecureField
               purpose="newPassword"
               label="New password"
+              placeholder="notThisTime!"
               platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
             />
           )}
@@ -250,6 +252,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
             <field.SecureField
               purpose="newPassword"
               label="Confirm new password"
+              placeholder="notThisTime!"
               platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
             />
           )}
