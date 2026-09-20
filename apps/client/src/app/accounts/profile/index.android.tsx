@@ -17,6 +17,7 @@ import {
   useUserProfileForm,
 } from '#src/app/accounts/profile/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
+import { SessionList } from '#src/components/account-management/session-list';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -26,6 +27,7 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -43,7 +45,7 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
         title="Edit Profile"
         footer={
           <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-            <Text>Save Changes</Text>
+            <Text>Save changes</Text>
           </form.SubmitButton>
         }>
         <form.AppField name="name">
@@ -103,12 +105,12 @@ const LoadedProfile = ({
         <SegmentedList>
           <SegmentedListItem
             index={0}
-            count={3}
+            count={2}
             onClick={() => {
               setEditor('profile');
             }}>
             <SegmentedListItem.HeadlineContent>
-              <Text>Edit Profile</Text>
+              <Text>Edit profile</Text>
             </SegmentedListItem.HeadlineContent>
             <SegmentedListItem.TrailingContent>
               <Icon source={ChevronRight} size={24} />
@@ -116,7 +118,7 @@ const LoadedProfile = ({
           </SegmentedListItem>
           <SegmentedListItem
             index={1}
-            count={3}
+            count={2}
             onClick={() => {
               setEditor('password');
             }}>
@@ -127,10 +129,15 @@ const LoadedProfile = ({
               <Icon source={ChevronRight} size={24} />
             </SegmentedListItem.TrailingContent>
           </SegmentedListItem>
+        </SegmentedList>
+
+        <OwnSessions />
+
+        <SegmentedList>
           <MutationConfirmation
             onFailure={authFailureMessage}
             trigger={({ open, busy }) => (
-              <SegmentedListItem index={2} count={3} onClick={open} enabled={!busy}>
+              <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>
                 <SegmentedListItem.HeadlineContent>
                   <Text color={colors.error}>Sign out everywhere</Text>
                 </SegmentedListItem.HeadlineContent>
@@ -138,13 +145,13 @@ const LoadedProfile = ({
             )}
             mutation={signOutEverywhereAtom}
             title="Sign out everywhere"
+            confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"
             onSuccess={() => {
               router.dismissTo('/accounts');
             }}
           />
         </SegmentedList>
-        <OwnSessions />
       </ProfileList>
 
       <ControlledSheet
@@ -169,6 +176,7 @@ const LoadedProfile = ({
 
 export default function ProfileScreen() {
   const state = useAtomValue(activeUserProfileAtom);
+  const refresh = useAtomRefresh(activeAccountAtom);
 
   return (
     <AndroidAccountsSheet>
@@ -180,12 +188,18 @@ export default function ProfileScreen() {
         ),
         onError: () => (
           <ProfileList>
-            <Text>Unable to load the user profile</Text>
+            <Text>Unable to load your profile.</Text>
+            <TextButton onClick={refresh} enabled={!state.waiting}>
+              <Text>Retry</Text>
+            </TextButton>
           </ProfileList>
         ),
         onDefect: () => (
           <ProfileList>
-            <Text>Unable to load the user profile</Text>
+            <Text>Unable to load your profile.</Text>
+            <TextButton onClick={refresh} enabled={!state.waiting}>
+              <Text>Retry</Text>
+            </TextButton>
           </ProfileList>
         ),
         onSuccess: ({ value }) =>
@@ -246,7 +260,6 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 };
 
 const OwnSessions = () => {
-  const colors = useMaterialColors();
   const state = useAtomValue(ownSessionsAtom);
   const refresh = useAtomRefresh(ownSessionsAtom);
   return (
@@ -271,38 +284,16 @@ const OwnSessions = () => {
           </Column>
         ),
         onSuccess: ({ value }) => (
-          <SegmentedList>
-            {value.sessions.length === 0 ? (
-              <SegmentedListItem index={0} count={1} enabled={false}>
-                <SegmentedListItem.HeadlineContent>
-                  <Text color={colors.onSurfaceVariant}>No active sessions.</Text>
-                </SegmentedListItem.HeadlineContent>
-              </SegmentedListItem>
-            ) : (
-              value.sessions.map((session, index) => (
-                <SegmentedListItem
-                  key={session.id}
-                  index={index}
-                  count={value.sessions.length}
-                  onClick={() => {
-                    router.push({
-                      pathname: '/accounts/profile/sessions/[id]',
-                      params: { id: session.id },
-                    });
-                  }}>
-                  <SegmentedListItem.HeadlineContent>
-                    <Text>
-                      {session.userAgent}
-                      {value.currentId === session.id ? ' (This device)' : ''}
-                    </Text>
-                  </SegmentedListItem.HeadlineContent>
-                  <SegmentedListItem.TrailingContent>
-                    <Icon source={ChevronRight} size={24} />
-                  </SegmentedListItem.TrailingContent>
-                </SegmentedListItem>
-              ))
-            )}
-          </SegmentedList>
+          <SessionList
+            sessions={value.sessions}
+            currentId={value.currentId}
+            onSelect={(session) => {
+              router.push({
+                pathname: '/accounts/profile/sessions/[id]',
+                params: { id: session.id },
+              });
+            }}
+          />
         ),
       })}
     </>

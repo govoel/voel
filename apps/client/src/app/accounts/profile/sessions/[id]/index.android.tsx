@@ -23,7 +23,7 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
   const colors = useMaterialColors();
 
   return AsyncResult.matchWithError(state, {
-    onInitial: () => <LoadingIndicator />,
+    onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
     onError: (error) => (
       <>
         <Text>{authFailureMessage({ error })}</Text>
@@ -55,16 +55,16 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
                     enabled={!busy}
                     modifiers={[fillMaxWidth()]}
                     colors={{ containerColor: colors.error, contentColor: colors.onError }}>
-                    <Text>Sign Out</Text>
+                    <Text>Sign out</Text>
                   </Button>
                 )}
                 mutation={revokeOwnSessionAtom}
                 schema={AuthRevokeSessionInput}
                 defaultValues={{ token: session.token }}
-                title="Sign Out"
+                title="Sign out"
                 message="This session will need to sign in again."
                 onSuccess={() => {
-                  router.back();
+                  router.dismissTo('/accounts/profile');
                 }}
               />
             ) : null}

@@ -2,6 +2,7 @@ import { DateTime, Predicate, String } from 'effect';
 
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
+import { sessionDeviceName } from '#src/components/account-management/session-details/device-name.ts';
 import { DetailRows } from '#src/components/detail-rows';
 
 export const SessionDetails = ({
@@ -15,11 +16,7 @@ export const SessionDetails = ({
     details={[
       {
         label: 'Device',
-        value: `${
-          Predicate.isString(session.userAgent) && String.isNonEmpty(session.userAgent)
-            ? session.userAgent
-            : 'Unknown device'
-        }${isCurrent ? ' (This device)' : ''}`,
+        value: sessionDeviceName({ session, isCurrent }),
       },
       {
         label: 'IP address',

@@ -1,24 +1,11 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Icon } from '@expo/ui';
-import {
-  Button,
-  Group,
-  HStack,
-  Host,
-  List,
-  ProgressView,
-  Section,
-  Spacer,
-} from '@expo/ui/swift-ui';
+import { Button, Group, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
 import {
   buttonStyle,
   containerRelativeFrame,
   disabled,
-  font,
-  foregroundStyle,
   frame,
   headerProminence,
-  tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
@@ -35,11 +22,13 @@ import {
   useUserProfileForm,
 } from '#src/app/accounts/profile/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
+import { SessionList } from '#src/components/account-management/session-list';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -52,12 +41,12 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
   return (
     <form.AppForm>
       <FormLayout
-        title="Edit Profile"
+        title="Edit profile"
         footer={
           <form.SubmitButton
             platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
             containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
-            <Text>Save Changes</Text>
+            <Text>Save changes</Text>
           </form.SubmitButton>
         }>
         <form.AppField name="name">
@@ -99,7 +88,7 @@ const LoadedProfile = ({
             onPress={() => {
               setEditor('profile');
             }}>
-            <Text>Edit Profile</Text>
+            <Text>Edit profile</Text>
           </Button>
 
           <Button
@@ -108,7 +97,11 @@ const LoadedProfile = ({
             }}>
             <Text>Change password</Text>
           </Button>
+        </Section>
 
+        <OwnSessions />
+
+        <Section title="Account Access">
           <MutationConfirmation
             onFailure={authFailureMessage}
             trigger={({ open, busy }) => (
@@ -118,14 +111,13 @@ const LoadedProfile = ({
             )}
             mutation={signOutEverywhereAtom}
             title="Sign out everywhere"
+            confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"
             onSuccess={() => {
               router.dismissTo('/accounts');
             }}
           />
         </Section>
-
-        <OwnSessions />
       </ProfileList>
 
       <ControlledSheet
@@ -150,6 +142,7 @@ const LoadedProfile = ({
 
 export default function ProfileScreen() {
   const state = useAtomValue(activeUserProfileAtom);
+  const refresh = useAtomRefresh(activeAccountAtom);
 
   return (
     <>
@@ -171,14 +164,20 @@ export default function ProfileScreen() {
             onError: () => (
               <ProfileList>
                 <Section>
-                  <Text>Unable to load the user profile</Text>
+                  <Text>Unable to load your profile.</Text>
+                  <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
+                    <Text>Retry</Text>
+                  </Button>
                 </Section>
               </ProfileList>
             ),
             onDefect: () => (
               <ProfileList>
                 <Section>
-                  <Text>Unable to load the user profile</Text>
+                  <Text>Unable to load your profile.</Text>
+                  <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
+                    <Text>Retry</Text>
+                  </Button>
                 </Section>
               </ProfileList>
             ),
@@ -250,37 +249,18 @@ const OwnSessions = () => {
             </Button>
           </>
         ),
-        onSuccess: ({ value }) =>
-          value.sessions.length === 0 ? (
-            <Text>No active sessions.</Text>
-          ) : (
-            value.sessions.map((session) => (
-              <Button
-                key={session.id}
-                modifiers={[tint('primary')]}
-                onPress={() => {
-                  router.push({
-                    pathname: '/accounts/profile/sessions/[id]',
-                    params: { id: session.id },
-                  });
-                }}>
-                <HStack>
-                  <Text>
-                    {session.userAgent}
-                    {value.currentId === session.id ? ' (This device)' : ''}
-                  </Text>
-                  <Spacer />
-                  <Icon
-                    name="chevron.right"
-                    modifiers={[
-                      font({ textStyle: 'footnote', weight: 'semibold' }),
-                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                    ]}
-                  />
-                </HStack>
-              </Button>
-            ))
-          ),
+        onSuccess: ({ value }) => (
+          <SessionList
+            sessions={value.sessions}
+            currentId={value.currentId}
+            onSelect={(session) => {
+              router.push({
+                pathname: '/accounts/profile/sessions/[id]',
+                params: { id: session.id },
+              });
+            }}
+          />
+        ),
       })}
     </Section>
   );

@@ -3,6 +3,7 @@ import { RadioButton } from '@expo/ui/jetpack-compose';
 import { roles, useRoleField } from '#src/components/account-management/role-field/index.tsx';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
+import { Account } from '#src/services/database/main/schema.ts';
 
 export const RoleField = () => {
   const field = useRoleField();
@@ -24,7 +25,7 @@ export const RoleField = () => {
               <RadioButton selected={field.value === role} enabled={!field.disabled} />
             </SegmentedListItem.LeadingContent>
             <SegmentedListItem.HeadlineContent>
-              <Text>{role}</Text>
+              <Text>{Account.roleToDisplayString(role)}</Text>
             </SegmentedListItem.HeadlineContent>
           </SegmentedListItem>
         ))}

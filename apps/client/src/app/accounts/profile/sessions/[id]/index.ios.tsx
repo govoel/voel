@@ -1,6 +1,11 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
-import { disabled } from '@expo/ui/swift-ui/modifiers';
+import {
+  containerRelativeFrame,
+  disabled,
+  frame,
+  headerProminence,
+} from '@expo/ui/swift-ui/modifiers';
 import { Option, Schema } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -19,28 +24,38 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
   const refresh = useAtomRefresh(ownSessionsAtom);
 
   return AsyncResult.matchWithError(state, {
-    onInitial: () => <ProgressView />,
+    onInitial: () => (
+      <Section>
+        <ProgressView
+          modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+        />
+      </Section>
+    ),
     onError: (error) => (
-      <>
+      <Section>
         <Text>{authFailureMessage({ error })}</Text>
         <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
           <Text>Retry</Text>
         </Button>
-      </>
+      </Section>
     ),
     onDefect: () => (
-      <>
+      <Section>
         <Text>Unable to load session.</Text>
         <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
           <Text>Retry</Text>
         </Button>
-      </>
+      </Section>
     ),
     onSuccess: ({ value }) =>
       Option.match(value, {
-        onNone: () => <Text>This session is no longer active.</Text>,
+        onNone: () => (
+          <Section>
+            <Text>This session is no longer active.</Text>
+          </Section>
+        ),
         onSome: ({ session, isCurrent }) => (
-          <List>
+          <>
             <Section>
               <SessionDetails session={session} isCurrent={isCurrent} />
             </Section>
@@ -51,21 +66,21 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
                   onFailure={authFailureMessage}
                   trigger={({ open, busy }) => (
                     <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
-                      <Text>Sign Out</Text>
+                      <Text>Sign out</Text>
                     </Button>
                   )}
                   mutation={revokeOwnSessionAtom}
                   schema={AuthRevokeSessionInput}
                   defaultValues={{ token: session.token }}
-                  title="Sign Out"
+                  title="Sign out"
                   message="This session will need to sign in again."
                   onSuccess={() => {
-                    router.back();
+                    router.dismissTo('/accounts/profile');
                   }}
                 />
               </Section>
             ) : null}
-          </List>
+          </>
         ),
       }),
   });
@@ -80,10 +95,16 @@ export default function SessionScreen() {
     <>
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
-        {Option.match(sessionId, {
-          onNone: () => <Text>Invalid session ID.</Text>,
-          onSome: (value) => <SessionContent key={value} id={value} />,
-        })}
+        <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
+          {Option.match(sessionId, {
+            onNone: () => (
+              <Section>
+                <Text>Invalid session ID.</Text>
+              </Section>
+            ),
+            onSome: (value) => <SessionContent key={value} id={value} />,
+          })}
+        </List>
       </Host>
     </>
   );

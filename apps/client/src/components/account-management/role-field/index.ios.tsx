@@ -3,6 +3,7 @@ import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 
 import { roles, useRoleField } from '#src/components/account-management/role-field/index.tsx';
 import { Text } from '#src/components/text';
+import { Account } from '#src/services/database/main/schema.ts';
 
 export const RoleField = () => {
   const field = useRoleField();
@@ -15,7 +16,7 @@ export const RoleField = () => {
         modifiers={[pickerStyle('menu'), disabled(field.disabled)]}>
         {roles.map((role) => (
           <Text key={role} modifiers={[tag(role)]}>
-            {role}
+            {Account.roleToDisplayString(role)}
           </Text>
         ))}
       </Picker>
