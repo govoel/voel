@@ -1,12 +1,24 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Button, Group, Host, List, ProgressView, Section, VStack } from '@expo/ui/swift-ui';
+import { Icon } from '@expo/ui';
+import {
+  Button,
+  Group,
+  HStack,
+  Host,
+  List,
+  ProgressView,
+  Section,
+  Spacer,
+} from '@expo/ui/swift-ui';
 import {
   buttonStyle,
   containerRelativeFrame,
   disabled,
+  font,
+  foregroundStyle,
   frame,
   headerProminence,
-  padding,
+  tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
@@ -15,24 +27,19 @@ import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
-
 import {
   activeUserProfileAtom,
   ownSessionsAtom,
-  revokeOwnSessionAtom,
   signOutEverywhereAtom,
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/profile/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { SessionDetails } from '#src/components/account-management/session-details';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { Spacing } from '#src/constants/theme.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -76,39 +83,50 @@ const LoadedProfile = ({
 
   return (
     <>
-      <VStack spacing={0} modifiers={[frame({ maxHeight: Infinity })]}>
-        <ProfileList>
-          <Section title="Your Profile">
-            <DetailRows
-              details={[
-                { label: 'Name', value: name },
-                { label: 'Username', value: `@${username}` },
-                { label: 'Email', value: email },
-                { label: 'Role', value: role },
-              ]}
-            />
-          </Section>
-          <Section title="Password">
-            <Button
-              onPress={() => {
-                setEditor('password');
-              }}>
-              <Text>Change password</Text>
-            </Button>
-          </Section>
-          <OwnSessions />
-        </ProfileList>
-
-        <VStack modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
+      <ProfileList>
+        <Section title="Your Profile">
+          <DetailRows
+            details={[
+              { label: 'Name', value: name },
+              { label: 'Username', value: `@${username}` },
+              { label: 'Email', value: email },
+              { label: 'Role', value: role },
+            ]}
+          />
+        </Section>
+        <Section>
           <Button
-            modifiers={[buttonStyle('borderedProminent')]}
             onPress={() => {
               setEditor('profile');
             }}>
-            <Text modifiers={[frame({ maxWidth: Infinity })]}>Edit Profile</Text>
+            <Text>Edit Profile</Text>
           </Button>
-        </VStack>
-      </VStack>
+
+          <Button
+            onPress={() => {
+              setEditor('password');
+            }}>
+            <Text>Change password</Text>
+          </Button>
+
+          <MutationConfirmation
+            onFailure={authFailureMessage}
+            trigger={({ open, busy }) => (
+              <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
+                <Text>Sign out everywhere</Text>
+              </Button>
+            )}
+            mutation={signOutEverywhereAtom}
+            title="Sign out everywhere"
+            message="Sign out all devices for this account on this server, including this device?"
+            onSuccess={() => {
+              router.dismissTo('/accounts');
+            }}
+          />
+        </Section>
+
+        <OwnSessions />
+      </ProfileList>
 
       <ControlledSheet
         presented={editor !== null}
@@ -199,9 +217,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
           {(field) => <field.SecureField purpose="currentPassword" label="Current password" />}
         </form.AppField>
         <form.AppField name="newPassword">
-          {(field) => (
-            <field.SecureField purpose="newPassword" label="New password (8–128 characters)" />
-          )}
+          {(field) => <field.SecureField purpose="newPassword" label="New password" />}
         </form.AppField>
         <form.AppField name="confirmPassword">
           {(field) => <field.SecureField purpose="newPassword" label="Confirm new password" />}
@@ -215,74 +231,57 @@ const OwnSessions = () => {
   const state = useAtomValue(ownSessionsAtom);
   const refresh = useAtomRefresh(ownSessionsAtom);
   return (
-    <>
-      <Section title="Active sessions / devices">
-        <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-          <Text>Refresh sessions</Text>
-        </Button>
-      </Section>
+    <Section title="Active Sessions">
       {AsyncResult.matchWithError(state, {
-        onInitial: () => (
-          <Section title="Sessions">
-            <ProgressView />
-          </Section>
-        ),
+        onInitial: () => <ProgressView />,
         onError: (error) => (
-          <Section title="Sessions">
+          <>
             <Text>{authFailureMessage({ error })}</Text>
-          </Section>
+            <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
+              <Text>Retry</Text>
+            </Button>
+          </>
         ),
         onDefect: () => (
-          <Section title="Sessions">
-            <Text>Unable to load sessions. Try refreshing.</Text>
-          </Section>
+          <>
+            <Text>Unable to load sessions.</Text>
+            <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
+              <Text>Retry</Text>
+            </Button>
+          </>
         ),
-        onSuccess: ({ value: { sessions, currentId } }) =>
-          sessions.length === 0 ? (
-            <Section title="Sessions">
-              <Text>No active sessions.</Text>
-            </Section>
+        onSuccess: ({ value }) =>
+          value.sessions.length === 0 ? (
+            <Text>No active sessions.</Text>
           ) : (
-            sessions.map((session) => (
-              <Section
+            value.sessions.map((session) => (
+              <Button
                 key={session.id}
-                title={session.id === currentId ? 'This device' : 'Other device'}>
-                <SessionDetails session={session} />
-                {session.id !== currentId ? (
-                  <MutationConfirmation
-                    onFailure={authFailureMessage}
-                    trigger={({ open, busy }) => (
-                      <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
-                        <Text>Sign out this device</Text>
-                      </Button>
-                    )}
-                    mutation={revokeOwnSessionAtom}
-                    schema={AuthRevokeSessionInput}
-                    defaultValues={{ token: session.token }}
-                    title="Sign out this device"
-                    message="This device will need to sign in again."
+                modifiers={[tint('primary')]}
+                onPress={() => {
+                  router.push({
+                    pathname: '/accounts/profile/sessions/[id]',
+                    params: { id: session.id },
+                  });
+                }}>
+                <HStack>
+                  <Text>
+                    {session.userAgent}
+                    {value.currentId === session.id ? ' (This device)' : ''}
+                  </Text>
+                  <Spacer />
+                  <Icon
+                    name="chevron.right"
+                    modifiers={[
+                      font({ textStyle: 'footnote', weight: 'semibold' }),
+                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                    ]}
                   />
-                ) : null}
-              </Section>
+                </HStack>
+              </Button>
             ))
           ),
       })}
-      <Section title="Sign out">
-        <MutationConfirmation
-          onFailure={authFailureMessage}
-          trigger={({ open, busy }) => (
-            <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
-              <Text>Sign out everywhere</Text>
-            </Button>
-          )}
-          mutation={signOutEverywhereAtom}
-          title="Sign out everywhere"
-          message="Sign out all devices for this account on this server, including this device?"
-          onSuccess={() => {
-            router.dismissTo('/accounts');
-          }}
-        />
-      </Section>
-    </>
+    </Section>
   );
 };

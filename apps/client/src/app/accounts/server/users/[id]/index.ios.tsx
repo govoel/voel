@@ -384,7 +384,7 @@ export default function ServerUserScreen() {
   const userId = Schema.decodeUnknownOption(AuthUser.fields.id.check(Schema.isNonEmpty()))(id);
   return (
     <>
-      <Stack.Screen.Title>Manage User</Stack.Screen.Title>
+      <Stack.Screen.Title />
       <Host style={{ flex: 1 }}>
         {Option.match(userId, {
           onNone: () => (

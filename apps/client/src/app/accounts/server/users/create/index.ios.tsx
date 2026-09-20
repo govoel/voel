@@ -15,7 +15,7 @@ export default function CreateUserScreen() {
   });
   return (
     <>
-      <Stack.Screen.Title>Create User</Stack.Screen.Title>
+      <Stack.Screen.Title />
       <Host style={{ flex: 1 }}>
         <form.AppForm>
           <FormLayout

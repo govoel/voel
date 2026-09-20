@@ -24,7 +24,7 @@ export default function ServerUsersScreen() {
 
   return (
     <>
-      <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
+      <Stack.Screen.Title />
       <Host style={{ flex: 1, backgroundColor: platformColor('systemGroupedBackground') }}>
         {AsyncResult.matchWithError(users, {
           onInitial: () => (

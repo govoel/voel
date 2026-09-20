@@ -36,14 +36,16 @@ import {
 
 const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>({
   baseURL,
+  fetchOptions,
   plugins,
   sessionOptions,
-}: Pick<BetterAuthClientOptions, 'baseURL' | 'sessionOptions'> & {
+}: Pick<BetterAuthClientOptions, 'baseURL' | 'fetchOptions' | 'sessionOptions'> & {
   readonly plugins: Plugins;
 }) =>
   createBetterAuthClient({
     baseURL,
     basePath: '/api/auth',
+    fetchOptions,
     sessionOptions,
     plugins: [
       ...plugins,

@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Button, Column, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+import { Column, Icon, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
@@ -8,23 +9,20 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
-
 import {
   activeUserProfileAtom,
   ownSessionsAtom,
-  revokeOwnSessionAtom,
   signOutEverywhereAtom,
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/profile/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { SessionDetails } from '#src/components/account-management/session-details';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
+import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
@@ -88,6 +86,7 @@ const LoadedProfile = ({
   >;
 }) => {
   const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
+  const colors = useMaterialColors();
 
   return (
     <>
@@ -101,22 +100,50 @@ const LoadedProfile = ({
             { label: 'Role', value: role },
           ]}
         />
-        <Button
-          modifiers={[fillMaxWidth()]}
-          onClick={() => {
-            setEditor('profile');
-          }}>
-          <Text>Edit Profile</Text>
-        </Button>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">Password</Text>
-          <Button
+        <SegmentedList>
+          <SegmentedListItem
+            index={0}
+            count={3}
+            onClick={() => {
+              setEditor('profile');
+            }}>
+            <SegmentedListItem.HeadlineContent>
+              <Text>Edit Profile</Text>
+            </SegmentedListItem.HeadlineContent>
+            <SegmentedListItem.TrailingContent>
+              <Icon source={ChevronRight} size={24} />
+            </SegmentedListItem.TrailingContent>
+          </SegmentedListItem>
+          <SegmentedListItem
+            index={1}
+            count={3}
             onClick={() => {
               setEditor('password');
             }}>
-            <Text>Change password</Text>
-          </Button>
-        </Column>
+            <SegmentedListItem.HeadlineContent>
+              <Text>Change password</Text>
+            </SegmentedListItem.HeadlineContent>
+            <SegmentedListItem.TrailingContent>
+              <Icon source={ChevronRight} size={24} />
+            </SegmentedListItem.TrailingContent>
+          </SegmentedListItem>
+          <MutationConfirmation
+            onFailure={authFailureMessage}
+            trigger={({ open, busy }) => (
+              <SegmentedListItem index={2} count={3} onClick={open} enabled={!busy}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text color={colors.error}>Sign out everywhere</Text>
+                </SegmentedListItem.HeadlineContent>
+              </SegmentedListItem>
+            )}
+            mutation={signOutEverywhereAtom}
+            title="Sign out everywhere"
+            message="Sign out all devices for this account on this server, including this device?"
+            onSuccess={() => {
+              router.dismissTo('/accounts');
+            }}
+          />
+        </SegmentedList>
         <OwnSessions />
       </ProfileList>
 
@@ -199,7 +226,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
           {(field) => (
             <field.SecureField
               purpose="newPassword"
-              label="New password (8–128 characters)"
+              label="New password"
               platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
             />
           )}
@@ -224,80 +251,60 @@ const OwnSessions = () => {
   const refresh = useAtomRefresh(ownSessionsAtom);
   return (
     <>
-      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-        <Text variant="h4">Active sessions / devices</Text>
-        <Button onClick={refresh} enabled={!state.waiting}>
-          <Text>Refresh sessions</Text>
-        </Button>
-      </Column>
+      <Text variant="h4">Active Sessions</Text>
       {AsyncResult.matchWithError(state, {
-        onInitial: () => (
-          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-            <Text variant="h4">Sessions</Text>
-            <LoadingIndicator />
-          </Column>
-        ),
+        onInitial: () => <LoadingIndicator />,
         onError: (error) => (
-          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-            <Text variant="h4">Sessions</Text>
+          <Column>
             <Text>{authFailureMessage({ error })}</Text>
+            <TextButton onClick={refresh} enabled={!state.waiting}>
+              <Text>Retry</Text>
+            </TextButton>
           </Column>
         ),
         onDefect: () => (
-          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-            <Text variant="h4">Sessions</Text>
-            <Text>Unable to load sessions. Try refreshing.</Text>
+          <Column>
+            <Text>Unable to load sessions.</Text>
+            <TextButton onClick={refresh} enabled={!state.waiting}>
+              <Text>Retry</Text>
+            </TextButton>
           </Column>
         ),
-        onSuccess: ({ value: { sessions, currentId } }) =>
-          sessions.length === 0 ? (
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">Sessions</Text>
-              <Text>No active sessions.</Text>
-            </Column>
-          ) : (
-            sessions.map((session) => (
-              <Column key={session.id} verticalArrangement={{ spacedBy: Spacing.two }}>
-                <Text variant="h4">
-                  {session.id === currentId ? 'This device' : 'Other device'}
-                </Text>
-                <SessionDetails session={session} />
-                {session.id !== currentId ? (
-                  <MutationConfirmation
-                    onFailure={authFailureMessage}
-                    trigger={({ open, busy }) => (
-                      <TextButton onClick={open} enabled={!busy}>
-                        <Text color={colors.error}>Sign out this device</Text>
-                      </TextButton>
-                    )}
-                    mutation={revokeOwnSessionAtom}
-                    schema={AuthRevokeSessionInput}
-                    defaultValues={{ token: session.token }}
-                    title="Sign out this device"
-                    message="This device will need to sign in again."
-                  />
-                ) : null}
-              </Column>
-            ))
-          ),
+        onSuccess: ({ value }) => (
+          <SegmentedList>
+            {value.sessions.length === 0 ? (
+              <SegmentedListItem index={0} count={1} enabled={false}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text color={colors.onSurfaceVariant}>No active sessions.</Text>
+                </SegmentedListItem.HeadlineContent>
+              </SegmentedListItem>
+            ) : (
+              value.sessions.map((session, index) => (
+                <SegmentedListItem
+                  key={session.id}
+                  index={index}
+                  count={value.sessions.length}
+                  onClick={() => {
+                    router.push({
+                      pathname: '/accounts/profile/sessions/[id]',
+                      params: { id: session.id },
+                    });
+                  }}>
+                  <SegmentedListItem.HeadlineContent>
+                    <Text>
+                      {session.userAgent}
+                      {value.currentId === session.id ? ' (This device)' : ''}
+                    </Text>
+                  </SegmentedListItem.HeadlineContent>
+                  <SegmentedListItem.TrailingContent>
+                    <Icon source={ChevronRight} size={24} />
+                  </SegmentedListItem.TrailingContent>
+                </SegmentedListItem>
+              ))
+            )}
+          </SegmentedList>
+        ),
       })}
-      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-        <Text variant="h4">Sign out</Text>
-        <MutationConfirmation
-          onFailure={authFailureMessage}
-          trigger={({ open, busy }) => (
-            <TextButton onClick={open} enabled={!busy}>
-              <Text color={colors.error}>Sign out everywhere</Text>
-            </TextButton>
-          )}
-          mutation={signOutEverywhereAtom}
-          title="Sign out everywhere"
-          message="Sign out all devices for this account on this server, including this device?"
-          onSuccess={() => {
-            router.dismissTo('/accounts');
-          }}
-        />
-      </Column>
     </>
   );
 };
