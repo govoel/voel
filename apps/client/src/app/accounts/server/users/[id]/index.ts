@@ -1,4 +1,4 @@
-import { DateTime, Effect, Option, Predicate, Schema, SchemaGetter } from 'effect';
+import { DateTime, Effect, Option, Schema, SchemaGetter } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import type {
@@ -9,22 +9,35 @@ import type {
 } from '@repo/auth-api/shared.ts';
 import {
   AuthAdminUpdateUserInput,
-  AuthBanUserInput,
   AuthSetRoleInput,
   AuthSetUserPasswordInput,
 } from '@repo/auth-api/shared.ts';
 
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { useAppForm } from '#src/components/form';
-import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAuthClientAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
 export const serverUserAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
   AppRuntime.atom(
     Effect.fnUntraced(function* (get) {
-      const client = yield* get.result(activeAccountAuthClientAtom);
-      return yield* client.admin.getUser({ userId });
+      const [user, activeAccountKey] = yield* Effect.all(
+        [
+          get
+            .result(activeAccountAuthClientAtom)
+            .pipe(Effect.flatMap((client) => client.admin.getUser({ userId }))),
+          get.result(activeAccountKeyAtom),
+        ],
+        {
+          concurrency: 'unbounded',
+        }
+      );
+      return {
+        ...user,
+        isOtherUser: Option.isSome(activeAccountKey) && activeAccountKey.value.userId !== user.id,
+      };
     })
   ).pipe(
     Atom.withReactivity(['auth.users']),
@@ -54,21 +67,6 @@ const setServerUserPasswordAtom = AppRuntime.fn<typeof AuthSetUserPasswordInput.
     yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
   }),
   { reactivityKeys: ['auth.sessions'] }
-);
-
-const banServerUserAtom = AppRuntime.fn<typeof AuthBanUserInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
-    yield* client.admin.banUser(input);
-  }),
-  { reactivityKeys: ['auth.users', 'auth.sessions'] }
-);
-export const unbanServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
-    yield* client.admin.unbanUser(input);
-  }),
-  { reactivityKeys: ['auth.users'] }
 );
 
 export const deleteServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
@@ -181,32 +179,12 @@ export const useUserRoleForm = ({
     onSuccess,
   });
 
-export const useBanUserForm = ({
-  user,
-  onSuccess,
-}: {
-  user: typeof AuthAdminUserDetails.Type;
-  onSuccess: () => void | Promise<void>;
-}) =>
-  useAppForm({
-    schema: AuthBanUserInput,
-    mutation: banServerUserAtom,
-    defaultValues: { userId: user.id, banReason: '' },
-    onFailure: authFailureMessage,
-    onSuccess,
-  });
-
 export const userDetails = ({ user }: { readonly user: typeof AuthAdminUserDetails.Type }) => [
   { label: 'User ID', value: user.id },
-  { label: 'Username', value: `@${user.username}` },
   { label: 'Name', value: user.name },
+  { label: 'Username', value: `@${user.username}` },
   { label: 'Email', value: user.email },
-  { label: 'Email verified', value: user.emailVerified ? 'Yes' : 'No' },
-  { label: 'Role', value: user.role },
-  {
-    label: 'Profile image',
-    value: Option.getOrElse(Option.fromNullishOr(user.image), () => 'None'),
-  },
+  { label: 'Role', value: Account.roleToDisplayString(user.role) },
   {
     label: 'Created',
     value: DateTime.formatLocal(user.createdAt, { dateStyle: 'medium', timeStyle: 'short' }),
@@ -214,13 +192,5 @@ export const userDetails = ({ user }: { readonly user: typeof AuthAdminUserDetai
   {
     label: 'Updated',
     value: DateTime.formatLocal(user.updatedAt, { dateStyle: 'medium', timeStyle: 'short' }),
-  },
-  { label: 'Banned', value: user.banned === true ? 'Yes' : 'No' },
-  { label: 'Ban reason', value: user.banReason ?? 'None' },
-  {
-    label: 'Ban expires',
-    value: Predicate.isNotNullish(user.banExpires)
-      ? DateTime.formatLocal(user.banExpires, { dateStyle: 'medium', timeStyle: 'short' })
-      : 'Never',
   },
 ];

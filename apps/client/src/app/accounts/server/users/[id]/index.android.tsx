@@ -1,22 +1,22 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Button, Column, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+import { Column, Icon, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { Match, Option, Schema } from 'effect';
+import { Match } from 'effect';
+import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
+import type { PropsWithChildren } from 'react';
 
-import { AuthAdminRevokeSessionInput, AuthUser, AuthUserIdInput } from '@repo/auth-api/shared.ts';
-import type { AuthAdminUserDetails } from '@repo/auth-api/shared.ts';
+import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
+import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import {
   deleteServerUserAtom,
-  revokeServerUserSessionAtom,
   revokeServerUserSessionsAtom,
   serverUserAtom,
   serverUserSessionsAtom,
-  unbanServerUserAtom,
-  useBanUserForm,
   useServerUserProfileForm,
   useUserPasswordForm,
   useUserRoleForm,
@@ -24,7 +24,7 @@ import {
 } from '#src/app/accounts/server/users/[id]/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { RoleField } from '#src/components/account-management/role-field';
-import { SessionDetails } from '#src/components/account-management/session-details';
+import { SessionList } from '#src/components/account-management/session-list';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -34,28 +34,32 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+
+const UserList = ({ children }: PropsWithChildren) => (
+  <LazyColumn
+    contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
+    verticalArrangement={{ spacedBy: Spacing.two }}>
+    {children}
+  </LazyColumn>
+);
 
 const UserPasswordForm = (props: Parameters<typeof useUserPasswordForm>[0]) => {
   const form = useUserPasswordForm(props);
   return (
     <form.AppForm>
       <FormLayout
-        title="Set a new password"
+        title="Set password"
         footer={
           <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
             <Text>Set password</Text>
           </form.SubmitButton>
         }>
-        <Text>
-          This replaces the user’s password. Share the new password securely. Existing sessions
-          remain signed in.
-        </Text>
         <form.AppField name="newPassword">
           {(field) => (
             <field.SecureField
               purpose="newPassword"
-              label="New password (8–128 characters)"
+              label="New password"
+              placeholder="unguessableThisTime!"
               platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
             />
           )}
@@ -65,6 +69,7 @@ const UserPasswordForm = (props: Parameters<typeof useUserPasswordForm>[0]) => {
             <field.SecureField
               purpose="newPassword"
               label="Confirm new password"
+              placeholder="unguessableThisTime!"
               platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
             />
           )}
@@ -79,10 +84,10 @@ const UserProfileForm = (props: Parameters<typeof useServerUserProfileForm>[0]) 
   return (
     <form.AppForm>
       <FormLayout
-        title="Edit user profile"
+        title="Edit profile"
         footer={
           <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-            <Text>Save profile</Text>
+            <Text>Save changes</Text>
           </form.SubmitButton>
         }>
         <form.AppField name="name">
@@ -159,249 +164,172 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
   );
 };
 
-const BanForm = (props: Parameters<typeof useBanUserForm>[0]) => {
-  const form = useBanUserForm(props);
-  return (
-    <form.AppForm>
-      <FormLayout
-        title="Ban user"
-        footer={
-          <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-            <Text>Confirm ban</Text>
-          </form.SubmitButton>
-        }>
-        <Text>
-          Ban @{props.user.username} indefinitely? This signs out all their devices and prevents
-          sign-in until you unban them.
-        </Text>
-        <form.AppField name="banReason">
-          {(field) => (
-            <field.TextField
-              label="Ban reason"
-              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
-            />
-          )}
-        </form.AppField>
-      </FormLayout>
-    </form.AppForm>
-  );
-};
-
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
   const colors = useMaterialColors();
-  const activeKey = useAtomValue(activeAccountKeyAtom);
-  const isOtherUser =
-    AsyncResult.isSuccess(activeKey) &&
-    Option.isSome(activeKey.value) &&
-    activeKey.value.value.userId !== user.id;
   const state = useAtomValue(serverUserSessionsAtom(user.id));
   const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
   return (
-    <>
-      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-        <Text variant="h4">User sessions</Text>
-        <Button onClick={refresh} enabled={!state.waiting}>
-          <Text>Refresh user sessions</Text>
-        </Button>
-      </Column>
+    <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+      <Text variant="h4">Active Sessions</Text>
       {AsyncResult.matchWithError(state, {
-        onInitial: () => (
-          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-            <Text variant="h4">Sessions</Text>
-            <LoadingIndicator />
-          </Column>
-        ),
+        onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
         onError: (error) => (
-          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-            <Text variant="h4">Sessions</Text>
+          <>
             <Text>{authFailureMessage({ error })}</Text>
-          </Column>
+            <TextButton onClick={refresh} enabled={!state.waiting}>
+              <Text>Retry</Text>
+            </TextButton>
+          </>
         ),
         onDefect: () => (
-          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-            <Text variant="h4">Sessions</Text>
-            <Text>Unable to load sessions. Try refreshing.</Text>
-          </Column>
+          <>
+            <Text>Unable to load sessions.</Text>
+            <TextButton onClick={refresh} enabled={!state.waiting}>
+              <Text>Retry</Text>
+            </TextButton>
+          </>
         ),
-        onSuccess: ({ value: { sessions } }) =>
-          sessions.length === 0 ? (
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">Sessions</Text>
-              <Text>No active sessions.</Text>
-            </Column>
-          ) : (
-            sessions.map((session) => (
-              <Column key={session.id} verticalArrangement={{ spacedBy: Spacing.two }}>
-                <Text variant="h4">Device</Text>
-                <SessionDetails session={session} />
-                {isOtherUser ? (
-                  <MutationConfirmation
-                    onFailure={authFailureMessage}
-                    trigger={({ open, busy }) => (
-                      <TextButton onClick={open} enabled={!busy}>
-                        <Text color={colors.error}>Revoke session</Text>
-                      </TextButton>
-                    )}
-                    mutation={revokeServerUserSessionAtom}
-                    schema={AuthAdminRevokeSessionInput}
-                    defaultValues={{ sessionToken: session.token }}
-                    title="Revoke session"
-                    message={`Sign out this device for @${user.username}?`}
-                  />
-                ) : null}
-              </Column>
-            ))
-          ),
+        onSuccess: ({ value: { sessions } }) => (
+          <>
+            <SessionList
+              sessions={sessions}
+              currentId={null}
+              onSelect={(session) => {
+                router.push({
+                  pathname: '/accounts/server/users/[id]/sessions/[sessionId]',
+                  params: { id: user.id, sessionId: session.id },
+                });
+              }}
+            />
+            {sessions.length > 0 ? (
+              <SegmentedList>
+                <MutationConfirmation
+                  onFailure={authFailureMessage}
+                  trigger={({ open, busy }) => (
+                    <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>
+                      <SegmentedListItem.HeadlineContent>
+                        <Text color={colors.error}>Sign out all devices</Text>
+                      </SegmentedListItem.HeadlineContent>
+                    </SegmentedListItem>
+                  )}
+                  mutation={revokeServerUserSessionsAtom}
+                  schema={AuthUserIdInput}
+                  defaultValues={{ userId: user.id }}
+                  title="Sign out all devices"
+                  confirmLabel="Sign out"
+                  message={`Sign out all devices for @${user.username}? They will need to sign in again.`}
+                />
+              </SegmentedList>
+            ) : null}
+          </>
+        ),
       })}
-      {isOtherUser ? (
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">Revoke all sessions</Text>
-          <MutationConfirmation
-            onFailure={authFailureMessage}
-            trigger={({ open, busy }) => (
-              <TextButton onClick={open} enabled={!busy}>
-                <Text color={colors.error}>Sign out all user devices</Text>
-              </TextButton>
-            )}
-            mutation={revokeServerUserSessionsAtom}
-            schema={AuthUserIdInput}
-            defaultValues={{ userId: user.id }}
-            title="Sign out all user devices"
-            message={`Sign out all devices for @${user.username}? They will need to sign in again.`}
-          />
-        </Column>
-      ) : (
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">Your sessions</Text>
-          <Text>Use your profile to sign out your own devices.</Text>
-        </Column>
-      )}
-    </>
+    </Column>
   );
 };
 
 const LoadedUser = ({
   user,
-  waiting,
-  refresh,
 }: {
-  readonly user: typeof AuthAdminUserDetails.Type;
-  readonly waiting: boolean;
-  readonly refresh: () => void;
+  readonly user: Atom.Success<ReturnType<typeof serverUserAtom>>;
 }) => {
-  const activeKey = useAtomValue(activeAccountKeyAtom);
-  const isOtherUser =
-    AsyncResult.isSuccess(activeKey) &&
-    Option.isSome(activeKey.value) &&
-    activeKey.value.value.userId !== user.id;
-  const [editor, setEditor] = useState<'role' | 'profile' | 'password' | 'ban' | null>(null);
+  const details = userDetails({ user });
+  const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
   const colors = useMaterialColors();
   return (
     <>
-      <LazyColumn
-        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
-        verticalArrangement={{ spacedBy: Spacing.three }}>
+      <UserList>
         <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">User details</Text>
-          <Button onClick={refresh} enabled={!waiting}>
-            <Text>Refresh user</Text>
-          </Button>
+          <Text variant="h4">User Details</Text>
+          <DetailRows details={details} />
         </Column>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h3">{user.name}</Text>
-          <DetailRows details={userDetails({ user })} />
-        </Column>
-        {isOtherUser ? (
+        {user.isOtherUser ? (
           <>
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">Manage user</Text>
-              <SegmentedList>
-                <SegmentedListItem
-                  index={0}
-                  count={3}
-                  onClick={() => {
-                    setEditor('role');
-                  }}>
-                  <SegmentedListItem.HeadlineContent>
-                    <Text>Change role</Text>
-                  </SegmentedListItem.HeadlineContent>
-                </SegmentedListItem>
-                <SegmentedListItem
-                  index={1}
-                  count={3}
-                  onClick={() => {
-                    setEditor('profile');
-                  }}>
-                  <SegmentedListItem.HeadlineContent>
-                    <Text>Edit user profile</Text>
-                  </SegmentedListItem.HeadlineContent>
-                </SegmentedListItem>
-                <SegmentedListItem
-                  index={2}
-                  count={3}
-                  onClick={() => {
-                    setEditor('password');
-                  }}>
-                  <SegmentedListItem.HeadlineContent>
-                    <Text>Set a new password</Text>
-                  </SegmentedListItem.HeadlineContent>
-                </SegmentedListItem>
-              </SegmentedList>
-            </Column>
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">Ban status</Text>
-              {user.banned === true ? (
-                <MutationConfirmation
-                  onFailure={authFailureMessage}
-                  trigger={({ open, busy }) => (
-                    <TextButton onClick={open} enabled={!busy}>
-                      <Text>Unban user</Text>
-                    </TextButton>
-                  )}
-                  mutation={unbanServerUserAtom}
-                  schema={AuthUserIdInput}
-                  defaultValues={{ userId: user.id }}
-                  role="default"
-                  title="Unban user"
-                  message={`Allow @${user.username} to sign in again? Revoked sessions will not be restored.`}
-                />
-              ) : (
-                <TextButton
-                  onClick={() => {
-                    setEditor('ban');
-                  }}>
-                  <Text color={colors.error}>Ban user</Text>
-                </TextButton>
-              )}
-            </Column>
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">Delete user</Text>
+            <SegmentedList>
+              <SegmentedListItem
+                index={0}
+                count={4}
+                onClick={() => {
+                  setEditor('profile');
+                }}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text>Edit profile</Text>
+                </SegmentedListItem.HeadlineContent>
+                <SegmentedListItem.TrailingContent>
+                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                </SegmentedListItem.TrailingContent>
+              </SegmentedListItem>
+              <SegmentedListItem
+                index={1}
+                count={4}
+                onClick={() => {
+                  setEditor('role');
+                }}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text>Change role</Text>
+                </SegmentedListItem.HeadlineContent>
+                <SegmentedListItem.TrailingContent>
+                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                </SegmentedListItem.TrailingContent>
+              </SegmentedListItem>
+              <SegmentedListItem
+                index={2}
+                count={4}
+                onClick={() => {
+                  setEditor('password');
+                }}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text>Set password</Text>
+                </SegmentedListItem.HeadlineContent>
+                <SegmentedListItem.TrailingContent>
+                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                </SegmentedListItem.TrailingContent>
+              </SegmentedListItem>
               <MutationConfirmation
                 onFailure={authFailureMessage}
                 trigger={({ open, busy }) => (
-                  <TextButton onClick={open} enabled={!busy}>
-                    <Text color={colors.error}>Delete server user</Text>
-                  </TextButton>
+                  <SegmentedListItem index={3} count={4} onClick={open} enabled={!busy}>
+                    <SegmentedListItem.HeadlineContent>
+                      <Text color={colors.error}>Delete user</Text>
+                    </SegmentedListItem.HeadlineContent>
+                  </SegmentedListItem>
                 )}
                 mutation={deleteServerUserAtom}
                 schema={AuthUserIdInput}
                 defaultValues={{ userId: user.id }}
-                title="Delete server user"
+                title="Delete user"
+                confirmLabel="Delete"
                 message={`Permanently delete @${user.username} (${user.email}) from this server? Their credentials and sessions will be removed. This cannot be undone.`}
                 onSuccess={() => {
-                  router.replace('/accounts/server/users');
+                  router.dismissTo('/accounts/server/users');
                 }}
               />
-            </Column>
+            </SegmentedList>
+            <UserSessions user={user} />
           </>
         ) : (
           <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-            <Text variant="h4">Manage user</Text>
-            <Text>Use your profile to manage your own account.</Text>
+            <SegmentedList>
+              <SegmentedListItem
+                index={0}
+                count={1}
+                onClick={() => {
+                  router.push('/accounts/profile');
+                }}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text>Go to profile</Text>
+                </SegmentedListItem.HeadlineContent>
+                <SegmentedListItem.TrailingContent>
+                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                </SegmentedListItem.TrailingContent>
+              </SegmentedListItem>
+            </SegmentedList>
+            <Text variant="caption" color={colors.onSurfaceVariant}>
+              Manage your profile and signed-in devices from your profile.
+            </Text>
           </Column>
         )}
-        <UserSessions user={user} />
-      </LazyColumn>
+      </UserList>
       <ControlledSheet
         presented={editor !== null}
         onDismiss={() => {
@@ -412,7 +340,6 @@ const LoadedUser = ({
             Match.when('role', () => <UserRoleForm user={user} onSuccess={close} />),
             Match.when('profile', () => <UserProfileForm user={user} onSuccess={close} />),
             Match.when('password', () => <UserPasswordForm userId={user.id} onSuccess={close} />),
-            Match.when('ban', () => <BanForm user={user} onSuccess={close} />),
             Match.when(null, () => null),
             Match.exhaustive
           )
@@ -422,69 +349,45 @@ const LoadedUser = ({
   );
 };
 
-const UserContent = ({ userId }: { readonly userId: typeof AuthUser.fields.id.Type }) => {
-  const state = useAtomValue(serverUserAtom(userId));
-  const refresh = useAtomRefresh(serverUserAtom(userId));
-  return AsyncResult.matchWithError(state, {
-    onInitial: () => (
-      <LazyColumn
-        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
-        verticalArrangement={{ spacedBy: Spacing.three }}>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">User</Text>
-          <LoadingIndicator />
-        </Column>
-      </LazyColumn>
-    ),
-    onError: (error) => (
-      <LazyColumn
-        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
-        verticalArrangement={{ spacedBy: Spacing.three }}>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">User</Text>
-          <Text>{authFailureMessage({ error })}</Text>
-          <Button onClick={refresh} enabled={!state.waiting}>
-            <Text>Retry</Text>
-          </Button>
-        </Column>
-      </LazyColumn>
-    ),
-    onDefect: () => (
-      <LazyColumn
-        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
-        verticalArrangement={{ spacedBy: Spacing.three }}>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">User</Text>
-          <Text>Unable to load this user. Try refreshing.</Text>
-          <Button onClick={refresh} enabled={!state.waiting}>
-            <Text>Retry</Text>
-          </Button>
-        </Column>
-      </LazyColumn>
-    ),
-    onSuccess: ({ value, waiting }) => (
-      <LoadedUser user={value} waiting={waiting} refresh={refresh} />
-    ),
-  });
-};
-
 export default function ServerUserScreen() {
-  const { id } = useLocalSearchParams();
-  const userId = Schema.decodeUnknownOption(AuthUser.fields.id.check(Schema.isNonEmpty()))(id);
+  const { id } = useLocalSearchParams<{ id: typeof AuthUser.fields.id.Type }>();
+  const state = useAtomValue(serverUserAtom(id));
+  const refresh = useAtomRefresh(serverUserAtom(id));
+
   return (
     <AndroidAccountsSheet>
-      {Option.match(userId, {
-        onNone: () => (
-          <LazyColumn
-            contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
-            verticalArrangement={{ spacedBy: Spacing.three }}>
+      {AsyncResult.matchWithError(state, {
+        onInitial: () => (
+          <UserList>
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">User</Text>
-              <Text>Invalid user ID.</Text>
+              <Text variant="h4">User Details</Text>
+              <LoadingIndicator modifiers={[fillMaxWidth()]} />
             </Column>
-          </LazyColumn>
+          </UserList>
         ),
-        onSome: (value) => <UserContent key={value} userId={value} />,
+        onError: (error) => (
+          <UserList>
+            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+              <Text variant="h4">User Details</Text>
+              <Text>{authFailureMessage({ error })}</Text>
+              <TextButton onClick={refresh} enabled={!state.waiting}>
+                <Text>Retry</Text>
+              </TextButton>
+            </Column>
+          </UserList>
+        ),
+        onDefect: () => (
+          <UserList>
+            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+              <Text variant="h4">User Details</Text>
+              <Text>Unable to load this user.</Text>
+              <TextButton onClick={refresh} enabled={!state.waiting}>
+                <Text>Retry</Text>
+              </TextButton>
+            </Column>
+          </UserList>
+        ),
+        onSuccess: ({ value }) => <LoadedUser key={value.id} user={value} />,
       })}
     </AndroidAccountsSheet>
   );
