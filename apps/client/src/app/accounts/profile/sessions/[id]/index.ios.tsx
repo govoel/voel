@@ -6,11 +6,12 @@ import {
   frame,
   headerProminence,
 } from '@expo/ui/swift-ui/modifiers';
-import { Option, Schema } from 'effect';
+import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 
-import { AuthDeviceSession, AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
 import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
@@ -87,23 +88,13 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
 };
 
 export default function SessionScreen() {
-  const { id } = useLocalSearchParams();
-  const sessionId = Schema.decodeUnknownOption(
-    AuthDeviceSession.fields.id.check(Schema.isNonEmpty())
-  )(id);
+  const { id } = useLocalSearchParams<{ id: typeof AuthDeviceSession.fields.id.Type }>();
   return (
     <>
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          {Option.match(sessionId, {
-            onNone: () => (
-              <Section>
-                <Text>Invalid session ID.</Text>
-              </Section>
-            ),
-            onSome: (value) => <SessionContent key={value} id={value} />,
-          })}
+          <SessionContent key={id} id={id} />
         </List>
       </Host>
     </>

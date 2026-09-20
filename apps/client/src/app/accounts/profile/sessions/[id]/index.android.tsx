@@ -1,11 +1,12 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Button, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { Option, Schema } from 'effect';
+import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { AuthDeviceSession, AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
 import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
@@ -75,20 +76,14 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
 };
 
 export default function SessionScreen() {
-  const { id } = useLocalSearchParams();
-  const sessionId = Schema.decodeUnknownOption(
-    AuthDeviceSession.fields.id.check(Schema.isNonEmpty())
-  )(id);
+  const { id } = useLocalSearchParams<{ id: typeof AuthDeviceSession.fields.id.Type }>();
   return (
     <AndroidAccountsSheet>
       <LazyColumn
         verticalArrangement={{ spacedBy: Spacing.two }}
         contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
         <Text variant="h4">Session Details</Text>
-        {Option.match(sessionId, {
-          onNone: () => <Text>Invalid session ID.</Text>,
-          onSome: (value) => <SessionContent key={value} id={value} />,
-        })}
+        <SessionContent key={id} id={id} />
       </LazyColumn>
     </AndroidAccountsSheet>
   );

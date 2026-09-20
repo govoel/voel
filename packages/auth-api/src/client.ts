@@ -152,6 +152,7 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           execute: async (command) => coreClient.admin.revokeUserSession(command),
           Result: Schema.Void,
         }),
+
         revokeUserSessions: AuthClientSchema.request({
           Request: AuthUserIdInput,
           execute: async (command) => coreClient.admin.revokeUserSessions(command),
@@ -233,6 +234,7 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
         execute: async (command) => coreClient.revokeSession(command),
         Result: Schema.Void,
       }),
+
       revokeSessions: AuthClientSchema.request({
         Request: Schema.Void,
         execute: async () => coreClient.revokeSessions(),
