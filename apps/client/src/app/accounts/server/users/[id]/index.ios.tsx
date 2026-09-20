@@ -1,6 +1,12 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
-import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
+import {
+  buttonStyle,
+  containerRelativeFrame,
+  disabled,
+  frame,
+  headerProminence,
+} from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -127,7 +133,9 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
       <Section title="Active Sessions">
-        <ProgressView />
+        <ProgressView
+          modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+        />
       </Section>
     ),
     onError: (error) => (
@@ -293,7 +301,9 @@ export default function ServerUserScreen() {
           onInitial: () => (
             <UserList>
               <Section title="User Details">
-                <ProgressView />
+                <ProgressView
+                  modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+                />
               </Section>
             </UserList>
           ),

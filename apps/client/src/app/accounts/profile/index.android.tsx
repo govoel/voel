@@ -271,7 +271,7 @@ const OwnSessions = () => {
     <>
       <Text variant="h4">Active Sessions</Text>
       {AsyncResult.matchWithError(state, {
-        onInitial: () => <LoadingIndicator />,
+        onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
         onError: (error) => (
           <Column>
             <Text>{authFailureMessage({ error })}</Text>

@@ -254,7 +254,11 @@ const OwnSessions = () => {
   return (
     <Section title="Active Sessions">
       {AsyncResult.matchWithError(state, {
-        onInitial: () => <ProgressView />,
+        onInitial: () => (
+          <ProgressView
+            modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+          />
+        ),
         onError: (error) => (
           <>
             <Text>{authFailureMessage({ error })}</Text>
