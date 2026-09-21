@@ -1,12 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Button, Group, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
-import {
-  buttonStyle,
-  containerRelativeFrame,
-  disabled,
-  frame,
-  headerProminence,
-} from '@expo/ui/swift-ui/modifiers';
+import { Button, Group, Host, List, Section } from '@expo/ui/swift-ui';
+import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
@@ -26,6 +20,7 @@ import { SessionList } from '#src/components/account-management/session-list';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
@@ -157,31 +152,31 @@ export default function ProfileScreen() {
             onInitial: () => (
               <ProfileList>
                 <ProfileSection>
-                  <ProgressView
-                    modifiers={[
-                      containerRelativeFrame({ axes: 'horizontal', alignment: 'center' }),
-                    ]}
-                  />
+                  <ListState kind="loading" />
                 </ProfileSection>
               </ProfileList>
             ),
             onError: () => (
               <ProfileList>
                 <ProfileSection>
-                  <Text>Unable to load your profile.</Text>
-                  <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-                    <Text>Retry</Text>
-                  </Button>
+                  <ListState
+                    kind="error"
+                    message="Unable to load your profile."
+                    onRetry={refresh}
+                    retrying={state.waiting}
+                  />
                 </ProfileSection>
               </ProfileList>
             ),
             onDefect: () => (
               <ProfileList>
                 <ProfileSection>
-                  <Text>Unable to load your profile.</Text>
-                  <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-                    <Text>Retry</Text>
-                  </Button>
+                  <ListState
+                    kind="error"
+                    message="Unable to load your profile."
+                    onRetry={refresh}
+                    retrying={state.waiting}
+                  />
                 </ProfileSection>
               </ProfileList>
             ),
@@ -190,7 +185,7 @@ export default function ProfileScreen() {
                 onNone: () => (
                   <ProfileList>
                     <ProfileSection>
-                      <Text>No active user</Text>
+                      <ListState kind="message" message="No active user." />
                     </ProfileSection>
                   </ProfileList>
                 ),
@@ -254,26 +249,22 @@ const OwnSessions = () => {
   return (
     <Section title="Active Sessions">
       {AsyncResult.matchWithError(state, {
-        onInitial: () => (
-          <ProgressView
-            modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+        onInitial: () => <ListState kind="loading" />,
+        onError: (error) => (
+          <ListState
+            kind="error"
+            message={authFailureMessage({ error })}
+            onRetry={refresh}
+            retrying={state.waiting}
           />
         ),
-        onError: (error) => (
-          <>
-            <Text>{authFailureMessage({ error })}</Text>
-            <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-              <Text>Retry</Text>
-            </Button>
-          </>
-        ),
         onDefect: () => (
-          <>
-            <Text>Unable to load sessions.</Text>
-            <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-              <Text>Retry</Text>
-            </Button>
-          </>
+          <ListState
+            kind="error"
+            message="Unable to load sessions."
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
         ),
         onSuccess: ({ value }) => (
           <SessionList

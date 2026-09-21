@@ -1,4 +1,4 @@
-import { useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Host, Icon } from '@expo/ui';
 import {
   Button,
@@ -11,7 +11,6 @@ import {
   VStack,
 } from '@expo/ui/swift-ui';
 import {
-  containerRelativeFrame,
   disabled,
   font,
   foregroundStyle,
@@ -33,6 +32,7 @@ import {
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
 import { ControlledSheet } from '#src/components/controlled-sheet';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { iosTextStyle } from '#src/components/text/index.ios.tsx';
@@ -73,6 +73,7 @@ export default function AccountsScreen() {
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
   const accounts = useAtomValue(accountsWithActiveAccount);
+  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   return (
@@ -84,11 +85,7 @@ export default function AccountsScreen() {
             onInitial: () => (
               <AccountsList>
                 <Section title="Switch Account">
-                  <ProgressView
-                    modifiers={[
-                      containerRelativeFrame({ axes: 'horizontal', alignment: 'center' }),
-                    ]}
-                  />
+                  <ListState kind="loading" />
                 </Section>
               </AccountsList>
             ),
@@ -97,10 +94,7 @@ export default function AccountsScreen() {
                 <AccountsList>
                   <Section title="Switch Account">
                     {accountList.length === 0 ? (
-                      <Text
-                        modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-                        No accounts
-                      </Text>
+                      <ListState kind="message" message="No accounts" />
                     ) : (
                       <Button
                         modifiers={[tint('primary')]}
@@ -284,14 +278,24 @@ export default function AccountsScreen() {
             onError: () => (
               <AccountsList>
                 <Section title="Switch Account">
-                  <Text>Error</Text>
+                  <ListState
+                    kind="error"
+                    message="Unable to load accounts."
+                    onRetry={refreshAccounts}
+                    retrying={accounts.waiting}
+                  />
                 </Section>
               </AccountsList>
             ),
             onDefect: () => (
               <AccountsList>
                 <Section title="Switch Account">
-                  <Text>Defect</Text>
+                  <ListState
+                    kind="error"
+                    message="Unable to load accounts."
+                    onRetry={refreshAccounts}
+                    retrying={accounts.waiting}
+                  />
                 </Section>
               </AccountsList>
             ),

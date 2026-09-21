@@ -1,6 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,6 +12,7 @@ import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { SessionDetails } from '#src/components/account-management/session-details';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -25,26 +25,26 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
   const colors = useMaterialColors();
 
   return AsyncResult.matchWithError(state, {
-    onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
+    onInitial: () => <ListState kind="loading" />,
     onError: (error) => (
-      <>
-        <Text>{authFailureMessage({ error })}</Text>
-        <TextButton onClick={refresh} enabled={!state.waiting}>
-          <Text>Retry</Text>
-        </TextButton>
-      </>
+      <ListState
+        kind="error"
+        message={authFailureMessage({ error })}
+        onRetry={refresh}
+        retrying={state.waiting}
+      />
     ),
     onDefect: () => (
-      <>
-        <Text>Unable to load session.</Text>
-        <TextButton onClick={refresh} enabled={!state.waiting}>
-          <Text>Retry</Text>
-        </TextButton>
-      </>
+      <ListState
+        kind="error"
+        message="Unable to load session."
+        onRetry={refresh}
+        retrying={state.waiting}
+      />
     ),
     onSuccess: ({ value }) =>
       Option.match(value, {
-        onNone: () => <Text>This session is no longer active.</Text>,
+        onNone: () => <ListState kind="message" message="This session is no longer active." />,
         onSome: ({ session, isCurrent }) => (
           <>
             <SessionDetails session={session} isCurrent={isCurrent} />

@@ -1,6 +1,6 @@
 import { useAtom, useAtomRefresh } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import { Button, Column, Icon, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
+import { Button, Column, Icon } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
@@ -13,6 +13,7 @@ import type { AuthUser } from '@repo/auth-api/shared.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
+import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
@@ -50,12 +51,10 @@ export default function ServerUsersScreen() {
           <Text>Create user</Text>
         </Button>
         {AsyncResult.matchWithError(users, {
-          onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
+          onInitial: () => <ListState kind="loading" />,
           onSuccess: ({ value: { items, done }, waiting }) =>
             items.length === 0 ? (
-              <Text color={colors.onSurfaceVariant}>
-                No users yet. Create a user to get started.
-              </Text>
+              <ListState kind="message" message="No users yet. Create a user to get started." />
             ) : (
               <NativeServerUsersList
                 users={items.map(({ id, username }) => ({ id, username }))}
@@ -75,25 +74,23 @@ export default function ServerUsersScreen() {
               </NativeServerUsersList>
             ),
           onError: (error) => (
-            <>
-              <Text>
-                {Match.value(error).pipe(
-                  Match.tag('NoSuchElementError', () => 'Unable to load users.'),
-                  Match.orElse((failure) => authFailureMessage({ error: failure }))
-                )}
-              </Text>
-              <TextButton onClick={refresh} enabled={!users.waiting}>
-                <Text>Retry</Text>
-              </TextButton>
-            </>
+            <ListState
+              kind="error"
+              message={Match.value(error).pipe(
+                Match.tag('NoSuchElementError', () => 'Unable to load users.'),
+                Match.orElse((failure) => authFailureMessage({ error: failure }))
+              )}
+              onRetry={refresh}
+              retrying={users.waiting}
+            />
           ),
           onDefect: () => (
-            <>
-              <Text>Unable to load users.</Text>
-              <TextButton onClick={refresh} enabled={!users.waiting}>
-                <Text>Retry</Text>
-              </TextButton>
-            </>
+            <ListState
+              kind="error"
+              message="Unable to load users."
+              onRetry={refresh}
+              retrying={users.waiting}
+            />
           ),
         })}
       </Column>

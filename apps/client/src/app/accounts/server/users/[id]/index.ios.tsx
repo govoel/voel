@@ -1,12 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Button, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
-import {
-  buttonStyle,
-  containerRelativeFrame,
-  disabled,
-  frame,
-  headerProminence,
-} from '@expo/ui/swift-ui/modifiers';
+import { Button, Host, List, Section } from '@expo/ui/swift-ui';
+import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -32,6 +26,7 @@ import { SessionList } from '#src/components/account-management/session-list';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 
@@ -133,25 +128,27 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
       <Section title="Active Sessions">
-        <ProgressView
-          modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
-        />
+        <ListState kind="loading" />
       </Section>
     ),
     onError: (error) => (
       <Section title="Active Sessions">
-        <Text>{authFailureMessage({ error })}</Text>
-        <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-          <Text>Retry</Text>
-        </Button>
+        <ListState
+          kind="error"
+          message={authFailureMessage({ error })}
+          onRetry={refresh}
+          retrying={state.waiting}
+        />
       </Section>
     ),
     onDefect: () => (
       <Section title="Active Sessions">
-        <Text>Unable to load sessions.</Text>
-        <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-          <Text>Retry</Text>
-        </Button>
+        <ListState
+          kind="error"
+          message="Unable to load sessions."
+          onRetry={refresh}
+          retrying={state.waiting}
+        />
       </Section>
     ),
     onSuccess: ({ value: { sessions } }) => (
@@ -301,29 +298,31 @@ export default function ServerUserScreen() {
           onInitial: () => (
             <UserList>
               <Section title="User Details">
-                <ProgressView
-                  modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
-                />
+                <ListState kind="loading" />
               </Section>
             </UserList>
           ),
           onError: (error) => (
             <UserList>
               <Section title="User Details">
-                <Text>{authFailureMessage({ error })}</Text>
-                <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-                  <Text>Retry</Text>
-                </Button>
+                <ListState
+                  kind="error"
+                  message={authFailureMessage({ error })}
+                  onRetry={refresh}
+                  retrying={state.waiting}
+                />
               </Section>
             </UserList>
           ),
           onDefect: () => (
             <UserList>
               <Section title="User Details">
-                <Text>Unable to load this user.</Text>
-                <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-                  <Text>Retry</Text>
-                </Button>
+                <ListState
+                  kind="error"
+                  message="Unable to load this user."
+                  onRetry={refresh}
+                  retrying={state.waiting}
+                />
               </Section>
             </UserList>
           ),

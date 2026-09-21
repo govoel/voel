@@ -1,11 +1,6 @@
 import { useAtom, useAtomRefresh } from '@effect/atom-react';
-import { Button, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
-import {
-  containerRelativeFrame,
-  disabled,
-  frame,
-  headerProminence,
-} from '@expo/ui/swift-ui/modifiers';
+import { Button, Host, List, Section } from '@expo/ui/swift-ui';
+import { frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
@@ -15,6 +10,7 @@ import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
+import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 
 const NativeServerUsersList = requireNativeView<{
@@ -43,14 +39,10 @@ export default function ServerUsersScreen() {
 
           <Section title="Users">
             {AsyncResult.matchWithError(users, {
-              onInitial: () => (
-                <ProgressView
-                  modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
-                />
-              ),
+              onInitial: () => <ListState kind="loading" />,
               onSuccess: ({ value: { items, done }, waiting }) =>
                 items.length === 0 ? (
-                  <Text>No users yet. Create a user to get started.</Text>
+                  <ListState kind="message" message="No users yet. Create a user to get started." />
                 ) : (
                   <NativeServerUsersList
                     users={items.map(({ id, username }) => ({ id, username }))}
@@ -67,25 +59,23 @@ export default function ServerUsersScreen() {
                   />
                 ),
               onError: (error) => (
-                <>
-                  <Text>
-                    {Match.value(error).pipe(
-                      Match.tag('NoSuchElementError', () => 'Unable to load users.'),
-                      Match.orElse((failure) => authFailureMessage({ error: failure }))
-                    )}
-                  </Text>
-                  <Button onPress={refresh} modifiers={[disabled(users.waiting)]}>
-                    <Text>Retry</Text>
-                  </Button>
-                </>
+                <ListState
+                  kind="error"
+                  message={Match.value(error).pipe(
+                    Match.tag('NoSuchElementError', () => 'Unable to load users.'),
+                    Match.orElse((failure) => authFailureMessage({ error: failure }))
+                  )}
+                  onRetry={refresh}
+                  retrying={users.waiting}
+                />
               ),
               onDefect: () => (
-                <>
-                  <Text>Unable to load users.</Text>
-                  <Button onPress={refresh} modifiers={[disabled(users.waiting)]}>
-                    <Text>Retry</Text>
-                  </Button>
-                </>
+                <ListState
+                  kind="error"
+                  message="Unable to load users."
+                  onRetry={refresh}
+                  retrying={users.waiting}
+                />
               ),
             })}
           </Section>

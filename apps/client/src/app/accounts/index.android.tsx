@@ -1,9 +1,9 @@
-import { useAtomSuspense, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
-import { Column, Icon, LoadingIndicator, Row } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
+import { Column, Icon } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
@@ -19,6 +19,7 @@ import {
 import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -57,6 +58,7 @@ export default function AccountsScreen() {
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
   const accounts = useAtomValue(accountsWithActiveAccount);
+  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   const colors = useMaterialColors();
@@ -77,9 +79,7 @@ export default function AccountsScreen() {
           onInitial: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h3">Switch Account</Text>
-              <Row horizontalAlignment="center">
-                <LoadingIndicator modifiers={[fillMaxWidth()]} />
-              </Row>
+              <ListState kind="loading" />
             </Column>
           ),
           onSuccess: ({ value: { accounts: accountList, activeAccount } }) => (
@@ -87,14 +87,10 @@ export default function AccountsScreen() {
               <Column verticalArrangement={{ spacedBy: Spacing.two }}>
                 <Text variant="h3">Switch Account</Text>
 
-                <SegmentedList>
-                  {accountList.length === 0 ? (
-                    <SegmentedListItem key="empty" index={0} count={1} enabled={false}>
-                      <SegmentedListItem.HeadlineContent>
-                        <Text color={colors.onSurfaceVariant}>No accounts</Text>
-                      </SegmentedListItem.HeadlineContent>
-                    </SegmentedListItem>
-                  ) : (
+                {accountList.length === 0 ? (
+                  <ListState kind="message" message="No accounts" />
+                ) : (
+                  <SegmentedList>
                     <SegmentedListItem
                       // Native slot discovery needs a fresh row when the slot layout changes.
                       key={Option.isSome(activeAccount) ? 'active-account' : 'pick-account'}
@@ -129,8 +125,8 @@ export default function AccountsScreen() {
                         <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
                       </SegmentedListItem.TrailingContent>
                     </SegmentedListItem>
-                  )}
-                </SegmentedList>
+                  </SegmentedList>
+                )}
               </Column>
 
               {Option.match(activeAccount, {
@@ -256,13 +252,23 @@ export default function AccountsScreen() {
           onError: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h3">Switch Account</Text>
-              <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>
+              <ListState
+                kind="error"
+                message="Unable to load accounts."
+                onRetry={refreshAccounts}
+                retrying={accounts.waiting}
+              />
             </Column>
           ),
           onDefect: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h3">Switch Account</Text>
-              <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>
+              <ListState
+                kind="error"
+                message="Unable to load accounts."
+                onRetry={refreshAccounts}
+                retrying={accounts.waiting}
+              />
             </Column>
           ),
         })}

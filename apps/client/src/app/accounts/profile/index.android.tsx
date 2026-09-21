@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import { Column, Icon, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
+import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
@@ -22,6 +22,7 @@ import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -185,30 +186,34 @@ export default function ProfileScreen() {
       {AsyncResult.matchWithError(state, {
         onInitial: () => (
           <ProfileList>
-            <LoadingIndicator modifiers={[fillMaxWidth()]} />
+            <ListState kind="loading" />
           </ProfileList>
         ),
         onError: () => (
           <ProfileList>
-            <Text>Unable to load your profile.</Text>
-            <TextButton onClick={refresh} enabled={!state.waiting}>
-              <Text>Retry</Text>
-            </TextButton>
+            <ListState
+              kind="error"
+              message="Unable to load your profile."
+              onRetry={refresh}
+              retrying={state.waiting}
+            />
           </ProfileList>
         ),
         onDefect: () => (
           <ProfileList>
-            <Text>Unable to load your profile.</Text>
-            <TextButton onClick={refresh} enabled={!state.waiting}>
-              <Text>Retry</Text>
-            </TextButton>
+            <ListState
+              kind="error"
+              message="Unable to load your profile."
+              onRetry={refresh}
+              retrying={state.waiting}
+            />
           </ProfileList>
         ),
         onSuccess: ({ value }) =>
           Option.match(value, {
             onNone: () => (
               <ProfileList>
-                <Text>No active user</Text>
+                <ListState kind="message" message="No active user." />
               </ProfileList>
             ),
             onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
@@ -271,22 +276,22 @@ const OwnSessions = () => {
     <>
       <Text variant="h4">Active Sessions</Text>
       {AsyncResult.matchWithError(state, {
-        onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
+        onInitial: () => <ListState kind="loading" />,
         onError: (error) => (
-          <Column>
-            <Text>{authFailureMessage({ error })}</Text>
-            <TextButton onClick={refresh} enabled={!state.waiting}>
-              <Text>Retry</Text>
-            </TextButton>
-          </Column>
+          <ListState
+            kind="error"
+            message={authFailureMessage({ error })}
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
         ),
         onDefect: () => (
-          <Column>
-            <Text>Unable to load sessions.</Text>
-            <TextButton onClick={refresh} enabled={!state.waiting}>
-              <Text>Retry</Text>
-            </TextButton>
-          </Column>
+          <ListState
+            kind="error"
+            message="Unable to load sessions."
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
         ),
         onSuccess: ({ value }) => (
           <SessionList

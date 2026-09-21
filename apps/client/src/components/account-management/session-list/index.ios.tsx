@@ -4,13 +4,12 @@ import { font, foregroundStyle, tint } from '@expo/ui/swift-ui/modifiers';
 
 import { sessionDeviceName } from '#src/components/account-management/session-details/device-name.ts';
 import type { SessionListComponent } from '#src/components/account-management/session-list';
+import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 
 export const SessionList = (({ sessions, currentId, onSelect }) =>
   sessions.length === 0 ? (
-    <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-      No active sessions.
-    </Text>
+    <ListState kind="message" message="No active sessions." />
   ) : (
     <>
       {sessions.map((session) => (

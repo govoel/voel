@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import { Column, Icon, LazyColumn, LoadingIndicator, TextButton } from '@expo/ui/jetpack-compose';
+import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
@@ -29,6 +29,7 @@ import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
@@ -162,22 +163,22 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
     <Column verticalArrangement={{ spacedBy: Spacing.two }}>
       <Text variant="h4">Active Sessions</Text>
       {AsyncResult.matchWithError(state, {
-        onInitial: () => <LoadingIndicator modifiers={[fillMaxWidth()]} />,
+        onInitial: () => <ListState kind="loading" />,
         onError: (error) => (
-          <>
-            <Text>{authFailureMessage({ error })}</Text>
-            <TextButton onClick={refresh} enabled={!state.waiting}>
-              <Text>Retry</Text>
-            </TextButton>
-          </>
+          <ListState
+            kind="error"
+            message={authFailureMessage({ error })}
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
         ),
         onDefect: () => (
-          <>
-            <Text>Unable to load sessions.</Text>
-            <TextButton onClick={refresh} enabled={!state.waiting}>
-              <Text>Retry</Text>
-            </TextButton>
-          </>
+          <ListState
+            kind="error"
+            message="Unable to load sessions."
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
         ),
         onSuccess: ({ value: { sessions } }) => (
           <>
@@ -351,7 +352,7 @@ export default function ServerUserScreen() {
           <UserList>
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h4">User Details</Text>
-              <LoadingIndicator modifiers={[fillMaxWidth()]} />
+              <ListState kind="loading" />
             </Column>
           </UserList>
         ),
@@ -359,10 +360,12 @@ export default function ServerUserScreen() {
           <UserList>
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h4">User Details</Text>
-              <Text>{authFailureMessage({ error })}</Text>
-              <TextButton onClick={refresh} enabled={!state.waiting}>
-                <Text>Retry</Text>
-              </TextButton>
+              <ListState
+                kind="error"
+                message={authFailureMessage({ error })}
+                onRetry={refresh}
+                retrying={state.waiting}
+              />
             </Column>
           </UserList>
         ),
@@ -370,10 +373,12 @@ export default function ServerUserScreen() {
           <UserList>
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h4">User Details</Text>
-              <Text>Unable to load this user.</Text>
-              <TextButton onClick={refresh} enabled={!state.waiting}>
-                <Text>Retry</Text>
-              </TextButton>
+              <ListState
+                kind="error"
+                message="Unable to load this user."
+                onRetry={refresh}
+                retrying={state.waiting}
+              />
             </Column>
           </UserList>
         ),

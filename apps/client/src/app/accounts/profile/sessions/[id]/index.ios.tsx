@@ -1,11 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Button, Host, List, ProgressView, Section } from '@expo/ui/swift-ui';
-import {
-  containerRelativeFrame,
-  disabled,
-  frame,
-  headerProminence,
-} from '@expo/ui/swift-ui/modifiers';
+import { Button, Host, List, Section } from '@expo/ui/swift-ui';
+import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -17,6 +12,7 @@ import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile
 import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { SessionDetails } from '#src/components/account-management/session-details';
+import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 
@@ -27,32 +23,34 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
       <Section>
-        <ProgressView
-          modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
-        />
+        <ListState kind="loading" />
       </Section>
     ),
     onError: (error) => (
       <Section>
-        <Text>{authFailureMessage({ error })}</Text>
-        <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-          <Text>Retry</Text>
-        </Button>
+        <ListState
+          kind="error"
+          message={authFailureMessage({ error })}
+          onRetry={refresh}
+          retrying={state.waiting}
+        />
       </Section>
     ),
     onDefect: () => (
       <Section>
-        <Text>Unable to load session.</Text>
-        <Button onPress={refresh} modifiers={[disabled(state.waiting)]}>
-          <Text>Retry</Text>
-        </Button>
+        <ListState
+          kind="error"
+          message="Unable to load session."
+          onRetry={refresh}
+          retrying={state.waiting}
+        />
       </Section>
     ),
     onSuccess: ({ value }) =>
       Option.match(value, {
         onNone: () => (
           <Section>
-            <Text>This session is no longer active.</Text>
+            <ListState kind="message" message="This session is no longer active." />
           </Section>
         ),
         onSome: ({ session, isCurrent }) => (
