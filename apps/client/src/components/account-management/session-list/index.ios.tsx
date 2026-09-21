@@ -9,7 +9,7 @@ import { Text } from '#src/components/text';
 
 export const SessionList = (({ sessions, currentId, onSelect }) =>
   sessions.length === 0 ? (
-    <ListState kind="message" message="No active sessions." />
+    <ListState kind="empty" message="No active sessions." />
   ) : (
     <>
       {sessions.map((session) => (

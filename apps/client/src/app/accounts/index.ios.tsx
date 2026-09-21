@@ -94,7 +94,7 @@ export default function AccountsScreen() {
                 <AccountsList>
                   <Section title="Switch Account">
                     {accountList.length === 0 ? (
-                      <ListState kind="message" message="No accounts" />
+                      <ListState kind="empty" message="No accounts" />
                     ) : (
                       <Button
                         modifiers={[tint('primary')]}

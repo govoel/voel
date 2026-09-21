@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 
 export type ListStateComponent = ComponentType<
   | { readonly kind: 'loading' }
+  | { readonly kind: 'empty'; readonly message: string }
   | { readonly kind: 'message'; readonly message: string }
   | {
       readonly kind: 'error';

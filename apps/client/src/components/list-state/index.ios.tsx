@@ -16,7 +16,13 @@ export const ListState = ((props) => {
 
   return (
     <>
-      <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+      <Text
+        modifiers={[
+          foregroundStyle({
+            type: 'hierarchical',
+            style: props.kind === 'empty' ? 'secondary' : 'primary',
+          }),
+        ]}>
         {props.message}
       </Text>
       {props.kind === 'error' ? (

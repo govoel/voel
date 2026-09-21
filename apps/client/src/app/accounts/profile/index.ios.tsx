@@ -185,7 +185,7 @@ export default function ProfileScreen() {
                 onNone: () => (
                   <ProfileList>
                     <ProfileSection>
-                      <ListState kind="message" message="No active user." />
+                      <ListState kind="empty" message="No active user." />
                     </ProfileSection>
                   </ProfileList>
                 ),
