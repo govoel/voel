@@ -49,10 +49,10 @@ export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...pro
             <HStack
               alignment="center"
               spacing={Spacing.one}
-              modifiers={[animation(Animation.default, state.busy)]}>
+              modifiers={[frame({ maxWidth: Infinity }), animation(Animation.default, state.busy)]}>
               {state.busy ? <ProgressView modifiers={[hidden(!state.busy)]} /> : null}
 
-              <Text modifiers={[frame({ maxWidth: Infinity })]}>{confirmLabel}</Text>
+              <Text>{confirmLabel}</Text>
             </HStack>
           </Button>
           <Button
