@@ -171,34 +171,36 @@ export default function AccountsScreen() {
                       </SegmentedList>
                     </Column>
 
-                    <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-                      <Column verticalArrangement={{ spacedBy: 0 }}>
-                        <Text variant="h4">Manage Server</Text>
-                        <Text variant="caption" color={colors.onSurfaceVariant}>
-                          {account.hostname}
-                        </Text>
+                    {account.role === 'admin' ? (
+                      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+                        <Column verticalArrangement={{ spacedBy: 0 }}>
+                          <Text variant="h4">Manage Server</Text>
+                          <Text variant="caption" color={colors.onSurfaceVariant}>
+                            {account.hostname}
+                          </Text>
+                        </Column>
+                        <SegmentedList>
+                          <StackNavigationRow
+                            index={0}
+                            count={3}
+                            title="Settings"
+                            href="/accounts/server/settings"
+                          />
+                          <StackNavigationRow
+                            index={1}
+                            count={3}
+                            title="Libraries"
+                            href="/accounts/server/libraries"
+                          />
+                          <StackNavigationRow
+                            index={2}
+                            count={3}
+                            title="Users"
+                            href="/accounts/server/users"
+                          />
+                        </SegmentedList>
                       </Column>
-                      <SegmentedList>
-                        <StackNavigationRow
-                          index={0}
-                          count={3}
-                          title="Settings"
-                          href="/accounts/server/settings"
-                        />
-                        <StackNavigationRow
-                          index={1}
-                          count={3}
-                          title="Libraries"
-                          href="/accounts/server/libraries"
-                        />
-                        <StackNavigationRow
-                          index={2}
-                          count={3}
-                          title="Users"
-                          href="/accounts/server/users"
-                        />
-                      </SegmentedList>
-                    </Column>
+                    ) : null}
                   </>
                 ),
               })}
