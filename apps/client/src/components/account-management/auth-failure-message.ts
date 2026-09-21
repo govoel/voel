@@ -29,8 +29,7 @@ export const authFailureMessage = ({
             AuthTransportError: () =>
               'Unable to reach the server. Check your connection and try again.',
             InvalidAuthInputError: () => 'Check the details and try again.',
-            InvalidAuthResponseError: () =>
-              'The server returned an invalid response. Refresh before retrying.',
+            InvalidAuthResponseError: () => 'The server returned an invalid response.',
           })
         ),
     })

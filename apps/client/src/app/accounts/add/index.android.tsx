@@ -1,6 +1,6 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useRef } from 'react';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
@@ -10,7 +10,15 @@ import { Text } from '#src/components/text';
 
 export default function AddAccountScreen() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
+  const { serverUrl, username, reauthenticate } = useLocalSearchParams<{
+    serverUrl?: string;
+    username?: string;
+    reauthenticate?: string;
+  }>();
   const form = useAddAccountForm({
+    ...(serverUrl !== void 0 && username !== void 0
+      ? { initialAccount: { serverUrl, username } }
+      : {}),
     onSuccess: async () => {
       await sheetRef.current?.hide();
       router.dismissTo('/accounts');
@@ -21,7 +29,7 @@ export default function AddAccountScreen() {
     <AndroidAccountsSheet ref={sheetRef}>
       <form.AppForm>
         <FormLayout
-          title="Add an account"
+          title={reauthenticate === 'true' ? 'Sign in again' : 'Add an account'}
           footer={
             <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
               <Text>Login</Text>
