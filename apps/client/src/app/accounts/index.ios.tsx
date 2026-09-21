@@ -180,23 +180,28 @@ export default function AccountsScreen() {
                           />
                         </Section>
 
-                        <Section
-                          header={
-                            <VStack alignment="leading">
-                              <Text variant="h4">Manage Server</Text>
-                              <Text
-                                variant="caption"
-                                modifiers={[
-                                  foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                ]}>
-                                {account.hostname}
-                              </Text>
-                            </VStack>
-                          }>
-                          <StackNavigationRow title="Settings" href="/accounts/server/settings" />
-                          <StackNavigationRow title="Libraries" href="/accounts/server/libraries" />
-                          <StackNavigationRow title="Users" href="/accounts/server/users" />
-                        </Section>
+                        {account.role === 'admin' ? (
+                          <Section
+                            header={
+                              <VStack alignment="leading">
+                                <Text variant="h4">Manage Server</Text>
+                                <Text
+                                  variant="caption"
+                                  modifiers={[
+                                    foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                                  ]}>
+                                  {account.hostname}
+                                </Text>
+                              </VStack>
+                            }>
+                            <StackNavigationRow title="Settings" href="/accounts/server/settings" />
+                            <StackNavigationRow
+                              title="Libraries"
+                              href="/accounts/server/libraries"
+                            />
+                            <StackNavigationRow title="Users" href="/accounts/server/users" />
+                          </Section>
+                        ) : null}
                       </>
                     ),
                   })}
