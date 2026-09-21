@@ -13,3 +13,5 @@ vi.mock('expo-linking', () => ({
 vi.mock('expo-network', () => ({
   addNetworkStateListener: () => ({ remove: () => void 0 }),
 }));
+
+vi.mock('expo-device', () => ({ deviceName: 'Test iPhone', modelName: 'iPhone 17 Pro' }));

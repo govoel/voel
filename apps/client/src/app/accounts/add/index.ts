@@ -25,8 +25,8 @@ const signInAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.signInAccount(input)))
 ).pipe(Atom.withLabel('signInAccountAtom'));
 
-export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
-  const form = useAppForm({
+export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) =>
+  useAppForm({
     schema: AddAccountInput,
     mutation: signInAccountAtom,
     defaultValues: { serverUrl: '', username: '', password: '' },
@@ -38,8 +38,8 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
           AccountSignInError: (signInError) =>
             Match.value(signInError.reason).pipe(
               Match.tagsExhaustive({
-                BetterAuthApiError: (authReason) =>
-                  authReason.message || 'Failed to sign in. Check your credentials and try again.',
+                BetterAuthApiError: ({ message }) =>
+                  message || 'Failed to sign in. Check your credentials and try again.',
                 AuthTransportError: () =>
                   'Unable to reach the server. Check your connection and try again.',
                 InvalidAuthInputError: () => 'Check the account details and try again.',
@@ -55,6 +55,3 @@ export const useAddAccountForm = ({ onSuccess }: { readonly onSuccess: () => Pro
       await onSuccess();
     },
   });
-
-  return form;
-};

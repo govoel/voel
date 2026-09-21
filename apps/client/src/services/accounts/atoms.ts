@@ -3,9 +3,10 @@ import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
+import { acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -115,4 +116,14 @@ export const activeAccountKeyAtom = AppRuntime.atom(
         )
     ),
   Atom.withLabel('activeAccountKeyAtom')
+);
+
+export const activeAccountAuthClientAtom = AppRuntime.atom(
+  Effect.fnUntraced(function* (get) {
+    const key = yield* get.result(activeAccountKeyAtom);
+    if (Option.isNone(key)) {
+      return yield* NoActiveAccountError.make();
+    }
+    return yield* acquireAuthClient(key.value);
+  })
 );

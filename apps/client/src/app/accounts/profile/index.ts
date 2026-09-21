@@ -1,17 +1,22 @@
-import { Effect, Match, Option } from 'effect';
+import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
+import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.ts';
+import type { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
+import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { useAppForm } from '#src/components/form';
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import {
+  activeAccountAtom,
+  activeAccountAuthClientAtom,
+  activeAccountKeyAtom,
+} from '#src/services/accounts/atoms.ts';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { acquireAuthClient } from '#src/services/auth-client/index.ts';
-import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
+import { swr } from '#src/services/swr.ts';
 
 class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username }) => ({
   name,
@@ -62,17 +67,12 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
   Atom.withLabel('activeUserProfileAtom')
 );
 
-const updateCurrentUserAtom = AppRuntime.fn<Parameters<AuthClient['Service']['updateUser']>[0]>()(
-  Effect.fnUntraced(function* (input) {
-    const activeAccountKey = yield* AccountManager.use((manager) => manager.state);
-
-    if (Option.isNone(activeAccountKey)) {
-      return yield* NoActiveAccountError.make();
-    }
-
-    const authClient = yield* acquireAuthClient(activeAccountKey.value);
-    return yield* authClient.updateUser(input);
-  })
+const updateCurrentUserAtom = AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const client = yield* get.result(activeAccountAuthClientAtom);
+    return yield* client.updateUser(input);
+  }),
+  { reactivityKeys: ['auth.users'] }
 ).pipe(Atom.withLabel('updateCurrentUserAtom'));
 
 export const useUserProfileForm = ({
@@ -81,8 +81,8 @@ export const useUserProfileForm = ({
 }: {
   onSuccess: () => Promise<void>;
   profile: typeof UserProfileUpdateInput.Encoded;
-}) => {
-  const form = useAppForm({
+}) =>
+  useAppForm({
     schema: UserProfileUpdateInput,
     mutation: updateCurrentUserAtom,
     defaultValues: profile,
@@ -96,8 +96,8 @@ export const useUserProfileForm = ({
           AuthError: (authError) =>
             Match.value(authError.reason).pipe(
               Match.tagsExhaustive({
-                BetterAuthApiError: (authReason) =>
-                  authReason.message || 'Unable to update the profile. Try again.',
+                BetterAuthApiError: ({ message }) =>
+                  message || 'Unable to update the profile. Try again.',
                 AuthTransportError: () =>
                   'Unable to reach the server. Check your connection and try again.',
                 InvalidAuthInputError: () => 'Check the profile details and try again.',
@@ -112,5 +112,68 @@ export const useUserProfileForm = ({
     },
   });
 
-  return form;
-};
+const changePasswordAtom = AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const client = yield* get.result(activeAccountAuthClientAtom);
+    yield* client.changePassword({
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword,
+    });
+  }),
+  { reactivityKeys: ['auth.sessions'] }
+);
+
+export const ownSessionsAtom = AppRuntime.atom(
+  Effect.fnUntraced(function* (get) {
+    const client = yield* get.result(activeAccountAuthClientAtom);
+    const current = yield* client.readSession;
+    const sessions = yield* client.listSessions;
+    return { sessions, currentId: current.session.id };
+  })
+).pipe(
+  Atom.withReactivity(['auth.sessions']),
+  swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+);
+
+export const revokeOwnSessionAtom = AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
+  Effect.fnUntraced(function* (input, get) {
+    const client = yield* get.result(activeAccountAuthClientAtom);
+    yield* client.revokeSession(input);
+  }),
+  { reactivityKeys: ['auth.sessions'] }
+);
+
+export const signOutEverywhereAtom = AppRuntime.fn<Schema.Void['Type']>()(
+  Effect.fnUntraced(function* (_, get) {
+    const key = yield* get.result(activeAccountKeyAtom);
+    if (Option.isNone(key)) {
+      return yield* NoActiveAccountError.make();
+    }
+    const manager = yield* AccountManager;
+    return yield* manager.signOutEverywhere(key.value);
+  }),
+  { reactivityKeys: ['auth.sessions'] }
+);
+
+class PasswordFormInput extends AuthChangePasswordInput.pipe(
+  Schema.fieldsAssign({
+    confirmPassword: Schema.String,
+  })
+).check(
+  Schema.makeFilter(
+    ({ newPassword, confirmPassword }) =>
+      newPassword === confirmPassword || {
+        path: ['confirmPassword'],
+        issue: 'Passwords must match',
+      }
+  )
+) {}
+
+export const useChangePasswordForm = ({ onSuccess }: { onSuccess: () => void | Promise<void> }) =>
+  useAppForm({
+    schema: PasswordFormInput,
+    defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
+    mutation: changePasswordAtom,
+    onFailure: authFailureMessage,
+    onSuccess,
+  });

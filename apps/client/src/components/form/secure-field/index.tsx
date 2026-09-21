@@ -2,11 +2,14 @@ import type { TextFieldProps as ComposeTextFieldProps } from '@expo/ui/jetpack-c
 import type { SecureFieldProps as SwiftSecureFieldProps } from '@expo/ui/swift-ui';
 import type { ComponentType } from 'react';
 
+import type { PasswordInputPurpose } from '#src/components/form/input-presets/index.ts';
+
 export type SecureFieldComponent = ComponentType<{
   label: string;
-  placeholder?: string;
+  purpose?: PasswordInputPurpose;
+  placeholder: string;
   platformProps?:
-    | { ios: SwiftSecureFieldProps }
+    | { ios: Omit<SwiftSecureFieldProps, 'placeholder'> }
     | { android: Omit<ComposeTextFieldProps, 'visualTransformation'> };
 }>;
 

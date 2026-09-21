@@ -14,6 +14,12 @@ import {
 import { AsyncResult, Atom, AtomRegistry } from 'effect/unstable/reactivity';
 import { vi } from 'vitest';
 
+import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
+import {
+  deleteServerUserAtom,
+  serverUserAtom,
+  serverUserSessionsAtom,
+} from '#src/app/accounts/server/users/[id]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
@@ -31,6 +37,9 @@ import {
   setupTestServerWithUsers,
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
+
+// The atoms share modules with form hooks; native form widgets are not used here.
+vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
 
 class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
   'voel/services/accounts/atoms.test/AtomTaskScheduler',
@@ -86,17 +95,23 @@ class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
   public static readonly layer = Layer.effect(this, this.make);
 }
 
-const TestAccountsAtomsLayer = Layer.unwrap(
+const TestAccountsAtomsLayer = Layer.fromBuild((memoMap, scope) =>
   Effect.gen(function* () {
     const services =
       yield* Effect.context<Layer.Success<ReturnType<typeof makeClientTestLayers>>>();
     const atomTaskScheduler = yield* AtomTaskScheduler;
     const registryLayer = AtomRegistry.layerOptions({
-      initialValues: [Atom.initialValue(AppRuntime.layer, Layer.succeedContext(services))],
+      initialValues: [
+        Atom.initialValue(AppRuntime.layer, Layer.succeedContext(services)),
+        Atom.initialValue(Atom.runtime.memoMap, memoMap),
+      ],
       scheduleTask: atomTaskScheduler.scheduleTask,
     });
 
-    return Layer.effectDiscard(Atom.mount(AppRuntime)).pipe(Layer.provideMerge(registryLayer));
+    return yield* Layer.effectDiscard(Atom.mount(AppRuntime)).pipe(
+      Layer.provideMerge(registryLayer),
+      (layer) => Layer.buildWithMemoMap(layer, memoMap, scope)
+    );
   })
 ).pipe(Layer.provideMerge(AtomTaskScheduler.layer));
 
@@ -544,6 +559,24 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
             suspendOnWaiting: true,
           })
         ).toMatchObject({ done: true, items: allUsers.items });
+
+        // Invalidation must restart pagination, not append
+        // refreshed rows to the already accumulated pages.
+        const target = allUsers.items.find((user) => user.username !== testServer.adminUsername);
+        expect(target).toBeDefined();
+        if (!target) {
+          return;
+        }
+        yield* Atom.set(deleteServerUserAtom, { userId: target.id });
+        yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
+        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        yield* drainAtomTasks;
+        const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        expect(refreshed.items).toHaveLength(10);
+        expect(refreshed.items.some((user) => user.id === target.id)).toBe(false);
+        yield* Atom.set(listUsersAtom, void 0);
+        const remaining = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        expect(remaining.items).toHaveLength(11);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -554,14 +587,14 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
-        // yield* Atom.mount(listUsersAtom); -- TODO: comment back in
         const firstServer = yield* setupTestServerWithUsers({ userCount: 3 });
         yield* manager.signInAccount({
           serverUrl: firstServer.serverUrl,
           username: firstServer.adminUsername,
           password: firstServer.password,
         });
-        const firstResult = yield* Atom.getResult(listUsersAtom);
+        yield* Atom.mount(listUsersAtom);
+        const firstResult = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         const firstUsernames = firstResult.items.map((user) => user.username);
         expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           firstServer.usernames.sort((first, second) => first.localeCompare(second))
@@ -573,11 +606,104 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           username: secondServer.adminUsername,
           password: secondServer.password,
         });
-        const secondResult = yield* Atom.getResult(listUsersAtom);
+        yield* Effect.yieldNow;
+        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        yield* drainAtomTasks;
+        const secondResult = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         const secondUsernames = secondResult.items.map((user) => user.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
         );
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+});
+
+it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
+  iit.effect(
+    'refreshes user queries after successful mutations, but not failed mutations',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+        yield* manager.signInAccount({
+          serverUrl: testServer.serverUrl,
+          username: testServer.adminUsername,
+          password: testServer.password,
+        });
+        const client = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
+        const users = yield* client.admin.listUsers({ limit: 10, offset: 0 });
+        const target = Option.getOrThrow(
+          Option.fromNullishOr(
+            users.users.find((user) => user.username !== testServer.adminUsername)
+          )
+        );
+        const currentUser = (yield* client.readSession).user;
+        const detail = serverUserAtom(currentUser.id);
+        yield* Atom.mount(detail);
+        yield* Atom.mount(listUsersAtom);
+        yield* Atom.getResult(detail, { suspendOnWaiting: true });
+        yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        const read = vi.spyOn(client.admin, 'getUser');
+        const list = vi.spyOn(client.admin, 'listUsers');
+        const { drainAtomTasks } = yield* AtomTaskScheduler;
+
+        yield* Atom.set(deleteServerUserAtom, { userId: target.id });
+        yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
+        yield* drainAtomTasks;
+        expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({
+          id: currentUser.id,
+        });
+        const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        expect(refreshed.items.some((user) => user.id === target.id)).toBe(false);
+        expect(read).toHaveBeenCalled();
+        expect(list).toHaveBeenCalled();
+        read.mockClear();
+        list.mockClear();
+
+        yield* Atom.set(deleteServerUserAtom, {
+          userId: Account.fields.userId.make('missing-user'),
+        });
+        yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true }).pipe(Effect.flip);
+        yield* drainAtomTasks;
+        expect(read).not.toHaveBeenCalled();
+        expect(list).not.toHaveBeenCalled();
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'revoking a device session refreshes both own and admin session queries',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, testServer);
+        const client = yield* acquireAuthClient(account);
+        const session = yield* client.readSession;
+        const adminSessions = serverUserSessionsAtom(account.userId);
+        yield* Atom.mount(ownSessionsAtom);
+        yield* Atom.mount(adminSessions);
+        expect(
+          (yield* Atom.getResult(ownSessionsAtom, { suspendOnWaiting: true })).sessions.length
+        ).toBeGreaterThan(1);
+        yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
+        const other = (yield* client.listSessions).find((item) => item.id !== session.session.id);
+        expect(other).toBeDefined();
+        if (!other) {
+          return;
+        }
+
+        yield* Atom.set(revokeOwnSessionAtom, { token: other.token });
+        yield* Atom.getResult(revokeOwnSessionAtom, { suspendOnWaiting: true });
+        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        yield* drainAtomTasks;
+        const own = yield* Atom.getResult(ownSessionsAtom, { suspendOnWaiting: true });
+        const admin = yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
+        expect(own.sessions.some((item) => item.id === other.id)).toBe(false);
+        expect(admin.sessions.some((item) => item.id === other.id)).toBe(false);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )

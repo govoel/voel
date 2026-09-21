@@ -1,48 +1,64 @@
-import { useAtomValue } from '@effect/atom-react';
-import {
-  Button,
-  Column,
-  LazyColumn,
-  LoadingIndicator,
-  ModalBottomSheet,
-} from '@expo/ui/jetpack-compose';
-import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Option } from 'effect';
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { useRef, useState } from 'react';
+import { router } from 'expo-router';
+import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import {
+  activeUserProfileAtom,
+  ownSessionsAtom,
+  signOutEverywhereAtom,
+  useChangePasswordForm,
+  useUserProfileForm,
+} from '#src/app/accounts/profile/index.ts';
+import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
+import { SessionList } from '#src/components/account-management/session-list';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
+import { ControlledSheet } from '#src/components/controlled-sheet';
+import { DetailRows } from '#src/components/detail-rows';
+import { FormLayout } from '#src/components/form/layout';
+import { ListState } from '#src/components/list-state';
+import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
     verticalArrangement={{ spacedBy: Spacing.two }}
     contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+    <Text variant="h4">Your Profile</Text>
     {children}
   </LazyColumn>
 );
 
-const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProfileForm>[0]) => {
-  const form = useUserProfileForm({ onSuccess, profile });
-
+const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
+  const form = useUserProfileForm(props);
   return (
     <form.AppForm>
-      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-        <Text variant="h3">Edit Profile</Text>
+      <FormLayout
+        title="Edit Profile"
+        footer={
+          <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+            <Text>Save changes</Text>
+          </form.SubmitButton>
+        }>
         <form.AppField name="name">
           {(field) => (
             <field.TextField
+              purpose="name"
               label="Name"
+              placeholder="Still You"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
-                  keyboardOptions: { capitalization: 'words' },
                 },
               }}
             />
@@ -51,24 +67,18 @@ const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProf
         <form.AppField name="username">
           {(field) => (
             <field.TextField
+              purpose="username"
               label="Username"
+              placeholder="stillYou"
               platformProps={{
                 android: {
                   modifiers: [fillMaxWidth()],
-                  keyboardOptions: {
-                    keyboardType: 'ascii',
-                    capitalization: 'none',
-                    autoCorrectEnabled: false,
-                  },
                 },
               }}
             />
           )}
         </form.AppField>
-        <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-          <Text>Save Changes</Text>
-        </form.SubmitButton>
-      </Column>
+      </FormLayout>
     </form.AppForm>
   );
 };
@@ -81,105 +91,129 @@ const LoadedProfile = ({
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const editProfileSheetRef = useRef<ModalBottomSheetRef>(null);
+  const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
+  const colors = useMaterialColors();
 
   return (
     <>
       <ProfileList>
-        <Text variant="h4">Your Profile</Text>
+        <DetailRows
+          details={[
+            { label: 'Name', value: name },
+            { label: 'Username', value: `@${username}` },
+            { label: 'Email', value: email },
+            { label: 'Role', value: role },
+          ]}
+        />
         <SegmentedList>
-          <SegmentedListItem index={0} count={4}>
+          <SegmentedListItem
+            index={0}
+            count={2}
+            onClick={() => {
+              setEditor('profile');
+            }}>
             <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Name</Text>
+              <Text>Edit profile</Text>
             </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>{name}</Text>
-            </SegmentedListItem.SupportingContent>
+            <SegmentedListItem.TrailingContent>
+              <Icon source={ChevronRight} size={24} />
+            </SegmentedListItem.TrailingContent>
           </SegmentedListItem>
-          <SegmentedListItem index={1} count={4}>
+          <SegmentedListItem
+            index={1}
+            count={2}
+            onClick={() => {
+              setEditor('password');
+            }}>
             <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Username</Text>
+              <Text>Change password</Text>
             </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>@{username}</Text>
-            </SegmentedListItem.SupportingContent>
-          </SegmentedListItem>
-          <SegmentedListItem index={2} count={4}>
-            <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Email</Text>
-            </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>{email}</Text>
-            </SegmentedListItem.SupportingContent>
-          </SegmentedListItem>
-          <SegmentedListItem index={3} count={4}>
-            <SegmentedListItem.HeadlineContent>
-              <Text variant="caption">Role</Text>
-            </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text>{role}</Text>
-            </SegmentedListItem.SupportingContent>
+            <SegmentedListItem.TrailingContent>
+              <Icon source={ChevronRight} size={24} />
+            </SegmentedListItem.TrailingContent>
           </SegmentedListItem>
         </SegmentedList>
-        <Button
-          modifiers={[fillMaxWidth()]}
-          onClick={() => {
-            setIsEditingProfile(true);
-          }}>
-          <Text>Edit Profile</Text>
-        </Button>
+
+        <OwnSessions />
+
+        <SegmentedList>
+          <MutationConfirmation
+            onFailure={authFailureMessage}
+            trigger={({ open, busy }) => (
+              <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text color={colors.error}>Sign out everywhere</Text>
+                </SegmentedListItem.HeadlineContent>
+              </SegmentedListItem>
+            )}
+            mutation={signOutEverywhereAtom}
+            title="Sign out everywhere"
+            confirmLabel="Sign out"
+            message="Sign out all devices for this account on this server, including this device?"
+            onSuccess={() => {
+              router.dismissTo('/accounts');
+            }}
+          />
+        </SegmentedList>
       </ProfileList>
 
-      {isEditingProfile ? (
-        <ModalBottomSheet
-          ref={editProfileSheetRef}
-          skipPartiallyExpanded
-          onDismissRequest={() => {
-            setIsEditingProfile(false);
-          }}>
-          <Column
-            modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
-            verticalArrangement={{ spacedBy: Spacing.two }}>
-            <UserProfileEditor
-              profile={{ name, username }}
-              onSuccess={async () => {
-                await editProfileSheetRef.current?.hide();
-              }}
-            />
-          </Column>
-        </ModalBottomSheet>
-      ) : null}
+      <ControlledSheet
+        presented={editor !== null}
+        onDismiss={() => {
+          setEditor(null);
+        }}>
+        {({ close }) =>
+          Match.value(editor).pipe(
+            Match.when('profile', () => (
+              <UserProfileEditor profile={{ name, username }} onSuccess={close} />
+            )),
+            Match.when('password', () => <PasswordForm onSuccess={close} />),
+            Match.when(null, () => null),
+            Match.exhaustive
+          )
+        }
+      </ControlledSheet>
     </>
   );
 };
 
 export default function ProfileScreen() {
   const state = useAtomValue(activeUserProfileAtom);
+  const refresh = useAtomRefresh(activeAccountAtom);
 
   return (
     <AndroidAccountsSheet>
       {AsyncResult.matchWithError(state, {
         onInitial: () => (
           <ProfileList>
-            <LoadingIndicator modifiers={[fillMaxWidth()]} />
+            <ListState kind="loading" />
           </ProfileList>
         ),
         onError: () => (
           <ProfileList>
-            <Text>Unable to load the user profile</Text>
+            <ListState
+              kind="error"
+              message="Unable to load your profile."
+              onRetry={refresh}
+              retrying={state.waiting}
+            />
           </ProfileList>
         ),
         onDefect: () => (
           <ProfileList>
-            <Text>Unable to load the user profile</Text>
+            <ListState
+              kind="error"
+              message="Unable to load your profile."
+              onRetry={refresh}
+              retrying={state.waiting}
+            />
           </ProfileList>
         ),
         onSuccess: ({ value }) =>
           Option.match(value, {
             onNone: () => (
               <ProfileList>
-                <Text>No active user</Text>
+                <ListState kind="message" message="No active user." />
               </ProfileList>
             ),
             onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
@@ -188,3 +222,90 @@ export default function ProfileScreen() {
     </AndroidAccountsSheet>
   );
 }
+
+const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
+  const form = useChangePasswordForm(props);
+  return (
+    <form.AppForm>
+      <FormLayout
+        title="Change password"
+        footer={
+          <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+            <Text>Save password</Text>
+          </form.SubmitButton>
+        }>
+        <form.AppField name="currentPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="currentPassword"
+              label="Current password"
+              placeholder="ha!NiceTry"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="newPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="New password"
+              placeholder="notThisTime!"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="confirmPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="Confirm new password"
+              placeholder="notThisTime!"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+      </FormLayout>
+    </form.AppForm>
+  );
+};
+
+const OwnSessions = () => {
+  const state = useAtomValue(ownSessionsAtom);
+  const refresh = useAtomRefresh(ownSessionsAtom);
+  return (
+    <>
+      <Text variant="h4">Active Sessions</Text>
+      {AsyncResult.matchWithError(state, {
+        onInitial: () => <ListState kind="loading" />,
+        onError: (error) => (
+          <ListState
+            kind="error"
+            message={authFailureMessage({ error })}
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
+        ),
+        onDefect: () => (
+          <ListState
+            kind="error"
+            message="Unable to load sessions."
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
+        ),
+        onSuccess: ({ value }) => (
+          <SessionList
+            sessions={value.sessions}
+            currentId={value.currentId}
+            onSelect={(session) => {
+              router.push({
+                pathname: '/accounts/profile/sessions/[id]',
+                params: { id: session.id },
+              });
+            }}
+          />
+        ),
+      })}
+    </>
+  );
+};

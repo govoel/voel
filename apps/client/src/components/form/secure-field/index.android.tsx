@@ -1,63 +1,36 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
-import { useSelector } from '@tanstack/react-form';
-import { Array, Option } from 'effect';
-import { useRef } from 'react';
-import type { ComponentProps } from 'react';
+import { Option } from 'effect';
 
-import {
-  getFormFieldErrorMessage,
-  useFieldContext,
-  useFormContext,
-} from '#src/components/form/hooks.tsx';
-import type { SecureFieldComponent } from '#src/components/form/secure-field/index.ts';
+import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
+import { passwordInputPresets } from '#src/components/form/input-presets/index.android.ts';
+import type { SecureFieldComponent } from '#src/components/form/secure-field/index.tsx';
 import { Text } from '#src/components/text';
+import { materialInputTextStyle } from '#src/constants/material.ts';
 
-const defaultTextStyle = {
-  fontFamily: 'Google Sans',
-  fontSize: 16,
-  lineHeight: 24,
-  letterSpacing: 0.5,
-} as const satisfies NonNullable<ComponentProps<typeof ComposeTextField>['textStyle']>;
-
-export const SecureField = (({ label, placeholder, platformProps = {} }) => {
-  const field = useFieldContext<string>();
-  const form = useFormContext();
-  const errorMessage = field.state.meta.isTouched
-    ? Array.head(field.state.meta.errors)
-    : Option.none();
-  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+export const SecureField = (({
+  label,
+  placeholder,
+  purpose = 'currentPassword',
+  platformProps = {},
+}) => {
+  const { field, isSubmitting, errorMessage, onFocusChange } = useTextFieldState();
   const value = useNativeState(field.state.value);
-  const hasFocusedRef = useRef(false);
 
   return (
     <ComposeTextField
       {...('android' in platformProps ? platformProps.android : {})}
       textStyle={{
-        ...defaultTextStyle,
+        ...materialInputTextStyle,
         ...('android' in platformProps ? platformProps.android.textStyle : {}),
       }}
       visualTransformation="password"
       keyboardOptions={{
-        keyboardType: 'password',
+        ...passwordInputPresets[purpose],
         ...('android' in platformProps ? platformProps.android.keyboardOptions : {}),
       }}
       value={value}
       onValueChange={field.handleChange}
-      onFocusChanged={(focused) => {
-        // Android Compose emits an initial unfocused event as the field mounts. Treating that
-        // as a blur marks every field as touched, so whole-form onChange validation becomes
-        // visible before the user has interacted with those fields.
-        if (focused) {
-          hasFocusedRef.current = true;
-          return;
-        }
-
-        if (!hasFocusedRef.current) {
-          return;
-        }
-
-        field.handleBlur();
-      }}
+      onFocusChanged={onFocusChange}
       enabled={
         !isSubmitting &&
         ('android' in platformProps ? (platformProps.android.enabled ?? true) : true)
@@ -68,11 +41,9 @@ export const SecureField = (({ label, placeholder, platformProps = {} }) => {
         <Text>{label}</Text>
       </ComposeTextField.Label>
 
-      {typeof placeholder === 'string' && placeholder.length > 0 ? (
-        <ComposeTextField.Placeholder>
-          <Text>{placeholder}</Text>
-        </ComposeTextField.Placeholder>
-      ) : null}
+      <ComposeTextField.Placeholder>
+        <Text>{placeholder}</Text>
+      </ComposeTextField.Placeholder>
 
       {Option.match(errorMessage, {
         onNone: () => null,

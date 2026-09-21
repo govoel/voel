@@ -1,24 +1,33 @@
 import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
-import { Context, Effect, Option, Queue, Schema, Stream, SubscriptionRef } from 'effect';
+import { Context, Effect, Option, Predicate, Queue, Schema, Stream, SubscriptionRef } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 
 import * as AuthClientSchema from '#src/auth-client-schema.ts';
 import { authRoles } from '#src/roles.ts';
 import type { BetterAuthInstance } from '#src/server.ts';
 import {
+  AuthAdminRevokeSessionInput,
+  AuthAdminUpdateUserInput,
+  AuthAdminUserDetails,
   AuthAdminUserResponse,
+  AuthChangePasswordInput,
   AuthCreateUserInput,
+  AuthDeviceSession,
   AuthError,
   AuthListUsersInput,
+  AuthRevokeSessionInput,
   AuthSession,
   AuthSetRoleInput,
+  AuthSetUserPasswordInput,
   AuthSignInInput,
   AuthSignUpInput,
   AuthTransportError,
   AuthUpdateUserInput,
+  AuthUserIdInput,
   AuthUserResponse,
+  AuthUserSessions,
   AuthUsersPage,
   BetterAuthApiError,
   InvalidAuthResponseError,
@@ -26,14 +35,16 @@ import {
 
 const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>({
   baseURL,
+  fetchOptions,
   plugins,
   sessionOptions,
-}: Pick<BetterAuthClientOptions, 'baseURL' | 'sessionOptions'> & {
+}: Pick<BetterAuthClientOptions, 'baseURL' | 'fetchOptions' | 'sessionOptions'> & {
   readonly plugins: Plugins;
 }) =>
   createBetterAuthClient({
     baseURL,
     basePath: '/api/auth',
+    fetchOptions,
     sessionOptions,
     plugins: [
       ...plugins,
@@ -43,7 +54,7 @@ const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPl
     ] as const,
   });
 
-class BetterAuthClientInitializationError extends Schema.TaggedError<
+export class BetterAuthClientInitializationError extends Schema.TaggedError<
   BetterAuthClientInitializationError,
   { readonly brand: unique symbol }
 >('@repo/auth-api/client/BetterAuthClientInitializationError')(
@@ -136,6 +147,65 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       sessionChanges: SubscriptionRef.changes(sessionState),
 
       admin: {
+        revokeUserSession: AuthClientSchema.request({
+          Request: AuthAdminRevokeSessionInput,
+          execute: async (command) => coreClient.admin.revokeUserSession(command),
+          Result: Schema.Void,
+        }),
+
+        revokeUserSessions: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async (command) => coreClient.admin.revokeUserSessions(command),
+          Result: Schema.Void,
+        }),
+
+        listUserSessions: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async (command) => coreClient.admin.listUserSessions(command),
+          Result: AuthUserSessions,
+        }),
+
+        removeUser: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async (command) => coreClient.admin.removeUser(command),
+          Result: Schema.Void,
+        }),
+
+        setUserPassword: AuthClientSchema.request({
+          Request: AuthSetUserPasswordInput,
+          execute: async (command) => coreClient.admin.setUserPassword(command),
+          Result: Schema.Void,
+        }),
+
+        updateUser: AuthClientSchema.request({
+          Request: AuthAdminUpdateUserInput,
+          execute: async ({ userId, username, ...data }) => {
+            const current = await coreClient.admin.getUser({ query: { id: userId } });
+            if (current.error) {
+              return current;
+            }
+            // Better Auth's username hook checks the acting admin rather than the target.
+            // Only send a username when it changes, including on retries of the same update.
+            return coreClient.admin.updateUser({
+              userId,
+              data: {
+                ...data,
+                ...(Predicate.hasProperty(current.data, 'username') &&
+                current.data.username === username.toLowerCase()
+                  ? {}
+                  : { username }),
+              },
+            });
+          },
+          Result: AuthAdminUserDetails,
+        }),
+
+        getUser: AuthClientSchema.request({
+          Request: AuthUserIdInput,
+          execute: async ({ userId }) => coreClient.admin.getUser({ query: { id: userId } }),
+          Result: AuthAdminUserDetails,
+        }),
+
         createUser: AuthClientSchema.request({
           Request: AuthCreateUserInput,
           execute: async ({ username, ...user }) =>
@@ -158,6 +228,30 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           Result: AuthAdminUserResponse,
         }),
       },
+
+      revokeSession: AuthClientSchema.request({
+        Request: AuthRevokeSessionInput,
+        execute: async (command) => coreClient.revokeSession(command),
+        Result: Schema.Void,
+      }),
+
+      revokeSessions: AuthClientSchema.request({
+        Request: Schema.Void,
+        execute: async () => coreClient.revokeSessions(),
+        Result: Schema.Void,
+      })(),
+
+      listSessions: AuthClientSchema.request({
+        Request: Schema.Void,
+        execute: async () => coreClient.listSessions(),
+        Result: Schema.Array(AuthDeviceSession),
+      })(),
+
+      readSession: AuthClientSchema.request({
+        Request: Schema.Void,
+        execute: async () => coreClient.getSession({ query: { disableCookieCache: true } }),
+        Result: AuthSession,
+      })(),
 
       getSession: SubscriptionRef.get(sessionState),
 
@@ -190,6 +284,12 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           Result: AuthUserResponse,
         }),
       },
+
+      changePassword: AuthClientSchema.request({
+        Request: AuthChangePasswordInput,
+        execute: async (command) => coreClient.changePassword(command),
+        Result: Schema.Void,
+      }),
 
       updateUser: AuthClientSchema.request({
         Request: AuthUpdateUserInput,

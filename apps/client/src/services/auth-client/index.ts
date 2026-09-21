@@ -6,12 +6,15 @@ import {
   Effect,
   Layer,
   LayerMap,
+  Match,
   Option,
   Schema,
   Stream,
   String,
 } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
 
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
 
@@ -32,6 +35,19 @@ class AuthClientGetCookieError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('voel/services/auth-client/AuthClientGetCookieError')('AuthClientGetCookieError', {}) {}
 
+// better-auth uses this as the session name
+const userAgent =
+  Device.deviceName ??
+  Device.modelName ??
+  Match.value(Platform.OS).pipe(
+    Match.when('android', () => 'Android'),
+    Match.when('ios', () => 'iOS'),
+    Match.when('macos', () => 'MacOS'),
+    Match.when('web', () => 'Web'),
+    Match.when('windows', () => 'Windows'),
+    Match.exhaustive
+  );
+
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/services/auth-client/AuthClient',
   {
@@ -48,6 +64,7 @@ export class AuthClient extends Context.Service<AuthClient>()(
 
       const { rawClient, ...client } = yield* CoreAuthClient.make({
         baseURL: key.serverUrl,
+        fetchOptions: { headers: { 'User-Agent': userAgent } },
         plugins: [
           expoClient({
             storage: {

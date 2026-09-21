@@ -1,36 +1,30 @@
-import { useAtomSuspense, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
-import {
-  AlertDialog,
-  Column,
-  Icon,
-  LoadingIndicator,
-  ModalBottomSheet,
-  Row,
-  TextButton,
-  useMaterialColors,
-} from '@expo/ui/jetpack-compose';
-import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
+import { Column, Icon } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import {
   accountsWithActiveAccount,
-  useRemoveAccountForm,
+  removeAccountAtom,
+  removeAccountFailureMessage,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
 import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
+import { ControlledSheet } from '#src/components/controlled-sheet';
+import { ListState } from '#src/components/list-state';
+import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
+import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import type { Account } from '#src/services/database/main/schema.ts';
 
 const StackNavigationRow = ({
   index,
@@ -58,59 +52,16 @@ const StackNavigationRow = ({
   </SegmentedListItem>
 );
 
-const RemoveAccountForm = ({
-  account,
-  onDismiss,
-}: {
-  readonly account: Pick<Account, 'serverUrl' | 'userId' | 'username'>;
-  readonly onDismiss: () => void;
-}) => {
-  const colors = useMaterialColors({ seedColor: '#00AAFF' });
-  const form = useRemoveAccountForm({
-    onSuccess: async () => {
-      onDismiss();
-    },
-  });
-
-  return (
-    <form.AppForm>
-      <AlertDialog onDismissRequest={onDismiss}>
-        <AlertDialog.Title>
-          <Text>Remove account from this device?</Text>
-        </AlertDialog.Title>
-        <AlertDialog.Text>
-          <Text>
-            This will sign you out and remove all data associated with @{account.username} on{' '}
-            {account.serverUrl} from this device.
-          </Text>
-        </AlertDialog.Text>
-        <AlertDialog.ConfirmButton>
-          <form.SubmitButton platformProps={{ android: { variant: 'text' } }}>
-            <Text color={colors.error}>Remove</Text>
-          </form.SubmitButton>
-        </AlertDialog.ConfirmButton>
-        <AlertDialog.DismissButton>
-          <TextButton onClick={onDismiss}>
-            <Text>Cancel</Text>
-          </TextButton>
-        </AlertDialog.DismissButton>
-      </AlertDialog>
-    </form.AppForm>
-  );
-};
-
 export default function AccountsScreen() {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
-  const switchAccountSheetRef = useRef<ModalBottomSheetRef>(null);
 
   const accounts = useAtomValue(accountsWithActiveAccount);
+  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
-  const [isRemoveAccountFormPresented, setIsRemoveAccountFormPresented] = useState(false);
-
-  const colors = useMaterialColors({ seedColor: '#00AAFF' });
+  const colors = useMaterialColors();
 
   return (
     <AndroidAccountsSheet dismissable={accountsSheet.value.dismissable}>
@@ -128,9 +79,7 @@ export default function AccountsScreen() {
           onInitial: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h3">Switch Account</Text>
-              <Row horizontalAlignment="center">
-                <LoadingIndicator modifiers={[fillMaxWidth()]} />
-              </Row>
+              <ListState kind="loading" />
             </Column>
           ),
           onSuccess: ({ value: { accounts: accountList, activeAccount } }) => (
@@ -138,47 +87,46 @@ export default function AccountsScreen() {
               <Column verticalArrangement={{ spacedBy: Spacing.two }}>
                 <Text variant="h3">Switch Account</Text>
 
-                <SegmentedList>
-                  {accountList.length === 0 ? (
-                    <SegmentedListItem index={0} count={1} enabled={false}>
-                      <SegmentedListItem.HeadlineContent>
-                        <Text color={colors.onSurfaceVariant}>No accounts</Text>
-                      </SegmentedListItem.HeadlineContent>
-                    </SegmentedListItem>
-                  ) : (
+                {accountList.length === 0 ? (
+                  <ListState kind="message" message="No accounts" />
+                ) : (
+                  <SegmentedList>
                     <SegmentedListItem
+                      // Native slot discovery needs a fresh row when the slot layout changes.
+                      key={Option.isSome(activeAccount) ? 'active-account' : 'pick-account'}
                       index={0}
                       count={1}
                       onClick={() => {
                         setIsSwitchAccountPresented(true);
                       }}>
-                      {Option.isSome(activeAccount) ? (
-                        <SegmentedListItem.LeadingContent>
-                          <Icon source={AccountCircle} size={32} />
-                        </SegmentedListItem.LeadingContent>
-                      ) : null}
-                      {/* Keep the native headline slot mounted when the active account is removed. */}
-                      <SegmentedListItem.HeadlineContent>
-                        <Text>
-                          {Option.match(activeAccount, {
-                            onNone: () => 'Pick an account',
-                            onSome: (account) => `@${account.username}`,
-                          })}
-                        </Text>
-                      </SegmentedListItem.HeadlineContent>
-                      {Option.isSome(activeAccount) ? (
-                        <SegmentedListItem.SupportingContent>
-                          <Text variant="caption" color={colors.onSurfaceVariant}>
-                            {activeAccount.value.serverUrl.toString()}
-                          </Text>
-                        </SegmentedListItem.SupportingContent>
-                      ) : null}
+                      {Option.match(activeAccount, {
+                        onNone: () => (
+                          <SegmentedListItem.HeadlineContent>
+                            <Text>Pick an account</Text>
+                          </SegmentedListItem.HeadlineContent>
+                        ),
+                        onSome: (account) => (
+                          <>
+                            <SegmentedListItem.LeadingContent>
+                              <Icon source={AccountCircle} size={32} />
+                            </SegmentedListItem.LeadingContent>
+                            <SegmentedListItem.HeadlineContent>
+                              <Text>@{account.username}</Text>
+                            </SegmentedListItem.HeadlineContent>
+                            <SegmentedListItem.SupportingContent>
+                              <Text variant="caption" color={colors.onSurfaceVariant}>
+                                {account.serverUrl.toString()}
+                              </Text>
+                            </SegmentedListItem.SupportingContent>
+                          </>
+                        ),
+                      })}
                       <SegmentedListItem.TrailingContent>
                         <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
                       </SegmentedListItem.TrailingContent>
                     </SegmentedListItem>
-                  )}
-                </SegmentedList>
+                  </SegmentedList>
+                )}
               </Column>
 
               {Option.match(activeAccount, {
@@ -205,16 +153,21 @@ export default function AccountsScreen() {
                           title="Settings"
                           href="/accounts/settings"
                         />
-                        <SegmentedListItem
-                          index={2}
-                          count={3}
-                          onClick={() => {
-                            setIsRemoveAccountFormPresented(true);
-                          }}>
-                          <SegmentedListItem.HeadlineContent>
-                            <Text color={colors.error}>Remove account from this device</Text>
-                          </SegmentedListItem.HeadlineContent>
-                        </SegmentedListItem>
+                        <MutationConfirmation
+                          key={`${account.serverUrl}-${account.userId}`}
+                          mutation={removeAccountAtom}
+                          onFailure={removeAccountFailureMessage}
+                          title="Remove account from this device?"
+                          confirmLabel="Remove"
+                          message={`This will sign you out and remove all data associated with @${account.username} on ${account.serverUrl} from this device.`}
+                          trigger={({ open, busy }) => (
+                            <SegmentedListItem index={2} count={3} onClick={open} enabled={!busy}>
+                              <SegmentedListItem.HeadlineContent>
+                                <Text color={colors.error}>Remove account from this device</Text>
+                              </SegmentedListItem.HeadlineContent>
+                            </SegmentedListItem>
+                          )}
+                        />
                       </SegmentedList>
                     </Column>
 
@@ -246,26 +199,16 @@ export default function AccountsScreen() {
                         />
                       </SegmentedList>
                     </Column>
-
-                    {isRemoveAccountFormPresented ? (
-                      <RemoveAccountForm
-                        account={account}
-                        onDismiss={() => {
-                          setIsRemoveAccountFormPresented(false);
-                        }}
-                      />
-                    ) : null}
                   </>
                 ),
               })}
 
-              {isSwitchAccountPresented ? (
-                <ModalBottomSheet
-                  ref={switchAccountSheetRef}
-                  skipPartiallyExpanded
-                  onDismissRequest={() => {
-                    setIsSwitchAccountPresented(false);
-                  }}>
+              <ControlledSheet
+                presented={isSwitchAccountPresented}
+                onDismiss={() => {
+                  setIsSwitchAccountPresented(false);
+                }}>
+                {({ close }) => (
                   <Column
                     modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
                     verticalArrangement={{ spacedBy: Spacing.two }}>
@@ -284,9 +227,7 @@ export default function AccountsScreen() {
                                 serverUrl: account.serverUrl,
                                 userId: account.userId,
                               },
-                              onSuccess: async () => {
-                                await switchAccountSheetRef.current?.hide();
-                              },
+                              onSuccess: close,
                             });
                           }}>
                           <SegmentedListItem.LeadingContent>
@@ -304,20 +245,30 @@ export default function AccountsScreen() {
                       ))}
                     </SegmentedList>
                   </Column>
-                </ModalBottomSheet>
-              ) : null}
+                )}
+              </ControlledSheet>
             </>
           ),
           onError: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h3">Switch Account</Text>
-              <Text modifiers={[paddingAll(Spacing.four)]}>Error</Text>
+              <ListState
+                kind="error"
+                message="Unable to load accounts."
+                onRetry={refreshAccounts}
+                retrying={accounts.waiting}
+              />
             </Column>
           ),
           onDefect: () => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h3">Switch Account</Text>
-              <Text modifiers={[paddingAll(Spacing.four)]}>Defect</Text>
+              <ListState
+                kind="error"
+                message="Unable to load accounts."
+                onRetry={refreshAccounts}
+                retrying={accounts.waiting}
+              />
             </Column>
           ),
         })}

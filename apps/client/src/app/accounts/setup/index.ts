@@ -25,8 +25,8 @@ const setupServerWithAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.setupServerWithAccount(input)))
 ).pipe(Atom.withLabel('setupServerWithAccountAtom'));
 
-export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) => {
-  const form = useAppForm({
+export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) =>
+  useAppForm({
     schema: SetupServerAccountInput,
     mutation: setupServerWithAccountAtom,
     defaultValues: { serverUrl: '', name: '', email: '', username: '', password: '' },
@@ -38,9 +38,8 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
           AccountSignUpError: (signUpError) =>
             Match.value(signUpError.reason).pipe(
               Match.tagsExhaustive({
-                BetterAuthApiError: (authReason) =>
-                  authReason.message ||
-                  'Failed to create the account. Check the server and try again.',
+                BetterAuthApiError: ({ message }) =>
+                  message || 'Failed to create the account. Check the server and try again.',
                 AuthTransportError: () =>
                   'Unable to reach the server. Check your connection and try again.',
                 InvalidAuthInputError: () => 'Check the account details and try again.',
@@ -56,6 +55,3 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
       await onSuccess();
     },
   });
-
-  return form;
-};

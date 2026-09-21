@@ -6,6 +6,7 @@ import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthClient } from '@repo/auth-api/client.ts';
+import { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
@@ -54,10 +55,12 @@ it.describe('auth customizations', () => {
   );
 
   it.effect(
-    'should disable unused email endpoints',
+    'should disable unused auth endpoints',
     Effect.fnUntraced(
       function* () {
         const disabledPaths = [
+          '/admin/ban-user',
+          '/admin/unban-user',
           '/change-email',
           '/request-password-reset',
           '/send-verification-email',
@@ -137,3 +140,116 @@ it.describe('auth customizations', () => {
     )
   );
 });
+
+// Use the actual client and server with a per-client bearer token, like separate devices.
+const authenticatedClient = (token: string) =>
+  AuthClient.make({
+    baseURL: 'http://test/',
+    plugins: [
+      {
+        id: 'test-device',
+        fetchPlugins: [
+          {
+            id: 'test-device',
+            name: 'Test device',
+            hooks: {
+              onRequest: (context) => {
+                const headers = new Headers(context.headers);
+                headers.set('authorization', `Bearer ${token}`);
+                return { ...context, headers };
+              },
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+const setupAdmin = Effect.fnUntraced(function* () {
+  const guest = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+  const { token, user } = yield* guest.signUp.email({
+    name: 'Admin',
+    username: 'admin',
+    email: 'admin@example.com',
+    password: 'password',
+  });
+  return { guest, admin: yield* authenticatedClient(token), user, token };
+});
+
+const createReader = (admin: Effect.Success<ReturnType<typeof setupAdmin>>['admin']) =>
+  admin.admin.createUser({
+    name: 'Reader',
+    username: 'reader',
+    email: 'reader@example.com',
+    password: 'reader-password',
+    role: AuthUser.fields.role.make('under18'),
+  });
+
+it.effect(
+  'denies admins permission to write ban fields through generic user endpoints',
+  Effect.fnUntraced(
+    function* () {
+      const { admin } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      for (const data of [
+        { banned: true },
+        { banReason: 'Reason' },
+        { banExpires: '2030-01-01T00:00:00.000Z' },
+      ]) {
+        const updated = yield* Effect.promise(async () =>
+          admin.rawClient.admin.updateUser({ userId: user.id, data })
+        );
+        expect(updated.error).toMatchObject({ status: 403 });
+        const created = yield* Effect.promise(async () =>
+          admin.rawClient.admin.createUser({
+            name: 'Blocked',
+            email: 'blocked@example.com',
+            password: 'password',
+            data,
+          })
+        );
+        expect(created.error).toMatchObject({ status: 403 });
+      }
+      expect((yield* admin.admin.listUsers({ limit: 10, offset: 0 })).total).toBe(2);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);
+
+it.effect(
+  'edits another user’s profile without allowing role fields through the profile adapter',
+  Effect.fnUntraced(
+    function* () {
+      const { admin, guest } = yield* setupAdmin();
+      const { user } = yield* createReader(admin);
+      const input = {
+        userId: user.id,
+        name: 'Updated Reader',
+        username: 'updatedreader',
+        email: 'updated@example.com',
+      };
+      const updated = yield* admin.admin.updateUser(input);
+      expect(updated).toMatchObject({
+        name: input.name,
+        username: input.username,
+        email: input.email,
+        image: null,
+        role: 'under18',
+      });
+      const repeated = yield* admin.admin.updateUser(input);
+      expect(repeated.username).toBe(input.username);
+      const renamed = yield* admin.admin.updateUser({ ...input, name: 'Name only' });
+      expect(renamed).toMatchObject({ name: 'Name only', username: input.username });
+      const extraFields = { ...input, role: 'admin' };
+      const invalid = yield* admin.admin.updateUser(extraFields).pipe(Effect.flip);
+      expect(invalid.reason._tag).toBe('InvalidAuthInputError');
+      const signedIn = yield* guest.signIn.username({
+        username: input.username,
+        password: 'reader-password',
+      });
+      const reader = yield* authenticatedClient(signedIn.token);
+      yield* reader.admin.updateUser(input).pipe(Effect.flip);
+    },
+    (effect) => effect.pipe(Effect.provide(TestServerLayer))
+  )
+);

@@ -1,38 +1,29 @@
-import { useAtomValue } from '@effect/atom-react';
-import {
-  BottomSheet,
-  Button,
-  Group,
-  Host,
-  LabeledContent,
-  List,
-  ProgressView,
-  Section,
-  VStack,
-  ZStack,
-} from '@expo/ui/swift-ui';
-import {
-  autocorrectionDisabled,
-  buttonStyle,
-  containerRelativeFrame,
-  foregroundStyle,
-  frame,
-  headerProminence,
-  keyboardType,
-  padding,
-  textContentType,
-  textInputAutocapitalization,
-} from '@expo/ui/swift-ui/modifiers';
-import { Option } from 'effect';
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { Button, Group, Host, List, Section } from '@expo/ui/swift-ui';
+import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
+import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { activeUserProfileAtom, useUserProfileForm } from '#src/app/accounts/profile/index.ts';
+import {
+  activeUserProfileAtom,
+  ownSessionsAtom,
+  signOutEverywhereAtom,
+  useChangePasswordForm,
+  useUserProfileForm,
+} from '#src/app/accounts/profile/index.ts';
+import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
+import { SessionList } from '#src/components/account-management/session-list';
+import { ControlledSheet } from '#src/components/controlled-sheet';
+import { DetailRows } from '#src/components/detail-rows';
+import { FormLayout } from '#src/components/form/layout';
+import { ListState } from '#src/components/list-state';
+import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -40,56 +31,32 @@ const ProfileList = ({ children }: PropsWithChildren) => (
   </List>
 );
 
-const UserProfileEditor = ({ onSuccess, profile }: Parameters<typeof useUserProfileForm>[0]) => {
-  const form = useUserProfileForm({ onSuccess, profile });
+const ProfileSection = ({ children }: PropsWithChildren) => (
+  <Section title="Your Profile">{children}</Section>
+);
 
+const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
+  const form = useUserProfileForm(props);
   return (
     <form.AppForm>
-      <ZStack alignment="bottom">
-        <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <Section
-            header={
-              <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
-                Edit Profile
-              </Text>
-            }>
-            <form.AppField name="name">
-              {(field) => (
-                <field.TextField
-                  label="Name"
-                  platformProps={{ ios: { modifiers: [textContentType('name')] } }}
-                />
-              )}
-            </form.AppField>
-            <form.AppField name="username">
-              {(field) => (
-                <field.TextField
-                  label="Username"
-                  platformProps={{
-                    ios: {
-                      modifiers: [
-                        keyboardType('ascii-capable'),
-                        textContentType('username'),
-                        textInputAutocapitalization('never'),
-                        autocorrectionDisabled(),
-                      ],
-                    },
-                  }}
-                />
-              )}
-            </form.AppField>
-          </Section>
-        </List>
-        <VStack
-          spacing={Spacing.two}
-          modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
+      <FormLayout
+        title="Edit profile"
+        footer={
           <form.SubmitButton
             platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
             containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
-            <Text>Save Changes</Text>
+            <Text>Save changes</Text>
           </form.SubmitButton>
-        </VStack>
-      </ZStack>
+        }>
+        <form.AppField name="name">
+          {(field) => <field.TextField purpose="name" label="Name" placeholder="Still You" />}
+        </form.AppField>
+        <form.AppField name="username">
+          {(field) => (
+            <field.TextField purpose="username" label="Username" placeholder="stillYou" />
+          )}
+        </form.AppField>
+      </FormLayout>
     </form.AppForm>
   );
 };
@@ -102,88 +69,79 @@ const LoadedProfile = ({
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
 
   return (
     <>
-      <ZStack alignment="bottom">
-        <ProfileList>
-          <Section title="Your Profile">
-            <LabeledContent label="Name">
-              <Text
-                modifiers={[
-                  foregroundStyle({
-                    type: 'hierarchical',
-                    style: 'secondary',
-                  }),
-                ]}>
-                {name}
-              </Text>
-            </LabeledContent>
-            <LabeledContent label="Username">
-              <Text
-                modifiers={[
-                  foregroundStyle({
-                    type: 'hierarchical',
-                    style: 'secondary',
-                  }),
-                ]}>
-                @{username}
-              </Text>
-            </LabeledContent>
-            <LabeledContent label="Email">
-              <Text
-                modifiers={[
-                  foregroundStyle({
-                    type: 'hierarchical',
-                    style: 'secondary',
-                  }),
-                ]}>
-                {email}
-              </Text>
-            </LabeledContent>
-            <LabeledContent label="Role">
-              <Text
-                modifiers={[
-                  foregroundStyle({
-                    type: 'hierarchical',
-                    style: 'secondary',
-                  }),
-                ]}>
-                {role}
-              </Text>
-            </LabeledContent>
-          </Section>
-        </ProfileList>
-
-        <VStack modifiers={[padding({ horizontal: Spacing.three, bottom: Spacing.three })]}>
-          <Button
-            modifiers={[buttonStyle('borderedProminent')]}
-            onPress={() => {
-              setIsEditingProfile(true);
-            }}>
-            <Text modifiers={[frame({ maxWidth: Infinity })]}>Edit Profile</Text>
-          </Button>
-        </VStack>
-      </ZStack>
-
-      <BottomSheet isPresented={isEditingProfile} onIsPresentedChange={setIsEditingProfile}>
-        {/* Unmount the editor when dismissed so each presentation starts with fresh form state. */}
-        {isEditingProfile ? (
-          <UserProfileEditor
-            profile={{ name, username }}
-            onSuccess={async () => {
-              setIsEditingProfile(false);
-            }}
+      <ProfileList>
+        <ProfileSection>
+          <DetailRows
+            details={[
+              { label: 'Name', value: name },
+              { label: 'Username', value: `@${username}` },
+              { label: 'Email', value: email },
+              { label: 'Role', value: role },
+            ]}
           />
-        ) : null}
-      </BottomSheet>
+        </ProfileSection>
+        <Section>
+          <Button
+            onPress={() => {
+              setEditor('profile');
+            }}>
+            <Text>Edit profile</Text>
+          </Button>
+
+          <Button
+            onPress={() => {
+              setEditor('password');
+            }}>
+            <Text>Change password</Text>
+          </Button>
+        </Section>
+
+        <OwnSessions />
+
+        <MutationConfirmation
+          onFailure={authFailureMessage}
+          trigger={({ open, busy }) => (
+            <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
+              <Text>Sign out everywhere</Text>
+            </Button>
+          )}
+          mutation={signOutEverywhereAtom}
+          title="Sign out everywhere"
+          confirmLabel="Sign out"
+          message="Sign out all devices for this account on this server, including this device?"
+          onSuccess={() => {
+            router.dismissTo('/accounts');
+          }}
+        />
+      </ProfileList>
+
+      <ControlledSheet
+        presented={editor !== null}
+        onDismiss={() => {
+          setEditor(null);
+        }}>
+        {({ close }) =>
+          Match.value(editor).pipe(
+            Match.when('profile', () => (
+              <UserProfileEditor profile={{ name, username }} onSuccess={close} />
+            )),
+            Match.when('password', () => <PasswordForm onSuccess={close} />),
+            Match.when(null, () => null),
+            Match.exhaustive
+          )
+        }
+      </ControlledSheet>
     </>
   );
 };
 
 export default function ProfileScreen() {
   const state = useAtomValue(activeUserProfileAtom);
+  const refresh = useAtomRefresh(activeAccountAtom);
 
   return (
     <>
@@ -193,36 +151,42 @@ export default function ProfileScreen() {
           {AsyncResult.matchWithError(state, {
             onInitial: () => (
               <ProfileList>
-                <Section>
-                  <ProgressView
-                    modifiers={[
-                      containerRelativeFrame({ axes: 'horizontal', alignment: 'center' }),
-                    ]}
-                  />
-                </Section>
+                <ProfileSection>
+                  <ListState kind="loading" />
+                </ProfileSection>
               </ProfileList>
             ),
             onError: () => (
               <ProfileList>
-                <Section>
-                  <Text>Unable to load the user profile</Text>
-                </Section>
+                <ProfileSection>
+                  <ListState
+                    kind="error"
+                    message="Unable to load your profile."
+                    onRetry={refresh}
+                    retrying={state.waiting}
+                  />
+                </ProfileSection>
               </ProfileList>
             ),
             onDefect: () => (
               <ProfileList>
-                <Section>
-                  <Text>Unable to load the user profile</Text>
-                </Section>
+                <ProfileSection>
+                  <ListState
+                    kind="error"
+                    message="Unable to load your profile."
+                    onRetry={refresh}
+                    retrying={state.waiting}
+                  />
+                </ProfileSection>
               </ProfileList>
             ),
             onSuccess: ({ value }) =>
               Option.match(value, {
                 onNone: () => (
                   <ProfileList>
-                    <Section>
-                      <Text>No active user</Text>
-                    </Section>
+                    <ProfileSection>
+                      <ListState kind="message" message="No active user." />
+                    </ProfileSection>
                   </ProfileList>
                 ),
                 onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
@@ -233,3 +197,88 @@ export default function ProfileScreen() {
     </>
   );
 }
+
+const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
+  const form = useChangePasswordForm(props);
+  return (
+    <form.AppForm>
+      <FormLayout
+        title="Change password"
+        footer={
+          <form.SubmitButton
+            platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
+            containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
+            <Text>Save password</Text>
+          </form.SubmitButton>
+        }>
+        <form.AppField name="currentPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="currentPassword"
+              label="Current password"
+              placeholder="ha!NiceTry"
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="newPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="New password"
+              placeholder="notThisTime!"
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="confirmPassword">
+          {(field) => (
+            <field.SecureField
+              purpose="newPassword"
+              label="Confirm new password"
+              placeholder="notThisTime!"
+            />
+          )}
+        </form.AppField>
+      </FormLayout>
+    </form.AppForm>
+  );
+};
+
+const OwnSessions = () => {
+  const state = useAtomValue(ownSessionsAtom);
+  const refresh = useAtomRefresh(ownSessionsAtom);
+  return (
+    <Section title="Active Sessions">
+      {AsyncResult.matchWithError(state, {
+        onInitial: () => <ListState kind="loading" />,
+        onError: (error) => (
+          <ListState
+            kind="error"
+            message={authFailureMessage({ error })}
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
+        ),
+        onDefect: () => (
+          <ListState
+            kind="error"
+            message="Unable to load sessions."
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
+        ),
+        onSuccess: ({ value }) => (
+          <SessionList
+            sessions={value.sessions}
+            currentId={value.currentId}
+            onSelect={(session) => {
+              router.push({
+                pathname: '/accounts/profile/sessions/[id]',
+                params: { id: session.id },
+              });
+            }}
+          />
+        ),
+      })}
+    </Section>
+  );
+};

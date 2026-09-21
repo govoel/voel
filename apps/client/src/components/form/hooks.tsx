@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
+import { createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
@@ -7,9 +7,9 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Cause, Exit, Option, Schema } from 'effect';
+import { Array, Cause, Exit, Option, Predicate, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -106,7 +106,6 @@ type EffectSchemaFormOptions<
   TEncodingServices,
   TSubmitMeta = never,
 > = Omit<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
-  readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
   readonly mutation: Atom.AtomResultFn<TType, TSuccess, TFailure>;
   readonly onSuccess?: (
     props: EffectSchemaMutationSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta>
@@ -114,7 +113,16 @@ type EffectSchemaFormOptions<
   readonly onFailure: (
     props: EffectSchemaMutationFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
   ) => string;
-};
+} & (
+    | { readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices> }
+    | {
+        readonly schema?: undefined;
+        readonly mutation: [TType] extends [Schema.Void['Type']]
+          ? Atom.AtomResultFn<TType, TSuccess, TFailure>
+          : never;
+        readonly defaultValues?: undefined;
+      }
+  );
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
 // React component helpers. Preserve that inference while only removing validator props.
@@ -186,7 +194,10 @@ export const createEffectSchemaFormHook = <
     TSubmitMeta
   >) => {
     const runMutation = useAtomSet(mutation, { mode: 'promiseExit' });
-    const standardSchema = useMemo(() => Schema.toStandardSchemaV1(schema), [schema]);
+    const standardSchema = useMemo(
+      () => (schema === void 0 ? void 0 : Schema.toStandardSchemaV1(schema)),
+      [schema]
+    );
 
     const form = useTanStackAppForm({
       ...props,
@@ -200,7 +211,14 @@ export const createEffectSchemaFormHook = <
       onSubmit: async (submitProps) => {
         setSubmissionError(Option.none());
 
-        const schemaResult = await standardSchema['~standard'].validate(submitProps.value);
+        // Schema-less forms are restricted to void-input mutations. TanStack's
+        // internal empty object is not mutation input.
+        const schemaResult =
+          standardSchema === void 0
+            ? // TypeScript cannot narrow a generic from the conditional schema option.
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+              { value: void 0 as TType }
+            : await standardSchema['~standard'].validate(submitProps.value);
         if (schemaResult.issues !== void 0) {
           throw new Error('Unexpected invalid data during submit');
         }
@@ -232,9 +250,7 @@ export const createEffectSchemaFormHook = <
 
         throw Cause.squash(mutationExit.cause);
       },
-      validators: {
-        onChangeAsync: standardSchema,
-      },
+      validators: standardSchema === void 0 ? {} : { onChangeAsync: standardSchema },
     });
     const setSubmissionError = useAtomSet(formSubmissionError(form));
     const reset = useMemo(() => {
@@ -250,4 +266,47 @@ export const createEffectSchemaFormHook = <
   };
 
   return { ...formHook, useAppForm };
+};
+
+/** Share form binding while leaving native value synchronization in each platform component. */
+export const useTextFieldState = () => {
+  const field = useFieldContext<string>();
+  const form = useFormContext();
+  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  const hasFocused = useRef(false);
+  return {
+    field,
+    isSubmitting,
+    errorMessage: field.state.meta.isTouched ? Array.head(field.state.meta.errors) : Option.none(),
+    onFocusChange: (focused: boolean) => {
+      // Native controls can emit an initial unfocused event. Only real blur marks a field touched.
+      if (focused) {
+        hasFocused.current = true;
+      } else if (hasFocused.current) {
+        field.handleBlur();
+      }
+    },
+  };
+};
+
+export const useSubmitState = () => {
+  const form = useFormContext();
+  const submissionError = useFormSubmissionError();
+  const [canSubmit, isSubmitting, validationErrors] = useSelector(
+    form.store,
+    (state) =>
+      [
+        state.canSubmit,
+        state.isSubmitting,
+        state.errors.filter(
+          (error): error is string => Predicate.isString(error) && error.length > 0
+        ),
+      ] as const
+  );
+  return {
+    form,
+    canSubmit,
+    isSubmitting,
+    errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
+  };
 };

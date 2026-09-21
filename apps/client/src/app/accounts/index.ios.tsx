@@ -1,7 +1,6 @@
-import { useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Host, Icon } from '@expo/ui';
 import {
-  BottomSheet,
   Button,
   Group,
   HStack,
@@ -12,13 +11,9 @@ import {
   VStack,
 } from '@expo/ui/swift-ui';
 import {
-  buttonStyle,
-  containerRelativeFrame,
   disabled,
-  fixedSize,
   font,
   foregroundStyle,
-  frame,
   headerProminence,
   padding,
   tint,
@@ -32,13 +27,16 @@ import type { PropsWithChildren } from 'react';
 
 import {
   accountsWithActiveAccount,
-  useRemoveAccountForm,
+  removeAccountAtom,
+  removeAccountFailureMessage,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
+import { ControlledSheet } from '#src/components/controlled-sheet';
+import { ListState } from '#src/components/list-state';
+import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
-import type { Account } from '#src/services/database/main/schema.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => (
   <Button
@@ -71,60 +69,12 @@ const AccountsList = ({ children }: PropsWithChildren) => (
   </List>
 );
 
-const RemoveAccountForm = ({
-  account,
-  onDismiss,
-}: {
-  readonly account: Pick<Account, 'serverUrl' | 'userId' | 'username'>;
-  readonly onDismiss: () => void;
-}) => {
-  const form = useRemoveAccountForm({
-    onSuccess: async () => {
-      onDismiss();
-    },
-  });
-
-  return (
-    <form.AppForm>
-      <VStack
-        alignment="leading"
-        spacing={Spacing.two}
-        modifiers={[padding({ horizontal: Spacing.three, top: Spacing.four })]}>
-        <Text variant="h3">Remove account from this device?</Text>
-        <Text
-          modifiers={[
-            fixedSize({ horizontal: false, vertical: true }),
-            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-          ]}>
-          This will sign you out and remove all data associated with @{account.username} on{' '}
-          {account.serverUrl} from this device.
-        </Text>
-        <form.SubmitButton
-          platformProps={{
-            ios: {
-              disableAnimation: true,
-              role: 'destructive',
-              modifiers: [buttonStyle('bordered')],
-            },
-          }}
-          containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
-          <Text>Remove</Text>
-        </form.SubmitButton>
-        <Button role="cancel" modifiers={[buttonStyle('bordered')]} onPress={onDismiss}>
-          <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
-        </Button>
-      </VStack>
-    </form.AppForm>
-  );
-};
-
 export default function AccountsScreen() {
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
   const accounts = useAtomValue(accountsWithActiveAccount);
+  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
-
-  const [isRemoveAccountFormPresented, setIsRemoveAccountFormPresented] = useState(false);
 
   return (
     <>
@@ -135,11 +85,7 @@ export default function AccountsScreen() {
             onInitial: () => (
               <AccountsList>
                 <Section title="Switch Account">
-                  <ProgressView
-                    modifiers={[
-                      containerRelativeFrame({ axes: 'horizontal', alignment: 'center' }),
-                    ]}
-                  />
+                  <ListState kind="loading" />
                 </Section>
               </AccountsList>
             ),
@@ -148,10 +94,7 @@ export default function AccountsScreen() {
                 <AccountsList>
                   <Section title="Switch Account">
                     {accountList.length === 0 ? (
-                      <Text
-                        modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-                        No accounts
-                      </Text>
+                      <ListState kind="message" message="No accounts" />
                     ) : (
                       <Button
                         modifiers={[tint('primary')]}
@@ -219,12 +162,21 @@ export default function AccountsScreen() {
                           <StackNavigationRow title="Profile" href="/accounts/profile" />
                           <StackNavigationRow title="Settings" href="/accounts/settings" />
 
-                          <Button
-                            label="Remove account from this device"
-                            role="destructive"
-                            onPress={() => {
-                              setIsRemoveAccountFormPresented(true);
-                            }}
+                          <MutationConfirmation
+                            key={`${account.serverUrl}-${account.userId}`}
+                            mutation={removeAccountAtom}
+                            onFailure={removeAccountFailureMessage}
+                            title="Remove account from this device?"
+                            confirmLabel="Remove"
+                            message={`This will sign you out and remove all data associated with @${account.username} on ${account.serverUrl} from this device.`}
+                            trigger={({ open, busy }) => (
+                              <Button
+                                label="Remove account from this device"
+                                role="destructive"
+                                onPress={open}
+                                modifiers={[disabled(busy)]}
+                              />
+                            )}
                           />
                         </Section>
 
@@ -250,106 +202,100 @@ export default function AccountsScreen() {
                   })}
                 </AccountsList>
 
-                <BottomSheet
-                  isPresented={isSwitchAccountPresented}
-                  onIsPresentedChange={setIsSwitchAccountPresented}>
-                  <List modifiers={[headerProminence('increased')]}>
-                    <Section
-                      header={
-                        <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
-                          Pick an Account
-                        </Text>
-                      }>
-                      {accountList.map((account) => (
-                        <Button
-                          modifiers={[
-                            tint('primary'),
-                            disabled(AsyncResult.isWaiting(setActiveAccount)),
-                          ]}
-                          key={`${account.serverUrl.toString()}-${account.userId}`}
-                          onPress={() => {
-                            void setActiveAccountAndDismiss({
-                              input: {
-                                serverUrl: account.serverUrl,
-                                userId: account.userId,
-                              },
-                              onSuccess: async () => {
-                                setIsSwitchAccountPresented(false);
-                              },
-                            });
-                          }}>
-                          <HStack alignment="center" spacing={Spacing.two}>
-                            <Icon
-                              name={
-                                account.active
-                                  ? 'person.crop.circle.fill.badge.checkmark'
-                                  : 'person.crop.circle.fill'
-                              }
-                              modifiers={[
-                                iosTextStyle('largeTitle'),
-                                foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                              ]}
-                            />
-
-                            <VStack alignment="leading" spacing={Spacing.one}>
-                              <Text
+                <ControlledSheet
+                  presented={isSwitchAccountPresented}
+                  onDismiss={() => {
+                    setIsSwitchAccountPresented(false);
+                  }}>
+                  {({ close }) => (
+                    <List modifiers={[headerProminence('increased')]}>
+                      <Section
+                        header={
+                          <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
+                            Pick an Account
+                          </Text>
+                        }>
+                        {accountList.map((account) => (
+                          <Button
+                            modifiers={[
+                              tint('primary'),
+                              disabled(AsyncResult.isWaiting(setActiveAccount)),
+                            ]}
+                            key={`${account.serverUrl.toString()}-${account.userId}`}
+                            onPress={() => {
+                              void setActiveAccountAndDismiss({
+                                input: {
+                                  serverUrl: account.serverUrl,
+                                  userId: account.userId,
+                                },
+                                onSuccess: close,
+                              });
+                            }}>
+                            <HStack alignment="center" spacing={Spacing.two}>
+                              <Icon
+                                name={
+                                  account.active
+                                    ? 'person.crop.circle.fill.badge.checkmark'
+                                    : 'person.crop.circle.fill'
+                                }
                                 modifiers={[
-                                  foregroundStyle({ type: 'hierarchical', style: 'primary' }),
-                                ]}>
-                                @{account.username}
-                              </Text>
-                              <Text
-                                variant="caption"
-                                modifiers={[
+                                  iosTextStyle('largeTitle'),
                                   foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                ]}>
-                                {account.serverUrl.toString()}
-                              </Text>
-                            </VStack>
+                                ]}
+                              />
 
-                            {AsyncResult.isWaiting(setActiveAccount) ? (
-                              <>
-                                <Spacer />
-                                <ProgressView />
-                              </>
-                            ) : null}
-                          </HStack>
-                        </Button>
-                      ))}
-                    </Section>
-                  </List>
-                </BottomSheet>
+                              <VStack alignment="leading" spacing={Spacing.one}>
+                                <Text
+                                  modifiers={[
+                                    foregroundStyle({ type: 'hierarchical', style: 'primary' }),
+                                  ]}>
+                                  @{account.username}
+                                </Text>
+                                <Text
+                                  variant="caption"
+                                  modifiers={[
+                                    foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                                  ]}>
+                                  {account.serverUrl.toString()}
+                                </Text>
+                              </VStack>
 
-                {Option.match(activeAccount, {
-                  onNone: () => null,
-                  onSome: (account) => (
-                    <BottomSheet
-                      fitToContents
-                      isPresented={isRemoveAccountFormPresented}
-                      onIsPresentedChange={setIsRemoveAccountFormPresented}>
-                      <RemoveAccountForm
-                        key={`${account.serverUrl}-${account.userId}`}
-                        account={account}
-                        onDismiss={() => {
-                          setIsRemoveAccountFormPresented(false);
-                        }}
-                      />
-                    </BottomSheet>
-                  ),
-                })}
+                              {AsyncResult.isWaiting(setActiveAccount) ? (
+                                <>
+                                  <Spacer />
+                                  <ProgressView />
+                                </>
+                              ) : null}
+                            </HStack>
+                          </Button>
+                        ))}
+                      </Section>
+                    </List>
+                  )}
+                </ControlledSheet>
               </>
             ),
             onError: () => (
               <AccountsList>
                 <Section title="Switch Account">
-                  <Text>Error</Text>
+                  <ListState
+                    kind="error"
+                    message="Unable to load accounts."
+                    onRetry={refreshAccounts}
+                    retrying={accounts.waiting}
+                  />
                 </Section>
               </AccountsList>
             ),
             onDefect: () => (
               <AccountsList>
                 <Section title="Switch Account">
-                  <Text>Defect</Text>
+                  <ListState
+                    kind="error"
+                    message="Unable to load accounts."
+                    onRetry={refreshAccounts}
+                    retrying={accounts.waiting}
+                  />
                 </Section>
               </AccountsList>
             ),

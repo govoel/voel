@@ -1,17 +1,20 @@
 import { RegistryContext } from '@effect/atom-react';
-import { Host, LoadingIndicator, Surface, getMaterialColors } from '@expo/ui/jetpack-compose';
+import { Host, LoadingIndicator, Surface } from '@expo/ui/jetpack-compose';
 import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router/react-navigation';
 import { useColorScheme } from 'react-native';
 
 import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';
+import { materialFonts, materialSeedColor, useMaterialColors } from '#src/constants/material.ts';
 import { AppRegistry } from '#src/services/registry.ts';
 
 const loadingIndicatorScale = 0.25;
 
 export const SuspenseFallback = () => (
-  <Host seedColor="#00AAFF" style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+  <Host
+    seedColor={materialSeedColor}
+    style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
     <Surface>
       <LoadingIndicator
         modifiers={[
@@ -24,10 +27,7 @@ export const SuspenseFallback = () => (
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const colors = getMaterialColors({
-    scheme: colorScheme === 'light' ? 'light' : 'dark',
-    seedColor: '#00AAFF',
-  });
+  const colors = useMaterialColors();
 
   const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
 
@@ -42,13 +42,7 @@ export default function TabLayout() {
       border: colors.outlineVariant,
       notification: colors.error,
     },
-    fonts: {
-      ...baseTheme.fonts,
-      regular: { fontFamily: 'Google Sans', fontWeight: '400' },
-      medium: { fontFamily: 'Google Sans Medium', fontWeight: '500' },
-      bold: { fontFamily: 'Google Sans SemiBold', fontWeight: '600' },
-      heavy: { fontFamily: 'Google Sans Bold', fontWeight: '700' },
-    },
+    fonts: materialFonts,
   } satisfies Theme;
 
   return (
