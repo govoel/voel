@@ -213,7 +213,7 @@ export default function ProfileScreen() {
           Option.match(value, {
             onNone: () => (
               <ProfileList>
-                <ListState kind="message" message="No active user." />
+                <ListState kind="empty" message="No active user." />
               </ProfileList>
             ),
             onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,

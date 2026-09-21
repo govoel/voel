@@ -42,7 +42,7 @@ export default function ServerUsersScreen() {
               onInitial: () => <ListState kind="loading" />,
               onSuccess: ({ value: { items, done }, waiting }) =>
                 items.length === 0 ? (
-                  <ListState kind="message" message="No users yet. Create a user to get started." />
+                  <ListState kind="empty" message="No users yet. Create a user to get started." />
                 ) : (
                   <NativeServerUsersList
                     users={items.map(({ id, username }) => ({ id, username }))}

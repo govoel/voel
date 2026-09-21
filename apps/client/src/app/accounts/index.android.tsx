@@ -88,7 +88,7 @@ export default function AccountsScreen() {
                 <Text variant="h3">Switch Account</Text>
 
                 {accountList.length === 0 ? (
-                  <ListState kind="message" message="No accounts" />
+                  <ListState kind="empty" message="No accounts" />
                 ) : (
                   <SegmentedList>
                     <SegmentedListItem

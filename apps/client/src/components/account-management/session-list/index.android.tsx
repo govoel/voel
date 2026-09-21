@@ -11,7 +11,7 @@ import { useMaterialColors } from '#src/constants/material.ts';
 export const SessionList = (({ sessions, currentId, onSelect }) => {
   const colors = useMaterialColors();
   if (sessions.length === 0) {
-    return <ListState kind="message" message="No active sessions." />;
+    return <ListState kind="empty" message="No active sessions." />;
   }
 
   return (

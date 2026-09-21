@@ -20,7 +20,9 @@ export const ListState = ((props) => {
     <SegmentedList modifiers={[fillMaxWidth()]}>
       <SegmentedListItem key={props.kind} index={0} count={count} enabled={false}>
         <SegmentedListItem.HeadlineContent>
-          <Text color={colors.onSurfaceVariant}>{props.message}</Text>
+          <Text color={props.kind === 'empty' ? colors.onSurfaceVariant : colors.onSurface}>
+            {props.message}
+          </Text>
         </SegmentedListItem.HeadlineContent>
       </SegmentedListItem>
       {props.kind === 'error' ? (
