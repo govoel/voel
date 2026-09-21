@@ -24,7 +24,8 @@ export const AccountsSheet = Data.taggedEnum<
   }>
 >();
 
-export const AccountsSheetIsIdle = AccountsSheet.$is('Idle');
+export const accountsSheetIsIdle = AccountsSheet.$is('Idle');
+export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession');
 
 export const accountsSheetAtom = AppRuntime.atom(
   Effect.fnUntraced(

@@ -1,13 +1,21 @@
 import { Group, Host } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 
 export default function AddAccountScreen() {
+  const { serverUrl, username, reauthenticate } = useLocalSearchParams<{
+    serverUrl?: string;
+    username?: string;
+    reauthenticate?: string;
+  }>();
   const form = useAddAccountForm({
+    ...(serverUrl !== void 0 && username !== void 0
+      ? { initialAccount: { serverUrl, username } }
+      : {}),
     onSuccess: async () => {
       router.back();
     },
@@ -20,7 +28,7 @@ export default function AddAccountScreen() {
         <Group>
           <form.AppForm>
             <FormLayout
-              title="Add Account"
+              title={reauthenticate === 'true' ? 'Sign In Again' : 'Add Account'}
               footer={
                 <form.SubmitButton
                   platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}

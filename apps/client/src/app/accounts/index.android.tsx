@@ -16,7 +16,10 @@ import {
   removeAccountFailureMessage,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
-import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsInvalidSession,
+} from '#src/components/accounts-auto-presenter/model.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
@@ -54,6 +57,7 @@ const StackNavigationRow = ({
 
 export default function AccountsScreen() {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
+  const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
@@ -88,14 +92,14 @@ export default function AccountsScreen() {
                 <Text variant="h3">Switch Account</Text>
 
                 {accountList.length === 0 ? (
-                  <ListState kind="empty" message="No accounts" />
+                  <ListState kind="empty" message="No accounts. Add an account to get started." />
                 ) : (
                   <SegmentedList>
                     <SegmentedListItem
                       // Native slot discovery needs a fresh row when the slot layout changes.
                       key={Option.isSome(activeAccount) ? 'active-account' : 'pick-account'}
                       index={0}
-                      count={1}
+                      count={sessionExpired && Option.isSome(activeAccount) ? 2 : 1}
                       onClick={() => {
                         setIsSwitchAccountPresented(true);
                       }}>
@@ -125,6 +129,27 @@ export default function AccountsScreen() {
                         <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
                       </SegmentedListItem.TrailingContent>
                     </SegmentedListItem>
+
+                    {sessionExpired
+                      ? Option.match(activeAccount, {
+                          onNone: () => null,
+                          onSome: (account) => (
+                            <StackNavigationRow
+                              index={1}
+                              count={2}
+                              title="Sign in again to continue using this account"
+                              href={{
+                                pathname: '/accounts/add',
+                                params: {
+                                  serverUrl: account.serverUrl.toString(),
+                                  username: account.username,
+                                  reauthenticate: 'true',
+                                },
+                              }}
+                            />
+                          ),
+                        })
+                      : null}
                   </SegmentedList>
                 )}
               </Column>

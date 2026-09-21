@@ -5,8 +5,8 @@ import { useEffect, useRef } from 'react';
 
 import type { AccountsSheet } from '#src/components/accounts-auto-presenter/model.ts';
 import {
-  AccountsSheetIsIdle,
   accountsSheetAtom,
+  accountsSheetIsIdle,
 } from '#src/components/accounts-auto-presenter/model.ts';
 
 export const AccountsAutoPresenter = () => {
@@ -18,7 +18,7 @@ export const AccountsAutoPresenter = () => {
   const lastPresentedRef = useRef<Option.Option<AccountsSheet>>(Option.none());
 
   useEffect(() => {
-    if (AccountsSheetIsIdle(sheet.value)) {
+    if (accountsSheetIsIdle(sheet.value)) {
       lastPresentedRef.current = Option.none();
       return;
     }

@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Host, Icon } from '@expo/ui';
 import {
   Button,
@@ -31,6 +31,10 @@ import {
   removeAccountFailureMessage,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsInvalidSession,
+} from '#src/components/accounts-auto-presenter/model.ts';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
@@ -70,6 +74,8 @@ const AccountsList = ({ children }: PropsWithChildren) => (
 );
 
 export default function AccountsScreen() {
+  const accountsSheet = useAtomSuspense(accountsSheetAtom);
+  const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
   const accounts = useAtomValue(accountsWithActiveAccount);
@@ -94,7 +100,10 @@ export default function AccountsScreen() {
                 <AccountsList>
                   <Section title="Switch Account">
                     {accountList.length === 0 ? (
-                      <ListState kind="empty" message="No accounts" />
+                      <ListState
+                        kind="empty"
+                        message="No accounts. Add an account to get started."
+                      />
                     ) : (
                       <Button
                         modifiers={[tint('primary')]}
@@ -140,6 +149,25 @@ export default function AccountsScreen() {
                         </HStack>
                       </Button>
                     )}
+
+                    {sessionExpired
+                      ? Option.match(activeAccount, {
+                          onNone: () => null,
+                          onSome: (account) => (
+                            <StackNavigationRow
+                              title="Sign in again to continue using this account"
+                              href={{
+                                pathname: '/accounts/add',
+                                params: {
+                                  serverUrl: account.serverUrl.toString(),
+                                  username: account.username,
+                                  reauthenticate: 'true',
+                                },
+                              }}
+                            />
+                          ),
+                        })
+                      : null}
                   </Section>
 
                   {Option.match(activeAccount, {
