@@ -1,4 +1,4 @@
-import { Cache, Context, Effect, Layer, Option, Schema } from 'effect';
+import { Cache, Context, Duration, Effect, Exit, Layer, Option, Schema } from 'effect';
 
 class AuthClientStorageGetItemError extends Schema.TaggedError<
   AuthClientStorageGetItemError,
@@ -36,14 +36,16 @@ export class AuthClientStorage extends Context.Service<AuthClientStorage>()(
       readonly setItem: (key: string, value: string) => void;
       readonly removeItem: (key: string) => Promise<void>;
     }) {
-      const cache = yield* Cache.make<string, Option.Option<string>, AuthClientStorageGetItemError>(
+      const cache = yield* Cache.makeWith(
+        (key: string) =>
+          Effect.try({
+            try: () => Option.fromNullishOr(getItem(key)),
+            catch: () => AuthClientStorageGetItemError.make({ key }),
+          }),
         {
           capacity: 8,
-          lookup: (key) =>
-            Effect.try({
-              try: () => Option.fromNullishOr(getItem(key)),
-              catch: () => AuthClientStorageGetItemError.make({ key }),
-            }),
+          // Keep successful reads until updated, but let transient storage failures retry.
+          timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
         }
       );
 

@@ -14,7 +14,7 @@ class SetupServerAccountInput extends AuthSignUpInput.pipe(
     password: AuthSignUpInput.fields.password.pipe(
       Schema.decodeTo(Schema.Redacted(Schema.String, { disallowJsonEncode: true }), {
         decode: SchemaGetter.transform((password) => Redacted.make(password)),
-        encode: SchemaGetter.forbidden(() => 'Cannot encode password'),
+        encode: SchemaGetter.forbiddenEncoding,
       })
     ),
   })
