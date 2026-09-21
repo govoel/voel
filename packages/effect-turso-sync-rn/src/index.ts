@@ -215,6 +215,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
 
     const client = yield* SqlClient.make({
       acquirer,
+      borrower: (use) => use(connection).pipe(Semaphore.withPermit(semaphore)),
       compiler,
       transactionAcquirer,
       beginTransaction: 'BEGIN IMMEDIATE',
