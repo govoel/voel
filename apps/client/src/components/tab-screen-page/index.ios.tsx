@@ -2,7 +2,7 @@ import { useAtomSuspense } from '@effect/atom-react';
 import { Button, VStack } from '@expo/ui/swift-ui';
 import { buttonStyle, frame, multilineTextAlignment, padding } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 
 import { SafeScrollView } from '#src/components/safe-scroll-view';
@@ -19,6 +19,7 @@ export const TabScreenPage = (({
   readonly header?: ReactNode;
   readonly children?: ReactNode;
 }) => {
+  const router = useRouter();
   const activeAccount = useAtomSuspense(activeAccountAtom);
 
   return Option.match(activeAccount.value, {

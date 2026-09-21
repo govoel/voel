@@ -5,7 +5,7 @@ import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
@@ -156,6 +156,7 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
+  const router = useRouter();
   const colors = useMaterialColors();
   const state = useAtomValue(serverUserSessionsAtom(user.id));
   const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
@@ -224,6 +225,7 @@ const LoadedUser = ({
 }: {
   readonly user: Atom.Success<ReturnType<typeof serverUserAtom>>;
 }) => {
+  const router = useRouter();
   const details = userDetails({ user });
   const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
   const colors = useMaterialColors();

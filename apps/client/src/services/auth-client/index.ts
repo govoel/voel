@@ -19,8 +19,8 @@ import { Platform } from 'react-native';
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
 
 import { AccountRepository } from '#src/services/accounts/repository.ts';
+import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import type { Account } from '#src/services/database/main/schema.ts';
 
 export const makeAuthStorageKey = ({ serverUrl, authStorageId }: AuthClientKey) =>
@@ -52,10 +52,10 @@ export class AuthClient extends Context.Service<AuthClient>()(
   'voel/services/auth-client/AuthClient',
   {
     make: Effect.fnUntraced(function* (key: AuthClientKey) {
-      const xxHash = yield* XxHash;
-      const storagePrefix = yield* xxHash.hash128(
-        makeAuthStorageKey({ serverUrl: key.serverUrl, authStorageId: key.authStorageId })
-      );
+      const cryptoDigest = yield* CryptoDigest;
+      const storagePrefix = yield* cryptoDigest.sha256({
+        input: makeAuthStorageKey({ serverUrl: key.serverUrl, authStorageId: key.authStorageId }),
+      });
 
       const storage = yield* AuthClientStorage;
       const context = yield* Effect.context();
@@ -103,7 +103,7 @@ export class AuthClient extends Context.Service<AuthClient>()(
 
   public static readonly layer = (key: AuthClientKey) =>
     this.layerNoDeps(key).pipe(
-      Layer.provide(Layer.mergeAll(AuthClientStorage.layer, XxHash.layer))
+      Layer.provide(Layer.mergeAll(AuthClientStorage.layer, CryptoDigest.layer))
     );
 }
 
@@ -176,7 +176,7 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
       AccountRepository.layer,
       AuthClientStorage.layer,
       Reactivity.layer,
-      XxHash.layer,
+      CryptoDigest.layer,
     ],
     lookup: (key: AuthClientKey) =>
       AuthClient.layerNoDeps(key).pipe(

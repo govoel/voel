@@ -5,6 +5,7 @@ import { AuthError } from '@repo/auth-api/shared.ts';
 
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import type { AccountKey, AccountUpsert } from '#src/services/accounts/repository.ts';
+import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import {
   AuthClientMap,
   acquireAuthClient,
@@ -12,7 +13,6 @@ import {
 } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 
@@ -86,7 +86,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const sql = yield* MainDatabase;
       const accountRepository = yield* AccountRepository;
       const uuidGenerator = yield* UuidGenerator;
-      const xxHash = yield* XxHash;
+      const cryptoDigest = yield* CryptoDigest;
       const authClientStorageService = yield* AuthClientStorage;
       const authClientMap = yield* AuthClientMap;
       const reactivity = yield* Reactivity.Reactivity;
@@ -160,12 +160,12 @@ export class AccountManager extends Context.Service<AccountManager>()(
         );
 
         // Mimic Better Auth and remove the auth storage items for this account
-        const storagePrefix = yield* xxHash.hash128(
-          makeAuthStorageKey({
+        const storagePrefix = yield* cryptoDigest.sha256({
+          input: makeAuthStorageKey({
             serverUrl: key.serverUrl,
             authStorageId: key.authStorageId,
-          })
-        );
+          }),
+        });
         yield* Effect.all(
           [
             authClientStorageService.removeItem(`${storagePrefix}_cookie`),
@@ -301,7 +301,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         AuthClientStorage.layer,
         Reactivity.layer,
         UuidGenerator.layer,
-        XxHash.layer,
+        CryptoDigest.layer,
         MainDatabase.layer
       )
     )

@@ -1,10 +1,10 @@
 import { Stack } from 'expo-router';
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/native-tabs';
 
 import { materialFonts, useMaterialColors } from '#src/constants/material.ts';
 
 export const unstable_settings = {
-  initialRouteName: '(home)',
+  anchor: '(home)',
 };
 
 export default function TabsLayoutAndroid() {

@@ -7,7 +7,7 @@ import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import {
@@ -39,21 +39,25 @@ const StackNavigationRow = ({
   readonly count: number;
   readonly title: string;
   readonly href: Href;
-}) => (
-  <SegmentedListItem
-    index={index}
-    count={count}
-    onClick={() => {
-      router.push(href);
-    }}>
-    <SegmentedListItem.HeadlineContent>
-      <Text>{title}</Text>
-    </SegmentedListItem.HeadlineContent>
-    <SegmentedListItem.TrailingContent>
-      <Icon source={ChevronRight} size={24} />
-    </SegmentedListItem.TrailingContent>
-  </SegmentedListItem>
-);
+}) => {
+  const router = useRouter();
+
+  return (
+    <SegmentedListItem
+      index={index}
+      count={count}
+      onClick={() => {
+        router.push(href);
+      }}>
+      <SegmentedListItem.HeadlineContent>
+        <Text>{title}</Text>
+      </SegmentedListItem.HeadlineContent>
+      <SegmentedListItem.TrailingContent>
+        <Icon source={ChevronRight} size={24} />
+      </SegmentedListItem.TrailingContent>
+    </SegmentedListItem>
+  );
+};
 
 export default function AccountsScreen() {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);

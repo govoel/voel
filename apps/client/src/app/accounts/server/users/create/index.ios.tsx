@@ -1,6 +1,6 @@
 import { Host } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
-import { Stack, router } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 
 import { useCreateUserForm } from '#src/app/accounts/server/users/create/index.ts';
 import { RoleField } from '#src/components/account-management/role-field';
@@ -8,6 +8,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 
 export default function CreateUserScreen() {
+  const router = useRouter();
   const form = useCreateUserForm({
     onSuccess: ({ userId }) => {
       router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
@@ -15,11 +16,10 @@ export default function CreateUserScreen() {
   });
   return (
     <>
-      <Stack.Screen.Title />
+      <Stack.Screen.Title>Create User</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <form.AppForm>
           <FormLayout
-            title="Create user"
             footer={
               <form.SubmitButton
                 platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}

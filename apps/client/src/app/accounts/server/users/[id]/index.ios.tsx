@@ -3,7 +3,7 @@ import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
@@ -123,6 +123,7 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
+  const router = useRouter();
   const state = useAtomValue(serverUserSessionsAtom(user.id));
   const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
   return AsyncResult.matchWithError(state, {
@@ -194,13 +195,14 @@ const LoadedUser = ({
 }: {
   readonly user: typeof AuthAdminUserDetails.Type & { readonly isOtherUser: boolean };
 }) => {
+  const router = useRouter();
   const details = userDetails({ user });
 
   const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
   return (
     <>
       <UserList>
-        <Section title="User Details">
+        <Section>
           <DetailRows details={details} />
         </Section>
 
@@ -292,19 +294,19 @@ export default function ServerUserScreen() {
 
   return (
     <>
-      <Stack.Screen.Title />
+      <Stack.Screen.Title>User Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         {AsyncResult.matchWithError(state, {
           onInitial: () => (
             <UserList>
-              <Section title="User Details">
+              <Section>
                 <ListState kind="loading" />
               </Section>
             </UserList>
           ),
           onError: (error) => (
             <UserList>
-              <Section title="User Details">
+              <Section>
                 <ListState
                   kind="error"
                   message={authFailureMessage({ error })}
@@ -316,7 +318,7 @@ export default function ServerUserScreen() {
           ),
           onDefect: () => (
             <UserList>
-              <Section title="User Details">
+              <Section>
                 <ListState
                   kind="error"
                   message="Unable to load this user."

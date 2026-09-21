@@ -1,6 +1,6 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useRef } from 'react';
 
 import { useSetupServerForm } from '#src/app/accounts/setup/index.ts';
@@ -9,6 +9,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 
 export default function SetupServerScreen() {
+  const router = useRouter();
   const sheetRef = useRef<ModalBottomSheetRef>(null);
   const form = useSetupServerForm({
     onSuccess: async () => {
