@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index d9668f0d3d9cc748ecf03e9b5d75ad5c196bf5f8..cf5314c373c698a255f3ae700d43a7fae9b6eb3e 100644
+--- a/package.json
++++ b/package.json
+@@ -32,6 +32,7 @@
+       "expo-source": "./src/WebBrowser.ts",
+       "default": "./build/WebBrowser.js"
+     },
++    "./plugin": "./plugin/build/index.js",
+     "./package.json": "./package.json"
+   },
+   "devDependencies": {

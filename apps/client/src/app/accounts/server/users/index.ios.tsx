@@ -4,7 +4,7 @@ import { frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
-import { Stack, router } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
@@ -22,6 +22,7 @@ const NativeServerUsersList = requireNativeView<{
 }>('ServerUsersList');
 
 export default function ServerUsersScreen() {
+  const router = useRouter();
   const [users, loadMoreUsers] = useAtom(listUsersAtom);
   const refresh = useAtomRefresh(listUsersAtom);
 

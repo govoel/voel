@@ -1,5 +1,6 @@
 import { RegistryContext, useAtomSuspense } from '@effect/atom-react';
 import { Host, ProgressView } from '@expo/ui/swift-ui';
+import { frame } from '@expo/ui/swift-ui/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
@@ -8,8 +9,10 @@ import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model
 import { AppRegistry } from '#src/services/registry.ts';
 
 export const SuspenseFallback = () => (
-  <Host style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <ProgressView />
+  <Host style={{ flex: 1 }}>
+    <ProgressView
+      modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, alignment: 'center' })]}
+    />
   </Host>
 );
 

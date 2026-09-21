@@ -3,7 +3,7 @@ import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
@@ -26,6 +26,7 @@ const SessionContent = ({
   userId: typeof AuthUser.fields.id.Type;
   sessionId: typeof AuthDeviceSession.fields.id.Type;
 }) => {
+  const router = useRouter();
   const state = useAtomValue(serverUserSessionAtom({ userId, sessionId }));
   const refresh = useAtomRefresh(serverUserSessionsAtom(userId));
 
@@ -108,7 +109,7 @@ export default function ServerUserSessionScreen() {
   }>();
   return (
     <>
-      <Stack.Screen.Title>Session details</Stack.Screen.Title>
+      <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
           <SessionContent key={`${id}-${sessionId}`} userId={id} sessionId={sessionId} />

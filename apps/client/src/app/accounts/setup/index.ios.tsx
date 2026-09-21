@@ -1,13 +1,14 @@
 import { Host } from '@expo/ui';
 import { Group } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
-import { Stack, router } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 
 import { useSetupServerForm } from '#src/app/accounts/setup/index.ts';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 
 export default function SetupServerScreen() {
+  const router = useRouter();
   const form = useSetupServerForm({
     onSuccess: async () => {
       router.back();
@@ -16,12 +17,11 @@ export default function SetupServerScreen() {
 
   return (
     <>
-      <Stack.Screen.Title />
+      <Stack.Screen.Title>Setup New Server</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <Group>
           <form.AppForm>
             <FormLayout
-              title="Setup New Server"
               footer={
                 <form.SubmitButton
                   platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}

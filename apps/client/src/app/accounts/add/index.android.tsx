@@ -1,6 +1,6 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
 
 import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
@@ -9,6 +9,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 
 export default function AddAccountScreen() {
+  const router = useRouter();
   const sheetRef = useRef<ModalBottomSheetRef>(null);
   const { serverUrl, username, reauthenticate } = useLocalSearchParams<{
     serverUrl?: string;

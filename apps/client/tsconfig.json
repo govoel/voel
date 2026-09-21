@@ -1,5 +1,5 @@
 {
-  "extends": ["expo/tsconfig.base", "@repo/tsconfig/effect.json"],
+  "extends": ["expo/tsconfig.base.json", "@repo/tsconfig/effect.json"],
   "compilerOptions": {
     "strict": true,
     "paths": {

@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index a7d179656905a2c5e1195d201342b9cae539c9aa..55d3f580f59b2b50a7e0575ac533fe1de75d4689 100644
+--- a/package.json
++++ b/package.json
+@@ -25,6 +25,7 @@
+       "expo-source": "./src/index.ts",
+       "default": "./build/index.js"
+     },
++    "./plugin": "./plugin/build/index.js",
+     "./package.json": "./package.json"
+   },
+   "dependencies": {

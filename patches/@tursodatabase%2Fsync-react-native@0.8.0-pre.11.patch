@@ -1,3 +1,91 @@
+diff --git a/ios/TursoModule.mm b/ios/TursoModule.mm
+index b8219b890be6cdc1eb5200241ef379f0961f8c84..132d9747cc68cd1803489b970585d02a8f33e67e 100644
+--- a/ios/TursoModule.mm
++++ b/ios/TursoModule.mm
+@@ -1,15 +1,17 @@
+ #import "TursoModule.h"
+
+-#import <React/RCTBridge+Private.h>
+-#import <React/RCTUtils.h>
+-#import <ReactCommon/RCTTurboModule.h>
++#import <ReactCommon/RCTInteropTurboModule.h>
++#import <ReactCommon/RCTTurboModuleWithJSIBindings.h>
+ #import <jsi/jsi.h>
+
+ #import "TursoHostObject.h"
+
+-@implementation Turso
++@interface Turso () <RCTTurboModule, RCTTurboModuleWithJSIBindings>
++@end
+
+-@synthesize bridge = _bridge;
++@implementation Turso {
++    BOOL _installed;
++}
+
+ RCT_EXPORT_MODULE()
+
+@@ -44,28 +46,14 @@ RCT_EXPORT_MODULE()
+     };
+ }
+
+-- (void)setBridge:(RCTBridge *)bridge {
+-    _bridge = bridge;
+-
+-    RCTCxxBridge *cxxBridge = (RCTCxxBridge *)self.bridge;
+-    if (!cxxBridge.runtime) {
+-        return;
+-    }
+-
+-    [self installLibrary];
++// Keep the existing JS API while React Native supplies the runtime without a legacy bridge.
++- (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
++    (const facebook::react::ObjCTurboModule::InitParams &)params {
++    return std::make_shared<facebook::react::ObjCInteropTurboModule>(params);
+ }
+
+-- (void)installLibrary {
+-    RCTCxxBridge *cxxBridge = (RCTCxxBridge *)self.bridge;
+-    if (!cxxBridge.runtime) {
+-        return;
+-    }
+-
+-    facebook::jsi::Runtime *runtime = (facebook::jsi::Runtime *)cxxBridge.runtime;
+-    if (!runtime) {
+-        return;
+-    }
+-
++- (void)installJSIBindingsWithRuntime:(facebook::jsi::Runtime &)runtime
++                        callInvoker:(const std::shared_ptr<facebook::react::CallInvoker> &)callInvoker {
+     // Get the documents directory for database storage
+     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+     NSString *documentsPath = [paths firstObject];
+@@ -79,21 +67,19 @@ RCT_EXPORT_MODULE()
+         }
+     }
+
+-    // Get the call invoker
+-    auto callInvoker = _bridge.jsCallInvoker;
+-
+     // Install the Turso module
+-    turso::install(*runtime, callInvoker, [documentsPath UTF8String]);
++    turso::install(runtime, callInvoker, [documentsPath UTF8String]);
++    _installed = YES;
+ }
+
+ - (void)invalidate {
+     turso::invalidate();
++    _installed = NO;
+ }
+
+ // Synchronous method to check if the module is installed
+ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(install) {
+-    [self installLibrary];
+-    return @YES;
++    return @(_installed);
+ }
+
+ @end
 diff --git a/lib/commonjs/Statement.js b/lib/commonjs/Statement.js
 index 3a1ca514d513be4532df0e4180821647a11de305..5af4036881afeb9ad2ceabc99252245f00bd6a4f 100644
 --- a/lib/commonjs/Statement.js

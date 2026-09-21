@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index 54c566c52e143d52ec4e7cd1aea791fae2049d87..1091399de35b7065c3fa026836396f004caa26b1 100644
+--- a/package.json
++++ b/package.json
+@@ -271,6 +271,7 @@
+     "./rsc/entry.js": "./rsc/entry.js",
+     "./assets/*": "./assets/*",
+     "./app.plugin.js": "./app.plugin.js",
++    "./plugin": "./plugin/build/index.js",
+     "./package.json": "./package.json"
+   },
+   "dependencies": {

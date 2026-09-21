@@ -21,7 +21,7 @@ import {
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
-import { Stack, router } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
@@ -39,28 +39,31 @@ import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { iosTextStyle } from '#src/components/text/index.ios.tsx';
 import { Spacing } from '#src/constants/theme.ts';
 
-const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => (
-  <Button
-    modifiers={[tint('primary')]}
-    onPress={() => {
-      router.push(href);
-    }}>
-    <HStack>
-      <Text>{title}</Text>
-      <Spacer />
-      <Icon
-        name="chevron.right"
-        modifiers={[
-          font({ textStyle: 'footnote', weight: 'semibold' }),
-          foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-        ]}
-      />
-    </HStack>
-  </Button>
-);
+const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
+  const router = useRouter();
+
+  return (
+    <Button
+      modifiers={[tint('primary')]}
+      onPress={() => {
+        router.push(href);
+      }}>
+      <HStack>
+        <Text>{title}</Text>
+        <Spacer />
+        <Icon
+          name="chevron.right"
+          modifiers={[
+            font({ textStyle: 'footnote', weight: 'semibold' }),
+            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+          ]}
+        />
+      </HStack>
+    </Button>
+  );
+};
 
 const AccountsList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased')]}>
@@ -118,7 +121,7 @@ export default function AccountsScreen() {
                                 <Icon
                                   name="person.crop.circle.fill"
                                   modifiers={[
-                                    iosTextStyle('largeTitle'),
+                                    font({ textStyle: 'largeTitle', weight: 'bold' }),
                                     foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
                                   ]}
                                 />
@@ -272,7 +275,7 @@ export default function AccountsScreen() {
                                     : 'person.crop.circle.fill'
                                 }
                                 modifiers={[
-                                  iosTextStyle('largeTitle'),
+                                  font({ textStyle: 'largeTitle', weight: 'bold' }),
                                   foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
                                 ]}
                               />

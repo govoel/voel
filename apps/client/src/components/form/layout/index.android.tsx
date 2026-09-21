@@ -9,7 +9,7 @@ export const FormLayout = (({ title, children, footer }) => (
   <Column
     modifiers={[verticalScroll(), padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
     verticalArrangement={{ spacedBy: Spacing.two }}>
-    <Text variant="h3">{title}</Text>
+    {title !== void 0 ? <Text variant="h3">{title}</Text> : null}
     {children}
     {footer}
   </Column>

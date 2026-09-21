@@ -2,7 +2,7 @@ import { RegistryContext } from '@effect/atom-react';
 import { Host, LoadingIndicator, Surface } from '@expo/ui/jetpack-compose';
 import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import type { Theme } from 'expo-router/react-navigation';
+import type { Theme } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';

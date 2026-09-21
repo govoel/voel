@@ -10,9 +10,9 @@ import {
   ActiveAccountKey,
 } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
+import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClient, acquireAuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
@@ -174,10 +174,10 @@ describe('AccountManager', () => {
 
           const persistedAccount = Option.getOrThrow(yield* manager.state);
           const storage = yield* AuthClientStorage;
-          const xxHash = yield* XxHash;
-          const storagePrefix = yield* xxHash.hash128(
-            `voel::auth::${serverUrl}::${persistedAccount.authStorageId}`
-          );
+          const cryptoDigest = yield* CryptoDigest;
+          const storagePrefix = yield* cryptoDigest.sha256({
+            input: `voel::auth::${serverUrl}::${persistedAccount.authStorageId}`,
+          });
           const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
 
           expect(storedCookie.valueOrUndefined).toContain('auth.session_token');
@@ -340,10 +340,10 @@ describe('AccountManager', () => {
           ]);
 
           const storage = yield* AuthClientStorage;
-          const xxHash = yield* XxHash;
-          const storagePrefix = yield* xxHash.hash128(
-            `voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`
-          );
+          const cryptoDigest = yield* CryptoDigest;
+          const storagePrefix = yield* cryptoDigest.sha256({
+            input: `voel::auth::${serverUrl}::${synchronizedAccount.authStorageId}`,
+          });
           const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
           const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
             storedCookie.valueOrUndefined
@@ -685,10 +685,10 @@ describe('AccountManager', () => {
           const firstClient = yield* acquireAuthClient(firstKey);
           const secondClient = yield* acquireAuthClient(secondKey);
           const storage = yield* AuthClientStorage;
-          const xxHash = yield* XxHash;
-          const prefix = yield* xxHash.hash128(
-            `voel::auth::${first.serverUrl}::${first.authStorageId}`
-          );
+          const cryptoDigest = yield* CryptoDigest;
+          const prefix = yield* cryptoDigest.sha256({
+            input: `voel::auth::${first.serverUrl}::${first.authStorageId}`,
+          });
           expect(Option.isSome(yield* storage.getItem(`${prefix}_cookie`))).toBe(true);
 
           yield* manager.signOutEverywhere(firstKey);
@@ -720,19 +720,19 @@ describe('AccountManager', () => {
           const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const storage = yield* AuthClientStorage;
-          const xxHash = yield* XxHash;
-          const storagePrefix = yield* xxHash.hash128(
-            `voel::auth::${testServer.serverUrl}::${account.authStorageId}`
-          );
+          const cryptoDigest = yield* CryptoDigest;
+          const storagePrefix = yield* cryptoDigest.sha256({
+            input: `voel::auth::${testServer.serverUrl}::${account.authStorageId}`,
+          });
           const storedCookie = yield* storage.getItem(`${storagePrefix}_cookie`);
           expect(Option.isSome(storedCookie)).toBe(true);
 
           const verificationAuthStorageId = Account.fields.authStorageId.make(
             'removed-account-session-verification'
           );
-          const verificationStoragePrefix = yield* xxHash.hash128(
-            `voel::auth::${testServer.serverUrl}::${verificationAuthStorageId}`
-          );
+          const verificationStoragePrefix = yield* cryptoDigest.sha256({
+            input: `voel::auth::${testServer.serverUrl}::${verificationAuthStorageId}`,
+          });
 
           yield* Effect.gen(function* () {
             const authClient = yield* AuthClient;
@@ -770,7 +770,7 @@ describe('AccountManager', () => {
                         [`${verificationStoragePrefix}_cookie`, Option.getOrThrow(storedCookie)],
                       ])
                     ),
-                    XxHash.layerTest
+                    CryptoDigest.layerTest
                   )
                 )
               )
