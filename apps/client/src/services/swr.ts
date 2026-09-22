@@ -1,37 +1,23 @@
-import { Effect, Queue, Stream } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 import { AppState } from 'react-native';
-import type { AppStateStatus } from 'react-native';
 
-const swrFocusSignalAtom = Atom.make(
-  Stream.callback<AppStateStatus>((queue) =>
-    Effect.acquireRelease(
-      Effect.sync(() =>
-        AppState.addEventListener('change', (state) => {
-          Queue.offerUnsafe(queue, state);
-        })
-      ),
-      (subscription) =>
-        Effect.sync(() => {
-          subscription.remove();
-        })
-    )
-  ).pipe(
-    Stream.scan(
-      () => ({ activationCount: 0, previousState: AppState.currentState }),
-      ({ activationCount, previousState }, currentState) => ({
-        activationCount:
-          previousState !== 'active' && currentState === 'active'
-            ? activationCount + 1
-            : activationCount,
-        previousState: currentState,
-      })
-    ),
-    Stream.drop(1),
-    Stream.map(({ activationCount }) => activationCount)
-  ),
-  { initialValue: 0 }
-).pipe(Atom.withLabel('swrFocusSignalAtom'));
+const swrFocusSignalAtom = Atom.readable((get) => {
+  let activationCount = 0;
+  let previousState = AppState.currentState;
+  const subscription = AppState.addEventListener('change', (state) => {
+    const activated = previousState !== 'active' && state === 'active';
+    previousState = state;
+    if (activated) {
+      activationCount += 1;
+      get.setSelf(activationCount);
+    }
+  });
+
+  get.addFinalizer(() => {
+    subscription.remove();
+  });
+  return activationCount;
+}).pipe(Atom.withLabel('swrFocusSignalAtom'));
 
 export const swr = (options: Omit<Parameters<typeof Atom.swr>[1], 'focusSignal'>) =>
   Atom.swr({
