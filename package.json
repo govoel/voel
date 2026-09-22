@@ -22,7 +22,7 @@
     "agent-browser": "0.38.1",
     "agent-device": "0.21.7",
     "bun-types": "1.4.2",
-    "effect": "4.0.0-rc.115",
+    "effect": "4.0.0-rc.117",
     "eslint-plugin-sql": "3.4.1",
     "eslint-plugin-turbo": "2.11.2",
     "opensrc": "0.7.3",
@@ -32,6 +32,9 @@
     "turbo": "2.11.2",
     "typescript": "7.0.2"
   },
+  "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.117"
+  },
   "engines": {
     "bun": "1.4.2"
   },
@@ -40,8 +43,8 @@
     "@tursodatabase/sync-react-native@0.8.0-pre.11": "patches/@tursodatabase%2Fsync-react-native@0.8.0-pre.11.patch",
     "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
     "expo-font@58.0.2": "patches/expo-font@58.0.2.patch",
-    "expo-image@58.0.3": "patches/expo-image@58.0.3.patch",
-    "expo-router@58.0.5": "patches/expo-router@58.0.5.patch",
-    "expo-web-browser@58.0.1": "patches/expo-web-browser@58.0.1.patch"
+    "expo-image@58.0.4": "patches/expo-image@58.0.4.patch",
+    "expo-router@58.0.6": "patches/expo-router@58.0.6.patch",
+    "expo-web-browser@58.0.2": "patches/expo-web-browser@58.0.2.patch"
   }
 }
