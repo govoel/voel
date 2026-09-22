@@ -23,9 +23,11 @@ export const FormLayout = (({ title, children, footer }) => (
       <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
         <Section
           header={
-            <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
-              {title}
-            </Text>
+            title !== void 0 ? (
+              <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
+                {title}
+              </Text>
+            ) : null
           }>
           {children}
         </Section>

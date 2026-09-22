@@ -5,7 +5,7 @@ import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
@@ -91,6 +91,7 @@ const LoadedProfile = ({
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
+  const router = useRouter();
   const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
   const colors = useMaterialColors();
 
@@ -270,6 +271,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 };
 
 const OwnSessions = () => {
+  const router = useRouter();
   const state = useAtomValue(ownSessionsAtom);
   const refresh = useAtomRefresh(ownSessionsAtom);
   return (

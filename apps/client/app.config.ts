@@ -5,7 +5,7 @@ import { Effect, Match } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
 import expoFont from 'expo-font/plugin';
 import expoImage from 'expo-image/plugin';
-import expoRouter from 'expo-router/plugin/build';
+import expoRouter from 'expo-router/plugin';
 import expoSecureStore from 'expo-secure-store/plugin/build';
 import expoSplashScreen from 'expo-splash-screen/plugin';
 import expoStatusBar from 'expo-status-bar/plugin';
@@ -84,8 +84,8 @@ project(':expo') {
 
     if (!config.modResults.contents.includes(composePluginClasspath)) {
       config.modResults.contents = config.modResults.contents.replace(
-        "    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')",
-        `    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')\n${composePluginClasspath}`
+        `    classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')`,
+        `    classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')\n${composePluginClasspath}`
       );
     }
 

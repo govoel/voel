@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
@@ -20,6 +20,7 @@ import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
 const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
+  const router = useRouter();
   const state = useAtomValue(ownSessionAtom(id));
   const refresh = useAtomRefresh(ownSessionsAtom);
   const colors = useMaterialColors();

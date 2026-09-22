@@ -5,7 +5,7 @@ import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { requireNativeView } from 'expo';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
@@ -33,6 +33,7 @@ const SlotNativeView = requireNativeView<{
 }>('ExpoUI', 'SlotView');
 
 export default function ServerUsersScreen() {
+  const router = useRouter();
   const [users, loadMoreUsers] = useAtom(listUsersAtom);
   const refresh = useAtomRefresh(listUsersAtom);
   const colors = useMaterialColors();

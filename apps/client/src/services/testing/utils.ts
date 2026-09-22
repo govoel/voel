@@ -6,9 +6,9 @@ import { Reactivity } from 'effect/unstable/reactivity';
 import { UuidGenerator } from '#src/services/accounts/index.ts';
 import type { AccountManager } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
+import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import { XxHash } from '#src/services/auth-client/xxhash.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { TursoSyncClientFactoryBunLayer } from '#src/services/database/factory/bun.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -29,7 +29,7 @@ export const makeClientTestLayers = ({
       Layer.mergeAll(
         AuthClientStorage.layerTest(authClientStorageMap),
         UuidGenerator.layerTest,
-        XxHash.layerTest,
+        CryptoDigest.layerTest,
         AppConfig.layerTest(config),
         Reactivity.layer,
         TursoSyncClientFactoryBunLayer
@@ -59,7 +59,7 @@ export const makeAuthClient = Effect.fnUntraced(function* ({
   return yield* AuthClient.pipe(
     Effect.provide(
       AuthClient.layerNoDeps({ serverUrl, authStorageId }).pipe(
-        Layer.provide(Layer.mergeAll(AuthClientStorage.layerTest(storage), XxHash.layerTest))
+        Layer.provide(Layer.mergeAll(AuthClientStorage.layerTest(storage), CryptoDigest.layerTest))
       )
     )
   );

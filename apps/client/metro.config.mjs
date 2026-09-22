@@ -1,7 +1,7 @@
 import { withRozenite } from '@rozenite/metro';
 import { Effect } from 'effect';
 // Learn more https://docs.expo.io/guides/customizing-metro
-import { getDefaultConfig } from 'expo/metro-config.js';
+import { getDefaultConfig } from 'expo/metro-config';
 
 import { Env } from './env.mts';
 

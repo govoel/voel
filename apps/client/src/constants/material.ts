@@ -1,6 +1,6 @@
 import { useMaterialColors as useExpoMaterialColors } from '@expo/ui/jetpack-compose';
 import type { TextFieldProps } from '@expo/ui/jetpack-compose';
-import type { Theme } from 'expo-router/react-navigation';
+import type { Theme } from 'expo-router';
 
 export const materialSeedColor = '#00AAFF';
 

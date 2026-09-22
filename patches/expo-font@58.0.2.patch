@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index 0f9d235335b5e97a4d5c758adaf6b924fa50769e..9c8abb21ed92a8daee5c5781e9790ce0808c7baa 100644
+--- a/package.json
++++ b/package.json
+@@ -48,6 +48,7 @@
+     },
+     "./app.plugin": "./app.plugin.js",
+     "./app.plugin.js": "./app.plugin.js",
++    "./plugin": "./plugin/build/index.js",
+     "./package.json": "./package.json"
+   },
+   "devDependencies": {

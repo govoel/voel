@@ -4,7 +4,7 @@ import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-u
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import { Stack, router } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
@@ -29,10 +29,6 @@ const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
     {children}
   </List>
-);
-
-const ProfileSection = ({ children }: PropsWithChildren) => (
-  <Section title="Your Profile">{children}</Section>
 );
 
 const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
@@ -69,12 +65,13 @@ const LoadedProfile = ({
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
+  const router = useRouter();
   const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
 
   return (
     <>
       <ProfileList>
-        <ProfileSection>
+        <Section>
           <DetailRows
             details={[
               { label: 'Name', value: name },
@@ -83,7 +80,7 @@ const LoadedProfile = ({
               { label: 'Role', value: role },
             ]}
           />
-        </ProfileSection>
+        </Section>
         <Section>
           <Button
             onPress={() => {
@@ -145,48 +142,48 @@ export default function ProfileScreen() {
 
   return (
     <>
-      <Stack.Screen.Title />
+      <Stack.Screen.Title>Your Profile</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <Group>
           {AsyncResult.matchWithError(state, {
             onInitial: () => (
               <ProfileList>
-                <ProfileSection>
+                <Section>
                   <ListState kind="loading" />
-                </ProfileSection>
+                </Section>
               </ProfileList>
             ),
             onError: () => (
               <ProfileList>
-                <ProfileSection>
+                <Section>
                   <ListState
                     kind="error"
                     message="Unable to load your profile."
                     onRetry={refresh}
                     retrying={state.waiting}
                   />
-                </ProfileSection>
+                </Section>
               </ProfileList>
             ),
             onDefect: () => (
               <ProfileList>
-                <ProfileSection>
+                <Section>
                   <ListState
                     kind="error"
                     message="Unable to load your profile."
                     onRetry={refresh}
                     retrying={state.waiting}
                   />
-                </ProfileSection>
+                </Section>
               </ProfileList>
             ),
             onSuccess: ({ value }) =>
               Option.match(value, {
                 onNone: () => (
                   <ProfileList>
-                    <ProfileSection>
+                    <Section>
                       <ListState kind="empty" message="No active user." />
-                    </ProfileSection>
+                    </Section>
                   </ProfileList>
                 ),
                 onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
@@ -244,6 +241,7 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 };
 
 const OwnSessions = () => {
+  const router = useRouter();
   const state = useAtomValue(ownSessionsAtom);
   const refresh = useAtomRefresh(ownSessionsAtom);
   return (
