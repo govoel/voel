@@ -45,6 +45,6 @@
     "expo-font@58.0.2": "patches/expo-font@58.0.2.patch",
     "expo-image@58.0.4": "patches/expo-image@58.0.4.patch",
     "expo-router@58.0.6": "patches/expo-router@58.0.6.patch",
-    "expo-web-browser@58.0.1": "patches/expo-web-browser@58.0.1.patch"
+    "expo-web-browser@58.0.2": "patches/expo-web-browser@58.0.2.patch"
   }
 }
