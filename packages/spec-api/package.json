@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@repo/auth-api": "workspace:*",
-    "effect": "4.0.0-rc.115"
+    "effect": "4.0.0-rc.116"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
