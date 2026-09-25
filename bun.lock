@@ -8,7 +8,7 @@
         "@effect/tsgo": "0.45.0",
         "@oxlint/plugins": "1.82.0",
         "agent-browser": "0.38.1",
-        "agent-device": "0.21.7",
+        "agent-device": "0.21.12",
         "bun-types": "1.4.2",
         "effect": "4.0.0-rc.117",
         "eslint-plugin-sql": "3.4.1",
@@ -1204,7 +1204,7 @@
 
     "agent-cli-detector": ["agent-cli-detector@0.1.7", "", { "bin": { "agent-cli-detector": "dist/cli.js" } }, "sha512-d8OWDVdZMgjhLUT9ZPgSv/BdFFF9pVuscC0JdUSz3bjwE15gcp6u/o0/JooM2yyAWC49KThFhXlgTXRa9B7yng=="],
 
-    "agent-device": ["agent-device@0.21.7", "", { "peerDependencies": { "ai": "^6.0.0 || ^7.0.0" }, "optionalPeers": ["ai"], "bin": { "agent-device": "bin/agent-device.mjs" } }, "sha512-oeddlU5/Go9xzSWC1WmsqtE5iVcZjhiD1nBx2D9/YJluxZ7TWIAWllvSO+WRFJPDm67p3KpbtYUscv6KOPfceQ=="],
+    "agent-device": ["agent-device@0.21.12", "", { "peerDependencies": { "ai": "^6.0.0 || ^7.0.0" }, "optionalPeers": ["ai"], "bin": { "agent-device": "bin/agent-device.mjs" } }, "sha512-aeIMmmMRUCnpRzhl3it0/PpTxhfcnxk8U3epV3kGRw9aQgo2UZa04kBc/h6i7wswhiuZw29TSPO0ewths3eJHg=="],
 
     "ajv": ["ajv@6.15.0", "", { "dependencies": { "fast-deep-equal": "^3.1.1", "fast-json-stable-stringify": "^2.0.0", "json-schema-traverse": "^0.4.1", "uri-js": "^4.2.2" } }, "sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw=="],
 

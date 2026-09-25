@@ -20,7 +20,7 @@
     "@effect/tsgo": "0.45.0",
     "@oxlint/plugins": "1.82.0",
     "agent-browser": "0.38.1",
-    "agent-device": "0.21.7",
+    "agent-device": "0.21.12",
     "bun-types": "1.4.2",
     "effect": "4.0.0-rc.117",
     "eslint-plugin-sql": "3.4.1",
