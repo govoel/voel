@@ -20,9 +20,10 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
+import type { Atom } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import {
@@ -76,6 +77,80 @@ const AccountsList = ({ children }: PropsWithChildren) => (
   </List>
 );
 
+const AccountPicker = ({
+  accounts: accountList,
+  close,
+}: {
+  readonly accounts: Atom.Success<typeof accountsWithActiveAccount>['accounts'];
+  readonly close: () => Promise<void>;
+}) => {
+  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
+  const renderAccount = useCallback(
+    ({ item: account }: { item: (typeof accountList)[number] }) => (
+      <Button
+        modifiers={[tint('primary'), disabled(AsyncResult.isWaiting(setActiveAccount))]}
+        onPress={() => {
+          void setActiveAccountAndDismiss({
+            input: {
+              serverUrl: account.serverUrl,
+              userId: account.userId,
+            },
+            onSuccess: close,
+          });
+        }}>
+        <HStack alignment="center" spacing={Spacing.two}>
+          <Icon
+            name={
+              account.active ? 'person.crop.circle.fill.badge.checkmark' : 'person.crop.circle.fill'
+            }
+            modifiers={[
+              font({ textStyle: 'largeTitle', weight: 'bold' }),
+              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+            ]}
+          />
+
+          <VStack alignment="leading" spacing={Spacing.one}>
+            <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>
+              @{account.username}
+            </Text>
+            <Text
+              variant="caption"
+              modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+              {account.serverUrl.toString()}
+            </Text>
+          </VStack>
+
+          {AsyncResult.isWaiting(setActiveAccount) ? (
+            <>
+              <Spacer />
+              <ProgressView />
+            </>
+          ) : null}
+        </HStack>
+      </Button>
+    ),
+    [setActiveAccount, setActiveAccountAndDismiss, close]
+  );
+  return (
+    <List modifiers={[headerProminence('increased')]}>
+      <Section
+        header={
+          <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
+            Pick an Account
+          </Text>
+        }>
+        <List.ForEach
+          data={accountList}
+          keyExtractor={(account) =>
+            JSON.stringify([account.serverUrl.toString(), account.userId])
+          }>
+          {renderAccount}
+        </List.ForEach>
+      </Section>
+    </List>
+  );
+};
+
 export default function AccountsScreen() {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
@@ -83,7 +158,6 @@ export default function AccountsScreen() {
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
-  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   return (
     <>
@@ -243,71 +317,7 @@ export default function AccountsScreen() {
                   onDismiss={() => {
                     setIsSwitchAccountPresented(false);
                   }}>
-                  {({ close }) => (
-                    <List modifiers={[headerProminence('increased')]}>
-                      <Section
-                        header={
-                          <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
-                            Pick an Account
-                          </Text>
-                        }>
-                        {accountList.map((account) => (
-                          <Button
-                            modifiers={[
-                              tint('primary'),
-                              disabled(AsyncResult.isWaiting(setActiveAccount)),
-                            ]}
-                            key={`${account.serverUrl.toString()}-${account.userId}`}
-                            onPress={() => {
-                              void setActiveAccountAndDismiss({
-                                input: {
-                                  serverUrl: account.serverUrl,
-                                  userId: account.userId,
-                                },
-                                onSuccess: close,
-                              });
-                            }}>
-                            <HStack alignment="center" spacing={Spacing.two}>
-                              <Icon
-                                name={
-                                  account.active
-                                    ? 'person.crop.circle.fill.badge.checkmark'
-                                    : 'person.crop.circle.fill'
-                                }
-                                modifiers={[
-                                  font({ textStyle: 'largeTitle', weight: 'bold' }),
-                                  foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                ]}
-                              />
-
-                              <VStack alignment="leading" spacing={Spacing.one}>
-                                <Text
-                                  modifiers={[
-                                    foregroundStyle({ type: 'hierarchical', style: 'primary' }),
-                                  ]}>
-                                  @{account.username}
-                                </Text>
-                                <Text
-                                  variant="caption"
-                                  modifiers={[
-                                    foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                  ]}>
-                                  {account.serverUrl.toString()}
-                                </Text>
-                              </VStack>
-
-                              {AsyncResult.isWaiting(setActiveAccount) ? (
-                                <>
-                                  <Spacer />
-                                  <ProgressView />
-                                </>
-                              ) : null}
-                            </HStack>
-                          </Button>
-                        ))}
-                      </Section>
-                    </List>
-                  )}
+                  {({ close }) => <AccountPicker accounts={accountList} close={close} />}
                 </ControlledSheet>
               </>
             ),

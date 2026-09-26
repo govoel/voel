@@ -2,13 +2,14 @@ import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-reac
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
-import { Column, Icon } from '@expo/ui/jetpack-compose';
+import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
+import type { Atom } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   accountsWithActiveAccount,
@@ -59,6 +60,70 @@ const StackNavigationRow = ({
   );
 };
 
+const AccountPicker = ({
+  accounts: accountList,
+  close,
+}: {
+  readonly accounts: Atom.Success<typeof accountsWithActiveAccount>['accounts'];
+  readonly close: () => Promise<void>;
+}) => {
+  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
+  const colors = useMaterialColors();
+  const renderAccount = useCallback(
+    ({ item: account, index }: { item: (typeof accountList)[number]; index: number }) => (
+      <SegmentedListItem
+        index={index}
+        count={accountList.length}
+        selected={account.active}
+        enabled={!AsyncResult.isWaiting(setActiveAccount)}
+        onClick={() => {
+          void setActiveAccountAndDismiss({
+            input: {
+              serverUrl: account.serverUrl,
+              userId: account.userId,
+            },
+            onSuccess: close,
+          });
+        }}>
+        <SegmentedListItem.LeadingContent>
+          <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
+        </SegmentedListItem.LeadingContent>
+        <SegmentedListItem.HeadlineContent>
+          <Text>@{account.username}</Text>
+        </SegmentedListItem.HeadlineContent>
+        <SegmentedListItem.SupportingContent>
+          <Text variant="caption" color={colors.onSurfaceVariant}>
+            {account.serverUrl.toString()}
+          </Text>
+        </SegmentedListItem.SupportingContent>
+      </SegmentedListItem>
+    ),
+    [
+      accountList.length,
+      colors.onSurfaceVariant,
+      setActiveAccount,
+      setActiveAccountAndDismiss,
+      close,
+    ]
+  );
+  return (
+    <LazyColumn
+      contentPadding={{
+        start: Spacing.three,
+        end: Spacing.three,
+        bottom: Spacing.three,
+      }}
+      verticalArrangement={{ spacedBy: Spacing.two }}>
+      <Text variant="h3">Pick an Account</Text>
+      <LazyColumn.Items
+        data={accountList}
+        keyExtractor={(account) => JSON.stringify([account.serverUrl.toString(), account.userId])}>
+        {renderAccount}
+      </LazyColumn.Items>
+    </LazyColumn>
+  );
+};
+
 export default function AccountsScreen() {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
@@ -67,7 +132,6 @@ export default function AccountsScreen() {
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
-  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   const colors = useMaterialColors();
 
@@ -239,44 +303,7 @@ export default function AccountsScreen() {
                 onDismiss={() => {
                   setIsSwitchAccountPresented(false);
                 }}>
-                {({ close }) => (
-                  <Column
-                    modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
-                    verticalArrangement={{ spacedBy: Spacing.two }}>
-                    <Text variant="h3">Pick an Account</Text>
-                    <SegmentedList>
-                      {accountList.map((account, index) => (
-                        <SegmentedListItem
-                          key={`${account.serverUrl.toString()}-${account.userId}`}
-                          index={index}
-                          count={accountList.length}
-                          selected={account.active}
-                          enabled={!AsyncResult.isWaiting(setActiveAccount)}
-                          onClick={() => {
-                            void setActiveAccountAndDismiss({
-                              input: {
-                                serverUrl: account.serverUrl,
-                                userId: account.userId,
-                              },
-                              onSuccess: close,
-                            });
-                          }}>
-                          <SegmentedListItem.LeadingContent>
-                            <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
-                          </SegmentedListItem.LeadingContent>
-                          <SegmentedListItem.HeadlineContent>
-                            <Text>@{account.username}</Text>
-                          </SegmentedListItem.HeadlineContent>
-                          <SegmentedListItem.SupportingContent>
-                            <Text variant="caption" color={colors.onSurfaceVariant}>
-                              {account.serverUrl.toString()}
-                            </Text>
-                          </SegmentedListItem.SupportingContent>
-                        </SegmentedListItem>
-                      ))}
-                    </SegmentedList>
-                  </Column>
-                )}
+                {({ close }) => <AccountPicker accounts={accountList} close={close} />}
               </ControlledSheet>
             </>
           ),
