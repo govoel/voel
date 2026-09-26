@@ -77,13 +77,13 @@ const AccountsList = ({ children }: PropsWithChildren) => (
 );
 
 export default function AccountsScreen() {
+  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
-  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   return (
     <>
@@ -251,60 +251,65 @@ export default function AccountsScreen() {
                             Pick an Account
                           </Text>
                         }>
-                        {accountList.map((account) => (
-                          <Button
-                            modifiers={[
-                              tint('primary'),
-                              disabled(AsyncResult.isWaiting(setActiveAccount)),
-                            ]}
-                            key={`${account.serverUrl.toString()}-${account.userId}`}
-                            onPress={() => {
-                              void setActiveAccountAndDismiss({
-                                input: {
-                                  serverUrl: account.serverUrl,
-                                  userId: account.userId,
-                                },
-                                onSuccess: close,
-                              });
-                            }}>
-                            <HStack alignment="center" spacing={Spacing.two}>
-                              <Icon
-                                name={
-                                  account.active
-                                    ? 'person.crop.circle.fill.badge.checkmark'
-                                    : 'person.crop.circle.fill'
-                                }
-                                modifiers={[
-                                  font({ textStyle: 'largeTitle', weight: 'bold' }),
-                                  foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                ]}
-                              />
-
-                              <VStack alignment="leading" spacing={Spacing.one}>
-                                <Text
+                        <List.ForEach
+                          data={accountList}
+                          keyExtractor={(account) =>
+                            JSON.stringify([account.serverUrl.toString(), account.userId])
+                          }>
+                          {({ item }) => (
+                            <Button
+                              modifiers={[
+                                tint('primary'),
+                                disabled(AsyncResult.isWaiting(setActiveAccount)),
+                              ]}
+                              onPress={() => {
+                                void setActiveAccountAndDismiss({
+                                  input: {
+                                    serverUrl: item.serverUrl,
+                                    userId: item.userId,
+                                  },
+                                  onSuccess: close,
+                                });
+                              }}>
+                              <HStack alignment="center" spacing={Spacing.two}>
+                                <Icon
+                                  name={
+                                    item.active
+                                      ? 'person.crop.circle.fill.badge.checkmark'
+                                      : 'person.crop.circle.fill'
+                                  }
                                   modifiers={[
-                                    foregroundStyle({ type: 'hierarchical', style: 'primary' }),
-                                  ]}>
-                                  @{account.username}
-                                </Text>
-                                <Text
-                                  variant="caption"
-                                  modifiers={[
+                                    font({ textStyle: 'largeTitle', weight: 'bold' }),
                                     foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                  ]}>
-                                  {account.serverUrl.toString()}
-                                </Text>
-                              </VStack>
+                                  ]}
+                                />
 
-                              {AsyncResult.isWaiting(setActiveAccount) ? (
-                                <>
-                                  <Spacer />
-                                  <ProgressView />
-                                </>
-                              ) : null}
-                            </HStack>
-                          </Button>
-                        ))}
+                                <VStack alignment="leading" spacing={Spacing.one}>
+                                  <Text
+                                    modifiers={[
+                                      foregroundStyle({ type: 'hierarchical', style: 'primary' }),
+                                    ]}>
+                                    @{item.username}
+                                  </Text>
+                                  <Text
+                                    variant="caption"
+                                    modifiers={[
+                                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                                    ]}>
+                                    {item.serverUrl.toString()}
+                                  </Text>
+                                </VStack>
+
+                                {AsyncResult.isWaiting(setActiveAccount) ? (
+                                  <>
+                                    <Spacer />
+                                    <ProgressView />
+                                  </>
+                                ) : null}
+                              </HStack>
+                            </Button>
+                          )}
+                        </List.ForEach>
                       </Section>
                     </List>
                   )}

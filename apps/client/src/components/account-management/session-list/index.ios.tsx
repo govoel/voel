@@ -1,5 +1,5 @@
 import { Icon } from '@expo/ui';
-import { Button, HStack, Spacer } from '@expo/ui/swift-ui';
+import { Button, HStack, List, Spacer } from '@expo/ui/swift-ui';
 import { font, foregroundStyle, tint } from '@expo/ui/swift-ui/modifiers';
 
 import { sessionDeviceName } from '#src/components/account-management/session-details/device-name.ts';
@@ -7,20 +7,21 @@ import type { SessionListComponent } from '#src/components/account-management/se
 import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 
-export const SessionList = (({ sessions, currentId, onSelect }) =>
-  sessions.length === 0 ? (
+export const SessionList = (({ sessions, currentId, onSelect }) => {
+  'use memo';
+
+  return sessions.length === 0 ? (
     <ListState kind="empty" message="No active sessions." />
   ) : (
-    <>
-      {sessions.map((session) => (
+    <List.ForEach data={sessions} keyExtractor={(session) => session.id}>
+      {({ item }) => (
         <Button
-          key={session.id}
           modifiers={[tint('primary')]}
           onPress={() => {
-            onSelect(session);
+            onSelect(item);
           }}>
           <HStack>
-            <Text>{sessionDeviceName({ session, isCurrent: session.id === currentId })}</Text>
+            <Text>{sessionDeviceName({ session: item, isCurrent: item.id === currentId })}</Text>
             <Spacer />
             <Icon
               name="chevron.right"
@@ -31,6 +32,7 @@ export const SessionList = (({ sessions, currentId, onSelect }) =>
             />
           </HStack>
         </Button>
-      ))}
-    </>
-  )) satisfies SessionListComponent;
+      )}
+    </List.ForEach>
+  );
+}) satisfies SessionListComponent;

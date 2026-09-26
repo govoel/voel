@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-reac
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
-import { Column, Icon } from '@expo/ui/jetpack-compose';
+import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
@@ -60,6 +60,7 @@ const StackNavigationRow = ({
 };
 
 export default function AccountsScreen() {
+  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
 
@@ -67,7 +68,6 @@ export default function AccountsScreen() {
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
-  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
 
   const colors = useMaterialColors();
 
@@ -240,23 +240,30 @@ export default function AccountsScreen() {
                   setIsSwitchAccountPresented(false);
                 }}>
                 {({ close }) => (
-                  <Column
-                    modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
+                  <LazyColumn
+                    contentPadding={{
+                      start: Spacing.three,
+                      end: Spacing.three,
+                      bottom: Spacing.three,
+                    }}
                     verticalArrangement={{ spacedBy: Spacing.two }}>
                     <Text variant="h3">Pick an Account</Text>
-                    <SegmentedList>
-                      {accountList.map((account, index) => (
+                    <LazyColumn.Items
+                      data={accountList}
+                      keyExtractor={(account) =>
+                        JSON.stringify([account.serverUrl.toString(), account.userId])
+                      }>
+                      {({ item, index }) => (
                         <SegmentedListItem
-                          key={`${account.serverUrl.toString()}-${account.userId}`}
                           index={index}
                           count={accountList.length}
-                          selected={account.active}
+                          selected={item.active}
                           enabled={!AsyncResult.isWaiting(setActiveAccount)}
                           onClick={() => {
                             void setActiveAccountAndDismiss({
                               input: {
-                                serverUrl: account.serverUrl,
-                                userId: account.userId,
+                                serverUrl: item.serverUrl,
+                                userId: item.userId,
                               },
                               onSuccess: close,
                             });
@@ -265,17 +272,17 @@ export default function AccountsScreen() {
                             <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
                           </SegmentedListItem.LeadingContent>
                           <SegmentedListItem.HeadlineContent>
-                            <Text>@{account.username}</Text>
+                            <Text>@{item.username}</Text>
                           </SegmentedListItem.HeadlineContent>
                           <SegmentedListItem.SupportingContent>
                             <Text variant="caption" color={colors.onSurfaceVariant}>
-                              {account.serverUrl.toString()}
+                              {item.serverUrl.toString()}
                             </Text>
                           </SegmentedListItem.SupportingContent>
                         </SegmentedListItem>
-                      ))}
-                    </SegmentedList>
-                  </Column>
+                      )}
+                    </LazyColumn.Items>
+                  </LazyColumn>
                 )}
               </ControlledSheet>
             </>

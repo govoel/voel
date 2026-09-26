@@ -161,7 +161,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
   const state = useAtomValue(serverUserSessionsAtom(user.id));
   const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
   return (
-    <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+    <>
       <Text variant="h4">Active Sessions</Text>
       {AsyncResult.matchWithError(state, {
         onInitial: () => <ListState kind="loading" />,
@@ -216,7 +216,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
           </>
         ),
       })}
-    </Column>
+    </>
   );
 };
 
