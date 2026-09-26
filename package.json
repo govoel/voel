@@ -40,7 +40,7 @@
   },
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {
-    "@tursodatabase/sync-react-native@0.8.0-pre.11": "patches/@tursodatabase%2Fsync-react-native@0.8.0-pre.11.patch",
+    "@tursodatabase/sync-react-native@0.8.0-pre.13": "patches/@tursodatabase%2Fsync-react-native@0.8.0-pre.13.patch",
     "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
     "expo-font@58.0.2": "patches/expo-font@58.0.2.patch",
     "expo-image@58.0.6": "patches/expo-image@58.0.6.patch",
