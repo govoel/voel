@@ -11,18 +11,18 @@ import {
 } from '#src/shared/rpc-bridge.ts';
 import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
 
-export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBridgeEventMap>) =>
-  RpcClient.Protocol.make(
+export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBridgeEventMap>) => {
+  const sendClientMessage = (message: RpcBridgeClientMessage): void => {
+    bridgeClient.send(RPC_CLIENT_EVENT, message);
+  };
+
+  return RpcClient.Protocol.make(
     Effect.fnUntraced(function* (writeResponse, clientIds) {
       const clientSessionId = `${yield* Random.nextInt}:${yield* Random.nextInt}`;
       const incomingMessages = yield* Queue.unbounded<RpcBridgeServerMessage>();
       const activeRequests = new Map<string | number, RpcMessage.RequestEncoded>();
       let activeSessionId = clientSessionId;
       let activeServerId = Option.none<string>();
-
-      const sendClientMessage = (message: RpcBridgeClientMessage): void => {
-        bridgeClient.send(RPC_CLIENT_EVENT, message);
-      };
 
       yield* Effect.acquireRelease(
         Effect.sync(() =>
@@ -136,3 +136,4 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
       };
     })
   );
+};

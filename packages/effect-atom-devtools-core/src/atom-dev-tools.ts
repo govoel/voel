@@ -91,6 +91,24 @@ interface NodeObservation {
   readonly activePredefinedStateId: Option.Option<PredefinedStateId>;
 }
 
+const makeObservationAtom = (node: AtomRegistry.Node<unknown>) => {
+  const { atom } = node;
+  return markInternalAtom(
+    Atom.make((get): NodeObservation => ({
+      value: get(atom),
+      activePredefinedStateId: hasPredefinedStates(atom)
+        ? atom[PredefinedStatesTypeId].readActiveStateId(get)
+        : Option.none(),
+    })).pipe(
+      Atom.withEquality<NodeObservation>(
+        (current, next) =>
+          atom.equals(current.value, next.value) &&
+          Equal.equals(current.activePredefinedStateId, next.activePredefinedStateId)
+      )
+    )
+  );
+};
+
 export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsIdentifier, {
   make: Effect.gen(function* () {
     const registry = yield* AtomRegistry.AtomRegistry;
@@ -132,24 +150,6 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsId
       PubSub.publishUnsafe(
         catalogPubSub,
         [...trackedNodesById.values()].map(({ node }) => makeAtomSummary(node))
-      );
-    };
-
-    const makeObservationAtom = (node: AtomRegistry.Node<unknown>) => {
-      const { atom } = node;
-      return markInternalAtom(
-        Atom.make((get): NodeObservation => ({
-          value: get(atom),
-          activePredefinedStateId: hasPredefinedStates(atom)
-            ? atom[PredefinedStatesTypeId].readActiveStateId(get)
-            : Option.none(),
-        })).pipe(
-          Atom.withEquality<NodeObservation>(
-            (current, next) =>
-              atom.equals(current.value, next.value) &&
-              Equal.equals(current.activePredefinedStateId, next.activePredefinedStateId)
-          )
-        )
       );
     };
 
