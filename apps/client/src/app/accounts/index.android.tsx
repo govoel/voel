@@ -6,7 +6,6 @@ import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
-import type { Atom } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -60,62 +59,8 @@ const StackNavigationRow = ({
   );
 };
 
-const AccountPicker = ({
-  accounts: accountList,
-  close,
-}: {
-  readonly accounts: Atom.Success<typeof accountsWithActiveAccount>['accounts'];
-  readonly close: () => Promise<void>;
-}) => {
-  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
-  const colors = useMaterialColors();
-
-  return (
-    <LazyColumn
-      contentPadding={{
-        start: Spacing.three,
-        end: Spacing.three,
-        bottom: Spacing.three,
-      }}
-      verticalArrangement={{ spacedBy: Spacing.two }}>
-      <Text variant="h3">Pick an Account</Text>
-      <LazyColumn.Items
-        data={accountList}
-        keyExtractor={(account) => JSON.stringify([account.serverUrl.toString(), account.userId])}>
-        {({ item, index }) => (
-          <SegmentedListItem
-            index={index}
-            count={accountList.length}
-            selected={item.active}
-            enabled={!AsyncResult.isWaiting(setActiveAccount)}
-            onClick={() => {
-              void setActiveAccountAndDismiss({
-                input: {
-                  serverUrl: item.serverUrl,
-                  userId: item.userId,
-                },
-                onSuccess: close,
-              });
-            }}>
-            <SegmentedListItem.LeadingContent>
-              <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
-            </SegmentedListItem.LeadingContent>
-            <SegmentedListItem.HeadlineContent>
-              <Text>@{item.username}</Text>
-            </SegmentedListItem.HeadlineContent>
-            <SegmentedListItem.SupportingContent>
-              <Text variant="caption" color={colors.onSurfaceVariant}>
-                {item.serverUrl.toString()}
-              </Text>
-            </SegmentedListItem.SupportingContent>
-          </SegmentedListItem>
-        )}
-      </LazyColumn.Items>
-    </LazyColumn>
-  );
-};
-
 export default function AccountsScreen() {
+  const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
 
@@ -294,7 +239,51 @@ export default function AccountsScreen() {
                 onDismiss={() => {
                   setIsSwitchAccountPresented(false);
                 }}>
-                {({ close }) => <AccountPicker accounts={accountList} close={close} />}
+                {({ close }) => (
+                  <LazyColumn
+                    contentPadding={{
+                      start: Spacing.three,
+                      end: Spacing.three,
+                      bottom: Spacing.three,
+                    }}
+                    verticalArrangement={{ spacedBy: Spacing.two }}>
+                    <Text variant="h3">Pick an Account</Text>
+                    <LazyColumn.Items
+                      data={accountList}
+                      keyExtractor={(account) =>
+                        JSON.stringify([account.serverUrl.toString(), account.userId])
+                      }>
+                      {({ item, index }) => (
+                        <SegmentedListItem
+                          index={index}
+                          count={accountList.length}
+                          selected={item.active}
+                          enabled={!AsyncResult.isWaiting(setActiveAccount)}
+                          onClick={() => {
+                            void setActiveAccountAndDismiss({
+                              input: {
+                                serverUrl: item.serverUrl,
+                                userId: item.userId,
+                              },
+                              onSuccess: close,
+                            });
+                          }}>
+                          <SegmentedListItem.LeadingContent>
+                            <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
+                          </SegmentedListItem.LeadingContent>
+                          <SegmentedListItem.HeadlineContent>
+                            <Text>@{item.username}</Text>
+                          </SegmentedListItem.HeadlineContent>
+                          <SegmentedListItem.SupportingContent>
+                            <Text variant="caption" color={colors.onSurfaceVariant}>
+                              {item.serverUrl.toString()}
+                            </Text>
+                          </SegmentedListItem.SupportingContent>
+                        </SegmentedListItem>
+                      )}
+                    </LazyColumn.Items>
+                  </LazyColumn>
+                )}
               </ControlledSheet>
             </>
           ),
