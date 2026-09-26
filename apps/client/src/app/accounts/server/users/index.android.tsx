@@ -5,9 +5,6 @@ import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useRouter } from 'expo-router';
-import { useCallback } from 'react';
-
-import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
@@ -23,27 +20,7 @@ export default function ServerUsersScreen() {
   const router = useRouter();
   const [users, loadMoreUsers] = useAtom(listUsersAtom);
   const refresh = useAtomRefresh(listUsersAtom);
-  const colors = useMaterialColors();
-
-  const count = AsyncResult.isSuccess(users) ? users.value.items.length : 0;
-  const renderUser = useCallback(
-    ({ item, index }: { item: typeof AuthUser.Type; index: number }) => (
-      <SegmentedListItem
-        index={index}
-        count={count}
-        onClick={() => {
-          router.push({ pathname: '/accounts/server/users/[id]', params: { id: item.id } });
-        }}>
-        <SegmentedListItem.HeadlineContent>
-          <Text>@{item.username}</Text>
-        </SegmentedListItem.HeadlineContent>
-        <SegmentedListItem.TrailingContent>
-          <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
-        </SegmentedListItem.TrailingContent>
-      </SegmentedListItem>
-    ),
-    [count, router, colors.onSurfaceVariant]
-  );
+  const { onSurfaceVariant } = useMaterialColors();
 
   return (
     <AndroidAccountsSheet>
@@ -66,7 +43,24 @@ export default function ServerUsersScreen() {
                 <ListState kind="empty" message="No users yet. Create a user to get started." />
               ) : (
                 <LazyColumn.Items data={page.items} keyExtractor={(user) => user.id}>
-                  {renderUser}
+                  {({ item, index }) => (
+                    <SegmentedListItem
+                      index={index}
+                      count={page.items.length}
+                      onClick={() => {
+                        router.push({
+                          pathname: '/accounts/server/users/[id]',
+                          params: { id: item.id },
+                        });
+                      }}>
+                      <SegmentedListItem.HeadlineContent>
+                        <Text>@{item.username}</Text>
+                      </SegmentedListItem.HeadlineContent>
+                      <SegmentedListItem.TrailingContent>
+                        <Icon source={ChevronRight} size={24} tint={onSurfaceVariant} />
+                      </SegmentedListItem.TrailingContent>
+                    </SegmentedListItem>
+                  )}
                 </LazyColumn.Items>
               )}
               <PaginationFooter

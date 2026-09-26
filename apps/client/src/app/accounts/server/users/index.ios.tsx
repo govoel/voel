@@ -5,9 +5,6 @@ import { font, foregroundStyle, frame, headerProminence, tint } from '@expo/ui/s
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback } from 'react';
-
-import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
@@ -19,29 +16,6 @@ export default function ServerUsersScreen() {
   const router = useRouter();
   const [users, loadMoreUsers] = useAtom(listUsersAtom);
   const refresh = useAtomRefresh(listUsersAtom);
-
-  const renderUser = useCallback(
-    ({ item }: { item: typeof AuthUser.Type }) => (
-      <Button
-        modifiers={[tint('primary')]}
-        onPress={() => {
-          router.push({ pathname: '/accounts/server/users/[id]', params: { id: item.id } });
-        }}>
-        <HStack>
-          <Text>@{item.username}</Text>
-          <Spacer />
-          <Icon
-            name="chevron.right"
-            modifiers={[
-              font({ textStyle: 'footnote', weight: 'semibold' }),
-              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-            ]}
-          />
-        </HStack>
-      </Button>
-    ),
-    [router]
-  );
 
   return (
     <>
@@ -64,7 +38,28 @@ export default function ServerUsersScreen() {
                     <ListState kind="empty" message="No users yet. Create a user to get started." />
                   ) : (
                     <List.ForEach data={page.items} keyExtractor={(user) => user.id}>
-                      {renderUser}
+                      {({ item }) => (
+                        <Button
+                          modifiers={[tint('primary')]}
+                          onPress={() => {
+                            router.push({
+                              pathname: '/accounts/server/users/[id]',
+                              params: { id: item.id },
+                            });
+                          }}>
+                          <HStack>
+                            <Text>@{item.username}</Text>
+                            <Spacer />
+                            <Icon
+                              name="chevron.right"
+                              modifiers={[
+                                font({ textStyle: 'footnote', weight: 'semibold' }),
+                                foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                              ]}
+                            />
+                          </HStack>
+                        </Button>
+                      )}
                     </List.ForEach>
                   )}
                   <PaginationFooter

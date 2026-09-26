@@ -1,7 +1,6 @@
 import { useAtom } from '@effect/atom-react';
 import { Cause, Effect, Exit, Match, Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
-import { useCallback } from 'react';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
@@ -88,21 +87,18 @@ export const useSetActiveAccount = () => {
     mode: 'promiseExit',
   });
 
-  const setActiveAccountAndDismiss = useCallback(
-    async ({
-      input,
-      onSuccess,
-    }: {
-      input: Parameters<typeof setActiveAccountMutation>[0];
-      onSuccess: () => Promise<void>;
-    }) => {
-      const result = await setActiveAccountMutation(input);
-      if (Exit.isSuccess(result)) {
-        await onSuccess();
-      }
-    },
-    [setActiveAccountMutation]
-  );
+  const setActiveAccountAndDismiss = async ({
+    input,
+    onSuccess,
+  }: {
+    input: Parameters<typeof setActiveAccountMutation>[0];
+    onSuccess: () => Promise<void>;
+  }) => {
+    const result = await setActiveAccountMutation(input);
+    if (Exit.isSuccess(result)) {
+      await onSuccess();
+    }
+  };
 
   return [setActiveAccount, setActiveAccountAndDismiss] as const;
 };

@@ -23,7 +23,7 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import {
@@ -85,52 +85,7 @@ const AccountPicker = ({
   readonly close: () => Promise<void>;
 }) => {
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
-  const renderAccount = useCallback(
-    ({ item: account }: { item: (typeof accountList)[number] }) => (
-      <Button
-        modifiers={[tint('primary'), disabled(AsyncResult.isWaiting(setActiveAccount))]}
-        onPress={() => {
-          void setActiveAccountAndDismiss({
-            input: {
-              serverUrl: account.serverUrl,
-              userId: account.userId,
-            },
-            onSuccess: close,
-          });
-        }}>
-        <HStack alignment="center" spacing={Spacing.two}>
-          <Icon
-            name={
-              account.active ? 'person.crop.circle.fill.badge.checkmark' : 'person.crop.circle.fill'
-            }
-            modifiers={[
-              font({ textStyle: 'largeTitle', weight: 'bold' }),
-              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-            ]}
-          />
 
-          <VStack alignment="leading" spacing={Spacing.one}>
-            <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>
-              @{account.username}
-            </Text>
-            <Text
-              variant="caption"
-              modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-              {account.serverUrl.toString()}
-            </Text>
-          </VStack>
-
-          {AsyncResult.isWaiting(setActiveAccount) ? (
-            <>
-              <Spacer />
-              <ProgressView />
-            </>
-          ) : null}
-        </HStack>
-      </Button>
-    ),
-    [setActiveAccount, setActiveAccountAndDismiss, close]
-  );
   return (
     <List modifiers={[headerProminence('increased')]}>
       <Section
@@ -144,7 +99,51 @@ const AccountPicker = ({
           keyExtractor={(account) =>
             JSON.stringify([account.serverUrl.toString(), account.userId])
           }>
-          {renderAccount}
+          {({ item }) => (
+            <Button
+              modifiers={[tint('primary'), disabled(AsyncResult.isWaiting(setActiveAccount))]}
+              onPress={() => {
+                void setActiveAccountAndDismiss({
+                  input: {
+                    serverUrl: item.serverUrl,
+                    userId: item.userId,
+                  },
+                  onSuccess: close,
+                });
+              }}>
+              <HStack alignment="center" spacing={Spacing.two}>
+                <Icon
+                  name={
+                    item.active
+                      ? 'person.crop.circle.fill.badge.checkmark'
+                      : 'person.crop.circle.fill'
+                  }
+                  modifiers={[
+                    font({ textStyle: 'largeTitle', weight: 'bold' }),
+                    foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                  ]}
+                />
+
+                <VStack alignment="leading" spacing={Spacing.one}>
+                  <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>
+                    @{item.username}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+                    {item.serverUrl.toString()}
+                  </Text>
+                </VStack>
+
+                {AsyncResult.isWaiting(setActiveAccount) ? (
+                  <>
+                    <Spacer />
+                    <ProgressView />
+                  </>
+                ) : null}
+              </HStack>
+            </Button>
+          )}
         </List.ForEach>
       </Section>
     </List>
