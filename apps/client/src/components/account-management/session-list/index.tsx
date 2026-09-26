@@ -8,5 +8,4 @@ export type SessionListComponent = ComponentType<{
   readonly onSelect: (session: typeof AuthDeviceSession.Type) => void;
 }>;
 
-/** Renders rows in the parent's List/Section (iOS) or directly in LazyColumn (Android). */
 export declare const SessionList: SessionListComponent;

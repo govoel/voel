@@ -2,7 +2,7 @@ import { HStack, ProgressView, Spacer } from '@expo/ui/swift-ui';
 import { onAppear, onDisappear } from '@expo/ui/swift-ui/modifiers';
 
 import type { PaginationFooterComponent } from '#src/components/pagination-footer';
-import { usePaginationFooter } from '#src/components/pagination-footer/use-pagination-footer.ts';
+import { usePaginationFooter } from '#src/components/pagination-footer/index.tsx';
 
 export const PaginationFooter = ((props) => {
   const setVisible = usePaginationFooter(props);
