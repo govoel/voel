@@ -1,5 +1,11 @@
-import { Effect, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Schema } from 'effect';
 import { Model, VariantSchema } from 'effect/unstable/schema';
+
+import {
+  StorageMediaFileLocation,
+  StorageRootLocation,
+  StorageRootLocationFromString,
+} from '#src/storage.ts';
 
 const DbModel = VariantSchema.make({
   variants: [
@@ -305,54 +311,26 @@ export class Library extends DbModel.Class<Library>('@repo/spec-api/database/sch
   ...Timestamped.fullFields,
 }) {}
 
-const AbsolutePathFromString = Schema.String.pipe(
-  Schema.decodeTo(
-    Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/absolutePath')),
-    {
-      decode: SchemaGetter.transformEffect(
-        Effect.fnUntraced(function* (absolutePath, options) {
-          const path = yield* Path.Path;
-
-          if (!path.isAbsolute(absolutePath)) {
-            return yield* Effect.fail(
-              new SchemaIssue.InvalidValue(
-                { message: 'Expected an absolute path' },
-                absolutePath,
-                options
-              )
-            );
-          }
-
-          return path.resolve(absolutePath);
-        })
-      ),
-      encode: SchemaGetter.passthrough(),
-    }
-  )
-);
-
-export class LibraryPath extends DbModel.Class<LibraryPath>(
-  '@repo/spec-api/database/schema/LibraryPath'
+export class LibraryRoot extends DbModel.Class<LibraryRoot>(
+  '@repo/spec-api/database/schema/LibraryRoot'
 )({
   id: DbModel.Field({
-    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/id')),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/id')),
+    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryRoot/id')),
+    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryRoot/id')),
   }),
   libraryId: DbModel.Field({
     select: Library.fields.id,
     upsert: Library.fields.id,
     json: Library.fields.id,
   }),
-  absolutePath: DbModel.Field({
-    select: AbsolutePathFromString,
-    upsert: AbsolutePathFromString,
-    json: Schema.toType(AbsolutePathFromString),
-    jsonUpsert: Schema.toEncoded(AbsolutePathFromString),
+  location: DbModel.Field({
+    select: StorageRootLocation,
+    upsert: StorageRootLocationFromString,
+    json: StorageRootLocation,
+    jsonUpsert: StorageRootLocationFromString,
   }),
   ...Timestamped.fullFields,
-}) {
-  public static readonly decodeAbsolutePathEffect = Schema.decodeEffect(AbsolutePathFromString);
-}
+}) {}
 
 export class MediaFile extends DbModel.Class<MediaFile>('@repo/spec-api/database/schema/MediaFile')(
   {
@@ -360,13 +338,9 @@ export class MediaFile extends DbModel.Class<MediaFile>('@repo/spec-api/database
       select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
       json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
     }),
-    absolutePath: DbModel.Field({
-      select: Schema.String.pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')
-      ),
-      json: Schema.String.pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')
-      ),
+    location: DbModel.Field({
+      select: StorageMediaFileLocation,
+      json: StorageMediaFileLocation,
     }),
     durationMs: DbModel.Field({
       select: Schema.Natural.pipe(
