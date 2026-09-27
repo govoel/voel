@@ -299,10 +299,10 @@ export default Effect.gen(function* () {
   });
 
   yield* sql`
-    create table "libraryPath" (
+    create table "libraryRoot" (
       "id" integer not null primary key autoincrement,
       "libraryId" integer not null references "library" ("id") on delete cascade on update cascade,
-      "absolutePath" text not null,
+      "location" text not null check (length("location") > 0),
       "createdAt" integer default (time_to_milli (time_now ())) not null,
       "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
@@ -311,24 +311,24 @@ export default Effect.gen(function* () {
 
   yield* createUniqueIndex({
     sql,
-    table: 'libraryPath',
-    columns: ['libraryId', 'absolutePath'],
+    table: 'libraryRoot',
+    columns: ['libraryId', 'location'],
   });
 
-  yield* createIndex({ sql, table: 'libraryPath', columns: ['libraryId'] });
-  yield* createIndex({ sql, table: 'libraryPath', columns: ['updatedAt'] });
-  yield* createIndex({ sql, table: 'libraryPath', columns: ['deletedAt'] });
+  yield* createIndex({ sql, table: 'libraryRoot', columns: ['libraryId'] });
+  yield* createIndex({ sql, table: 'libraryRoot', columns: ['updatedAt'] });
+  yield* createIndex({ sql, table: 'libraryRoot', columns: ['deletedAt'] });
 
   yield* createUpdatedAtTrigger({
     sql,
-    table: 'libraryPath',
-    columns: ['id', 'libraryId', 'absolutePath', 'deletedAt'],
+    table: 'libraryRoot',
+    columns: ['id', 'libraryId', 'location', 'deletedAt'],
   });
 
   yield* sql`
     create table "mediaFile" (
       "id" integer not null primary key autoincrement,
-      "absolutePath" text not null unique,
+      "location" text not null unique check (length("location") > 0),
       "durationMs" integer not null,
       "createdAt" integer default (time_to_milli (time_now ())) not null,
       "updatedAt" integer default (time_to_milli (time_now ())) not null,
