@@ -159,5 +159,6 @@ export class StoragePluginLoadError extends Schema.TaggedError<StoragePluginLoad
 ## Settings form integration
 
 - Host-validate descriptors and unique names. Names are flat keys, not TanStack paths; submissions map names to strings (`{}` for no fields).
-- Use existing `useAppForm`, `TextField`, and `SubmitButton`; derive only a structural input Schema. Keep native props client-owned and purposes aligned with existing presets.
+- Use existing `useAppForm`, `TextField`, and `SubmitButton`. Derive shared client form types from the SDK descriptors; statically require exhaustive field rendering and purpose presets. Keep native props client-owned and the SDK independent of client UI libraries.
+- Derive only a structural input Schema matching the declared field names and value types. Plugins remain authoritative for semantic validation and transformations on the server.
 - Submit via an atom mutation to `decodeFormSubmission`. Initially report server failures through form-level `onFailure` with client-safe messages, never raw Schema errors; no inline server field errors.
