@@ -72,7 +72,10 @@ export class StorageSettingsConstructionError extends Schema.TaggedError<Storage
   { message: Schema.String }
 ) {}
 
-/** Operational failures constructing storage. */
+/**
+ * Failures constructing storage, including invalid persisted settings.
+ * Messages must be client-safe.
+ */
 export class StorageConstructionError extends Schema.TaggedError<StorageConstructionError>()(
   'StorageConstructionError',
   { message: Schema.String }
@@ -116,12 +119,14 @@ export class StorageSettingsEditor extends Context.Service<
 
 export interface StoragePlugin {
   readonly storage: {
-    /** Decode persisted settings with the plugin's codec, then build storage. */
+    /**
+     * Decode persisted settings with the plugin's codec, then build storage.
+     */
     readonly layer: (request: {
       readonly settings: typeof StorageSettingsPersisted.Type;
     }) => Layer.Layer<
       Storage,
-      Schema.SchemaError | StorageConstructionError,
+      StorageConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
     >;
 
