@@ -4,19 +4,18 @@
 
 - Built-ins and npm plugins share the `@govoel/plugins` module contract and `./index` entry point; no registration API or sandbox. Keep `@repo/spec-api` internal.
 - Store a Schema-branded `StoragePluginId` in `storagePlugin`: `builtin:local` or `npm:<package-name>[@<version>]` (scoped or unscoped). Store settings separately in `storageSettings`; only the server writes to the database.
-- Settings replicate to clients. Forms, submissions, and persisted settings must be secret-free; supply server-only credentials to plugin layers via `ConfigProvider`.
+- Settings replicate to clients. Forms, submissions, and persisted settings must be secret-free; plugins read server-only credentials from plugin-defined environment variables via `ConfigProvider`.
+- Build plugin layers in an explicit Effect environment containing only the declared platform services, server-only `ConfigProvider`, and intentionally preserved logging and runtime overrides (including test clocks). Do not inherit private application or database services. Layers own construction scopes; this boundary is not a security sandbox. This applies for the context supplied for layer construction and the context supplied for Effects on the layer itself.
 - The app installs plugins at library creation and updates them at server boot or via an admin route.
 - Forms describe UI only; plugins own semantic validation and transformations via server-side Schema decoding. No schema transport or client-side validation rules.
 - Settings edits are last-write-wins. Plugin changes retain locations, revalidating them with the new plugin before use; no silent migration.
 
 ## Installation and deployment
 
-- Bun only, native `import()`; no Jiti or import hooks. Plugins declare `effect` and `@govoel/plugins` as `"*"` peers, never bundle them; no peer-range gate.
-- Use separate plugin installs and a fresh directory per update: `bun install --linker isolated --omit=peer`. Both peers must be published because Bun resolves peer metadata; no `file:` dependencies or overrides needed.
-- After each install, reconcile directory symlinks from its `node_modules/effect` and `node_modules/@govoel/plugins` to the host's canonical packages. Reject shadowing copies; verify identity across root/subpath imports and nested dependencies.
+- Bun only, native `import()`; no Jiti or import hooks. Plugins declare compatible versions of `effect` and `@govoel/plugins` as ordinary dependencies; Bun handles dependency resolution and installation. Unversioned plugins use Bun's normal package resolution.
+- Use separate plugin installs and a fresh directory per update: `bun install --linker isolated`. No manual host-package symlinks, dependency overrides, or package-identity requirement; independently installed copies must interoperate with the host.
 - Before atomic activation, validate the module contract and decode existing settings. On failure, keep the previous install active.
-- Compile with `--external effect --external @govoel/plugins`; ship Bun, the compiled server, and shared packages on the real filesystem (not bunfs), not a self-contained executable.
-- A minimal runtime workspace depends on both peers. Install using the repository lockfile: `bun install --filter @repo/server-runtime --production --frozen-lockfile --linker isolated`. Preserve workspace links and targets in the image; set its working directory for predictable resolution.
+- The server may bundle its own dependencies; no externalization flags or shared-package runtime workspace are required for plugin identity. Keep plugin installs on the real filesystem and verify native loading from the deployed server artifact.
 
 ## Proposed types and APIs
 
@@ -156,13 +155,14 @@ export class StoragePluginLoadError extends Schema.TaggedError<StoragePluginLoad
 ## Implementation outline
 
 1. Publish SDK schemas/services; migrate local storage and callers from `validateLocation` to `decodeRootLocation` / `decodeMediaFileLocation`. Remove redundant host decoding wrappers: service decoders return persistence-ready branded values.
-2. Split plugin/settings in database and API; migrate local configuration to `builtin:local` with `{}`.
-3. Configure external host peers/runtime workspace, isolated installs, idempotent peer linking, and validated loading. Expose the editor before configured storage.
+2. Split plugin/settings in database and API; migrate local configuration to `builtin:local` with `{}`. Edit the initial migration; no deployed databases need upgrading.
+3. Configure separate Bun-managed plugin installs and validated loading. Build plugin layers with the explicit environment above. Expose the editor before configured storage.
 4. Route settings reads/edits through the editor. Reuse configured layers via `StorageMap`, keyed by plugin ID and settings; invalidate after settings commits.
-5. Test peer identity across isolated installs/reinstalls (root/subpaths and nested dependencies), compiled-server loading, update rejection, settings round-trips/persistence, location decoding, and layer reuse/invalidation.
+5. Test host/plugin interoperability with independently installed dependencies (services, Layers, Schema errors, configuration, cancellation, and finalization), compiled-server loading, update rejection, settings round-trips/persistence, location decoding, and layer reuse/invalidation. Use installed plugin packages, not only workspace-linked copies. Verify plugin construction receives the allowed services/configuration but cannot resolve ambient private services.
 
 ## Settings form integration
 
+- The client fetches form descriptors through an admin RPC; the server loads current settings and calls the plugin's editor.
 - Host-validate descriptors and unique names. Names are flat keys, not TanStack paths; submissions map names to strings (`{}` for no fields).
 - Use existing `useAppForm`, `TextField`, and `SubmitButton`. Derive shared client form types from the SDK descriptors; statically require exhaustive field rendering and purpose presets. Keep native props client-owned and the SDK independent of client UI libraries.
 - Derive only a structural input Schema matching the declared field names and value types. Plugins remain authoritative for semantic validation and transformations on the server.
