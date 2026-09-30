@@ -96,8 +96,8 @@ export class Storage extends Context.Service<
 
 // Neither method writes settings. `current` is server-loaded JSON for this plugin:
 // None = setup; Some = persisted value.
-export class StorageSettingsEditor extends Context.Service<
-  StorageSettingsEditor,
+export class StorageSettings extends Context.Service<
+  StorageSettings,
   {
     /** UI fields and secret-free initial values; no validation rules. */
     readonly getForm: (request: {
@@ -114,7 +114,7 @@ export class StorageSettingsEditor extends Context.Service<
       Schema.SchemaError | StorageSettingsError
     >;
   }
->()('@govoel/plugins/storage/StorageSettingsEditor') {}
+>()('@govoel/plugins/storage/StorageSettings') {}
 
 export interface StoragePlugin {
   readonly storage: {
@@ -131,7 +131,7 @@ export interface StoragePlugin {
 
     /** Must build without configured storage or valid credentials. */
     readonly layerSettings: Layer.Layer<
-      StorageSettingsEditor,
+      StorageSettings,
       StorageSettingsConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
     >;
