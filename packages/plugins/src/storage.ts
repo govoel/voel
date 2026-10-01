@@ -2,6 +2,8 @@ import { Array, Context, Schema } from 'effect';
 import type { Effect, FileSystem, Layer, Option, Path, SchemaIssue } from 'effect';
 import type { HttpClient } from 'effect/unstable/http';
 
+import type { Library } from '#src/library.ts';
+
 /**
  * Ordered UI fields with unique, flat names. An empty array means no settings.
  * Descriptors carry no semantic validation rules and must contain no secrets.
@@ -146,6 +148,7 @@ export interface StoragePlugin {
      * Decode persisted settings with the plugin's codec, then build storage.
      */
     readonly layer: (request: {
+      readonly library: typeof Library.Type;
       readonly settings: StorageSettingsPersisted;
     }) => Layer.Layer<
       Storage,
@@ -154,9 +157,11 @@ export interface StoragePlugin {
     >;
 
     /**
-     * Must build without configured storage or valid credentials.
+     * Only built for persisted libraries; must not require configured storage or valid credentials.
      */
-    readonly layerSettings: () => Layer.Layer<
+    readonly layerSettings: (request: {
+      readonly library: typeof Library.Type;
+    }) => Layer.Layer<
       StorageSettings,
       StorageSettingsConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
