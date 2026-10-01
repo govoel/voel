@@ -19,7 +19,7 @@
   "dependencies": {
     "@better-auth/expo": "1.7.6",
     "better-auth": "1.7.6",
-    "effect": "4.0.0-rc.117"
+    "effect": "4.0.0-rc.118"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
