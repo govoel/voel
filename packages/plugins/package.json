@@ -6,7 +6,11 @@
     "!src/**/*.test.ts"
   ],
   "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "exports": {
+    "./library": "./src/library.ts",
     "./storage": "./src/storage.ts"
   },
   "publishConfig": {

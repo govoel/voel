@@ -1,3 +1,4 @@
+import { Library as PluginLibrary, MediaType as PluginMediaType } from '@govoel/plugins/library';
 import {
   StorageMediaFileLocation,
   StorageRootLocation,
@@ -36,12 +37,8 @@ class Timestamped extends DbModel.Class<Timestamped>('@repo/spec-api/database/sc
 export class MediaType extends DbModel.Class<MediaType>('@repo/spec-api/database/schema/MediaType')(
   {
     type: DbModel.Field({
-      select: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaType/type')
-      ),
-      json: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaType/type')
-      ),
+      select: PluginMediaType,
+      json: PluginMediaType,
     }),
   }
 ) {}
@@ -284,30 +281,24 @@ export class AudiobookContributorMap extends DbModel.Class<AudiobookContributorM
   ...Timestamped.fullFields,
 }) {}
 
-const LibraryName = Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Library/name'));
-
 export class Library extends DbModel.Class<Library>('@repo/spec-api/database/schema/Library')({
   id: DbModel.Field({
-    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id')),
-    upsert: Schema.Option(
-      Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id'))
-    ),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id')),
-    jsonUpsert: Schema.Option(
-      Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id'))
-    ),
+    select: PluginLibrary.fields.id,
+    upsert: Schema.Option(PluginLibrary.fields.id),
+    json: PluginLibrary.fields.id,
+    jsonUpsert: Schema.Option(PluginLibrary.fields.id),
   }),
   type: DbModel.Field({
-    select: MediaType.fields.type,
-    upsert: MediaType.fields.type,
-    json: MediaType.fields.type,
-    jsonUpsert: MediaType.fields.type,
+    select: PluginLibrary.fields.type,
+    upsert: PluginLibrary.fields.type,
+    json: PluginLibrary.fields.type,
+    jsonUpsert: PluginLibrary.fields.type,
   }),
   name: DbModel.Field({
-    select: LibraryName,
-    upsert: LibraryName,
-    json: LibraryName,
-    jsonUpsert: LibraryName,
+    select: PluginLibrary.fields.name,
+    upsert: PluginLibrary.fields.name,
+    json: PluginLibrary.fields.name,
+    jsonUpsert: PluginLibrary.fields.name,
   }),
   storagePlugin: DbModel.Field({
     select: StoragePluginId,
