@@ -37,10 +37,11 @@ export type StorageSettingsInput = typeof StorageSettingsInput.Type;
  * Replicated, secret-free JSON; plugins validate and encode before branding.
  * This brand checks JSON structure, not whether values contain secrets.
  */
-export const StorageSettingsPersisted = Schema.Json.pipe(
+export class StorageSettingsPersisted extends Schema.Json.pipe(
   Schema.brand('@govoel/plugins/storage/StorageSettingsPersisted')
-);
-export type StorageSettingsPersisted = typeof StorageSettingsPersisted.Type;
+) {
+  public static readonly fromJsonString = Schema.fromJsonString(this);
+}
 
 /**
  * Non-empty library root, interpreted by the configured plugin.
@@ -155,7 +156,7 @@ export interface StoragePlugin {
     /**
      * Must build without configured storage or valid credentials.
      */
-    readonly layerSettings: Layer.Layer<
+    readonly layerSettings: () => Layer.Layer<
       StorageSettings,
       StorageSettingsConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient

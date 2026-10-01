@@ -283,6 +283,8 @@ export default Effect.gen(function* () {
       "id" integer not null primary key autoincrement,
       "type" text not null references "mediaType" ("type") on delete restrict on update cascade,
       "name" text not null unique,
+      "storagePlugin" text not null default 'builtin:local',
+      "storagePluginSettings" text not null default '{}',
       "createdAt" integer default (time_to_milli (time_now ())) not null,
       "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
@@ -295,14 +297,14 @@ export default Effect.gen(function* () {
   yield* createUpdatedAtTrigger({
     sql,
     table: 'library',
-    columns: ['id', 'type', 'name', 'deletedAt'],
+    columns: ['id', 'type', 'name', 'storagePlugin', 'storagePluginSettings', 'deletedAt'],
   });
 
   yield* sql`
     create table "libraryRoot" (
       "id" integer not null primary key autoincrement,
       "libraryId" integer not null references "library" ("id") on delete cascade on update cascade,
-      "location" text not null check (length("location") > 0),
+      "root" text not null check (length("root") > 0),
       "createdAt" integer default (time_to_milli (time_now ())) not null,
       "updatedAt" integer default (time_to_milli (time_now ())) not null,
       "deletedAt" integer
@@ -312,7 +314,7 @@ export default Effect.gen(function* () {
   yield* createUniqueIndex({
     sql,
     table: 'libraryRoot',
-    columns: ['libraryId', 'location'],
+    columns: ['libraryId', 'root'],
   });
 
   yield* createIndex({ sql, table: 'libraryRoot', columns: ['libraryId'] });
@@ -322,7 +324,7 @@ export default Effect.gen(function* () {
   yield* createUpdatedAtTrigger({
     sql,
     table: 'libraryRoot',
-    columns: ['id', 'libraryId', 'location', 'deletedAt'],
+    columns: ['id', 'libraryId', 'root', 'deletedAt'],
   });
 
   yield* sql`

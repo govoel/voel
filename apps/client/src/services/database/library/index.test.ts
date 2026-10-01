@@ -77,7 +77,8 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
       id: Option.none(),
       name: Library.fields.name.make(libraryName),
       type: MediaType.fields.type.make('audiobook'),
-      absolutePaths: [],
+      storagePlugin: Library.json.fields.storagePlugin.make('builtin:local'),
+      storagePluginSettings: Library.json.fields.storagePluginSettings.make({}),
     });
   yield* createLibrary(name);
   return {
@@ -109,6 +110,15 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         const checkReplica = Effect.gen(function* () {
           const database = yield* LibraryDatabase.make(account);
           expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
+          expect(
+            yield* database`
+              select
+                "storagePlugin",
+                "storagePluginSettings"
+              from
+                library
+            `
+          ).toEqual([{ storagePlugin: 'builtin:local', storagePluginSettings: '{}' }]);
 
           for (const statement of [
             database`

@@ -1,11 +1,12 @@
-import { Schema } from 'effect';
-import { Model, VariantSchema } from 'effect/unstable/schema';
-
 import {
   StorageMediaFileLocation,
   StorageRootLocation,
-  StorageRootLocationFromString,
-} from '#src/storage.ts';
+  StorageSettingsPersisted,
+} from '@govoel/plugins/storage';
+import { Schema } from 'effect';
+import { Model, VariantSchema } from 'effect/unstable/schema';
+
+import { StoragePluginId } from '#src/plugins/storage.ts';
 
 const DbModel = VariantSchema.make({
   variants: [
@@ -308,6 +309,18 @@ export class Library extends DbModel.Class<Library>('@repo/spec-api/database/sch
     json: LibraryName,
     jsonUpsert: LibraryName,
   }),
+  storagePlugin: DbModel.Field({
+    select: StoragePluginId,
+    upsert: StoragePluginId,
+    json: StoragePluginId,
+    jsonUpsert: StoragePluginId,
+  }),
+  storagePluginSettings: DbModel.Field({
+    select: StorageSettingsPersisted.fromJsonString,
+    upsert: StorageSettingsPersisted.fromJsonString,
+    json: StorageSettingsPersisted,
+    jsonUpsert: StorageSettingsPersisted,
+  }),
   ...Timestamped.fullFields,
 }) {}
 
@@ -323,11 +336,11 @@ export class LibraryRoot extends DbModel.Class<LibraryRoot>(
     upsert: Library.fields.id,
     json: Library.fields.id,
   }),
-  location: DbModel.Field({
+  root: DbModel.Field({
     select: StorageRootLocation,
-    upsert: StorageRootLocationFromString,
+    upsert: StorageRootLocation,
     json: StorageRootLocation,
-    jsonUpsert: StorageRootLocationFromString,
+    jsonUpsert: Schema.NonEmptyString,
   }),
   ...Timestamped.fullFields,
 }) {}
