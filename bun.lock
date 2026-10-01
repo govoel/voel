@@ -85,6 +85,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-rc.117",
+        "@govoel/plugins": "workspace:*",
         "@govoel/turso-database": "0.8.1",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-turso": "workspace:*",
@@ -235,6 +236,7 @@
       "name": "@repo/spec-api",
       "version": "0.0.0",
       "dependencies": {
+        "@govoel/plugins": "workspace:*",
         "@repo/auth-api": "workspace:*",
         "effect": "4.0.0-rc.117",
       },
