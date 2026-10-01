@@ -3,7 +3,7 @@
 ## Contract and lifecycle
 
 - Built-ins and npm plugins share the `@govoel/plugins` module contract and `./index` entry point; no registration API or sandbox. Keep `@repo/spec-api` internal.
-- Store a Schema-branded `StoragePluginId` in `storagePlugin`: `builtin:local` or `npm:<package-name>[@<version>]` (scoped or unscoped). Store settings separately in `storageSettings`; only the server writes to the database.
+- Store a host-owned, Schema-branded `StoragePluginId` in `storagePlugin`: `builtin:local` or `npm:` with a nonempty suffix. Bun validates and resolves the package/version reference, including scopes, ranges, and tags. Store settings separately in `storageSettings`; only the server writes to the database.
 - Settings replicate to clients. Forms, submissions, and persisted settings must be secret-free; plugins read server-only credentials from plugin-defined environment variables via `ConfigProvider`.
 - Build plugin layers in an explicit Effect environment containing only the declared platform services, server-only `ConfigProvider`, and intentionally preserved logging and runtime overrides (including test clocks). Do not inherit private application or database services. Layers own construction scopes; this boundary is not a security sandbox. This applies for the context supplied for layer construction and the context supplied for Effects on the layer itself.
 - The app installs plugins at library creation and updates them at server boot or via an admin route.
@@ -142,9 +142,17 @@ export interface StoragePlugin {
 export default { storage: { layer, layerSettings } } satisfies StoragePlugin;
 ```
 
-Host-owned error, excluded from plugin signatures:
+Host-owned types in `@repo/spec-api/storage-plugin`, excluded from plugin signatures:
 
 ```ts
+export const StoragePluginId = Schema.Union([
+  Schema.Literal('builtin:local'),
+  Schema.TemplateLiteral(['npm:', Schema.NonEmptyString]),
+]).pipe(
+  Schema.encodeTo(Schema.String),
+  Schema.brand('@repo/spec-api/storage-plugin/StoragePluginId')
+);
+
 /** Resolution, import, or module-contract failure; message must be client-safe. */
 export class StoragePluginLoadError extends Schema.TaggedError<StoragePluginLoadError>()(
   'StoragePluginLoadError',
