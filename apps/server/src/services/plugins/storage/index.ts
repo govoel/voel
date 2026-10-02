@@ -1,25 +1,31 @@
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { BunChildProcessSpawner, BunFileSystem, BunPath } from '@effect/platform-bun';
 import type { StoragePluginModule } from '@govoel/plugins/storage';
 import { StoragePlugin, StoragePluginSettings } from '@govoel/plugins/storage';
 import {
+  Cache,
   Clock,
   ConfigProvider,
   Context,
   Effect,
+  Exit,
   FileSystem,
   Layer,
   LayerMap,
   Logger,
   Match,
   Path,
+  Predicate,
   References,
   Scheduler,
+  Schema,
   Scope,
 } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
+import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 import type { Library } from '@repo/spec-api/database/schema.ts';
-import { StoragePluginLoadError } from '@repo/spec-api/plugins/storage.ts';
+import { NpmStoragePluginId, StoragePluginLoadError } from '@repo/spec-api/plugins/storage.ts';
+import { resolveSync } from 'bun';
 
 import local from '#src/services/plugins/storage/local/index.ts';
 
@@ -30,26 +36,115 @@ const pickInvocationContext = Context.pick(
   References.CurrentLogSpans
 );
 
-/** Resolve the shared module contract independently of configured storage. */
+class PluginModuleExport extends Schema.Struct({
+  default: Schema.Struct({
+    storage: Schema.Struct({
+      layer: Schema.declare((value): value is StoragePluginModule['storage']['layer'] =>
+        Predicate.isFunction(value)
+      ),
+      layerSettings: Schema.declare(
+        (value): value is StoragePluginModule['storage']['layerSettings'] =>
+          Predicate.isFunction(value)
+      ),
+    }),
+  }),
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
+
+/**
+ * Resolve shared modules, retaining npm installations until this service closes.
+ * Compiled hosts need --compile-autoload-package-json for installed dependencies' exports.
+ */
 export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleMap>()(
   '@repo/server/services/plugins/storage/StoragePluginModuleMap',
   {
-    make: Effect.succeed({
-      get: (plugin: Library['storagePlugin']) =>
-        Match.value(plugin).pipe(
-          Match.when('builtin:local', () => Effect.succeed<StoragePluginModule>(local)),
-          Match.orElse(() =>
-            Effect.fail(
-              StoragePluginLoadError.make({
-                message: 'External storage plugins are not supported yet',
-              })
-            )
-          )
-        ),
+    make: Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const scope = yield* Scope.Scope;
+
+      // The cache must not capture host services and expose them during module import.
+      const modules = yield* Cache.makeWith(
+        (plugin: Library['storagePlugin']) =>
+          Match.value(plugin).pipe(
+            Match.when('builtin:local', () => Effect.succeed<StoragePluginModule>(local)),
+            Match.when(
+              Schema.is(NpmStoragePluginId),
+              Effect.fnUntraced(
+                function* () {
+                  // Modules may load files lazily: retain installations for the resolver's lifetime.
+                  const directory = yield* fs
+                    .makeTempDirectoryScoped({ prefix: 'voel-storage-plugin-' })
+                    .pipe(Effect.provideService(Scope.Scope, scope));
+
+                  const exitCode = yield* spawner.exitCode(
+                    ChildProcess.make(
+                      process.execPath,
+                      ['add', '--ignore-scripts', '--', `plugin@${plugin}`],
+                      {
+                        cwd: directory,
+                        env: { BUN_BE_BUN: '1' },
+                        extendEnv: true,
+                        stdin: 'ignore',
+                        stdout: 'ignore',
+                        stderr: 'inherit',
+                      }
+                    )
+                  );
+                  if (exitCode !== 0) {
+                    return yield* StoragePluginLoadError.make({
+                      message: 'Failed to install or load storage plugin',
+                    });
+                  }
+
+                  const imported = yield* Effect.tryPromise(
+                    async (): Promise<unknown> => import(resolveSync('plugin/index', directory))
+                  );
+                  return yield* PluginModuleExport.decodeUnknownEffect(imported).pipe(
+                    Effect.map((module) => module.default)
+                  );
+                },
+                Effect.catchTags({
+                  PlatformError: () =>
+                    Effect.fail(
+                      StoragePluginLoadError.make({
+                        message: 'Failed to install or load storage plugin',
+                      })
+                    ),
+                  UnknownError: () =>
+                    Effect.fail(
+                      StoragePluginLoadError.make({
+                        message: 'Failed to install or load storage plugin',
+                      })
+                    ),
+                  SchemaError: () =>
+                    Effect.fail(
+                      StoragePluginLoadError.make({
+                        message: 'Failed to install or load storage plugin',
+                      })
+                    ),
+                })
+              )
+            ),
+            Match.exhaustive
+          ),
+        {
+          capacity: Infinity,
+          timeToLive: (exit) => (Exit.isSuccess(exit) ? Infinity : 0),
+        }
+      ).pipe(Effect.setContext(Context.empty()));
+
+      return { get: (plugin: Library['storagePlugin']) => Cache.get(modules, plugin) };
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide(BunChildProcessSpawner.layer),
+    Layer.provide([BunFileSystem.layer, BunPath.layer])
+  );
 }
 
 /** Capture the resolver and permitted host context before requests populate either map. */

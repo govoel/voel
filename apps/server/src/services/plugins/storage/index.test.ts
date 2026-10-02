@@ -1,3 +1,4 @@
+import { BunFileSystem } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it } from '@effect/vitest';
 import { Library } from '@govoel/plugins/library';
@@ -29,6 +30,7 @@ import {
   Scope,
 } from 'effect';
 import { HttpClient } from 'effect/unstable/http';
+import { ChildProcessSpawner } from 'effect/unstable/process';
 
 import { StoragePluginId } from '@repo/spec-api/plugins/storage.ts';
 
@@ -105,6 +107,111 @@ const makeMaps = (module: StoragePluginModule) =>
       }),
     ])
   );
+
+it.effect('shares npm installs and retains their files until the module map closes', () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const directories: Array<string> = [];
+    const spawnerLayer = Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
+      exitCode: Effect.fnUntraced(function* (
+        command: Parameters<ChildProcessSpawner.ChildProcessSpawner['Service']['exitCode']>[0]
+      ) {
+        if (command._tag !== 'StandardCommand' || command.options.cwd === void 0) {
+          return yield* Effect.die('Expected an installation directory');
+        }
+        expect(command.command).toBe(process.execPath);
+        expect(command.args).toEqual([
+          'add',
+          '--ignore-scripts',
+          '--',
+          'plugin@npm:@fixture/storage@^1',
+        ]);
+        expect(command.options.env).toEqual({ BUN_BE_BUN: '1' });
+        expect(command.options.extendEnv).toBe(true);
+        const directory = command.options.cwd;
+        directories.push(directory);
+        yield* fs.makeDirectory(`${directory}/node_modules/plugin`, { recursive: true });
+        yield* fs.makeDirectory(`${directory}/node_modules/helper`, { recursive: true });
+        yield* fs.writeFileString(
+          `${directory}/node_modules/plugin/package.json`,
+          '{"name":"@fixture/storage","exports":{"./index":"./entry.mjs"}}'
+        );
+        yield* fs.writeFileString(
+          `${directory}/node_modules/plugin/entry.mjs`,
+          'export { default } from "helper";'
+        );
+        yield* fs.writeFileString(
+          `${directory}/node_modules/helper/index.js`,
+          'module.exports = { storage: { layer() {}, layerSettings() {} } };'
+        );
+        return ChildProcessSpawner.ExitCode(0);
+      }),
+    });
+
+    yield* Effect.gen(function* () {
+      const modules = yield* StoragePluginModuleMap;
+      const plugin = StoragePluginId.make('npm:@fixture/storage@^1');
+      const [first, second] = yield* Effect.all([modules.get(plugin), modules.get(plugin)], {
+        concurrency: 'unbounded',
+      });
+      expect(first).toBe(second);
+      expect(yield* modules.get(plugin).pipe(Effect.scoped)).toBe(first);
+      expect(directories).toHaveLength(1);
+      for (const directory of directories) {
+        expect(yield* fs.exists(directory)).toBe(true);
+      }
+    }).pipe(Effect.provide(StoragePluginModuleMap.layerNoDeps.pipe(Layer.provide(spawnerLayer))));
+
+    for (const directory of directories) {
+      expect(yield* fs.exists(directory)).toBe(false);
+    }
+  }).pipe(Effect.provide(BunFileSystem.layer))
+);
+
+it.effect('does not restore captured host services during an isolated module lookup', () =>
+  Effect.gen(function* () {
+    const modules = yield* StoragePluginModuleMap.make.pipe(
+      Effect.provideService(PrivateService, 'host-private'),
+      Effect.provide(
+        Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
+          exitCode: () =>
+            Effect.gen(function* () {
+              expect(yield* Effect.serviceOption(PrivateService)).toEqual(Option.none());
+              return ChildProcessSpawner.ExitCode(1);
+            }),
+        })
+      )
+    );
+
+    const error = yield* modules
+      .get(StoragePluginId.make('npm:fixture'))
+      .pipe(Effect.setContext(Context.empty()), Effect.flip);
+    expect(error._tag).toBe('StoragePluginLoadError');
+  }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer))
+);
+
+it.effect('returns client-safe load errors and retries failed npm installs', () =>
+  Effect.gen(function* () {
+    let attempts = 0;
+    const modules = yield* StoragePluginModuleMap.make.pipe(
+      Effect.provide(
+        Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
+          exitCode: () =>
+            Effect.sync(() => {
+              attempts += 1;
+              return ChildProcessSpawner.ExitCode(1);
+            }),
+        })
+      )
+    );
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const error = yield* modules.get(StoragePluginId.make('npm:fixture')).pipe(Effect.flip);
+      expect(error._tag).toBe('StoragePluginLoadError');
+      expect(error.message).toBe('Failed to install or load storage plugin');
+    }
+    expect(attempts).toBe(2);
+  }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer))
+);
 
 it.effect('isolates the plugin lifecycle and forwards factory and method inputs', () =>
   Effect.gen(function* () {
