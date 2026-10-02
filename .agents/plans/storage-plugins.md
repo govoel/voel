@@ -3,34 +3,38 @@
 ## Contract and lifecycle
 
 - Built-ins and npm plugins share the `@govoel/plugins` module contract and `./index` entry point; no registration API or sandbox. Keep `@repo/spec-api` internal.
-- Store a host-owned, Schema-branded `StoragePluginId` in `storagePlugin`: `builtin:local` or `npm:` with a nonempty suffix. Bun validates and resolves the package/version reference, including scopes, ranges, and tags. Store settings separately in `storagePluginSettings`; only the server writes to the database.
+- Require a host-owned, Schema-branded `StoragePluginId` at creation: `builtin:local` or `npm:` with a nonempty suffix. Bun validates and resolves the package/version reference, including scopes, ranges, and tags. `storagePluginSettings` is nullable with no default: SQL `NULL` means unconfigured; `{}` is an explicitly validated configuration. Only the server writes to the database.
 - Settings replicate to clients. Forms, submissions, and persisted settings must be secret-free; plugins read server-only credentials from plugin-defined environment variables via `ConfigProvider`.
 - Build plugin layers in an explicit Effect environment containing only the declared platform services, server-only `ConfigProvider`, and intentionally preserved logging and runtime overrides (including test clocks). Do not inherit private application or database services. Layers own construction scopes; this boundary is not a security sandbox. This applies for the context supplied for layer construction and the context supplied for Effects on the layer itself.
 - The app installs plugins at library creation and updates them at server boot or via an admin route.
 - Forms describe UI only; plugins own semantic validation and transformations via server-side Schema decoding. No schema transport or client-side validation rules.
+- Both layer factories receive SDK-owned library context with a persisted, stable ID. The host reuses its field schemas and passes only this context. Names are mutable display metadata, not storage namespaces.
 - Settings edits are last-write-wins. Plugin changes retain locations, revalidating them with the new plugin before use; no silent migration.
 
 ## Installation and deployment
 
 - Bun only, native `import()`; no Jiti or import hooks. Plugins declare compatible versions of `effect` and `@govoel/plugins` as ordinary dependencies; Bun handles dependency resolution and installation. Unversioned plugins use Bun's normal package resolution.
 - Use separate plugin installs and a fresh directory per update: `bun install --linker isolated`. No manual host-package symlinks, dependency overrides, or package-identity requirement; independently installed copies must interoperate with the host.
-- Before atomic activation, validate the module contract and decode existing settings. On failure, keep the previous install active.
+- Before atomic activation, validate the module contract and decode every affected configured library's settings with its persisted context; skip SQL `NULL`. Failure preserves the active install; activation retires its editor/storage caches.
 - The server may bundle its own dependencies; no externalization flags or shared-package runtime workspace are required for plugin identity. Keep plugin installs on the real filesystem and verify native loading from the deployed server artifact.
 
 ## Proposed types and APIs
 
-`@govoel/plugins` exports:
+`@govoel/plugins/library` exports `Library` (branded `id`, `type`, `name`) and `MediaType`, reused by host media items. Database variants, timestamps, and storage configuration remain host-owned.
+
+`@govoel/plugins/storage` exports:
 
 ```ts
+import type { Library } from '@govoel/plugins/library';
 import { Context, Effect, Layer, Option, Schema, SchemaIssue } from 'effect';
 import type { FileSystem, Path } from 'effect';
 import type { HttpClient } from 'effect/unstable/http';
 
 /** Ordered, uniquely named fields; [] means no settings. */
-export const StorageSettingsForm = Schema.Array(
+export const StoragePluginSettingsForm = Schema.Array(
   Schema.TaggedStruct('TextField', {
     name: Schema.String.check(Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/)).pipe(
-      Schema.brand('@govoel/plugins/storage/StorageSettingsFieldName')
+      Schema.brand('@govoel/plugins/storage/StoragePluginSettingsFieldName')
     ),
     label: Schema.NonEmptyString,
     placeholder: Schema.String,
@@ -40,13 +44,13 @@ export const StorageSettingsForm = Schema.Array(
 );
 
 /** Secret-free submitted JSON; plugins validate their input schema. */
-export const StorageSettingsInput = Schema.Json.pipe(
-  Schema.brand('@govoel/plugins/storage/StorageSettingsInput')
+export const StoragePluginSettingsInput = Schema.Json.pipe(
+  Schema.brand('@govoel/plugins/storage/StoragePluginSettingsInput')
 );
 
 /** Replicated, secret-free JSON; plugins validate and encode before branding. */
-export const StorageSettingsPersisted = Schema.Json.pipe(
-  Schema.brand('@govoel/plugins/storage/StorageSettingsPersisted')
+export const StoragePluginSettingsPersisted = Schema.Json.pipe(
+  Schema.brand('@govoel/plugins/storage/StoragePluginSettingsPersisted')
 );
 
 /** Non-empty library root, interpreted by the configured plugin. */
@@ -60,14 +64,14 @@ export const StorageMediaFileLocation = Schema.NonEmptyString.pipe(
 );
 
 /** Settings editor operational failures. */
-export class StorageSettingsError extends Schema.TaggedError<StorageSettingsError>()(
-  'StorageSettingsError',
+export class StoragePluginSettingsError extends Schema.TaggedError<StoragePluginSettingsError>()(
+  'StoragePluginSettingsError',
   { message: Schema.String }
 ) {}
 
 /** Operational failures constructing the settings editor. */
-export class StorageSettingsConstructionError extends Schema.TaggedError<StorageSettingsConstructionError>()(
-  'StorageSettingsConstructionError',
+export class StoragePluginSettingsConstructionError extends Schema.TaggedError<StoragePluginSettingsConstructionError>()(
+  'StoragePluginSettingsConstructionError',
   { message: Schema.String }
 ) {}
 
@@ -75,13 +79,13 @@ export class StorageSettingsConstructionError extends Schema.TaggedError<Storage
  * Failures constructing storage, including invalid persisted settings.
  * Messages must be client-safe.
  */
-export class StorageConstructionError extends Schema.TaggedError<StorageConstructionError>()(
-  'StorageConstructionError',
+export class StoragePluginConstructionError extends Schema.TaggedError<StoragePluginConstructionError>()(
+  'StoragePluginConstructionError',
   { message: Schema.String }
 ) {}
 
-export class Storage extends Context.Service<
-  Storage,
+export class StoragePlugin extends Context.Service<
+  StoragePlugin,
   {
     // Complete, idempotent decoders: validate, optionally transform, then brand.
     readonly decodeRootLocation: (request: {
@@ -92,54 +96,60 @@ export class Storage extends Context.Service<
       readonly location: string;
     }) => Effect.Effect<typeof StorageMediaFileLocation.Type, SchemaIssue.Issue>;
   }
->()('@govoel/plugins/storage/Storage') {}
+>()('@govoel/plugins/storage/StoragePlugin') {}
 
 // Neither method writes settings. `current` is server-loaded JSON for this plugin:
 // None = setup; Some = persisted value.
-export class StorageSettings extends Context.Service<
-  StorageSettings,
+export class StoragePluginSettings extends Context.Service<
+  StoragePluginSettings,
   {
     /** UI fields and secret-free initial values; no validation rules. */
     readonly getForm: (request: {
-      readonly current: Option.Option<typeof StorageSettingsPersisted.Type>;
-    }) => Effect.Effect<typeof StorageSettingsForm.Type, Schema.SchemaError | StorageSettingsError>;
+      readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
+    }) => Effect.Effect<
+      typeof StoragePluginSettingsForm.Type,
+      Schema.SchemaError | StoragePluginSettingsError
+    >;
 
     /** Schema-validate input, using current as needed, into complete, secret-free JSON.
      * Input and persisted shapes may differ. The host validates JSON before saving. */
     readonly decodeFormSubmission: (request: {
-      readonly current: Option.Option<typeof StorageSettingsPersisted.Type>;
-      readonly input: typeof StorageSettingsInput.Type;
+      readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
+      readonly input: typeof StoragePluginSettingsInput.Type;
     }) => Effect.Effect<
-      typeof StorageSettingsPersisted.Type,
-      Schema.SchemaError | StorageSettingsError
+      typeof StoragePluginSettingsPersisted.Type,
+      Schema.SchemaError | StoragePluginSettingsError
     >;
   }
->()('@govoel/plugins/storage/StorageSettings') {}
+>()('@govoel/plugins/storage/StoragePluginSettings') {}
 
-export interface StoragePlugin {
+export interface StoragePluginModule {
   readonly storage: {
     /**
      * Decode persisted settings with the plugin's codec, then build storage.
      */
     readonly layer: (request: {
-      readonly settings: typeof StorageSettingsPersisted.Type;
+      readonly library: typeof Library.Type;
+      readonly settings: typeof StoragePluginSettingsPersisted.Type;
     }) => Layer.Layer<
-      Storage,
-      StorageConstructionError,
+      StoragePlugin,
+      StoragePluginConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
     >;
 
     /** Must build without configured storage or valid credentials. */
-    readonly layerSettings: () => Layer.Layer<
-      StorageSettings,
-      StorageSettingsConstructionError,
+    readonly layerSettings: (request: {
+      readonly library: typeof Library.Type;
+    }) => Layer.Layer<
+      StoragePluginSettings,
+      StoragePluginSettingsConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
     >;
   };
 }
 
 // Plugin's ./index; also validated by the loader at runtime.
-export default { storage: { layer, layerSettings } } satisfies StoragePlugin;
+export default { storage: { layer, layerSettings } } satisfies StoragePluginModule;
 ```
 
 Host-owned types in `@repo/spec-api/storage-plugin`, excluded from plugin signatures:
@@ -162,15 +172,25 @@ export class StoragePluginLoadError extends Schema.TaggedError<StoragePluginLoad
 
 ## Implementation outline
 
-1. Publish SDK schemas/services; migrate local storage and callers from `validateLocation` to `decodeRootLocation` / `decodeMediaFileLocation`. Remove redundant host decoding wrappers: service decoders return persistence-ready branded values.
-2. Split plugin/settings in database and API; migrate local configuration to `builtin:local` with `{}`. Edit the initial migration; no deployed databases need upgrading.
+1. Publish SDK schemas/services, including library context; wire both factories and migrate local storage/callers from `validateLocation` to `decodeRootLocation` / `decodeMediaFileLocation`. Remove redundant host decoding wrappers: service decoders return persistence-ready branded values.
+2. Require plugin selection, make settings nullable without a default, replace library upsert with create/update, and remove library/root soft deletion. Edit the initial migration; no deployed databases need upgrading.
 3. Configure separate Bun-managed plugin installs and validated loading. Build plugin layers with the explicit environment above. Expose the editor before configured storage.
-4. Route settings reads/edits through the editor. Reuse configured layers via `StorageMap`, keyed by plugin ID and settings; invalidate after settings commits.
-5. Test host/plugin interoperability with independently installed dependencies (services, Layers, Schema errors, configuration, cancellation, and finalization), compiled-server loading, update rejection, settings round-trips/persistence, location decoding, and layer reuse/invalidation. Use installed plugin packages, not only workspace-linked copies. Verify plugin construction receives the allowed services/configuration but cannot resolve ambient private services.
+4. Route settings reads/edits through the editor using the lifecycle below. Key `StoragePluginSettingsMap` structurally by plugin install and full library context (`id`, `type`, `name`); `StorageMap` also includes settings. Never share layers across library IDs.
+5. Test host/plugin interoperability with independently installed dependencies (services, Layers, Schema errors, configuration, cancellation, and finalization), compiled-server loading, update rejection, settings round-trips/persistence, location decoding, and layer reuse/invalidation. Cover unconfigured creation, setup retries with stable identity, name conflicts, hard-delete cascades and replica catch-up, library isolation, metadata edits, and install activation. Use installed plugin packages, not only workspace-linked copies. Verify plugin construction receives the allowed services/configuration but cannot resolve ambient private services.
+
+## Library lifecycle
+
+- Create with required name, type, and plugin; persist settings as SQL `NULL` without constructing storage. Resolve/install the plugin outside the write transaction. The committed ID stays stable through setup retries.
+- Use explicit create/update commands: duplicate names conflict, missing update IDs return not-found, and neither command resurrects rows. Repeated creates return a name conflict; no creation receipts or request keys.
+- Configure through the persisted library's editor (`None` for SQL `NULL`). Decode the submission and build candidate storage before saving settings, including `{}` for local storage. Failed setup leaves the library unconfigured and editable; normal listings/scanning exclude unconfigured libraries. Storage-dependent operations return an unconfigured error.
+- `libraryUpdate` takes only ID and name; type and plugin are fixed at creation. Updates use server-loaded identity/settings and validate the proposed name. Validate configured candidates in uncached, operation-scoped layers outside write transactions; commit only the operation's fields with last-write-wins semantics, without revision checks or conflict retries. Updates to deleted IDs return not-found.
+- After commit, retire superseded caches; in-flight operations may finish in existing scopes. Failed validation leaves committed state/caches untouched. Plugin filesystem/network side effects cannot be rolled back.
+- Hard-delete libraries idempotently, cascading roots and library-file mappings, retiring caches, and stopping library jobs. Preserve shared media records and physical files. Recreating the same name gets a new ID; no implicit resurrection or trash/restore.
 
 ## Settings form integration
 
-- The client fetches form descriptors through an admin RPC; the server loads current settings and calls the plugin's editor.
+- Fetch forms via admin RPC after creation; no pre-creation editor. Admin listings include unconfigured libraries so setup can resume. The server loads identity/current settings, never trusting client snapshots.
+- `libraryGetStoragePluginSettings` takes only ID; `librarySetStoragePluginSettings` takes ID and input. Both load the library's committed metadata, plugin, and current settings on the server. Refetch forms after a committed rename; settings submissions update only settings.
 - Host-validate descriptors and unique names. Names are flat keys, not TanStack paths; submissions map names to strings (`{}` for no fields).
 - Use existing `useAppForm`, `TextField`, and `SubmitButton`. Derive shared client form types from the SDK descriptors; statically require exhaustive field rendering and purpose presets. Keep native props client-owned and the SDK independent of client UI libraries.
 - Derive only a structural input Schema matching the declared field names and value types. Plugins remain authoritative for semantic validation and transformations on the server.
