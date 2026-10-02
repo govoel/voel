@@ -10,6 +10,7 @@ import {
   StoragePluginSettings,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
+  StoragePluginSettingsForm,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
@@ -27,6 +28,7 @@ import {
   Option,
   Path,
   References,
+  SchemaIssue,
   Scope,
 } from 'effect';
 import { HttpClient } from 'effect/unstable/http';
@@ -107,6 +109,86 @@ const makeMaps = (module: StoragePluginModule) =>
       }),
     ])
   );
+
+it.effect('rejects malformed settings outputs at the plugin boundary', () =>
+  Effect.gen(function* () {
+    const settings = Context.get(
+      yield* StoragePluginSettingsMap.contextEffect(request),
+      StoragePluginSettings
+    );
+    const formError = yield* settings.getForm({ current: Option.none() }).pipe(Effect.flip);
+    expect(formError._tag).toBe('SchemaError');
+    const submissionError = yield* settings
+      .decodeFormSubmission({
+        current: Option.none(),
+        input: StoragePluginSettingsInput.make({}),
+      })
+      .pipe(Effect.flip);
+    expect(submissionError._tag).toBe('SchemaError');
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      makeMaps({
+        storage: {
+          layer: () => storageLayer,
+          layerSettings: () =>
+            Layer.succeed(StoragePluginSettings, {
+              getForm: () => {
+                const field = StoragePluginSettingsForm.value.make({
+                  _tag: 'TextField',
+                  name: StoragePluginSettingsForm.value.fields.name.make('directory'),
+                  label: 'Directory',
+                  placeholder: '',
+                  initialValue: '',
+                });
+                return Effect.succeed([field, field]);
+              },
+              decodeFormSubmission: () => {
+                // A plugin can invalidate a branded value by mutating its backing object.
+                const value = { value: 0 };
+                const settings = StoragePluginSettingsPersisted.make(value);
+                value.value = Number.NaN;
+                return Effect.succeed(settings);
+              },
+            }),
+        },
+      })
+    )
+  )
+);
+
+it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
+  'validates %s outputs while preserving plugin normalization',
+  (method) =>
+    Effect.gen(function* () {
+      const storage = Context.get(yield* StoragePluginMap.contextEffect(request), StoragePlugin);
+      expect(yield* storage[method]({ location: ' /library ' })).toBe('/library');
+      const result: Effect.Effect<string, SchemaIssue.Issue> = storage[method]({ location: ' ' });
+      const issue = yield* Effect.flip(result);
+      expect(SchemaIssue.isIssue(issue)).toBe(true);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        makeMaps({
+          storage: {
+            layer: () =>
+              Layer.succeed(StoragePlugin, {
+                // Model decoders that normalize but neglect to validate their outputs.
+                decodeRootLocation: ({ location }) =>
+                  Effect.succeed(
+                    StorageRootLocation.make(location.trim(), { disableChecks: true })
+                  ),
+                decodeMediaFileLocation: ({ location }) =>
+                  Effect.succeed(
+                    StorageMediaFileLocation.make(location.trim(), { disableChecks: true })
+                  ),
+              }),
+            layerSettings: () => settingsLayer,
+          },
+        })
+      )
+    )
+);
 
 it.effect('shares npm installs and retains their files until the module map closes', () =>
   Effect.gen(function* () {

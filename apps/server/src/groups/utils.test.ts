@@ -9,11 +9,7 @@ import { RpcTest } from 'effect/unstable/rpc';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import {
-  LibraryHandlersLayerNoDeps,
-  LibraryPathRepository,
-  LibraryRepository,
-} from '#src/groups/library.ts';
+import { LibraryHandlersLayerNoDeps, LibraryRepository } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
 import {
   AdminMiddlewareLayerNoDeps,
@@ -23,6 +19,12 @@ import {
 import { ApiConfig } from '#src/services/config.ts';
 import { AuthDatabase } from '#src/services/database/auth/index.ts';
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
+import {
+  StoragePluginBuilder,
+  StoragePluginMap,
+  StoragePluginModuleMap,
+  StoragePluginSettingsMap,
+} from '#src/services/plugins/storage/index.ts';
 
 class AuthUserRow extends Schema.Class<AuthUserRow, { readonly brand: unique symbol }>(
   '@repo/server/groups/utils.test/AuthUserRow'
@@ -75,7 +77,13 @@ const makeTestLayer = () =>
   LibraryHandlersLayerNoDeps.pipe(
     Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
     Layer.provideMerge(AuthLayerNoDeps),
-    Layer.provide([LibraryRepository.layerNoDeps, LibraryPathRepository.layerNoDeps]),
+    Layer.provide([
+      LibraryRepository.layerNoDeps,
+      StoragePluginModuleMap.layer,
+      StoragePluginBuilder.layer,
+      StoragePluginSettingsMap.layer,
+      StoragePluginMap.layer,
+    ]),
     Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
     Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
   );

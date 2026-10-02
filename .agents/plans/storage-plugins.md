@@ -180,11 +180,18 @@ export class StoragePluginLoadError extends Schema.TaggedError<StoragePluginLoad
 
 ## Library lifecycle
 
-- Create with required name, type, and plugin; persist settings as SQL `NULL` without constructing storage. Resolve/install the plugin outside the write transaction. The committed ID stays stable through setup retries.
+Server lifecycle implemented: create/update, persisted-library settings forms and submissions,
+settings decoding outside write transactions, plugin-decoded roots, hard-delete cascades,
+and post-commit cache retirement. Server tests cover setup retries, concurrent field-only
+writes, deletion during settings decoding, cache reuse/isolation, and replica catch-up. There is no
+library job/scanner service yet. Client integration and validated plugin install updates/atomic
+activation remain pending.
+
+- Create with required name, type, and plugin; persist settings as SQL `NULL` without resolving/installing the plugin or constructing storage. Resolve/install lazily when the settings editor or storage is needed. The committed ID stays stable through setup retries.
 - Use explicit create/update commands: duplicate names conflict, missing update IDs return not-found, and neither command resurrects rows. Repeated creates return a name conflict; no creation receipts or request keys.
-- Configure through the persisted library's editor (`None` for SQL `NULL`). Decode the submission and build candidate storage before saving settings, including `{}` for local storage. Failed setup leaves the library unconfigured and editable; normal listings/scanning exclude unconfigured libraries. Storage-dependent operations return an unconfigured error.
-- `libraryUpdate` takes only ID and name; type and plugin are fixed at creation. Updates use server-loaded identity/settings and validate the proposed name. Validate configured candidates in uncached, operation-scoped layers outside write transactions; commit only the operation's fields with last-write-wins semantics, without revision checks or conflict retries. Updates to deleted IDs return not-found.
-- After commit, retire superseded caches; in-flight operations may finish in existing scopes. Failed validation leaves committed state/caches untouched. Plugin filesystem/network side effects cannot be rolled back.
+- Configure through the persisted library's editor (`None` for SQL `NULL`). Decode the submission and validate its persisted JSON before saving settings, including `{}` for local storage. Saving does not construct storage; construction failures surface on storage use, and the editor remains available for recovery. Failed input validation leaves prior settings unchanged; normal listings/scanning exclude unconfigured libraries. Storage-dependent operations return an unconfigured error.
+- `libraryUpdate` takes only ID and name; type and plugin are fixed at creation. Renames do not load or construct plugins. Commit only the operation's fields with last-write-wins semantics, without revision checks or conflict retries. Updates to deleted IDs return not-found.
+- After commit, retire superseded caches; in-flight operations may finish in existing scopes. Failed input validation leaves committed state/caches untouched. Plugin filesystem/network side effects cannot be rolled back.
 - Hard-delete libraries idempotently, cascading roots and library-file mappings, retiring caches, and stopping library jobs. Preserve shared media records and physical files. Recreating the same name gets a new ID; no implicit resurrection or trash/restore.
 
 ## Settings form integration

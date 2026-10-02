@@ -74,7 +74,7 @@ export const LibraryRpcs = RpcGroup.make(
       storagePlugin: Library.jsonCreate.fields.storagePlugin,
     }),
     success: Schema.Struct({ id: Library.json.fields.id }),
-    error: Schema.Union([LibraryNameConflictError]),
+    error: LibraryNameConflictError,
   }),
 
   Rpc.make('libraryUpdate', {
