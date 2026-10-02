@@ -103,17 +103,25 @@ it.effect('does not restore captured host services during an isolated module loo
   }).pipe(Effect.scoped, Effect.provide([BunFileSystem.layer, BunModuleResolverLayer]))
 );
 
-it.effect('returns client-safe load errors and retries failed npm installs', () =>
+it.effect('cleans up failed npm installs before retrying with client-safe errors', () =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const directories: Array<string> = [];
     let attempts = 0;
     const modules = yield* PluginModuleMap.make.pipe(
       Effect.provide(
         Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
-          exitCode: () =>
-            Effect.sync(() => {
-              attempts += 1;
-              return ChildProcessSpawner.ExitCode(1);
-            }),
+          exitCode: Effect.fnUntraced(function* (
+            command: Parameters<ChildProcessSpawner.ChildProcessSpawner['Service']['exitCode']>[0]
+          ) {
+            if (command._tag !== 'StandardCommand' || command.options.cwd === void 0) {
+              return yield* Effect.die('Expected an installation directory');
+            }
+            directories.push(command.options.cwd);
+            yield* fs.writeFileString(`${command.options.cwd}/partial-install`, 'incomplete');
+            attempts += 1;
+            return ChildProcessSpawner.ExitCode(1);
+          }),
         })
       )
     );
@@ -122,6 +130,9 @@ it.effect('returns client-safe load errors and retries failed npm installs', () 
       expect(exit).toEqual(
         Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
       );
+      for (const directory of directories) {
+        expect(yield* fs.exists(directory)).toBe(false);
+      }
     }
     expect(attempts).toBe(2);
   }).pipe(Effect.scoped, Effect.provide([BunFileSystem.layer, BunModuleResolverLayer]))
@@ -178,6 +189,9 @@ it.effect(
       expect(yield* modules.get(plugin).pipe(Effect.exit)).toEqual(
         Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
       );
+      for (const directory of directories) {
+        expect(yield* fs.exists(directory)).toBe(false);
+      }
       const module = yield* modules.get(plugin);
       expect(module).toMatchObject({ ready: true });
       expect(yield* modules.get(plugin)).toBe(module);
@@ -187,10 +201,11 @@ it.effect(
 );
 
 it.effect.each(['resolution', 'import'] as const)(
-  'returns client-safe errors and retries after a failed %s',
+  'cleans up repeated %s failures before retrying with client-safe errors',
   (failure) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
+      const directories: Array<string> = [];
       let attempts = 0;
       const modules = yield* PluginModuleMap.make.pipe(
         Effect.provide(
@@ -201,8 +216,9 @@ it.effect.each(['resolution', 'import'] as const)(
               if (command._tag !== 'StandardCommand' || command.options.cwd === void 0) {
                 return yield* Effect.die('Expected an installation directory');
               }
+              directories.push(command.options.cwd);
               attempts += 1;
-              if (failure === 'import' || attempts > 1) {
+              if (failure === 'import' || attempts > 2) {
                 const directory = `${command.options.cwd}/node_modules/plugin`;
                 yield* fs.makeDirectory(directory, { recursive: true });
                 yield* fs.writeFileString(
@@ -211,7 +227,7 @@ it.effect.each(['resolution', 'import'] as const)(
                 );
                 yield* fs.writeFileString(
                   `${directory}/entry.mjs`,
-                  attempts === 1
+                  attempts <= 2
                     ? 'throw new Error("private import details");'
                     : 'export const ready = true;'
                 );
@@ -223,13 +239,22 @@ it.effect.each(['resolution', 'import'] as const)(
       );
 
       const plugin = NpmPluginId.make('npm:fixture');
-      const exit = yield* modules.get(plugin).pipe(Effect.exit);
-      expect(exit).toEqual(
-        Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
-      );
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const exit = yield* modules.get(plugin).pipe(Effect.exit);
+        expect(exit).toEqual(
+          Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
+        );
+        for (const directory of directories) {
+          expect(yield* fs.exists(directory)).toBe(false);
+        }
+      }
       const module = yield* modules.get(plugin);
       expect(module).toMatchObject({ ready: true });
       expect(yield* modules.get(plugin)).toBe(module);
-      expect(attempts).toBe(2);
+      expect(attempts).toBe(3);
+      expect(directories).toHaveLength(3);
+      for (const [index, directory] of directories.entries()) {
+        expect(yield* fs.exists(directory)).toBe(index === 2);
+      }
     }).pipe(Effect.scoped, Effect.provide([BunFileSystem.layer, BunModuleResolverLayer]))
 );
