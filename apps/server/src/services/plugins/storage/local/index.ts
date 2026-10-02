@@ -8,8 +8,8 @@ import {
 } from '@govoel/plugins/storage';
 import { Context, Effect, Layer, Path, Schema, SchemaParser } from 'effect';
 
-class LocalStorage extends Context.Service<LocalStorage>()(
-  '@repo/server/services/plugins/storage/local/LocalStorage',
+class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
+  '@repo/server/services/plugins/storage/local/LocalStoragePlugin',
   {
     make: Effect.gen(function* () {
       const path = yield* Path.Path;
@@ -46,8 +46,8 @@ class LocalStorage extends Context.Service<LocalStorage>()(
   public static readonly layer = () => Layer.effect(StoragePlugin, this.make);
 }
 
-class LocalStorageSettings extends Context.Service<LocalStorageSettings>()(
-  '@repo/server/services/plugins/storage/local/LocalStorageSettings',
+class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSettings>()(
+  '@repo/server/services/plugins/storage/local/LocalStoragePluginSettings',
   {
     make: Effect.succeed(
       StoragePluginSettings.of({
@@ -62,7 +62,7 @@ class LocalStorageSettings extends Context.Service<LocalStorageSettings>()(
 
 export default {
   storage: {
-    layer: LocalStorage.layer,
-    layerSettings: LocalStorageSettings.layer,
+    layer: LocalStoragePlugin.layer,
+    layerSettings: LocalStoragePluginSettings.layer,
   },
 } satisfies StoragePluginModule;
