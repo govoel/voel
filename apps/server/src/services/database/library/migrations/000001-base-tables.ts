@@ -283,21 +283,19 @@ export default Effect.gen(function* () {
       "id" integer not null primary key autoincrement,
       "type" text not null references "mediaType" ("type") on delete restrict on update cascade,
       "name" text not null unique,
-      "storagePlugin" text not null default 'builtin:local',
-      "storagePluginSettings" text not null default '{}',
+      "storagePlugin" text not null,
+      "storagePluginSettings" text,
       "createdAt" integer default (time_to_milli (time_now ())) not null,
-      "updatedAt" integer default (time_to_milli (time_now ())) not null,
-      "deletedAt" integer
+      "updatedAt" integer default (time_to_milli (time_now ())) not null
     ) strict
   `;
 
   yield* createIndex({ sql, table: 'library', columns: ['updatedAt'] });
-  yield* createIndex({ sql, table: 'library', columns: ['deletedAt'] });
 
   yield* createUpdatedAtTrigger({
     sql,
     table: 'library',
-    columns: ['id', 'type', 'name', 'storagePlugin', 'storagePluginSettings', 'deletedAt'],
+    columns: ['id', 'type', 'name', 'storagePlugin', 'storagePluginSettings'],
   });
 
   yield* sql`
@@ -306,8 +304,7 @@ export default Effect.gen(function* () {
       "libraryId" integer not null references "library" ("id") on delete cascade on update cascade,
       "root" text not null check (length("root") > 0),
       "createdAt" integer default (time_to_milli (time_now ())) not null,
-      "updatedAt" integer default (time_to_milli (time_now ())) not null,
-      "deletedAt" integer
+      "updatedAt" integer default (time_to_milli (time_now ())) not null
     ) strict
   `;
 
@@ -319,12 +316,11 @@ export default Effect.gen(function* () {
 
   yield* createIndex({ sql, table: 'libraryRoot', columns: ['libraryId'] });
   yield* createIndex({ sql, table: 'libraryRoot', columns: ['updatedAt'] });
-  yield* createIndex({ sql, table: 'libraryRoot', columns: ['deletedAt'] });
 
   yield* createUpdatedAtTrigger({
     sql,
     table: 'libraryRoot',
-    columns: ['id', 'libraryId', 'root', 'deletedAt'],
+    columns: ['id', 'libraryId', 'root'],
   });
 
   yield* sql`
