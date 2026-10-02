@@ -1,5 +1,5 @@
 import { Array, Context, Schema } from 'effect';
-import type { Effect, FileSystem, Layer, Option, Path, SchemaIssue } from 'effect';
+import type { Effect, FileSystem, Layer, Option, Path } from 'effect';
 import type { HttpClient } from 'effect/unstable/http';
 
 import type { Library } from '#src/library.ts';
@@ -62,6 +62,16 @@ export const StorageMediaFileLocation = Schema.NonEmptyString.pipe(
 export type StorageMediaFileLocation = typeof StorageMediaFileLocation.Type;
 
 /**
+ * Invalid location input. Messages must be client-safe and explain the validation failure.
+ */
+export class StorageLocationValidationError extends Schema.TaggedError<
+  StorageLocationValidationError,
+  { readonly brand: unique symbol }
+>('@govoel/plugins/storage/StorageLocationValidationError')('StorageLocationValidationError', {
+  message: Schema.NonEmptyString,
+}) {}
+
+/**
  * Settings editor operational failure. Messages must be client-safe.
  */
 export class StoragePluginSettingsError extends Schema.TaggedError<
@@ -104,14 +114,14 @@ export class StoragePlugin extends Context.Service<
      */
     readonly decodeRootLocation: (request: {
       readonly location: string;
-    }) => Effect.Effect<StorageRootLocation, SchemaIssue.Issue>;
+    }) => Effect.Effect<StorageRootLocation, StorageLocationValidationError>;
 
     /**
      * Complete, idempotent decoder: validate, optionally transform, then brand.
      */
     readonly decodeMediaFileLocation: (request: {
       readonly location: string;
-    }) => Effect.Effect<StorageMediaFileLocation, SchemaIssue.Issue>;
+    }) => Effect.Effect<StorageMediaFileLocation, StorageLocationValidationError>;
   }
 >()('@govoel/plugins/storage/StoragePlugin') {}
 

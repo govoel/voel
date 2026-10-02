@@ -1,17 +1,14 @@
 import { Schema } from 'effect';
 
-export const NpmStoragePluginId = Schema.TemplateLiteral(['npm:', Schema.NonEmptyString]);
+import { NpmPluginId } from '#src/plugins/index.ts';
 
 /** Host-selected storage reference. Bun validates and resolves the npm suffix. */
-export const StoragePluginId = Schema.Union([
-  Schema.Literal('builtin:local'),
-  NpmStoragePluginId,
-]).pipe(
+export const StoragePluginId = Schema.Union([Schema.Literal('builtin:local'), NpmPluginId]).pipe(
   Schema.encodeTo(Schema.String),
   Schema.brand('@repo/spec-api/plugins/storage/StoragePluginId')
 );
 
-/** Host resolution, import, or module-contract failure. Messages must be client-safe. */
+/** Storage module-contract failure. Messages must be client-safe. */
 export class StoragePluginLoadError extends Schema.TaggedError<
   StoragePluginLoadError,
   { readonly brand: unique symbol }

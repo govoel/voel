@@ -1,9 +1,9 @@
-import { BunFileSystem } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it } from '@effect/vitest';
 import { Library } from '@govoel/plugins/library';
 import type { StoragePluginModule } from '@govoel/plugins/storage';
 import {
+  StorageLocationValidationError,
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginConstructionError,
@@ -28,20 +28,20 @@ import {
   Option,
   Path,
   References,
-  SchemaIssue,
   Scope,
 } from 'effect';
 import { HttpClient } from 'effect/unstable/http';
-import { ChildProcessSpawner } from 'effect/unstable/process';
 
 import { StoragePluginId } from '@repo/spec-api/plugins/storage.ts';
 
+import { PluginModuleMap } from '#src/services/plugins/index.ts';
 import {
   StoragePluginBuilder,
   StoragePluginMap,
   StoragePluginModuleMap,
   StoragePluginSettingsMap,
 } from '#src/services/plugins/storage/index.ts';
+import local from '#src/services/plugins/storage/local/index.ts';
 
 class PrivateService extends Context.Service<PrivateService>()(
   '@repo/server/services/plugins/storage/index.test/PrivateService',
@@ -80,6 +80,7 @@ const snapshotContext = Effect.all({
   services: Effect.all({
     privateService: Effect.serviceOption(PrivateService),
     moduleMap: Effect.serviceOption(StoragePluginModuleMap),
+    sharedModuleMap: Effect.serviceOption(PluginModuleMap),
     builder: Effect.serviceOption(StoragePluginBuilder),
   }),
 });
@@ -87,6 +88,7 @@ const snapshotContext = Effect.all({
 const noPrivateServices = {
   privateService: Option.none(),
   moduleMap: Option.none(),
+  sharedModuleMap: Option.none(),
   builder: Option.none(),
 };
 
@@ -109,6 +111,54 @@ const makeMaps = (module: StoragePluginModule) =>
       }),
     ])
   );
+
+it.effect('resolves built-in storage without loading an npm module', () =>
+  Effect.gen(function* () {
+    const modules = yield* StoragePluginModuleMap;
+    expect(yield* modules.get(StoragePluginId.make('builtin:local'))).toBe(local);
+  }).pipe(
+    Effect.provide(StoragePluginModuleMap.layerNoDeps),
+    Effect.provideService(PluginModuleMap, {
+      get: () => Effect.die('Unexpected npm module lookup'),
+    })
+  )
+);
+
+it.effect('validates storage exports from the shared module loader', () =>
+  Effect.gen(function* () {
+    const modules = yield* StoragePluginModuleMap;
+    const module = yield* modules.get(StoragePluginId.make('npm:fixture'));
+    expect(module).toEqual(local);
+  }).pipe(
+    Effect.provide(StoragePluginModuleMap.layerNoDeps),
+    Effect.provideService(PluginModuleMap, {
+      get: (plugin) => {
+        expect(plugin).toBe('npm:fixture');
+        return Effect.succeed({ default: local, unrelated: 'preserved in shared cache' });
+      },
+    })
+  )
+);
+
+it.effect.each([
+  null,
+  {},
+  { default: {} },
+  { default: { storage: { layer: () => storageLayer } } },
+  { default: { storage: { layer: 'invalid', layerSettings: () => settingsLayer } } },
+])('rejects an invalid storage module export: %j', (module) =>
+  Effect.gen(function* () {
+    const modules = yield* StoragePluginModuleMap;
+    const error = yield* modules.get(StoragePluginId.make('npm:fixture')).pipe(Effect.flip);
+    expect(error).toMatchObject({
+      _tag: 'StoragePluginLoadError',
+      message: 'Invalid storage plugin module',
+    });
+  }).pipe(
+    Effect.provide(StoragePluginModuleMap.layerNoDeps),
+    Effect.provideService(PluginModuleMap, { get: () => Effect.succeed(module) })
+  )
+);
 
 it.effect('rejects malformed settings outputs at the plugin boundary', () =>
   Effect.gen(function* () {
@@ -163,9 +213,15 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
     Effect.gen(function* () {
       const storage = Context.get(yield* StoragePluginMap.contextEffect(request), StoragePlugin);
       expect(yield* storage[method]({ location: ' /library ' })).toBe('/library');
-      const result: Effect.Effect<string, SchemaIssue.Issue> = storage[method]({ location: ' ' });
-      const issue = yield* Effect.flip(result);
-      expect(SchemaIssue.isIssue(issue)).toBe(true);
+      const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
+        location: ' ',
+      });
+      const exit = yield* Effect.exit(result);
+      expect(Exit.hasDies(exit)).toBe(true);
+      expect(Exit.findDefect(exit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'SchemaError' },
+      });
     }).pipe(
       Effect.scoped,
       Effect.provide(
@@ -190,109 +246,54 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
     )
 );
 
-it.effect('shares npm installs and retains their files until the module map closes', () =>
+it.effect.each([
+  { method: 'decodeRootLocation', label: 'Library root locations' },
+  { method: 'decodeMediaFileLocation', label: 'Library file locations' },
+] as const)('returns client-safe validation messages from local $method', ({ method, label }) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const directories: Array<string> = [];
-    const spawnerLayer = Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
-      exitCode: Effect.fnUntraced(function* (
-        command: Parameters<ChildProcessSpawner.ChildProcessSpawner['Service']['exitCode']>[0]
-      ) {
-        if (command._tag !== 'StandardCommand' || command.options.cwd === void 0) {
-          return yield* Effect.die('Expected an installation directory');
-        }
-        expect(command.command).toBe(process.execPath);
-        expect(command.args).toEqual([
-          'add',
-          '--ignore-scripts',
-          '--',
-          'plugin@npm:@fixture/storage@^1',
-        ]);
-        expect(command.options.env).toEqual({ BUN_BE_BUN: '1' });
-        expect(command.options.extendEnv).toBe(true);
-        const directory = command.options.cwd;
-        directories.push(directory);
-        yield* fs.makeDirectory(`${directory}/node_modules/plugin`, { recursive: true });
-        yield* fs.makeDirectory(`${directory}/node_modules/helper`, { recursive: true });
-        yield* fs.writeFileString(
-          `${directory}/node_modules/plugin/package.json`,
-          '{"name":"@fixture/storage","exports":{"./index":"./entry.mjs"}}'
-        );
-        yield* fs.writeFileString(
-          `${directory}/node_modules/plugin/entry.mjs`,
-          'export { default } from "helper";'
-        );
-        yield* fs.writeFileString(
-          `${directory}/node_modules/helper/index.js`,
-          'module.exports = { storage: { layer() {}, layerSettings() {} } };'
-        );
-        return ChildProcessSpawner.ExitCode(0);
-      }),
-    });
+    const storage = Context.get(yield* StoragePluginMap.contextEffect(request), StoragePlugin);
+    const decode: (
+      input: Parameters<typeof storage.decodeRootLocation>[0]
+    ) => Effect.Effect<string, StorageLocationValidationError> = storage[method];
+    expect(yield* decode({ location: '/library' })).toBe('/library');
+    expect(yield* decode({ location: 'relative' }).pipe(Effect.flip)).toEqual(
+      StorageLocationValidationError.make({ message: `${label} must be absolute paths` })
+    );
+    expect(yield* decode({ location: '/nul\0' }).pipe(Effect.flip)).toEqual(
+      StorageLocationValidationError.make({ message: `${label} must not contain NUL characters` })
+    );
+    const empty = yield* decode({ location: '' }).pipe(Effect.flip);
+    expect(empty).toBeInstanceOf(StorageLocationValidationError);
+    expect(empty.message.length).toBeGreaterThan(0);
+  }).pipe(Effect.scoped, Effect.provide(makeMaps(local)))
+);
 
-    yield* Effect.gen(function* () {
-      const modules = yield* StoragePluginModuleMap;
-      const plugin = StoragePluginId.make('npm:@fixture/storage@^1');
-      const [first, second] = yield* Effect.all([modules.get(plugin), modules.get(plugin)], {
-        concurrency: 'unbounded',
+it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
+  'preserves plugin validation failures from %s',
+  (method) => {
+    const error = StorageLocationValidationError.make({ message: 'Location is outside storage' });
+    return Effect.gen(function* () {
+      const storage = Context.get(yield* StoragePluginMap.contextEffect(request), StoragePlugin);
+      const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
+        location: '/outside',
       });
-      expect(first).toBe(second);
-      expect(yield* modules.get(plugin).pipe(Effect.scoped)).toBe(first);
-      expect(directories).toHaveLength(1);
-      for (const directory of directories) {
-        expect(yield* fs.exists(directory)).toBe(true);
-      }
-    }).pipe(Effect.provide(StoragePluginModuleMap.layerNoDeps.pipe(Layer.provide(spawnerLayer))));
-
-    for (const directory of directories) {
-      expect(yield* fs.exists(directory)).toBe(false);
-    }
-  }).pipe(Effect.provide(BunFileSystem.layer))
-);
-
-it.effect('does not restore captured host services during an isolated module lookup', () =>
-  Effect.gen(function* () {
-    const modules = yield* StoragePluginModuleMap.make.pipe(
-      Effect.provideService(PrivateService, 'host-private'),
+      expect(yield* Effect.flip(result)).toBe(error);
+    }).pipe(
+      Effect.scoped,
       Effect.provide(
-        Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
-          exitCode: () =>
-            Effect.gen(function* () {
-              expect(yield* Effect.serviceOption(PrivateService)).toEqual(Option.none());
-              return ChildProcessSpawner.ExitCode(1);
-            }),
+        makeMaps({
+          storage: {
+            layer: () =>
+              Layer.succeed(StoragePlugin, {
+                decodeRootLocation: () => error,
+                decodeMediaFileLocation: () => error,
+              }),
+            layerSettings: () => settingsLayer,
+          },
         })
       )
     );
-
-    const error = yield* modules
-      .get(StoragePluginId.make('npm:fixture'))
-      .pipe(Effect.setContext(Context.empty()), Effect.flip);
-    expect(error._tag).toBe('StoragePluginLoadError');
-  }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer))
-);
-
-it.effect('returns client-safe load errors and retries failed npm installs', () =>
-  Effect.gen(function* () {
-    let attempts = 0;
-    const modules = yield* StoragePluginModuleMap.make.pipe(
-      Effect.provide(
-        Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
-          exitCode: () =>
-            Effect.sync(() => {
-              attempts += 1;
-              return ChildProcessSpawner.ExitCode(1);
-            }),
-        })
-      )
-    );
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const error = yield* modules.get(StoragePluginId.make('npm:fixture')).pipe(Effect.flip);
-      expect(error._tag).toBe('StoragePluginLoadError');
-      expect(error.message).toBe('Failed to install or load storage plugin');
-    }
-    expect(attempts).toBe(2);
-  }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer))
+  }
 );
 
 it.effect('isolates the plugin lifecycle and forwards factory and method inputs', () =>
