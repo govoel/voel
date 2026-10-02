@@ -1,6 +1,13 @@
 import { BunChildProcessSpawner, BunFileSystem, BunPath } from '@effect/platform-bun';
 import type { StoragePluginModule } from '@govoel/plugins/storage';
-import { StoragePlugin, StoragePluginSettings } from '@govoel/plugins/storage';
+import {
+  StorageMediaFileLocation,
+  StoragePlugin,
+  StoragePluginSettings,
+  StoragePluginSettingsForm,
+  StoragePluginSettingsPersisted,
+  StorageRootLocation,
+} from '@govoel/plugins/storage';
 import {
   Cache,
   Clock,
@@ -18,6 +25,7 @@ import {
   References,
   Scheduler,
   Schema,
+  SchemaParser,
   Scope,
 } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
@@ -237,9 +245,20 @@ export class StoragePluginSettingsMap extends LayerMap.Service<StoragePluginSett
           });
 
           const settings = Context.get(context, StoragePluginSettings);
+          // Enforce the shared output contract once, inside the isolated plugin invocation.
           return StoragePluginSettings.of({
-            getForm: (input) => invoke(() => settings.getForm(input)),
-            decodeFormSubmission: (input) => invoke(() => settings.decodeFormSubmission(input)),
+            getForm: (input) =>
+              invoke(() =>
+                settings
+                  .getForm(input)
+                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(StoragePluginSettingsForm)))
+              ),
+            decodeFormSubmission: (input) =>
+              invoke(() =>
+                settings
+                  .decodeFormSubmission(input)
+                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(StoragePluginSettingsPersisted)))
+              ),
           });
         })
       ),
@@ -270,9 +289,18 @@ export class StoragePluginMap extends LayerMap.Service<StoragePluginMap>()(
 
           const storage = Context.get(context, StoragePlugin);
           return StoragePlugin.of({
-            decodeRootLocation: (input) => invoke(() => storage.decodeRootLocation(input)),
+            decodeRootLocation: (input) =>
+              invoke(() =>
+                storage
+                  .decodeRootLocation(input)
+                  .pipe(Effect.flatMap(SchemaParser.decodeUnknownEffect(StorageRootLocation)))
+              ),
             decodeMediaFileLocation: (input) =>
-              invoke(() => storage.decodeMediaFileLocation(input)),
+              invoke(() =>
+                storage
+                  .decodeMediaFileLocation(input)
+                  .pipe(Effect.flatMap(SchemaParser.decodeUnknownEffect(StorageMediaFileLocation)))
+              ),
           });
         })
       ),

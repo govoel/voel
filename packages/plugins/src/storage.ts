@@ -127,7 +127,7 @@ export class StoragePluginSettings extends Context.Service<
      * UI fields and secret-free initial values; no validation rules.
      */
     readonly getForm: (request: {
-      readonly current: Option.Option<StoragePluginSettingsPersisted>;
+      readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
     }) => Effect.Effect<StoragePluginSettingsForm, Schema.SchemaError | StoragePluginSettingsError>;
 
     /**
@@ -135,10 +135,10 @@ export class StoragePluginSettings extends Context.Service<
      * Input and persisted shapes may differ. The host validates JSON before saving.
      */
     readonly decodeFormSubmission: (request: {
-      readonly current: Option.Option<StoragePluginSettingsPersisted>;
+      readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
       readonly input: StoragePluginSettingsInput;
     }) => Effect.Effect<
-      StoragePluginSettingsPersisted,
+      typeof StoragePluginSettingsPersisted.Type,
       Schema.SchemaError | StoragePluginSettingsError
     >;
   }
@@ -155,7 +155,7 @@ export interface StoragePluginModule {
      */
     readonly layer: (request: {
       readonly library: typeof Library.Type;
-      readonly settings: StoragePluginSettingsPersisted;
+      readonly settings: typeof StoragePluginSettingsPersisted.Type;
     }) => Layer.Layer<
       StoragePlugin,
       StoragePluginConstructionError,
