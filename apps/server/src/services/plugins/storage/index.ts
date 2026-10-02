@@ -200,6 +200,15 @@ export class StoragePluginSettingsMap extends LayerMap.Service<StoragePluginSett
   }
 ) {}
 
+/** Acquire an editor in the caller's scope, ignoring fields outside its cache key. */
+export const acquireStoragePluginSettings = ({
+  storagePlugin,
+  library: { id, type, name },
+}: Parameters<typeof StoragePluginSettingsMap.contextEffect>[0]) =>
+  StoragePluginSettingsMap.contextEffect({ storagePlugin, library: { id, type, name } }).pipe(
+    Effect.map(Context.get(StoragePluginSettings))
+  );
+
 /** Storage instances are keyed by their complete library context, plugin, and settings. */
 export class StoragePluginMap extends LayerMap.Service<StoragePluginMap>()(
   '@repo/server/services/plugins/storage/StoragePluginMap',
@@ -248,3 +257,13 @@ export class StoragePluginMap extends LayerMap.Service<StoragePluginMap>()(
       ),
   }
 ) {}
+
+/** Acquire storage in the caller's scope, ignoring fields outside its cache key. */
+export const acquireStoragePlugin = ({
+  storagePlugin,
+  library: { id, type, name },
+  settings,
+}: Parameters<typeof StoragePluginMap.contextEffect>[0]) =>
+  StoragePluginMap.contextEffect({ storagePlugin, library: { id, type, name }, settings }).pipe(
+    Effect.map(Context.get(StoragePlugin))
+  );

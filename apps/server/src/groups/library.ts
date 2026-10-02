@@ -1,6 +1,4 @@
 import {
-  StoragePlugin,
-  StoragePluginSettings,
   StoragePluginSettingsError,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
@@ -19,7 +17,12 @@ import {
 } from '@repo/spec-api/groups/library.ts';
 
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
-import { StoragePluginMap, StoragePluginSettingsMap } from '#src/services/plugins/storage/index.ts';
+import {
+  StoragePluginMap,
+  StoragePluginSettingsMap,
+  acquireStoragePlugin,
+  acquireStoragePluginSettings,
+} from '#src/services/plugins/storage/index.ts';
 
 class LibraryRow extends Schema.Struct({
   id: Library.fields.id,
@@ -295,13 +298,10 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
         id,
       }: ApiPayload<'libraryGetStoragePluginSettingsForm'>) {
         const row = yield* get({ id });
-        const editor = Context.get(
-          yield* editors.contextEffect({
-            storagePlugin: row.storagePlugin,
-            library: { id: row.id, type: row.type, name: row.name },
-          }),
-          StoragePluginSettings
-        );
+        const editor = yield* acquireStoragePluginSettings({
+          storagePlugin: row.storagePlugin,
+          library: row,
+        });
         return yield* editor
           .getForm({ current: row.storagePluginSettings })
           .pipe(
@@ -316,13 +316,10 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
         input,
       }: ApiPayload<'librarySetStoragePluginSettings'>) {
         const row = yield* get({ id });
-        const editor = Context.get(
-          yield* editors.contextEffect({
-            storagePlugin: row.storagePlugin,
-            library: { id: row.id, type: row.type, name: row.name },
-          }),
-          StoragePluginSettings
-        );
+        const editor = yield* acquireStoragePluginSettings({
+          storagePlugin: row.storagePlugin,
+          library: row,
+        });
         const settings = yield* editor
           .decodeFormSubmission({ current: row.storagePluginSettings, input })
           .pipe(
@@ -344,14 +341,11 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
           return yield* LibraryUnconfiguredError.make({ id });
         }
 
-        const storage = Context.get(
-          yield* stores.contextEffect({
-            storagePlugin: row.storagePlugin,
-            library: { id: row.id, type: row.type, name: row.name },
-            settings: row.storagePluginSettings.value,
-          }),
-          StoragePlugin
-        );
+        const storage = yield* acquireStoragePlugin({
+          storagePlugin: row.storagePlugin,
+          library: row,
+          settings: row.storagePluginSettings.value,
+        });
         const decoded = yield* Effect.validate(
           roots,
           ({ root }) =>
