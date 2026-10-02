@@ -191,6 +191,151 @@ const makeClient = Effect.gen(function* () {
 
 it.layer(testLayer)('library lifecycle', (iit) => {
   iit.effect(
+    'collects cached failures from both plugin components',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const repository = yield* LibraryRepository.make;
+      const library = yield* client.libraryCreate(createInput('Failed health', 'npm:missing'));
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({}),
+      });
+      expect(
+        yield* client.libraryGetStoragePluginSettingsForm(library).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'PluginLoadError' });
+      expect(
+        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'PluginLoadError' });
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toMatchObject({
+        status: 'unhealthy',
+        errors: [
+          { _tag: 'PluginLoadError', message: 'Plugin unavailable' },
+          { _tag: 'PluginLoadError', message: 'Plugin unavailable' },
+        ],
+      });
+    })
+  );
+
+  iit.effect(
+    'reads only cached plugin health, reports failures, and forgets retired instances',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const library = yield* client.libraryCreate(createInput('Health', 'npm:test'));
+      const listItem = Effect.gen(function* () {
+        return (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+          ({ id }) => id === library.id
+        );
+      });
+      for (let index = 0; index < 2; index += 1) {
+        expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+          status: 'unknown',
+        });
+        expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
+      }
+      expect(fixture.editorBuilds.filter(({ library: row }) => row.id === library.id)).toEqual([]);
+      expect(fixture.storageBuilds.filter(({ library: row }) => row.id === library.id)).toEqual([]);
+
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: 'unavailable' }),
+      });
+      // Persisted settings alone do not imply that storage is healthy.
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'unknown',
+      });
+      yield* client.libraryGetStoragePluginSettingsForm(library);
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'healthy',
+      });
+      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
+      expect(fixture.storageBuilds.filter(({ library: row }) => row.id === library.id)).toEqual([]);
+
+      yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip);
+      for (let index = 0; index < 2; index += 1) {
+        expect((yield* client.libraryGet(library)).storagePluginHealth).toMatchObject({
+          status: 'unhealthy',
+          errors: [{ _tag: 'StoragePluginConstructionError', message: 'Storage unavailable' }],
+        });
+        const item = yield* listItem;
+        expect(item).toMatchObject({ storagePluginStatus: 'unhealthy' });
+        expect(item).not.toHaveProperty('storagePluginHealth');
+      }
+      expect(
+        fixture.storageBuilds.filter(({ library: row }) => row.id === library.id)
+      ).toHaveLength(1);
+
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/healthy' }),
+      });
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'unknown',
+      });
+      yield* client.libraryRootsSet({ ...library, roots: [] });
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'healthy',
+      });
+      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
+
+      const stores = yield* StoragePluginMap;
+      for (const key of yield* RcMap.keys(stores.rcMap)) {
+        if (key.library.id === library.id) {
+          yield* stores.invalidate(key);
+        }
+      }
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'unknown',
+      });
+      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
+      expect(
+        fixture.storageBuilds.filter(({ library: row }) => row.id === library.id)
+      ).toHaveLength(2);
+    })
+  );
+
+  iit.effect(
+    'excludes cached health for obsolete settings and library context',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const repository = yield* LibraryRepository.make;
+      const fixture = yield* PluginFixture;
+      const library = yield* client.libraryCreate(createInput('Stale health', 'npm:test'));
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
+      });
+      yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip);
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unhealthy');
+
+      // Leave old entries cached, as can happen while retirement is still in progress.
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
+      });
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unknown');
+      yield* client.libraryGetStoragePluginSettingsForm(library);
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('healthy');
+      yield* repository.rename({
+        ...library,
+        name: Library.fields.name.make('New health context'),
+      });
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unknown');
+      expect(
+        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+          ({ id }) => id === library.id
+        )
+      ).toMatchObject({ storagePluginStatus: 'unknown' });
+      expect(
+        fixture.storageBuilds.filter(({ library: row }) => row.id === library.id)
+      ).toHaveLength(1);
+      expect(fixture.editorBuilds.filter(({ library: row }) => row.id === library.id)).toHaveLength(
+        1
+      );
+    })
+  );
+
+  iit.effect(
     'rolls back root removal when standalone replacement fails to insert',
     Effect.fnUntraced(function* () {
       const repository = yield* LibraryRepository.make;
@@ -316,10 +461,20 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(yield* client.libraryGet(missing)).toMatchObject({
         storagePlugin: 'npm:missing',
         storagePluginSettings: Option.none(),
+        storagePluginHealth: { status: 'unknown' },
       });
       expect(
         yield* client.libraryGetStoragePluginSettingsForm(missing).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'PluginLoadError' });
+      expect((yield* client.libraryGet(missing)).storagePluginHealth).toMatchObject({
+        status: 'unhealthy',
+        errors: [{ _tag: 'PluginLoadError', message: 'Plugin unavailable' }],
+      });
+      expect(
+        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+          ({ id }) => id === missing.id
+        )
+      ).toMatchObject({ storagePluginStatus: 'unhealthy' });
       const original = yield* client.libraryCreate(createInput('Unique'));
       expect(yield* client.libraryCreate(createInput('Unique')).pipe(Effect.flip)).toMatchObject({
         _tag: 'LibraryNameConflictError',

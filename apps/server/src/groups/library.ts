@@ -9,6 +9,7 @@ import { SqlSchema } from 'effect/unstable/sql';
 
 import type { ApiPayload } from '@repo/spec-api';
 import { Library, LibraryRoot } from '@repo/spec-api/database/schema.ts';
+import type { StoragePluginHealth } from '@repo/spec-api/groups/library.ts';
 import {
   LibraryInvalidRootError,
   LibraryNameConflictError,
@@ -184,11 +185,6 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibraryDatabase.layer));
 }
 
-const editorKey = (row: typeof LibraryRow.Type) => ({
-  storagePlugin: row.storagePlugin,
-  library: { id: row.id, type: row.type, name: row.name },
-});
-
 export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* LibraryDatabase;
@@ -202,6 +198,29 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
         Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
         Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
       );
+
+    const health = Effect.fnUntraced(function* (row: typeof LibraryRow.Type) {
+      const key = {
+        storagePlugin: row.storagePlugin,
+        library: { id: row.id, type: row.type, name: row.name },
+      };
+      const [failures, cached] = yield* Effect.all(
+        [
+          editors.contextEffectOption(key).pipe(Effect.map(Option.isSome)),
+          Option.match(row.storagePluginSettings, {
+            onNone: () => Effect.succeed(false),
+            onSome: (settings) =>
+              stores.contextEffectOption({ ...key, settings }).pipe(Effect.map(Option.isSome)),
+          }),
+        ],
+        { mode: 'result', concurrency: 'unbounded' }
+      ).pipe(Effect.map(Array.separate));
+
+      return Array.match(failures, {
+        onEmpty: () => ({ status: cached.some(Boolean) ? 'healthy' : 'unknown' }) as const,
+        onNonEmpty: (errors) => ({ status: 'unhealthy', errors }) as const,
+      }) satisfies typeof StoragePluginHealth.Type;
+    }, Effect.scoped);
 
     // Retirement outlives requests but belongs to the handler layer's lifetime.
     // Invalidating releases the cache's reference, not scopes held by in-flight operations.
@@ -222,14 +241,22 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
     );
 
     return {
-      libraryGet: get,
+      libraryGet: Effect.fnUntraced(function* (payload: ApiPayload<'libraryGet'>) {
+        const row = yield* get(payload);
+        return { ...row, storagePluginHealth: yield* health(row) };
+      }),
 
       // These RPCs are admin-only: setup must remain visible before settings exist.
       libraryList: Effect.fnUntraced(function* (payload: ApiPayload<'libraryList'>) {
         const rows = yield* repository
           .list({ cursor: payload.cursor, limit: payload.limit + 1 })
           .pipe(Effect.orDie);
-        const items = rows.slice(0, payload.limit);
+        const items = yield* Effect.forEach(
+          rows.slice(0, payload.limit),
+          (row) =>
+            health(row).pipe(Effect.map(({ status }) => ({ ...row, storagePluginStatus: status }))),
+          { concurrency: 'unbounded' }
+        );
         return {
           items,
           nextCursor:
@@ -269,7 +296,10 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
       }: ApiPayload<'libraryGetStoragePluginSettingsForm'>) {
         const row = yield* get({ id });
         const editor = Context.get(
-          yield* editors.contextEffect(editorKey(row)),
+          yield* editors.contextEffect({
+            storagePlugin: row.storagePlugin,
+            library: { id: row.id, type: row.type, name: row.name },
+          }),
           StoragePluginSettings
         );
         return yield* editor
@@ -287,7 +317,10 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
       }: ApiPayload<'librarySetStoragePluginSettings'>) {
         const row = yield* get({ id });
         const editor = Context.get(
-          yield* editors.contextEffect(editorKey(row)),
+          yield* editors.contextEffect({
+            storagePlugin: row.storagePlugin,
+            library: { id: row.id, type: row.type, name: row.name },
+          }),
           StoragePluginSettings
         );
         const settings = yield* editor
@@ -313,7 +346,8 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
 
         const storage = Context.get(
           yield* stores.contextEffect({
-            ...editorKey(row),
+            storagePlugin: row.storagePlugin,
+            library: { id: row.id, type: row.type, name: row.name },
             settings: row.storagePluginSettings.value,
           }),
           StoragePlugin

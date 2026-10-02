@@ -62,15 +62,35 @@ class LibraryResponse extends Schema.Struct({
   ),
 }) {}
 
+/** Cached construction state of storage and its settings editor, not a live health probe. */
+const StoragePluginStatus = Schema.Literals(['unknown', 'healthy', 'unhealthy']);
+
+/** Any cached failure wins; healthy means at least one current component was built successfully. */
+export const StoragePluginHealth = Schema.Union([
+  Schema.Struct({ status: Schema.Literal('unknown') }),
+  Schema.Struct({ status: Schema.Literal('healthy') }),
+  Schema.Struct({
+    status: Schema.Literal('unhealthy'),
+    errors: Schema.NonEmptyArray(
+      Schema.Union([
+        PluginLoadError,
+        StoragePluginLoadError,
+        StoragePluginConstructionError,
+        StoragePluginSettingsConstructionError,
+      ])
+    ),
+  }),
+]);
+
 export const LibraryRpcs = RpcGroup.make(
   makeCursorPaginated('libraryList', {
     cursor: Library.json.fields.id,
-    success: LibraryResponse,
+    success: Schema.Struct({ ...LibraryResponse.fields, storagePluginStatus: StoragePluginStatus }),
   }),
 
   Rpc.make('libraryGet', {
     payload: Schema.Struct({ id: Library.json.fields.id }),
-    success: LibraryResponse,
+    success: Schema.Struct({ ...LibraryResponse.fields, storagePluginHealth: StoragePluginHealth }),
     error: LibraryNotFoundError,
   }),
 
