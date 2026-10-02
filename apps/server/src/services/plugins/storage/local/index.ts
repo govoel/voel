@@ -1,12 +1,13 @@
 import type { StoragePluginModule } from '@govoel/plugins/storage';
 import {
+  StorageLocationValidationError,
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginSettings,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Context, Effect, Layer, Path, Schema, SchemaParser } from 'effect';
+import { Context, Effect, Layer, Path, Schema } from 'effect';
 
 class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
   '@repo/server/services/plugins/storage/local/LocalStoragePlugin',
@@ -14,7 +15,7 @@ class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
     make: Effect.gen(function* () {
       const path = yield* Path.Path;
 
-      const decodeRootLocation = SchemaParser.decodeEffect(
+      const decodeRootLocation = Schema.decodeEffect(
         StorageRootLocation.check(
           Schema.makeFilter((location) => !location.includes('\0'), {
             message: 'Library root locations must not contain NUL characters',
@@ -25,7 +26,7 @@ class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
         )
       );
 
-      const decodeMediaFileLocation = SchemaParser.decodeEffect(
+      const decodeMediaFileLocation = Schema.decodeEffect(
         StorageMediaFileLocation.check(
           Schema.makeFilter((location) => !location.includes('\0'), {
             message: 'Library file locations must not contain NUL characters',
@@ -37,8 +38,18 @@ class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
       );
 
       return StoragePlugin.of({
-        decodeRootLocation: ({ location }) => decodeRootLocation(location),
-        decodeMediaFileLocation: ({ location }) => decodeMediaFileLocation(location),
+        decodeRootLocation: ({ location }) =>
+          decodeRootLocation(location).pipe(
+            Effect.catchTag('SchemaError', (error) =>
+              StorageLocationValidationError.make({ message: error.message })
+            )
+          ),
+        decodeMediaFileLocation: ({ location }) =>
+          decodeMediaFileLocation(location).pipe(
+            Effect.catchTag('SchemaError', (error) =>
+              StorageLocationValidationError.make({ message: error.message })
+            )
+          ),
       });
     }),
   }

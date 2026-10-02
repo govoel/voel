@@ -1,4 +1,4 @@
-import { BunChildProcessSpawner, BunFileSystem, BunPath } from '@effect/platform-bun';
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import type { StoragePluginModule } from '@govoel/plugins/storage';
 import {
   StorageMediaFileLocation,
@@ -9,12 +9,10 @@ import {
   StorageRootLocation,
 } from '@govoel/plugins/storage';
 import {
-  Cache,
   Clock,
   ConfigProvider,
   Context,
   Effect,
-  Exit,
   FileSystem,
   Layer,
   LayerMap,
@@ -25,16 +23,15 @@ import {
   References,
   Scheduler,
   Schema,
-  SchemaParser,
   Scope,
 } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 import type { Library } from '@repo/spec-api/database/schema.ts';
-import { NpmStoragePluginId, StoragePluginLoadError } from '@repo/spec-api/plugins/storage.ts';
-import { resolveSync } from 'bun';
+import { NpmPluginId } from '@repo/spec-api/plugins/index.ts';
+import { StoragePluginLoadError } from '@repo/spec-api/plugins/storage.ts';
 
+import { PluginModuleMap } from '#src/services/plugins/index.ts';
 import local from '#src/services/plugins/storage/local/index.ts';
 
 /** Only invocation-local diagnostics may cross from a caller into a plugin. */
@@ -44,7 +41,7 @@ const pickInvocationContext = Context.pick(
   References.CurrentLogSpans
 );
 
-class PluginModuleExport extends Schema.Struct({
+class StoragePluginModuleExport extends Schema.Struct({
   default: Schema.Struct({
     storage: Schema.Struct({
       layer: Schema.declare((value): value is StoragePluginModule['storage']['layer'] =>
@@ -60,99 +57,37 @@ class PluginModuleExport extends Schema.Struct({
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }
 
-/**
- * Resolve shared modules, retaining npm installations until this service closes.
- * Compiled hosts need --compile-autoload-package-json for installed dependencies' exports.
- */
+/** Resolve built-in storage or validate a shared npm module's storage export. */
 export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleMap>()(
   '@repo/server/services/plugins/storage/StoragePluginModuleMap',
   {
     make: Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const scope = yield* Scope.Scope;
+      const modules = yield* PluginModuleMap;
 
-      // The cache must not capture host services and expose them during module import.
-      const modules = yield* Cache.makeWith(
-        (plugin: Library['storagePlugin']) =>
+      return {
+        get: (plugin: Library['storagePlugin']) =>
           Match.value(plugin).pipe(
             Match.when('builtin:local', () => Effect.succeed<StoragePluginModule>(local)),
-            Match.when(
-              Schema.is(NpmStoragePluginId),
-              Effect.fnUntraced(
-                function* () {
-                  // Modules may load files lazily: retain installations for the resolver's lifetime.
-                  const directory = yield* fs
-                    .makeTempDirectoryScoped({ prefix: 'voel-storage-plugin-' })
-                    .pipe(Effect.provideService(Scope.Scope, scope));
-
-                  const exitCode = yield* spawner.exitCode(
-                    ChildProcess.make(
-                      process.execPath,
-                      ['add', '--ignore-scripts', '--', `plugin@${plugin}`],
-                      {
-                        cwd: directory,
-                        env: { BUN_BE_BUN: '1' },
-                        extendEnv: true,
-                        stdin: 'ignore',
-                        stdout: 'ignore',
-                        stderr: 'inherit',
-                      }
-                    )
-                  );
-                  if (exitCode !== 0) {
-                    return yield* StoragePluginLoadError.make({
-                      message: 'Failed to install or load storage plugin',
-                    });
-                  }
-
-                  const imported = yield* Effect.tryPromise(
-                    async (): Promise<unknown> => import(resolveSync('plugin/index', directory))
-                  );
-                  return yield* PluginModuleExport.decodeUnknownEffect(imported).pipe(
-                    Effect.map((module) => module.default)
-                  );
-                },
-                Effect.catchTags({
-                  PlatformError: () =>
-                    Effect.fail(
-                      StoragePluginLoadError.make({
-                        message: 'Failed to install or load storage plugin',
-                      })
-                    ),
-                  UnknownError: () =>
-                    Effect.fail(
-                      StoragePluginLoadError.make({
-                        message: 'Failed to install or load storage plugin',
-                      })
-                    ),
-                  SchemaError: () =>
-                    Effect.fail(
-                      StoragePluginLoadError.make({
-                        message: 'Failed to install or load storage plugin',
-                      })
-                    ),
-                })
+            Match.when(Schema.is(NpmPluginId), (npmPlugin) =>
+              modules.get(npmPlugin).pipe(
+                Effect.flatMap(StoragePluginModuleExport.decodeUnknownEffect),
+                Effect.map((module) => module.default),
+                Effect.catchTag('SchemaError', () =>
+                  Effect.fail(
+                    StoragePluginLoadError.make({ message: 'Invalid storage plugin module' })
+                  )
+                )
               )
             ),
             Match.exhaustive
           ),
-        {
-          capacity: Infinity,
-          timeToLive: (exit) => (Exit.isSuccess(exit) ? Infinity : 0),
-        }
-      ).pipe(Effect.setContext(Context.empty()));
-
-      return { get: (plugin: Library['storagePlugin']) => Cache.get(modules, plugin) };
+      };
     }),
   }
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
-  public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide(BunChildProcessSpawner.layer),
-    Layer.provide([BunFileSystem.layer, BunPath.layer])
-  );
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(PluginModuleMap.layer));
 }
 
 /** Capture the resolver and permitted host context before requests populate either map. */
@@ -288,18 +223,25 @@ export class StoragePluginMap extends LayerMap.Service<StoragePluginMap>()(
           });
 
           const storage = Context.get(context, StoragePlugin);
+          // Invalid outputs violate the plugin contract, rather than rejecting user input.
           return StoragePlugin.of({
             decodeRootLocation: (input) =>
               invoke(() =>
                 storage
                   .decodeRootLocation(input)
-                  .pipe(Effect.flatMap(SchemaParser.decodeUnknownEffect(StorageRootLocation)))
+                  .pipe(
+                    Effect.flatMap(Schema.decodeUnknownEffect(StorageRootLocation)),
+                    Effect.catchTags({ SchemaError: Effect.die })
+                  )
               ),
             decodeMediaFileLocation: (input) =>
               invoke(() =>
                 storage
                   .decodeMediaFileLocation(input)
-                  .pipe(Effect.flatMap(SchemaParser.decodeUnknownEffect(StorageMediaFileLocation)))
+                  .pipe(
+                    Effect.flatMap(Schema.decodeUnknownEffect(StorageMediaFileLocation)),
+                    Effect.catchTags({ SchemaError: Effect.die })
+                  )
               ),
           });
         })

@@ -1,126 +1,66 @@
-import { BunPath } from '@effect/platform-bun';
-import { Array, Context, Effect, Layer, Option, Schema } from 'effect';
+import {
+  StoragePlugin,
+  StoragePluginSettings,
+  StoragePluginSettingsError,
+  StoragePluginSettingsPersisted,
+} from '@govoel/plugins/storage';
+import { Array, Context, Effect, Layer, Option, RcMap, Schema } from 'effect';
 import { SqlSchema } from 'effect/unstable/sql';
 
 import type { ApiPayload } from '@repo/spec-api';
-import { Library, LibraryPath } from '@repo/spec-api/database/schema.ts';
+import { Library, LibraryRoot } from '@repo/spec-api/database/schema.ts';
 import {
-  LibraryInvalidPathError,
+  LibraryInvalidRootError,
   LibraryNameConflictError,
   LibraryNotFoundError,
   LibraryRpcs,
+  LibraryUnconfiguredError,
 } from '@repo/spec-api/groups/library.ts';
 
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
+import { StoragePluginMap, StoragePluginSettingsMap } from '#src/services/plugins/storage/index.ts';
 
 class LibraryRow extends Schema.Struct({
   id: Library.fields.id,
   type: Library.fields.type,
   name: Library.fields.name,
-  absolutePaths: Schema.fromJsonString(
-    Schema.Array(
-      Schema.Struct({
-        id: LibraryPath.fields.id,
-        absolutePath: Schema.toType(LibraryPath.fields.absolutePath),
-      })
-    )
+  storagePlugin: Library.fields.storagePlugin,
+  storagePluginSettings: Library.fields.storagePluginSettings,
+  roots: Schema.fromJsonString(
+    Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root }))
   ),
 }) {}
-
-export class LibraryPathRepository extends Context.Service<LibraryPathRepository>()(
-  '@repo/server/groups/library/LibraryPathRepository',
-  {
-    make: Effect.gen(function* () {
-      const sql = yield* LibraryDatabase;
-
-      return {
-        reconcile: SqlSchema.void({
-          Request: Schema.Struct({
-            libraryId: LibraryPath.upsert.fields.libraryId,
-            absolutePaths: Schema.Array(LibraryPath.upsert.fields.absolutePath),
-          }),
-          execute: Effect.fnUntraced(function* ({ libraryId, absolutePaths }) {
-            yield* sql`
-              update "libraryPath"
-              set
-                "deletedAt" = time_to_milli (time_now ())
-              where
-                "libraryId" = ${libraryId}
-                and "deletedAt" is null
-                and not ${sql.in('absolutePath', absolutePaths)}
-            `;
-
-            if (Array.isReadonlyArrayNonEmpty(absolutePaths)) {
-              yield* sql`
-                insert into
-                  "libraryPath" ${sql.insert(
-                    absolutePaths.map((absolutePath) => ({ libraryId, absolutePath }))
-                  )}
-                on conflict ("libraryId", "absolutePath") do update
-                set
-                  "deletedAt" = null
-              `;
-            }
-          }),
-        }),
-
-        deleteByLibraryId: SqlSchema.void({
-          Request: Schema.Struct({ libraryId: LibraryPath.fields.libraryId }),
-          execute: ({ libraryId }) =>
-            sql`
-              update "libraryPath"
-              set
-                "deletedAt" = time_to_milli (time_now ())
-              where
-                "libraryId" = ${libraryId}
-            `,
-        }),
-      };
-    }),
-  }
-) {
-  public static readonly layerNoDeps = Layer.effect(this, this.make);
-
-  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibraryDatabase.layer));
-}
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
   '@repo/server/groups/library/LibraryRepository',
   {
     make: Effect.gen(function* () {
       const sql = yield* LibraryDatabase;
-
-      const librarySelection = sql`
+      const selection = sql`
         l.id,
         l.type,
         l.name,
+        l."storagePlugin",
+        l."storagePluginSettings",
         coalesce(
           (
             select
-              json_group_array(
-                json_object(
-                  'id',
-                  active_library_path.id,
-                  'absolutePath',
-                  active_library_path."absolutePath"
-                )
-              )
+              json_group_array(json_object('id', r.id, 'root', r.root))
             from
               (
                 select
-                  lp.id,
-                  lp."absolutePath"
+                  id,
+                  root
                 from
-                  "libraryPath" as lp
+                  "libraryRoot"
                 where
-                  lp."libraryId" = l.id
-                  and lp."deletedAt" is null
+                  "libraryId" = l.id
                 order by
-                  lp.id
-              ) as active_library_path
+                  id
+              ) as r
           ),
           '[]'
-        ) as "absolutePaths"
+        ) as roots
       `;
 
       return {
@@ -129,12 +69,11 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           Result: LibraryRow,
           execute: ({ id }) => sql`
             select
-              ${librarySelection}
+              ${selection}
             from
               library as l
             where
               l.id = ${id}
-              and l."deletedAt" is null
           `,
         }),
 
@@ -144,67 +83,97 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             limit: Schema.Natural,
           }),
           Result: LibraryRow,
-          execute: ({ cursor, limit }) => {
-            const afterCursor = Option.match(cursor, {
-              onNone: () => sql.literal(''),
-              onSome: (cursorId) => sql`
-                and l.id > ${cursorId}
-              `,
-            });
-
-            return sql`
-              select
-                ${librarySelection}
-              from
-                library as l
-              where
-                l."deletedAt" is null ${afterCursor}
-              order by
-                l.id
-              limit
-                ${limit}
-            `;
-          },
+          execute: ({ cursor, limit }) => sql`
+            select
+              ${selection}
+            from
+              library as l ${Option.match(cursor, {
+                onNone: () => sql.literal(''),
+                onSome: (id) => sql`
+                  where
+                    l.id > ${id}
+                `,
+              })}
+            order by
+              l.id
+            limit
+              ${limit}
+          `,
         }),
 
-        upsert: SqlSchema.findOne({
-          Request: Library.upsert,
+        create: SqlSchema.findOne({
+          Request: Library.jsonCreate,
           Result: Schema.Struct({ id: Library.fields.id }),
-          execute: ({ id, name, type }) =>
-            Option.match(id, {
-              onNone: () => sql`
+          execute: (request) => sql`
+            insert into
+              library ${sql.insert(request)}
+            returning
+              id
+          `,
+        }),
+
+        rename: SqlSchema.findOne({
+          Request: Schema.Struct({ id: Library.fields.id, name: Library.fields.name }),
+          Result: Schema.Struct({ id: Library.fields.id }),
+          execute: ({ id, name }) =>
+            sql`
+              update library
+              set
+                name = ${name}
+              where
+                id = ${id}
+              returning
+                id
+            `,
+        }),
+
+        setSettings: SqlSchema.findOne({
+          Request: Schema.Struct({
+            id: Library.fields.id,
+            settings: StoragePluginSettingsPersisted.fromJsonString,
+          }),
+          Result: Schema.Struct({ id: Library.fields.id }),
+          execute: ({ id, settings }) =>
+            sql`
+              update library
+              set
+                "storagePluginSettings" = ${settings}
+              where
+                id = ${id}
+              returning
+                id
+            `,
+        }),
+
+        setRoots: SqlSchema.void({
+          Request: Schema.Struct({
+            id: Library.fields.id,
+            roots: Schema.Array(LibraryRoot.fields.root),
+          }),
+          execute: Effect.fnUntraced(function* ({ id, roots }) {
+            yield* sql`
+              delete from "libraryRoot"
+              where
+                "libraryId" = ${id}
+                and not ${sql.in('root', roots)}
+            `;
+            if (Array.isReadonlyArrayNonEmpty(roots)) {
+              yield* sql`
                 insert into
-                  library ${sql.insert({ name, type })}
-                on conflict (name) do update
-                set
-                  type = excluded.type,
-                  "deletedAt" = null
-                returning
-                  id
-              `,
-              onSome: (libraryId) =>
-                sql`
-                  update library
-                  set
-                    ${sql.update({ name, type, deletedAt: null })}
-                  where
-                    id = ${libraryId}
-                  returning
-                    id
-                `,
-            }),
+                  "libraryRoot" ${sql.insert(roots.map((root) => ({ libraryId: id, root })))}
+                on conflict ("libraryId", root) do nothing
+              `;
+            }
+          }, sql.withTransaction),
         }),
 
         deleteById: SqlSchema.void({
           Request: Schema.Struct({ id: Library.fields.id }),
-          execute: ({ id }) =>
-            sql`
-              update library
-              set
-                "deletedAt" = time_to_milli (time_now ())
-              where
-                id = ${id}
-            `,
+          execute: ({ id }) => sql`
+            delete from library
+            where
+              id = ${id}
+          `,
         }),
       };
     }),
@@ -215,32 +184,52 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibraryDatabase.layer));
 }
 
+const editorKey = (row: typeof LibraryRow.Type) => ({
+  storagePlugin: row.storagePlugin,
+  library: { id: row.id, type: row.type, name: row.name },
+});
+
 export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* LibraryDatabase;
-    const library = yield* LibraryRepository;
-    const libraryPath = yield* LibraryPathRepository;
+    const repository = yield* LibraryRepository;
+    const editors = yield* StoragePluginSettingsMap;
+    const stores = yield* StoragePluginMap;
+    const retirementScope = yield* Effect.scope;
+
+    const get = ({ id }: Pick<Library, 'id'>) =>
+      repository.getById({ id }).pipe(
+        Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
+        Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
+      );
+
+    // Retirement outlives requests but belongs to the handler layer's lifetime.
+    // Invalidating releases the cache's reference, not scopes held by in-flight operations.
+    const retire = Effect.fnUntraced(
+      function* ({ id }: Pick<Library, 'id'>) {
+        for (const key of yield* RcMap.keys(editors.rcMap)) {
+          if (key.library.id === id) {
+            yield* editors.invalidate(key);
+          }
+        }
+        for (const key of yield* RcMap.keys(stores.rcMap)) {
+          if (key.library.id === id) {
+            yield* stores.invalidate(key);
+          }
+        }
+      },
+      (effect) => effect.pipe(Effect.forkIn(retirementScope), Effect.asVoid)
+    );
 
     return {
-      libraryGet: ({ id }) =>
-        library.getById({ id }).pipe(
-          Effect.catchTags({
-            NoSuchElementError: () => LibraryNotFoundError.make({ id }),
-            SchemaError: Effect.die,
-            SqlError: Effect.die,
-          })
-        ),
+      libraryGet: get,
 
+      // These RPCs are admin-only: setup must remain visible before settings exist.
       libraryList: Effect.fnUntraced(function* (payload: ApiPayload<'libraryList'>) {
-        const limit = payload.limit + 1;
-        const rows = yield* library.list({ cursor: payload.cursor, limit }).pipe(
-          Effect.catchTags({
-            SchemaError: Effect.die,
-            SqlError: Effect.die,
-          })
-        );
+        const rows = yield* repository
+          .list({ cursor: payload.cursor, limit: payload.limit + 1 })
+          .pipe(Effect.orDie);
         const items = rows.slice(0, payload.limit);
-
         return {
           items,
           nextCursor:
@@ -250,60 +239,116 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
         };
       }),
 
-      libraryUpsert: Effect.fnUntraced(function* (payload: ApiPayload<'libraryUpsert'>) {
-        const [invalidPaths, absolutePaths] = yield* Effect.partition(
-          payload.absolutePaths,
-          ({ absolutePath }) =>
-            LibraryPath.decodeAbsolutePathEffect(absolutePath).pipe(
-              Effect.catchTags({ SchemaError: () => Effect.fail(absolutePath) })
-            ),
-          { concurrency: 'unbounded' }
+      libraryCreate: Effect.fnUntraced(function* (payload: ApiPayload<'libraryCreate'>) {
+        return yield* repository.create(payload).pipe(
+          Effect.catchReason('SqlError', 'UniqueViolation', () =>
+            LibraryNameConflictError.make({ name: payload.name })
+          ),
+          Effect.catchTags({
+            SchemaError: Effect.die,
+            SqlError: Effect.die,
+            NoSuchElementError: Effect.die,
+          })
         );
-
-        if (Array.isReadonlyArrayNonEmpty(invalidPaths)) {
-          return yield* LibraryInvalidPathError.make({ paths: invalidPaths });
-        }
-
-        return yield* sql
-          .withTransaction(
-            library.upsert({ id: payload.id, name: payload.name, type: payload.type }).pipe(
-              Effect.catchReason('SqlError', 'UniqueViolation', () =>
-                LibraryNameConflictError.make({ name: payload.name })
-              ),
-              Effect.catchTag('NoSuchElementError', () =>
-                Option.isSome(payload.id)
-                  ? LibraryNotFoundError.make({ id: payload.id.value })
-                  : Effect.die('A name-based library upsert did not return a library')
-              ),
-              Effect.flatMap(({ id: libraryId }) =>
-                libraryPath
-                  .reconcile({ libraryId, absolutePaths })
-                  .pipe(Effect.as({ id: libraryId }))
-              )
-            )
-          )
-          .pipe(
-            Effect.catchTags({
-              SchemaError: Effect.die,
-              SqlError: Effect.die,
-            })
-          );
       }),
 
-      libraryDelete: ({ id }) =>
-        sql
-          .withTransaction(
-            Effect.andThen(
-              libraryPath.deleteByLibraryId({ libraryId: id }),
-              library.deleteById({ id })
-            )
-          )
-          .pipe(
-            Effect.catchTags({
-              SchemaError: Effect.die,
-              SqlError: Effect.die,
-            })
+      libraryUpdate: Effect.fnUntraced(function* ({ id, name }: ApiPayload<'libraryUpdate'>) {
+        return yield* repository.rename({ id, name }).pipe(
+          Effect.catchReason('SqlError', 'UniqueViolation', () =>
+            LibraryNameConflictError.make({ name })
           ),
+          Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
+          Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
+          Effect.tap(() => retire({ id })),
+          Effect.uninterruptible
+        );
+      }),
+
+      libraryGetStoragePluginSettingsForm: Effect.fnUntraced(function* ({
+        id,
+      }: ApiPayload<'libraryGetStoragePluginSettingsForm'>) {
+        const row = yield* get({ id });
+        const editor = Context.get(
+          yield* editors.contextEffect(editorKey(row)),
+          StoragePluginSettings
+        );
+        return yield* editor
+          .getForm({ current: row.storagePluginSettings })
+          .pipe(
+            Effect.catchTag('SchemaError', () =>
+              StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
+            )
+          );
+      }, Effect.scoped),
+
+      librarySetStoragePluginSettings: Effect.fnUntraced(function* ({
+        id,
+        input,
+      }: ApiPayload<'librarySetStoragePluginSettings'>) {
+        const row = yield* get({ id });
+        const editor = Context.get(
+          yield* editors.contextEffect(editorKey(row)),
+          StoragePluginSettings
+        );
+        const settings = yield* editor
+          .decodeFormSubmission({ current: row.storagePluginSettings, input })
+          .pipe(
+            Effect.catchTag('SchemaError', () =>
+              StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
+            )
+          );
+        return yield* repository.setSettings({ id, settings }).pipe(
+          Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
+          Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
+          Effect.tap(() => retire({ id })),
+          Effect.uninterruptible
+        );
+      }, Effect.scoped),
+
+      libraryRootsSet: Effect.fnUntraced(function* ({ id, roots }: ApiPayload<'libraryRootsSet'>) {
+        const row = yield* get({ id });
+        if (Option.isNone(row.storagePluginSettings)) {
+          return yield* LibraryUnconfiguredError.make({ id });
+        }
+
+        const storage = Context.get(
+          yield* stores.contextEffect({
+            ...editorKey(row),
+            settings: row.storagePluginSettings.value,
+          }),
+          StoragePlugin
+        );
+        const decoded = yield* Effect.validate(
+          roots,
+          ({ root }) =>
+            storage
+              .decodeRootLocation({ location: root })
+              .pipe(
+                Effect.catchTag('StorageLocationValidationError', ({ message }) =>
+                  Effect.fail({ root, message })
+                )
+              ),
+          { concurrency: 'unbounded' }
+        ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
+        const unique = Array.dedupe(decoded);
+        yield* sql
+          .withTransaction(
+            Effect.gen(function* () {
+              // The library may have been deleted while the plugin was decoding locations.
+              yield* get({ id });
+              yield* repository.setRoots({ id, roots: unique });
+            })
+          )
+          .pipe(Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }));
+        return { id, roots: unique.map((root) => ({ root })) };
+      }, Effect.scoped),
+
+      libraryDelete: ({ id }) =>
+        repository.deleteById({ id }).pipe(
+          Effect.orDie,
+          Effect.tap(() => retire({ id })),
+          Effect.uninterruptible
+        ),
     };
   })
 );
@@ -312,7 +357,7 @@ export const LibraryHandlersLayer = LibraryHandlersLayerNoDeps.pipe(
   Layer.provide([
     LibraryDatabase.layer,
     LibraryRepository.layer,
-    LibraryPathRepository.layer,
-    BunPath.layer,
+    StoragePluginSettingsMap.layer,
+    StoragePluginMap.layer,
   ])
 );

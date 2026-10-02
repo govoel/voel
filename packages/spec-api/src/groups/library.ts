@@ -1,4 +1,5 @@
 import {
+  StorageLocationValidationError,
   StoragePluginConstructionError,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
@@ -11,6 +12,7 @@ import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Library, LibraryRoot } from '#src/database/schema.ts';
 import { makeCursorPaginated } from '#src/groups/utils.ts';
 import { AdminMiddleware, AuthMiddleware } from '#src/middlewares/auth.ts';
+import { PluginLoadError } from '#src/plugins/index.ts';
 import { StoragePluginLoadError } from '#src/plugins/storage.ts';
 
 export class LibraryNotFoundError extends Schema.TaggedError<
@@ -38,7 +40,12 @@ export class LibraryInvalidRootError extends Schema.TaggedError<
   LibraryInvalidRootError,
   { readonly brand: unique symbol }
 >('@repo/spec-api/groups/library/LibraryInvalidRootError')('LibraryInvalidRootError', {
-  roots: Schema.NonEmptyArray(LibraryRoot.jsonUpsert.fields.root),
+  roots: Schema.NonEmptyArray(
+    Schema.Struct({
+      root: LibraryRoot.jsonUpsert.fields.root,
+      message: StorageLocationValidationError.fields.message,
+    })
+  ),
 }) {}
 
 class LibraryResponse extends Schema.Struct({
@@ -95,6 +102,7 @@ export const LibraryRpcs = RpcGroup.make(
       LibraryNotFoundError,
       StoragePluginSettingsConstructionError,
       StoragePluginSettingsError,
+      PluginLoadError,
       StoragePluginLoadError,
     ]),
   }),
@@ -109,6 +117,7 @@ export const LibraryRpcs = RpcGroup.make(
       LibraryNotFoundError,
       StoragePluginSettingsConstructionError,
       StoragePluginSettingsError,
+      PluginLoadError,
       StoragePluginLoadError,
     ]),
   }),
@@ -127,6 +136,7 @@ export const LibraryRpcs = RpcGroup.make(
       LibraryUnconfiguredError,
       LibraryInvalidRootError,
       StoragePluginConstructionError,
+      PluginLoadError,
       StoragePluginLoadError,
     ]),
   }),
