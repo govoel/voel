@@ -1,8 +1,8 @@
 import { Library as PluginLibrary, MediaType as PluginMediaType } from '@govoel/plugins/library';
 import {
   StorageMediaFileLocation,
+  StoragePluginSettingsPersisted,
   StorageRootLocation,
-  StorageSettingsPersisted,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
 import { Model, VariantSchema } from 'effect/unstable/schema';
@@ -10,16 +10,7 @@ import { Model, VariantSchema } from 'effect/unstable/schema';
 import { StoragePluginId } from '#src/plugins/storage.ts';
 
 const DbModel = VariantSchema.make({
-  variants: [
-    'select',
-    'insert',
-    'update',
-    'upsert',
-    'json',
-    'jsonCreate',
-    'jsonUpdate',
-    'jsonUpsert',
-  ],
+  variants: ['select', 'create', 'upsert', 'json', 'jsonCreate', 'jsonUpdate', 'jsonUpsert'],
   defaultVariant: 'select',
 });
 
@@ -284,35 +275,34 @@ export class AudiobookContributorMap extends DbModel.Class<AudiobookContributorM
 export class Library extends DbModel.Class<Library>('@repo/spec-api/database/schema/Library')({
   id: DbModel.Field({
     select: PluginLibrary.fields.id,
-    upsert: Schema.Option(PluginLibrary.fields.id),
+    create: PluginLibrary.fields.id,
     json: PluginLibrary.fields.id,
-    jsonUpsert: Schema.Option(PluginLibrary.fields.id),
   }),
   type: DbModel.Field({
     select: PluginLibrary.fields.type,
-    upsert: PluginLibrary.fields.type,
+    create: PluginLibrary.fields.type,
     json: PluginLibrary.fields.type,
-    jsonUpsert: PluginLibrary.fields.type,
+    jsonCreate: PluginLibrary.fields.type,
   }),
   name: DbModel.Field({
     select: PluginLibrary.fields.name,
-    upsert: PluginLibrary.fields.name,
+    create: PluginLibrary.fields.name,
     json: PluginLibrary.fields.name,
-    jsonUpsert: PluginLibrary.fields.name,
+    jsonCreate: PluginLibrary.fields.name,
+    jsonUpdate: PluginLibrary.fields.name,
   }),
   storagePlugin: DbModel.Field({
     select: StoragePluginId,
-    upsert: StoragePluginId,
+    create: StoragePluginId,
     json: StoragePluginId,
-    jsonUpsert: StoragePluginId,
+    jsonCreate: StoragePluginId,
   }),
   storagePluginSettings: DbModel.Field({
-    select: StorageSettingsPersisted.fromJsonString,
-    upsert: StorageSettingsPersisted.fromJsonString,
-    json: StorageSettingsPersisted,
-    jsonUpsert: StorageSettingsPersisted,
+    select: Schema.OptionFromNullOr(StoragePluginSettingsPersisted.fromJsonString),
+    json: Schema.Option(StoragePluginSettingsPersisted),
   }),
-  ...Timestamped.fullFields,
+  createdAt: Timestamped.fullFields.createdAt,
+  updatedAt: Timestamped.fullFields.updatedAt,
 }) {}
 
 export class LibraryRoot extends DbModel.Class<LibraryRoot>(
@@ -333,7 +323,8 @@ export class LibraryRoot extends DbModel.Class<LibraryRoot>(
     json: StorageRootLocation,
     jsonUpsert: Schema.NonEmptyString,
   }),
-  ...Timestamped.fullFields,
+  createdAt: Timestamped.fullFields.createdAt,
+  updatedAt: Timestamped.fullFields.updatedAt,
 }) {}
 
 export class MediaFile extends DbModel.Class<MediaFile>('@repo/spec-api/database/schema/MediaFile')(
