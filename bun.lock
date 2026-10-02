@@ -30,6 +30,7 @@
         "@expo-google-fonts/google-sans": "0.4.2",
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~58.0.7",
+        "@govoel/plugins": "workspace:*",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-turso-sync": "workspace:*",
         "@repo/effect-turso-sync-rn": "workspace:*",
@@ -229,7 +230,7 @@
         "vitest": "5.0.2",
       },
       "peerDependencies": {
-        "effect": "*",
+        "effect": "4.0.0-rc.117",
       },
     },
     "packages/spec-api": {

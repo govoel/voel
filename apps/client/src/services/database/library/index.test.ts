@@ -1,6 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
+import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import {
   Deferred,
   Effect,
@@ -72,14 +73,17 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
       ),
     ])
   );
-  const createLibrary = (libraryName: string) =>
-    rpc.libraryUpsert({
-      id: Option.none(),
+  const createLibrary = Effect.fnUntraced(function* (libraryName: string) {
+    const library = yield* rpc.libraryCreate({
       name: Library.fields.name.make(libraryName),
       type: MediaType.fields.type.make('audiobook'),
       storagePlugin: Library.json.fields.storagePlugin.make('builtin:local'),
-      storagePluginSettings: Library.json.fields.storagePluginSettings.make({}),
     });
+    return yield* rpc.librarySetStoragePluginSettings({
+      ...library,
+      input: StoragePluginSettingsInput.make({}),
+    });
+  });
   yield* createLibrary(name);
   return {
     createLibrary,
