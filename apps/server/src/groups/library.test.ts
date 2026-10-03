@@ -1,28 +1,30 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { BunPath } from '@effect/platform-bun';
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer, Option } from 'effect';
+import type { StoragePluginModule } from '@govoel/plugins/storage';
+import {
+  StorageLocationValidationError,
+  StorageMediaFileLocation,
+  StoragePlugin,
+  StoragePluginConstructionError,
+  StoragePluginSettings,
+  StoragePluginSettingsForm,
+  StoragePluginSettingsInput,
+  StoragePluginSettingsPersisted,
+  StorageRootLocation,
+} from '@govoel/plugins/storage';
+import { Context, Deferred, Effect, Fiber, Layer, Option, Schema } from 'effect';
+import { FetchHttpClient } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
-import { Library, MediaType } from '@repo/spec-api/database/schema.js';
-import {
-  LibraryInvalidPathError,
-  LibraryNameConflictError,
-  LibraryNotFoundError,
-  LibraryRpcs,
-} from '@repo/spec-api/groups/library.ts';
-import {
-  AuthMiddleware,
-  ForbiddenError,
-  UnauthorizedError,
-} from '@repo/spec-api/middlewares/auth.ts';
+import { TursoClient } from '@repo/effect-turso';
+import { Library } from '@repo/spec-api/database/schema.ts';
+import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
+import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
+import { PluginLoadError } from '@repo/spec-api/plugins/index.ts';
 
-import {
-  LibraryHandlersLayerNoDeps,
-  LibraryPathRepository,
-  LibraryRepository,
-} from '#src/groups/library.ts';
+import { LibraryHandlersLayerNoDeps, LibraryRepository } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
 import {
   AdminMiddlewareLayerNoDeps,
@@ -32,840 +34,946 @@ import {
 import { ApiConfig } from '#src/services/config.ts';
 import { AuthDatabase } from '#src/services/database/auth/index.ts';
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
+import { PluginModuleMap } from '#src/services/plugins/index.ts';
+import {
+  StoragePluginBuilder,
+  StoragePluginMap,
+  StoragePluginModuleMap,
+  StoragePluginSettingsMap,
+} from '#src/services/plugins/storage/index.ts';
 
-const makeTestLayer = () =>
-  LibraryHandlersLayerNoDeps.pipe(
-    Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
-    Layer.provideMerge(AuthLayerNoDeps),
-    Layer.provide([LibraryRepository.layerNoDeps, LibraryPathRepository.layerNoDeps]),
-    Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
-    Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
-  );
+class Input extends Schema.Struct({ root: Schema.NonEmptyString }) {}
+class Persisted extends Schema.Struct({ prefix: Schema.NonEmptyString }) {}
 
-const makeAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
-  absolutePaths.map((absolutePath) => ({ absolutePath }));
+class PluginFixture extends Context.Service<PluginFixture>()(
+  '@repo/server/groups/library.test/PluginFixture',
+  {
+    make: Effect.sync(() => {
+      const activeStorage = new Set<Parameters<StoragePluginModule['storage']['layer']>[0]>();
+      const controls = {
+        beforeRootDecode: (
+          _request: Parameters<StoragePluginModule['storage']['layer']>[0] & {
+            readonly location: string;
+          }
+        ): Effect.Effect<void> => Effect.void,
+        onFinalize: (
+          _request: Parameters<StoragePluginModule['storage']['layer']>[0]
+        ): Effect.Effect<void> => Effect.void,
+        beforeDecode: (
+          _request: Parameters<StoragePluginModule['storage']['layerSettings']>[0] & {
+            readonly input: StoragePluginSettingsInput;
+          }
+        ): Effect.Effect<void> => Effect.void,
+        invalidForm: false,
+      };
+      const module = {
+        storage: {
+          layer: (request) =>
+            Layer.effect(
+              StoragePlugin,
+              Effect.gen(function* () {
+                yield* Effect.addFinalizer(() =>
+                  Effect.sync(() => {
+                    activeStorage.delete(request);
+                  }).pipe(Effect.andThen(controls.onFinalize(request)))
+                );
+                const settings = yield* Schema.decodeUnknownEffect(Persisted)(
+                  request.settings
+                ).pipe(
+                  Effect.catchTag('SchemaError', () =>
+                    StoragePluginConstructionError.make({ message: 'Invalid persisted settings' })
+                  )
+                );
+                if (settings.prefix === 'unavailable' || request.library.name === 'Rejected') {
+                  return yield* StoragePluginConstructionError.make({
+                    message: 'Storage unavailable',
+                  });
+                }
+                activeStorage.add(request);
+                const decodeRoot = Schema.decodeEffect(
+                  StorageRootLocation.check(Schema.isStartsWith('/'))
+                );
+                return StoragePlugin.of({
+                  decodeRootLocation: ({ location }) =>
+                    controls.beforeRootDecode({ ...request, location }).pipe(
+                      Effect.andThen(decodeRoot(location.trim())),
+                      Effect.catchTag('SchemaError', (error) =>
+                        StorageLocationValidationError.make({ message: error.message })
+                      )
+                    ),
+                  decodeMediaFileLocation: ({ location }) =>
+                    Effect.succeed(StorageMediaFileLocation.make(location)),
+                });
+              })
+            ),
+          layerSettings: (request) =>
+            Layer.effect(
+              StoragePluginSettings,
+              Effect.sync(() =>
+                StoragePluginSettings.of({
+                  getForm: ({ current }) =>
+                    Effect.gen(function* () {
+                      const settings = Option.isSome(current)
+                        ? yield* Schema.decodeUnknownEffect(Persisted)(current.value)
+                        : { prefix: '' };
+                      const field = {
+                        _tag: 'TextField' as const,
+                        name: StoragePluginSettingsForm.value.fields.name.make('root'),
+                        label: request.library.name,
+                        placeholder: '',
+                        initialValue: settings.prefix,
+                      };
+                      // A malformed descriptor returned by an otherwise valid module must be host-rejected.
+                      return controls.invalidForm ? [field, field] : [field];
+                    }),
+                  decodeFormSubmission: ({ input }) =>
+                    controls.beforeDecode({ ...request, input }).pipe(
+                      Effect.andThen(Schema.decodeUnknownEffect(Input)(input)),
+                      Effect.map(({ root }) =>
+                        StoragePluginSettingsPersisted.make({ prefix: root.trim() })
+                      )
+                    ),
+                })
+              )
+            ),
+        },
+      } satisfies StoragePluginModule;
+      return { module, activeStorage, controls };
+    }),
+  }
+) {
+  public static readonly layer = Layer.effect(this, this.make);
+}
 
-const makeExpectedAbsolutePaths = (absolutePaths: ReadonlyArray<string>) =>
-  absolutePaths.map((absolutePath) => ({ id: expect.any(Number) as unknown, absolutePath }));
+const pluginLayer = Layer.mergeAll(
+  StoragePluginMap.layerNoDeps,
+  StoragePluginSettingsMap.layerNoDeps
+).pipe(
+  Layer.provideMerge(StoragePluginBuilder.layerNoDeps),
+  Layer.provideMerge(StoragePluginModuleMap.layerNoDeps),
+  Layer.provideMerge(
+    Layer.effect(
+      PluginModuleMap,
+      Effect.gen(function* () {
+        const fixture = yield* PluginFixture;
+        return {
+          get: (plugin) =>
+            plugin === Library.fields.storagePlugin.make('npm:missing')
+              ? Effect.fail(PluginLoadError.make({ message: 'Plugin unavailable' }))
+              : Effect.succeed({ default: fixture.module }),
+        };
+      })
+    )
+  ),
+  Layer.provideMerge(PluginFixture.layer),
+  Layer.provide([BunFileSystem.layer, BunPath.layer, FetchHttpClient.layer])
+);
 
-it.layer(makeTestLayer())('library authorization', (iit) => {
-  iit.effect(
-    'should reject unauthenticated library mutations',
-    Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(
-          RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
-        )
-      );
+const testLayer = LibraryHandlersLayerNoDeps.pipe(
+  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
+  Layer.provideMerge(AuthLayerNoDeps),
+  Layer.provide(LibraryRepository.layerNoDeps),
+  Layer.provideMerge(pluginLayer),
+  Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
+  Layer.provideMerge([ApiConfig.layerTest(), Reactivity.layer]),
+  Layer.provide(BunPath.layer)
+);
 
-      const upsertResult = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make('movie'),
-          name: Library.fields.name.make('Unauthorized Library'),
-          absolutePaths: makeAbsolutePaths([]),
-        })
-        .pipe(Effect.flip);
-
-      const deleteResult = yield* client
-        .libraryDelete({ id: Library.fields.id.make(999_999) })
-        .pipe(Effect.flip);
-
-      expect(upsertResult).toBeInstanceOf(UnauthorizedError);
-      expect(deleteResult).toBeInstanceOf(UnauthorizedError);
-    })
-  );
-
-  iit.effect.each(['user', 'under18'] as const)(
-    'should reject %s library mutations',
-    Effect.fnUntraced(function* (role) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: `library_auth_${role}`, role }))
-      );
-
-      const upsertResult = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make('movie'),
-          name: Library.fields.name.make(`${role} Unauthorized Library`),
-          absolutePaths: makeAbsolutePaths([]),
-        })
-        .pipe(Effect.flip);
-
-      const deleteResult = yield* client
-        .libraryDelete({ id: Library.fields.id.make(999_999) })
-        .pipe(Effect.flip);
-
-      expect(upsertResult).toBeInstanceOf(ForbiddenError);
-      expect(deleteResult).toBeInstanceOf(ForbiddenError);
-    })
-  );
-
-  iit.effect(
-    'should reject unauthenticated library reads',
-    Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(
-          RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
-        )
-      );
-
-      const getResult = yield* client
-        .libraryGet({ id: Library.fields.id.make(999_999) })
-        .pipe(Effect.flip);
-      const listResult = yield* client
-        .libraryList({ cursor: Option.none(), limit: 1 })
-        .pipe(Effect.flip);
-
-      expect(getResult).toBeInstanceOf(UnauthorizedError);
-      expect(listResult).toBeInstanceOf(UnauthorizedError);
-    })
-  );
-
-  iit.effect.each(['user', 'under18'] as const)(
-    'should allow %s library reads',
-    Effect.fnUntraced(function* (role) {
-      const adminClient = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(
-          yield* makeAuthedClient({
-            username: `library_read_admin_${role}`,
-            role: 'admin',
-          })
-        )
-      );
-      const marker = yield* adminClient.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make(`${role} Read Marker Library`),
-        absolutePaths: makeAbsolutePaths([]),
-      });
-      const library = yield* adminClient.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('show'),
-        name: Library.fields.name.make(`${role} Read Library`),
-        absolutePaths: makeAbsolutePaths([`/show/${role}-read`]),
-      });
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: `library_read_${role}`, role }))
-      );
-
-      const getResult = yield* client.libraryGet({ id: library.id });
-      const listResult = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 1 });
-
-      expect(getResult).toEqual({
-        id: library.id,
-        type: MediaType.fields.type.make('show'),
-        name: `${role} Read Library`,
-        absolutePaths: makeExpectedAbsolutePaths([`/show/${role}-read`]),
-      });
-      expect(listResult).toEqual({
-        items: [getResult],
-        nextCursor: Option.none(),
-      });
-    })
+const createInput = (
+  name: string,
+  plugin: 'builtin:local' | `npm:${string}` = 'builtin:local'
+) => ({
+  name: Library.fields.name.make(name),
+  type: Library.fields.type.make('movie'),
+  storagePlugin: Library.fields.storagePlugin.make(plugin),
+});
+const makeClient = Effect.gen(function* () {
+  return yield* RpcTest.makeClient(LibraryRpcs).pipe(
+    Effect.provide(yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' }))
   );
 });
 
-it.layer(makeTestLayer())('library', (iit) => {
+it.layer(testLayer)('library lifecycle', (iit) => {
   iit.effect(
-    'should list active libraries',
+    'collects cached failures from both plugin components',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('List Movie Library'),
-        absolutePaths: makeAbsolutePaths(['/movie/list-path']),
+      const client = yield* makeClient;
+      const repository = yield* LibraryRepository.make;
+      const library = yield* client.libraryCreate(createInput('Failed health', 'npm:missing'));
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({}),
       });
-      const result2 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('show'),
-        name: Library.fields.name.make('List Show Library'),
-        absolutePaths: makeAbsolutePaths(['/show/list-path-1', '/show/list-path-2']),
-      });
-      const result3 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('audiobook'),
-        name: Library.fields.name.make('List Audiobook Library'),
-        absolutePaths: makeAbsolutePaths([]),
-      });
-
-      yield* client.libraryDelete({ id: result2.id });
-
-      const result = yield* client.libraryList({ cursor: Option.none(), limit: 50 });
-
-      expect(result).toEqual({
-        items: [
-          {
-            id: result1.id,
-            type: MediaType.fields.type.make('movie'),
-            name: 'List Movie Library',
-            absolutePaths: makeExpectedAbsolutePaths(['/movie/list-path']),
-          },
-          {
-            id: result3.id,
-            type: MediaType.fields.type.make('audiobook'),
-            name: 'List Audiobook Library',
-            absolutePaths: makeExpectedAbsolutePaths([]),
-          },
+      expect(
+        yield* client.libraryGetStoragePluginSettingsForm(library).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'PluginLoadError' });
+      expect(
+        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'PluginLoadError' });
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toMatchObject({
+        status: 'unhealthy',
+        errors: [
+          { _tag: 'PluginLoadError', message: 'Plugin unavailable' },
+          { _tag: 'PluginLoadError', message: 'Plugin unavailable' },
         ],
-        nextCursor: Option.none(),
       });
     })
   );
 
   iit.effect(
-    'should list only active library paths',
+    'reads only cached plugin health, reports failures, and forgets retired instances',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      const client = yield* makeClient;
+      const library = yield* client.libraryCreate(createInput('Health', 'npm:test'));
+      const listItem = Effect.gen(function* () {
+        return (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+          ({ id }) => id === library.id
+        );
+      });
+      for (let index = 0; index < 2; index += 1) {
+        expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+          status: 'unknown',
+        });
+        expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
+      }
+
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: 'unavailable' }),
+      });
+      // Persisted settings alone do not imply that storage is healthy.
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'unknown',
+      });
+      yield* client.libraryGetStoragePluginSettingsForm(library);
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'healthy',
+      });
+      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
+
+      yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip);
+      for (let index = 0; index < 2; index += 1) {
+        expect((yield* client.libraryGet(library)).storagePluginHealth).toMatchObject({
+          status: 'unhealthy',
+          errors: [{ _tag: 'StoragePluginConstructionError', message: 'Storage unavailable' }],
+        });
+        const item = yield* listItem;
+        expect(item).toMatchObject({ storagePluginStatus: 'unhealthy' });
+        expect(item).not.toHaveProperty('storagePluginHealth');
+      }
+
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/healthy' }),
+      });
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'unknown',
+      });
+      yield* client.libraryRootsSet({ ...library, roots: [] });
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'healthy',
+      });
+      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
+
+      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('New health') });
+      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        status: 'unknown',
+      });
+      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
+    })
+  );
+
+  iit.effect(
+    'excludes cached health for obsolete settings and library context',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const repository = yield* LibraryRepository.make;
+      const library = yield* client.libraryCreate(createInput('Stale health', 'npm:test'));
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
+      });
+      yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip);
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unhealthy');
+
+      // Leave old entries cached, as can happen while retirement is still in progress.
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
+      });
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unknown');
+      yield* client.libraryGetStoragePluginSettingsForm(library);
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('healthy');
+      yield* repository.rename({
+        ...library,
+        name: Library.fields.name.make('New health context'),
+      });
+      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unknown');
+      expect(
+        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+          ({ id }) => id === library.id
+        )
+      ).toMatchObject({ storagePluginStatus: 'unknown' });
+    })
+  );
+
+  iit.effect(
+    'rolls back root removal when standalone replacement fails to insert',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository.make;
+      const sql = yield* LibraryDatabase;
+      const library = yield* repository.create(createInput('Atomic roots'));
+      yield* repository.setRoots({
+        ...library,
+        roots: [StorageRootLocation.make('/original')],
+      });
+      yield* Effect.acquireRelease(
+        sql`
+          create trigger "rejectRootReplacement" before insert on "libraryRoot" when new.root = '/rejected-root-replacement' begin
+          select
+            raise (abort, 'Root insertion rejected');
+
+          end;
+        `,
+        () =>
+          sql`
+            drop trigger "rejectRootReplacement"
+          `.pipe(Effect.orDie)
       );
 
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('List Active Path Library'),
-        absolutePaths: makeAbsolutePaths(['/movie/list-active-path-old']),
+      expect(
+        yield* repository
+          .setRoots({
+            ...library,
+            roots: [StorageRootLocation.make('/rejected-root-replacement')],
+          })
+          .pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'SqlError' });
+      expect((yield* repository.getById(library)).roots.map(({ root }) => root)).toEqual([
+        '/original',
+      ]);
+    })
+  );
+
+  iit.effect(
+    'creates unconfigured libraries and explicitly configures local storage',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const sql = yield* LibraryDatabase;
+      const library = yield* client.libraryCreate(createInput('Local'));
+      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(Option.none());
+      expect(
+        yield* sql`
+          select
+            "storagePluginSettings"
+          from
+            library
+          where
+            id = ${library.id}
+        `
+      ).toEqual([{ storagePluginSettings: null }]);
+      expect(
+        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.some(
+          ({ id }) => id === library.id
+        )
+      ).toBe(true);
+      expect(
+        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'LibraryUnconfiguredError' });
+      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toEqual([]);
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({}),
       });
-
-      yield* client.libraryUpsert({
-        id: Option.some(result1.id),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('List Active Path Library'),
-        absolutePaths: makeAbsolutePaths(['/movie/list-active-path-new']),
-      });
-
-      const result = yield* client.libraryList({ cursor: Option.none(), limit: 50 });
-
-      expect(result.items).toContainEqual({
-        id: result1.id,
-        type: MediaType.fields.type.make('movie'),
-        name: 'List Active Path Library',
-        absolutePaths: makeExpectedAbsolutePaths(['/movie/list-active-path-new']),
+      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(Option.some({}));
+      expect(
+        yield* sql`
+          select
+            "storagePluginSettings"
+          from
+            library
+          where
+            id = ${library.id}
+        `
+      ).toEqual([{ storagePluginSettings: '{}' }]);
+      expect(
+        yield* client
+          .libraryRootsSet({ ...library, roots: [{ root: 'relative' }] })
+          .pipe(Effect.flip)
+      ).toMatchObject({
+        _tag: 'LibraryInvalidRootError',
+        roots: [{ root: 'relative', message: 'Library root locations must be absolute paths' }],
       });
     })
   );
 
   iit.effect(
-    'should paginate active libraries by cursor',
+    'reports all rejected roots with their messages without changing persisted roots',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const marker = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('Page Cursor Marker Library'),
-        absolutePaths: makeAbsolutePaths([]),
+      const client = yield* makeClient;
+      const library = yield* client.libraryCreate(createInput('Invalid roots'));
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({}),
       });
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('Page Movie Library'),
-        absolutePaths: makeAbsolutePaths(['/movie/page-path']),
-      });
-      const result2 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('show'),
-        name: Library.fields.name.make('Page Show Library'),
-        absolutePaths: makeAbsolutePaths(['/show/page-path']),
-      });
-      const result3 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('audiobook'),
-        name: Library.fields.name.make('Page Audiobook Library'),
-        absolutePaths: makeAbsolutePaths(['/audiobook/page-path']),
-      });
-      const result4 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('Page Extra Movie Library'),
-        absolutePaths: makeAbsolutePaths([]),
-      });
-
-      yield* client.libraryDelete({ id: result2.id });
-
-      const page1 = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 2 });
-
-      expect(page1).toEqual({
-        items: [
-          {
-            id: result1.id,
-            type: MediaType.fields.type.make('movie'),
-            name: 'Page Movie Library',
-            absolutePaths: makeExpectedAbsolutePaths(['/movie/page-path']),
-          },
-          {
-            id: result3.id,
-            type: MediaType.fields.type.make('audiobook'),
-            name: 'Page Audiobook Library',
-            absolutePaths: makeExpectedAbsolutePaths(['/audiobook/page-path']),
-          },
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/original' }] });
+      expect(
+        yield* client
+          .libraryRootsSet({
+            ...library,
+            roots: [{ root: 'relative' }, { root: '/valid' }, { root: '/nul\0' }],
+          })
+          .pipe(Effect.flip)
+      ).toMatchObject({
+        _tag: 'LibraryInvalidRootError',
+        roots: [
+          { root: 'relative', message: 'Library root locations must be absolute paths' },
+          { root: '/nul\0', message: 'Library root locations must not contain NUL characters' },
         ],
-        nextCursor: Option.some(result3.id),
       });
-
-      const page2 = yield* client.libraryList({ cursor: page1.nextCursor, limit: 2 });
-
-      expect(page2).toEqual({
-        items: [
-          {
-            id: result4.id,
-            type: MediaType.fields.type.make('movie'),
-            name: 'Page Extra Movie Library',
-            absolutePaths: makeExpectedAbsolutePaths([]),
-          },
-        ],
-        nextCursor: Option.none(),
-      });
-
-      const pageAfterFirst = yield* client.libraryList({
-        cursor: Option.some(result1.id),
-        limit: 1,
-      });
-
-      expect(pageAfterFirst).toEqual({
-        items: [
-          {
-            id: result3.id,
-            type: MediaType.fields.type.make('audiobook'),
-            name: 'Page Audiobook Library',
-            absolutePaths: makeExpectedAbsolutePaths(['/audiobook/page-path']),
-          },
-        ],
-        nextCursor: Option.some(result3.id),
-      });
+      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual([
+        '/original',
+      ]);
     })
   );
 
   iit.effect(
-    'should return an empty page after the last library',
+    'defers plugin loading and rejects name conflicts without resurrecting rows',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('Empty Page Movie Library'),
-        absolutePaths: makeAbsolutePaths([]),
+      const client = yield* makeClient;
+      const missing = yield* client.libraryCreate(createInput('Missing plugin', 'npm:missing'));
+      expect(yield* client.libraryGet(missing)).toMatchObject({
+        storagePlugin: 'npm:missing',
+        storagePluginSettings: Option.none(),
+        storagePluginHealth: { status: 'unknown' },
       });
-
-      const result = yield* client.libraryList({ cursor: Option.some(result1.id), limit: 10 });
-
-      expect(result).toEqual({
-        items: [],
-        nextCursor: Option.none(),
+      expect(
+        yield* client.libraryGetStoragePluginSettingsForm(missing).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'PluginLoadError' });
+      expect((yield* client.libraryGet(missing)).storagePluginHealth).toMatchObject({
+        status: 'unhealthy',
+        errors: [{ _tag: 'PluginLoadError', message: 'Plugin unavailable' }],
       });
+      expect(
+        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+          ({ id }) => id === missing.id
+        )
+      ).toMatchObject({ storagePluginStatus: 'unhealthy' });
+      const original = yield* client.libraryCreate(createInput('Unique'));
+      expect(yield* client.libraryCreate(createInput('Unique')).pipe(Effect.flip)).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+      });
+      const other = yield* client.libraryCreate(createInput('Other'));
+      expect(
+        yield* client
+          .libraryUpdate({ ...other, name: Library.fields.name.make('Unique') })
+          .pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'LibraryNameConflictError' });
+      expect((yield* client.libraryGet(other)).name).toBe('Other');
+      yield* client.libraryDelete(original);
+      yield* client.libraryDelete(original);
+      expect(
+        yield* client
+          .libraryUpdate({ ...original, name: Library.fields.name.make('Gone') })
+          .pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'LibraryNotFoundError' });
+      const recreated = yield* client.libraryCreate(createInput('Unique'));
+      expect(recreated.id).not.toBe(original.id);
     })
   );
 
   iit.effect(
-    'should list a page larger than the active library count',
+    'round-trips transformed settings, retries setup with stable identity, and isolates libraries',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const marker = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('Large Page Cursor Marker Library'),
-        absolutePaths: makeAbsolutePaths([]),
-      });
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('Large Page Movie Library'),
-        absolutePaths: makeAbsolutePaths(['/movie/large-page-path']),
-      });
-      const result2 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('audiobook'),
-        name: Library.fields.name.make('Large Page Audiobook Library'),
-        absolutePaths: makeAbsolutePaths([]),
-      });
-
-      const result = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 100 });
-
-      expect(result).toEqual({
-        items: [
-          {
-            id: result1.id,
-            type: MediaType.fields.type.make('movie'),
-            name: 'Large Page Movie Library',
-            absolutePaths: makeExpectedAbsolutePaths(['/movie/large-page-path']),
-          },
-          {
-            id: result2.id,
-            type: MediaType.fields.type.make('audiobook'),
-            name: 'Large Page Audiobook Library',
-            absolutePaths: makeExpectedAbsolutePaths([]),
-          },
-        ],
-        nextCursor: Option.none(),
-      });
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'should create a %s library',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type}`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result.name).toBe(`My ${type}`);
-      expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path`]));
-      expect(result.id).toBeTypeOf('number');
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'should create a %s library with no paths',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} None`),
-          absolutePaths: makeAbsolutePaths([]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result.name).toBe(`My ${type} None`);
-      expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(makeExpectedAbsolutePaths([]));
-      expect(result.id).toBeTypeOf('number');
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'should create a %s library with multiple paths',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Multi`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path1`, `/${type}/path2`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result.name).toBe(`My ${type} Multi`);
-      expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(
-        makeExpectedAbsolutePaths([`/${type}/path1`, `/${type}/path2`])
-      );
-      expect(result.id).toBeTypeOf('number');
-    })
-  );
-
-  iit.effect(
-    'should reject relative library paths',
-    Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make('movie'),
-          name: Library.fields.name.make('Relative Path Library'),
-          absolutePaths: makeAbsolutePaths([
-            '/valid/path',
-            'relative/path',
-            '/another/valid/path',
-            'another/relative/path',
-          ]),
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const library = yield* client.libraryCreate(createInput('Remote', 'npm:test'));
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toEqual([
+          { _tag: 'TextField', name: 'root', label: 'Remote', placeholder: '', initialValue: '' },
+        ]);
+      }
+      const failure = yield* client
+        .librarySetStoragePluginSettings({
+          ...library,
+          input: StoragePluginSettingsInput.make({ root: 123 }),
         })
         .pipe(Effect.flip);
-
-      expect(result).toEqual(
-        LibraryInvalidPathError.make({ paths: ['relative/path', 'another/relative/path'] })
-      );
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'should soft delete a %s library and recreate it',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make(type),
-        name: Library.fields.name.make(`My ${type} Delete`),
-        absolutePaths: makeAbsolutePaths([`/${type}/path-delete`]),
+      expect(failure).toMatchObject({
+        _tag: 'StoragePluginSettingsError',
+        message: 'Invalid storage plugin settings',
       });
-
-      yield* client.libraryDelete({ id: result1.id });
-
-      const result2 = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Delete`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path-delete`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result2.id).toBe(result1.id);
-      expect(result2.name).toBe(`My ${type} Delete`);
-      expect(result2.type).toBe(type);
-      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-delete`]));
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'should soft delete a %s library and restore it by id',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make(type),
-        name: Library.fields.name.make(`My ${type} Restore By Id`),
-        absolutePaths: makeAbsolutePaths([`/${type}/path-restore-by-id`]),
+      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(Option.none());
+      yield* client.libraryGetStoragePluginSettingsForm(library);
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: 'unavailable' }),
       });
-
-      yield* client.libraryDelete({ id: result1.id });
-
-      const deletedResult = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
-      expect(deletedResult).toEqual(LibraryNotFoundError.make({ id: result1.id }));
-
-      const result2 = yield* client
-        .libraryUpsert({
-          id: Option.some(result1.id),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Restored By Id`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path-restore-by-id`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result2.id).toBe(result1.id);
-      expect(result2.name).toBe(`My ${type} Restored By Id`);
-      expect(result2.type).toBe(type);
-      expect(result2.absolutePaths).toEqual(
-        makeExpectedAbsolutePaths([`/${type}/path-restore-by-id`])
+      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+        Option.some({ prefix: 'unavailable' })
       );
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    '%s library paths should not get deleted on upsert',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Paths`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path-old`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-      expect(result1.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-old`]));
-
-      const result2 = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Paths`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path-new`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-new`]));
-
-      const result3 = yield* client
-        .libraryUpsert({
-          id: Option.some(result1.id),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Path Delete`),
-          absolutePaths: makeAbsolutePaths([]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result3.id).toBe(result1.id);
-      expect(result3.name).toBe(`My ${type} Path Delete`);
-      expect(result3.type).toBe(type);
-      expect(result3.absolutePaths).toEqual(makeExpectedAbsolutePaths([]));
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'should de-duplicate paths for a %s library',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Duplicate Paths`),
-          absolutePaths: makeAbsolutePaths([`/${type}/duplicate-path`, `/${type}/duplicate-path`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result.name).toBe(`My ${type} Duplicate Paths`);
-      expect(result.type).toBe(type);
-      expect(result.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/duplicate-path`]));
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'should restore a removed path for a %s library',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make(type),
-        name: Library.fields.name.make(`My ${type} Restore Path`),
-        absolutePaths: makeAbsolutePaths([`/${type}/restore-path`]),
+      expect(
+        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
+        { initialValue: 'unavailable', label: 'Remote' },
+      ]);
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: ' /remote ' }),
       });
-
-      const result2 = yield* client
-        .libraryUpsert({
-          id: Option.some(result1.id),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Restore Path`),
-          absolutePaths: makeAbsolutePaths([]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result2.id).toBe(result1.id);
-      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([]));
-
-      const result3 = yield* client
-        .libraryUpsert({
-          id: Option.some(result1.id),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Restore Path`),
-          absolutePaths: makeAbsolutePaths([`/${type}/restore-path`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result3.id).toBe(result1.id);
-      expect(result3.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/restore-path`]));
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    'name changes for %s library is supported',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+        Option.some({ prefix: '/remote' })
       );
-
-      const result1 = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} Old Name`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path-name`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result1.name).toBe(`My ${type} Old Name`);
-
-      const result2 = yield* client
-        .libraryUpsert({
-          id: Option.some(result1.id),
-          type: MediaType.fields.type.make(type),
-          name: Library.fields.name.make(`My ${type} New Name`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path-name`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result2.id).toBe(result1.id);
-      expect(result2.name).toBe(`My ${type} New Name`);
-      expect(result2.type).toBe(type);
-      expect(result2.absolutePaths).toEqual(makeExpectedAbsolutePaths([`/${type}/path-name`]));
-    })
-  );
-
-  iit.effect.each(MediaType.fields.type.schema.literals)(
-    '%s library type should change on upsert, with associated tables cleaned up',
-    Effect.fnUntraced(function* (type) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make(type),
-        name: Library.fields.name.make(`My ${type} Type`),
-        absolutePaths: makeAbsolutePaths([`/${type}/path-type`]),
-      });
-
-      const differentType =
-        type === 'movie' ? MediaType.fields.type.make('show') : MediaType.fields.type.make('movie');
-
-      const result2 = yield* client
-        .libraryUpsert({
-          id: Option.none(),
-          type: differentType,
-          name: Library.fields.name.make(`My ${type} Type`),
-          absolutePaths: makeAbsolutePaths([`/${type}/path-type`]),
-        })
-        .pipe(Effect.flatMap(({ id }) => client.libraryGet({ id })));
-
-      expect(result2.id).toBe(result1.id);
-      expect(result2.type).toBe(differentType);
-
-      // TODO: Verify associated tables are cleaned up based on the library type
+      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
+        { initialValue: '/remote', label: 'Remote' },
+      ]);
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: ' /one ' }, { root: '/one' }] });
+      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual(['/one']);
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/one' }] });
+      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual(['/one']);
+      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('Rejected') });
+      expect((yield* client.libraryGet(library)).name).toBe('Rejected');
+      expect(
+        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('Renamed') });
+      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
+        { label: 'Renamed', initialValue: '/remote' },
+      ]);
+      const second = yield* client.libraryCreate(createInput('Second remote', 'npm:test'));
+      expect(yield* client.libraryGetStoragePluginSettingsForm(second)).toEqual([
+        {
+          _tag: 'TextField',
+          name: 'root',
+          label: 'Second remote',
+          placeholder: '',
+          initialValue: '',
+        },
+      ]);
+      fixture.controls.invalidForm = true;
+      expect(
+        yield* client.libraryGetStoragePluginSettingsForm(second).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'StoragePluginSettingsError' });
+      fixture.controls.invalidForm = false;
+      yield* client.libraryRootsSet({ ...library, roots: [] });
+      expect((yield* client.libraryGet(library)).roots).toEqual([]);
     })
   );
 
   iit.effect(
-    'should fail to get a non-existent library',
+    'returns before idle plugin cleanup finishes and retires beyond the request scope',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const id = Library.fields.id.make(999_999);
-      const result = yield* client.libraryGet({ id }).pipe(Effect.flip);
-
-      expect(result).toEqual(LibraryNotFoundError.make({ id }));
-    })
-  );
-
-  iit.effect(
-    'should fail to get a deleted library',
-    Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const result1 = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make(`Deleted Library`),
-        absolutePaths: makeAbsolutePaths([]),
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const library = yield* client.libraryCreate(createInput('Background retirement', 'npm:test'));
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/background' }),
       });
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/one' }] });
 
-      yield* client.libraryDelete({ id: result1.id });
-
-      const result2 = yield* client.libraryGet({ id: result1.id }).pipe(Effect.flip);
-
-      expect(result2).toEqual(LibraryNotFoundError.make({ id: result1.id }));
-    })
-  );
-
-  iit.effect(
-    'should succeed in deleting a non-existent library',
-    Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+      const started = yield* Deferred.make<boolean>();
+      const release = yield* Deferred.make<boolean>();
+      const finished = yield* Deferred.make<boolean>();
+      fixture.controls.onFinalize = (request) =>
+        request.library.id === library.id
+          ? Deferred.succeed(started, true).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.andThen(Deferred.succeed(finished, true)),
+              Effect.asVoid
+            )
+          : Effect.void;
+      yield* Effect.addFinalizer(() =>
+        Deferred.succeed(release, true).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              fixture.controls.onFinalize = () => Effect.void;
+            })
+          )
+        )
       );
 
-      yield* client.libraryDelete({ id: Library.fields.id.make(999_999) });
-    })
-  );
-
-  iit.effect(
-    'should fail to upsert with a non-existent id',
-    Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
-      );
-
-      const id = Library.fields.id.make(999_999);
-      const result = yield* client
-        .libraryUpsert({
-          id: Option.some(id),
-          type: MediaType.fields.type.make('movie'),
-          name: Library.fields.name.make('Ghost Library'),
-          absolutePaths: makeAbsolutePaths([]),
+      // Closing this caller scope must not interrupt or await retirement.
+      const response = yield* Effect.scoped(
+        client.libraryUpdate({
+          ...library,
+          name: Library.fields.name.make('Background renamed'),
         })
-        .pipe(Effect.flip);
-
-      expect(result).toEqual(LibraryNotFoundError.make({ id }));
+      );
+      expect(response).toEqual(library);
+      yield* Deferred.await(started);
+      expect(yield* Deferred.isDone(finished)).toBe(false);
+      expect((yield* client.libraryGet(library)).name).toBe('Background renamed');
+      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
+        { label: 'Background renamed', initialValue: '/background' },
+      ]);
+      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual(['/one']);
+      yield* Deferred.succeed(release, true);
+      yield* Deferred.await(finished);
     })
   );
 
   iit.effect(
-    'should fail to rename a library to an existing library name',
+    'holds the write lock throughout root decoding and releases it after replacement',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const config = yield* ApiConfig;
+      const contender = yield* TursoClient.make({
+        filename: config.db.libraryFilename,
+        busyTimeout: 0,
+      });
+      const library = yield* client.libraryCreate(createInput('Locked root context', 'npm:test'));
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/initial' }),
+      });
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/original' }] });
+      const started = yield* Deferred.make<boolean>();
+      const release = yield* Deferred.make<boolean>();
+      fixture.controls.beforeRootDecode = (request) =>
+        request.library.id === library.id && request.location === '/pending'
+          ? Deferred.succeed(started, true).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.asVoid
+            )
+          : Effect.void;
+      yield* Effect.addFinalizer(() =>
+        Deferred.succeed(release, true).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              fixture.controls.beforeRootDecode = () => Effect.void;
+            })
+          )
+        )
+      );
+      const pending = yield* client
+        .libraryRootsSet({ ...library, roots: [{ root: '/pending' }] })
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(started);
+      // A separate connection proves the write lock prevents context changes during decoding.
+      expect(
+        yield* contender`
+          update library
+          set
+            name = 'Renamed root context'
+          where
+            id = ${library.id}
+        `.pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
+      expect(
+        yield* contender`
+          update library
+          set
+            "storagePluginSettings" = '{"prefix":"/updated"}'
+          where
+            id = ${library.id}
+        `.pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
+      expect(yield* client.libraryGet(library)).toMatchObject({
+        name: 'Locked root context',
+        storagePluginSettings: Option.some({ prefix: '/initial' }),
+        roots: [{ root: '/original' }],
+      });
+      yield* Deferred.succeed(release, true);
+      expect(yield* Fiber.join(pending)).toEqual({
+        ...library,
+        roots: [{ root: '/pending' }],
+      });
+      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual([
+        '/pending',
+      ]);
+      yield* client.libraryUpdate({
+        ...library,
+        name: Library.fields.name.make('Renamed root context'),
+      });
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/updated' }),
+      });
+      expect(yield* client.libraryGet(library)).toMatchObject({
+        name: 'Renamed root context',
+        storagePluginSettings: Option.some({ prefix: '/updated' }),
+      });
+    })
+  );
+
+  iit.effect(
+    'concurrent renames and settings edits commit only their own fields',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const library = yield* client.libraryCreate(createInput('Concurrent metadata', 'npm:test'));
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/initial' }),
+      });
+      const settingsStarted = yield* Deferred.make<boolean>();
+      const settingsRelease = yield* Deferred.make<boolean>();
+      fixture.controls.beforeDecode = (request) =>
+        request.library.id === library.id &&
+        Schema.is(Input)(request.input) &&
+        request.input.root === '/pending-settings'
+          ? Deferred.succeed(settingsStarted, true).pipe(
+              Effect.andThen(Deferred.await(settingsRelease))
+            )
+          : Effect.void;
+      const settings = yield* client
+        .librarySetStoragePluginSettings({
+          ...library,
+          input: StoragePluginSettingsInput.make({ root: '/pending-settings' }),
+        })
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(settingsStarted);
+      // Renaming while decoding is blocked must not overwrite settings or hold a write lock.
+      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('Final name') });
+      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+        Option.some({ prefix: '/initial' })
+      );
+      yield* Deferred.succeed(settingsRelease, true);
+      yield* Fiber.join(settings);
+      expect(yield* client.libraryGet(library)).toMatchObject({
+        name: 'Final name',
+        storagePluginSettings: Option.some({ prefix: '/pending-settings' }),
+      });
+      fixture.controls.beforeDecode = () => Effect.void;
+    })
+  );
+
+  iit.effect(
+    'concurrent settings submissions are last-write-wins',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const library = yield* client.libraryCreate(createInput('Concurrent settings', 'npm:test'));
+      const started = yield* Deferred.make<boolean>();
+      const release = yield* Deferred.make<boolean>();
+      fixture.controls.beforeDecode = (request) =>
+        request.library.id === library.id &&
+        Schema.is(Input)(request.input) &&
+        request.input.root === '/slow'
+          ? Deferred.succeed(started, true).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.asVoid
+            )
+          : Effect.void;
+      const slow = yield* client
+        .librarySetStoragePluginSettings({
+          ...library,
+          input: StoragePluginSettingsInput.make({ root: '/slow' }),
+        })
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(started);
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/fast' }),
+      });
+      yield* Deferred.succeed(release, true);
+      yield* Fiber.join(slow);
+      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+        Option.some({ prefix: '/slow' })
+      );
+      fixture.controls.beforeDecode = () => Effect.void;
+    })
+  );
+
+  iit.effect(
+    'deletion during settings decoding returns not-found and releases storage',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const library = yield* client.libraryCreate(
+        createInput('Delete pending settings', 'npm:test')
+      );
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/initial' }),
+      });
+      yield* client.libraryGetStoragePluginSettingsForm(library);
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/one' }] });
+      expect(
+        [...fixture.activeStorage]
+          .filter(({ library: row }) => row.id === library.id)
+          .map(({ settings }) => settings)
+      ).toEqual([{ prefix: '/initial' }]);
+      const retired = yield* Deferred.make<boolean>();
+      fixture.controls.onFinalize = (request) =>
+        request.library.id === library.id
+          ? Deferred.succeed(retired, true).pipe(Effect.asVoid)
+          : Effect.void;
+      const started = yield* Deferred.make<boolean>();
+      const release = yield* Deferred.make<boolean>();
+      fixture.controls.beforeDecode = (request) =>
+        request.library.id === library.id
+          ? Deferred.succeed(started, true).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.asVoid
+            )
+          : Effect.void;
+      const pending = yield* client
+        .librarySetStoragePluginSettings({
+          ...library,
+          input: StoragePluginSettingsInput.make({ root: '/deleted' }),
+        })
+        .pipe(Effect.flip, Effect.forkChild);
+      yield* Deferred.await(started);
+      yield* client.libraryDelete(library);
+      yield* Deferred.await(retired);
+      expect(
+        [...fixture.activeStorage].filter(({ library: row }) => row.id === library.id)
+      ).toEqual([]);
+      yield* Deferred.succeed(release, true);
+      expect(yield* Fiber.join(pending)).toMatchObject({ _tag: 'LibraryNotFoundError' });
+      expect(yield* client.libraryGet(library).pipe(Effect.flip)).toMatchObject({
+        _tag: 'LibraryNotFoundError',
+      });
+      fixture.controls.onFinalize = () => Effect.void;
+      fixture.controls.beforeDecode = () => Effect.void;
+    })
+  );
+
+  iit.effect(
+    'hard deletion cascades roots and mappings but preserves shared media',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const sql = yield* LibraryDatabase;
+      const library = yield* client.libraryCreate(createInput('Delete cascade'));
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({}),
+      });
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/delete' }] });
+      yield* sql`
+        insert into
+          "mediaFile" (location, "durationMs")
+        values
+          ('/shared', 100)
+      `;
+      yield* sql`
+        insert into
+          "libraryFileMap" (
+            "libraryId",
+            "mediaFileId",
+            "matchFailureReason",
+            "customOrder"
+          )
+        select
+          ${library.id},
+          id,
+          'unmatched',
+          0
+        from
+          "mediaFile"
+        where
+          location = '/shared'
+      `;
+      expect(
+        yield* sql`
+          select
+            root
+          from
+            "libraryRoot"
+          where
+            "libraryId" = ${library.id}
+        `
+      ).toEqual([{ root: '/delete' }]);
+      expect(
+        yield* sql`
+          select
+            "matchFailureReason",
+            "customOrder"
+          from
+            "libraryFileMap"
+          where
+            "libraryId" = ${library.id}
+        `
+      ).toEqual([{ matchFailureReason: 'unmatched', customOrder: 0 }]);
+      yield* client.libraryDelete(library);
+      expect(
+        yield* sql`
+          select
+            id
+          from
+            "libraryRoot"
+          where
+            "libraryId" = ${library.id}
+        `
+      ).toEqual([]);
+      expect(
+        yield* sql`
+          select
+            id
+          from
+            "libraryFileMap"
+          where
+            "libraryId" = ${library.id}
+        `
+      ).toEqual([]);
+      expect(
+        yield* sql`
+          select
+            location
+          from
+            "mediaFile"
+          where
+            location = '/shared'
+        `
+      ).toEqual([{ location: '/shared' }]);
+      expect(yield* client.libraryGet(library).pipe(Effect.flip)).toMatchObject({
+        _tag: 'LibraryNotFoundError',
+      });
+    })
+  );
+
+  iit.effect(
+    'paginates admin listings including libraries awaiting setup',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const marker = yield* client.libraryCreate(createInput('Page marker'));
+      const first = yield* client.libraryCreate(createInput('Page first'));
+      yield* client.libraryCreate(createInput('Page second'));
+      const page = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 1 });
+      expect(
+        page.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
+      ).toEqual([{ name: 'Page first', storagePluginStatus: 'unknown' }]);
+      expect(page.nextCursor).toEqual(Option.some(first.id));
+      const last = yield* client.libraryList({ cursor: page.nextCursor, limit: 10 });
+      expect(
+        last.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
+      ).toEqual([{ name: 'Page second', storagePluginStatus: 'unknown' }]);
+      expect(last.nextCursor).toEqual(Option.none());
+    })
+  );
+
+  iit.effect(
+    'rejects unauthenticated requests',
     Effect.fnUntraced(function* () {
       const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: 'default', role: 'admin' }))
+        Effect.provide(
+          RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
+        )
       );
-
-      const existingLibrary = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('movie'),
-        name: Library.fields.name.make('Existing Name Library'),
-        absolutePaths: makeAbsolutePaths(['/movie/existing-name']),
-      });
-      const library = yield* client.libraryUpsert({
-        id: Option.none(),
-        type: MediaType.fields.type.make('show'),
-        name: Library.fields.name.make('Rename Collision Library'),
-        absolutePaths: makeAbsolutePaths([]),
-      });
-
-      const result = yield* client
-        .libraryUpsert({
-          id: Option.some(library.id),
-          type: MediaType.fields.type.make('show'),
-          name: Library.fields.name.make('Existing Name Library'),
-          absolutePaths: makeAbsolutePaths([]),
-        })
-        .pipe(Effect.flip);
-
-      expect(result).toEqual(
-        LibraryNameConflictError.make({ name: Library.fields.name.make('Existing Name Library') })
+      expect(
+        yield* client.libraryCreate(createInput('Unauthorized')).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'UnauthorizedError' });
+      expect(
+        yield* client.libraryList({ cursor: Option.none(), limit: 1 }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'UnauthorizedError' });
+    })
+  );
+  iit.effect.each(['user', 'under18'] as const)(
+    'rejects non-admin %s requests',
+    Effect.fnUntraced(function* (role) {
+      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+        Effect.provide(yield* makeAuthedClient({ username: role, role }))
       );
-
-      expect(yield* client.libraryGet({ id: existingLibrary.id })).toEqual({
-        id: existingLibrary.id,
-        type: MediaType.fields.type.make('movie'),
-        name: 'Existing Name Library',
-        absolutePaths: makeExpectedAbsolutePaths(['/movie/existing-name']),
-      });
-      expect(yield* client.libraryGet({ id: library.id })).toEqual({
-        id: library.id,
-        type: MediaType.fields.type.make('show'),
-        name: 'Rename Collision Library',
-        absolutePaths: makeExpectedAbsolutePaths([]),
-      });
+      expect(yield* client.libraryCreate(createInput('Forbidden')).pipe(Effect.flip)).toMatchObject(
+        { _tag: 'ForbiddenError' }
+      );
+      expect(
+        yield* client.libraryList({ cursor: Option.none(), limit: 1 }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'ForbiddenError' });
     })
   );
 });

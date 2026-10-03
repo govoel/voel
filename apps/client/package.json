@@ -54,6 +54,7 @@
   "devDependencies": {
     "@effect/platform-bun": "4.0.0-rc.117",
     "@effect/vitest": "4.0.0-rc.117",
+    "@govoel/plugins": "workspace:*",
     "@repo/effect-atom-devtools-core": "workspace:*",
     "@repo/effect-atom-devtools-rozenite": "workspace:*",
     "@repo/effect-turso-sync-bun": "workspace:*",

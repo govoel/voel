@@ -64,6 +64,7 @@
       "devDependencies": {
         "@effect/platform-bun": "4.0.0-rc.117",
         "@effect/vitest": "4.0.0-rc.117",
+        "@govoel/plugins": "workspace:*",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@repo/effect-atom-devtools-rozenite": "workspace:*",
         "@repo/effect-turso-sync-bun": "workspace:*",
@@ -85,6 +86,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-rc.117",
+        "@govoel/plugins": "workspace:*",
         "@govoel/turso-database": "0.8.1",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-turso": "workspace:*",
@@ -216,10 +218,26 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/plugins": {
+      "name": "@govoel/plugins",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-rc.117",
+        "@repo/tsconfig": "workspace:*",
+        "bun-types": "1.4.2",
+        "effect": "4.0.0-rc.117",
+        "typescript": "7.0.2",
+        "vitest": "5.0.2",
+      },
+      "peerDependencies": {
+        "effect": "4.0.0-rc.117",
+      },
+    },
     "packages/spec-api": {
       "name": "@repo/spec-api",
       "version": "0.0.0",
       "dependencies": {
+        "@govoel/plugins": "workspace:*",
         "@repo/auth-api": "workspace:*",
         "effect": "4.0.0-rc.117",
       },
@@ -597,6 +615,8 @@
     "@floating-ui/react-dom": ["@floating-ui/react-dom@2.1.9", "", { "dependencies": { "@floating-ui/dom": "^1.8.0" }, "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-JDjEFGCpImxDCA7JJKviA0M9+RtmJdj0m/NVU5IMgBK+AmZouAQQ7/+2GLH0GXXY0YMw9oXPB8hKdbPYg5QLYg=="],
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
+
+    "@govoel/plugins": ["@govoel/plugins@workspace:packages/plugins"],
 
     "@govoel/turso-database": ["@govoel/turso-database@0.8.1", "https://npm.pkg.github.com/download/@govoel/turso-database/0.8.1/318e5447da8cf27b0c65a8d732a13de72732035f", { "dependencies": { "@tursodatabase/database-common": "^0.8.1" }, "optionalDependencies": { "@govoel/turso-database-darwin-arm64": "0.8.1", "@govoel/turso-database-linux-arm64-gnu": "0.8.1", "@govoel/turso-database-linux-x64-gnu": "0.8.1", "@govoel/turso-database-win32-x64-msvc": "0.8.1" } }, "sha512-coSkl9V5Ii7e16CwnQUWuPYWkBjMUiICwzITSyHKoZ3XDhSYuCYMd7YJSUkdBy6CQH5ef0RRSISaxM5hyFxgoA=="],
 

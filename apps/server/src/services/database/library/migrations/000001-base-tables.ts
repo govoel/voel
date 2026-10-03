@@ -283,52 +283,50 @@ export default Effect.gen(function* () {
       "id" integer not null primary key autoincrement,
       "type" text not null references "mediaType" ("type") on delete restrict on update cascade,
       "name" text not null unique,
+      "storagePlugin" text not null,
+      "storagePluginSettings" text,
       "createdAt" integer default (time_to_milli (time_now ())) not null,
-      "updatedAt" integer default (time_to_milli (time_now ())) not null,
-      "deletedAt" integer
+      "updatedAt" integer default (time_to_milli (time_now ())) not null
     ) strict
   `;
 
   yield* createIndex({ sql, table: 'library', columns: ['updatedAt'] });
-  yield* createIndex({ sql, table: 'library', columns: ['deletedAt'] });
 
   yield* createUpdatedAtTrigger({
     sql,
     table: 'library',
-    columns: ['id', 'type', 'name', 'deletedAt'],
+    columns: ['id', 'type', 'name', 'storagePlugin', 'storagePluginSettings'],
   });
 
   yield* sql`
-    create table "libraryPath" (
+    create table "libraryRoot" (
       "id" integer not null primary key autoincrement,
       "libraryId" integer not null references "library" ("id") on delete cascade on update cascade,
-      "absolutePath" text not null,
+      "root" text not null check (length("root") > 0),
       "createdAt" integer default (time_to_milli (time_now ())) not null,
-      "updatedAt" integer default (time_to_milli (time_now ())) not null,
-      "deletedAt" integer
+      "updatedAt" integer default (time_to_milli (time_now ())) not null
     ) strict
   `;
 
   yield* createUniqueIndex({
     sql,
-    table: 'libraryPath',
-    columns: ['libraryId', 'absolutePath'],
+    table: 'libraryRoot',
+    columns: ['libraryId', 'root'],
   });
 
-  yield* createIndex({ sql, table: 'libraryPath', columns: ['libraryId'] });
-  yield* createIndex({ sql, table: 'libraryPath', columns: ['updatedAt'] });
-  yield* createIndex({ sql, table: 'libraryPath', columns: ['deletedAt'] });
+  yield* createIndex({ sql, table: 'libraryRoot', columns: ['libraryId'] });
+  yield* createIndex({ sql, table: 'libraryRoot', columns: ['updatedAt'] });
 
   yield* createUpdatedAtTrigger({
     sql,
-    table: 'libraryPath',
-    columns: ['id', 'libraryId', 'absolutePath', 'deletedAt'],
+    table: 'libraryRoot',
+    columns: ['id', 'libraryId', 'root'],
   });
 
   yield* sql`
     create table "mediaFile" (
       "id" integer not null primary key autoincrement,
-      "absolutePath" text not null unique,
+      "location" text not null unique check (length("location") > 0),
       "durationMs" integer not null,
       "createdAt" integer default (time_to_milli (time_now ())) not null,
       "updatedAt" integer default (time_to_milli (time_now ())) not null,
