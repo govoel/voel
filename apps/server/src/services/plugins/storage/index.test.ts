@@ -288,6 +288,25 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
     )
 );
 
+it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
+  'canonicalizes local paths with %s',
+  (method) =>
+    Effect.gen(function* () {
+      const storage = yield* acquireStoragePlugin(request);
+      for (const { location, canonical } of [
+        { location: '/books/../audio', canonical: '/audio' },
+        { location: '/audio/./', canonical: '/audio' },
+        { location: '//audio//', canonical: '/audio' },
+        { location: '/books/../audio/./track.mp3', canonical: '/audio/track.mp3' },
+        { location: '/audio/..', canonical: '/' },
+      ]) {
+        const decoded = yield* storage[method]({ location });
+        expect(decoded).toBe(canonical);
+        expect(yield* storage[method]({ location: canonical })).toBe(decoded);
+      }
+    }).pipe(Effect.scoped, Effect.provide(makeMaps(local)))
+);
+
 it.effect.each([
   { method: 'decodeRootLocation', label: 'Library root locations' },
   { method: 'decodeMediaFileLocation', label: 'Library file locations' },

@@ -7,7 +7,7 @@ import {
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Context, Effect, Layer, Path, Schema } from 'effect';
+import { Context, Effect, Layer, Path, Schema, SchemaGetter } from 'effect';
 
 class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
   '@repo/server/services/plugins/storage/local/LocalStoragePlugin',
@@ -16,23 +16,33 @@ class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
       const path = yield* Path.Path;
 
       const decodeRootLocation = Schema.decodeEffect(
-        StorageRootLocation.check(
+        Schema.NonEmptyString.check(
           Schema.makeFilter((location) => !location.includes('\0'), {
             message: 'Library root locations must not contain NUL characters',
           }),
           Schema.makeFilter((location) => path.isAbsolute(location), {
             message: 'Library root locations must be absolute paths',
           })
+        ).pipe(
+          Schema.decodeTo(StorageRootLocation, {
+            decode: SchemaGetter.transform((location) => path.resolve(location)),
+            encode: SchemaGetter.passthrough(),
+          })
         )
       );
 
       const decodeMediaFileLocation = Schema.decodeEffect(
-        StorageMediaFileLocation.check(
+        Schema.NonEmptyString.check(
           Schema.makeFilter((location) => !location.includes('\0'), {
             message: 'Library file locations must not contain NUL characters',
           }),
           Schema.makeFilter((location) => path.isAbsolute(location), {
             message: 'Library file locations must be absolute paths',
+          })
+        ).pipe(
+          Schema.decodeTo(StorageMediaFileLocation, {
+            decode: SchemaGetter.transform((location) => path.resolve(location)),
+            encode: SchemaGetter.passthrough(),
           })
         )
       );
