@@ -17,12 +17,7 @@ import {
 } from '@repo/spec-api/groups/library.ts';
 
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
-import {
-  StoragePluginMap,
-  StoragePluginSettingsMap,
-  acquireStoragePlugin,
-  acquireStoragePluginSettings,
-} from '#src/services/plugins/storage/index.ts';
+import { StoragePluginMap, StoragePluginSettingsMap } from '#src/services/plugins/storage/index.ts';
 
 class LibraryRow extends Schema.Struct({
   id: Library.fields.id,
@@ -206,20 +201,24 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
       const [failures, cached] = yield* Effect.all(
         [
           editors
-            .contextEffectOption({
-              storagePlugin: row.storagePlugin,
-              library: { id: row.id, type: row.type, name: row.name },
-            })
+            .contextEffectOption(
+              StoragePluginSettingsMap.Key.make({
+                storagePlugin: row.storagePlugin,
+                library: row,
+              })
+            )
             .pipe(Effect.map(Option.isSome)),
           Option.match(row.storagePluginSettings, {
             onNone: () => Effect.succeed(false),
             onSome: (settings) =>
               stores
-                .contextEffectOption({
-                  storagePlugin: row.storagePlugin,
-                  library: { id: row.id, type: row.type, name: row.name },
-                  settings,
-                })
+                .contextEffectOption(
+                  StoragePluginMap.Key.make({
+                    storagePlugin: row.storagePlugin,
+                    library: row,
+                    settings,
+                  })
+                )
                 .pipe(Effect.map(Option.isSome)),
           }),
         ],
@@ -305,7 +304,7 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
         id,
       }: ApiPayload<'libraryGetStoragePluginSettingsForm'>) {
         const row = yield* get({ id });
-        const editor = yield* acquireStoragePluginSettings({
+        const editor = yield* StoragePluginSettingsMap.acquire({
           storagePlugin: row.storagePlugin,
           library: row,
         });
@@ -323,7 +322,7 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
         input,
       }: ApiPayload<'librarySetStoragePluginSettings'>) {
         const row = yield* get({ id });
-        const editor = yield* acquireStoragePluginSettings({
+        const editor = yield* StoragePluginSettingsMap.acquire({
           storagePlugin: row.storagePlugin,
           library: row,
         });
@@ -350,7 +349,7 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
             return yield* LibraryUnconfiguredError.make({ id });
           }
 
-          const storage = yield* acquireStoragePlugin({
+          const storage = yield* StoragePluginMap.acquire({
             storagePlugin: row.storagePlugin,
             library: row,
             settings: row.storagePluginSettings.value,
