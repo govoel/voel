@@ -2,7 +2,7 @@ import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-aut
 import { createAuthClient as createBetterAuthClient } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
 import { Context, Effect, Option, Predicate, Queue, Schema, Stream, SubscriptionRef } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 
 import * as AuthClientSchema from '#src/auth-client-schema.ts';
 import { authRoles } from '#src/roles.ts';

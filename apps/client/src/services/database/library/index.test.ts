@@ -14,11 +14,11 @@ import {
   Scope,
   Stream,
 } from 'effect';
+import { FetchHttpClient, Headers } from 'effect/http';
+import { AsyncResult, Reactivity } from 'effect/reactivity';
+import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/rpc';
+import { SqlError } from 'effect/sql';
 import { TestClock } from 'effect/testing';
-import { FetchHttpClient, Headers } from 'effect/unstable/http';
-import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
-import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/unstable/rpc';
-import { SqlError } from 'effect/unstable/sql';
 
 import { Api } from '@repo/spec-api';
 import { Library, MediaType } from '@repo/spec-api/database/schema.ts';

@@ -7,8 +7,8 @@ const filename = `${import.meta.dirname}/fixture.ts`;
 new RuleTester().run('no-effect-namespace-import', noEffectNamespaceImportRule, {
   valid: [
     { filename, code: `import { Effect } from 'effect'` },
-    { filename, code: `import { SqlClient } from 'effect/unstable/sql'` },
-    { filename, code: `import type { SqlConnection } from 'effect/unstable/sql'` },
+    { filename, code: `import { SqlClient } from 'effect/sql'` },
+    { filename, code: `import type { SqlConnection } from 'effect/sql'` },
     { filename, code: `import * as React from 'react'` },
     { filename, code: `import * as Effectful from 'effectful'` },
   ],
@@ -22,14 +22,14 @@ new RuleTester().run('no-effect-namespace-import', noEffectNamespaceImportRule, 
     },
     {
       filename,
-      code: `import * as SqlClient from 'effect/unstable/sql/SqlClient'`,
+      code: `import * as SqlClient from 'effect/sql/SqlClient'`,
       errors: [
         { message: 'Use a named import from an Effect barrel instead of a namespace import.' },
       ],
     },
     {
       filename,
-      code: `import type * as SqlConnection from 'effect/unstable/sql/SqlConnection'`,
+      code: `import type * as SqlConnection from 'effect/sql/SqlConnection'`,
       errors: [
         { message: 'Use a named import from an Effect barrel instead of a namespace import.' },
       ],

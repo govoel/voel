@@ -1,5 +1,5 @@
 import { Data } from 'effect';
-import type { RpcMessage } from 'effect/unstable/rpc';
+import type { RpcMessage } from 'effect/rpc';
 
 export const RPC_CLIENT_EVENT = 'effect-rpc:client';
 export const RPC_SERVER_EVENT = 'effect-rpc:server';

@@ -26,7 +26,7 @@ import {
   Schema,
   Scope,
 } from 'effect';
-import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
+import { FetchHttpClient, HttpClient } from 'effect/http';
 
 import type { Library } from '@repo/spec-api/database/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/plugins/index.ts';

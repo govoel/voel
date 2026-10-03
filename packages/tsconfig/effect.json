@@ -5,6 +5,16 @@
     "plugins": [
       {
         "name": "@effect/language-service",
+        // These existing integrations remain unstable in Effect v4 stable.
+        "allowedUnstableApis": [
+          "effect/http",
+          "effect/process",
+          "effect/reactivity",
+          "effect/rpc",
+          "effect/schema/Model",
+          "effect/schema/VariantSchema",
+          "effect/sql"
+        ],
         "keyPatterns": [
           {
             "target": "service",

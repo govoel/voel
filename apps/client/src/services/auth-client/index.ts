@@ -11,7 +11,7 @@ import {
   Stream,
   String,
 } from 'effect';
-import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
+import { AsyncResult, Reactivity } from 'effect/reactivity';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 

@@ -14,9 +14,9 @@ import {
   Schema,
   Stream,
 } from 'effect';
-import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
-import { Reactivity } from 'effect/unstable/reactivity';
-import { SqlClient, SqlError } from 'effect/unstable/sql';
+import { HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Reactivity } from 'effect/reactivity';
+import { SqlClient, SqlError } from 'effect/sql';
 
 import { TursoClient, TursoConfigError } from '#src/index.ts';
 

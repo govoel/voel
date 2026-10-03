@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { RpcMiddleware } from 'effect/unstable/rpc';
+import { RpcMiddleware } from 'effect/rpc';
 
 import type { AuthSession } from '@repo/auth-api/shared.ts';
 

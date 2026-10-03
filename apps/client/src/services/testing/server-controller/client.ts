@@ -1,8 +1,8 @@
 import { BunServices } from '@effect/platform-bun';
 import { Context, Effect, FileSystem, Layer, Schedule } from 'effect';
+import { FetchHttpClient, HttpClient } from 'effect/http';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { TestClock } from 'effect/testing';
-import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 const serverDirectory = new URL('../../../../../server/', import.meta.url).pathname;
 

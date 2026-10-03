@@ -1,7 +1,7 @@
 import { Function, Option, Schema } from 'effect';
+import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
 import type { NoInfer } from 'effect/Types';
-import { Atom } from 'effect/unstable/reactivity';
-import type { AtomRegistry } from 'effect/unstable/reactivity';
 
 type AnyAtom = Atom.Atom<unknown>;
 

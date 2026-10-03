@@ -1,7 +1,7 @@
 import { Context } from 'effect';
 import type { Effect, Scope } from 'effect';
-import type { Reactivity } from 'effect/unstable/reactivity';
-import type { SqlError } from 'effect/unstable/sql';
+import type { Reactivity } from 'effect/reactivity';
+import type { SqlError } from 'effect/sql';
 
 import type { TursoSyncClient, TursoSyncClientOptions } from '@repo/effect-turso-sync';
 

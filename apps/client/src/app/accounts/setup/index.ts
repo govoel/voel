@@ -1,5 +1,5 @@
 import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
 

@@ -1,4 +1,4 @@
-import { RpcGroup } from 'effect/unstable/rpc';
+import { RpcGroup } from 'effect/rpc';
 
 import { LibraryRpcs } from '#src/groups/library.ts';
 import { AuthMiddleware } from '#src/middlewares/auth.ts';

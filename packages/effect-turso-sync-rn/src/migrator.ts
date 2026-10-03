@@ -1,7 +1,7 @@
 import { Array, Data, Effect, Layer, Option, Order, pipe } from 'effect';
-import type { SqlError } from 'effect/unstable/sql';
+import type { SqlError } from 'effect/sql';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlClient from 'effect/unstable/sql/SqlClient';
+import * as SqlClient from 'effect/sql/SqlClient';
 
 /**
  * Metro-safe SQLite specialization of Effect's SQL migrator.
@@ -17,7 +17,9 @@ type ResolvedMigration = readonly [
   migration: Effect.Effect<void, SqlError.SqlError, SqlClient.SqlClient>,
 ];
 
-class MigrationError extends Data.TaggedError('MigrationError')<{
+class MigrationError extends Data.TaggedError(
+  '@repo/effect-turso-sync-rn/migrator/MigrationError'
+)<{
   readonly cause?: unknown;
   readonly kind: 'BadState' | 'Failed' | 'Duplicates' | 'Locked';
   readonly message: string;
@@ -156,7 +158,7 @@ const make = Effect.fnUntraced(function* <R = never>({
   return yield* sql
     .withTransaction(run)
     .pipe(
-      Effect.catchTag('MigrationError', (error) =>
+      Effect.catchTag('@repo/effect-turso-sync-rn/migrator/MigrationError', (error) =>
         error.kind === 'Locked' ? Effect.as(Effect.logDebug(error.message), []) : Effect.fail(error)
       )
     );

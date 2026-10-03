@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import type { AtomRegistry } from 'effect/unstable/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
 
 declare const __DEV__: boolean;
 

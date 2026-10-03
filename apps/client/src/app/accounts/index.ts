@@ -1,6 +1,6 @@
 import { useAtom } from '@effect/atom-react';
 import { Cause, Effect, Exit, Match, Option } from 'effect';
-import { AsyncResult, Atom } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 

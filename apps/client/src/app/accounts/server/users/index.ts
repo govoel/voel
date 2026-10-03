@@ -1,5 +1,5 @@
-import { DateTime, Effect, Option, Stream } from 'effect';
-import { AsyncResult, Atom } from 'effect/unstable/reactivity';
+import { Array, DateTime, Effect, Option, Stream } from 'effect';
+import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
@@ -73,7 +73,9 @@ export const listUsersAtom = AppRuntime.pull(
         description: 'Keeps existing users visible while the next page is loading.',
         atom: Atom.writable(
           (): Atom.PullResult<typeof AuthUser.Type> =>
-            AsyncResult.waiting(AsyncResult.success({ items: [alex, sam], done: false })),
+            AsyncResult.success({ items: Array.make(alex, sam), done: false }).pipe(
+              AsyncResult.waiting()
+            ),
           () => void 0
         ),
       },

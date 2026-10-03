@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Rpc } from 'effect/unstable/rpc';
+import { Rpc } from 'effect/rpc';
 
 type CursorPage<Success extends Schema.Top, Cursor extends Schema.Top> = Schema.Struct<{
   readonly items: Schema.$Array<Success>;

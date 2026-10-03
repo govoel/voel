@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from 'effect';
-import { Reactivity } from 'effect/unstable/reactivity';
-import { SqlClient } from 'effect/unstable/sql';
+import { Reactivity } from 'effect/reactivity';
+import { SqlClient } from 'effect/sql';
 
 import { TursoClient } from '@repo/effect-turso';
 

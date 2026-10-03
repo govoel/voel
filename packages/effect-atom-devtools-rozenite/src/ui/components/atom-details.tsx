@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Badge, Button, ScrollArea } from '@rozenite/ui';
 import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
 import type { AtomId, AtomSnapshot } from '@repo/effect-atom-devtools-core/atom-dev-tools';

@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import { RpcServer } from 'effect/unstable/rpc';
+import { RpcServer } from 'effect/rpc';
 
 import { AtomDevTools } from '#src/atom-dev-tools.ts';
 import { AtomDevToolsRpc } from '#src/rpc.ts';

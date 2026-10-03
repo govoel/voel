@@ -2,8 +2,8 @@
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Schema } from 'effect';
-import { Reactivity } from 'effect/unstable/reactivity';
-import { RpcTest } from 'effect/unstable/rpc';
+import { Reactivity } from 'effect/reactivity';
+import { RpcTest } from 'effect/rpc';
 
 import { Library } from '@repo/spec-api/database/schema.ts';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';

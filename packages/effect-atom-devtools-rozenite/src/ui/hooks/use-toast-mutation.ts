@@ -1,7 +1,7 @@
 import { useAtom } from '@effect/atom-react';
 import { useToast } from '@rozenite/ui';
 import { Cause, Exit, Inspectable } from 'effect';
-import type { AsyncResult, Atom } from 'effect/unstable/reactivity';
+import type { AsyncResult, Atom } from 'effect/reactivity';
 import { useCallback } from 'react';
 
 export const useToastMutation = <A, E, W>(

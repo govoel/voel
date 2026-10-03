@@ -1,6 +1,6 @@
 import { Effect, Layer, Option } from 'effect';
-import { HttpRouter, HttpServerResponse } from 'effect/unstable/http';
-import type { HttpServerRequest } from 'effect/unstable/http';
+import { HttpRouter, HttpServerResponse } from 'effect/http';
+import type { HttpServerRequest } from 'effect/http';
 
 import { AuthServerClient } from '@repo/auth-api/server.ts';
 

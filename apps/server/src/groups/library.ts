@@ -2,8 +2,8 @@ import {
   StoragePluginSettingsError,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
-import { Array, Context, Effect, Layer, Option, RcMap, Schema } from 'effect';
-import { SqlSchema } from 'effect/unstable/sql';
+import { Array, Context, Effect, Layer, Option, RcMap, Schema, Unify } from 'effect';
+import { SqlSchema } from 'effect/sql';
 
 import type { ApiPayload } from '@repo/spec-api';
 import { Library, LibraryRoot } from '@repo/spec-api/database/schema.ts';
@@ -198,7 +198,7 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
       );
 
     const health = Effect.fnUntraced(function* (row: typeof LibraryRow.Type) {
-      const [failures, cached] = yield* Effect.all(
+      const [cached, failures] = yield* Effect.partition(
         [
           editors
             .contextEffectOption(
@@ -222,8 +222,10 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
                 .pipe(Effect.map(Option.isSome)),
           }),
         ],
-        { mode: 'result', concurrency: 'unbounded' }
-      ).pipe(Effect.map(Array.separate));
+        // Unify the checks' distinct error types before partitioning.
+        (check) => Unify.unify(check),
+        { concurrency: 'unbounded' }
+      );
 
       return Array.match(failures, {
         onEmpty: () => ({ status: cached.some(Boolean) ? 'healthy' : 'unknown' }) as const,

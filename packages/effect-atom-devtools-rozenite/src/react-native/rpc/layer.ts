@@ -1,6 +1,6 @@
 import { getRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Effect, Layer } from 'effect';
-import { RpcServer } from 'effect/unstable/rpc';
+import { RpcServer } from 'effect/rpc';
 
 import { AtomDevToolsRpcServer } from '@repo/effect-atom-devtools-core/rpc-server';
 

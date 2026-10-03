@@ -1,5 +1,5 @@
 import { Array, Effect, Option } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 

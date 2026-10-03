@@ -1,6 +1,6 @@
 import { Array, Context, Schema } from 'effect';
 import type { Effect, FileSystem, Layer, Option, Path } from 'effect';
-import type { HttpClient } from 'effect/unstable/http';
+import type { HttpClient } from 'effect/http';
 
 import type { Library } from '#src/library.ts';
 

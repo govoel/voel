@@ -1,7 +1,7 @@
 import { Context, Duration, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
-import { AsyncResult, Reactivity } from 'effect/unstable/reactivity';
+import { AsyncResult, Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlClient from 'effect/unstable/sql/SqlClient';
+import * as SqlClient from 'effect/sql/SqlClient';
 
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 

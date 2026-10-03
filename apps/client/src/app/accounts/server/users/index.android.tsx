@@ -3,7 +3,7 @@ import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Button, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';

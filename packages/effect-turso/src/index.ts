@@ -12,11 +12,11 @@ import {
   Semaphore,
   Stream,
 } from 'effect';
-import { HttpServerError, HttpServerResponse } from 'effect/unstable/http';
-import type { HttpServerRequest } from 'effect/unstable/http';
-import { Reactivity } from 'effect/unstable/reactivity';
-import { Migrator, SqlClient, SqlError, Statement } from 'effect/unstable/sql';
-import type { SqlConnection } from 'effect/unstable/sql';
+import { HttpServerError, HttpServerResponse } from 'effect/http';
+import type { HttpServerRequest } from 'effect/http';
+import { Reactivity } from 'effect/reactivity';
+import { Migrator, SqlClient, SqlError, Statement } from 'effect/sql';
+import type { SqlConnection } from 'effect/sql';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;

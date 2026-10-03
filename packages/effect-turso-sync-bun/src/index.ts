@@ -11,9 +11,9 @@ import {
   Semaphore,
   Stream,
 } from 'effect';
-import { Reactivity } from 'effect/unstable/reactivity';
-import { SqlClient, SqlError, Statement } from 'effect/unstable/sql';
-import type { SqlConnection } from 'effect/unstable/sql';
+import { Reactivity } from 'effect/reactivity';
+import { SqlClient, SqlError, Statement } from 'effect/sql';
+import type { SqlConnection } from 'effect/sql';
 
 import { TursoSyncClient as CoreTursoSyncClient, TursoSyncError } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';

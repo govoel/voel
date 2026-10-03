@@ -14,9 +14,9 @@ import {
   StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Context, Deferred, Effect, Fiber, Layer, Option, Schema } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
-import { Reactivity } from 'effect/unstable/reactivity';
-import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
+import { FetchHttpClient } from 'effect/http';
+import { Reactivity } from 'effect/reactivity';
+import { RpcMiddleware, RpcTest } from 'effect/rpc';
 
 import { TursoClient } from '@repo/effect-turso';
 import { Library } from '@repo/spec-api/database/schema.ts';
@@ -91,7 +91,7 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                 }
                 activeStorage.add(request);
                 const decodeRoot = Schema.decodeEffect(
-                  StorageRootLocation.check(Schema.isStartsWith('/'))
+                  StorageRootLocation.check(Schema.isStartingWith('/'))
                 );
                 return StoragePlugin.of({
                   decodeRootLocation: ({ location }) =>

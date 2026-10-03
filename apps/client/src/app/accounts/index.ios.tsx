@@ -19,7 +19,7 @@ import {
   tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';

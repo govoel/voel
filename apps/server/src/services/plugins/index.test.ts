@@ -2,7 +2,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Context, Effect, Exit, FileSystem, Layer, Option } from 'effect';
-import { ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcessSpawner } from 'effect/process';
 
 import { NpmPluginId, PluginLoadError } from '@repo/spec-api/plugins/index.ts';
 
