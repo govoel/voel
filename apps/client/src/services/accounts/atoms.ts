@@ -6,7 +6,7 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -124,6 +124,6 @@ export const activeAccountAuthClientAtom = AppRuntime.atom(
     if (Option.isNone(key)) {
       return yield* NoActiveAccountError.make();
     }
-    return yield* acquireAuthClient(key.value);
+    return yield* AuthClientMap.acquire(key.value);
   })
 );

@@ -5,7 +5,7 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { accountsAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 export type AccountsSheet = Data.TaggedEnum<{
@@ -40,7 +40,7 @@ export const accountsSheetAtom = AppRuntime.atom(
         return Stream.succeed<AccountsSheet>(AccountsSheet.MustPickAccount({ dismissable: false }));
       }
 
-      const authClient = yield* acquireAuthClient(activeAccountKey.value);
+      const authClient = yield* AuthClientMap.acquire(activeAccountKey.value);
       return authClient.sessionChanges.pipe(
         Stream.map((session): AccountsSheet =>
           AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)
