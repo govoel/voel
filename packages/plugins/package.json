@@ -1,0 +1,34 @@
+{
+  "name": "@govoel/plugins",
+  "version": "0.0.0",
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts"
+  ],
+  "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": {
+    "./library": "./src/library.ts",
+    "./storage": "./src/storage.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun --bun run vitest --passWithNoTests"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.0-rc.117",
+    "@repo/tsconfig": "workspace:*",
+    "bun-types": "1.4.2",
+    "effect": "4.0.0-rc.117",
+    "typescript": "7.0.2",
+    "vitest": "5.0.2"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.117"
+  }
+}

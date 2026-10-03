@@ -1,17 +1,16 @@
-import { Effect, Path, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Library as PluginLibrary, MediaType as PluginMediaType } from '@govoel/plugins/library';
+import {
+  StorageMediaFileLocation,
+  StoragePluginSettingsPersisted,
+  StorageRootLocation,
+} from '@govoel/plugins/storage';
+import { Schema } from 'effect';
 import { Model, VariantSchema } from 'effect/unstable/schema';
 
+import { StoragePluginId } from '#src/plugins/storage.ts';
+
 const DbModel = VariantSchema.make({
-  variants: [
-    'select',
-    'insert',
-    'update',
-    'upsert',
-    'json',
-    'jsonCreate',
-    'jsonUpdate',
-    'jsonUpsert',
-  ],
+  variants: ['select', 'create', 'upsert', 'json', 'jsonCreate', 'jsonUpdate', 'jsonUpsert'],
   defaultVariant: 'select',
 });
 
@@ -29,12 +28,8 @@ class Timestamped extends DbModel.Class<Timestamped>('@repo/spec-api/database/sc
 export class MediaType extends DbModel.Class<MediaType>('@repo/spec-api/database/schema/MediaType')(
   {
     type: DbModel.Field({
-      select: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaType/type')
-      ),
-      json: Schema.Literals(['audiobook', 'movie', 'show']).pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaType/type')
-      ),
+      select: PluginMediaType,
+      json: PluginMediaType,
     }),
   }
 ) {}
@@ -277,82 +272,60 @@ export class AudiobookContributorMap extends DbModel.Class<AudiobookContributorM
   ...Timestamped.fullFields,
 }) {}
 
-const LibraryName = Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/Library/name'));
-
 export class Library extends DbModel.Class<Library>('@repo/spec-api/database/schema/Library')({
   id: DbModel.Field({
-    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id')),
-    upsert: Schema.Option(
-      Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id'))
-    ),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id')),
-    jsonUpsert: Schema.Option(
-      Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/Library/id'))
-    ),
+    select: PluginLibrary.fields.id,
+    create: PluginLibrary.fields.id,
+    json: PluginLibrary.fields.id,
   }),
   type: DbModel.Field({
-    select: MediaType.fields.type,
-    upsert: MediaType.fields.type,
-    json: MediaType.fields.type,
-    jsonUpsert: MediaType.fields.type,
+    select: PluginLibrary.fields.type,
+    create: PluginLibrary.fields.type,
+    json: PluginLibrary.fields.type,
+    jsonCreate: PluginLibrary.fields.type,
   }),
   name: DbModel.Field({
-    select: LibraryName,
-    upsert: LibraryName,
-    json: LibraryName,
-    jsonUpsert: LibraryName,
+    select: PluginLibrary.fields.name,
+    create: PluginLibrary.fields.name,
+    json: PluginLibrary.fields.name,
+    jsonCreate: PluginLibrary.fields.name,
+    jsonUpdate: PluginLibrary.fields.name,
   }),
-  ...Timestamped.fullFields,
+  storagePlugin: DbModel.Field({
+    select: StoragePluginId,
+    create: StoragePluginId,
+    json: StoragePluginId,
+    jsonCreate: StoragePluginId,
+  }),
+  storagePluginSettings: DbModel.Field({
+    select: Schema.OptionFromNullOr(StoragePluginSettingsPersisted.fromJsonString),
+    json: Schema.Option(StoragePluginSettingsPersisted),
+  }),
+  createdAt: Timestamped.fullFields.createdAt,
+  updatedAt: Timestamped.fullFields.updatedAt,
 }) {}
 
-const AbsolutePathFromString = Schema.String.pipe(
-  Schema.decodeTo(
-    Schema.String.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/absolutePath')),
-    {
-      decode: SchemaGetter.transformEffect(
-        Effect.fnUntraced(function* (absolutePath, options) {
-          const path = yield* Path.Path;
-
-          if (!path.isAbsolute(absolutePath)) {
-            return yield* Effect.fail(
-              new SchemaIssue.InvalidValue(
-                { message: 'Expected an absolute path' },
-                absolutePath,
-                options
-              )
-            );
-          }
-
-          return path.resolve(absolutePath);
-        })
-      ),
-      encode: SchemaGetter.passthrough(),
-    }
-  )
-);
-
-export class LibraryPath extends DbModel.Class<LibraryPath>(
-  '@repo/spec-api/database/schema/LibraryPath'
+export class LibraryRoot extends DbModel.Class<LibraryRoot>(
+  '@repo/spec-api/database/schema/LibraryRoot'
 )({
   id: DbModel.Field({
-    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/id')),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryPath/id')),
+    select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryRoot/id')),
+    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/LibraryRoot/id')),
   }),
   libraryId: DbModel.Field({
     select: Library.fields.id,
     upsert: Library.fields.id,
     json: Library.fields.id,
   }),
-  absolutePath: DbModel.Field({
-    select: AbsolutePathFromString,
-    upsert: AbsolutePathFromString,
-    json: Schema.toType(AbsolutePathFromString),
-    jsonUpsert: Schema.toEncoded(AbsolutePathFromString),
+  root: DbModel.Field({
+    select: StorageRootLocation,
+    upsert: StorageRootLocation,
+    json: StorageRootLocation,
+    jsonUpsert: Schema.NonEmptyString,
   }),
-  ...Timestamped.fullFields,
-}) {
-  public static readonly decodeAbsolutePathEffect = Schema.decodeEffect(AbsolutePathFromString);
-}
+  createdAt: Timestamped.fullFields.createdAt,
+  updatedAt: Timestamped.fullFields.updatedAt,
+}) {}
 
 export class MediaFile extends DbModel.Class<MediaFile>('@repo/spec-api/database/schema/MediaFile')(
   {
@@ -360,13 +333,9 @@ export class MediaFile extends DbModel.Class<MediaFile>('@repo/spec-api/database
       select: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
       json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/database/schema/MediaFile/id')),
     }),
-    absolutePath: DbModel.Field({
-      select: Schema.String.pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')
-      ),
-      json: Schema.String.pipe(
-        Schema.brand('@repo/spec-api/database/schema/MediaFile/absolutePath')
-      ),
+    location: DbModel.Field({
+      select: StorageMediaFileLocation,
+      json: StorageMediaFileLocation,
     }),
     durationMs: DbModel.Field({
       select: Schema.Natural.pipe(
