@@ -1,5 +1,5 @@
 import { DateTime, Effect, Option, Schema } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import type {
   AuthAdminRevokeSessionInput,

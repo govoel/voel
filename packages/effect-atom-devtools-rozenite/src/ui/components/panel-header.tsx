@@ -1,5 +1,5 @@
 import { Button, PluginHeader } from '@rozenite/ui';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 
 import { clearAllPredefinedStatesMutation } from '#src/ui/atoms.ts';
 import { useToastMutation } from '#src/ui/hooks/use-toast-mutation.ts';

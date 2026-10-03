@@ -10,14 +10,14 @@ import {
   Semaphore,
   Stream,
 } from 'effect';
-import { Reactivity } from 'effect/unstable/reactivity';
-import type { SqlConnection } from 'effect/unstable/sql';
+import { Reactivity } from 'effect/reactivity';
+import type { SqlConnection } from 'effect/sql';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlClient from 'effect/unstable/sql/SqlClient';
+import * as SqlClient from 'effect/sql/SqlClient';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlError from 'effect/unstable/sql/SqlError';
+import * as SqlError from 'effect/sql/SqlError';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as Statement from 'effect/unstable/sql/Statement';
+import * as Statement from 'effect/sql/Statement';
 
 import { TursoSyncClient as CoreTursoSyncClient, TursoSyncError } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';

@@ -18,7 +18,7 @@ export const MainDatabaseMigrations = {
       '000001_base-tables': baseTablesMigration,
     }),
   }).pipe(
-    Layer.catchTag('MigrationError', (cause) =>
+    Layer.catchTag('@repo/effect-turso-sync-rn/migrator/MigrationError', (cause) =>
       Layer.effectDiscard(DatabaseMigrationError.make({ cause, database: 'main' }))
     ),
     Layer.catchTag('SqlError', (cause) =>

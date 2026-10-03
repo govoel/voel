@@ -1,5 +1,5 @@
 import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
-import { AsyncResult, Atom, Reactivity } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 

@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
 

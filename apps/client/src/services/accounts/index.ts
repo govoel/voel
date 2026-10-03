@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Option, Random, Redacted, Schema, Stream } from 'effect';
-import { Reactivity } from 'effect/unstable/reactivity';
+import { Reactivity } from 'effect/reactivity';
 
 import { AuthError } from '@repo/auth-api/shared.ts';
 

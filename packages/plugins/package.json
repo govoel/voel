@@ -21,14 +21,14 @@
     "test": "bun --bun run vitest --passWithNoTests"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.117",
+    "@effect/vitest": "4.0.0",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.4.2",
-    "effect": "4.0.0-rc.117",
+    "effect": "4.0.0",
     "typescript": "7.0.2",
-    "vitest": "5.0.2"
+    "vitest": "5.0.3"
   },
   "peerDependencies": {
-    "effect": "4.0.0-rc.117"
+    "effect": "4.0.0"
   }
 }

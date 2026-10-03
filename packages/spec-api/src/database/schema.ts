@@ -5,7 +5,7 @@ import {
   StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
-import { Model, VariantSchema } from 'effect/unstable/schema';
+import { Model, VariantSchema } from 'effect/schema';
 
 import { StoragePluginId } from '#src/plugins/storage.ts';
 

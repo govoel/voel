@@ -1,4 +1,4 @@
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 import { AppState } from 'react-native';
 
 const swrFocusSignalAtom = Atom.readable((get) => {

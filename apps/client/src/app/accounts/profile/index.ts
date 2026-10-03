@@ -1,5 +1,5 @@
 import { Effect, Match, Option, Schema } from 'effect';
-import { AsyncResult, Atom } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.ts';
 import type { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';

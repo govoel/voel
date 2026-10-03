@@ -1,7 +1,7 @@
 import { useSelector } from '@tanstack/react-form';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { Effect, Layer, Option, Schema } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';

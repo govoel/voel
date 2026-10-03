@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { Headers as EffectHeaders } from 'effect/unstable/http';
-import { RpcMiddleware } from 'effect/unstable/rpc';
+import { Headers as EffectHeaders } from 'effect/http';
+import { RpcMiddleware } from 'effect/rpc';
 
 import { AuthServerClient } from '@repo/auth-api/server.ts';
 import type { TestHelpers } from '@repo/auth-api/server.ts';

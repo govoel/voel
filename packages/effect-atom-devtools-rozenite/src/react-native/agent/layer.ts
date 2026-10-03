@@ -23,6 +23,7 @@ type AgentBridgeEventMap = {
 };
 
 type IncomingAgentMessage = Data.TaggedEnum<{
+  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- SessionReady intentionally has no payload.
   readonly SessionReady: Record<never, never>;
   readonly ToolCall: { readonly payload: ToolCallMessage['payload'] };
 }>;

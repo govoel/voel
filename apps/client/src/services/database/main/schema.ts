@@ -1,5 +1,5 @@
 import { Match, Schema, SchemaGetter } from 'effect';
-import { VariantSchema } from 'effect/unstable/schema';
+import { VariantSchema } from 'effect/schema';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 

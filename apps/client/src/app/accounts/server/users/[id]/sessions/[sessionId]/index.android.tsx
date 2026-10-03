@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';

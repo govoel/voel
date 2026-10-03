@@ -5,7 +5,7 @@ import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';

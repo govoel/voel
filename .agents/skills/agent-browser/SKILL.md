@@ -29,3 +29,5 @@ bun agent-browser skills get derive-client     # Record a HAR, derive a standalo
 ```
 
 Run `bun agent-browser skills list` to see everything available on the installed version.
+
+Ensure you manage sessions properly, especially closing sessions after use.

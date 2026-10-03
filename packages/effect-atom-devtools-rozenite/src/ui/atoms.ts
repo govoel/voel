@@ -1,7 +1,7 @@
 import { getRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Effect, Layer, Option, Stream } from 'effect';
-import { Atom, AtomRpc } from 'effect/unstable/reactivity';
-import { RpcClient } from 'effect/unstable/rpc';
+import { Atom, AtomRpc } from 'effect/reactivity';
+import { RpcClient } from 'effect/rpc';
 
 import type { AtomId } from '@repo/effect-atom-devtools-core/atom-dev-tools';
 import { AtomDevToolsRpc } from '@repo/effect-atom-devtools-core/rpc';

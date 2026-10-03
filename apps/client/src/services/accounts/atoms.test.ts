@@ -11,7 +11,7 @@ import {
   Redacted,
   Stream,
 } from 'effect';
-import { AsyncResult, Atom, AtomRegistry } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
 import { vi } from 'vitest';
 
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';

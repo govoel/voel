@@ -1,7 +1,7 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Badge, ScrollArea, Sidebar } from '@rozenite/ui';
 import { Option } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 
 import type { AtomSummary } from '@repo/effect-atom-devtools-core/atom-dev-tools';
 

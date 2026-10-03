@@ -1,5 +1,5 @@
 import { Effect, Layer, Match, Option, Redacted } from 'effect';
-import { HttpEffect, HttpRouter } from 'effect/unstable/http';
+import { HttpEffect, HttpRouter } from 'effect/http';
 
 import { AuthServerClient } from '@repo/auth-api/server.ts';
 import {

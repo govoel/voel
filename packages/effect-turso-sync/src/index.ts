@@ -1,6 +1,6 @@
 import { Context, Schema } from 'effect';
 import type { Effect } from 'effect';
-import type { SqlClient, SqlError } from 'effect/unstable/sql';
+import type { SqlClient, SqlError } from 'effect/sql';
 
 export class TursoSyncError extends Schema.TaggedError<
   TursoSyncError,

@@ -2,8 +2,8 @@
 import { BunHttpServer } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, FileSystem, Layer } from 'effect';
-import { HttpBody, HttpClient, HttpRouter, HttpServer } from 'effect/unstable/http';
-import { Reactivity } from 'effect/unstable/reactivity';
+import { HttpBody, HttpClient, HttpRouter, HttpServer } from 'effect/http';
+import { Reactivity } from 'effect/reactivity';
 
 import { AuthClient } from '@repo/auth-api/client.ts';
 import { TursoSyncClient } from '@repo/effect-turso-sync-bun';

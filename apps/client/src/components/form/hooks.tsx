@@ -8,7 +8,7 @@ import type {
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
 import { Array, Cause, Exit, Option, Predicate, Schema } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 import { useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 

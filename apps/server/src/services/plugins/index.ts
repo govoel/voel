@@ -1,6 +1,6 @@
 import { BunChildProcessSpawner, BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Cache, Context, Effect, Exit, FileSystem, Layer, Scope } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import type { NpmPluginId } from '@repo/spec-api/plugins/index.ts';
 import { PluginLoadError } from '@repo/spec-api/plugins/index.ts';

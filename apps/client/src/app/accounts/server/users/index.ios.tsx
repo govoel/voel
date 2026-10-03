@@ -3,7 +3,7 @@ import { Icon } from '@expo/ui';
 import { Button, HStack, Host, List, Section, Spacer } from '@expo/ui/swift-ui';
 import { font, foregroundStyle, frame, headerProminence, tint } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';

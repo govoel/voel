@@ -16,7 +16,7 @@
   "dependencies": {
     "@govoel/plugins": "workspace:*",
     "@repo/auth-api": "workspace:*",
-    "effect": "4.0.0-rc.117"
+    "effect": "4.0.0"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",

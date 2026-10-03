@@ -1,7 +1,7 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Effect, Option, Queue, Random, Schema } from 'effect';
-import { RpcServer } from 'effect/unstable/rpc';
-import type { RpcMessage } from 'effect/unstable/rpc';
+import { RpcServer } from 'effect/rpc';
+import type { RpcMessage } from 'effect/rpc';
 
 import {
   RPC_CLIENT_EVENT,

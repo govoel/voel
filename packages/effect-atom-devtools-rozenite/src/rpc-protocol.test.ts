@@ -1,8 +1,8 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { describe, expect, it } from '@effect/vitest';
+import { describe, expect, makeMethods, test } from '@effect/vitest';
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Deferred, Effect, Exit, Option, Queue, Random, Ref, Schema, Scope, Stream } from 'effect';
-import { Rpc, RpcClient, RpcGroup, RpcMessage, RpcSchema, RpcServer } from 'effect/unstable/rpc';
+import { Rpc, RpcClient, RpcGroup, RpcMessage, RpcSchema, RpcServer } from 'effect/rpc';
 
 import { makeRpcServerProtocol } from '#src/react-native/rpc/protocol.ts';
 import {
@@ -23,62 +23,68 @@ type BridgeListeners = {
   readonly [Event in keyof RpcBridgeEventMap]: Set<(payload: RpcBridgeEventMap[Event]) => void>;
 };
 
-const makeBridgeClient = (loopback = false) => {
-  const listeners: BridgeListeners = {
-    [RPC_CLIENT_EVENT]: new Set(),
-    [RPC_SERVER_EVENT]: new Set(),
-  };
-  const sent: Array<BridgeEvent> = [];
-  const mutedEvents = new Set<keyof RpcBridgeEventMap>();
+const protocolTest = test
+  .extend('loopback', () => false)
+  .extend('bridge', ({ loopback }, { onCleanup }) => {
+    const listeners: BridgeListeners = {
+      [RPC_CLIENT_EVENT]: new Set(),
+      [RPC_SERVER_EVENT]: new Set(),
+    };
+    const sent: Array<BridgeEvent> = [];
+    const mutedEvents = new Set<keyof RpcBridgeEventMap>();
 
-  const client: RozeniteDevToolsClient<RpcBridgeEventMap> = {
-    send: (type, payload) => {
-      sent.push({ type, payload });
-      if (loopback && !mutedEvents.has(type)) {
-        // The panel's postMessage clones messages across the transport boundary.
-        const received = structuredClone(payload);
-        for (const listener of listeners[type]) {
-          listener(received);
+    const client: RozeniteDevToolsClient<RpcBridgeEventMap> = {
+      send: (type, payload) => {
+        sent.push({ type, payload });
+        if (loopback && !mutedEvents.has(type)) {
+          // The panel's postMessage clones messages across the transport boundary.
+          const received = structuredClone(payload);
+          for (const listener of listeners[type]) {
+            listener(received);
+          }
         }
+      },
+      onMessage: (type, listener) => {
+        const eventListeners = listeners[type];
+        eventListeners.add(listener);
+
+        return {
+          remove: () => {
+            eventListeners.delete(listener);
+          },
+        };
+      },
+      close: () => {
+        for (const eventListeners of Object.values(listeners)) {
+          eventListeners.clear();
+        }
+      },
+    };
+
+    const emit = <Event extends keyof RpcBridgeEventMap>(
+      type: Event,
+      payload: RpcBridgeEventMap[Event]
+    ): void => {
+      const received = structuredClone(payload);
+      for (const listener of listeners[type]) {
+        listener(received);
       }
-    },
-    onMessage: (type, listener) => {
-      const eventListeners = listeners[type];
-      eventListeners.add(listener);
+    };
 
-      return {
-        remove: () => {
-          eventListeners.delete(listener);
-        },
-      };
-    },
-    close: () => {
-      for (const eventListeners of Object.values(listeners)) {
-        eventListeners.clear();
-      }
-    },
-  };
+    const mute = (type: keyof RpcBridgeEventMap): void => {
+      mutedEvents.add(type);
+    };
 
-  const emit = <Event extends keyof RpcBridgeEventMap>(
-    type: Event,
-    payload: RpcBridgeEventMap[Event]
-  ): void => {
-    const received = structuredClone(payload);
-    for (const listener of listeners[type]) {
-      listener(received);
-    }
-  };
+    const unmute = (type: keyof RpcBridgeEventMap): void => {
+      mutedEvents.delete(type);
+    };
 
-  const mute = (type: keyof RpcBridgeEventMap): void => {
-    mutedEvents.add(type);
-  };
+    onCleanup(client.close);
+    return { client, emit, mute, sent, unmute } as const;
+  });
 
-  const unmute = (type: keyof RpcBridgeEventMap): void => {
-    mutedEvents.delete(type);
-  };
-
-  return { client, emit, mute, sent, unmute } as const;
-};
+const it = makeMethods(protocolTest);
+const integrationIt = makeMethods(protocolTest.extend('loopback', () => true));
 
 const ping = { _tag: 'Ping' } as const satisfies RpcMessage.FromClientEncoded;
 const stalePing = { ...ping };
@@ -90,65 +96,65 @@ const fixedRandom = (nextInt: number) => ({
 });
 
 describe('Rozenite RPC server protocol sessions', () => {
-  it.effect('disconnects the previous session and routes requests under a fresh client id', () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const bridge = makeBridgeClient();
-        const protocol = yield* makeRpcServerProtocol(bridge.client).pipe(
-          Effect.provideService(Random.Random, fixedRandom(1))
-        );
-        const requests = yield* Queue.unbounded<{
-          readonly clientId: number;
-          readonly message: RpcMessage.FromClientEncoded;
-        }>();
+  it.effect(
+    'disconnects the previous session and routes requests under a fresh client id',
+    ({ bridge }) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const protocol = yield* makeRpcServerProtocol(bridge.client).pipe(
+            Effect.provideService(Random.Random, fixedRandom(1))
+          );
+          const requests = yield* Queue.unbounded<{
+            readonly clientId: number;
+            readonly message: RpcMessage.FromClientEncoded;
+          }>();
 
-        yield* protocol
-          .run((clientId, message) => Queue.offer(requests, { clientId, message }))
-          .pipe(Effect.forkScoped);
+          yield* protocol
+            .run((clientId, message) => Queue.offer(requests, { clientId, message }))
+            .pipe(Effect.forkScoped);
 
-        bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-a' }));
-        bridge.emit(
-          RPC_CLIENT_EVENT,
-          RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: ping })
-        );
+          bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-a' }));
+          bridge.emit(
+            RPC_CLIENT_EVENT,
+            RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: ping })
+          );
 
-        expect(yield* Queue.take(requests)).toEqual({ clientId: 0, message: ping });
-        expect([...(yield* protocol.clientIds)]).toEqual([0]);
+          expect(yield* Queue.take(requests)).toEqual({ clientId: 0, message: ping });
+          expect([...(yield* protocol.clientIds)]).toEqual([0]);
 
-        bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-a' }));
-        bridge.emit(
-          RPC_CLIENT_EVENT,
-          RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: ping })
-        );
+          bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-a' }));
+          bridge.emit(
+            RPC_CLIENT_EVENT,
+            RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: ping })
+          );
 
-        expect(yield* Queue.take(requests)).toEqual({ clientId: 0, message: ping });
-        expect(yield* Queue.size(protocol.disconnects)).toBe(0);
+          expect(yield* Queue.take(requests)).toEqual({ clientId: 0, message: ping });
+          expect(yield* Queue.size(protocol.disconnects)).toBe(0);
 
-        bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-b' }));
+          bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-b' }));
 
-        expect(yield* Queue.take(protocol.disconnects)).toBe(0);
-        expect([...(yield* protocol.clientIds)]).toEqual([1]);
+          expect(yield* Queue.take(protocol.disconnects)).toBe(0);
+          expect([...(yield* protocol.clientIds)]).toEqual([1]);
 
-        bridge.emit(
-          RPC_CLIENT_EVENT,
-          RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: stalePing })
-        );
-        bridge.emit(
-          RPC_CLIENT_EVENT,
-          RpcBridgeClientMessage.Request({ sessionId: 'session-b', message: ping })
-        );
+          bridge.emit(
+            RPC_CLIENT_EVENT,
+            RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: stalePing })
+          );
+          bridge.emit(
+            RPC_CLIENT_EVENT,
+            RpcBridgeClientMessage.Request({ sessionId: 'session-b', message: ping })
+          );
 
-        const routedRequest = yield* Queue.take(requests);
-        expect(routedRequest).toEqual({ clientId: 1, message: ping });
-        expect(routedRequest.message).not.toBe(ping);
-      })
-    )
+          const routedRequest = yield* Queue.take(requests);
+          expect(routedRequest).toEqual({ clientId: 1, message: ping });
+          expect(routedRequest.message).not.toBe(ping);
+        })
+      )
   );
 
-  it.effect('drops stale responses and disconnects only the active session', () =>
+  it.effect('drops stale responses and disconnects only the active session', ({ bridge }) =>
     Effect.scoped(
       Effect.gen(function* () {
-        const bridge = makeBridgeClient();
         const protocol = yield* makeRpcServerProtocol(bridge.client).pipe(
           Effect.provideService(Random.Random, fixedRandom(1))
         );
@@ -205,9 +211,8 @@ describe('Rozenite RPC server protocol sessions', () => {
 });
 
 describe('Rozenite RPC client protocol sessions', () => {
-  it.effect('tags requests and accepts responses only for its session', () =>
+  it.effect('tags requests and accepts responses only for its session', ({ bridge }) =>
     Effect.gen(function* () {
-      const bridge = makeBridgeClient();
       const responses = yield* Queue.unbounded<RpcMessage.FromServerEncoded>();
 
       yield* Effect.scoped(
@@ -259,73 +264,75 @@ const ReloadTestRpc = RpcGroup.make(
 );
 
 describe('Rozenite RPC session reload integration', () => {
-  it.effect('serves the same request id after replacing a client with a live stream', () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const bridge = makeBridgeClient(true);
-        const serverProtocol = yield* makeRpcServerProtocol(bridge.client);
-        const handlerCount = yield* Ref.make(0);
-        const firstHandlerFinalized = yield* Deferred.make<boolean>();
+  integrationIt.effect(
+    'serves the same request id after replacing a client with a live stream',
+    ({ bridge }) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const serverProtocol = yield* makeRpcServerProtocol(bridge.client);
+          const handlerCount = yield* Ref.make(0);
+          const firstHandlerFinalized = yield* Deferred.make<boolean>();
 
-        const handlers = ReloadTestRpc.toLayer({
-          Events: () =>
-            Stream.unwrap(
-              Ref.updateAndGet(handlerCount, (count) => count + 1).pipe(
-                Effect.map((handlerId) =>
-                  Stream.make(`event-${handlerId}`).pipe(
-                    Stream.concat(Stream.never),
-                    Stream.ensuring(
-                      handlerId === 1 ? Deferred.succeed(firstHandlerFinalized, true) : Effect.void
+          const handlers = ReloadTestRpc.toLayer({
+            Events: () =>
+              Stream.unwrap(
+                Ref.updateAndGet(handlerCount, (count) => count + 1).pipe(
+                  Effect.map((handlerId) =>
+                    Stream.make(`event-${handlerId}`).pipe(
+                      Stream.concat(Stream.never),
+                      Stream.ensuring(
+                        handlerId === 1
+                          ? Deferred.succeed(firstHandlerFinalized, true)
+                          : Effect.void
+                      )
                     )
                   )
                 )
-              )
-            ),
-        });
+              ),
+          });
 
-        yield* RpcServer.make(ReloadTestRpc).pipe(
-          Effect.provideService(RpcServer.Protocol, serverProtocol),
-          Effect.provide(handlers),
-          Effect.forkScoped
-        );
+          yield* RpcServer.make(ReloadTestRpc).pipe(
+            Effect.provideService(RpcServer.Protocol, serverProtocol),
+            Effect.provide(handlers),
+            Effect.forkScoped
+          );
 
-        const firstProtocol = yield* makeRpcClientProtocol(bridge.client).pipe(
-          Effect.provideService(Random.Random, fixedRandom(1))
-        );
-        const firstClient = yield* RpcClient.make(ReloadTestRpc, {
-          generateRequestId: () => RpcMessage.RequestId('0'),
-        }).pipe(Effect.provideService(RpcClient.Protocol, firstProtocol));
-        const firstValues = yield* Queue.unbounded<string>();
+          const firstProtocol = yield* makeRpcClientProtocol(bridge.client).pipe(
+            Effect.provideService(Random.Random, fixedRandom(1))
+          );
+          const firstClient = yield* RpcClient.make(ReloadTestRpc, {
+            generateRequestId: () => RpcMessage.RequestId('0'),
+          }).pipe(Effect.provideService(RpcClient.Protocol, firstProtocol));
+          const firstValues = yield* Queue.unbounded<string>();
 
-        yield* firstClient.Events().pipe(
-          Stream.runForEach((value) => Queue.offer(firstValues, value)),
-          Effect.forkScoped
-        );
+          yield* firstClient.Events().pipe(
+            Stream.runForEach((value) => Queue.offer(firstValues, value)),
+            Effect.forkScoped
+          );
 
-        expect(yield* Queue.take(firstValues)).toBe('event-1');
+          expect(yield* Queue.take(firstValues)).toBe('event-1');
 
-        const secondProtocol = yield* makeRpcClientProtocol(bridge.client).pipe(
-          Effect.provideService(Random.Random, fixedRandom(2))
-        );
-        const secondClient = yield* RpcClient.make(ReloadTestRpc, {
-          generateRequestId: () => RpcMessage.RequestId('0'),
-        }).pipe(Effect.provideService(RpcClient.Protocol, secondProtocol));
+          const secondProtocol = yield* makeRpcClientProtocol(bridge.client).pipe(
+            Effect.provideService(Random.Random, fixedRandom(2))
+          );
+          const secondClient = yield* RpcClient.make(ReloadTestRpc, {
+            generateRequestId: () => RpcMessage.RequestId('0'),
+          }).pipe(Effect.provideService(RpcClient.Protocol, secondProtocol));
 
-        expect(
-          yield* secondClient
-            .Events()
-            .pipe(Stream.runHead, Effect.map(Option.getOrThrow), Effect.timeout('1 second'))
-        ).toBe('event-2');
-        yield* Deferred.await(firstHandlerFinalized).pipe(Effect.timeout('1 second'));
-        expect(yield* Ref.get(handlerCount)).toBe(2);
-      })
-    )
+          expect(
+            yield* secondClient
+              .Events()
+              .pipe(Stream.runHead, Effect.map(Option.getOrThrow), Effect.timeout('1 second'))
+          ).toBe('event-2');
+          yield* Deferred.await(firstHandlerFinalized).pipe(Effect.timeout('1 second'));
+          expect(yield* Ref.get(handlerCount)).toBe(2);
+        })
+      )
   );
 
-  it.effect('replays active requests after replacing the runtime server', () =>
+  integrationIt.effect('replays active requests after replacing the runtime server', ({ bridge }) =>
     Effect.scoped(
       Effect.gen(function* () {
-        const bridge = makeBridgeClient(true);
         const parentScope = yield* Effect.scope;
         const handlerCount = yield* Ref.make(0);
         const firstHandlerFinalized = yield* Deferred.make<boolean>();

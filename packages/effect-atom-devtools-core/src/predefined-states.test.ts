@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Option } from 'effect';
-import { Atom, AtomRegistry } from 'effect/unstable/reactivity';
+import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import {
   PredefinedStateId,

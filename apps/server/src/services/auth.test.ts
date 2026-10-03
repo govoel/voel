@@ -2,8 +2,8 @@ import { BunPath } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it, vi } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
-import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/unstable/http';
-import { Reactivity } from 'effect/unstable/reactivity';
+import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/http';
+import { Reactivity } from 'effect/reactivity';
 
 import { AuthClient } from '@repo/auth-api/client.ts';
 import { AuthUser } from '@repo/auth-api/shared.ts';

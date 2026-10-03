@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- test utilities construct isolated clients */
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
-import { Reactivity } from 'effect/unstable/reactivity';
+import { Reactivity } from 'effect/reactivity';
 
 import { UuidGenerator } from '#src/services/accounts/index.ts';
 import type { AccountManager } from '#src/services/accounts/index.ts';
