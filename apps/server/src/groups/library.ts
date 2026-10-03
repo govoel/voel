@@ -203,17 +203,24 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
       );
 
     const health = Effect.fnUntraced(function* (row: typeof LibraryRow.Type) {
-      const key = {
-        storagePlugin: row.storagePlugin,
-        library: { id: row.id, type: row.type, name: row.name },
-      };
       const [failures, cached] = yield* Effect.all(
         [
-          editors.contextEffectOption(key).pipe(Effect.map(Option.isSome)),
+          editors
+            .contextEffectOption({
+              storagePlugin: row.storagePlugin,
+              library: { id: row.id, type: row.type, name: row.name },
+            })
+            .pipe(Effect.map(Option.isSome)),
           Option.match(row.storagePluginSettings, {
             onNone: () => Effect.succeed(false),
             onSome: (settings) =>
-              stores.contextEffectOption({ ...key, settings }).pipe(Effect.map(Option.isSome)),
+              stores
+                .contextEffectOption({
+                  storagePlugin: row.storagePlugin,
+                  library: { id: row.id, type: row.type, name: row.name },
+                  settings,
+                })
+                .pipe(Effect.map(Option.isSome)),
           }),
         ],
         { mode: 'result', concurrency: 'unbounded' }
@@ -335,41 +342,39 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
         );
       }, Effect.scoped),
 
-      libraryRootsSet: Effect.fnUntraced(function* ({ id, roots }: ApiPayload<'libraryRootsSet'>) {
-        const row = yield* get({ id });
-        if (Option.isNone(row.storagePluginSettings)) {
-          return yield* LibraryUnconfiguredError.make({ id });
-        }
+      // Keep the plugin context stable from loading through decoding and root replacement.
+      libraryRootsSet: Effect.fnUntraced(
+        function* ({ id, roots }: ApiPayload<'libraryRootsSet'>) {
+          const row = yield* get({ id });
+          if (Option.isNone(row.storagePluginSettings)) {
+            return yield* LibraryUnconfiguredError.make({ id });
+          }
 
-        const storage = yield* acquireStoragePlugin({
-          storagePlugin: row.storagePlugin,
-          library: row,
-          settings: row.storagePluginSettings.value,
-        });
-        const decoded = yield* Effect.validate(
-          roots,
-          ({ root }) =>
-            storage
-              .decodeRootLocation({ location: root })
-              .pipe(
-                Effect.catchTag('StorageLocationValidationError', ({ message }) =>
-                  Effect.fail({ root, message })
-                )
-              ),
-          { concurrency: 'unbounded' }
-        ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
-        const unique = Array.dedupe(decoded);
-        yield* sql
-          .withTransaction(
-            Effect.gen(function* () {
-              // The library may have been deleted while the plugin was decoding locations.
-              yield* get({ id });
-              yield* repository.setRoots({ id, roots: unique });
-            })
-          )
-          .pipe(Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }));
-        return { id, roots: unique.map((root) => ({ root })) };
-      }, Effect.scoped),
+          const storage = yield* acquireStoragePlugin({
+            storagePlugin: row.storagePlugin,
+            library: row,
+            settings: row.storagePluginSettings.value,
+          });
+          const decoded = yield* Effect.validate(
+            roots,
+            ({ root }) =>
+              storage
+                .decodeRootLocation({ location: root })
+                .pipe(
+                  Effect.catchTag('StorageLocationValidationError', ({ message }) =>
+                    Effect.fail({ root, message })
+                  )
+                ),
+            { concurrency: 'unbounded' }
+          ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
+          const unique = Array.dedupe(decoded);
+          yield* repository.setRoots({ id, roots: unique });
+          return { id, roots: unique.map((root) => ({ root })) };
+        },
+        sql.withTransaction,
+        Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
+        Effect.scoped
+      ),
 
       libraryDelete: ({ id }) =>
         repository.deleteById({ id }).pipe(

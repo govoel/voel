@@ -18,6 +18,7 @@ import { FetchHttpClient } from 'effect/unstable/http';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { RpcMiddleware, RpcTest } from 'effect/unstable/rpc';
 
+import { TursoClient } from '@repo/effect-turso';
 import { Library } from '@repo/spec-api/database/schema.ts';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
@@ -53,6 +54,11 @@ class PluginFixture extends Context.Service<PluginFixture>()(
         [];
       const finalized: Array<number> = [];
       const controls = {
+        beforeRootDecode: (
+          _request: Parameters<StoragePluginModule['storage']['layer']>[0] & {
+            readonly location: string;
+          }
+        ): Effect.Effect<void> => Effect.void,
         onFinalize: (
           _request: Parameters<StoragePluginModule['storage']['layer']>[0]
         ): Effect.Effect<void> => Effect.void,
@@ -92,7 +98,8 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                 );
                 return StoragePlugin.of({
                   decodeRootLocation: ({ location }) =>
-                    decodeRoot(location.trim()).pipe(
+                    controls.beforeRootDecode({ ...request, location }).pipe(
+                      Effect.andThen(decodeRoot(location.trim())),
                       Effect.catchTag('SchemaError', (error) =>
                         StorageLocationValidationError.make({ message: error.message })
                       )
@@ -172,7 +179,8 @@ const testLayer = LibraryHandlersLayerNoDeps.pipe(
   Layer.provide(LibraryRepository.layerNoDeps),
   Layer.provideMerge(pluginLayer),
   Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
-  Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
+  Layer.provideMerge([ApiConfig.layerTest(), Reactivity.layer]),
+  Layer.provide(BunPath.layer)
 );
 
 const createInput = (
@@ -637,6 +645,92 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       ).toBe(false);
       yield* Deferred.succeed(release, true);
       yield* Deferred.await(finished);
+    })
+  );
+
+  iit.effect(
+    'holds the write lock throughout root decoding and releases it after replacement',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const fixture = yield* PluginFixture;
+      const config = yield* ApiConfig;
+      const contender = yield* TursoClient.make({
+        filename: config.db.libraryFilename,
+        busyTimeout: 0,
+      });
+      const library = yield* client.libraryCreate(createInput('Locked root context', 'npm:test'));
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/initial' }),
+      });
+      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/original' }] });
+      const before = yield* client.libraryGet(library);
+      const started = yield* Deferred.make<boolean>();
+      const release = yield* Deferred.make<boolean>();
+      fixture.controls.beforeRootDecode = (request) =>
+        request.library.id === library.id && request.location === '/pending'
+          ? Deferred.succeed(started, true).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.asVoid
+            )
+          : Effect.void;
+      yield* Effect.addFinalizer(() =>
+        Deferred.succeed(release, true).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              fixture.controls.beforeRootDecode = () => Effect.void;
+            })
+          )
+        )
+      );
+      const pending = yield* client
+        .libraryRootsSet({ ...library, roots: [{ root: '/pending' }] })
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(started);
+      // A separate connection proves the write lock prevents context changes during decoding.
+      expect(
+        yield* contender`
+          update library
+          set
+            name = 'Renamed root context'
+          where
+            id = ${library.id}
+        `.pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
+      expect(
+        yield* contender`
+          update library
+          set
+            "storagePluginSettings" = '{"prefix":"/updated"}'
+          where
+            id = ${library.id}
+        `.pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
+      expect(yield* client.libraryGet(library)).toMatchObject({
+        name: before.name,
+        storagePluginSettings: before.storagePluginSettings,
+        roots: before.roots,
+      });
+      yield* Deferred.succeed(release, true);
+      expect(yield* Fiber.join(pending)).toEqual({
+        ...library,
+        roots: [{ root: '/pending' }],
+      });
+      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual([
+        '/pending',
+      ]);
+      yield* client.libraryUpdate({
+        ...library,
+        name: Library.fields.name.make('Renamed root context'),
+      });
+      yield* client.librarySetStoragePluginSettings({
+        ...library,
+        input: StoragePluginSettingsInput.make({ root: '/updated' }),
+      });
+      expect(yield* client.libraryGet(library)).toMatchObject({
+        name: 'Renamed root context',
+        storagePluginSettings: Option.some({ prefix: '/updated' }),
+      });
     })
   );
 
