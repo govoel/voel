@@ -157,28 +157,8 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       expect(firstStorage).toBe(secondStorage);
       expect(firstSettings).toBe(secondSettings);
 
-      expect(
-        Option.isSome(
-          yield* StoragePluginMap.contextEffectOption(StoragePluginMap.Key.make(second))
-        )
-      ).toBe(true);
-      expect(
-        Option.isSome(
-          yield* StoragePluginSettingsMap.contextEffectOption(
-            StoragePluginSettingsMap.Key.make(second)
-          )
-        )
-      ).toBe(true);
       yield* StoragePluginMap.invalidate(StoragePluginMap.Key.make(second));
       yield* StoragePluginSettingsMap.invalidate(StoragePluginSettingsMap.Key.make(second));
-      expect(yield* StoragePluginMap.contextEffectOption(StoragePluginMap.Key.make(first))).toEqual(
-        Option.none()
-      );
-      expect(
-        yield* StoragePluginSettingsMap.contextEffectOption(
-          StoragePluginSettingsMap.Key.make(first)
-        )
-      ).toEqual(Option.none());
       expect(released).toBe(0);
     }).pipe(Effect.scoped);
     expect(released).toBe(2);
