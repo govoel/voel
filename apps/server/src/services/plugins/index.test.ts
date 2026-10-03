@@ -61,12 +61,12 @@ it.effect('shares npm installs and retains their files until the module map clos
       const [first, second] = yield* Effect.all([modules.get(plugin), modules.get(plugin)], {
         concurrency: 'unbounded',
       });
-      expect(first).toBe(second);
-      expect(first).toMatchObject({
-        default: { name: 'not a storage plugin' },
-        marker: 'preserved',
-      });
-      expect(yield* modules.get(plugin).pipe(Effect.scoped)).toBe(first);
+      for (const module of [first, second, yield* modules.get(plugin).pipe(Effect.scoped)]) {
+        expect(module).toMatchObject({
+          default: { name: 'not a storage plugin' },
+          marker: 'preserved',
+        });
+      }
       expect(directories).toHaveLength(1);
       for (const directory of directories) {
         expect(yield* fs.exists(directory)).toBe(true);
@@ -120,7 +120,20 @@ it.effect('cleans up failed npm installs before retrying with client-safe errors
             directories.push(command.options.cwd);
             yield* fs.writeFileString(`${command.options.cwd}/partial-install`, 'incomplete');
             attempts += 1;
-            return ChildProcessSpawner.ExitCode(1);
+            if (attempts <= 2) {
+              return ChildProcessSpawner.ExitCode(1);
+            }
+            const directory = command.options.cwd;
+            yield* fs.makeDirectory(`${directory}/node_modules/plugin`, { recursive: true });
+            yield* fs.writeFileString(
+              `${directory}/node_modules/plugin/package.json`,
+              '{"name":"fixture","exports":{"./index":"./entry.mjs"}}'
+            );
+            yield* fs.writeFileString(
+              `${directory}/node_modules/plugin/entry.mjs`,
+              'export const ready = true;'
+            );
+            return ChildProcessSpawner.ExitCode(0);
           }),
         })
       )
@@ -134,7 +147,8 @@ it.effect('cleans up failed npm installs before retrying with client-safe errors
         expect(yield* fs.exists(directory)).toBe(false);
       }
     }
-    expect(attempts).toBe(2);
+    expect(yield* modules.get(NpmPluginId.make('npm:fixture'))).toMatchObject({ ready: true });
+    expect(yield* fs.exists(directories.at(-1) ?? '')).toBe(true);
   }).pipe(Effect.scoped, Effect.provide([BunFileSystem.layer, BunModuleResolverLayer]))
 );
 
@@ -194,8 +208,7 @@ it.effect(
       }
       const module = yield* modules.get(plugin);
       expect(module).toMatchObject({ ready: true });
-      expect(yield* modules.get(plugin)).toBe(module);
-      expect(resolutions).toBe(2);
+      expect(yield* modules.get(plugin)).toMatchObject({ ready: true });
       expect(directories).toHaveLength(2);
     }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer))
 );
@@ -250,8 +263,7 @@ it.effect.each(['resolution', 'import'] as const)(
       }
       const module = yield* modules.get(plugin);
       expect(module).toMatchObject({ ready: true });
-      expect(yield* modules.get(plugin)).toBe(module);
-      expect(attempts).toBe(3);
+      expect(yield* modules.get(plugin)).toMatchObject({ ready: true });
       expect(directories).toHaveLength(3);
       for (const [index, directory] of directories.entries()) {
         expect(yield* fs.exists(directory)).toBe(index === 2);

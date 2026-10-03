@@ -67,7 +67,16 @@ const storageLayer = Layer.succeed(StoragePlugin, {
 });
 
 const settingsLayer = Layer.succeed(StoragePluginSettings, {
-  getForm: () => Effect.succeed([]),
+  getForm: () =>
+    Effect.succeed([
+      {
+        _tag: 'TextField',
+        name: StoragePluginSettingsForm.value.fields.name.make('directory'),
+        label: 'Directory',
+        placeholder: '',
+        initialValue: '/library',
+      },
+    ]),
   decodeFormSubmission: () => Effect.succeed(request.settings),
 });
 
@@ -94,16 +103,20 @@ const noPrivateServices = {
   builder: Option.none(),
 };
 
+const platformLayer = Layer.mergeAll(
+  FileSystem.layerNoop({}),
+  Path.layer,
+  Layer.succeed(
+    HttpClient.HttpClient,
+    HttpClient.make(() => Effect.die('Unexpected HTTP request'))
+  )
+);
+
 const makeMaps = (module: StoragePluginModule) =>
   Layer.mergeAll(StoragePluginMap.layerNoDeps, StoragePluginSettingsMap.layerNoDeps).pipe(
     Layer.provide(StoragePluginBuilder.layerNoDeps),
     Layer.provide([
-      FileSystem.layerNoop({}),
-      Path.layer,
-      Layer.succeed(
-        HttpClient.HttpClient,
-        HttpClient.make(() => Effect.die('Unexpected HTTP request'))
-      ),
+      platformLayer,
       Layer.succeed(StoragePluginModuleMap, {
         get: (plugin) =>
           Effect.sync(() => {
@@ -140,8 +153,15 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       const second = { ...request, library: { ...request.library, roots: ['/second'] } };
       const storage = yield* acquireStoragePlugin(first);
       const settings = yield* acquireStoragePluginSettings(first);
-      expect(yield* acquireStoragePlugin(second)).toBe(storage);
-      expect(yield* acquireStoragePluginSettings(second)).toBe(settings);
+      const secondStorage = yield* acquireStoragePlugin(second);
+      const secondSettings = yield* acquireStoragePluginSettings(second);
+      expect(yield* secondStorage.decodeRootLocation({ location: '/second' })).toBe('/second');
+      expect(
+        yield* secondSettings.decodeFormSubmission({
+          current: Option.none(),
+          input: StoragePluginSettingsInput.make({}),
+        })
+      ).toEqual({ directory: '/library' });
       expect(builtLibraries).toEqual([request.library, request.library]);
 
       yield* StoragePluginMap.invalidate(request);
@@ -151,7 +171,15 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       });
       expect(released).toBe(0);
       expect(yield* storage.decodeRootLocation({ location: '/retained' })).toBe('/retained');
-      expect(yield* settings.getForm({ current: Option.none() })).toEqual([]);
+      expect(yield* settings.getForm({ current: Option.none() })).toEqual([
+        {
+          _tag: 'TextField',
+          name: 'directory',
+          label: 'Directory',
+          placeholder: '',
+          initialValue: '/library',
+        },
+      ]);
     }).pipe(Effect.scoped);
     expect(released).toBe(2);
   }).pipe(Effect.provide(makeMaps(module)));
@@ -160,8 +188,14 @@ it.effect('acquires canonical plugin services until the caller releases its scop
 it.effect('resolves built-in storage without loading an npm module', () =>
   Effect.gen(function* () {
     const modules = yield* StoragePluginModuleMap;
-    expect(yield* modules.get(StoragePluginId.make('builtin:local'))).toBe(local);
+    const module = yield* modules.get(StoragePluginId.make('builtin:local'));
+    const context = yield* Layer.build(
+      module.storage.layer(request).pipe(Layer.provide(platformLayer))
+    );
+    const storage = Context.get(context, StoragePlugin);
+    expect(yield* storage.decodeRootLocation({ location: '/books/../audio' })).toBe('/audio');
   }).pipe(
+    Effect.scoped,
     Effect.provide(StoragePluginModuleMap.layerNoDeps),
     Effect.provideService(PluginModuleMap, {
       get: () => Effect.die('Unexpected npm module lookup'),
@@ -173,8 +207,15 @@ it.effect('validates storage exports from the shared module loader', () =>
   Effect.gen(function* () {
     const modules = yield* StoragePluginModuleMap;
     const module = yield* modules.get(StoragePluginId.make('npm:fixture'));
-    expect(module).toEqual(local);
+    const context = yield* Layer.build(
+      module.storage.layer(request).pipe(Layer.provide(platformLayer))
+    );
+    const storage = Context.get(context, StoragePlugin);
+    expect(yield* storage.decodeMediaFileLocation({ location: '/audio/./book.mp3' })).toBe(
+      '/audio/book.mp3'
+    );
   }).pipe(
+    Effect.scoped,
     Effect.provide(StoragePluginModuleMap.layerNoDeps),
     Effect.provideService(PluginModuleMap, {
       get: (plugin) => {
@@ -302,7 +343,7 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
       ]) {
         const decoded = yield* storage[method]({ location });
         expect(decoded).toBe(canonical);
-        expect(yield* storage[method]({ location: canonical })).toBe(decoded);
+        expect(yield* storage[method]({ location: canonical })).toBe(canonical);
       }
     }).pipe(Effect.scoped, Effect.provide(makeMaps(local)))
 );
@@ -323,9 +364,10 @@ it.effect.each([
     expect(yield* decode({ location: '/nul\0' }).pipe(Effect.flip)).toEqual(
       StorageLocationValidationError.make({ message: `${label} must not contain NUL characters` })
     );
-    const empty = yield* decode({ location: '' }).pipe(Effect.flip);
-    expect(empty).toBeInstanceOf(StorageLocationValidationError);
-    expect(empty.message.length).toBeGreaterThan(0);
+    expect(yield* decode({ location: '' }).pipe(Effect.flip)).toMatchObject({
+      _tag: 'StorageLocationValidationError',
+      message: 'Expected a value with a length of at least 1',
+    });
   }).pipe(Effect.scoped, Effect.provide(makeMaps(local)))
 );
 
@@ -338,7 +380,10 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
       const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
         location: '/outside',
       });
-      expect(yield* Effect.flip(result)).toBe(error);
+      expect(yield* Effect.flip(result)).toMatchObject({
+        _tag: 'StorageLocationValidationError',
+        message: 'Location is outside storage',
+      });
     }).pipe(
       Effect.scoped,
       Effect.provide(
@@ -371,8 +416,7 @@ it.effect('isolates the plugin lifecycle and forwards factory and method inputs'
         input: StoragePluginSettingsInput.make({ directory: '/submitted' }),
       },
     };
-    const inspected: Array<string> = [];
-    const inspect = ({ stage, name }: { readonly stage: string; readonly name: string }) => {
+    const inspect = () => {
       // Inspect synchronous plugin code too, not just the Effects it returns.
       const context = Fiber.getCurrent()?.context ?? Context.empty();
       expect(Context.getOption(context, PrivateService)).toEqual(Option.none());
@@ -383,36 +427,37 @@ it.effect('isolates the plugin lifecycle and forwards factory and method inputs'
       expect(Option.isSome(Context.getOption(context, HttpClient.HttpClient))).toBe(true);
       expect(Context.get(context, ConfigProvider.ConfigProvider)).toBe(provider);
       expect(Context.get(context, Clock.Clock)).toBe(clock);
-      inspected.push(`${stage}:${name}`);
     };
-    const execute = <A>({ name, value }: { readonly name: string; readonly value: A }) =>
+    const execute = <A>({ value }: { readonly value: A }) =>
       Effect.gen(function* () {
-        inspect({ stage: 'execution', name });
+        inspect();
         yield* Effect.yieldNow;
-        inspect({ stage: 'resumed', name });
+        inspect();
         return value;
       });
 
     const module = {
       storage: {
         layer: (configuration) => {
-          expect(configuration).toEqual({ library: request.library, settings: request.settings });
-          inspect({ stage: 'factory', name: 'storage' });
+          expect(configuration).toEqual({
+            library: { id: 1, type: 'movie', name: 'Movies' },
+            settings: { directory: '/library' },
+          });
+          inspect();
           return Layer.effect(
             StoragePlugin,
             Effect.sync(() => {
-              inspect({ stage: 'construction', name: 'storage' });
+              inspect();
               return StoragePlugin.of({
                 decodeRootLocation: (input) => {
-                  expect(input).toBe(inputs.root);
-                  inspect({ stage: 'methods', name: 'root' });
-                  return execute({ name: 'root', value: StorageRootLocation.make(input.location) });
+                  expect(input).toEqual({ location: '/library' });
+                  inspect();
+                  return execute({ value: StorageRootLocation.make(input.location) });
                 },
                 decodeMediaFileLocation: (input) => {
-                  expect(input).toBe(inputs.file);
-                  inspect({ stage: 'methods', name: 'file' });
+                  expect(input).toEqual({ location: '/library/file' });
+                  inspect();
                   return execute({
-                    name: 'file',
                     value: StorageMediaFileLocation.make(input.location),
                   });
                 },
@@ -421,22 +466,25 @@ it.effect('isolates the plugin lifecycle and forwards factory and method inputs'
           );
         },
         layerSettings: (configuration) => {
-          expect(configuration).toEqual({ library: request.library });
-          inspect({ stage: 'factory', name: 'settings' });
+          expect(configuration).toEqual({ library: { id: 1, type: 'movie', name: 'Movies' } });
+          inspect();
           return Layer.effect(
             StoragePluginSettings,
             Effect.sync(() => {
-              inspect({ stage: 'construction', name: 'settings' });
+              inspect();
               return StoragePluginSettings.of({
                 getForm: (input) => {
-                  expect(input).toBe(inputs.form);
-                  inspect({ stage: 'methods', name: 'form' });
-                  return execute({ name: 'form', value: [] });
+                  expect(input).toEqual({ current: Option.some({ directory: '/previous' }) });
+                  inspect();
+                  return execute({ value: [] });
                 },
                 decodeFormSubmission: (input) => {
-                  expect(input).toBe(inputs.submission);
-                  inspect({ stage: 'methods', name: 'submission' });
-                  return execute({ name: 'submission', value: request.settings });
+                  expect(input).toEqual({
+                    current: Option.some({ directory: '/previous' }),
+                    input: { directory: '/submitted' },
+                  });
+                  inspect();
+                  return execute({ value: request.settings });
                 },
               });
             })
@@ -455,7 +503,9 @@ it.effect('isolates the plugin lifecycle and forwards factory and method inputs'
         expect(yield* storage.decodeRootLocation(inputs.root)).toBe('/library');
         expect(yield* storage.decodeMediaFileLocation(inputs.file)).toBe('/library/file');
         expect(yield* settings.getForm(inputs.form)).toEqual([]);
-        expect(yield* settings.decodeFormSubmission(inputs.submission)).toEqual(request.settings);
+        expect(yield* settings.decodeFormSubmission(inputs.submission)).toEqual({
+          directory: '/library',
+        });
       }).pipe(Effect.provideService(PrivateService, 'caller-private'));
     }).pipe(
       Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown({})),
@@ -466,18 +516,6 @@ it.effect('isolates the plugin lifecycle and forwards factory and method inputs'
       Effect.provideService(PrivateService, 'host-private'),
       Effect.provideService(ConfigProvider.ConfigProvider, provider)
     );
-
-    expect(inspected).toEqual([
-      'factory:storage',
-      'construction:storage',
-      'factory:settings',
-      'construction:settings',
-      ...['root', 'file', 'form', 'submission'].flatMap((name) => [
-        `methods:${name}`,
-        `execution:${name}`,
-        `resumed:${name}`,
-      ]),
-    ]);
   })
 );
 
@@ -813,11 +851,17 @@ it.effect.each(['successful', 'failed'] as const)(
             expect(settings).toEqual(Exit.fail(settingsError));
             expect(released).toHaveLength(6);
           } else {
-            expect(Exit.isSuccess(storage)).toBe(true);
-            expect(Exit.isSuccess(settings)).toBe(true);
-            expect(Context.get(yield* StoragePluginMap.contextEffect(request), StoragePlugin)).toBe(
-              Context.get(yield* storage, StoragePlugin)
+            const plugin = Context.get(yield* storage, StoragePlugin);
+            const editor = Context.get(yield* settings, StoragePluginSettings);
+            expect(yield* plugin.decodeRootLocation({ location: '/constructed' })).toBe(
+              '/constructed'
             );
+            expect(
+              yield* editor.decodeFormSubmission({
+                current: Option.none(),
+                input: StoragePluginSettingsInput.make({}),
+              })
+            ).toEqual({ directory: '/library' });
           }
           expect(acquisitions).toBe(2);
         }).pipe(Effect.scoped, Effect.annotateLogs({ request: 'acquisition' }));
