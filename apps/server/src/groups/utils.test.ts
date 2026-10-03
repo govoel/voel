@@ -1,13 +1,12 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
-import { Effect, Layer, Option, Schema } from 'effect';
-import { Headers as EffectHeaders } from 'effect/unstable/http';
+import { Effect, Layer, Schema } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 import { RpcTest } from 'effect/unstable/rpc';
 
+import { Library } from '@repo/spec-api/database/schema.ts';
 import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
-import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { LibraryHandlersLayerNoDeps, LibraryRepository } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
@@ -205,36 +204,24 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
 
 it.layer(makeTestLayer())('groups utils headers', (iit) => {
   iit.effect(
-    'makeAuthedClient sends the generated auth headers to the server',
+    'makeAuthedClient authenticates admin library requests',
     Effect.fnUntraced(function* () {
-      let capturedHeaders = Option.none<EffectHeaders.Headers>();
-
       const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
         Effect.provide(
-          Layer.mergeAll(
-            yield* makeAuthedClient({ username: 'utils_library_headers', role: 'admin' }),
-            Layer.effect(
-              AuthMiddleware,
-              Effect.gen(function* () {
-                const realAuthMiddleware = yield* AuthMiddleware;
-
-                return AuthMiddleware.of(
-                  Effect.fnUntraced(function* (httpEffect, options) {
-                    capturedHeaders = Option.some(options.headers);
-
-                    return yield* realAuthMiddleware(httpEffect, options);
-                  })
-                );
-              })
-            )
-          )
+          yield* makeAuthedClient({ username: 'utils_library_headers', role: 'admin' })
         )
       );
-
-      yield* client.libraryList({ cursor: Option.none(), limit: 1 });
-
-      const cookie = EffectHeaders.get(Option.getOrThrow(capturedHeaders), 'cookie');
-      expect(Option.getOrUndefined(cookie)).toContain('auth.session_token=');
+      const library = yield* client.libraryCreate({
+        name: Library.fields.name.make('Authenticated library'),
+        type: Library.fields.type.make('movie'),
+        storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+      });
+      expect(yield* client.libraryGet(library)).toMatchObject({
+        name: 'Authenticated library',
+        type: 'movie',
+        storagePlugin: 'builtin:local',
+        storagePluginHealth: { status: 'unknown' },
+      });
     })
   );
 });

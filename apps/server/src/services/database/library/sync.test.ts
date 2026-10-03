@@ -137,11 +137,27 @@ it.effect(
       expect(
         yield* replica`
         select
-          id
+          l.name, f.location, m."matchFailureReason", m."customOrder"
         from
-          "libraryFileMap"
+          "libraryFileMap" m
+          left join library l on l.id = m."libraryId"
+          left join "mediaFile" f on f.id = m."mediaFileId"
+        order by l.name
       `
-      ).toHaveLength(2);
+      ).toEqual([
+        {
+          name: 'Audiobooks',
+          location: '/shared-book',
+          matchFailureReason: 'unmatched',
+          customOrder: 0,
+        },
+        {
+          name: 'Movies',
+          location: '/shared-book',
+          matchFailureReason: 'unmatched',
+          customOrder: 0,
+        },
+      ]);
 
       yield* source`
         delete from library
@@ -168,11 +184,21 @@ it.effect(
       expect(
         yield* replica`
         select
-          id
+          l.name, f.location, m."matchFailureReason", m."customOrder"
         from
-          "libraryFileMap"
+          "libraryFileMap" m
+          left join library l on l.id = m."libraryId"
+          left join "mediaFile" f on f.id = m."mediaFileId"
+        order by l.name
       `
-      ).toHaveLength(1);
+      ).toEqual([
+        {
+          name: 'Movies',
+          location: '/shared-book',
+          matchFailureReason: 'unmatched',
+          customOrder: 0,
+        },
+      ]);
       expect(
         yield* replica`
         select
