@@ -11,7 +11,7 @@ import {
 } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
-import { AuthClient, acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClient, AuthClientMap } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
@@ -65,7 +65,7 @@ describe('AccountManager', () => {
           serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
           authStorageId: Account.fields.authStorageId.make('auth-storage-id'),
         };
-        const activeAccount = new ActiveAccountKey({
+        const activeAccount = ActiveAccountKey.make({
           ...authStorage,
           userId: Account.fields.userId.make('user-id'),
         });
@@ -76,14 +76,14 @@ describe('AccountManager', () => {
         };
         const [firstClient, activeClient, profileClient, otherServerClient, otherSignInClient] =
           yield* Effect.all([
-            acquireAuthClient(authStorage),
-            acquireAuthClient(activeAccount),
-            acquireAuthClient(accountProfile),
-            acquireAuthClient({
+            AuthClientMap.acquire(authStorage),
+            AuthClientMap.acquire(activeAccount),
+            AuthClientMap.acquire(accountProfile),
+            AuthClientMap.acquire({
               ...authStorage,
               serverUrl: Account.fields.serverUrl.make('https://other.voel.example.com'),
             }),
-            acquireAuthClient({
+            AuthClientMap.acquire({
               ...authStorage,
               authStorageId: Account.fields.authStorageId.make('other-auth-storage-id'),
             }),
@@ -194,7 +194,7 @@ describe('AccountManager', () => {
             const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
               storedCookie.valueOrUndefined
             );
-            const authClient = yield* acquireAuthClient(Option.getOrThrow(activeAccount));
+            const authClient = yield* AuthClientMap.acquire(Option.getOrThrow(activeAccount));
             const cookie = yield* authClient.getCookie;
             expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
@@ -305,7 +305,7 @@ describe('AccountManager', () => {
 
           const activeAccountKey = Option.getOrThrow(yield* manager.state);
           const nextAccountChange = yield* forkNextActiveAccountChange;
-          const authClient = yield* acquireAuthClient(activeAccountKey);
+          const authClient = yield* AuthClientMap.acquire(activeAccountKey);
           yield* authClient.updateUser({
             username: updatedUsername,
             image: profilePicture,
@@ -360,7 +360,7 @@ describe('AccountManager', () => {
             expect((yield* getActiveAccount).valueOrUndefined).toMatchObject({
               username: updatedUsername,
             });
-            const restoredAuthClient = yield* acquireAuthClient(restoredAccount);
+            const restoredAuthClient = yield* AuthClientMap.acquire(restoredAccount);
             const cookie = yield* restoredAuthClient.getCookie;
             expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
@@ -390,7 +390,7 @@ describe('AccountManager', () => {
 
           const nextAccountChange = yield* forkNextActiveAccountChange;
           const activeAccountKey = Option.getOrThrow(yield* manager.state);
-          const authClient = yield* acquireAuthClient(activeAccountKey);
+          const authClient = yield* AuthClientMap.acquire(activeAccountKey);
           yield* authClient.updateUser({
             name: 'Updated Admin',
             username: updatedUsername,
@@ -437,7 +437,7 @@ describe('AccountManager', () => {
           });
           const activeAccountKey = Option.getOrThrow(yield* manager.state);
           expect(Option.getOrThrow(yield* getActiveAccount).role).toBe('user');
-          const authClient = yield* acquireAuthClient(activeAccountKey);
+          const authClient = yield* AuthClientMap.acquire(activeAccountKey);
           yield* waitForSessionRequest(authClient);
 
           const adminAuthClient = yield* makeAuthClient({
@@ -544,7 +544,7 @@ describe('AccountManager', () => {
           const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
           const [account] = yield* signInTestServerUsers(manager, testServer);
           const firstState = Option.getOrThrow(yield* manager.state);
-          const firstClient = yield* acquireAuthClient(firstState);
+          const firstClient = yield* AuthClientMap.acquire(firstState);
 
           yield* manager.setActiveAccount({
             serverUrl: testServer.serverUrl,
@@ -556,7 +556,7 @@ describe('AccountManager', () => {
           });
 
           const currentState = Option.getOrThrow(yield* manager.state);
-          expect(yield* acquireAuthClient(currentState)).toBe(firstClient);
+          expect(yield* AuthClientMap.acquire(currentState)).toBe(firstClient);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
@@ -597,7 +597,7 @@ describe('AccountManager', () => {
             },
           ]);
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          expect(yield* acquireAuthClient(activeAccount)).toBeDefined();
+          expect(yield* AuthClientMap.acquire(activeAccount)).toBeDefined();
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
@@ -650,13 +650,13 @@ describe('AccountManager', () => {
           yield* signInTestServerUsers(manager, testServer);
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          const firstClient = yield* acquireAuthClient(activeAccount).pipe(Effect.scoped);
-          const secondClient = yield* acquireAuthClient(activeAccount).pipe(Effect.scoped);
+          const firstClient = yield* AuthClientMap.acquire(activeAccount).pipe(Effect.scoped);
+          const secondClient = yield* AuthClientMap.acquire(activeAccount).pipe(Effect.scoped);
 
           expect(secondClient).toBe(firstClient);
 
           yield* TestClock.adjust('5 minutes');
-          const reopened = yield* acquireAuthClient(activeAccount);
+          const reopened = yield* AuthClientMap.acquire(activeAccount);
           expect(reopened).not.toBe(firstClient);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
@@ -672,18 +672,18 @@ describe('AccountManager', () => {
           const manager = yield* AccountManager;
           const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
           const [first, second] = yield* signInTestServerUsers(manager, testServer);
-          const firstKey = new ActiveAccountKey({
+          const firstKey = ActiveAccountKey.make({
             serverUrl: first.serverUrl,
             userId: first.userId,
             authStorageId: first.authStorageId,
           });
-          const secondKey = new ActiveAccountKey({
+          const secondKey = ActiveAccountKey.make({
             serverUrl: second.serverUrl,
             userId: second.userId,
             authStorageId: second.authStorageId,
           });
-          const firstClient = yield* acquireAuthClient(firstKey);
-          const secondClient = yield* acquireAuthClient(secondKey);
+          const firstClient = yield* AuthClientMap.acquire(firstKey);
+          const secondClient = yield* AuthClientMap.acquire(secondKey);
           const storage = yield* AuthClientStorage;
           const cryptoDigest = yield* CryptoDigest;
           const prefix = yield* cryptoDigest.sha256({

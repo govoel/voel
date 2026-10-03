@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Layer, Option, Random, Redacted, Schema, Stream } from 'effect';
+import { Context, Effect, Layer, Option, Random, Redacted, Schema, Stream } from 'effect';
 import { Reactivity } from 'effect/unstable/reactivity';
 
 import { AuthError } from '@repo/auth-api/shared.ts';
@@ -6,11 +6,7 @@ import { AuthError } from '@repo/auth-api/shared.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import type { AccountKey, AccountUpsert } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
-import {
-  AuthClientMap,
-  acquireAuthClient,
-  makeAuthStorageKey,
-} from '#src/services/auth-client/index.ts';
+import { AuthClientMap, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { MainDatabase } from '#src/services/database/main/index.ts';
@@ -66,18 +62,15 @@ export class NoActiveAccountError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('voel/services/accounts/NoActiveAccountError')('NoActiveAccountError', {}) {}
 
-export class ActiveAccountKey extends Data.Class<
-  Pick<Account, 'serverUrl' | 'userId' | 'authStorageId'>
-> {}
-
-const activeAccountKeyFromAccount = (
-  account: Pick<Account, 'serverUrl' | 'userId' | 'authStorageId'>
-) =>
-  new ActiveAccountKey({
-    serverUrl: account.serverUrl,
-    userId: account.userId,
-    authStorageId: account.authStorageId,
-  });
+/** Account identity excludes mutable profile and activity metadata. */
+export class ActiveAccountKey extends Schema.Class<
+  ActiveAccountKey,
+  { readonly brand: unique symbol }
+>('voel/services/accounts/ActiveAccountKey')({
+  serverUrl: Account.fields.serverUrl,
+  userId: Account.fields.userId,
+  authStorageId: Account.fields.authStorageId,
+}) {}
 
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/AccountManager',
@@ -92,7 +85,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const reactivity = yield* Reactivity.Reactivity;
 
       const state = accountRepository.getActive().pipe(
-        Effect.map(Option.map(activeAccountKeyFromAccount)),
+        Effect.map(Option.map((account) => ActiveAccountKey.make(account))),
         Effect.catchTags({
           SchemaError: () => AccountDatabaseError.make(),
           SqlError: () => AccountDatabaseError.make(),
@@ -152,7 +145,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
         // we ignore errors here because the server may be offline
         // which causes better-auth to throw
-        yield* acquireAuthClient(key).pipe(
+        yield* AuthClientMap.acquire(key).pipe(
           Effect.flatMap((authClient) => authClient.signOut),
           Effect.ignore,
           Effect.scoped,
@@ -189,7 +182,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
 
       const signOutEverywhere = Effect.fnUntraced(
         function* (key: ActiveAccountKey) {
-          const client = yield* acquireAuthClient(key);
+          const client = yield* AuthClientMap.acquire(key);
           // Keep local credentials if revocation fails so the user can retry.
           yield* client.revokeSessions;
           yield* removeAccount(key);
@@ -208,7 +201,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             password: Redacted.Redacted;
           }) {
           const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-          const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
+          const authClient = yield* AuthClientMap.acquire({ serverUrl, authStorageId });
 
           const signInResult = yield* authClient.signIn
             .username({ username, password: Redacted.value(password) })
@@ -247,7 +240,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
             password: Redacted.Redacted;
           }) {
           const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-          const authClient = yield* acquireAuthClient({ serverUrl, authStorageId });
+          const authClient = yield* AuthClientMap.acquire({ serverUrl, authStorageId });
 
           const signUpResult = yield* authClient.signUp
             .email({

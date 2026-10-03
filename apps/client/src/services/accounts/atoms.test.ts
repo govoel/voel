@@ -25,7 +25,7 @@ import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
-import { acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
@@ -286,7 +286,7 @@ describe('accountsSheetAtom', () => {
           });
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          const authClient = yield* acquireAuthClient(activeAccount);
+          const authClient = yield* AuthClientMap.acquire(activeAccount);
           expect(yield* authClient.getSession).toMatchObject({
             _tag: 'Initial',
             waiting: true,
@@ -339,7 +339,7 @@ describe('accountsSheetAtom', () => {
             userId: account.userId,
           });
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          const authClient = yield* acquireAuthClient(activeAccount);
+          const authClient = yield* AuthClientMap.acquire(activeAccount);
 
           yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
           yield* authClient.refreshSession({ query: { disableCookieCache: true } });
@@ -379,7 +379,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         });
 
         const activeAccount = Option.getOrThrow(yield* manager.state);
-        const authClient = yield* acquireAuthClient(activeAccount);
+        const authClient = yield* AuthClientMap.acquire(activeAccount);
         yield* waitForAuthenticatedSession(authClient);
         const validSession = yield* authClient.getSession;
         expect(validSession).toMatchObject({ _tag: 'Success', waiting: false });
@@ -411,7 +411,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           password: Redacted.make('ha!niceTry'),
         });
         const activeAccount = Option.getOrThrow(yield* manager.state);
-        const authClient = yield* acquireAuthClient(activeAccount);
+        const authClient = yield* AuthClientMap.acquire(activeAccount);
         yield* Atom.mount(accountsSheetAtom);
         yield* waitForAuthenticatedSession(authClient);
         yield* drainAtomTasks;
@@ -457,7 +457,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           serverUrl: testServer.serverUrl,
           userId: firstAccount.userId,
         });
-        const firstClient = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
+        const firstClient = yield* AuthClientMap.acquire(Option.getOrThrow(yield* manager.state));
         yield* waitForAuthenticatedSession(firstClient);
 
         yield* Atom.mount(accountsSheetAtom);
@@ -470,7 +470,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           serverUrl: testServer.serverUrl,
           userId: secondAccount.userId,
         });
-        const secondClient = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
+        const secondClient = yield* AuthClientMap.acquire(Option.getOrThrow(yield* manager.state));
         yield* waitForAuthenticatedSession(secondClient);
         yield* secondClient.signOut;
         yield* secondClient.refreshSession({ query: { disableCookieCache: true } });
@@ -494,7 +494,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
-        const client = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
+        const client = yield* AuthClientMap.acquire(Option.getOrThrow(yield* manager.state));
         yield* waitForAuthenticatedSession(client);
 
         yield* Atom.mount(accountsSheetAtom);
@@ -507,7 +507,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
         );
-        expect(yield* acquireAuthClient(Option.getOrThrow(yield* manager.state))).toBe(client);
+        expect(yield* AuthClientMap.acquire(Option.getOrThrow(yield* manager.state))).toBe(client);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -632,7 +632,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        const client = yield* acquireAuthClient(Option.getOrThrow(yield* manager.state));
+        const client = yield* AuthClientMap.acquire(Option.getOrThrow(yield* manager.state));
         const users = yield* client.admin.listUsers({ limit: 10, offset: 0 });
         const target = Option.getOrThrow(
           Option.fromNullishOr(
@@ -681,7 +681,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
-        const client = yield* acquireAuthClient(account);
+        const client = yield* AuthClientMap.acquire(account);
         const session = yield* client.readSession;
         const adminSessions = serverUserSessionsAtom(account.userId);
         yield* Atom.mount(ownSessionsAtom);

@@ -1,7 +1,6 @@
 import { expoClient } from '@better-auth/expo/client';
 import {
   Context,
-  Data,
   Duration,
   Effect,
   Layer,
@@ -21,14 +20,20 @@ import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import type { Account } from '#src/services/database/main/schema.ts';
+import { Account } from '#src/services/database/main/schema.ts';
 
 export const makeAuthStorageKey = ({ serverUrl, authStorageId }: AuthClientKey) =>
   `voel::auth::${serverUrl}::${authStorageId}`;
 
 export type AuthClientKey = Pick<Account, 'serverUrl' | 'authStorageId'>;
 
-class AuthClientCacheKey extends Data.Class<AuthClientKey> {}
+class AuthClientCacheKey extends Schema.Class<
+  AuthClientCacheKey,
+  { readonly brand: unique symbol }
+>('voel/services/auth-client/AuthClientCacheKey')({
+  serverUrl: Account.fields.serverUrl,
+  authStorageId: Account.fields.authStorageId,
+}) {}
 
 class AuthClientGetCookieError extends Schema.TaggedError<
   AuthClientGetCookieError,
@@ -178,15 +183,15 @@ export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
       Reactivity.layer,
       CryptoDigest.layer,
     ],
-    lookup: (key: AuthClientKey) =>
+    lookup: (key: AuthClientCacheKey) =>
       AuthClient.layerNoDeps(key).pipe(
         Layer.tap((context) => synchronizeAccountFromSession(key, Context.get(context, AuthClient)))
       ),
   }
-) {}
+) {
+  public static readonly Key = AuthClientCacheKey;
 
-// Ignore extra account/profile fields when identifying the shared auth client.
-export const acquireAuthClient = ({ authStorageId, serverUrl }: AuthClientKey) =>
-  AuthClientMap.contextEffect(new AuthClientCacheKey({ authStorageId, serverUrl })).pipe(
-    Effect.map(Context.get(AuthClient))
-  );
+  /** Acquire a shared auth client without including account/profile metadata in its identity. */
+  public static readonly acquire = (key: Parameters<typeof AuthClientCacheKey.make>[0]) =>
+    this.contextEffect(this.Key.make(key)).pipe(Effect.map(Context.get(AuthClient)));
+}

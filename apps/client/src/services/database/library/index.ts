@@ -5,8 +5,8 @@ import * as SqlClient from 'effect/unstable/sql/SqlClient';
 
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
-import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
-import { AuthClientMap, acquireAuthClient } from '#src/services/auth-client/index.ts';
+import { ActiveAccountKey } from '#src/services/accounts/index.ts';
+import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
@@ -43,7 +43,7 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   readonly account: ActiveAccountKey;
   readonly filenameSuffix: string;
 }) {
-  const authentication = yield* acquireAuthClient(account);
+  const authentication = yield* AuthClientMap.acquire(account);
 
   return {
     // Auth storage identity is unique to each sign-in, including across servers.
@@ -136,7 +136,10 @@ export class LibraryDatabaseMap extends LayerMap.Service<LibraryDatabaseMap>()(
       ),
     dependencies: [AppConfig.layer, AuthClientMap.layer, Reactivity.layer],
   }
-) {}
+) {
+  public static readonly Key = ActiveAccountKey;
 
-export const acquireLibraryDatabase = (account: ActiveAccountKey) =>
-  LibraryDatabaseMap.contextEffect(account).pipe(Effect.map(Context.get(LibraryDatabase)));
+  /** Acquire one replica per canonical account identity in the caller's scope. */
+  public static readonly acquire = (account: Parameters<typeof ActiveAccountKey.make>[0]) =>
+    this.contextEffect(this.Key.make(account)).pipe(Effect.map(Context.get(LibraryDatabase)));
+}
