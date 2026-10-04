@@ -5,6 +5,7 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
+import { ApiClientMap } from '#src/services/api-client/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
@@ -127,3 +128,13 @@ export const activeAccountAuthClientAtom = AppRuntime.atom(
     return yield* AuthClientMap.use((authClients) => authClients.acquire(key.value));
   })
 );
+
+export const activeAccountApiClientAtom = AppRuntime.atom(
+  Effect.fnUntraced(function* (get) {
+    const key = yield* get.result(activeAccountKeyAtom);
+    if (Option.isNone(key)) {
+      return yield* NoActiveAccountError.make();
+    }
+    return yield* ApiClientMap.use((clients) => clients.acquire(key.value));
+  })
+).pipe(Atom.withLabel('activeAccountApiClientAtom'));
