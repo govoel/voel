@@ -1,17 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import {
-  Context,
-  DateTime,
-  Deferred,
-  Effect,
-  Fiber,
-  Layer,
-  Option,
-  Redacted,
-  Stream,
-} from 'effect';
-import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
+import { DateTime, Deferred, Effect, Fiber, Layer, Option, Redacted, Stream } from 'effect';
+import { AsyncResult, Atom } from 'effect/reactivity';
 import { vi } from 'vitest';
 
 import { ForbiddenError } from '@repo/spec-api/middlewares/auth.ts';
@@ -34,10 +24,13 @@ import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import {
+  AtomTaskScheduler,
+  ClientAtomsTestLayer,
+  makeClientAtomsTestLayer,
+} from '#src/services/testing/atoms.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
-  makeClientTestLayers,
   makeServerUrl,
   makeUsername,
   setupTestServerWithUsers,
@@ -46,83 +39,6 @@ import {
 
 // The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
-
-class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
-  'voel/services/accounts/atoms.test/AtomTaskScheduler',
-  {
-    make: Effect.sync(() => {
-      const scheduledTasks = new Set<() => void>();
-
-      return {
-        scheduleTask: (task: () => void) => {
-          let active = true;
-          const scheduledTask = () => {
-            if (!active) {
-              return;
-            }
-
-            active = false;
-            scheduledTasks.delete(scheduledTask);
-            task();
-          };
-
-          scheduledTasks.add(scheduledTask);
-          queueMicrotask(scheduledTask);
-
-          return () => {
-            active = false;
-            scheduledTasks.delete(scheduledTask);
-          };
-        },
-        drainAtomTasks: Effect.sync(() => {
-          let drainCount = 0;
-
-          while (scheduledTasks.size > 0) {
-            if (drainCount > 1000) {
-              throw new Error('Atom task scheduler did not settle.');
-            }
-
-            drainCount += 1;
-
-            const tasks: Array<() => void> = [];
-            for (const scheduledTask of scheduledTasks) {
-              tasks.push(scheduledTask);
-            }
-
-            for (const scheduledTask of tasks) {
-              scheduledTask();
-            }
-          }
-        }),
-      };
-    }),
-  }
-) {
-  public static readonly layer = Layer.effect(this, this.make);
-}
-
-const TestAccountsAtomsLayer = Layer.fromBuild((memoMap, scope) =>
-  Effect.gen(function* () {
-    const services =
-      yield* Effect.context<Layer.Success<ReturnType<typeof makeClientTestLayers>>>();
-    const atomTaskScheduler = yield* AtomTaskScheduler;
-    const registryLayer = AtomRegistry.layerOptions({
-      initialValues: [
-        Atom.initialValue(AppRuntime.layer, Layer.succeedContext(services)),
-        Atom.initialValue(Atom.runtime.memoMap, memoMap),
-      ],
-      scheduleTask: atomTaskScheduler.scheduleTask,
-    });
-
-    return yield* Layer.effectDiscard(Atom.mount(AppRuntime)).pipe(
-      Layer.provideMerge(registryLayer),
-      (layer) => Layer.buildWithMemoMap(layer, memoMap, scope)
-    );
-  })
-).pipe(Layer.provideMerge(AtomTaskScheduler.layer));
-
-const makeAccountsAtomsTestLayer = () =>
-  TestAccountsAtomsLayer.pipe(Layer.provideMerge(makeClientTestLayers()));
 
 const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
   const session = yield* authClient.getSession;
@@ -155,7 +71,7 @@ it.layer(TestServerControllerClient.layer)('activeAccountApiClientAtom', (iit) =
           NoActiveAccountError
         );
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -191,7 +107,7 @@ it.layer(TestServerControllerClient.layer)('activeAccountApiClientAtom', (iit) =
           NoActiveAccountError
         );
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 });
@@ -221,7 +137,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         yield* drainAtomTasks;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -246,7 +162,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           },
         ]);
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 });
@@ -260,7 +176,7 @@ describe('accountsSheetAtom', () => {
           AccountsSheet.Onboarding({ dismissable: false })
         );
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -283,13 +199,13 @@ describe('accountsSheetAtom', () => {
             );
           }).pipe(
             Effect.provide(
-              Layer.fresh(TestAccountsAtomsLayer).pipe(
+              Layer.fresh(ClientAtomsTestLayer).pipe(
                 Layer.provideMerge(Layer.fresh(AccountManager.layerNoDeps))
               )
             )
           );
         },
-        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+        (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
       )
     );
   });
@@ -354,7 +270,7 @@ describe('accountsSheetAtom', () => {
             AccountsSheet.Idle({ dismissable: true })
           );
         },
-        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+        (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
       )
     );
 
@@ -414,7 +330,7 @@ describe('accountsSheetAtom', () => {
             AccountsSheet.Idle({ dismissable: true })
           );
         },
-        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+        (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
       )
     );
   });
@@ -452,7 +368,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           AccountsSheet.Idle({ dismissable: true })
         );
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -504,7 +420,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           )
         ).toEqual(Option.some(AccountsSheet.InvalidSession({ dismissable: true })));
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -547,7 +463,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           )
         ).toEqual(Option.some(AccountsSheet.InvalidSession({ dismissable: true })));
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -575,7 +491,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         );
         expect(yield* authClients.acquire(Option.getOrThrow(yield* manager.state))).toBe(client);
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 });
@@ -589,7 +505,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
 
         expect(error).toBeInstanceOf(NoActiveAccountError);
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -644,7 +560,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const remaining = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         expect(remaining.items).toHaveLength(11);
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -681,7 +597,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
         );
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 });
@@ -739,7 +655,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         expect(read).not.toHaveBeenCalled();
         expect(list).not.toHaveBeenCalled();
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 
@@ -774,7 +690,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         expect(own.sessions.some((item) => item.id === other.id)).toBe(false);
         expect(admin.sessions.some((item) => item.id === other.id)).toBe(false);
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 });
@@ -816,7 +732,7 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
         expect(DateTime.isUtc(activeAccount.createdAt)).toBe(true);
         expect(DateTime.isUtc(activeAccount.updatedAt)).toBe(true);
       },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      (effect) => effect.pipe(Effect.provide(makeClientAtomsTestLayer()))
     )
   );
 });
