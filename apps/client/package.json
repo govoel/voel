@@ -20,6 +20,7 @@
     "@expo-google-fonts/google-sans": "0.4.2",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~58.0.12",
+    "@govoel/plugins": "workspace:*",
     "@repo/auth-api": "workspace:*",
     "@repo/effect-turso-sync": "workspace:*",
     "@repo/effect-turso-sync-rn": "workspace:*",
@@ -54,7 +55,6 @@
   "devDependencies": {
     "@effect/platform-bun": "4.0.0",
     "@effect/vitest": "4.0.0",
-    "@govoel/plugins": "workspace:*",
     "@repo/effect-atom-devtools-core": "workspace:*",
     "@repo/effect-atom-devtools-rozenite": "workspace:*",
     "@repo/effect-turso-sync-bun": "workspace:*",
