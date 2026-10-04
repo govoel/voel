@@ -25,7 +25,7 @@ export class ForbiddenError extends Schema.TaggedError<
 
 export class AuthMiddleware extends HttpApiMiddleware.Service<
   AuthMiddleware,
-  { provides: CurrentSession }
+  { provides: CurrentSession; clientError: UnauthorizedError }
 >()('@repo/spec-api/middlewares/auth/AuthMiddleware', {
   error: UnauthorizedError,
   requiredForClient: true,
