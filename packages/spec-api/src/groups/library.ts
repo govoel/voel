@@ -1,4 +1,5 @@
 import {
+  StorageLocationValidationError,
   StoragePluginConstructionError,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
@@ -9,19 +10,93 @@ import { Schema } from 'effect';
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from 'effect/http-api';
 
 import { Library, LibraryRoot } from '#src/database/schema.ts';
-import {
-  LibraryInvalidRootError,
-  LibraryInvalidStoragePluginSettingsError,
-  LibraryNameConflictError,
-  LibraryNotFoundError,
-  LibraryResponse,
-  LibraryUnconfiguredError,
-  StoragePluginHealth,
-  StoragePluginStatus,
-} from '#src/library.ts';
 import { AdminMiddleware, AuthMiddleware } from '#src/middlewares/auth.ts';
 import { PluginLoadError } from '#src/plugins/index.ts';
 import { StoragePluginLoadError } from '#src/plugins/storage.ts';
+
+export class LibraryNotFoundError extends Schema.TaggedError<
+  LibraryNotFoundError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryNotFoundError')(
+  'LibraryNotFoundError',
+  { id: Library.json.fields.id },
+  { httpApiStatus: 404 }
+) {}
+
+export class LibraryNameConflictError extends Schema.TaggedError<
+  LibraryNameConflictError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryNameConflictError')(
+  'LibraryNameConflictError',
+  { name: Library.json.fields.name },
+  { httpApiStatus: 409 }
+) {}
+
+export class LibraryUnconfiguredError extends Schema.TaggedError<
+  LibraryUnconfiguredError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryUnconfiguredError')(
+  'LibraryUnconfiguredError',
+  { id: Library.json.fields.id },
+  { httpApiStatus: 409 }
+) {}
+
+export class LibraryInvalidRootError extends Schema.TaggedError<
+  LibraryInvalidRootError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryInvalidRootError')(
+  'LibraryInvalidRootError',
+  {
+    roots: Schema.NonEmptyArray(
+      Schema.Struct({
+        root: LibraryRoot.jsonUpsert.fields.root,
+        message: StorageLocationValidationError.fields.message,
+      })
+    ),
+  },
+  { httpApiStatus: 422 }
+) {}
+
+/** Submitted settings failed plugin validation; messages must be client-safe. */
+export class LibraryInvalidStoragePluginSettingsError extends Schema.TaggedError<
+  LibraryInvalidStoragePluginSettingsError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryInvalidStoragePluginSettingsError')(
+  'LibraryInvalidStoragePluginSettingsError',
+  { message: Schema.NonEmptyString },
+  { httpApiStatus: 422 }
+) {}
+
+class LibraryResponse extends Schema.Struct({
+  id: Library.json.fields.id,
+  type: Library.json.fields.type,
+  name: Library.json.fields.name,
+  storagePlugin: Library.json.fields.storagePlugin,
+  storagePluginSettings: Library.json.fields.storagePluginSettings,
+  roots: Schema.Array(
+    Schema.Struct({ id: LibraryRoot.json.fields.id, root: LibraryRoot.json.fields.root })
+  ),
+}) {}
+
+/** Cached construction state of storage and its settings editor, not a live health probe. */
+const StoragePluginStatus = Schema.Literals(['unknown', 'healthy', 'unhealthy']);
+
+/** Any cached failure wins; healthy means at least one current component was built successfully. */
+export const StoragePluginHealth = Schema.Union([
+  Schema.Struct({ status: Schema.Literal('unknown') }),
+  Schema.Struct({ status: Schema.Literal('healthy') }),
+  Schema.Struct({
+    status: Schema.Literal('unhealthy'),
+    errors: Schema.NonEmptyArray(
+      Schema.Union([
+        PluginLoadError,
+        StoragePluginLoadError,
+        StoragePluginConstructionError,
+        StoragePluginSettingsConstructionError,
+      ])
+    ),
+  }),
+]);
 
 export const LibraryApi = HttpApiGroup.make('library')
   .add(
@@ -44,7 +119,7 @@ export const LibraryApi = HttpApiGroup.make('library')
         ...LibraryResponse.fields,
         storagePluginHealth: StoragePluginHealth,
       }),
-      error: LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
+      error: LibraryNotFoundError,
     }),
 
     HttpApiEndpoint.post('create', '/api/libraries', {
@@ -54,17 +129,14 @@ export const LibraryApi = HttpApiGroup.make('library')
         storagePlugin: Library.jsonCreate.fields.storagePlugin,
       }),
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+      error: LibraryNameConflictError,
     }),
 
     HttpApiEndpoint.patch('update', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),
       payload: Schema.Struct({ name: Library.jsonUpdate.fields.name }),
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
-      ],
+      error: [LibraryNotFoundError, LibraryNameConflictError],
     }),
 
     HttpApiEndpoint.get(
@@ -74,11 +146,11 @@ export const LibraryApi = HttpApiGroup.make('library')
         params: Schema.Struct({ id: Library.json.fields.id }),
         success: StoragePluginSettingsForm,
         error: [
-          LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
+          LibraryNotFoundError,
           StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
           StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-          PluginLoadError.pipe(HttpApiSchema.status(500)),
-          StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+          PluginLoadError,
+          StoragePluginLoadError,
         ],
       }
     ),
@@ -88,12 +160,12 @@ export const LibraryApi = HttpApiGroup.make('library')
       payload: Schema.Struct({ input: StoragePluginSettingsInput }),
       success: Schema.Struct({ id: Library.json.fields.id }),
       error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
+        LibraryNotFoundError,
         StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
         StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-        LibraryInvalidStoragePluginSettingsError.pipe(HttpApiSchema.status(422)),
-        PluginLoadError.pipe(HttpApiSchema.status(500)),
-        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+        LibraryInvalidStoragePluginSettingsError,
+        PluginLoadError,
+        StoragePluginLoadError,
       ],
     }),
 
@@ -107,12 +179,12 @@ export const LibraryApi = HttpApiGroup.make('library')
         roots: Schema.Array(Schema.Struct({ root: LibraryRoot.json.fields.root })),
       }),
       error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        LibraryUnconfiguredError.pipe(HttpApiSchema.status(409)),
-        LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
+        LibraryNotFoundError,
+        LibraryUnconfiguredError,
+        LibraryInvalidRootError,
         StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
-        PluginLoadError.pipe(HttpApiSchema.status(500)),
-        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+        PluginLoadError,
+        StoragePluginLoadError,
       ],
     }),
 
