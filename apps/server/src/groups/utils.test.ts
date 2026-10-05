@@ -74,8 +74,6 @@ class UserRoleRow extends Schema.Class<UserRoleRow, { readonly brand: unique sym
   public static readonly decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
-const pluginMapsLayer = Layer.mergeAll(StoragePluginSettingsMap.layer, StoragePluginMap.layer);
-
 const requestContextProbeLayer = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const settingsMap = yield* StoragePluginSettingsMap;
@@ -105,7 +103,8 @@ const makeTestDependenciesLayer = () =>
       LibraryRepository.layerNoDeps,
       StoragePluginModuleMap.layer,
       StoragePluginBuilder.layer,
-      pluginMapsLayer,
+      StoragePluginSettingsMap.layer,
+      StoragePluginMap.layer,
     ]),
     Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
     Layer.provide([ApiConfig.layerTest(), Reactivity.layer]),
@@ -114,7 +113,9 @@ const makeTestDependenciesLayer = () =>
 
 const makeTestLayer = () =>
   Layer.mergeAll(ApiRoutesLayerNoDeps, requestContextProbeLayer).pipe(
-    HttpRouter.provideRequest(pluginMapsLayer),
+    HttpRouter.provideRequest(
+      Layer.mergeAll(StoragePluginSettingsMap.layer, StoragePluginMap.layer)
+    ),
     Layer.provideMerge(makeTestDependenciesLayer()),
     Layer.provideMerge(HttpRouter.layer)
   );
