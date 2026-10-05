@@ -5,6 +5,7 @@ import {
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginSettings,
+  StoragePluginSettingsError,
   StoragePluginSettingsForm,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
@@ -193,19 +194,35 @@ export class StoragePluginSettingsMap extends LayerMap.Service<StoragePluginSett
           });
 
           const settings = Context.get(context, StoragePluginSettings);
-          // Enforce the shared output contract once, inside the isolated plugin invocation.
+          // Output schema failures are operational; only submission-decoder failures reject input.
           return StoragePluginSettings.of({
             getForm: (input) =>
               invoke(() =>
-                settings
-                  .getForm(input)
-                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(StoragePluginSettingsForm)))
+                settings.getForm(input).pipe(
+                  Effect.flatMap((form) =>
+                    Schema.decodeEffect(StoragePluginSettingsForm)(form).pipe(
+                      Effect.catchTag('SchemaError', () =>
+                        StoragePluginSettingsError.make({
+                          message: 'Invalid storage plugin settings form',
+                        })
+                      )
+                    )
+                  )
+                )
               ),
             decodeFormSubmission: (input) =>
               invoke(() =>
-                settings
-                  .decodeFormSubmission(input)
-                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(StoragePluginSettingsPersisted)))
+                settings.decodeFormSubmission(input).pipe(
+                  Effect.flatMap((persisted) =>
+                    Schema.decodeEffect(StoragePluginSettingsPersisted)(persisted).pipe(
+                      Effect.catchTag('SchemaError', () =>
+                        StoragePluginSettingsError.make({
+                          message: 'Invalid persisted storage plugin settings',
+                        })
+                      )
+                    )
+                  )
+                )
               ),
           });
         })

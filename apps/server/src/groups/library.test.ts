@@ -8,6 +8,7 @@ import {
   StoragePlugin,
   StoragePluginConstructionError,
   StoragePluginSettings,
+  StoragePluginSettingsError,
   StoragePluginSettingsForm,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
@@ -73,6 +74,8 @@ class PluginFixture extends Context.Service<PluginFixture>()(
           }
         ): Effect.Effect<void> => Effect.void,
         invalidForm: false,
+        invalidPersisted: false,
+        settingsError: false,
       };
       const module = {
         storage: {
@@ -121,6 +124,11 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                 StoragePluginSettings.of({
                   getForm: ({ current }) =>
                     Effect.gen(function* () {
+                      if (controls.settingsError) {
+                        return yield* StoragePluginSettingsError.make({
+                          message: 'Settings unavailable',
+                        });
+                      }
                       const settings = Option.isSome(current)
                         ? yield* Schema.decodeUnknownEffect(Persisted)(current.value)
                         : { prefix: '' };
@@ -136,10 +144,22 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                     }),
                   decodeFormSubmission: ({ input }) =>
                     controls.beforeDecode({ ...request, input }).pipe(
+                      Effect.andThen(() =>
+                        controls.settingsError
+                          ? StoragePluginSettingsError.make({ message: 'Settings unavailable' })
+                          : Effect.void
+                      ),
                       Effect.andThen(Schema.decodeUnknownEffect(Input)(input)),
-                      Effect.map(({ root }) =>
-                        StoragePluginSettingsPersisted.make({ prefix: root.trim() })
-                      )
+                      Effect.map(({ root }) => {
+                        // Model a plugin returning JSON invalidated after branding.
+                        if (controls.invalidPersisted) {
+                          const value = { prefix: root.trim(), version: 1 };
+                          const settings = StoragePluginSettingsPersisted.make(value);
+                          value.version = Number.NaN;
+                          return settings;
+                        }
+                        return StoragePluginSettingsPersisted.make({ prefix: root.trim() });
+                      })
                     ),
                 })
               )
@@ -533,7 +553,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         })
         .pipe(Effect.flip);
       expect(failure).toMatchObject({
-        _tag: 'StoragePluginSettingsError',
+        _tag: 'LibraryInvalidStoragePluginSettingsError',
         message: 'Invalid storage plugin settings',
       });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
@@ -1094,6 +1114,74 @@ const makeHttpTransport = Effect.fnUntraced(function* (
 });
 
 it.layer(testLayer)('library HTTP transport', (iit) => {
+  iit.effect.each([
+    ['invalid submission', 'PUT', 422, 'LibraryInvalidStoragePluginSettingsError'],
+    ['operational GET', 'GET', 500, 'StoragePluginSettingsError'],
+    ['operational PUT', 'PUT', 500, 'StoragePluginSettingsError'],
+    ['malformed form', 'GET', 500, 'StoragePluginSettingsError'],
+    ['malformed persisted output', 'PUT', 500, 'StoragePluginSettingsError'],
+    ['invalid current settings', 'GET', 500, 'StoragePluginSettingsError'],
+  ] as const)(
+    'distinguishes submitted settings validation from operational failures: %s',
+    Effect.fnUntraced(function* ([scenario, method, status, tag]) {
+      const { client, send } = yield* makeHttpTransport(
+        Option.some({ username: 'wire_settings', role: 'admin' })
+      );
+      const fixture = yield* PluginFixture;
+      const repository = yield* LibraryRepository.make;
+      const library = yield* Effect.acquireRelease(
+        client.library.create({
+          payload: createInput(`HTTP settings ${scenario}`, 'npm:test'),
+        }),
+        (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
+      );
+      const original = StoragePluginSettingsPersisted.make(
+        scenario === 'invalid current settings' ? {} : { prefix: '/original' }
+      );
+      yield* repository.setSettings({ ...library, settings: original });
+      const { invalidForm, invalidPersisted, settingsError } = fixture.controls;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          Object.assign(fixture.controls, { invalidForm, invalidPersisted, settingsError });
+        })
+      );
+      fixture.controls.invalidForm = scenario === 'malformed form';
+      fixture.controls.invalidPersisted = scenario === 'malformed persisted output';
+      fixture.controls.settingsError =
+        scenario === 'operational GET' || scenario === 'operational PUT';
+      const input = StoragePluginSettingsInput.make({
+        root: scenario === 'invalid submission' ? 123 : '/updated',
+      });
+      const path = `/api/libraries/${library.id}/plugins/storage`;
+      const response = yield* send(
+        method === 'GET'
+          ? { path: `${path}/settings-form`, method }
+          : {
+              path: `${path}/settings`,
+              method,
+              body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ input }),
+            }
+      );
+      expect(response.status).toBe(status);
+      expect(yield* Effect.promise(async () => response.json())).toMatchObject({
+        _tag: tag,
+        ...(scenario === 'invalid submission'
+          ? { message: 'Invalid storage plugin settings' }
+          : {}),
+      });
+      // Also prove the API schema decodes the wire error into the declared client error.
+      const error = yield* method === 'GET'
+        ? client.library.getStoragePluginSettingsForm({ params: library }).pipe(Effect.flip)
+        : client.library
+            .setStoragePluginSettings({ params: library, payload: { input } })
+            .pipe(Effect.flip);
+      expect(error).toMatchObject({ _tag: tag });
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+        Option.some(original)
+      );
+    })
+  );
+
   iit.effect(
     'serves resource methods, tagged errors, Option JSON, and bodyless deletion',
     Effect.fnUntraced(function* () {

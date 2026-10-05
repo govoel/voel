@@ -11,6 +11,7 @@ import { Library, LibraryRoot } from '@repo/spec-api/database/schema.ts';
 import type { StoragePluginHealth } from '@repo/spec-api/groups/library.ts';
 import {
   LibraryInvalidRootError,
+  LibraryInvalidStoragePluginSettingsError,
   LibraryNameConflictError,
   LibraryNotFoundError,
   LibraryUnconfiguredError,
@@ -344,7 +345,9 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               .decodeFormSubmission({ current: row.storagePluginSettings, input })
               .pipe(
                 Effect.catchTag('SchemaError', () =>
-                  StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
+                  LibraryInvalidStoragePluginSettingsError.make({
+                    message: 'Invalid storage plugin settings',
+                  })
                 )
               );
             return yield* repository.setSettings({ id, settings }).pipe(

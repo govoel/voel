@@ -57,6 +57,16 @@ export class LibraryInvalidRootError extends Schema.TaggedError<
   { httpApiStatus: 422 }
 ) {}
 
+/** Submitted settings failed plugin validation; messages must be client-safe. */
+export class LibraryInvalidStoragePluginSettingsError extends Schema.TaggedError<
+  LibraryInvalidStoragePluginSettingsError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/groups/library/LibraryInvalidStoragePluginSettingsError')(
+  'LibraryInvalidStoragePluginSettingsError',
+  { message: Schema.NonEmptyString },
+  { httpApiStatus: 422 }
+) {}
+
 class LibraryResponse extends Schema.Struct({
   id: Library.json.fields.id,
   type: Library.json.fields.type,
@@ -138,7 +148,7 @@ export const LibraryApi = HttpApiGroup.make('library')
         error: [
           LibraryNotFoundError,
           StoragePluginSettingsConstructionError,
-          StoragePluginSettingsError.pipe(HttpApiSchema.status(422)),
+          StoragePluginSettingsError,
           PluginLoadError,
           StoragePluginLoadError,
         ],
@@ -152,7 +162,8 @@ export const LibraryApi = HttpApiGroup.make('library')
       error: [
         LibraryNotFoundError,
         StoragePluginSettingsConstructionError,
-        StoragePluginSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginSettingsError,
+        LibraryInvalidStoragePluginSettingsError,
         PluginLoadError,
         StoragePluginLoadError,
       ],

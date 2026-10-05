@@ -230,14 +230,14 @@ it.effect('rejects malformed settings outputs at the plugin boundary', () =>
   Effect.gen(function* () {
     const settings = yield* StoragePluginSettingsMap.acquire(request);
     const formError = yield* settings.getForm({ current: Option.none() }).pipe(Effect.flip);
-    expect(formError._tag).toBe('SchemaError');
+    expect(formError._tag).toBe('StoragePluginSettingsError');
     const submissionError = yield* settings
       .decodeFormSubmission({
         current: Option.none(),
         input: StoragePluginSettingsInput.make({}),
       })
       .pipe(Effect.flip);
-    expect(submissionError._tag).toBe('SchemaError');
+    expect(submissionError._tag).toBe('StoragePluginSettingsError');
   }).pipe(
     Effect.scoped,
     Effect.provide(
