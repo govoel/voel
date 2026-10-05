@@ -19,9 +19,7 @@ export class LibraryNotFoundError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/groups/library/LibraryNotFoundError')(
   'LibraryNotFoundError',
-  {
-    id: Library.json.fields.id,
-  },
+  { id: Library.json.fields.id },
   { httpApiStatus: 404 }
 ) {}
 
@@ -30,9 +28,7 @@ export class LibraryNameConflictError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/groups/library/LibraryNameConflictError')(
   'LibraryNameConflictError',
-  {
-    name: Library.json.fields.name,
-  },
+  { name: Library.json.fields.name },
   { httpApiStatus: 409 }
 ) {}
 
@@ -41,9 +37,7 @@ export class LibraryUnconfiguredError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/groups/library/LibraryUnconfiguredError')(
   'LibraryUnconfiguredError',
-  {
-    id: Library.json.fields.id,
-  },
+  { id: Library.json.fields.id },
   { httpApiStatus: 409 }
 ) {}
 
@@ -70,10 +64,7 @@ class LibraryResponse extends Schema.Struct({
   storagePlugin: Library.json.fields.storagePlugin,
   storagePluginSettings: Library.json.fields.storagePluginSettings,
   roots: Schema.Array(
-    Schema.Struct({
-      id: LibraryRoot.json.fields.id,
-      root: LibraryRoot.json.fields.root,
-    })
+    Schema.Struct({ id: LibraryRoot.json.fields.id, root: LibraryRoot.json.fields.root })
   ),
 }) {}
 

@@ -236,9 +236,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'reads only cached plugin health, reports failures, and forgets retired instances',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const library = yield* client.library.create({
-        payload: createInput('Health', 'npm:test'),
-      });
+      const library = yield* client.library.create({ payload: createInput('Health', 'npm:test') });
       const listItem = Effect.gen(function* () {
         return (yield* client.library.list({
           query: { cursor: Option.none(), limit: 100 },
@@ -337,9 +335,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         'unknown'
       );
       expect(
-        (yield* client.library.list({
-          query: { cursor: Option.none(), limit: 100 },
-        })).items.find(({ id }) => id === library.id)
+        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.find(
+          ({ id }) => id === library.id
+        )
       ).toMatchObject({ storagePluginStatus: 'unknown' });
     })
   );
@@ -370,10 +368,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
 
       expect(
         yield* repository
-          .setRoots({
-            ...library,
-            roots: [StorageRootLocation.make('/rejected-root-replacement')],
-          })
+          .setRoots({ ...library, roots: [StorageRootLocation.make('/rejected-root-replacement')] })
           .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'SqlError' });
       expect((yield* repository.getById(library)).roots.map(({ root }) => root)).toEqual([
@@ -402,9 +397,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         `
       ).toEqual([{ storagePluginSettings: null }]);
       expect(
-        (yield* client.library.list({
-          query: { cursor: Option.none(), limit: 100 },
-        })).items.some(({ id }) => id === library.id)
+        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.some(
+          ({ id }) => id === library.id
+        )
       ).toBe(true);
       expect(
         yield* client.library
@@ -444,9 +439,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'reports all rejected roots with their messages without changing persisted roots',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const library = yield* client.library.create({
-        payload: createInput('Invalid roots'),
-      });
+      const library = yield* client.library.create({ payload: createInput('Invalid roots') });
       yield* client.library.setStoragePluginSettings({
         params: library,
         payload: { input: StoragePluginSettingsInput.make({}) },
@@ -495,16 +488,14 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         errors: [{ _tag: 'PluginLoadError', message: 'Plugin unavailable' }],
       });
       expect(
-        (yield* client.library.list({
-          query: { cursor: Option.none(), limit: 100 },
-        })).items.find(({ id }) => id === missing.id)
+        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.find(
+          ({ id }) => id === missing.id
+        )
       ).toMatchObject({ storagePluginStatus: 'unhealthy' });
       const original = yield* client.library.create({ payload: createInput('Unique') });
       expect(
         yield* client.library.create({ payload: createInput('Unique') }).pipe(Effect.flip)
-      ).toMatchObject({
-        _tag: 'LibraryNameConflictError',
-      });
+      ).toMatchObject({ _tag: 'LibraryNameConflictError' });
       const other = yield* client.library.create({ payload: createInput('Other') });
       expect(
         yield* client.library
@@ -529,9 +520,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
-      const library = yield* client.library.create({
-        payload: createInput('Remote', 'npm:test'),
-      });
+      const library = yield* client.library.create({ payload: createInput('Remote', 'npm:test') });
       for (let attempt = 0; attempt < 2; attempt += 1) {
         expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toEqual([
           { _tag: 'TextField', name: 'root', label: 'Remote', placeholder: '', initialValue: '' },
@@ -583,10 +572,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(
         (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
       ).toEqual(['/one']);
-      yield* client.library.setRoots({
-        params: library,
-        payload: { roots: [{ root: '/one' }] },
-      });
+      yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
       expect(
         (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
       ).toEqual(['/one']);
@@ -641,10 +627,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: '/background' }) },
       });
-      yield* client.library.setRoots({
-        params: library,
-        payload: { roots: [{ root: '/one' }] },
-      });
+      yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
 
       const started = yield* Deferred.make<boolean>();
       const release = yield* Deferred.make<boolean>();
@@ -757,10 +740,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         roots: [{ root: '/original' }],
       });
       yield* Deferred.succeed(release, true);
-      expect(yield* Fiber.join(pending)).toEqual({
-        ...library,
-        roots: [{ root: '/pending' }],
-      });
+      expect(yield* Fiber.join(pending)).toEqual({ ...library, roots: [{ root: '/pending' }] });
       expect(
         (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
       ).toEqual(['/pending']);
@@ -878,10 +858,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         payload: { input: StoragePluginSettingsInput.make({ root: '/initial' }) },
       });
       yield* client.library.getStoragePluginSettingsForm({ params: library });
-      yield* client.library.setRoots({
-        params: library,
-        payload: { roots: [{ root: '/one' }] },
-      });
+      yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
       expect(
         [...fixture.activeStorage]
           .filter(({ library: row }) => row.id === library.id)
@@ -928,9 +905,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const sql = yield* LibraryDatabase;
-      const library = yield* client.library.create({
-        payload: createInput('Delete cascade'),
-      });
+      const library = yield* client.library.create({ payload: createInput('Delete cascade') });
       yield* client.library.setStoragePluginSettings({
         params: library,
         payload: { input: StoragePluginSettingsInput.make({}) },
@@ -1035,9 +1010,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         page.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
       ).toEqual([{ name: 'Page first', storagePluginStatus: 'unknown' }]);
       expect(page.nextCursor).toEqual(Option.some(first.id));
-      const last = yield* client.library.list({
-        query: { cursor: page.nextCursor, limit: 10 },
-      });
+      const last = yield* client.library.list({ query: { cursor: page.nextCursor, limit: 10 } });
       expect(
         last.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
       ).toEqual([{ name: 'Page second', storagePluginStatus: 'unknown' }]);
@@ -1114,12 +1087,7 @@ const makeHttpTransport = Effect.fnUntraced(function* (
         requestHeaders.set('content-type', 'application/json');
       }
       return yield* Effect.promise(async () =>
-        handler(
-          new Request(`http://localhost${path}`, {
-            ...init,
-            headers: requestHeaders,
-          })
-        )
+        handler(new Request(`http://localhost${path}`, { ...init, headers: requestHeaders }))
       );
     }),
   };
@@ -1211,9 +1179,7 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
         ...library,
         roots: [{ root: '/wire' }],
       });
-      const trailing = yield* client.library.create({
-        payload: createInput('HTTP trailing'),
-      });
+      const trailing = yield* client.library.create({ payload: createInput('HTTP trailing') });
       const list = yield* send({ path: '/api/libraries?limit=1', method: 'GET' });
       expect(list.status).toBe(200);
       expect(yield* Effect.promise(async () => list.json())).toMatchObject({
@@ -1222,9 +1188,7 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
         ],
         nextCursor: { _tag: 'Some', value: library.id },
       });
-      const decoded = yield* client.library.list({
-        query: { cursor: Option.none(), limit: 1 },
-      });
+      const decoded = yield* client.library.list({ query: { cursor: Option.none(), limit: 1 } });
       expect(decoded.items[0]?.storagePluginSettings).toEqual(Option.some({}));
       expect(decoded.nextCursor).toEqual(Option.some(library.id));
       const next = yield* send({

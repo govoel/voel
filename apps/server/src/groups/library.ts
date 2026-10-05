@@ -202,10 +202,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
         [
           editors
             .contextEffectOption(
-              StoragePluginSettingsMap.Key.make({
-                storagePlugin: row.storagePlugin,
-                library: row,
-              })
+              StoragePluginSettingsMap.Key.make({ storagePlugin: row.storagePlugin, library: row })
             )
             .pipe(Effect.map(Option.isSome)),
           Option.match(row.storagePluginSettings, {

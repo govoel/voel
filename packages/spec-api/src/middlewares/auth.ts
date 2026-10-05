@@ -33,6 +33,4 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 export class AdminMiddleware extends HttpApiMiddleware.Service<
   AdminMiddleware,
   { requires: CurrentSession }
->()('@repo/spec-api/middlewares/auth/AdminMiddleware', {
-  error: ForbiddenError,
-}) {}
+>()('@repo/spec-api/middlewares/auth/AdminMiddleware', { error: ForbiddenError }) {}
