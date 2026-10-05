@@ -7,8 +7,4 @@ export const NpmPluginId = Schema.TemplateLiteral(['npm:', Schema.NonEmptyString
 export class PluginLoadError extends Schema.TaggedError<
   PluginLoadError,
   { readonly brand: unique symbol }
->('@repo/spec-api/plugins/PluginLoadError')(
-  'PluginLoadError',
-  { message: Schema.String },
-  { httpApiStatus: 500 }
-) {}
+>('@repo/spec-api/plugins/PluginLoadError')('PluginLoadError', { message: Schema.String }) {}

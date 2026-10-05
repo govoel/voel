@@ -230,10 +230,6 @@ export class StoragePluginSettingsMap extends LayerMap.Service<StoragePluginSett
   }
 ) {
   public static readonly Key = StoragePluginSettingsKey;
-
-  /** Acquire an editor in the caller's scope using its canonical identity. */
-  public static readonly acquire = (request: Parameters<typeof StoragePluginSettingsKey.make>[0]) =>
-    this.contextEffect(this.Key.make(request)).pipe(Effect.map(Context.get(StoragePluginSettings)));
 }
 
 /** Storage instances are keyed by their plugin-visible library context, plugin, and settings. */
@@ -284,8 +280,4 @@ export class StoragePluginMap extends LayerMap.Service<StoragePluginMap>()(
   }
 ) {
   public static readonly Key = StoragePluginKey;
-
-  /** Acquire storage in the caller's scope using its canonical identity. */
-  public static readonly acquire = (request: Parameters<typeof StoragePluginKey.make>[0]) =>
-    this.contextEffect(this.Key.make(request)).pipe(Effect.map(Context.get(StoragePlugin)));
 }

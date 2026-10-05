@@ -12,8 +12,6 @@ export const StoragePluginId = Schema.Union([Schema.Literal('builtin:local'), Np
 export class StoragePluginLoadError extends Schema.TaggedError<
   StoragePluginLoadError,
   { readonly brand: unique symbol }
->('@repo/spec-api/plugins/storage/StoragePluginLoadError')(
-  'StoragePluginLoadError',
-  { message: Schema.String },
-  { httpApiStatus: 500 }
-) {}
+>('@repo/spec-api/plugins/storage/StoragePluginLoadError')('StoragePluginLoadError', {
+  message: Schema.String,
+}) {}
