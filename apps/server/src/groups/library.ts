@@ -322,7 +322,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
             const editor = yield* StoragePluginSettingsMap.acquire({
               storagePlugin: row.storagePlugin,
               library: row,
-            }).pipe(Effect.provideService(StoragePluginSettingsMap, editors));
+            });
             return yield* editor.getForm({ current: row.storagePluginSettings }).pipe(
               Effect.catchTag('SchemaError', () =>
                 StoragePluginSettingsError.make({
@@ -341,7 +341,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
             const editor = yield* StoragePluginSettingsMap.acquire({
               storagePlugin: row.storagePlugin,
               library: row,
-            }).pipe(Effect.provideService(StoragePluginSettingsMap, editors));
+            });
             const settings = yield* editor
               .decodeFormSubmission({ current: row.storagePluginSettings, input })
               .pipe(
@@ -374,7 +374,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
                 storagePlugin: row.storagePlugin,
                 library: row,
                 settings: row.storagePluginSettings.value,
-              }).pipe(Effect.provideService(StoragePluginMap, stores));
+              });
               const decoded = yield* Effect.validate(
                 roots,
                 ({ root }) =>
@@ -406,13 +406,4 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
         )
     );
   })
-);
-
-export const LibraryHandlersLayer = LibraryHandlersLayerNoDeps.pipe(
-  Layer.provide([
-    LibraryDatabase.layer,
-    LibraryRepository.layer,
-    StoragePluginSettingsMap.layer,
-    StoragePluginMap.layer,
-  ])
 );

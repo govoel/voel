@@ -1,11 +1,8 @@
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
 import { Effect, Layer, pipe } from 'effect';
 import { HttpRouter } from 'effect/http';
-import { HttpApiBuilder } from 'effect/http-api';
 
-import { Api } from '@repo/spec-api';
-
-import { LibraryHandlersLayer } from '#src/groups/library.ts';
+import { ApiRoutesLayer } from '#src/groups/index.ts';
 import { AdminMiddlewareLayer, AuthMiddlewareLayer, AuthRouterLayer } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { LibrarySyncRouterLayer } from '#src/services/database/library/sync.ts';
@@ -13,10 +10,7 @@ import { LibrarySyncRouterLayer } from '#src/services/database/library/sync.ts';
 const AllRoutesLayer = Layer.mergeAll(
   AuthRouterLayer,
   LibrarySyncRouterLayer,
-  HttpApiBuilder.layer(Api).pipe(
-    Layer.provide(LibraryHandlersLayer),
-    Layer.provide([AuthMiddlewareLayer, AdminMiddlewareLayer])
-  )
+  ApiRoutesLayer.pipe(Layer.provide([AuthMiddlewareLayer, AdminMiddlewareLayer]))
 );
 
 if (import.meta.main) {

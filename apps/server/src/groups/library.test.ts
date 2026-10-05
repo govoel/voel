@@ -15,17 +15,10 @@ import {
   StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Context, Deferred, Effect, Fiber, Layer, Option, Schema } from 'effect';
-import {
-  FetchHttpClient,
-  Headers,
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-  HttpEffect,
-  HttpRouter,
-} from 'effect/http';
-import { HttpApiBuilder, HttpApiClient, HttpApiMiddleware, HttpApiTest } from 'effect/http-api';
+import { FetchHttpClient, Headers, HttpEffect, HttpRouter } from 'effect/http';
+import { HttpApiClient, HttpApiMiddleware, HttpApiTest } from 'effect/http-api';
 import { Reactivity } from 'effect/reactivity';
+import { TestClock } from 'effect/testing';
 
 import { TursoClient } from '@repo/effect-turso';
 import { Api } from '@repo/spec-api';
@@ -33,8 +26,9 @@ import { Library } from '@repo/spec-api/database/schema.ts';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 import { PluginLoadError } from '@repo/spec-api/plugins/index.ts';
 
+import { ApiRoutesLayerNoDeps } from '#src/groups/index.ts';
 import { LibraryHandlersLayerNoDeps, LibraryRepository } from '#src/groups/library.ts';
-import { makeAuthedClient } from '#src/groups/utils.ts';
+import { makeAuthedClient, makeRawRequest } from '#src/groups/utils.ts';
 import {
   AdminMiddlewareLayerNoDeps,
   AuthLayerNoDeps,
@@ -197,14 +191,47 @@ const pluginLayer = Layer.mergeAll(
   Layer.provide([BunFileSystem.layer, BunPath.layer, FetchHttpClient.layer])
 );
 
-const testLayer = LibraryHandlersLayerNoDeps.pipe(
-  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
+const testDependenciesLayer = Layer.mergeAll(
+  AuthMiddlewareLayerNoDeps,
+  AdminMiddlewareLayerNoDeps,
+  LibraryRepository.layerNoDeps,
+  pluginLayer
+).pipe(
   Layer.provideMerge(AuthLayerNoDeps),
-  Layer.provide(LibraryRepository.layerNoDeps),
-  Layer.provideMerge(pluginLayer),
   Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
   Layer.provideMerge([ApiConfig.layerTest(), Reactivity.layer]),
   Layer.provideMerge(BunHttpServer.layerHttpServices)
+);
+
+class TestClient extends Context.Service<TestClient>()(
+  '@repo/server/groups/library.test/TestClient',
+  { make: HttpApiTest.groups(Api, ['library']) }
+) {}
+
+// Register the test client's routes under request middleware using the fixture's existing maps.
+const testClientLayer = Layer.effect(TestClient, TestClient.make).pipe(
+  Layer.provide(LibraryHandlersLayerNoDeps),
+  HttpRouter.provideRequest(
+    Layer.effectContext(
+      Effect.context<StoragePluginMap | StoragePluginSettingsMap>().pipe(
+        Effect.map(Context.pick(StoragePluginMap, StoragePluginSettingsMap))
+      )
+    )
+  )
+);
+const makeTestClient = ({
+  authLayer,
+}: {
+  readonly authLayer: Effect.Success<ReturnType<typeof makeAuthedClient>>['layer'];
+}) =>
+  // Keep the handlers' retirement scope alive until the enclosing test scope closes.
+  Layer.build(testClientLayer.pipe(Layer.provide(authLayer))).pipe(
+    Effect.map(Context.get(TestClient))
+  );
+const wireTestLayer = ApiRoutesLayerNoDeps.pipe(
+  HttpRouter.provideRequest(pluginLayer),
+  Layer.provideMerge(testDependenciesLayer),
+  Layer.provideMerge(HttpRouter.layer)
 );
 
 const createInput = (
@@ -216,12 +243,11 @@ const createInput = (
   storagePlugin: Library.fields.storagePlugin.make(plugin),
 });
 const makeClient = Effect.gen(function* () {
-  return yield* HttpApiTest.groups(Api, ['library']).pipe(
-    Effect.provide(yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' }))
-  );
+  const auth = yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' });
+  return yield* makeTestClient({ authLayer: auth.layer });
 });
 
-it.layer(testLayer)('library lifecycle', (iit) => {
+it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
   iit.effect(
     'collects cached failures from both plugin components',
     Effect.fnUntraced(function* () {
@@ -1041,11 +1067,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   iit.effect(
     'rejects unauthenticated requests',
     Effect.fnUntraced(function* () {
-      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(
-        Effect.provide(
-          HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
-        )
-      );
+      const client = yield* makeTestClient({
+        authLayer: HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
+          next(request)
+        ),
+      });
       expect(
         yield* client.library.create({ payload: createInput('Unauthorized') }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'UnauthorizedError' });
@@ -1057,9 +1083,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   iit.effect.each(['user', 'under18'] as const)(
     'rejects non-admin %s requests',
     Effect.fnUntraced(function* (role) {
-      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: role, role }))
-      );
+      const auth = yield* makeAuthedClient({ username: role, role });
+      const client = yield* makeTestClient({ authLayer: auth.layer });
       expect(
         yield* client.library.create({ payload: createInput('Forbidden') }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'ForbiddenError' });
@@ -1070,50 +1095,117 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   );
 });
 
-// Use the real router/error-response pipeline, with generated-client auth headers also
-// available to raw requests so malformed inputs bypass client-side validation.
-const makeHttpTransport = Effect.fnUntraced(function* (
+// The Fetch override is local to this client; plugin HTTP traffic keeps its real transport.
+const makeWireTransport = Effect.fnUntraced(function* (
   user: Option.Option<Parameters<typeof makeAuthedClient>[0]>
 ) {
-  const handler = HttpEffect.toWebHandler(
-    yield* HttpRouter.toHttpEffect(HttpApiBuilder.layer(Api))
+  const auth = Option.isSome(user)
+    ? yield* makeAuthedClient(user.value)
+    : {
+        headers: Headers.empty,
+        layer: HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request)),
+      };
+  const handler = HttpEffect.toWebHandler(yield* HttpRouter.toHttpEffect(Layer.empty));
+  const localFetch: typeof fetch = Object.assign(
+    async (input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+      handler(
+        input instanceof Request ? new Request(input, init) : new Request(input.toString(), init)
+      ),
+    {
+      preconnect() {
+        // In-memory requests do not open connections.
+      },
+    }
   );
-  let headers = Headers.empty;
-  const httpClient = HttpClient.make(
-    Effect.fnUntraced(function* (request) {
-      ({ headers } = request);
-      const webRequest = yield* HttpClientRequest.toWeb(request).pipe(Effect.orDie);
-      const response = yield* Effect.promise(async () => handler(webRequest));
-      return HttpClientResponse.fromWeb(request, response);
-    })
+  const client = yield* HttpApiClient.make(Api, { baseUrl: 'http://localhost' }).pipe(
+    Effect.provide([
+      auth.layer,
+      Layer.fresh(FetchHttpClient.layer).pipe(
+        Layer.provide(Layer.succeed(FetchHttpClient.Fetch, localFetch))
+      ),
+    ])
   );
-  const client = yield* HttpApiClient.makeWith(Api, {
-    httpClient,
-    baseUrl: 'http://localhost',
-  }).pipe(
-    Effect.provide(
-      Option.isSome(user)
-        ? yield* makeAuthedClient(user.value)
-        : HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
-    )
-  );
-  // Even rejected calls carry the authentication middleware's final request headers.
-  yield* client.library.list({ query: { cursor: Option.none(), limit: 1 } }).pipe(Effect.ignore);
-  return {
-    client,
-    send: Effect.fnUntraced(function* ({ path, ...init }: { readonly path: string } & RequestInit) {
-      const requestHeaders = new globalThis.Headers(headers);
-      if (init.body !== void 0) {
-        requestHeaders.set('content-type', 'application/json');
-      }
-      return yield* Effect.promise(async () =>
-        handler(new Request(`http://localhost${path}`, { ...init, headers: requestHeaders }))
-      );
-    }),
-  };
+  return { client, send: makeRawRequest({ handler, headers: auth.headers }) };
 });
 
-it.layer(testLayer)('library HTTP transport', (iit) => {
+it.layer(wireTestLayer)('library HTTP transport', (iit) => {
+  iit.effect.each(['typed interruption', 'raw interruption', 'raw explicit abort'] as const)(
+    'interrupts and finalizes blocked settings decoding on %s',
+    Effect.fnUntraced(
+      function* (scenario) {
+        const { client, send } = yield* makeWireTransport(
+          Option.some({ username: 'wire_cancellation', role: 'admin' })
+        );
+        const fixture = yield* PluginFixture;
+        const library = yield* Effect.acquireRelease(
+          client.library.create({
+            payload: createInput(`HTTP ${scenario}`, 'npm:test'),
+          }),
+          (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
+        );
+        const started = yield* Deferred.make<boolean>();
+        const interrupted = yield* Deferred.make<boolean>();
+        const finalized = yield* Deferred.make<boolean>();
+        const release = yield* Deferred.make<boolean>();
+        const { beforeDecode } = fixture.controls;
+        yield* Effect.addFinalizer(() =>
+          Deferred.succeed(release, true).pipe(
+            Effect.andThen(
+              Effect.sync(() => {
+                fixture.controls.beforeDecode = beforeDecode;
+              })
+            )
+          )
+        );
+        fixture.controls.beforeDecode = (request) =>
+          request.library.id === library.id
+            ? Effect.acquireUseRelease(
+                Effect.void,
+                () =>
+                  Deferred.succeed(started, true).pipe(
+                    Effect.andThen(Deferred.await(release)),
+                    Effect.onInterrupt(() =>
+                      Deferred.succeed(interrupted, true).pipe(Effect.asVoid)
+                    )
+                  ),
+                () => Deferred.succeed(finalized, true).pipe(Effect.asVoid)
+              )
+            : Effect.void;
+        const payload = { input: StoragePluginSettingsInput.make({ root: '/cancelled' }) };
+        // oxlint-disable-next-line effecttsgo/abort-controller-in-effect -- model a caller-owned signal independent of Effect interruption
+        const controller = new AbortController();
+        const request = yield* (
+          scenario === 'typed interruption'
+            ? client.library.setStoragePluginSettings({ params: library, payload })
+            : send({
+                path: `/api/libraries/${library.id}/plugins/storage/settings`,
+                method: 'PUT',
+                body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(payload),
+                // Raw interruption must still work when the caller also supplies a signal.
+                signal: controller.signal,
+              })
+        ).pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        expect(yield* Deferred.isDone(interrupted)).toBe(false);
+        expect(yield* Deferred.isDone(finalized)).toBe(false);
+        if (scenario === 'raw explicit abort') {
+          controller.abort();
+        } else {
+          yield* Fiber.interrupt(request);
+          expect(controller.signal.aborted).toBe(false);
+        }
+        yield* Deferred.await(interrupted);
+        yield* Deferred.await(finalized);
+        expect(yield* Deferred.isDone(release)).toBe(false);
+        expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+          Option.none()
+        );
+      },
+      // A live deadline makes a missing abort fail instead of waiting on the test clock.
+      (effect) => TestClock.withLive(effect.pipe(Effect.timeout('3 seconds')))
+    )
+  );
+
   iit.effect.each([
     [
       'invalid submission',
@@ -1148,7 +1240,7 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
   ] as const)(
     'distinguishes submitted settings validation from operational failures: %s',
     Effect.fnUntraced(function* ([scenario, method, status, tag, message]) {
-      const { client, send } = yield* makeHttpTransport(
+      const { client, send } = yield* makeWireTransport(
         Option.some({ username: 'wire_settings', role: 'admin' })
       );
       const fixture = yield* PluginFixture;
@@ -1210,7 +1302,7 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
   iit.effect(
     'serves resource methods, tagged errors, Option JSON, and bodyless deletion',
     Effect.fnUntraced(function* () {
-      const { client, send } = yield* makeHttpTransport(
+      const { client, send } = yield* makeWireTransport(
         Option.some({ username: 'wire_admin', role: 'admin' })
       );
       const payload = createInput('HTTP library');
@@ -1331,7 +1423,7 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
   iit.effect(
     'validates path and query values before handlers run',
     Effect.fnUntraced(function* () {
-      const { send } = yield* makeHttpTransport(
+      const { send } = yield* makeWireTransport(
         Option.some({ username: 'wire_validation', role: 'admin' })
       );
       for (const path of [
@@ -1355,7 +1447,7 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
   ] as const)(
     'enforces HTTP authentication and admin access (%s)',
     Effect.fnUntraced(function* ([user, status, tag]) {
-      const { send } = yield* makeHttpTransport(user);
+      const { send } = yield* makeWireTransport(user);
       const response = yield* send({ path: '/api/libraries?limit=1', method: 'GET' });
       expect(response.status).toBe(status);
       expect(yield* Effect.promise(async () => response.json())).toEqual({ _tag: tag });

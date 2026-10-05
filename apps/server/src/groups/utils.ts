@@ -8,6 +8,36 @@ import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
 import { AuthDatabase } from '#src/services/database/auth/index.ts';
 
+// Raw requests bypass generated-client validation while retaining both cancellation signals.
+export const makeRawRequest = ({
+  handler,
+  headers,
+}: {
+  readonly handler: (request: Request) => Promise<Response>;
+  readonly headers: EffectHeaders.Headers;
+}) =>
+  Effect.fnUntraced(function* ({ path, ...init }: { readonly path: string } & RequestInit) {
+    const requestHeaders = new globalThis.Headers(headers);
+    new globalThis.Headers(init.headers).forEach((value, key) => {
+      requestHeaders.set(key, value);
+    });
+    if (init.body !== void 0 && !requestHeaders.has('content-type')) {
+      requestHeaders.set('content-type', 'application/json');
+    }
+    return yield* Effect.promise(async (signal) => {
+      const requestSignal = init.signal ? AbortSignal.any([signal, init.signal]) : signal;
+      // toWebHandler listens for future aborts but does not reject already-aborted signals.
+      requestSignal.throwIfAborted();
+      return handler(
+        new Request(`http://localhost${path}`, {
+          ...init,
+          headers: requestHeaders,
+          signal: requestSignal,
+        })
+      );
+    });
+  });
+
 const isTestHelpers = (value: unknown): value is TestHelpers =>
   typeof value === 'object' &&
   value !== null &&
@@ -54,7 +84,10 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
     test.getAuthHeaders({ userId: savedUser.id })
   ).pipe(Effect.orDie, Effect.map(EffectHeaders.fromInput));
 
-  return HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
-    next({ ...request, headers: EffectHeaders.merge(request.headers, headers) })
-  );
+  return {
+    headers,
+    layer: HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
+      next({ ...request, headers: EffectHeaders.merge(request.headers, headers) })
+    ),
+  };
 });
