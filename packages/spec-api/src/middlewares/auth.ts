@@ -1,12 +1,13 @@
-import { Context, Effect, Schema } from 'effect';
+import { Context, Schema } from 'effect';
 import { HttpApiMiddleware } from 'effect/http-api';
 
 import type { AuthSession } from '@repo/auth-api/shared.ts';
 
-export class CurrentSession extends Context.Service<CurrentSession>()(
-  '@repo/spec-api/middlewares/auth/CurrentSession',
-  { make: (session: typeof AuthSession.Type) => Effect.succeed(session) }
-) {}
+export class CurrentSession extends Context.Service<
+  CurrentSession,
+  // oxlint-disable-next-line effect-conventions/no-context-service-second-type-argument -- auth middleware provides the session
+  typeof AuthSession.Type
+>()('@repo/spec-api/middlewares/auth/CurrentSession') {}
 
 export class UnauthorizedError extends Schema.TaggedError<
   UnauthorizedError,
