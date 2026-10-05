@@ -554,7 +554,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         .pipe(Effect.flip);
       expect(failure).toMatchObject({
         _tag: 'LibraryInvalidStoragePluginSettingsError',
-        message: 'Invalid storage plugin settings',
+        message: 'Submitted storage plugin settings failed validation',
       });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.none()
@@ -1115,15 +1115,39 @@ const makeHttpTransport = Effect.fnUntraced(function* (
 
 it.layer(testLayer)('library HTTP transport', (iit) => {
   iit.effect.each([
-    ['invalid submission', 'PUT', 422, 'LibraryInvalidStoragePluginSettingsError'],
-    ['operational GET', 'GET', 500, 'StoragePluginSettingsError'],
-    ['operational PUT', 'PUT', 500, 'StoragePluginSettingsError'],
-    ['malformed form', 'GET', 500, 'StoragePluginSettingsError'],
-    ['malformed persisted output', 'PUT', 500, 'StoragePluginSettingsError'],
-    ['invalid current settings', 'GET', 500, 'StoragePluginSettingsError'],
+    [
+      'invalid submission',
+      'PUT',
+      422,
+      'LibraryInvalidStoragePluginSettingsError',
+      'Submitted storage plugin settings failed validation',
+    ],
+    ['operational GET', 'GET', 500, 'StoragePluginSettingsError', 'Settings unavailable'],
+    ['operational PUT', 'PUT', 500, 'StoragePluginSettingsError', 'Settings unavailable'],
+    [
+      'malformed form',
+      'GET',
+      500,
+      'StoragePluginSettingsError',
+      'Storage plugin returned an invalid settings form',
+    ],
+    [
+      'malformed persisted output',
+      'PUT',
+      500,
+      'StoragePluginSettingsError',
+      'Storage plugin returned invalid persisted settings',
+    ],
+    [
+      'invalid current settings',
+      'GET',
+      500,
+      'StoragePluginSettingsError',
+      'Storage plugin could not build the settings form from the current settings',
+    ],
   ] as const)(
     'distinguishes submitted settings validation from operational failures: %s',
-    Effect.fnUntraced(function* ([scenario, method, status, tag]) {
+    Effect.fnUntraced(function* ([scenario, method, status, tag, message]) {
       const { client, send } = yield* makeHttpTransport(
         Option.some({ username: 'wire_settings', role: 'admin' })
       );
@@ -1150,7 +1174,8 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
       fixture.controls.settingsError =
         scenario === 'operational GET' || scenario === 'operational PUT';
       const input = StoragePluginSettingsInput.make({
-        root: scenario === 'invalid submission' ? 123 : '/updated',
+        root:
+          scenario === 'invalid submission' ? { secret: 'submitted-settings-secret' } : '/updated',
       });
       const path = `/api/libraries/${library.id}/plugins/storage`;
       const response = yield* send(
@@ -1163,19 +1188,19 @@ it.layer(testLayer)('library HTTP transport', (iit) => {
             }
       );
       expect(response.status).toBe(status);
-      expect(yield* Effect.promise(async () => response.json())).toMatchObject({
+      const body = yield* Effect.promise(async () => response.text());
+      expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(body)).toEqual({
         _tag: tag,
-        ...(scenario === 'invalid submission'
-          ? { message: 'Invalid storage plugin settings' }
-          : {}),
+        message,
       });
+      expect(body).not.toContain('submitted-settings-secret');
       // Also prove the API schema decodes the wire error into the declared client error.
       const error = yield* method === 'GET'
         ? client.library.getStoragePluginSettingsForm({ params: library }).pipe(Effect.flip)
         : client.library
             .setStoragePluginSettings({ params: library, payload: { input } })
             .pipe(Effect.flip);
-      expect(error).toMatchObject({ _tag: tag });
+      expect(error).toMatchObject({ _tag: tag, message });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some(original)
       );

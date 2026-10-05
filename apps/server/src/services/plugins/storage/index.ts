@@ -203,7 +203,7 @@ export class StoragePluginSettingsMap extends LayerMap.Service<StoragePluginSett
                     Schema.decodeEffect(StoragePluginSettingsForm)(form).pipe(
                       Effect.catchTag('SchemaError', () =>
                         StoragePluginSettingsError.make({
-                          message: 'Invalid storage plugin settings form',
+                          message: 'Storage plugin returned an invalid settings form',
                         })
                       )
                     )
@@ -217,7 +217,7 @@ export class StoragePluginSettingsMap extends LayerMap.Service<StoragePluginSett
                     Schema.decodeEffect(StoragePluginSettingsPersisted)(persisted).pipe(
                       Effect.catchTag('SchemaError', () =>
                         StoragePluginSettingsError.make({
-                          message: 'Invalid persisted storage plugin settings',
+                          message: 'Storage plugin returned invalid persisted settings',
                         })
                       )
                     )

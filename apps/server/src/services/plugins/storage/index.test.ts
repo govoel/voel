@@ -230,14 +230,20 @@ it.effect('rejects malformed settings outputs at the plugin boundary', () =>
   Effect.gen(function* () {
     const settings = yield* StoragePluginSettingsMap.acquire(request);
     const formError = yield* settings.getForm({ current: Option.none() }).pipe(Effect.flip);
-    expect(formError._tag).toBe('StoragePluginSettingsError');
+    expect(formError).toMatchObject({
+      _tag: 'StoragePluginSettingsError',
+      message: 'Storage plugin returned an invalid settings form',
+    });
     const submissionError = yield* settings
       .decodeFormSubmission({
         current: Option.none(),
         input: StoragePluginSettingsInput.make({}),
       })
       .pipe(Effect.flip);
-    expect(submissionError._tag).toBe('StoragePluginSettingsError');
+    expect(submissionError).toMatchObject({
+      _tag: 'StoragePluginSettingsError',
+      message: 'Storage plugin returned invalid persisted settings',
+    });
   }).pipe(
     Effect.scoped,
     Effect.provide(

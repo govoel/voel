@@ -323,13 +323,14 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               storagePlugin: row.storagePlugin,
               library: row,
             }).pipe(Effect.provideService(StoragePluginSettingsMap, editors));
-            return yield* editor
-              .getForm({ current: row.storagePluginSettings })
-              .pipe(
-                Effect.catchTag('SchemaError', () =>
-                  StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
-                )
-              );
+            return yield* editor.getForm({ current: row.storagePluginSettings }).pipe(
+              Effect.catchTag('SchemaError', () =>
+                StoragePluginSettingsError.make({
+                  message:
+                    'Storage plugin could not build the settings form from the current settings',
+                })
+              )
+            );
           }, Effect.scoped)
         )
 
@@ -346,7 +347,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               .pipe(
                 Effect.catchTag('SchemaError', () =>
                   LibraryInvalidStoragePluginSettingsError.make({
-                    message: 'Invalid storage plugin settings',
+                    message: 'Submitted storage plugin settings failed validation',
                   })
                 )
               );
