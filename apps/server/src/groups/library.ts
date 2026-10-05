@@ -3,16 +3,16 @@ import {
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Schema, Unify } from 'effect';
+import { HttpApiBuilder } from 'effect/http-api';
 import { SqlSchema } from 'effect/sql';
 
-import type { ApiPayload } from '@repo/spec-api';
+import { Api } from '@repo/spec-api';
 import { Library, LibraryRoot } from '@repo/spec-api/database/schema.ts';
 import type { StoragePluginHealth } from '@repo/spec-api/groups/library.ts';
 import {
   LibraryInvalidRootError,
   LibraryNameConflictError,
   LibraryNotFoundError,
-  LibraryRpcs,
   LibraryUnconfiguredError,
 } from '@repo/spec-api/groups/library.ts';
 
@@ -183,7 +183,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(LibraryDatabase.layer));
 }
 
-export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
+export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (handlers) =>
   Effect.gen(function* () {
     const sql = yield* LibraryDatabase;
     const repository = yield* LibraryRepository;
@@ -251,139 +251,159 @@ export const LibraryHandlersLayerNoDeps = LibraryRpcs.toLayer(
       (effect) => effect.pipe(Effect.forkIn(retirementScope), Effect.asVoid)
     );
 
-    return {
-      libraryGet: Effect.fnUntraced(function* (payload: ApiPayload<'libraryGet'>) {
-        const row = yield* get(payload);
-        return { ...row, storagePluginHealth: yield* health(row) };
-      }),
-
-      // These RPCs are admin-only: setup must remain visible before settings exist.
-      libraryList: Effect.fnUntraced(function* (payload: ApiPayload<'libraryList'>) {
-        const rows = yield* repository
-          .list({ cursor: payload.cursor, limit: payload.limit + 1 })
-          .pipe(Effect.orDie);
-        const items = yield* Effect.forEach(
-          rows.slice(0, payload.limit),
-          (row) =>
-            health(row).pipe(Effect.map(({ status }) => ({ ...row, storagePluginStatus: status }))),
-          { concurrency: 'unbounded' }
-        );
-        return {
-          items,
-          nextCursor:
-            rows.length > payload.limit
-              ? Array.last(items).pipe(Option.map((item) => item.id))
-              : Option.none(),
-        };
-      }),
-
-      libraryCreate: Effect.fnUntraced(function* (payload: ApiPayload<'libraryCreate'>) {
-        return yield* repository.create(payload).pipe(
-          Effect.catchReason('SqlError', 'UniqueViolation', () =>
-            LibraryNameConflictError.make({ name: payload.name })
-          ),
-          Effect.catchTags({
-            SchemaError: Effect.die,
-            SqlError: Effect.die,
-            NoSuchElementError: Effect.die,
+    return (
+      handlers
+        .handle(
+          'get',
+          Effect.fnUntraced(function* ({ params }) {
+            const row = yield* get(params);
+            return { ...row, storagePluginHealth: yield* health(row) };
           })
-        );
-      }),
+        )
 
-      libraryUpdate: Effect.fnUntraced(function* ({ id, name }: ApiPayload<'libraryUpdate'>) {
-        return yield* repository.rename({ id, name }).pipe(
-          Effect.catchReason('SqlError', 'UniqueViolation', () =>
-            LibraryNameConflictError.make({ name })
-          ),
-          Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
-          Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
-          Effect.tap(() => retire({ id })),
-          Effect.uninterruptible
-        );
-      }),
-
-      libraryGetStoragePluginSettingsForm: Effect.fnUntraced(function* ({
-        id,
-      }: ApiPayload<'libraryGetStoragePluginSettingsForm'>) {
-        const row = yield* get({ id });
-        const editor = yield* StoragePluginSettingsMap.acquire({
-          storagePlugin: row.storagePlugin,
-          library: row,
-        });
-        return yield* editor
-          .getForm({ current: row.storagePluginSettings })
-          .pipe(
-            Effect.catchTag('SchemaError', () =>
-              StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
-            )
-          );
-      }, Effect.scoped),
-
-      librarySetStoragePluginSettings: Effect.fnUntraced(function* ({
-        id,
-        input,
-      }: ApiPayload<'librarySetStoragePluginSettings'>) {
-        const row = yield* get({ id });
-        const editor = yield* StoragePluginSettingsMap.acquire({
-          storagePlugin: row.storagePlugin,
-          library: row,
-        });
-        const settings = yield* editor
-          .decodeFormSubmission({ current: row.storagePluginSettings, input })
-          .pipe(
-            Effect.catchTag('SchemaError', () =>
-              StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
-            )
-          );
-        return yield* repository.setSettings({ id, settings }).pipe(
-          Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
-          Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
-          Effect.tap(() => retire({ id })),
-          Effect.uninterruptible
-        );
-      }, Effect.scoped),
-
-      // Keep the plugin context stable from loading through decoding and root replacement.
-      libraryRootsSet: Effect.fnUntraced(
-        function* ({ id, roots }: ApiPayload<'libraryRootsSet'>) {
-          const row = yield* get({ id });
-          if (Option.isNone(row.storagePluginSettings)) {
-            return yield* LibraryUnconfiguredError.make({ id });
-          }
-
-          const storage = yield* StoragePluginMap.acquire({
-            storagePlugin: row.storagePlugin,
-            library: row,
-            settings: row.storagePluginSettings.value,
-          });
-          const decoded = yield* Effect.validate(
-            roots,
-            ({ root }) =>
-              storage
-                .decodeRootLocation({ location: root })
-                .pipe(
-                  Effect.catchTag('StorageLocationValidationError', ({ message }) =>
-                    Effect.fail({ root, message })
-                  )
+        // These endpoints are admin-only: setup must remain visible before settings exist.
+        .handle(
+          'list',
+          Effect.fnUntraced(function* ({ query }) {
+            const rows = yield* repository
+              .list({ cursor: query.cursor, limit: query.limit + 1 })
+              .pipe(Effect.orDie);
+            const items = yield* Effect.forEach(
+              rows.slice(0, query.limit),
+              (row) =>
+                health(row).pipe(
+                  Effect.map(({ status }) => ({ ...row, storagePluginStatus: status }))
                 ),
-            { concurrency: 'unbounded' }
-          ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
-          const unique = Array.dedupe(decoded);
-          yield* repository.setRoots({ id, roots: unique });
-          return { id, roots: unique.map((root) => ({ root })) };
-        },
-        sql.withTransaction,
-        Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
-        Effect.scoped
-      ),
+              { concurrency: 'unbounded' }
+            );
+            return {
+              items,
+              nextCursor:
+                rows.length > query.limit
+                  ? Array.last(items).pipe(Option.map((item) => item.id))
+                  : Option.none(),
+            };
+          })
+        )
 
-      libraryDelete: ({ id }) =>
-        repository.deleteById({ id }).pipe(
-          Effect.orDie,
-          Effect.tap(() => retire({ id })),
-          Effect.uninterruptible
-        ),
-    };
+        .handle(
+          'create',
+          Effect.fnUntraced(function* ({ payload }) {
+            return yield* repository.create(payload).pipe(
+              Effect.catchReason('SqlError', 'UniqueViolation', () =>
+                LibraryNameConflictError.make({ name: payload.name })
+              ),
+              Effect.catchTags({
+                SchemaError: Effect.die,
+                SqlError: Effect.die,
+                NoSuchElementError: Effect.die,
+              })
+            );
+          })
+        )
+
+        .handle(
+          'update',
+          Effect.fnUntraced(function* ({ params: { id }, payload: { name } }) {
+            return yield* repository.rename({ id, name }).pipe(
+              Effect.catchReason('SqlError', 'UniqueViolation', () =>
+                LibraryNameConflictError.make({ name })
+              ),
+              Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
+              Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
+              Effect.tap(() => retire({ id })),
+              Effect.uninterruptible
+            );
+          })
+        )
+
+        .handle(
+          'getStoragePluginSettingsForm',
+          Effect.fnUntraced(function* ({ params: { id } }) {
+            const row = yield* get({ id });
+            const editor = yield* StoragePluginSettingsMap.acquire({
+              storagePlugin: row.storagePlugin,
+              library: row,
+            }).pipe(Effect.provideService(StoragePluginSettingsMap, editors));
+            return yield* editor
+              .getForm({ current: row.storagePluginSettings })
+              .pipe(
+                Effect.catchTag('SchemaError', () =>
+                  StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
+                )
+              );
+          }, Effect.scoped)
+        )
+
+        .handle(
+          'setStoragePluginSettings',
+          Effect.fnUntraced(function* ({ params: { id }, payload: { input } }) {
+            const row = yield* get({ id });
+            const editor = yield* StoragePluginSettingsMap.acquire({
+              storagePlugin: row.storagePlugin,
+              library: row,
+            }).pipe(Effect.provideService(StoragePluginSettingsMap, editors));
+            const settings = yield* editor
+              .decodeFormSubmission({ current: row.storagePluginSettings, input })
+              .pipe(
+                Effect.catchTag('SchemaError', () =>
+                  StoragePluginSettingsError.make({ message: 'Invalid storage plugin settings' })
+                )
+              );
+            return yield* repository.setSettings({ id, settings }).pipe(
+              Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
+              Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
+              Effect.tap(() => retire({ id })),
+              Effect.uninterruptible
+            );
+          }, Effect.scoped)
+        )
+
+        // Keep the plugin context stable from loading through decoding and root replacement.
+        .handle(
+          'setRoots',
+          Effect.fnUntraced(
+            function* ({ params: { id }, payload: { roots } }) {
+              const row = yield* get({ id });
+              if (Option.isNone(row.storagePluginSettings)) {
+                return yield* LibraryUnconfiguredError.make({ id });
+              }
+
+              const storage = yield* StoragePluginMap.acquire({
+                storagePlugin: row.storagePlugin,
+                library: row,
+                settings: row.storagePluginSettings.value,
+              }).pipe(Effect.provideService(StoragePluginMap, stores));
+              const decoded = yield* Effect.validate(
+                roots,
+                ({ root }) =>
+                  storage
+                    .decodeRootLocation({ location: root })
+                    .pipe(
+                      Effect.catchTag('StorageLocationValidationError', ({ message }) =>
+                        Effect.fail({ root, message })
+                      )
+                    ),
+                { concurrency: 'unbounded' }
+              ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
+              const unique = Array.dedupe(decoded);
+              yield* repository.setRoots({ id, roots: unique });
+              return { id, roots: unique.map((root) => ({ root })) };
+            },
+            sql.withTransaction,
+            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
+            Effect.scoped
+          )
+        )
+
+        .handle('delete', ({ params: { id } }) =>
+          repository.deleteById({ id }).pipe(
+            Effect.orDie,
+            Effect.tap(() => retire({ id })),
+            Effect.uninterruptible
+          )
+        )
+    );
   })
 );
 

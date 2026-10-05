@@ -14,9 +14,9 @@ import {
   Scope,
   Stream,
 } from 'effect';
-import { FetchHttpClient, Headers } from 'effect/http';
+import { FetchHttpClient, HttpClientRequest } from 'effect/http';
+import { HttpApiClient, HttpApiMiddleware } from 'effect/http-api';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
-import { RpcClient, RpcMiddleware, RpcSerialization } from 'effect/rpc';
 import { SqlError } from 'effect/sql';
 import { TestClock } from 'effect/testing';
 
@@ -44,7 +44,7 @@ const ClientTestLayer = Layer.unwrap(
   })
 ).pipe(Layer.provideMerge(BunFileSystem.layer));
 
-// Seed and mutate the catalog through authenticated RPCs on the real server.
+// Seed and mutate the catalog through authenticated HTTP requests on the real server.
 const setupLibrary = Effect.fnUntraced(function* (name: string) {
   const serverScope = yield* Scope.fork(yield* Effect.scope);
   const serverUrl = yield* makeServerUrl.pipe(Scope.provide(serverScope));
@@ -60,28 +60,25 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
   const account = Option.getOrThrow(yield* accounts.state);
   const authentication = yield* AuthClientMap.acquire(account);
   const cookie = Option.getOrThrow(yield* authentication.getCookie);
-  const rpc = yield* RpcClient.make(Api).pipe(
+  const client = yield* HttpApiClient.make(Api, { baseUrl: serverUrl }).pipe(
     Effect.provide([
-      RpcClient.layerProtocolHttp({ url: `${serverUrl}/api/rpc` }).pipe(
-        Layer.provide([
-          FetchHttpClient.layer,
-          RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true }),
-        ])
-      ),
-      RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
-        next({ ...request, headers: Headers.set(request.headers, 'cookie', cookie) })
+      FetchHttpClient.layer,
+      HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
+        next(HttpClientRequest.setHeader(request, 'cookie', cookie))
       ),
     ])
   );
   const createLibrary = Effect.fnUntraced(function* (libraryName: string) {
-    const library = yield* rpc.libraryCreate({
-      name: Library.fields.name.make(libraryName),
-      type: MediaType.fields.type.make('audiobook'),
-      storagePlugin: Library.json.fields.storagePlugin.make('builtin:local'),
+    const library = yield* client.library.create({
+      payload: {
+        name: Library.fields.name.make(libraryName),
+        type: MediaType.fields.type.make('audiobook'),
+        storagePlugin: Library.json.fields.storagePlugin.make('builtin:local'),
+      },
     });
-    return yield* rpc.librarySetStoragePluginSettings({
-      ...library,
-      input: StoragePluginSettingsInput.make({}),
+    return yield* client.library.setStoragePluginSettings({
+      params: library,
+      payload: { input: StoragePluginSettingsInput.make({}) },
     });
   });
   yield* createLibrary(name);

@@ -1,7 +1,7 @@
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
 import { Effect, Layer, pipe } from 'effect';
 import { HttpRouter } from 'effect/http';
-import { RpcSerialization, RpcServer } from 'effect/rpc';
+import { HttpApiBuilder } from 'effect/http-api';
 
 import { Api } from '@repo/spec-api';
 
@@ -10,20 +10,13 @@ import { AdminMiddlewareLayer, AuthMiddlewareLayer, AuthRouterLayer } from '#src
 import { ApiConfig } from '#src/services/config.ts';
 import { LibrarySyncRouterLayer } from '#src/services/database/library/sync.ts';
 
-const AllRoutesLayer = RpcServer.layerHttp({
-  group: Api,
-  path: '/api/rpc',
-  protocol: 'http',
-  concurrency: 'unbounded',
-}).pipe(
-  Layer.provide([
-    AuthRouterLayer,
-    LibrarySyncRouterLayer,
-    LibraryHandlersLayer,
-    AuthMiddlewareLayer,
-    AdminMiddlewareLayer,
-    RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true }),
-  ])
+const AllRoutesLayer = Layer.mergeAll(
+  AuthRouterLayer,
+  LibrarySyncRouterLayer,
+  HttpApiBuilder.layer(Api).pipe(
+    Layer.provide(LibraryHandlersLayer),
+    Layer.provide([AuthMiddlewareLayer, AdminMiddlewareLayer])
+  )
 );
 
 if (import.meta.main) {

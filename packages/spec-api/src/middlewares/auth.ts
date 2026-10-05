@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { RpcMiddleware } from 'effect/rpc';
+import { HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
 
 import type { AuthSession } from '@repo/auth-api/shared.ts';
 
@@ -18,15 +18,17 @@ export class ForbiddenError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/middlewares/auth/ForbiddenError')('ForbiddenError', {}) {}
 
-export class AuthMiddleware extends RpcMiddleware.Service<
+export class AuthMiddleware extends HttpApiMiddleware.Service<
   AuthMiddleware,
   { provides: CurrentSession }
 >()('@repo/spec-api/middlewares/auth/AuthMiddleware', {
-  error: UnauthorizedError,
+  error: UnauthorizedError.pipe(HttpApiSchema.status(401)),
   requiredForClient: true,
 }) {}
 
-export class AdminMiddleware extends RpcMiddleware.Service<
+export class AdminMiddleware extends HttpApiMiddleware.Service<
   AdminMiddleware,
   { requires: CurrentSession }
->()('@repo/spec-api/middlewares/auth/AdminMiddleware', { error: ForbiddenError }) {}
+>()('@repo/spec-api/middlewares/auth/AdminMiddleware', {
+  error: ForbiddenError.pipe(HttpApiSchema.status(403)),
+}) {}

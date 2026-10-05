@@ -1,5 +1,5 @@
 import { Effect, Layer, Match, Option, Redacted } from 'effect';
-import { HttpEffect, HttpRouter } from 'effect/http';
+import { HttpEffect, HttpRouter, HttpServerRequest } from 'effect/http';
 
 import { AuthServerClient } from '@repo/auth-api/server.ts';
 import {
@@ -73,7 +73,8 @@ export const AuthMiddlewareLayerNoDeps = Layer.effect(
     const auth = yield* AuthServerClient;
 
     return AuthMiddleware.of(
-      Effect.fnUntraced(function* (httpEffect, { headers }) {
+      Effect.fnUntraced(function* (httpEffect) {
+        const { headers } = yield* HttpServerRequest.HttpServerRequest;
         const session = yield* auth.api.getSession({ headers }).pipe(
           Effect.catchReasons(
             'AuthError',
