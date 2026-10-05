@@ -35,6 +35,7 @@
         "@repo/effect-turso-sync-rn": "workspace:*",
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.5",
+        "@tursodatabase/sync-react-native": "0.8.1",
         "better-auth": "1.7.7",
         "effect": "4.0.0",
         "expo": "~58.0.3",
@@ -239,6 +240,7 @@
       "dependencies": {
         "@govoel/plugins": "workspace:*",
         "@repo/auth-api": "workspace:*",
+        "@yielded/auth": "0.1.0-beta.14",
         "effect": "4.0.0",
       },
       "devDependencies": {
@@ -254,6 +256,7 @@
   },
   "patchedDependencies": {
     "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
+    "@yielded/auth@0.1.0-beta.14": "patches/@yielded%2Fauth@0.1.0-beta.14.patch",
     "@tursodatabase/sync-react-native@0.8.1": "patches/@tursodatabase%2Fsync-react-native@0.8.1.patch",
   },
   "overrides": {
@@ -1205,6 +1208,8 @@
     "@vue/shared": ["@vue/shared@3.5.43", "", {}, "sha512-uksS7YGMR5NZyr4JNq0Rp+QyLns0ueaz20KwzIPW9R0LH1Vnt4E+XUM29PNseEbf1www2gOuhuDi5AKOIXag9Q=="],
 
     "@xmldom/xmldom": ["@xmldom/xmldom@0.8.15", "", {}, "sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA=="],
+
+    "@yielded/auth": ["@yielded/auth@0.1.0-beta.14", "", { "peerDependencies": { "effect": "^4.0.0" } }, "sha512-E1gBXbEFFVwWLE98wO+lo3U3ZIGp4MVQ4vaCLOgw9qhvYm06jrLKMks2K50PU5+YCHTPrvFmM8NhBK/UVxqN7A=="],
 
     "accepts": ["accepts@1.3.8", "", { "dependencies": { "mime-types": "~2.1.34", "negotiator": "0.6.3" } }, "sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw=="],
 
