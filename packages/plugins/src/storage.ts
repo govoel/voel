@@ -8,7 +8,7 @@ import type { Library } from '#src/library.ts';
  * Ordered UI fields with unique, flat names. An empty array means no settings.
  * Descriptors carry no semantic validation rules and must contain no secrets.
  */
-export const StoragePluginSettingsForm = Schema.Array(
+export class StoragePluginSettingsForm extends Schema.Array(
   Schema.TaggedStruct('TextField', {
     name: Schema.String.check(Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/u)).pipe(
       Schema.brand('@govoel/plugins/storage/StoragePluginSettingsFieldName')
@@ -23,8 +23,9 @@ export const StoragePluginSettingsForm = Schema.Array(
     (fields) => Array.dedupe(fields.map(({ name }) => name)).length === fields.length,
     { message: 'Settings field names must be unique' }
   )
-);
-export type StoragePluginSettingsForm = typeof StoragePluginSettingsForm.Type;
+) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+}
 
 /**
  * Secret-free submitted JSON; plugins validate their input schema.
@@ -42,24 +43,28 @@ export type StoragePluginSettingsInput = typeof StoragePluginSettingsInput.Type;
 export class StoragePluginSettingsPersisted extends Schema.Json.pipe(
   Schema.brand('@govoel/plugins/storage/StoragePluginSettingsPersisted')
 ) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+
   public static readonly fromJsonString = Schema.fromJsonString(this);
 }
 
 /**
  * Non-empty library root, interpreted by the configured plugin.
  */
-export const StorageRootLocation = Schema.NonEmptyString.pipe(
+export class StorageRootLocation extends Schema.NonEmptyString.pipe(
   Schema.brand('@govoel/plugins/storage/StorageRootLocation')
-);
-export type StorageRootLocation = typeof StorageRootLocation.Type;
+) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+}
 
 /**
  * Non-empty media file location, interpreted by the configured plugin.
  */
-export const StorageMediaFileLocation = Schema.NonEmptyString.pipe(
+export class StorageMediaFileLocation extends Schema.NonEmptyString.pipe(
   Schema.brand('@govoel/plugins/storage/StorageMediaFileLocation')
-);
-export type StorageMediaFileLocation = typeof StorageMediaFileLocation.Type;
+) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+}
 
 /**
  * Invalid location input. Messages must be client-safe and explain the validation failure.
@@ -123,14 +128,14 @@ export class StoragePlugin extends Context.Service<
      */
     readonly decodeRootLocation: (request: {
       readonly location: string;
-    }) => Effect.Effect<StorageRootLocation, StorageLocationValidationError>;
+    }) => Effect.Effect<typeof StorageRootLocation.Type, StorageLocationValidationError>;
 
     /**
      * Complete, idempotent decoder: validate, optionally transform, then brand.
      */
     readonly decodeMediaFileLocation: (request: {
       readonly location: string;
-    }) => Effect.Effect<StorageMediaFileLocation, StorageLocationValidationError>;
+    }) => Effect.Effect<typeof StorageMediaFileLocation.Type, StorageLocationValidationError>;
   }
 >()('@govoel/plugins/storage/StoragePlugin') {}
 
@@ -150,7 +155,7 @@ export class StoragePluginSettings extends Context.Service<
      */
     readonly getForm: (request: {
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
-    }) => Effect.Effect<StoragePluginSettingsForm, StoragePluginSettingsError>;
+    }) => Effect.Effect<typeof StoragePluginSettingsForm.Type, StoragePluginSettingsError>;
 
     /**
      * Schema-validate input, using current as needed, into complete, secret-free JSON.

@@ -54,8 +54,15 @@ import {
   StoragePluginSettingsMap,
 } from '#src/services/plugins/storage/index.ts';
 
-class Input extends Schema.Struct({ root: Schema.NonEmptyString }) {}
-class Persisted extends Schema.Struct({ prefix: Schema.NonEmptyString }) {}
+class Input extends Schema.Struct({ root: Schema.NonEmptyString }) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+
+  public static readonly is = Schema.is(this);
+}
+
+class Persisted extends Schema.Struct({ prefix: Schema.NonEmptyString }) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
 
 class PluginFixture extends Context.Service<PluginFixture>()(
   '@repo/server/groups/library.test/PluginFixture',
@@ -91,9 +98,7 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                     activeStorage.delete(request);
                   }).pipe(Effect.andThen(controls.onFinalize(request)))
                 );
-                const settings = yield* Schema.decodeUnknownEffect(Persisted)(
-                  request.settings
-                ).pipe(
+                const settings = yield* Persisted.decodeUnknownEffect(request.settings).pipe(
                   Effect.catchTag('SchemaError', () =>
                     StoragePluginConstructionError.make({ message: 'Invalid persisted settings' })
                   )
@@ -133,7 +138,7 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                         });
                       }
                       const settings = Option.isSome(current)
-                        ? yield* Schema.decodeUnknownEffect(Persisted)(current.value).pipe(
+                        ? yield* Persisted.decodeUnknownEffect(current.value).pipe(
                             Effect.catchTag('SchemaError', () =>
                               StoragePluginSettingsError.make({
                                 message:
@@ -160,7 +165,7 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                           : Effect.void
                       ),
                       Effect.andThen(
-                        Schema.decodeUnknownEffect(Input)(input).pipe(
+                        Input.decodeUnknownEffect(input).pipe(
                           Effect.catchTag('SchemaError', () =>
                             StoragePluginInvalidSettingsError.make({
                               message: 'Submitted storage plugin settings failed validation',
@@ -830,7 +835,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const settingsRelease = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id &&
-        Schema.is(Input)(request.input) &&
+        Input.is(request.input) &&
         request.input.root === '/pending-settings'
           ? settingsStarted.open.pipe(Effect.andThen(settingsRelease.await))
           : Effect.void;
@@ -871,7 +876,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id &&
-        Schema.is(Input)(request.input) &&
+        Input.is(request.input) &&
         request.input.root === '/slow'
           ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
