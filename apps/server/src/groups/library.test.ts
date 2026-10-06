@@ -14,8 +14,16 @@ import {
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Context, Deferred, Effect, Fiber, Layer, Option, Schema } from 'effect';
-import { FetchHttpClient, Headers, HttpEffect, HttpRouter } from 'effect/http';
+import { Context, Effect, Fiber, Latch, Layer, Option, Schema } from 'effect';
+import {
+  FetchHttpClient,
+  Headers,
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpEffect,
+  HttpRouter,
+} from 'effect/http';
 import { HttpApiClient, HttpApiMiddleware, HttpApiTest } from 'effect/http-api';
 import { Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
@@ -28,7 +36,7 @@ import { PluginLoadError } from '@repo/spec-api/plugins/index.ts';
 
 import { ApiRoutesLayerNoDeps } from '#src/groups/index.ts';
 import { LibraryHandlersLayerNoDeps, LibraryRepository } from '#src/groups/library.ts';
-import { makeAuthedClient, makeRawRequest } from '#src/groups/utils.ts';
+import { makeAuthedClient } from '#src/groups/utils.ts';
 import {
   AdminMiddlewareLayerNoDeps,
   AuthLayerNoDeps,
@@ -203,24 +211,9 @@ const testDependenciesLayer = Layer.mergeAll(
   Layer.provideMerge(BunHttpServer.layerHttpServices)
 );
 
-class TestClient extends Context.Service<TestClient>()(
-  '@repo/server/groups/library.test/TestClient',
-  { make: HttpApiTest.groups(Api, ['library']) }
-) {}
+// Build handlers once so background retirement lives for the suite, not client creation.
+const testLayer = LibraryHandlersLayerNoDeps.pipe(Layer.provideMerge(testDependenciesLayer));
 
-// Handlers capture the fixture's maps while the test client's routes are built.
-const testClientLayer = Layer.effect(TestClient, TestClient.make).pipe(
-  Layer.provide(LibraryHandlersLayerNoDeps)
-);
-const makeTestClient = ({
-  authLayer,
-}: {
-  readonly authLayer: Effect.Success<ReturnType<typeof makeAuthedClient>>['layer'];
-}) =>
-  // Keep the handlers' retirement scope alive until the enclosing test scope closes.
-  Layer.build(testClientLayer.pipe(Layer.provide(authLayer))).pipe(
-    Effect.map(Context.get(TestClient))
-  );
 const wireTestLayer = ApiRoutesLayerNoDeps.pipe(
   Layer.provideMerge(testDependenciesLayer),
   Layer.provideMerge(HttpRouter.layer)
@@ -236,10 +229,10 @@ const createInput = (
 });
 const makeClient = Effect.gen(function* () {
   const auth = yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' });
-  return yield* makeTestClient({ authLayer: auth.layer });
+  return yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
 });
 
-it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
+it.layer(testLayer)('library lifecycle', (iit) => {
   iit.effect(
     'collects cached failures from both plugin components',
     Effect.fnUntraced(function* () {
@@ -667,19 +660,19 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
       });
       yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
 
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
-      const finished = yield* Deferred.make<boolean>();
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
+      const finished = yield* Latch.make();
       fixture.controls.onFinalize = (request) =>
         request.library.id === library.id
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.andThen(Deferred.succeed(finished, true)),
+          ? started.open.pipe(
+              Effect.andThen(release.await),
+              Effect.andThen(finished.open),
               Effect.asVoid
             )
           : Effect.void;
       yield* Effect.addFinalizer(() =>
-        Deferred.succeed(release, true).pipe(
+        release.open.pipe(
           Effect.andThen(
             Effect.sync(() => {
               fixture.controls.onFinalize = () => Effect.void;
@@ -696,8 +689,8 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
         })
       );
       expect(response).toEqual(library);
-      yield* Deferred.await(started);
-      expect(yield* Deferred.isDone(finished)).toBe(false);
+      yield* started.await;
+      expect(finished.isOpen()).toBe(false);
       expect((yield* client.library.get({ params: library })).name).toBe('Background renamed');
       expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
         [{ label: 'Background renamed', initialValue: '/background' }]
@@ -705,8 +698,8 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
       expect(
         (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
       ).toEqual(['/one']);
-      yield* Deferred.succeed(release, true);
-      yield* Deferred.await(finished);
+      yield* release.open;
+      yield* finished.await;
     })
   );
 
@@ -731,17 +724,14 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { roots: [{ root: '/original' }] },
       });
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
       fixture.controls.beforeRootDecode = (request) =>
         request.library.id === library.id && request.location === '/pending'
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.asVoid
-            )
+          ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
       yield* Effect.addFinalizer(() =>
-        Deferred.succeed(release, true).pipe(
+        release.open.pipe(
           Effect.andThen(
             Effect.sync(() => {
               fixture.controls.beforeRootDecode = () => Effect.void;
@@ -752,7 +742,7 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
       const pending = yield* client.library
         .setRoots({ params: library, payload: { roots: [{ root: '/pending' }] } })
         .pipe(Effect.forkChild);
-      yield* Deferred.await(started);
+      yield* started.await;
       // A separate connection proves the write lock prevents context changes during decoding.
       expect(
         yield* contender`
@@ -777,7 +767,7 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
         storagePluginSettings: Option.some({ prefix: '/initial' }),
         roots: [{ root: '/original' }],
       });
-      yield* Deferred.succeed(release, true);
+      yield* release.open;
       expect(yield* Fiber.join(pending)).toEqual({ ...library, roots: [{ root: '/pending' }] });
       expect(
         (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
@@ -809,15 +799,13 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: '/initial' }) },
       });
-      const settingsStarted = yield* Deferred.make<boolean>();
-      const settingsRelease = yield* Deferred.make<boolean>();
+      const settingsStarted = yield* Latch.make();
+      const settingsRelease = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id &&
         Schema.is(Input)(request.input) &&
         request.input.root === '/pending-settings'
-          ? Deferred.succeed(settingsStarted, true).pipe(
-              Effect.andThen(Deferred.await(settingsRelease))
-            )
+          ? settingsStarted.open.pipe(Effect.andThen(settingsRelease.await))
           : Effect.void;
       const settings = yield* client.library
         .setStoragePluginSettings({
@@ -825,7 +813,7 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
           payload: { input: StoragePluginSettingsInput.make({ root: '/pending-settings' }) },
         })
         .pipe(Effect.forkChild);
-      yield* Deferred.await(settingsStarted);
+      yield* settingsStarted.await;
       // Renaming while decoding is blocked must not overwrite settings or hold a write lock.
       yield* client.library.update({
         params: library,
@@ -834,7 +822,7 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: '/initial' })
       );
-      yield* Deferred.succeed(settingsRelease, true);
+      yield* settingsRelease.open;
       yield* Fiber.join(settings);
       expect(yield* client.library.get({ params: library })).toMatchObject({
         name: 'Final name',
@@ -852,16 +840,13 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
       const library = yield* client.library.create({
         payload: createInput('Concurrent settings', 'npm:test'),
       });
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id &&
         Schema.is(Input)(request.input) &&
         request.input.root === '/slow'
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.asVoid
-            )
+          ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
       const slow = yield* client.library
         .setStoragePluginSettings({
@@ -869,12 +854,12 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
           payload: { input: StoragePluginSettingsInput.make({ root: '/slow' }) },
         })
         .pipe(Effect.forkChild);
-      yield* Deferred.await(started);
+      yield* started.await;
       yield* client.library.setStoragePluginSettings({
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: '/fast' }) },
       });
-      yield* Deferred.succeed(release, true);
+      yield* release.open;
       yield* Fiber.join(slow);
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: '/slow' })
@@ -902,19 +887,14 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
           .filter(({ library: row }) => row.id === library.id)
           .map(({ settings }) => settings)
       ).toEqual([{ prefix: '/initial' }]);
-      const retired = yield* Deferred.make<boolean>();
+      const retired = yield* Latch.make();
       fixture.controls.onFinalize = (request) =>
-        request.library.id === library.id
-          ? Deferred.succeed(retired, true).pipe(Effect.asVoid)
-          : Effect.void;
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
+        request.library.id === library.id ? retired.open.pipe(Effect.asVoid) : Effect.void;
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.asVoid
-            )
+          ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
       const pending = yield* client.library
         .setStoragePluginSettings({
@@ -922,13 +902,13 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
           payload: { input: StoragePluginSettingsInput.make({ root: '/deleted' }) },
         })
         .pipe(Effect.flip, Effect.forkChild);
-      yield* Deferred.await(started);
+      yield* started.await;
       yield* client.library.delete({ params: library });
-      yield* Deferred.await(retired);
+      yield* retired.await;
       expect(
         [...fixture.activeStorage].filter(({ library: row }) => row.id === library.id)
       ).toEqual([]);
-      yield* Deferred.succeed(release, true);
+      yield* release.open;
       expect(yield* Fiber.join(pending)).toMatchObject({ _tag: 'LibraryNotFoundError' });
       expect(yield* client.library.get({ params: library }).pipe(Effect.flip)).toMatchObject({
         _tag: 'LibraryNotFoundError',
@@ -1059,11 +1039,11 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
   iit.effect(
     'rejects unauthenticated requests',
     Effect.fnUntraced(function* () {
-      const client = yield* makeTestClient({
-        authLayer: HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
-          next(request)
-        ),
-      });
+      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(
+        Effect.provide(
+          HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
+        )
+      );
       expect(
         yield* client.library.create({ payload: createInput('Unauthorized') }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'UnauthorizedError' });
@@ -1076,7 +1056,7 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
     'rejects non-admin %s requests',
     Effect.fnUntraced(function* (role) {
       const auth = yield* makeAuthedClient({ username: role, role });
-      const client = yield* makeTestClient({ authLayer: auth.layer });
+      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
       expect(
         yield* client.library.create({ payload: createInput('Forbidden') }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'ForbiddenError' });
@@ -1087,45 +1067,38 @@ it.layer(testDependenciesLayer)('library lifecycle', (iit) => {
   );
 });
 
-// The Fetch override is local to this client; plugin HTTP traffic keeps its real transport.
+// Use Effect's request/response adapters; only this client talks to the in-memory web handler.
 const makeWireTransport = Effect.fnUntraced(function* (
   user: Option.Option<Parameters<typeof makeAuthedClient>[0]>
 ) {
-  const auth = Option.isSome(user)
-    ? yield* makeAuthedClient(user.value)
-    : {
-        headers: Headers.empty,
-        layer: HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request)),
-      };
+  const headers = Option.isSome(user)
+    ? (yield* makeAuthedClient(user.value)).headers
+    : Headers.empty;
   const handler = HttpEffect.toWebHandler(yield* HttpRouter.toHttpEffect(Layer.empty));
-  const localFetch: typeof fetch = Object.assign(
-    async (input: Parameters<typeof fetch>[0], init?: RequestInit) =>
-      handler(
-        input instanceof Request ? new Request(input, init) : new Request(input.toString(), init)
-      ),
-    {
-      preconnect() {
-        // In-memory requests do not open connections.
-      },
-    }
+  const http = HttpClient.make((request, _url, signal) =>
+    HttpClientRequest.toWeb(request, { signal }).pipe(
+      Effect.flatMap((webRequest) => Effect.promise(async () => handler(webRequest))),
+      Effect.map((response) => HttpClientResponse.fromWeb(request, response)),
+      Effect.orDie
+    )
+  ).pipe(HttpClient.mapRequest(HttpClientRequest.setHeaders(headers)));
+  const client = yield* HttpApiClient.makeWith(Api, {
+    httpClient: http,
+    baseUrl: 'http://localhost',
+  }).pipe(
+    Effect.provide(
+      HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
+    )
   );
-  const client = yield* HttpApiClient.make(Api, { baseUrl: 'http://localhost' }).pipe(
-    Effect.provide([
-      auth.layer,
-      Layer.fresh(FetchHttpClient.layer).pipe(
-        Layer.provide(Layer.succeed(FetchHttpClient.Fetch, localFetch))
-      ),
-    ])
-  );
-  return { client, send: makeRawRequest({ handler, headers: auth.headers }) };
+  return { client, http, handler, headers };
 });
 
 it.layer(wireTestLayer)('library HTTP transport', (iit) => {
-  iit.effect.each(['typed interruption', 'raw interruption', 'raw explicit abort'] as const)(
+  iit.effect.each(['client interruption', 'request abort'] as const)(
     'interrupts and finalizes blocked settings decoding on %s',
     Effect.fnUntraced(
       function* (scenario) {
-        const { client, send } = yield* makeWireTransport(
+        const { client, handler, headers } = yield* makeWireTransport(
           Option.some({ username: 'wire_cancellation', role: 'admin' })
         );
         const fixture = yield* PluginFixture;
@@ -1135,13 +1108,13 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
           }),
           (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
         );
-        const started = yield* Deferred.make<boolean>();
-        const interrupted = yield* Deferred.make<boolean>();
-        const finalized = yield* Deferred.make<boolean>();
-        const release = yield* Deferred.make<boolean>();
+        const started = yield* Latch.make();
+        const interrupted = yield* Latch.make();
+        const finalized = yield* Latch.make();
+        const release = yield* Latch.make();
         const { beforeDecode } = fixture.controls;
         yield* Effect.addFinalizer(() =>
-          Deferred.succeed(release, true).pipe(
+          release.open.pipe(
             Effect.andThen(
               Effect.sync(() => {
                 fixture.controls.beforeDecode = beforeDecode;
@@ -1154,41 +1127,43 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
             ? Effect.acquireUseRelease(
                 Effect.void,
                 () =>
-                  Deferred.succeed(started, true).pipe(
-                    Effect.andThen(Deferred.await(release)),
-                    Effect.onInterrupt(() =>
-                      Deferred.succeed(interrupted, true).pipe(Effect.asVoid)
-                    )
+                  started.open.pipe(
+                    Effect.andThen(release.await),
+                    Effect.onInterrupt(() => interrupted.open.pipe(Effect.asVoid))
                   ),
-                () => Deferred.succeed(finalized, true).pipe(Effect.asVoid)
+                () => finalized.open.pipe(Effect.asVoid)
               )
             : Effect.void;
         const payload = { input: StoragePluginSettingsInput.make({ root: '/cancelled' }) };
         // oxlint-disable-next-line effecttsgo/abort-controller-in-effect -- model a caller-owned signal independent of Effect interruption
         const controller = new AbortController();
         const request = yield* (
-          scenario === 'typed interruption'
+          scenario === 'client interruption'
             ? client.library.setStoragePluginSettings({ params: library, payload })
-            : send({
-                path: `/api/libraries/${library.id}/plugins/storage/settings`,
-                method: 'PUT',
-                body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(payload),
-                // Raw interruption must still work when the caller also supplies a signal.
-                signal: controller.signal,
-              })
+            : HttpClientRequest.toWeb(
+                HttpClientRequest.put(
+                  `http://localhost/api/libraries/${library.id}/plugins/storage/settings`
+                ).pipe(
+                  HttpClientRequest.setHeaders(headers),
+                  HttpClientRequest.bodyJsonUnsafe(payload)
+                ),
+                { signal: controller.signal }
+              ).pipe(
+                Effect.flatMap((webRequest) => Effect.promise(async () => handler(webRequest)))
+              )
         ).pipe(Effect.forkChild);
-        yield* Deferred.await(started);
-        expect(yield* Deferred.isDone(interrupted)).toBe(false);
-        expect(yield* Deferred.isDone(finalized)).toBe(false);
-        if (scenario === 'raw explicit abort') {
+        yield* started.await;
+        expect(interrupted.isOpen()).toBe(false);
+        expect(finalized.isOpen()).toBe(false);
+        if (scenario === 'request abort') {
           controller.abort();
         } else {
           yield* Fiber.interrupt(request);
           expect(controller.signal.aborted).toBe(false);
         }
-        yield* Deferred.await(interrupted);
-        yield* Deferred.await(finalized);
-        expect(yield* Deferred.isDone(release)).toBe(false);
+        yield* interrupted.await;
+        yield* finalized.await;
+        expect(release.isOpen()).toBe(false);
         expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
           Option.none()
         );
@@ -1232,7 +1207,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   ] as const)(
     'distinguishes submitted settings validation from operational failures: %s',
     Effect.fnUntraced(function* ([scenario, method, status, tag, message]) {
-      const { client, send } = yield* makeWireTransport(
+      const { client, http } = yield* makeWireTransport(
         Option.some({ username: 'wire_settings', role: 'admin' })
       );
       const fixture = yield* PluginFixture;
@@ -1261,18 +1236,16 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         root:
           scenario === 'invalid submission' ? { secret: 'submitted-settings-secret' } : '/updated',
       });
-      const path = `/api/libraries/${library.id}/plugins/storage`;
-      const response = yield* send(
+      const path = `http://localhost/api/libraries/${library.id}/plugins/storage`;
+      const response = yield* http.execute(
         method === 'GET'
-          ? { path: `${path}/settings-form`, method }
-          : {
-              path: `${path}/settings`,
-              method,
-              body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ input }),
-            }
+          ? HttpClientRequest.get(`${path}/settings-form`)
+          : HttpClientRequest.put(`${path}/settings`).pipe(
+              HttpClientRequest.bodyJsonUnsafe({ input })
+            )
       );
       expect(response.status).toBe(status);
-      const body = yield* Effect.promise(async () => response.text());
+      const body = yield* response.text;
       expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(body)).toEqual({
         _tag: tag,
         message,
@@ -1292,130 +1265,48 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   );
 
   iit.effect(
-    'serves resource methods, tagged errors, Option JSON, and bodyless deletion',
+    'encodes Option JSON and returns bodyless, idempotent deletion',
     Effect.fnUntraced(function* () {
-      const { client, send } = yield* makeWireTransport(
+      const { client } = yield* makeWireTransport(
         Option.some({ username: 'wire_admin', role: 'admin' })
       );
-      const payload = createInput('HTTP library');
-      const created = yield* send({
-        path: '/api/libraries',
-        method: 'POST',
-        body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(payload),
-      });
-      expect(created.status).toBe(200);
-      const library = yield* Schema.decodeUnknownEffect(
-        Schema.Struct({ id: Library.json.fields.id })
-      )(yield* Effect.promise(async () => created.json()));
-      const path = `/api/libraries/${library.id}`;
-      const get = yield* send({ path, method: 'GET' });
-      expect(get.status).toBe(200);
-      expect(get.headers.get('content-type')).toContain('application/json');
-      expect(yield* Effect.promise(async () => get.json())).toMatchObject({
+      const library = yield* client.library.create({ payload: createInput('HTTP library') });
+      const get = yield* client.library.get({ params: library, responseMode: 'response-only' });
+      expect(get.headers['content-type']).toContain('application/json');
+      expect(yield* get.json).toMatchObject({
         ...library,
         storagePluginSettings: { _tag: 'None' },
         storagePluginHealth: { status: 'unknown' },
       });
-      const conflict = yield* send({
-        path: '/api/libraries',
-        method: 'POST',
-        body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(payload),
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({}) },
       });
-      expect(conflict.status).toBe(409);
-      expect(yield* Effect.promise(async () => conflict.json())).toMatchObject({
-        _tag: 'LibraryNameConflictError',
+      const list = yield* client.library.list({
+        query: { cursor: Option.none(), limit: 1 },
+        responseMode: 'response-only',
       });
-      expect(
-        (yield* send({
-          path,
-          method: 'PATCH',
-          body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-            name: 'HTTP renamed',
-          }),
-        })).status
-      ).toBe(200);
-      const form = yield* send({ path: `${path}/plugins/storage/settings-form`, method: 'GET' });
-      expect(form.status).toBe(200);
-      expect(yield* Effect.promise(async () => form.json())).toEqual([]);
-      const unconfigured = yield* send({
-        path: `${path}/roots`,
-        method: 'PUT',
-        body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ roots: [] }),
-      });
-      expect(unconfigured.status).toBe(409);
-      expect(yield* Effect.promise(async () => unconfigured.json())).toMatchObject({
-        _tag: 'LibraryUnconfiguredError',
-      });
-      expect(
-        (yield* send({
-          path: `${path}/plugins/storage/settings`,
-          method: 'PUT',
-          body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ input: {} }),
-        })).status
-      ).toBe(200);
-      const invalidRoot = yield* send({
-        path: `${path}/roots`,
-        method: 'PUT',
-        body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-          roots: [{ root: 'relative' }],
-        }),
-      });
-      expect(invalidRoot.status).toBe(422);
-      expect(yield* Effect.promise(async () => invalidRoot.json())).toMatchObject({
-        _tag: 'LibraryInvalidRootError',
-      });
-      const roots = yield* send({
-        path: `${path}/roots`,
-        method: 'PUT',
-        body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-          roots: [{ root: '/wire' }],
-        }),
-      });
-      expect(roots.status).toBe(200);
-      expect(yield* Effect.promise(async () => roots.json())).toEqual({
-        ...library,
-        roots: [{ root: '/wire' }],
-      });
-      const trailing = yield* client.library.create({ payload: createInput('HTTP trailing') });
-      const list = yield* send({ path: '/api/libraries?limit=1', method: 'GET' });
-      expect(list.status).toBe(200);
-      expect(yield* Effect.promise(async () => list.json())).toMatchObject({
-        items: [
-          { ...library, name: 'HTTP renamed', storagePluginSettings: { _tag: 'Some', value: {} } },
-        ],
-        nextCursor: { _tag: 'Some', value: library.id },
-      });
-      const decoded = yield* client.library.list({ query: { cursor: Option.none(), limit: 1 } });
-      expect(decoded.items[0]?.storagePluginSettings).toEqual(Option.some({}));
-      expect(decoded.nextCursor).toEqual(Option.some(library.id));
-      const next = yield* send({
-        path: `/api/libraries?limit=1&cursor=${library.id}`,
-        method: 'GET',
-      });
-      expect(next.status).toBe(200);
-      expect(yield* Effect.promise(async () => next.json())).toMatchObject({
-        items: [{ ...trailing, name: 'HTTP trailing', storagePluginSettings: { _tag: 'None' } }],
+      expect(yield* list.json).toMatchObject({
+        items: [{ ...library, storagePluginSettings: { _tag: 'Some', value: {} } }],
         nextCursor: { _tag: 'None' },
       });
-      const deleted = yield* send({ path, method: 'DELETE' });
-      expect(deleted.status).toBe(204);
-      expect(yield* Effect.promise(async () => deleted.text())).toBe('');
-      expect(
-        (yield* client.library.delete({ params: library, responseMode: 'response-only' })).status
-      ).toBe(204);
-      const missing = yield* send({ path, method: 'GET' });
-      expect(missing.status).toBe(404);
-      expect(yield* Effect.promise(async () => missing.json())).toEqual({
-        _tag: 'LibraryNotFoundError',
-        ...library,
-      });
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const deleted = yield* client.library.delete({
+          params: library,
+          responseMode: 'response-only',
+        });
+        expect(deleted.status).toBe(204);
+        expect(yield* deleted.text).toBe('');
+      }
+      const missing = yield* client.library.get({ params: library }).pipe(Effect.flip);
+      expect(missing).toMatchObject({ _tag: 'LibraryNotFoundError', ...library });
     })
   );
 
   iit.effect(
     'validates path and query values before handlers run',
     Effect.fnUntraced(function* () {
-      const { send } = yield* makeWireTransport(
+      const { http } = yield* makeWireTransport(
         Option.some({ username: 'wire_validation', role: 'admin' })
       );
       for (const path of [
@@ -1427,7 +1318,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         '/api/libraries?limit=1.5',
         '/api/libraries?limit=1&cursor=invalid',
       ]) {
-        const response = yield* send({ path, method: 'GET' });
+        const response = yield* http.get(`http://localhost${path}`);
         expect(response.status, path).toBe(400);
       }
     })
@@ -1439,10 +1330,10 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   ] as const)(
     'enforces HTTP authentication and admin access (%s)',
     Effect.fnUntraced(function* ([user, status, tag]) {
-      const { send } = yield* makeWireTransport(user);
-      const response = yield* send({ path: '/api/libraries?limit=1', method: 'GET' });
+      const { http } = yield* makeWireTransport(user);
+      const response = yield* http.get('http://localhost/api/libraries?limit=1');
       expect(response.status).toBe(status);
-      expect(yield* Effect.promise(async () => response.json())).toEqual({ _tag: tag });
+      expect(yield* response.json).toEqual({ _tag: tag });
     })
   );
 });

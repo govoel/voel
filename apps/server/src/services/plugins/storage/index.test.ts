@@ -151,21 +151,12 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       const second = { ...request, library: { ...request.library, roots: ['/second'] } };
       const stores = yield* StoragePluginMap;
       const editors = yield* StoragePluginSettingsMap;
-      // Captured maps acquire resources even when neither map is in the caller's context.
-      const [firstStorage, firstSettings, secondStorage, secondSettings] = yield* Effect.gen(
-        function* () {
-          return [
-            yield* stores.acquire(first),
-            yield* editors.acquire(first),
-            yield* stores.acquire(second),
-            yield* editors.acquire(second),
-          ] as const;
-        }
-      ).pipe(
-        Effect.updateContext((context: Context.Context<Scope.Scope>) =>
-          Context.omit(StoragePluginMap, StoragePluginSettingsMap)(context)
-        )
-      );
+      // Captured maps need only the caller's scope, not request-local map services.
+      const caller = Context.make(Scope.Scope, yield* Effect.scope);
+      const firstStorage = yield* stores.acquire(first).pipe(Effect.setContext(caller));
+      const firstSettings = yield* editors.acquire(first).pipe(Effect.setContext(caller));
+      const secondStorage = yield* stores.acquire(second).pipe(Effect.setContext(caller));
+      const secondSettings = yield* editors.acquire(second).pipe(Effect.setContext(caller));
       expect(builtLibraries).toEqual([request.library, request.library]);
       expect(firstStorage).toBe(secondStorage);
       expect(firstSettings).toBe(secondSettings);
