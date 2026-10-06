@@ -3,6 +3,7 @@ import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import {
+  Context,
   Deferred,
   Effect,
   Exit,
@@ -58,7 +59,7 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
     password: Redacted.make('password'),
   });
   const account = Option.getOrThrow(yield* accounts.state);
-  const authentication = yield* AuthClientMap.acquire(account);
+  const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
   const cookie = Option.getOrThrow(yield* authentication.getCookie);
   const rpc = yield* RpcClient.make(Api).pipe(
     Effect.provide([
@@ -169,7 +170,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
     Effect.fnUntraced(
       function* () {
         const { createLibrary, account } = yield* setupLibrary('Audiobooks');
-        const database = yield* LibraryDatabaseMap.acquire(account);
+        const database = yield* LibraryDatabaseMap.use((databases) => databases.acquire(account));
         const subscribed = yield* Deferred.make<true>();
         const changes = yield* libraryNames(database).pipe(
           Reactivity.stream(['library']),
@@ -197,12 +198,13 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
     'shares replicas by account identity, isolates servers, and reopens persisted data offline',
     Effect.fnUntraced(
       function* () {
+        const databases = yield* LibraryDatabaseMap;
         const first = yield* setupLibrary('First server');
         const second = yield* setupLibrary('Second server');
 
         const idle = yield* Effect.gen(function* () {
-          const firstDatabase = yield* LibraryDatabaseMap.acquire(first.account);
-          const reused = yield* LibraryDatabaseMap.acquire(ActiveAccountKey.make(first.account));
+          const firstDatabase = yield* databases.acquire(first.account);
+          const reused = yield* databases.acquire(ActiveAccountKey.make(first.account));
           const updatedProfile = {
             serverUrl: first.account.serverUrl,
             userId: first.account.userId,
@@ -210,29 +212,32 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
             username: 'Renamed',
             active: false,
           };
-          const profileDatabase = yield* LibraryDatabaseMap.acquire(updatedProfile);
+          const profileDatabase = yield* databases.acquire(updatedProfile);
           const profileKey = LibraryDatabaseMap.Key.make(updatedProfile);
           expect(profileKey).toEqual(first.account);
-          expect(Option.isSome(yield* LibraryDatabaseMap.contextEffectOption(profileKey))).toBe(
-            true
-          );
-          const secondDatabase = yield* LibraryDatabaseMap.acquire(second.account);
+          expect(Option.isSome(yield* databases.contextEffectOption(profileKey))).toBe(true);
+          const secondDatabase = yield* databases.acquire(second.account);
           expect(reused).toBe(firstDatabase);
           expect(profileDatabase).toBe(firstDatabase);
           expect(secondDatabase).not.toBe(firstDatabase);
           expect(yield* libraryNames(firstDatabase)).toEqual([{ name: 'First server' }]);
           expect(yield* libraryNames(secondDatabase)).toEqual([{ name: 'Second server' }]);
           return firstDatabase;
-        }).pipe(Effect.scoped);
+        }).pipe(
+          Effect.updateContext((context: Context.Context<Scope.Scope>) =>
+            Context.omit(LibraryDatabaseMap)(context)
+          ),
+          Effect.scoped
+        );
 
         yield* TestClock.adjust('1 minute');
-        const retained = yield* LibraryDatabaseMap.acquire(first.account).pipe(Effect.scoped);
+        const retained = yield* databases.acquire(first.account).pipe(Effect.scoped);
         expect(retained).toBe(idle);
 
         yield* TestClock.adjust('5 minutes');
         // The source cannot rescue a lost replica by bootstrapping it again.
         yield* first.stopServer;
-        const reopened = yield* LibraryDatabaseMap.acquire(first.account);
+        const reopened = yield* databases.acquire(first.account);
         expect(reopened).not.toBe(idle);
         expect(yield* libraryNames(reopened)).toEqual([{ name: 'First server' }]);
       },

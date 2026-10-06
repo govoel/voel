@@ -40,7 +40,9 @@ export const accountsSheetAtom = AppRuntime.atom(
         return Stream.succeed<AccountsSheet>(AccountsSheet.MustPickAccount({ dismissable: false }));
       }
 
-      const authClient = yield* AuthClientMap.acquire(activeAccountKey.value);
+      const authClient = yield* AuthClientMap.use((authClients) =>
+        authClients.acquire(activeAccountKey.value)
+      );
       return authClient.sessionChanges.pipe(
         Stream.map((session): AccountsSheet =>
           AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)

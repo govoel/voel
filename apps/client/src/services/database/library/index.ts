@@ -43,7 +43,7 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   readonly account: ActiveAccountKey;
   readonly filenameSuffix: string;
 }) {
-  const authentication = yield* AuthClientMap.acquire(account);
+  const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
 
   return {
     // Auth storage identity is unique to each sign-in, including across servers.
@@ -121,25 +121,37 @@ const synchronizeLibraryDatabase = Effect.fnUntraced(function* ({
 });
 
 /** Lazily owns, scopes, and synchronizes one physical replica per account. */
-export class LibraryDatabaseMap extends LayerMap.Service<LibraryDatabaseMap>()(
+export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
   'voel/services/database/library/LibraryDatabaseMap',
   {
-    idleTimeToLive: '5 minutes',
-    lookup: (account: ActiveAccountKey) =>
-      LibraryDatabase.layerNoDeps(account).pipe(
-        Layer.tap((context) =>
-          synchronizeLibraryDatabase({
-            account,
-            database: Context.get(context, LibraryDatabase),
-          })
-        )
-      ),
-    dependencies: [AppConfig.layer, AuthClientMap.layer, Reactivity.layer],
+    make: LayerMap.make(
+      (account: ActiveAccountKey) =>
+        LibraryDatabase.layerNoDeps(account).pipe(
+          Layer.tap((context) =>
+            synchronizeLibraryDatabase({
+              account,
+              database: Context.get(context, LibraryDatabase),
+            })
+          )
+        ),
+      { idleTimeToLive: '5 minutes' }
+    ).pipe(
+      Effect.map((map) => ({
+        ...map,
+        /** Acquire one replica per canonical account identity in the caller's scope. */
+        acquire: (account: Parameters<typeof ActiveAccountKey.make>[0]) =>
+          map
+            .contextEffect(ActiveAccountKey.make(account))
+            .pipe(Effect.map(Context.get(LibraryDatabase))),
+      }))
+    ),
   }
 ) {
   public static readonly Key = ActiveAccountKey;
 
-  /** Acquire one replica per canonical account identity in the caller's scope. */
-  public static readonly acquire = (account: Parameters<typeof ActiveAccountKey.make>[0]) =>
-    this.contextEffect(this.Key.make(account)).pipe(Effect.map(Context.get(LibraryDatabase)));
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer])
+  );
 }

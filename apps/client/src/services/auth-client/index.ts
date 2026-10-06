@@ -173,25 +173,37 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
   );
 });
 
-export class AuthClientMap extends LayerMap.Service<AuthClientMap>()(
+export class AuthClientMap extends Context.Service<AuthClientMap>()(
   'voel/services/auth-client/AuthClientMap',
   {
-    idleTimeToLive: '5 minutes',
-    dependencies: [
-      AccountRepository.layer,
-      AuthClientStorage.layer,
-      Reactivity.layer,
-      CryptoDigest.layer,
-    ],
-    lookup: (key: AuthClientCacheKey) =>
-      AuthClient.layerNoDeps(key).pipe(
-        Layer.tap((context) => synchronizeAccountFromSession(key, Context.get(context, AuthClient)))
-      ),
+    make: LayerMap.make(
+      (key: AuthClientCacheKey) =>
+        AuthClient.layerNoDeps(key).pipe(
+          Layer.tap((context) =>
+            synchronizeAccountFromSession(key, Context.get(context, AuthClient))
+          )
+        ),
+      { idleTimeToLive: '5 minutes' }
+    ).pipe(
+      Effect.map((map) => ({
+        ...map,
+        /** Acquire a shared auth client in the caller's scope using its auth storage identity. */
+        acquire: (key: Parameters<typeof AuthClientCacheKey.make>[0]) =>
+          map.contextEffect(AuthClientCacheKey.make(key)).pipe(Effect.map(Context.get(AuthClient))),
+      }))
+    ),
   }
 ) {
   public static readonly Key = AuthClientCacheKey;
 
-  /** Acquire a shared auth client without including account/profile metadata in its identity. */
-  public static readonly acquire = (key: Parameters<typeof AuthClientCacheKey.make>[0]) =>
-    this.contextEffect(this.Key.make(key)).pipe(Effect.map(Context.get(AuthClient)));
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(
+    Layer.provide([
+      AccountRepository.layer,
+      AuthClientStorage.layer,
+      Reactivity.layer,
+      CryptoDigest.layer,
+    ])
+  );
 }
