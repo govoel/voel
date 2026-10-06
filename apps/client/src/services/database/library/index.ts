@@ -43,8 +43,7 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   readonly account: ActiveAccountKey;
   readonly filenameSuffix: string;
 }) {
-  const authClients = yield* AuthClientMap;
-  const authentication = yield* authClients.acquire(account);
+  const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
 
   return {
     // Auth storage identity is unique to each sign-in, including across servers.

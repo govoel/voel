@@ -167,7 +167,6 @@ describe('AccountManager', () => {
       'persists auth cookies through AuthClientStorage',
       Effect.fnUntraced(
         function* () {
-          const authClients = yield* AuthClientMap;
           const serverUrl = yield* makeServerUrl;
           const username = yield* makeUsername('test.admin');
           const password = Redacted.make('ha!niceTry');
@@ -203,7 +202,9 @@ describe('AccountManager', () => {
             const parsedCookie = yield* ParsedCookie.decodeFromJsonStringEffect(
               storedCookie.valueOrUndefined
             );
-            const authClient = yield* authClients.acquire(Option.getOrThrow(activeAccount));
+            const authClient = yield* AuthClientMap.use((authClients) =>
+              authClients.acquire(Option.getOrThrow(activeAccount))
+            );
             const cookie = yield* authClient.getCookie;
             expect(Option.getOrThrow(cookie)).toContain(
               `auth.session_token=${parsedCookie['auth.session_token'].value}`
@@ -385,7 +386,6 @@ describe('AccountManager', () => {
       'updates the active user profile',
       Effect.fnUntraced(
         function* () {
-          const authClients = yield* AuthClientMap;
           const serverUrl = yield* makeServerUrl;
           const username = yield* makeUsername('test.admin');
           const updatedUsername = yield* makeUsername('updated.admin');
@@ -401,7 +401,9 @@ describe('AccountManager', () => {
 
           const nextAccountChange = yield* forkNextActiveAccountChange;
           const activeAccountKey = Option.getOrThrow(yield* manager.state);
-          const authClient = yield* authClients.acquire(activeAccountKey);
+          const authClient = yield* AuthClientMap.use((authClients) =>
+            authClients.acquire(activeAccountKey)
+          );
           yield* authClient.updateUser({
             name: 'Updated Admin',
             username: updatedUsername,
@@ -437,7 +439,6 @@ describe('AccountManager', () => {
       'synchronizes a role changed by another account after the session refreshes',
       Effect.fnUntraced(
         function* () {
-          const authClients = yield* AuthClientMap;
           const manager = yield* AccountManager;
           const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
           const [adminUsername, username] = testServer.usernames;
@@ -449,7 +450,9 @@ describe('AccountManager', () => {
           });
           const activeAccountKey = Option.getOrThrow(yield* manager.state);
           expect(Option.getOrThrow(yield* getActiveAccount).role).toBe('user');
-          const authClient = yield* authClients.acquire(activeAccountKey);
+          const authClient = yield* AuthClientMap.use((authClients) =>
+            authClients.acquire(activeAccountKey)
+          );
           yield* waitForSessionRequest(authClient);
 
           const adminAuthClient = yield* makeAuthClient({
@@ -579,7 +582,6 @@ describe('AccountManager', () => {
       'deactivates the previous account and activates the new one',
       Effect.fnUntraced(
         function* () {
-          const authClients = yield* AuthClientMap;
           const manager = yield* AccountManager;
           const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
           const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
@@ -611,7 +613,9 @@ describe('AccountManager', () => {
             },
           ]);
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          expect(yield* authClients.acquire(activeAccount)).toBeDefined();
+          expect(
+            yield* AuthClientMap.use((authClients) => authClients.acquire(activeAccount))
+          ).toBeDefined();
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

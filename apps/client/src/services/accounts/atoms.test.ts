@@ -243,7 +243,6 @@ describe('accountsSheetAtom', () => {
       'stays idle and dismissable while the session is pending',
       Effect.fnUntraced(
         function* () {
-          const authClients = yield* AuthClientMap;
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
           const { drainAtomTasks } = yield* AtomTaskScheduler;
           const manager = yield* AccountManager;
@@ -287,7 +286,9 @@ describe('accountsSheetAtom', () => {
           });
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          const authClient = yield* authClients.acquire(activeAccount);
+          const authClient = yield* AuthClientMap.use((authClients) =>
+            authClients.acquire(activeAccount)
+          );
           expect(yield* authClient.getSession).toMatchObject({
             _tag: 'Initial',
             waiting: true,
@@ -305,7 +306,6 @@ describe('accountsSheetAtom', () => {
       'stays idle and dismissable when the app starts offline',
       Effect.fnUntraced(
         function* () {
-          const authClients = yield* AuthClientMap;
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
           const { drainAtomTasks } = yield* AtomTaskScheduler;
           const manager = yield* AccountManager;
@@ -341,7 +341,9 @@ describe('accountsSheetAtom', () => {
             userId: account.userId,
           });
           const activeAccount = Option.getOrThrow(yield* manager.state);
-          const authClient = yield* authClients.acquire(activeAccount);
+          const authClient = yield* AuthClientMap.use((authClients) =>
+            authClients.acquire(activeAccount)
+          );
 
           yield* Deferred.fail(getSessionResponse, new Error('get-session request failed'));
           yield* authClient.refreshSession({ query: { disableCookieCache: true } });
@@ -367,7 +369,6 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
     'stays idle and dismissable when the session is valid',
     Effect.fnUntraced(
       function* () {
-        const authClients = yield* AuthClientMap;
         const { drainAtomTasks } = yield* AtomTaskScheduler;
         const manager = yield* AccountManager;
         const serverUrl = yield* makeServerUrl;
@@ -382,7 +383,9 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         });
 
         const activeAccount = Option.getOrThrow(yield* manager.state);
-        const authClient = yield* authClients.acquire(activeAccount);
+        const authClient = yield* AuthClientMap.use((authClients) =>
+          authClients.acquire(activeAccount)
+        );
         yield* waitForAuthenticatedSession(authClient);
         const validSession = yield* authClient.getSession;
         expect(validSession).toMatchObject({ _tag: 'Success', waiting: false });
@@ -401,7 +404,6 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
     'shows an invalid session and remains dismissable after session revocation',
     Effect.fnUntraced(
       function* () {
-        const authClients = yield* AuthClientMap;
         const { drainAtomTasks } = yield* AtomTaskScheduler;
         const manager = yield* AccountManager;
         const serverUrl = yield* makeServerUrl;
@@ -415,7 +417,9 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           password: Redacted.make('ha!niceTry'),
         });
         const activeAccount = Option.getOrThrow(yield* manager.state);
-        const authClient = yield* authClients.acquire(activeAccount);
+        const authClient = yield* AuthClientMap.use((authClients) =>
+          authClients.acquire(activeAccount)
+        );
         yield* Atom.mount(accountsSheetAtom);
         yield* waitForAuthenticatedSession(authClient);
         yield* drainAtomTasks;
@@ -631,7 +635,6 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
     'refreshes user queries after successful mutations, but not failed mutations',
     Effect.fnUntraced(
       function* () {
-        const authClients = yield* AuthClientMap;
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
         yield* manager.signInAccount({
@@ -639,7 +642,10 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        const client = yield* authClients.acquire(Option.getOrThrow(yield* manager.state));
+        const authClientKey = Option.getOrThrow(yield* manager.state);
+        const client = yield* AuthClientMap.use((authClients) =>
+          authClients.acquire(authClientKey)
+        );
         const users = yield* client.admin.listUsers({ limit: 10, offset: 0 });
         const target = Option.getOrThrow(
           Option.fromNullishOr(
@@ -685,11 +691,10 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
     'revoking a device session refreshes both own and admin session queries',
     Effect.fnUntraced(
       function* () {
-        const authClients = yield* AuthClientMap;
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
-        const client = yield* authClients.acquire(account);
+        const client = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
         const session = yield* client.readSession;
         const adminSessions = serverUserSessionsAtom(account.userId);
         yield* Atom.mount(ownSessionsAtom);

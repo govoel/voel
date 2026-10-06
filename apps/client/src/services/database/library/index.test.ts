@@ -59,8 +59,7 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
     password: Redacted.make('password'),
   });
   const account = Option.getOrThrow(yield* accounts.state);
-  const authClients = yield* AuthClientMap;
-  const authentication = yield* authClients.acquire(account);
+  const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
   const cookie = Option.getOrThrow(yield* authentication.getCookie);
   const rpc = yield* RpcClient.make(Api).pipe(
     Effect.provide([
@@ -171,8 +170,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
     Effect.fnUntraced(
       function* () {
         const { createLibrary, account } = yield* setupLibrary('Audiobooks');
-        const databases = yield* LibraryDatabaseMap;
-        const database = yield* databases.acquire(account);
+        const database = yield* LibraryDatabaseMap.use((databases) => databases.acquire(account));
         const subscribed = yield* Deferred.make<true>();
         const changes = yield* libraryNames(database).pipe(
           Reactivity.stream(['library']),
