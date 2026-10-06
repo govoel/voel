@@ -69,7 +69,7 @@ export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleM
         get: (plugin: Library['storagePlugin']) =>
           Match.value(plugin).pipe(
             Match.when('builtin:local', () => Effect.succeed<StoragePluginModule>(local)),
-            Match.when(Schema.is(NpmPluginId), (npmPlugin) =>
+            Match.when(NpmPluginId.is, (npmPlugin) =>
               modules.get(npmPlugin).pipe(
                 Effect.flatMap(StoragePluginModuleExport.decodeUnknownEffect),
                 Effect.map((module) => module.default),

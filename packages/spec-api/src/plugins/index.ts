@@ -1,7 +1,9 @@
 import { Schema } from 'effect';
 
 /** Host-selected npm reference. Bun validates and resolves the suffix. */
-export const NpmPluginId = Schema.TemplateLiteral(['npm:', Schema.NonEmptyString]);
+export class NpmPluginId extends Schema.TemplateLiteral(['npm:', Schema.NonEmptyString]) {
+  public static readonly is = Schema.is(this);
+}
 
 /** Package installation, resolution, or import failure. Messages must be client-safe. */
 export class PluginLoadError extends Schema.TaggedError<
