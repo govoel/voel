@@ -230,24 +230,26 @@ it.effect.each([
   )
 );
 
-it.effect('rejects malformed settings outputs at the plugin boundary', () =>
+it.effect('reports malformed settings outputs as defects at the plugin boundary', () =>
   Effect.gen(function* () {
     const editors = yield* StoragePluginSettingsMap;
     const settings = yield* editors.acquire(request);
-    const formError = yield* settings.getForm({ current: Option.none() }).pipe(Effect.flip);
-    expect(formError).toMatchObject({
-      _tag: 'StoragePluginSettingsError',
-      message: 'Storage plugin returned an invalid settings form',
+    const formExit = yield* settings.getForm({ current: Option.none() }).pipe(Effect.exit);
+    expect(Exit.hasDies(formExit)).toBe(true);
+    expect(Exit.findDefect(formExit)).toMatchObject({
+      _tag: 'Success',
+      success: { _tag: 'SchemaError' },
     });
-    const submissionError = yield* settings
+    const submissionExit = yield* settings
       .decodeFormSubmission({
         current: Option.none(),
         input: StoragePluginSettingsInput.make({}),
       })
-      .pipe(Effect.flip);
-    expect(submissionError).toMatchObject({
-      _tag: 'StoragePluginSettingsError',
-      message: 'Storage plugin returned invalid persisted settings',
+      .pipe(Effect.exit);
+    expect(Exit.hasDies(submissionExit)).toBe(true);
+    expect(Exit.findDefect(submissionExit)).toMatchObject({
+      _tag: 'Success',
+      success: { _tag: 'SchemaError' },
     });
   }).pipe(
     Effect.scoped,

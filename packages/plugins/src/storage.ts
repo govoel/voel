@@ -68,7 +68,7 @@ export class StorageLocationValidationError extends Schema.TaggedError<
   StorageLocationValidationError,
   { readonly brand: unique symbol }
 >('@govoel/plugins/storage/StorageLocationValidationError')('StorageLocationValidationError', {
-  message: Schema.NonEmptyString,
+  message: Schema.String,
 }) {}
 
 /**
@@ -82,6 +82,17 @@ export class StoragePluginSettingsError extends Schema.TaggedError<
 }) {}
 
 /**
+ * Submitted settings failed plugin validation; messages must be client-safe.
+ */
+export class StoragePluginInvalidSettingsError extends Schema.TaggedError<
+  StoragePluginInvalidSettingsError,
+  { readonly brand: unique symbol }
+>('@govoel/plugins/storage/StoragePluginInvalidSettingsError')(
+  'StoragePluginInvalidSettingsError',
+  { message: Schema.NonEmptyString }
+) {}
+
+/**
  * Operational failure constructing the settings editor. Messages must be client-safe.
  */
 export class StoragePluginSettingsConstructionError extends Schema.TaggedError<
@@ -89,9 +100,7 @@ export class StoragePluginSettingsConstructionError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@govoel/plugins/storage/StoragePluginSettingsConstructionError')(
   'StoragePluginSettingsConstructionError',
-  {
-    message: Schema.String,
-  }
+  { message: Schema.String }
 ) {}
 
 /**
@@ -128,6 +137,8 @@ export class StoragePlugin extends Context.Service<
 /**
  * Neither method writes settings. `current` is server-loaded JSON for this plugin:
  * None means setup; Some means a persisted value (which must be decoded by the plugin).
+ * Plugins translate schema failures into client-safe errors; malformed successful outputs
+ * violate the contract and are reported as defects by the host.
  */
 export class StoragePluginSettings extends Context.Service<
   StoragePluginSettings,
@@ -135,21 +146,24 @@ export class StoragePluginSettings extends Context.Service<
   {
     /**
      * UI fields and secret-free initial values; no validation rules.
+     * Invalid current settings and operational failures use StoragePluginSettingsError.
      */
     readonly getForm: (request: {
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
-    }) => Effect.Effect<StoragePluginSettingsForm, Schema.SchemaError | StoragePluginSettingsError>;
+    }) => Effect.Effect<StoragePluginSettingsForm, StoragePluginSettingsError>;
 
     /**
      * Schema-validate input, using current as needed, into complete, secret-free JSON.
      * Input and persisted shapes may differ. The host validates JSON before saving.
+     * Reject submitted input with StoragePluginInvalidSettingsError; invalid current
+     * settings and operational failures use StoragePluginSettingsError.
      */
     readonly decodeFormSubmission: (request: {
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
       readonly input: StoragePluginSettingsInput;
     }) => Effect.Effect<
       typeof StoragePluginSettingsPersisted.Type,
-      Schema.SchemaError | StoragePluginSettingsError
+      StoragePluginInvalidSettingsError | StoragePluginSettingsError
     >;
   }
 >()('@govoel/plugins/storage/StoragePluginSettings') {}

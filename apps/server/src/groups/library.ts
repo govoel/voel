@@ -1,7 +1,4 @@
-import {
-  StoragePluginSettingsError,
-  StoragePluginSettingsPersisted,
-} from '@govoel/plugins/storage';
+import { StoragePluginSettingsPersisted } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Schema, Unify } from 'effect';
 import { HttpApiBuilder } from 'effect/http-api';
 import { SqlSchema } from 'effect/sql';
@@ -11,7 +8,6 @@ import { Library, LibraryRoot } from '@repo/spec-api/database/schema.ts';
 import type { StoragePluginHealth } from '@repo/spec-api/groups/library.ts';
 import {
   LibraryInvalidRootError,
-  LibraryInvalidStoragePluginSettingsError,
   LibraryNameConflictError,
   LibraryNotFoundError,
   LibraryUnconfiguredError,
@@ -324,14 +320,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               storagePlugin: row.storagePlugin,
               library: row,
             });
-            return yield* editor.getForm({ current: row.storagePluginSettings }).pipe(
-              Effect.catchTag('SchemaError', () =>
-                StoragePluginSettingsError.make({
-                  message:
-                    'Storage plugin could not build the settings form from the current settings',
-                })
-              )
-            );
+            return yield* editor.getForm({ current: row.storagePluginSettings });
           }, Effect.scoped)
         )
 
@@ -343,15 +332,10 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               storagePlugin: row.storagePlugin,
               library: row,
             });
-            const settings = yield* editor
-              .decodeFormSubmission({ current: row.storagePluginSettings, input })
-              .pipe(
-                Effect.catchTag('SchemaError', () =>
-                  LibraryInvalidStoragePluginSettingsError.make({
-                    message: 'Submitted storage plugin settings failed validation',
-                  })
-                )
-              );
+            const settings = yield* editor.decodeFormSubmission({
+              current: row.storagePluginSettings,
+              input,
+            });
             return yield* repository.setSettings({ id, settings }).pipe(
               Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
               Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),

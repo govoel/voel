@@ -5,7 +5,6 @@ import {
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginSettings,
-  StoragePluginSettingsError,
   StoragePluginSettingsForm,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
@@ -176,6 +175,11 @@ class StoragePluginKey extends Schema.Class<StoragePluginKey, { readonly brand: 
   settings: StoragePluginSettingsPersisted,
 }) {}
 
+const storagePluginSettingsFormDecodeEffect = Schema.decodeEffect(StoragePluginSettingsForm);
+const storagePluginSettingsPersistedDecodeEffect = Schema.decodeEffect(
+  StoragePluginSettingsPersisted
+);
+
 /** Editors for persisted libraries are keyed by their plugin-visible library context. */
 export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
   '@repo/server/services/plugins/storage/StoragePluginSettingsMap',
@@ -192,35 +196,31 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
             });
 
             const settings = Context.get(context, StoragePluginSettings);
-            // Output schema failures are operational; only submission-decoder failures reject input.
+            // Malformed successful outputs violate the contract, rather than rejecting input.
             return StoragePluginSettings.of({
               getForm: (input) =>
                 invoke(() =>
-                  settings.getForm(input).pipe(
-                    Effect.flatMap((form) =>
-                      Schema.decodeEffect(StoragePluginSettingsForm)(form).pipe(
-                        Effect.catchTag('SchemaError', () =>
-                          StoragePluginSettingsError.make({
-                            message: 'Storage plugin returned an invalid settings form',
-                          })
+                  settings
+                    .getForm(input)
+                    .pipe(
+                      Effect.flatMap((form) =>
+                        storagePluginSettingsFormDecodeEffect(form).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
                         )
                       )
                     )
-                  )
                 ),
               decodeFormSubmission: (input) =>
                 invoke(() =>
-                  settings.decodeFormSubmission(input).pipe(
-                    Effect.flatMap((persisted) =>
-                      Schema.decodeEffect(StoragePluginSettingsPersisted)(persisted).pipe(
-                        Effect.catchTag('SchemaError', () =>
-                          StoragePluginSettingsError.make({
-                            message: 'Storage plugin returned invalid persisted settings',
-                          })
+                  settings
+                    .decodeFormSubmission(input)
+                    .pipe(
+                      Effect.flatMap((persisted) =>
+                        storagePluginSettingsPersistedDecodeEffect(persisted).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
                         )
                       )
                     )
-                  )
                 ),
             });
           })
@@ -244,6 +244,9 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
 
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));
 }
+
+const storageRootLocationDecodeEffect = Schema.decodeEffect(StorageRootLocation);
+const storageMediaFileLocationDecodeEffect = Schema.decodeEffect(StorageMediaFileLocation);
 
 /** Storage instances are keyed by their plugin-visible library context, plugin, and settings. */
 export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
@@ -272,8 +275,11 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
                   storage
                     .decodeRootLocation(input)
                     .pipe(
-                      Effect.flatMap(Schema.decodeUnknownEffect(StorageRootLocation)),
-                      Effect.catchTags({ SchemaError: Effect.die })
+                      Effect.flatMap((result) =>
+                        storageRootLocationDecodeEffect(result).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
                     )
                 ),
               decodeMediaFileLocation: (input) =>
@@ -281,8 +287,11 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
                   storage
                     .decodeMediaFileLocation(input)
                     .pipe(
-                      Effect.flatMap(Schema.decodeUnknownEffect(StorageMediaFileLocation)),
-                      Effect.catchTags({ SchemaError: Effect.die })
+                      Effect.flatMap((result) =>
+                        storageMediaFileLocationDecodeEffect(result).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
                     )
                 ),
             });

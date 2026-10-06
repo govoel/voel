@@ -1,6 +1,7 @@
 import {
   StorageLocationValidationError,
   StoragePluginConstructionError,
+  StoragePluginInvalidSettingsError,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
   StoragePluginSettingsForm,
@@ -54,16 +55,6 @@ export class LibraryInvalidRootError extends Schema.TaggedError<
       })
     ),
   },
-  { httpApiStatus: 422 }
-) {}
-
-/** Submitted settings failed plugin validation; messages must be client-safe. */
-export class LibraryInvalidStoragePluginSettingsError extends Schema.TaggedError<
-  LibraryInvalidStoragePluginSettingsError,
-  { readonly brand: unique symbol }
->('@repo/spec-api/groups/library/LibraryInvalidStoragePluginSettingsError')(
-  'LibraryInvalidStoragePluginSettingsError',
-  { message: Schema.NonEmptyString },
   { httpApiStatus: 422 }
 ) {}
 
@@ -162,8 +153,8 @@ export const LibraryApi = HttpApiGroup.make('library')
       error: [
         LibraryNotFoundError,
         StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
         StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-        LibraryInvalidStoragePluginSettingsError,
         PluginLoadError,
         StoragePluginLoadError,
       ],
