@@ -2,7 +2,7 @@
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
   "agentGuidance": false,
-  "remoteCache": { "enabled": true },
+  "remoteCache": { "enabled": true, "teamSlug": "voel" },
   "tasks": {
     "build": {
       "cache": true,
