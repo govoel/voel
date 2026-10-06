@@ -124,6 +124,7 @@ export const activeAccountAuthClientAtom = AppRuntime.atom(
     if (Option.isNone(key)) {
       return yield* NoActiveAccountError.make();
     }
-    return yield* AuthClientMap.acquire(key.value);
+    const authClients = yield* AuthClientMap;
+    return yield* authClients.acquire(key.value);
   })
 );

@@ -145,11 +145,10 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
         // we ignore errors here because the server may be offline
         // which causes better-auth to throw
-        yield* AuthClientMap.acquire(key).pipe(
+        yield* authClientMap.acquire(key).pipe(
           Effect.flatMap((authClient) => authClient.signOut),
           Effect.ignore,
-          Effect.scoped,
-          Effect.provideService(AuthClientMap, authClientMap)
+          Effect.scoped
         );
 
         // Mimic Better Auth and remove the auth storage items for this account
@@ -180,97 +179,85 @@ export class AccountManager extends Context.Service<AccountManager>()(
         Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: removeAccount }))
       );
 
-      const signOutEverywhere = Effect.fnUntraced(
-        function* (key: ActiveAccountKey) {
-          const client = yield* AuthClientMap.acquire(key);
-          // Keep local credentials if revocation fails so the user can retry.
-          yield* client.revokeSessions;
-          yield* removeAccount(key);
-        },
-        Effect.scoped,
-        Effect.provideService(AuthClientMap, authClientMap)
-      );
+      const signOutEverywhere = Effect.fnUntraced(function* (key: ActiveAccountKey) {
+        const client = yield* authClientMap.acquire(key);
+        // Keep local credentials if revocation fails so the user can retry.
+        yield* client.revokeSessions;
+        yield* removeAccount(key);
+      }, Effect.scoped);
 
-      const signInAccount = Effect.fnUntraced(
-        function* ({
-          serverUrl,
-          username,
-          password,
-        }: Pick<Account, 'serverUrl'> &
-          Omit<Parameters<AuthClient['Service']['signIn']['username']>[0], 'password'> & {
-            password: Redacted.Redacted;
-          }) {
-          const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-          const authClient = yield* AuthClientMap.acquire({ serverUrl, authStorageId });
+      const signInAccount = Effect.fnUntraced(function* ({
+        serverUrl,
+        username,
+        password,
+      }: Pick<Account, 'serverUrl'> &
+        Omit<Parameters<AuthClient['Service']['signIn']['username']>[0], 'password'> & {
+          password: Redacted.Redacted;
+        }) {
+        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+        const authClient = yield* authClientMap.acquire({ serverUrl, authStorageId });
 
-          const signInResult = yield* authClient.signIn
-            .username({ username, password: Redacted.value(password) })
-            .pipe(
-              Effect.catchTag('AuthError', (error) =>
-                AccountSignInError.make({ reason: error.reason })
-              )
-            );
+        const signInResult = yield* authClient.signIn
+          .username({ username, password: Redacted.value(password) })
+          .pipe(
+            Effect.catchTag('AuthError', (error) =>
+              AccountSignInError.make({ reason: error.reason })
+            )
+          );
 
-          return yield* upsertAccount({
-            account: {
-              serverUrl,
-              userId: signInResult.user.id,
-              username: signInResult.user.username,
-              name: signInResult.user.name,
-              email: signInResult.user.email,
-              authStorageId,
-              role: signInResult.user.role,
-              profilePicture: signInResult.user.image,
-            },
-          });
-        },
-        Effect.scoped,
-        Effect.provideService(AuthClientMap, authClientMap)
-      );
+        return yield* upsertAccount({
+          account: {
+            serverUrl,
+            userId: signInResult.user.id,
+            username: signInResult.user.username,
+            name: signInResult.user.name,
+            email: signInResult.user.email,
+            authStorageId,
+            role: signInResult.user.role,
+            profilePicture: signInResult.user.image,
+          },
+        });
+      }, Effect.scoped);
 
-      const setupServerWithAccount = Effect.fnUntraced(
-        function* ({
-          serverUrl,
-          name,
-          email,
-          username,
-          password,
-        }: Pick<Account, 'serverUrl'> &
-          Omit<Parameters<AuthClient['Service']['signUp']['email']>[0], 'password'> & {
-            password: Redacted.Redacted;
-          }) {
-          const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-          const authClient = yield* AuthClientMap.acquire({ serverUrl, authStorageId });
+      const setupServerWithAccount = Effect.fnUntraced(function* ({
+        serverUrl,
+        name,
+        email,
+        username,
+        password,
+      }: Pick<Account, 'serverUrl'> &
+        Omit<Parameters<AuthClient['Service']['signUp']['email']>[0], 'password'> & {
+          password: Redacted.Redacted;
+        }) {
+        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
+        const authClient = yield* authClientMap.acquire({ serverUrl, authStorageId });
 
-          const signUpResult = yield* authClient.signUp
-            .email({
-              name,
-              email,
-              username,
-              password: Redacted.value(password),
-            })
-            .pipe(
-              Effect.catchTag('AuthError', (error) =>
-                AccountSignUpError.make({ reason: error.reason })
-              )
-            );
+        const signUpResult = yield* authClient.signUp
+          .email({
+            name,
+            email,
+            username,
+            password: Redacted.value(password),
+          })
+          .pipe(
+            Effect.catchTag('AuthError', (error) =>
+              AccountSignUpError.make({ reason: error.reason })
+            )
+          );
 
-          return yield* upsertAccount({
-            account: {
-              serverUrl,
-              userId: signUpResult.user.id,
-              username: signUpResult.user.username,
-              name: signUpResult.user.name,
-              email: signUpResult.user.email,
-              authStorageId,
-              role: signUpResult.user.role,
-              profilePicture: signUpResult.user.image,
-            },
-          });
-        },
-        Effect.scoped,
-        Effect.provideService(AuthClientMap, authClientMap)
-      );
+        return yield* upsertAccount({
+          account: {
+            serverUrl,
+            userId: signUpResult.user.id,
+            username: signUpResult.user.username,
+            name: signUpResult.user.name,
+            email: signUpResult.user.email,
+            authStorageId,
+            role: signUpResult.user.role,
+            profilePicture: signUpResult.user.image,
+          },
+        });
+      }, Effect.scoped);
 
       return {
         changes,
