@@ -8,7 +8,6 @@ import type { SqlClient } from 'effect/sql';
 import { vi } from 'vitest';
 
 import { TursoClient } from '@repo/effect-turso';
-import { TursoSyncClient as NativeTursoSyncClient } from '@repo/effect-turso-sync-rn';
 
 import { TursoSyncClient } from '#src/index.ts';
 
@@ -21,10 +20,6 @@ const drivers = [
   },
   { name: 'in-memory Turso', make: () => TursoClient.make({ filename: ':memory:' }) },
   { name: 'Bun Turso Sync', make: (filename: string) => TursoSyncClient.make({ path: filename }) },
-  {
-    name: 'React Native Turso Sync (native API harness)',
-    make: (filename: string) => NativeTursoSyncClient.make({ path: filename }),
-  },
 ];
 
 const setup = (sql: SqlClient.SqlClient) =>

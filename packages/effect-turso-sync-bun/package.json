@@ -22,9 +22,7 @@
   "devDependencies": {
     "@effect/platform-bun": "4.0.0",
     "@effect/vitest": "4.0.0",
-    "@govoel/turso-database": "0.8.1",
     "@repo/effect-turso": "workspace:*",
-    "@repo/effect-turso-sync-rn": "workspace:*",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.4.2",
     "typescript": "7.0.2",
