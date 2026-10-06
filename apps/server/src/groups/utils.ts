@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Headers as EffectHeaders } from 'effect/http';
-import { RpcMiddleware } from 'effect/rpc';
+import { HttpApiMiddleware } from 'effect/http-api';
 
 import { AuthServerClient } from '@repo/auth-api/server.ts';
 import type { TestHelpers } from '@repo/auth-api/server.ts';
@@ -54,7 +54,10 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
     test.getAuthHeaders({ userId: savedUser.id })
   ).pipe(Effect.orDie, Effect.map(EffectHeaders.fromInput));
 
-  return RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
-    next({ ...request, headers: EffectHeaders.merge(request.headers, headers) })
-  );
+  return {
+    headers,
+    layer: HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
+      next({ ...request, headers: EffectHeaders.merge(request.headers, headers) })
+    ),
+  };
 });

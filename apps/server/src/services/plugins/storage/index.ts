@@ -175,100 +175,144 @@ class StoragePluginKey extends Schema.Class<StoragePluginKey, { readonly brand: 
   settings: StoragePluginSettingsPersisted,
 }) {}
 
+const storagePluginSettingsFormDecodeEffect = Schema.decodeEffect(StoragePluginSettingsForm);
+const storagePluginSettingsPersistedDecodeEffect = Schema.decodeEffect(
+  StoragePluginSettingsPersisted
+);
+
 /** Editors for persisted libraries are keyed by their plugin-visible library context. */
-export class StoragePluginSettingsMap extends LayerMap.Service<StoragePluginSettingsMap>()(
+export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
   '@repo/server/services/plugins/storage/StoragePluginSettingsMap',
   {
-    idleTimeToLive: '5 minutes',
-    dependencies: [StoragePluginBuilder.layer],
+    make: LayerMap.make(
+      (request: StoragePluginSettingsKey) =>
+        Layer.effect(
+          StoragePluginSettings,
+          Effect.gen(function* () {
+            const buildPlugin = yield* StoragePluginBuilder;
+            const { context, invoke } = yield* buildPlugin({
+              storagePlugin: request.storagePlugin,
+              makeLayer: (module) => module.storage.layerSettings({ library: request.library }),
+            });
 
-    lookup: (request: StoragePluginSettingsKey) =>
-      Layer.effect(
-        StoragePluginSettings,
-        Effect.gen(function* () {
-          const buildPlugin = yield* StoragePluginBuilder;
-          const { context, invoke } = yield* buildPlugin({
-            storagePlugin: request.storagePlugin,
-            makeLayer: (module) => module.storage.layerSettings({ library: request.library }),
-          });
-
-          const settings = Context.get(context, StoragePluginSettings);
-          // Enforce the shared output contract once, inside the isolated plugin invocation.
-          return StoragePluginSettings.of({
-            getForm: (input) =>
-              invoke(() =>
-                settings
-                  .getForm(input)
-                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(StoragePluginSettingsForm)))
-              ),
-            decodeFormSubmission: (input) =>
-              invoke(() =>
-                settings
-                  .decodeFormSubmission(input)
-                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(StoragePluginSettingsPersisted)))
-              ),
-          });
-        })
-      ),
+            const settings = Context.get(context, StoragePluginSettings);
+            // Malformed successful outputs violate the contract, rather than rejecting input.
+            return StoragePluginSettings.of({
+              getForm: (input) =>
+                invoke(() =>
+                  settings
+                    .getForm(input)
+                    .pipe(
+                      Effect.flatMap((form) =>
+                        storagePluginSettingsFormDecodeEffect(form).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
+                    )
+                ),
+              decodeFormSubmission: (input) =>
+                invoke(() =>
+                  settings
+                    .decodeFormSubmission(input)
+                    .pipe(
+                      Effect.flatMap((persisted) =>
+                        storagePluginSettingsPersistedDecodeEffect(persisted).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
+                    )
+                ),
+            });
+          })
+        ),
+      { idleTimeToLive: '5 minutes' }
+    ).pipe(
+      Effect.map((map) => ({
+        ...map,
+        /** Acquire an editor in the caller's scope using its canonical identity. */
+        acquire: (request: Parameters<typeof StoragePluginSettingsKey.make>[0]) =>
+          map
+            .contextEffect(StoragePluginSettingsKey.make(request))
+            .pipe(Effect.map(Context.get(StoragePluginSettings))),
+      }))
+    ),
   }
 ) {
   public static readonly Key = StoragePluginSettingsKey;
 
-  /** Acquire an editor in the caller's scope using its canonical identity. */
-  public static readonly acquire = (request: Parameters<typeof StoragePluginSettingsKey.make>[0]) =>
-    this.contextEffect(this.Key.make(request)).pipe(Effect.map(Context.get(StoragePluginSettings)));
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));
 }
 
+const storageRootLocationDecodeEffect = Schema.decodeEffect(StorageRootLocation);
+const storageMediaFileLocationDecodeEffect = Schema.decodeEffect(StorageMediaFileLocation);
+
 /** Storage instances are keyed by their plugin-visible library context, plugin, and settings. */
-export class StoragePluginMap extends LayerMap.Service<StoragePluginMap>()(
+export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
   '@repo/server/services/plugins/storage/StoragePluginMap',
   {
-    idleTimeToLive: '5 minutes',
-    dependencies: [StoragePluginBuilder.layer],
+    make: LayerMap.make(
+      (request: StoragePluginKey) =>
+        Layer.effect(
+          StoragePlugin,
+          Effect.gen(function* () {
+            const buildPlugin = yield* StoragePluginBuilder;
+            const { context, invoke } = yield* buildPlugin({
+              storagePlugin: request.storagePlugin,
+              makeLayer: (module) =>
+                module.storage.layer({
+                  library: request.library,
+                  settings: request.settings,
+                }),
+            });
 
-    lookup: (request: StoragePluginKey) =>
-      Layer.effect(
-        StoragePlugin,
-        Effect.gen(function* () {
-          const buildPlugin = yield* StoragePluginBuilder;
-          const { context, invoke } = yield* buildPlugin({
-            storagePlugin: request.storagePlugin,
-            makeLayer: (module) =>
-              module.storage.layer({
-                library: request.library,
-                settings: request.settings,
-              }),
-          });
-
-          const storage = Context.get(context, StoragePlugin);
-          // Invalid outputs violate the plugin contract, rather than rejecting user input.
-          return StoragePlugin.of({
-            decodeRootLocation: (input) =>
-              invoke(() =>
-                storage
-                  .decodeRootLocation(input)
-                  .pipe(
-                    Effect.flatMap(Schema.decodeUnknownEffect(StorageRootLocation)),
-                    Effect.catchTags({ SchemaError: Effect.die })
-                  )
-              ),
-            decodeMediaFileLocation: (input) =>
-              invoke(() =>
-                storage
-                  .decodeMediaFileLocation(input)
-                  .pipe(
-                    Effect.flatMap(Schema.decodeUnknownEffect(StorageMediaFileLocation)),
-                    Effect.catchTags({ SchemaError: Effect.die })
-                  )
-              ),
-          });
-        })
-      ),
+            const storage = Context.get(context, StoragePlugin);
+            // Invalid outputs violate the plugin contract, rather than rejecting user input.
+            return StoragePlugin.of({
+              decodeRootLocation: (input) =>
+                invoke(() =>
+                  storage
+                    .decodeRootLocation(input)
+                    .pipe(
+                      Effect.flatMap((result) =>
+                        storageRootLocationDecodeEffect(result).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
+                    )
+                ),
+              decodeMediaFileLocation: (input) =>
+                invoke(() =>
+                  storage
+                    .decodeMediaFileLocation(input)
+                    .pipe(
+                      Effect.flatMap((result) =>
+                        storageMediaFileLocationDecodeEffect(result).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
+                    )
+                ),
+            });
+          })
+        ),
+      { idleTimeToLive: '5 minutes' }
+    ).pipe(
+      Effect.map((map) => ({
+        ...map,
+        /** Acquire storage in the caller's scope using its canonical identity. */
+        acquire: (request: Parameters<typeof StoragePluginKey.make>[0]) =>
+          map
+            .contextEffect(StoragePluginKey.make(request))
+            .pipe(Effect.map(Context.get(StoragePlugin))),
+      }))
+    ),
   }
 ) {
   public static readonly Key = StoragePluginKey;
 
-  /** Acquire storage in the caller's scope using its canonical identity. */
-  public static readonly acquire = (request: Parameters<typeof StoragePluginKey.make>[0]) =>
-    this.contextEffect(this.Key.make(request)).pipe(Effect.map(Context.get(StoragePlugin)));
+  public static readonly layerNoDeps = Layer.effect(this, this.make);
+
+  public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));
 }

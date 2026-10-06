@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { BunFileSystem, BunHttpServer, BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import type { StoragePluginModule } from '@govoel/plugins/storage';
 import {
@@ -7,23 +7,35 @@ import {
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginConstructionError,
+  StoragePluginInvalidSettingsError,
   StoragePluginSettings,
+  StoragePluginSettingsError,
   StoragePluginSettingsForm,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Context, Deferred, Effect, Fiber, Layer, Option, Schema } from 'effect';
-import { FetchHttpClient } from 'effect/http';
+import { Context, Effect, Exit, Fiber, Latch, Layer, Option, Schema } from 'effect';
+import {
+  FetchHttpClient,
+  Headers,
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpEffect,
+  HttpRouter,
+} from 'effect/http';
+import { HttpApiClient, HttpApiMiddleware, HttpApiTest } from 'effect/http-api';
 import { Reactivity } from 'effect/reactivity';
-import { RpcMiddleware, RpcTest } from 'effect/rpc';
+import { TestClock } from 'effect/testing';
 
 import { TursoClient } from '@repo/effect-turso';
+import { Api } from '@repo/spec-api';
 import { Library } from '@repo/spec-api/database/schema.ts';
-import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 import { PluginLoadError } from '@repo/spec-api/plugins/index.ts';
 
+import { ApiRoutesLayerNoDeps } from '#src/groups/index.ts';
 import { LibraryHandlersLayerNoDeps, LibraryRepository } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
 import {
@@ -65,6 +77,8 @@ class PluginFixture extends Context.Service<PluginFixture>()(
           }
         ): Effect.Effect<void> => Effect.void,
         invalidForm: false,
+        invalidPersisted: false,
+        settingsError: false,
       };
       const module = {
         storage: {
@@ -113,8 +127,20 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                 StoragePluginSettings.of({
                   getForm: ({ current }) =>
                     Effect.gen(function* () {
+                      if (controls.settingsError) {
+                        return yield* StoragePluginSettingsError.make({
+                          message: 'Settings unavailable',
+                        });
+                      }
                       const settings = Option.isSome(current)
-                        ? yield* Schema.decodeUnknownEffect(Persisted)(current.value)
+                        ? yield* Schema.decodeUnknownEffect(Persisted)(current.value).pipe(
+                            Effect.catchTag('SchemaError', () =>
+                              StoragePluginSettingsError.make({
+                                message:
+                                  'Storage plugin could not build the settings form from the current settings',
+                              })
+                            )
+                          )
                         : { prefix: '' };
                       const field = {
                         _tag: 'TextField' as const,
@@ -128,10 +154,30 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                     }),
                   decodeFormSubmission: ({ input }) =>
                     controls.beforeDecode({ ...request, input }).pipe(
-                      Effect.andThen(Schema.decodeUnknownEffect(Input)(input)),
-                      Effect.map(({ root }) =>
-                        StoragePluginSettingsPersisted.make({ prefix: root.trim() })
-                      )
+                      Effect.andThen(() =>
+                        controls.settingsError
+                          ? StoragePluginSettingsError.make({ message: 'Settings unavailable' })
+                          : Effect.void
+                      ),
+                      Effect.andThen(
+                        Schema.decodeUnknownEffect(Input)(input).pipe(
+                          Effect.catchTag('SchemaError', () =>
+                            StoragePluginInvalidSettingsError.make({
+                              message: 'Submitted storage plugin settings failed validation',
+                            })
+                          )
+                        )
+                      ),
+                      Effect.map(({ root }) => {
+                        // Model a plugin returning JSON invalidated after branding.
+                        if (controls.invalidPersisted) {
+                          const value = { prefix: root.trim(), version: 1 };
+                          const settings = StoragePluginSettingsPersisted.make(value);
+                          value.version = Number.NaN;
+                          return settings;
+                        }
+                        return StoragePluginSettingsPersisted.make({ prefix: root.trim() });
+                      })
                     ),
                 })
               )
@@ -169,14 +215,24 @@ const pluginLayer = Layer.mergeAll(
   Layer.provide([BunFileSystem.layer, BunPath.layer, FetchHttpClient.layer])
 );
 
-const testLayer = LibraryHandlersLayerNoDeps.pipe(
-  Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
+const testDependenciesLayer = Layer.mergeAll(
+  AuthMiddlewareLayerNoDeps,
+  AdminMiddlewareLayerNoDeps,
+  LibraryRepository.layerNoDeps,
+  pluginLayer
+).pipe(
   Layer.provideMerge(AuthLayerNoDeps),
-  Layer.provide(LibraryRepository.layerNoDeps),
-  Layer.provideMerge(pluginLayer),
   Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
   Layer.provideMerge([ApiConfig.layerTest(), Reactivity.layer]),
-  Layer.provide(BunPath.layer)
+  Layer.provideMerge(BunHttpServer.layerHttpServices)
+);
+
+// Build handlers once so background retirement lives for the suite, not client creation.
+const testLayer = LibraryHandlersLayerNoDeps.pipe(Layer.provideMerge(testDependenciesLayer));
+
+const wireTestLayer = ApiRoutesLayerNoDeps.pipe(
+  Layer.provideMerge(testDependenciesLayer),
+  Layer.provideMerge(HttpRouter.layer)
 );
 
 const createInput = (
@@ -188,9 +244,8 @@ const createInput = (
   storagePlugin: Library.fields.storagePlugin.make(plugin),
 });
 const makeClient = Effect.gen(function* () {
-  return yield* RpcTest.makeClient(LibraryRpcs).pipe(
-    Effect.provide(yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' }))
-  );
+  const auth = yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' });
+  return yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
 });
 
 it.layer(testLayer)('library lifecycle', (iit) => {
@@ -199,18 +254,22 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository.make;
-      const library = yield* client.libraryCreate(createInput('Failed health', 'npm:missing'));
+      const library = yield* client.library.create({
+        payload: createInput('Failed health', 'npm:missing'),
+      });
       yield* repository.setSettings({
         ...library,
         settings: StoragePluginSettingsPersisted.make({}),
       });
       expect(
-        yield* client.libraryGetStoragePluginSettingsForm(library).pipe(Effect.flip)
+        yield* client.library.getStoragePluginSettingsForm({ params: library }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'PluginLoadError' });
       expect(
-        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+        yield* client.library
+          .setRoots({ params: library, payload: { roots: [] } })
+          .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'PluginLoadError' });
-      expect((yield* client.libraryGet(library)).storagePluginHealth).toMatchObject({
+      expect((yield* client.library.get({ params: library })).storagePluginHealth).toMatchObject({
         status: 'unhealthy',
         errors: [
           { _tag: 'PluginLoadError', message: 'Plugin unavailable' },
@@ -224,36 +283,36 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'reads only cached plugin health, reports failures, and forgets retired instances',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const library = yield* client.libraryCreate(createInput('Health', 'npm:test'));
+      const library = yield* client.library.create({ payload: createInput('Health', 'npm:test') });
       const listItem = Effect.gen(function* () {
-        return (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
-          ({ id }) => id === library.id
-        );
+        return (yield* client.library.list({
+          query: { cursor: Option.none(), limit: 100 },
+        })).items.find(({ id }) => id === library.id);
       });
       for (let index = 0; index < 2; index += 1) {
-        expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+        expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
           status: 'unknown',
         });
         expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
       }
 
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: 'unavailable' }),
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
       });
       // Persisted settings alone do not imply that storage is healthy.
-      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+      expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
       });
-      yield* client.libraryGetStoragePluginSettingsForm(library);
-      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+      yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'healthy',
       });
       expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
 
-      yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip);
+      yield* client.library.setRoots({ params: library, payload: { roots: [] } }).pipe(Effect.flip);
       for (let index = 0; index < 2; index += 1) {
-        expect((yield* client.libraryGet(library)).storagePluginHealth).toMatchObject({
+        expect((yield* client.library.get({ params: library })).storagePluginHealth).toMatchObject({
           status: 'unhealthy',
           errors: [{ _tag: 'StoragePluginConstructionError', message: 'Storage unavailable' }],
         });
@@ -262,21 +321,24 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         expect(item).not.toHaveProperty('storagePluginHealth');
       }
 
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/healthy' }),
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: '/healthy' }) },
       });
-      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+      expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
       });
-      yield* client.libraryRootsSet({ ...library, roots: [] });
-      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+      yield* client.library.setRoots({ params: library, payload: { roots: [] } });
+      expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'healthy',
       });
       expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
 
-      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('New health') });
-      expect((yield* client.libraryGet(library)).storagePluginHealth).toEqual({
+      yield* client.library.update({
+        params: library,
+        payload: { name: Library.fields.name.make('New health') },
+      });
+      expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
       });
       expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
@@ -288,29 +350,39 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository.make;
-      const library = yield* client.libraryCreate(createInput('Stale health', 'npm:test'));
+      const library = yield* client.library.create({
+        payload: createInput('Stale health', 'npm:test'),
+      });
       yield* repository.setSettings({
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
-      yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip);
-      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unhealthy');
+      yield* client.library.setRoots({ params: library, payload: { roots: [] } }).pipe(Effect.flip);
+      expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
+        'unhealthy'
+      );
 
       // Leave old entries cached, as can happen while retirement is still in progress.
       yield* repository.setSettings({
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
       });
-      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unknown');
-      yield* client.libraryGetStoragePluginSettingsForm(library);
-      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('healthy');
+      expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
+        'unknown'
+      );
+      yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
+        'healthy'
+      );
       yield* repository.rename({
         ...library,
         name: Library.fields.name.make('New health context'),
       });
-      expect((yield* client.libraryGet(library)).storagePluginHealth.status).toBe('unknown');
+      expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
+        'unknown'
+      );
       expect(
-        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.find(
           ({ id }) => id === library.id
         )
       ).toMatchObject({ storagePluginStatus: 'unknown' });
@@ -343,10 +415,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
 
       expect(
         yield* repository
-          .setRoots({
-            ...library,
-            roots: [StorageRootLocation.make('/rejected-root-replacement')],
-          })
+          .setRoots({ ...library, roots: [StorageRootLocation.make('/rejected-root-replacement')] })
           .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'SqlError' });
       expect((yield* repository.getById(library)).roots.map(({ root }) => root)).toEqual([
@@ -360,8 +429,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const sql = yield* LibraryDatabase;
-      const library = yield* client.libraryCreate(createInput('Local'));
-      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(Option.none());
+      const library = yield* client.library.create({ payload: createInput('Local') });
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+        Option.none()
+      );
       expect(
         yield* sql`
           select
@@ -373,19 +444,23 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         `
       ).toEqual([{ storagePluginSettings: null }]);
       expect(
-        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.some(
+        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.some(
           ({ id }) => id === library.id
         )
       ).toBe(true);
       expect(
-        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+        yield* client.library
+          .setRoots({ params: library, payload: { roots: [] } })
+          .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'LibraryUnconfiguredError' });
-      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toEqual([]);
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({}),
+      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toEqual([]);
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({}) },
       });
-      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(Option.some({}));
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+        Option.some({})
+      );
       expect(
         yield* sql`
           select
@@ -397,8 +472,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         `
       ).toEqual([{ storagePluginSettings: '{}' }]);
       expect(
-        yield* client
-          .libraryRootsSet({ ...library, roots: [{ root: 'relative' }] })
+        yield* client.library
+          .setRoots({ params: library, payload: { roots: [{ root: 'relative' }] } })
           .pipe(Effect.flip)
       ).toMatchObject({
         _tag: 'LibraryInvalidRootError',
@@ -411,17 +486,20 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'reports all rejected roots with their messages without changing persisted roots',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const library = yield* client.libraryCreate(createInput('Invalid roots'));
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({}),
+      const library = yield* client.library.create({ payload: createInput('Invalid roots') });
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({}) },
       });
-      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/original' }] });
+      yield* client.library.setRoots({
+        params: library,
+        payload: { roots: [{ root: '/original' }] },
+      });
       expect(
-        yield* client
-          .libraryRootsSet({
-            ...library,
-            roots: [{ root: 'relative' }, { root: '/valid' }, { root: '/nul\0' }],
+        yield* client.library
+          .setRoots({
+            params: library,
+            payload: { roots: [{ root: 'relative' }, { root: '/valid' }, { root: '/nul\0' }] },
           })
           .pipe(Effect.flip)
       ).toMatchObject({
@@ -431,9 +509,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           { root: '/nul\0', message: 'Library root locations must not contain NUL characters' },
         ],
       });
-      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual([
-        '/original',
-      ]);
+      expect(
+        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+      ).toEqual(['/original']);
     })
   );
 
@@ -441,43 +519,45 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'defers plugin loading and rejects name conflicts without resurrecting rows',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const missing = yield* client.libraryCreate(createInput('Missing plugin', 'npm:missing'));
-      expect(yield* client.libraryGet(missing)).toMatchObject({
+      const missing = yield* client.library.create({
+        payload: createInput('Missing plugin', 'npm:missing'),
+      });
+      expect(yield* client.library.get({ params: missing })).toMatchObject({
         storagePlugin: 'npm:missing',
         storagePluginSettings: Option.none(),
         storagePluginHealth: { status: 'unknown' },
       });
       expect(
-        yield* client.libraryGetStoragePluginSettingsForm(missing).pipe(Effect.flip)
+        yield* client.library.getStoragePluginSettingsForm({ params: missing }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'PluginLoadError' });
-      expect((yield* client.libraryGet(missing)).storagePluginHealth).toMatchObject({
+      expect((yield* client.library.get({ params: missing })).storagePluginHealth).toMatchObject({
         status: 'unhealthy',
         errors: [{ _tag: 'PluginLoadError', message: 'Plugin unavailable' }],
       });
       expect(
-        (yield* client.libraryList({ cursor: Option.none(), limit: 100 })).items.find(
+        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.find(
           ({ id }) => id === missing.id
         )
       ).toMatchObject({ storagePluginStatus: 'unhealthy' });
-      const original = yield* client.libraryCreate(createInput('Unique'));
-      expect(yield* client.libraryCreate(createInput('Unique')).pipe(Effect.flip)).toMatchObject({
-        _tag: 'LibraryNameConflictError',
-      });
-      const other = yield* client.libraryCreate(createInput('Other'));
+      const original = yield* client.library.create({ payload: createInput('Unique') });
       expect(
-        yield* client
-          .libraryUpdate({ ...other, name: Library.fields.name.make('Unique') })
+        yield* client.library.create({ payload: createInput('Unique') }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'LibraryNameConflictError' });
+      const other = yield* client.library.create({ payload: createInput('Other') });
+      expect(
+        yield* client.library
+          .update({ params: other, payload: { name: Library.fields.name.make('Unique') } })
           .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'LibraryNameConflictError' });
-      expect((yield* client.libraryGet(other)).name).toBe('Other');
-      yield* client.libraryDelete(original);
-      yield* client.libraryDelete(original);
+      expect((yield* client.library.get({ params: other })).name).toBe('Other');
+      yield* client.library.delete({ params: original });
+      yield* client.library.delete({ params: original });
       expect(
-        yield* client
-          .libraryUpdate({ ...original, name: Library.fields.name.make('Gone') })
+        yield* client.library
+          .update({ params: original, payload: { name: Library.fields.name.make('Gone') } })
           .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'LibraryNotFoundError' });
-      const recreated = yield* client.libraryCreate(createInput('Unique'));
+      const recreated = yield* client.library.create({ payload: createInput('Unique') });
       expect(recreated.id).not.toBe(original.id);
     })
   );
@@ -487,62 +567,83 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
-      const library = yield* client.libraryCreate(createInput('Remote', 'npm:test'));
+      const library = yield* client.library.create({ payload: createInput('Remote', 'npm:test') });
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toEqual([
+        expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toEqual([
           { _tag: 'TextField', name: 'root', label: 'Remote', placeholder: '', initialValue: '' },
         ]);
       }
-      const failure = yield* client
-        .librarySetStoragePluginSettings({
-          ...library,
-          input: StoragePluginSettingsInput.make({ root: 123 }),
+      const failure = yield* client.library
+        .setStoragePluginSettings({
+          params: library,
+          payload: { input: StoragePluginSettingsInput.make({ root: 123 }) },
         })
         .pipe(Effect.flip);
       expect(failure).toMatchObject({
-        _tag: 'StoragePluginSettingsError',
-        message: 'Invalid storage plugin settings',
+        _tag: 'StoragePluginInvalidSettingsError',
+        message: 'Submitted storage plugin settings failed validation',
       });
-      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(Option.none());
-      yield* client.libraryGetStoragePluginSettingsForm(library);
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: 'unavailable' }),
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+        Option.none()
+      );
+      yield* client.library.getStoragePluginSettingsForm({ params: library });
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
       });
-      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: 'unavailable' })
       );
       expect(
-        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+        yield* client.library
+          .setRoots({ params: library, payload: { roots: [] } })
+          .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
-      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
-        { initialValue: 'unavailable', label: 'Remote' },
-      ]);
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: ' /remote ' }),
+      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
+        [{ initialValue: 'unavailable', label: 'Remote' }]
+      );
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: ' /remote ' }) },
       });
-      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: '/remote' })
       );
-      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
-        { initialValue: '/remote', label: 'Remote' },
-      ]);
-      yield* client.libraryRootsSet({ ...library, roots: [{ root: ' /one ' }, { root: '/one' }] });
-      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual(['/one']);
-      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/one' }] });
-      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual(['/one']);
-      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('Rejected') });
-      expect((yield* client.libraryGet(library)).name).toBe('Rejected');
+      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
+        [{ initialValue: '/remote', label: 'Remote' }]
+      );
+      yield* client.library.setRoots({
+        params: library,
+        payload: { roots: [{ root: ' /one ' }, { root: '/one' }] },
+      });
       expect(
-        yield* client.libraryRootsSet({ ...library, roots: [] }).pipe(Effect.flip)
+        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+      ).toEqual(['/one']);
+      yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
+      expect(
+        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+      ).toEqual(['/one']);
+      yield* client.library.update({
+        params: library,
+        payload: { name: Library.fields.name.make('Rejected') },
+      });
+      expect((yield* client.library.get({ params: library })).name).toBe('Rejected');
+      expect(
+        yield* client.library
+          .setRoots({ params: library, payload: { roots: [] } })
+          .pipe(Effect.flip)
       ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
-      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('Renamed') });
-      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
-        { label: 'Renamed', initialValue: '/remote' },
-      ]);
-      const second = yield* client.libraryCreate(createInput('Second remote', 'npm:test'));
-      expect(yield* client.libraryGetStoragePluginSettingsForm(second)).toEqual([
+      yield* client.library.update({
+        params: library,
+        payload: { name: Library.fields.name.make('Renamed') },
+      });
+      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
+        [{ label: 'Renamed', initialValue: '/remote' }]
+      );
+      const second = yield* client.library.create({
+        payload: createInput('Second remote', 'npm:test'),
+      });
+      expect(yield* client.library.getStoragePluginSettingsForm({ params: second })).toEqual([
         {
           _tag: 'TextField',
           name: 'root',
@@ -551,13 +652,24 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           initialValue: '',
         },
       ]);
+      const { invalidForm } = fixture.controls;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          fixture.controls.invalidForm = invalidForm;
+        })
+      );
       fixture.controls.invalidForm = true;
-      expect(
-        yield* client.libraryGetStoragePluginSettingsForm(second).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'StoragePluginSettingsError' });
-      fixture.controls.invalidForm = false;
-      yield* client.libraryRootsSet({ ...library, roots: [] });
-      expect((yield* client.libraryGet(library)).roots).toEqual([]);
+      const formExit = yield* client.library
+        .getStoragePluginSettingsForm({ params: second })
+        .pipe(Effect.exit);
+      expect(Exit.hasDies(formExit)).toBe(true);
+      expect(Exit.findDefect(formExit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'SchemaError' },
+      });
+      fixture.controls.invalidForm = invalidForm;
+      yield* client.library.setRoots({ params: library, payload: { roots: [] } });
+      expect((yield* client.library.get({ params: library })).roots).toEqual([]);
     })
   );
 
@@ -566,26 +678,28 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
-      const library = yield* client.libraryCreate(createInput('Background retirement', 'npm:test'));
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/background' }),
+      const library = yield* client.library.create({
+        payload: createInput('Background retirement', 'npm:test'),
       });
-      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/one' }] });
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: '/background' }) },
+      });
+      yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
 
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
-      const finished = yield* Deferred.make<boolean>();
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
+      const finished = yield* Latch.make();
       fixture.controls.onFinalize = (request) =>
         request.library.id === library.id
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.andThen(Deferred.succeed(finished, true)),
+          ? started.open.pipe(
+              Effect.andThen(release.await),
+              Effect.andThen(finished.open),
               Effect.asVoid
             )
           : Effect.void;
       yield* Effect.addFinalizer(() =>
-        Deferred.succeed(release, true).pipe(
+        release.open.pipe(
           Effect.andThen(
             Effect.sync(() => {
               fixture.controls.onFinalize = () => Effect.void;
@@ -596,21 +710,23 @@ it.layer(testLayer)('library lifecycle', (iit) => {
 
       // Closing this caller scope must not interrupt or await retirement.
       const response = yield* Effect.scoped(
-        client.libraryUpdate({
-          ...library,
-          name: Library.fields.name.make('Background renamed'),
+        client.library.update({
+          params: library,
+          payload: { name: Library.fields.name.make('Background renamed') },
         })
       );
       expect(response).toEqual(library);
-      yield* Deferred.await(started);
-      expect(yield* Deferred.isDone(finished)).toBe(false);
-      expect((yield* client.libraryGet(library)).name).toBe('Background renamed');
-      expect(yield* client.libraryGetStoragePluginSettingsForm(library)).toMatchObject([
-        { label: 'Background renamed', initialValue: '/background' },
-      ]);
-      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual(['/one']);
-      yield* Deferred.succeed(release, true);
-      yield* Deferred.await(finished);
+      yield* started.await;
+      expect(finished.isOpen()).toBe(false);
+      expect((yield* client.library.get({ params: library })).name).toBe('Background renamed');
+      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
+        [{ label: 'Background renamed', initialValue: '/background' }]
+      );
+      expect(
+        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+      ).toEqual(['/one']);
+      yield* release.open;
+      yield* finished.await;
     })
   );
 
@@ -624,23 +740,25 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         filename: config.db.libraryFilename,
         busyTimeout: 0,
       });
-      const library = yield* client.libraryCreate(createInput('Locked root context', 'npm:test'));
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/initial' }),
+      const library = yield* client.library.create({
+        payload: createInput('Locked root context', 'npm:test'),
       });
-      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/original' }] });
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: '/initial' }) },
+      });
+      yield* client.library.setRoots({
+        params: library,
+        payload: { roots: [{ root: '/original' }] },
+      });
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
       fixture.controls.beforeRootDecode = (request) =>
         request.library.id === library.id && request.location === '/pending'
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.asVoid
-            )
+          ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
       yield* Effect.addFinalizer(() =>
-        Deferred.succeed(release, true).pipe(
+        release.open.pipe(
           Effect.andThen(
             Effect.sync(() => {
               fixture.controls.beforeRootDecode = () => Effect.void;
@@ -648,10 +766,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           )
         )
       );
-      const pending = yield* client
-        .libraryRootsSet({ ...library, roots: [{ root: '/pending' }] })
+      const pending = yield* client.library
+        .setRoots({ params: library, payload: { roots: [{ root: '/pending' }] } })
         .pipe(Effect.forkChild);
-      yield* Deferred.await(started);
+      yield* started.await;
       // A separate connection proves the write lock prevents context changes during decoding.
       expect(
         yield* contender`
@@ -671,28 +789,25 @@ it.layer(testLayer)('library lifecycle', (iit) => {
             id = ${library.id}
         `.pipe(Effect.flip)
       ).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
-      expect(yield* client.libraryGet(library)).toMatchObject({
+      expect(yield* client.library.get({ params: library })).toMatchObject({
         name: 'Locked root context',
         storagePluginSettings: Option.some({ prefix: '/initial' }),
         roots: [{ root: '/original' }],
       });
-      yield* Deferred.succeed(release, true);
-      expect(yield* Fiber.join(pending)).toEqual({
-        ...library,
-        roots: [{ root: '/pending' }],
+      yield* release.open;
+      expect(yield* Fiber.join(pending)).toEqual({ ...library, roots: [{ root: '/pending' }] });
+      expect(
+        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+      ).toEqual(['/pending']);
+      yield* client.library.update({
+        params: library,
+        payload: { name: Library.fields.name.make('Renamed root context') },
       });
-      expect((yield* client.libraryGet(library)).roots.map(({ root }) => root)).toEqual([
-        '/pending',
-      ]);
-      yield* client.libraryUpdate({
-        ...library,
-        name: Library.fields.name.make('Renamed root context'),
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: '/updated' }) },
       });
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/updated' }),
-      });
-      expect(yield* client.libraryGet(library)).toMatchObject({
+      expect(yield* client.library.get({ params: library })).toMatchObject({
         name: 'Renamed root context',
         storagePluginSettings: Option.some({ prefix: '/updated' }),
       });
@@ -704,36 +819,39 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
-      const library = yield* client.libraryCreate(createInput('Concurrent metadata', 'npm:test'));
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/initial' }),
+      const library = yield* client.library.create({
+        payload: createInput('Concurrent metadata', 'npm:test'),
       });
-      const settingsStarted = yield* Deferred.make<boolean>();
-      const settingsRelease = yield* Deferred.make<boolean>();
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: '/initial' }) },
+      });
+      const settingsStarted = yield* Latch.make();
+      const settingsRelease = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id &&
         Schema.is(Input)(request.input) &&
         request.input.root === '/pending-settings'
-          ? Deferred.succeed(settingsStarted, true).pipe(
-              Effect.andThen(Deferred.await(settingsRelease))
-            )
+          ? settingsStarted.open.pipe(Effect.andThen(settingsRelease.await))
           : Effect.void;
-      const settings = yield* client
-        .librarySetStoragePluginSettings({
-          ...library,
-          input: StoragePluginSettingsInput.make({ root: '/pending-settings' }),
+      const settings = yield* client.library
+        .setStoragePluginSettings({
+          params: library,
+          payload: { input: StoragePluginSettingsInput.make({ root: '/pending-settings' }) },
         })
         .pipe(Effect.forkChild);
-      yield* Deferred.await(settingsStarted);
+      yield* settingsStarted.await;
       // Renaming while decoding is blocked must not overwrite settings or hold a write lock.
-      yield* client.libraryUpdate({ ...library, name: Library.fields.name.make('Final name') });
-      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+      yield* client.library.update({
+        params: library,
+        payload: { name: Library.fields.name.make('Final name') },
+      });
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: '/initial' })
       );
-      yield* Deferred.succeed(settingsRelease, true);
+      yield* settingsRelease.open;
       yield* Fiber.join(settings);
-      expect(yield* client.libraryGet(library)).toMatchObject({
+      expect(yield* client.library.get({ params: library })).toMatchObject({
         name: 'Final name',
         storagePluginSettings: Option.some({ prefix: '/pending-settings' }),
       });
@@ -746,32 +864,31 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
-      const library = yield* client.libraryCreate(createInput('Concurrent settings', 'npm:test'));
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
+      const library = yield* client.library.create({
+        payload: createInput('Concurrent settings', 'npm:test'),
+      });
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id &&
         Schema.is(Input)(request.input) &&
         request.input.root === '/slow'
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.asVoid
-            )
+          ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
-      const slow = yield* client
-        .librarySetStoragePluginSettings({
-          ...library,
-          input: StoragePluginSettingsInput.make({ root: '/slow' }),
+      const slow = yield* client.library
+        .setStoragePluginSettings({
+          params: library,
+          payload: { input: StoragePluginSettingsInput.make({ root: '/slow' }) },
         })
         .pipe(Effect.forkChild);
-      yield* Deferred.await(started);
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/fast' }),
+      yield* started.await;
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: '/fast' }) },
       });
-      yield* Deferred.succeed(release, true);
+      yield* release.open;
       yield* Fiber.join(slow);
-      expect((yield* client.libraryGet(library)).storagePluginSettings).toEqual(
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: '/slow' })
       );
       fixture.controls.beforeDecode = () => Effect.void;
@@ -783,49 +900,44 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
-      const library = yield* client.libraryCreate(
-        createInput('Delete pending settings', 'npm:test')
-      );
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/initial' }),
+      const library = yield* client.library.create({
+        payload: createInput('Delete pending settings', 'npm:test'),
       });
-      yield* client.libraryGetStoragePluginSettingsForm(library);
-      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/one' }] });
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({ root: '/initial' }) },
+      });
+      yield* client.library.getStoragePluginSettingsForm({ params: library });
+      yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
       expect(
         [...fixture.activeStorage]
           .filter(({ library: row }) => row.id === library.id)
           .map(({ settings }) => settings)
       ).toEqual([{ prefix: '/initial' }]);
-      const retired = yield* Deferred.make<boolean>();
+      const retired = yield* Latch.make();
       fixture.controls.onFinalize = (request) =>
-        request.library.id === library.id
-          ? Deferred.succeed(retired, true).pipe(Effect.asVoid)
-          : Effect.void;
-      const started = yield* Deferred.make<boolean>();
-      const release = yield* Deferred.make<boolean>();
+        request.library.id === library.id ? retired.open.pipe(Effect.asVoid) : Effect.void;
+      const started = yield* Latch.make();
+      const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
         request.library.id === library.id
-          ? Deferred.succeed(started, true).pipe(
-              Effect.andThen(Deferred.await(release)),
-              Effect.asVoid
-            )
+          ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
-      const pending = yield* client
-        .librarySetStoragePluginSettings({
-          ...library,
-          input: StoragePluginSettingsInput.make({ root: '/deleted' }),
+      const pending = yield* client.library
+        .setStoragePluginSettings({
+          params: library,
+          payload: { input: StoragePluginSettingsInput.make({ root: '/deleted' }) },
         })
         .pipe(Effect.flip, Effect.forkChild);
-      yield* Deferred.await(started);
-      yield* client.libraryDelete(library);
-      yield* Deferred.await(retired);
+      yield* started.await;
+      yield* client.library.delete({ params: library });
+      yield* retired.await;
       expect(
         [...fixture.activeStorage].filter(({ library: row }) => row.id === library.id)
       ).toEqual([]);
-      yield* Deferred.succeed(release, true);
+      yield* release.open;
       expect(yield* Fiber.join(pending)).toMatchObject({ _tag: 'LibraryNotFoundError' });
-      expect(yield* client.libraryGet(library).pipe(Effect.flip)).toMatchObject({
+      expect(yield* client.library.get({ params: library }).pipe(Effect.flip)).toMatchObject({
         _tag: 'LibraryNotFoundError',
       });
       fixture.controls.onFinalize = () => Effect.void;
@@ -838,12 +950,15 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const sql = yield* LibraryDatabase;
-      const library = yield* client.libraryCreate(createInput('Delete cascade'));
-      yield* client.librarySetStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({}),
+      const library = yield* client.library.create({ payload: createInput('Delete cascade') });
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({}) },
       });
-      yield* client.libraryRootsSet({ ...library, roots: [{ root: '/delete' }] });
+      yield* client.library.setRoots({
+        params: library,
+        payload: { roots: [{ root: '/delete' }] },
+      });
       yield* sql`
         insert into
           "mediaFile" (location, "durationMs")
@@ -889,7 +1004,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
             "libraryId" = ${library.id}
         `
       ).toEqual([{ matchFailureReason: 'unmatched', customOrder: 0 }]);
-      yield* client.libraryDelete(library);
+      yield* client.library.delete({ params: library });
       expect(
         yield* sql`
           select
@@ -920,7 +1035,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
             location = '/shared'
         `
       ).toEqual([{ location: '/shared' }]);
-      expect(yield* client.libraryGet(library).pipe(Effect.flip)).toMatchObject({
+      expect(yield* client.library.get({ params: library }).pipe(Effect.flip)).toMatchObject({
         _tag: 'LibraryNotFoundError',
       });
     })
@@ -930,15 +1045,17 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'paginates admin listings including libraries awaiting setup',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const marker = yield* client.libraryCreate(createInput('Page marker'));
-      const first = yield* client.libraryCreate(createInput('Page first'));
-      yield* client.libraryCreate(createInput('Page second'));
-      const page = yield* client.libraryList({ cursor: Option.some(marker.id), limit: 1 });
+      const marker = yield* client.library.create({ payload: createInput('Page marker') });
+      const first = yield* client.library.create({ payload: createInput('Page first') });
+      yield* client.library.create({ payload: createInput('Page second') });
+      const page = yield* client.library.list({
+        query: { cursor: Option.some(marker.id), limit: 1 },
+      });
       expect(
         page.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
       ).toEqual([{ name: 'Page first', storagePluginStatus: 'unknown' }]);
       expect(page.nextCursor).toEqual(Option.some(first.id));
-      const last = yield* client.libraryList({ cursor: page.nextCursor, limit: 10 });
+      const last = yield* client.library.list({ query: { cursor: page.nextCursor, limit: 10 } });
       expect(
         last.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
       ).toEqual([{ name: 'Page second', storagePluginStatus: 'unknown' }]);
@@ -949,31 +1066,328 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   iit.effect(
     'rejects unauthenticated requests',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
+      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(
         Effect.provide(
-          RpcMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
+          HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
         )
       );
       expect(
-        yield* client.libraryCreate(createInput('Unauthorized')).pipe(Effect.flip)
+        yield* client.library.create({ payload: createInput('Unauthorized') }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'UnauthorizedError' });
       expect(
-        yield* client.libraryList({ cursor: Option.none(), limit: 1 }).pipe(Effect.flip)
+        yield* client.library.list({ query: { cursor: Option.none(), limit: 1 } }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'UnauthorizedError' });
     })
   );
   iit.effect.each(['user', 'under18'] as const)(
     'rejects non-admin %s requests',
     Effect.fnUntraced(function* (role) {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(yield* makeAuthedClient({ username: role, role }))
-      );
-      expect(yield* client.libraryCreate(createInput('Forbidden')).pipe(Effect.flip)).toMatchObject(
-        { _tag: 'ForbiddenError' }
-      );
+      const auth = yield* makeAuthedClient({ username: role, role });
+      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
       expect(
-        yield* client.libraryList({ cursor: Option.none(), limit: 1 }).pipe(Effect.flip)
+        yield* client.library.create({ payload: createInput('Forbidden') }).pipe(Effect.flip)
       ).toMatchObject({ _tag: 'ForbiddenError' });
+      expect(
+        yield* client.library.list({ query: { cursor: Option.none(), limit: 1 } }).pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'ForbiddenError' });
+    })
+  );
+});
+
+// Use Effect's request/response adapters; only this client talks to the in-memory web handler.
+const makeWireTransport = Effect.fnUntraced(function* (
+  user: Option.Option<Parameters<typeof makeAuthedClient>[0]>
+) {
+  const headers = Option.isSome(user)
+    ? (yield* makeAuthedClient(user.value)).headers
+    : Headers.empty;
+  const handler = HttpEffect.toWebHandler(yield* HttpRouter.toHttpEffect(Layer.empty));
+  const http = HttpClient.make((request, _url, signal) =>
+    HttpClientRequest.toWeb(request, { signal }).pipe(
+      Effect.flatMap((webRequest) => Effect.promise(async () => handler(webRequest))),
+      Effect.map((response) => HttpClientResponse.fromWeb(request, response)),
+      Effect.orDie
+    )
+  ).pipe(HttpClient.mapRequest(HttpClientRequest.setHeaders(headers)));
+  const client = yield* HttpApiClient.makeWith(Api, {
+    httpClient: http,
+    baseUrl: 'http://localhost',
+  }).pipe(
+    Effect.provide(
+      HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
+    )
+  );
+  return { client, http, handler, headers };
+});
+
+it.layer(wireTestLayer)('library HTTP transport', (iit) => {
+  iit.effect.each(['client interruption', 'request abort'] as const)(
+    'interrupts and finalizes blocked settings decoding on %s',
+    Effect.fnUntraced(
+      function* (scenario) {
+        const { client, handler, headers } = yield* makeWireTransport(
+          Option.some({ username: 'wire_cancellation', role: 'admin' })
+        );
+        const fixture = yield* PluginFixture;
+        const library = yield* Effect.acquireRelease(
+          client.library.create({
+            payload: createInput(`HTTP ${scenario}`, 'npm:test'),
+          }),
+          (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
+        );
+        const started = yield* Latch.make();
+        const interrupted = yield* Latch.make();
+        const finalized = yield* Latch.make();
+        const release = yield* Latch.make();
+        const { beforeDecode } = fixture.controls;
+        yield* Effect.addFinalizer(() =>
+          release.open.pipe(
+            Effect.andThen(
+              Effect.sync(() => {
+                fixture.controls.beforeDecode = beforeDecode;
+              })
+            )
+          )
+        );
+        fixture.controls.beforeDecode = (request) =>
+          request.library.id === library.id
+            ? Effect.acquireUseRelease(
+                Effect.void,
+                () =>
+                  started.open.pipe(
+                    Effect.andThen(release.await),
+                    Effect.onInterrupt(() => interrupted.open.pipe(Effect.asVoid))
+                  ),
+                () => finalized.open.pipe(Effect.asVoid)
+              )
+            : Effect.void;
+        const payload = { input: StoragePluginSettingsInput.make({ root: '/cancelled' }) };
+        // oxlint-disable-next-line effecttsgo/abort-controller-in-effect -- model a caller-owned signal independent of Effect interruption
+        const controller = new AbortController();
+        const request = yield* (
+          scenario === 'client interruption'
+            ? client.library.setStoragePluginSettings({ params: library, payload })
+            : HttpClientRequest.toWeb(
+                HttpClientRequest.put(
+                  `http://localhost/api/libraries/${library.id}/plugins/storage/settings`
+                ).pipe(
+                  HttpClientRequest.setHeaders(headers),
+                  HttpClientRequest.bodyJsonUnsafe(payload)
+                ),
+                { signal: controller.signal }
+              ).pipe(
+                Effect.flatMap((webRequest) => Effect.promise(async () => handler(webRequest)))
+              )
+        ).pipe(Effect.forkChild);
+        yield* started.await;
+        expect(interrupted.isOpen()).toBe(false);
+        expect(finalized.isOpen()).toBe(false);
+        if (scenario === 'request abort') {
+          controller.abort();
+        } else {
+          yield* Fiber.interrupt(request);
+          expect(controller.signal.aborted).toBe(false);
+        }
+        yield* interrupted.await;
+        yield* finalized.await;
+        expect(release.isOpen()).toBe(false);
+        expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+          Option.none()
+        );
+      },
+      // A live deadline makes a missing abort fail instead of waiting on the test clock.
+      (effect) => TestClock.withLive(effect.pipe(Effect.timeout('3 seconds')))
+    )
+  );
+
+  iit.effect.each([
+    [
+      'invalid submission',
+      'PUT',
+      422,
+      'StoragePluginInvalidSettingsError',
+      'Submitted storage plugin settings failed validation',
+    ],
+    ['operational GET', 'GET', 500, 'StoragePluginSettingsError', 'Settings unavailable'],
+    ['operational PUT', 'PUT', 500, 'StoragePluginSettingsError', 'Settings unavailable'],
+    [
+      'invalid current settings',
+      'GET',
+      500,
+      'StoragePluginSettingsError',
+      'Storage plugin could not build the settings form from the current settings',
+    ],
+  ] as const)(
+    'distinguishes submitted settings validation from operational failures: %s',
+    Effect.fnUntraced(function* ([scenario, method, status, tag, message]) {
+      const { client, http } = yield* makeWireTransport(
+        Option.some({ username: 'wire_settings', role: 'admin' })
+      );
+      const fixture = yield* PluginFixture;
+      const repository = yield* LibraryRepository.make;
+      const library = yield* Effect.acquireRelease(
+        client.library.create({
+          payload: createInput(`HTTP settings ${scenario}`, 'npm:test'),
+        }),
+        (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
+      );
+      const original = StoragePluginSettingsPersisted.make(
+        scenario === 'invalid current settings' ? {} : { prefix: '/original' }
+      );
+      yield* repository.setSettings({ ...library, settings: original });
+      const { settingsError } = fixture.controls;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          fixture.controls.settingsError = settingsError;
+        })
+      );
+      fixture.controls.settingsError =
+        scenario === 'operational GET' || scenario === 'operational PUT';
+      const input = StoragePluginSettingsInput.make({
+        root:
+          scenario === 'invalid submission' ? { secret: 'submitted-settings-secret' } : '/updated',
+      });
+      const path = `http://localhost/api/libraries/${library.id}/plugins/storage`;
+      const response = yield* http.execute(
+        method === 'GET'
+          ? HttpClientRequest.get(`${path}/settings-form`)
+          : HttpClientRequest.put(`${path}/settings`).pipe(
+              HttpClientRequest.bodyJsonUnsafe({ input })
+            )
+      );
+      expect(response.status).toBe(status);
+      const body = yield* response.text;
+      expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(body)).toEqual({
+        _tag: tag,
+        message,
+      });
+      expect(body).not.toContain('submitted-settings-secret');
+      // Also prove the API schema decodes the wire error into the declared client error.
+      const error = yield* method === 'GET'
+        ? client.library.getStoragePluginSettingsForm({ params: library }).pipe(Effect.flip)
+        : client.library
+            .setStoragePluginSettings({ params: library, payload: { input } })
+            .pipe(Effect.flip);
+      expect(error).toMatchObject({ _tag: tag, message });
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+        Option.some(original)
+      );
+    })
+  );
+
+  iit.effect.each(['malformed form output', 'malformed persisted output'] as const)(
+    'returns a bodyless 500 without changing persisted settings for %s',
+    Effect.fnUntraced(function* (scenario) {
+      const { client, http } = yield* makeWireTransport(
+        Option.some({ username: 'wire_malformed_settings', role: 'admin' })
+      );
+      const fixture = yield* PluginFixture;
+      const repository = yield* LibraryRepository.make;
+      const library = yield* Effect.acquireRelease(
+        client.library.create({
+          payload: createInput(`HTTP settings ${scenario}`, 'npm:test'),
+        }),
+        (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
+      );
+      const original = StoragePluginSettingsPersisted.make({ prefix: '/original' });
+      yield* repository.setSettings({ ...library, settings: original });
+      const { invalidForm, invalidPersisted } = fixture.controls;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          Object.assign(fixture.controls, { invalidForm, invalidPersisted });
+        })
+      );
+      fixture.controls.invalidForm = scenario === 'malformed form output';
+      fixture.controls.invalidPersisted = scenario === 'malformed persisted output';
+      const path = `http://localhost/api/libraries/${library.id}/plugins/storage`;
+      const response = yield* http.execute(
+        scenario === 'malformed form output'
+          ? HttpClientRequest.get(`${path}/settings-form`)
+          : HttpClientRequest.put(`${path}/settings`).pipe(
+              HttpClientRequest.bodyJsonUnsafe({
+                input: StoragePluginSettingsInput.make({ root: 'submitted-settings-secret' }),
+              })
+            )
+      );
+      expect(response.status).toBe(500);
+      // Defects must not expose schema diagnostics or submitted values over HTTP.
+      expect(yield* response.text).toBe('');
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+        Option.some(original)
+      );
+    })
+  );
+
+  iit.effect(
+    'encodes Option JSON and returns bodyless, idempotent deletion',
+    Effect.fnUntraced(function* () {
+      const { client } = yield* makeWireTransport(
+        Option.some({ username: 'wire_admin', role: 'admin' })
+      );
+      const library = yield* client.library.create({ payload: createInput('HTTP library') });
+      const get = yield* client.library.get({ params: library, responseMode: 'response-only' });
+      expect(get.headers['content-type']).toContain('application/json');
+      expect(yield* get.json).toMatchObject({
+        ...library,
+        storagePluginSettings: { _tag: 'None' },
+        storagePluginHealth: { status: 'unknown' },
+      });
+      yield* client.library.setStoragePluginSettings({
+        params: library,
+        payload: { input: StoragePluginSettingsInput.make({}) },
+      });
+      const list = yield* client.library.list({
+        query: { cursor: Option.none(), limit: 1 },
+        responseMode: 'response-only',
+      });
+      expect(yield* list.json).toMatchObject({
+        items: [{ ...library, storagePluginSettings: { _tag: 'Some', value: {} } }],
+        nextCursor: { _tag: 'None' },
+      });
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const deleted = yield* client.library.delete({
+          params: library,
+          responseMode: 'response-only',
+        });
+        expect(deleted.status).toBe(204);
+        expect(yield* deleted.text).toBe('');
+      }
+      const missing = yield* client.library.get({ params: library }).pipe(Effect.flip);
+      expect(missing).toMatchObject({ _tag: 'LibraryNotFoundError', ...library });
+    })
+  );
+
+  iit.effect(
+    'validates path and query values before handlers run',
+    Effect.fnUntraced(function* () {
+      const { http } = yield* makeWireTransport(
+        Option.some({ username: 'wire_validation', role: 'admin' })
+      );
+      for (const path of [
+        '/api/libraries/not-an-id',
+        '/api/libraries/-1',
+        '/api/libraries',
+        '/api/libraries?limit=0',
+        '/api/libraries?limit=101',
+        '/api/libraries?limit=1.5',
+        '/api/libraries?limit=1&cursor=invalid',
+      ]) {
+        const response = yield* http.get(`http://localhost${path}`);
+        expect(response.status, path).toBe(400);
+      }
+    })
+  );
+
+  iit.effect.each([
+    [Option.none(), 401, 'UnauthorizedError'],
+    [Option.some({ username: 'wire_user', role: 'user' } as const), 403, 'ForbiddenError'],
+  ] as const)(
+    'enforces HTTP authentication and admin access (%s)',
+    Effect.fnUntraced(function* ([user, status, tag]) {
+      const { http } = yield* makeWireTransport(user);
+      const response = yield* http.get('http://localhost/api/libraries?limit=1');
+      expect(response.status).toBe(status);
+      expect(yield* response.json).toEqual({ _tag: tag });
     })
   );
 });

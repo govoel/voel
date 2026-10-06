@@ -1,12 +1,12 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { BunPath } from '@effect/platform-bun';
+import { BunHttpServer } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, Layer, Schema } from 'effect';
+import { HttpApiTest } from 'effect/http-api';
 import { Reactivity } from 'effect/reactivity';
-import { RpcTest } from 'effect/rpc';
 
+import { Api } from '@repo/spec-api';
 import { Library } from '@repo/spec-api/database/schema.ts';
-import { LibraryRpcs } from '@repo/spec-api/groups/library.ts';
 
 import { LibraryHandlersLayerNoDeps, LibraryRepository } from '#src/groups/library.ts';
 import { makeAuthedClient } from '#src/groups/utils.ts';
@@ -72,22 +72,22 @@ class UserRoleRow extends Schema.Class<UserRoleRow, { readonly brand: unique sym
   public static readonly decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(this));
 }
 
-const makeTestLayer = () =>
-  LibraryHandlersLayerNoDeps.pipe(
-    Layer.provideMerge(Layer.mergeAll(AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps)),
-    Layer.provideMerge(AuthLayerNoDeps),
-    Layer.provide([
-      LibraryRepository.layerNoDeps,
-      StoragePluginModuleMap.layer,
-      StoragePluginBuilder.layer,
-      StoragePluginSettingsMap.layer,
-      StoragePluginMap.layer,
-    ]),
-    Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
-    Layer.provide([ApiConfig.layerTest(), BunPath.layer, Reactivity.layer])
-  );
+const testLayer = LibraryHandlersLayerNoDeps.pipe(
+  Layer.provideMerge([AuthMiddlewareLayerNoDeps, AdminMiddlewareLayerNoDeps]),
+  Layer.provideMerge(AuthLayerNoDeps),
+  Layer.provideMerge([
+    LibraryRepository.layerNoDeps,
+    StoragePluginModuleMap.layer,
+    StoragePluginBuilder.layer,
+    StoragePluginSettingsMap.layer,
+    StoragePluginMap.layer,
+  ]),
+  Layer.provideMerge(Layer.mergeAll(AuthDatabase.layerNoDeps, LibraryDatabase.layerNoDeps)),
+  Layer.provide([ApiConfig.layerTest(), Reactivity.layer]),
+  Layer.provideMerge(BunHttpServer.layerHttpServices)
+);
 
-it.layer(makeTestLayer())('groups utils', (iit) => {
+it.layer(testLayer)('groups utils', (iit) => {
   iit.effect(
     'makeAuthedClient creates the expected auth rows',
     Effect.fnUntraced(function* () {
@@ -202,21 +202,20 @@ it.layer(makeTestLayer())('groups utils', (iit) => {
   );
 });
 
-it.layer(makeTestLayer())('groups utils headers', (iit) => {
+it.layer(testLayer)('groups utils headers', (iit) => {
   iit.effect(
     'makeAuthedClient authenticates admin library requests',
     Effect.fnUntraced(function* () {
-      const client = yield* RpcTest.makeClient(LibraryRpcs).pipe(
-        Effect.provide(
-          yield* makeAuthedClient({ username: 'utils_library_headers', role: 'admin' })
-        )
-      );
-      const library = yield* client.libraryCreate({
-        name: Library.fields.name.make('Authenticated library'),
-        type: Library.fields.type.make('movie'),
-        storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+      const auth = yield* makeAuthedClient({ username: 'utils_library_headers', role: 'admin' });
+      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
+      const library = yield* client.library.create({
+        payload: {
+          name: Library.fields.name.make('Authenticated library'),
+          type: Library.fields.type.make('movie'),
+          storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+        },
       });
-      expect(yield* client.libraryGet(library)).toMatchObject({
+      expect(yield* client.library.get({ params: library })).toMatchObject({
         name: 'Authenticated library',
         type: 'movie',
         storagePlugin: 'builtin:local',

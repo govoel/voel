@@ -8,6 +8,7 @@
         // These existing integrations remain unstable in Effect v4 stable.
         "allowedUnstableApis": [
           "effect/http",
+          "effect/http-api",
           "effect/process",
           "effect/reactivity",
           "effect/rpc",
