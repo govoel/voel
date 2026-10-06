@@ -149,16 +149,29 @@ it.effect('acquires canonical plugin services until the caller releases its scop
     yield* Effect.gen(function* () {
       const first = { ...request, library: { ...request.library, roots: ['/first'] } };
       const second = { ...request, library: { ...request.library, roots: ['/second'] } };
-      const firstStorage = yield* StoragePluginMap.acquire(first);
-      const firstSettings = yield* StoragePluginSettingsMap.acquire(first);
-      const secondStorage = yield* StoragePluginMap.acquire(second);
-      const secondSettings = yield* StoragePluginSettingsMap.acquire(second);
+      const stores = yield* StoragePluginMap;
+      const editors = yield* StoragePluginSettingsMap;
+      // Captured maps acquire resources even when neither map is in the caller's context.
+      const [firstStorage, firstSettings, secondStorage, secondSettings] = yield* Effect.gen(
+        function* () {
+          return [
+            yield* stores.acquire(first),
+            yield* editors.acquire(first),
+            yield* stores.acquire(second),
+            yield* editors.acquire(second),
+          ] as const;
+        }
+      ).pipe(
+        Effect.updateContext((context: Context.Context<Scope.Scope>) =>
+          Context.omit(StoragePluginMap, StoragePluginSettingsMap)(context)
+        )
+      );
       expect(builtLibraries).toEqual([request.library, request.library]);
       expect(firstStorage).toBe(secondStorage);
       expect(firstSettings).toBe(secondSettings);
 
-      yield* StoragePluginMap.invalidate(StoragePluginMap.Key.make(second));
-      yield* StoragePluginSettingsMap.invalidate(StoragePluginSettingsMap.Key.make(second));
+      yield* stores.invalidate(StoragePluginMap.Key.make(second));
+      yield* editors.invalidate(StoragePluginSettingsMap.Key.make(second));
       expect(released).toBe(0);
     }).pipe(Effect.scoped);
     expect(released).toBe(2);
@@ -228,7 +241,8 @@ it.effect.each([
 
 it.effect('rejects malformed settings outputs at the plugin boundary', () =>
   Effect.gen(function* () {
-    const settings = yield* StoragePluginSettingsMap.acquire(request);
+    const editors = yield* StoragePluginSettingsMap;
+    const settings = yield* editors.acquire(request);
     const formError = yield* settings.getForm({ current: Option.none() }).pipe(Effect.flip);
     expect(formError).toMatchObject({
       _tag: 'StoragePluginSettingsError',
@@ -280,7 +294,8 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
   'validates %s outputs while preserving plugin normalization',
   (method) =>
     Effect.gen(function* () {
-      const storage = yield* StoragePluginMap.acquire(request);
+      const stores = yield* StoragePluginMap;
+      const storage = yield* stores.acquire(request);
       expect(yield* storage[method]({ location: ' /library ' })).toBe('/library');
       const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
         location: ' ',
@@ -319,7 +334,8 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
   'canonicalizes local paths with %s',
   (method) =>
     Effect.gen(function* () {
-      const storage = yield* StoragePluginMap.acquire(request);
+      const stores = yield* StoragePluginMap;
+      const storage = yield* stores.acquire(request);
       for (const { location, canonical } of [
         { location: '/books/../audio', canonical: '/audio' },
         { location: '/audio/./', canonical: '/audio' },
@@ -339,7 +355,8 @@ it.effect.each([
   { method: 'decodeMediaFileLocation', label: 'Library file locations' },
 ] as const)('returns client-safe validation messages from local $method', ({ method, label }) =>
   Effect.gen(function* () {
-    const storage = yield* StoragePluginMap.acquire(request);
+    const stores = yield* StoragePluginMap;
+    const storage = yield* stores.acquire(request);
     const decode: (
       input: Parameters<typeof storage.decodeRootLocation>[0]
     ) => Effect.Effect<string, StorageLocationValidationError> = storage[method];
@@ -362,7 +379,8 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
   (method) => {
     const error = StorageLocationValidationError.make({ message: 'Location is outside storage' });
     return Effect.gen(function* () {
-      const storage = yield* StoragePluginMap.acquire(request);
+      const stores = yield* StoragePluginMap;
+      const storage = yield* stores.acquire(request);
       const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
         location: '/outside',
       });
@@ -481,8 +499,10 @@ it.effect('isolates the plugin lifecycle and forwards factory and method inputs'
 
     yield* Effect.gen(function* () {
       expect(yield* PrivateService).toBe('host-private');
-      const storage = yield* StoragePluginMap.acquire(request);
-      const settings = yield* StoragePluginSettingsMap.acquire(request);
+      const stores = yield* StoragePluginMap;
+      const storage = yield* stores.acquire(request);
+      const editors = yield* StoragePluginSettingsMap;
+      const settings = yield* editors.acquire(request);
 
       yield* Effect.gen(function* () {
         expect(yield* PrivateService).toBe('caller-private');
@@ -535,7 +555,8 @@ it.effect('uses invocation metadata without retaining map or first-request metad
 
     yield* Effect.gen(function* () {
       const storage = yield* Effect.gen(function* () {
-        const value = yield* StoragePluginMap.acquire(request);
+        const stores = yield* StoragePluginMap;
+        const value = yield* stores.acquire(request);
         yield* value.decodeRootLocation({ location: '/first' });
         return value;
       }).pipe(
@@ -623,7 +644,8 @@ it.effect('keeps overlapping settings invocations isolated across suspension', (
     } satisfies Effect.Success<typeof snapshotMetadata>;
 
     yield* Effect.gen(function* () {
-      const settings = yield* StoragePluginSettingsMap.acquire(request);
+      const editors = yield* StoragePluginSettingsMap;
+      const settings = yield* editors.acquire(request);
       const invoke = ({
         metadata,
         privateValue,
@@ -704,9 +726,11 @@ it.effect.each(['storage', 'settings'] as const)(
         Effect.annotateLogs({ request: 'host' })
       );
       const pending = yield* Effect.gen(function* () {
+        const stores = yield* StoragePluginMap;
+        const editors = yield* StoragePluginSettingsMap;
         yield* plugin === 'storage'
-          ? StoragePluginMap.contextEffect(StoragePluginMap.Key.make(request))
-          : StoragePluginSettingsMap.contextEffect(StoragePluginSettingsMap.Key.make(request));
+          ? stores.contextEffect(StoragePluginMap.Key.make(request))
+          : editors.contextEffect(StoragePluginSettingsMap.Key.make(request));
         expect.unreachable('Construction must remain pending until map shutdown');
       }).pipe(
         Effect.scoped,
@@ -760,7 +784,8 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
       } satisfies StoragePluginModule;
 
       yield* Effect.gen(function* () {
-        const settings = yield* StoragePluginSettingsMap.acquire(request);
+        const editors = yield* StoragePluginSettingsMap;
+        const settings = yield* editors.acquire(request);
         yield* Effect.gen(function* () {
           const before = yield* Effect.context();
           // Calling the method itself must not throw; its returned Effect owns the defect.
@@ -830,12 +855,14 @@ it.effect.each(['successful', 'failed'] as const)(
 
       yield* Effect.gen(function* () {
         yield* Effect.gen(function* () {
-          const storage = yield* StoragePluginMap.contextEffect(
-            StoragePluginMap.Key.make(request)
-          ).pipe(Effect.exit);
-          const settings = yield* StoragePluginSettingsMap.contextEffect(
-            StoragePluginSettingsMap.Key.make(request)
-          ).pipe(Effect.exit);
+          const stores = yield* StoragePluginMap;
+          const editors = yield* StoragePluginSettingsMap;
+          const storage = yield* stores
+            .contextEffect(StoragePluginMap.Key.make(request))
+            .pipe(Effect.exit);
+          const settings = yield* editors
+            .contextEffect(StoragePluginSettingsMap.Key.make(request))
+            .pipe(Effect.exit);
           if (outcome === 'failed') {
             expect(storage).toEqual(Exit.fail(storageError));
             expect(settings).toEqual(Exit.fail(settingsError));

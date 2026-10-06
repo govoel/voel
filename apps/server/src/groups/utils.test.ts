@@ -273,16 +273,9 @@ class TestClient extends Context.Service<TestClient>()(
   { make: HttpApiTest.groups(Api, ['library']) }
 ) {}
 
-// Register the test client's routes under request middleware using the fixture's existing maps.
+// Handlers capture the existing maps while the test client's routes are built.
 const testClientLayer = Layer.effect(TestClient, TestClient.make).pipe(
-  Layer.provide(LibraryHandlersLayerNoDeps),
-  HttpRouter.provideRequest(
-    Layer.effectContext(
-      Effect.context<StoragePluginMap | StoragePluginSettingsMap>().pipe(
-        Effect.map(Context.pick(StoragePluginMap, StoragePluginSettingsMap))
-      )
-    )
-  )
+  Layer.provide(LibraryHandlersLayerNoDeps)
 );
 
 it.layer(makeTestDependenciesLayer())('groups utils headers', (iit) => {

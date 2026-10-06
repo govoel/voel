@@ -319,7 +319,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
           'getStoragePluginSettingsForm',
           Effect.fnUntraced(function* ({ params: { id } }) {
             const row = yield* get({ id });
-            const editor = yield* StoragePluginSettingsMap.acquire({
+            const editor = yield* editors.acquire({
               storagePlugin: row.storagePlugin,
               library: row,
             });
@@ -338,7 +338,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
           'setStoragePluginSettings',
           Effect.fnUntraced(function* ({ params: { id }, payload: { input } }) {
             const row = yield* get({ id });
-            const editor = yield* StoragePluginSettingsMap.acquire({
+            const editor = yield* editors.acquire({
               storagePlugin: row.storagePlugin,
               library: row,
             });
@@ -370,7 +370,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
                 return yield* LibraryUnconfiguredError.make({ id });
               }
 
-              const storage = yield* StoragePluginMap.acquire({
+              const storage = yield* stores.acquire({
                 storagePlugin: row.storagePlugin,
                 library: row,
                 settings: row.storagePluginSettings.value,
