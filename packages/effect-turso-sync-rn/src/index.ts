@@ -5,7 +5,6 @@ import {
   Effect,
   Layer,
   Predicate,
-  Scope,
   ScopedCache,
   Semaphore,
   Stream,
@@ -197,28 +196,21 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       };
     });
 
-    const semaphore = yield* Semaphore.make(1);
     const { connection, db } = yield* makeConnection;
-
-    const acquirer = Effect.acquireRelease(semaphore.take(1), () => semaphore.release(1), {
-      interruptible: true,
-    }).pipe(Effect.as(connection));
-    const transactionAcquirer = Effect.uninterruptibleMask(
-      Effect.fnUntraced(function* (restore) {
-        const scope = yield* Effect.scope;
-        yield* Effect.tap(restore(semaphore.take(1)), () =>
-          Scope.addFinalizer(scope, semaphore.release(1))
-        );
-        return connection;
-      })
-    );
+    const { transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
+      connection: Effect.succeed(connection),
+      semaphore: yield* Semaphore.make(1),
+      isTransaction: () => db.inTransaction,
+    });
 
     const client = yield* SqlClient.make({
-      acquirer,
-      borrower: (use) => use(connection).pipe(Semaphore.withPermit(semaphore)),
+      // Hold the lease across asynchronous native execution, including recovery.
+      acquirer: transactionAcquirer,
       compiler,
       transactionAcquirer,
+      onCommitFailure,
       beginTransaction: 'BEGIN IMMEDIATE',
+      releaseSavepoint: (name) => `RELEASE SAVEPOINT ${name}`,
       spanAttributes: [[ATTR_DB_SYSTEM_NAME, 'turso']],
     });
 

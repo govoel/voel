@@ -260,38 +260,46 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
           })
         );
 
-      return {
-        connection: {
-          execute(sql, params, transformRows) {
-            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
-          },
-          executeRaw(sql, params) {
-            return runRaw(sql, params);
-          },
-          executeValues(sql, params) {
-            return runValues(sql, params);
-          },
-          executeValuesUnprepared(sql, params) {
-            return runValues(sql, params);
-          },
-          executeUnprepared(sql, params, transformRows) {
-            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
-          },
-          executeStream(sql, params, transformRows) {
-            return transformRows
-              ? runStream(sql, params).pipe(
-                  Stream.map((row) => transformRows([row])),
-                  Stream.flattenIterable
-                )
-              : runStream(sql, params);
-          },
-        } satisfies SqlConnection.Connection,
+      const connection = {
+        execute(sql, params, transformRows) {
+          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+        },
+        executeRaw(sql, params) {
+          return runRaw(sql, params);
+        },
+        executeValues(sql, params) {
+          return runValues(sql, params);
+        },
+        executeValuesUnprepared(sql, params) {
+          return runValues(sql, params);
+        },
+        executeUnprepared(sql, params, transformRows) {
+          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+        },
+        executeStream(sql, params, transformRows) {
+          return transformRows
+            ? runStream(sql, params).pipe(
+                Stream.map((row) => transformRows([row])),
+                Stream.flattenIterable
+              )
+            : runStream(sql, params);
+        },
+      } satisfies SqlConnection.Connection;
+      // Recovery belongs to each physical connection, not the whole pool.
+      const { transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
+        connection: Effect.succeed(connection),
+        semaphore: yield* Semaphore.make(1),
+        isTransaction: () => db.inTransaction,
+      });
+      return Object.assign(connection, {
+        acquire: transactionAcquirer,
+        onCommitFailure,
         handleSyncRequest: (request: SyncRequest) =>
           Effect.tryPromise({
             try: async () => db.handleSyncRequest(request),
             catch: (cause) => TursoSyncRequestError.make({ cause }),
           }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore)),
-      };
+      });
     });
 
     const pool = yield* Pool.makeWithTTL({
@@ -301,7 +309,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       timeToLive: options.connectionTTL ?? Duration.minutes(45),
       timeToLiveStrategy: 'creation',
     });
-    const acquirer = Pool.get(pool).pipe(Effect.map((item) => item.connection));
+    const acquirer = Effect.flatMap(Pool.get(pool), (item) => item.acquire.pipe(Effect.as(item)));
 
     // Make connection failures visible while constructing the client instead
     // of deferring them until its first statement.
@@ -317,6 +325,13 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       compiler,
       transactionAcquirer: acquirer,
       beginTransaction: options.readonly === true ? 'BEGIN' : 'BEGIN IMMEDIATE',
+      // SqlClient erases the extra fields; every acquired connection comes from this pool.
+      onCommitFailure: (connection) => {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const item = connection as Effect.Success<typeof makeConnection>;
+        return item.onCommitFailure(item);
+      },
+      releaseSavepoint: (name) => `RELEASE SAVEPOINT ${name}`,
       spanAttributes,
       transformRows: defaultTransformRows,
     });
@@ -334,7 +349,10 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         body: new Uint8Array(yield* request.arrayBuffer),
       };
       const response = yield* Pool.get(pool).pipe(
-        Effect.flatMap((item) => item.handleSyncRequest(nativeRequest)),
+        // Sync must also recover a poisoned connection before native reuse.
+        Effect.flatMap((item) =>
+          item.acquire.pipe(Effect.andThen(item.handleSyncRequest(nativeRequest)))
+        ),
         Effect.catchTags({
           TursoSyncRequestError: (cause) =>
             new HttpServerError.HttpServerError({
