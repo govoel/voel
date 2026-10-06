@@ -3,15 +3,11 @@ import { Effect, Layer, pipe } from 'effect';
 import { HttpRouter } from 'effect/http';
 
 import { ApiRoutesLayer } from '#src/groups/index.ts';
-import { AdminMiddlewareLayer, AuthMiddlewareLayer, AuthRouterLayer } from '#src/services/auth.ts';
+import { AuthRouterLayer } from '#src/services/auth.ts';
 import { ApiConfig } from '#src/services/config.ts';
 import { LibrarySyncRouterLayer } from '#src/services/database/library/sync.ts';
 
-const AllRoutesLayer = Layer.mergeAll(
-  AuthRouterLayer,
-  LibrarySyncRouterLayer,
-  ApiRoutesLayer.pipe(Layer.provide([AuthMiddlewareLayer, AdminMiddlewareLayer]))
-);
+const AllRoutesLayer = Layer.mergeAll(AuthRouterLayer, LibrarySyncRouterLayer, ApiRoutesLayer);
 
 if (import.meta.main) {
   const HttpServerLayer = pipe(

@@ -17,6 +17,7 @@ import {
   LibraryUnconfiguredError,
 } from '@repo/spec-api/groups/library.ts';
 
+import { AdminMiddlewareLayer, AuthMiddlewareLayer } from '#src/services/auth.ts';
 import { LibraryDatabase } from '#src/services/database/library/index.ts';
 import { StoragePluginMap, StoragePluginSettingsMap } from '#src/services/plugins/storage/index.ts';
 
@@ -406,4 +407,15 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
         )
     );
   })
+);
+
+export const LibraryHandlersLayer = LibraryHandlersLayerNoDeps.pipe(
+  Layer.provide([
+    LibraryDatabase.layer,
+    LibraryRepository.layer,
+    StoragePluginSettingsMap.layer,
+    StoragePluginMap.layer,
+    AuthMiddlewareLayer,
+    AdminMiddlewareLayer,
+  ])
 );
