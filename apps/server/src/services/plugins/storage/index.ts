@@ -176,9 +176,6 @@ class StoragePluginKey extends Schema.Class<StoragePluginKey, { readonly brand: 
 }) {}
 
 const storagePluginSettingsFormDecodeEffect = Schema.decodeEffect(StoragePluginSettingsForm);
-const storagePluginSettingsPersistedDecodeEffect = Schema.decodeEffect(
-  StoragePluginSettingsPersisted
-);
 
 /** Editors for persisted libraries are keyed by their plugin-visible library context. */
 export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
@@ -216,7 +213,7 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
                     .decodeFormSubmission(input)
                     .pipe(
                       Effect.flatMap((persisted) =>
-                        storagePluginSettingsPersistedDecodeEffect(persisted).pipe(
+                        StoragePluginSettingsPersisted.decodeEffect(persisted).pipe(
                           Effect.catchTags({ SchemaError: Effect.die })
                         )
                       )

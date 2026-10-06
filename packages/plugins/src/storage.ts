@@ -42,6 +42,8 @@ export type StoragePluginSettingsInput = typeof StoragePluginSettingsInput.Type;
 export class StoragePluginSettingsPersisted extends Schema.Json.pipe(
   Schema.brand('@govoel/plugins/storage/StoragePluginSettingsPersisted')
 ) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+
   public static readonly fromJsonString = Schema.fromJsonString(this);
 }
 

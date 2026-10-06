@@ -14,9 +14,9 @@ import { TursoSyncError } from '@repo/effect-turso-sync';
 
 import { TursoSyncClient } from '#src/index.ts';
 
-const decodeRunInfo = Schema.decodeUnknownEffect(
-  Schema.Struct({ changes: Schema.Int, lastInsertRowid: Schema.Int })
-);
+class RunInfo extends Schema.Struct({ changes: Schema.Int, lastInsertRowid: Schema.Int }) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
 
 const TestLayer = Layer.mergeAll(BunFileSystem.layer, Reactivity.layer);
 
@@ -167,7 +167,7 @@ describe('TursoSyncClient', () => {
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
-      const first = yield* decodeRunInfo(
+      const first = yield* RunInfo.decodeUnknownEffect(
         yield* sql`
           insert into
             test (name)
@@ -176,7 +176,7 @@ describe('TursoSyncClient', () => {
         `.raw
       );
       expect(first.changes).toBe(1);
-      const second = yield* decodeRunInfo(
+      const second = yield* RunInfo.decodeUnknownEffect(
         yield* sql`
           insert into
             test (name)
