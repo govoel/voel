@@ -15,7 +15,7 @@ import {
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Context, Effect, Exit, Fiber, Latch, Layer, Option, Schema } from 'effect';
+import { Context, Effect, Exit, Fiber, Latch, Layer, Option, Scheduler, Schema } from 'effect';
 import {
   FetchHttpClient,
   Headers,
@@ -62,6 +62,32 @@ class Input extends Schema.Struct({ root: Schema.NonEmptyString }) {
 
 class Persisted extends Schema.Struct({ prefix: Schema.NonEmptyString }) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
+
+// Share one dispatcher so tests can drain runnable work from every handler/cache fiber.
+// Draining does not wait for promises, timers, or deliberately blocked finalizers.
+class TestScheduler extends Context.Service<TestScheduler>()(
+  '@repo/server/groups/library.test/TestScheduler',
+  {
+    make: Effect.sync(() => {
+      const scheduler = new Scheduler.MixedScheduler();
+      const dispatcher = scheduler.makeDispatcher();
+      return {
+        scheduler: {
+          executionMode: scheduler.executionMode,
+          shouldYield: (fiber) => scheduler.shouldYield(fiber),
+          makeDispatcher: () => dispatcher,
+        } satisfies Scheduler.Scheduler,
+        drainScheduler: Effect.sync(() => {
+          dispatcher.flush();
+        }),
+      };
+    }),
+  }
+) {
+  public static readonly layer = Layer.unwrap(
+    this.pipe(Effect.map(({ scheduler }) => Layer.succeed(Scheduler.Scheduler, scheduler)))
+  ).pipe(Layer.provideMerge(Layer.effect(this, this.make)));
 }
 
 class PluginFixture extends Context.Service<PluginFixture>()(
@@ -233,7 +259,10 @@ const testDependenciesLayer = Layer.mergeAll(
 );
 
 // Build handlers once so background retirement lives for the suite, not client creation.
-const testLayer = LibraryHandlersLayerNoDeps.pipe(Layer.provideMerge(testDependenciesLayer));
+const testLayer = LibraryHandlersLayerNoDeps.pipe(
+  Layer.provideMerge(testDependenciesLayer),
+  Layer.provideMerge(TestScheduler.layer)
+);
 
 const wireTestLayer = ApiRoutesLayerNoDeps.pipe(
   Layer.provideMerge(testDependenciesLayer),
@@ -288,6 +317,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'reads only cached plugin health, reports failures, and forgets retired instances',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
+      const { drainScheduler } = yield* TestScheduler;
       const library = yield* client.library.create({ payload: createInput('Health', 'npm:test') });
       const listItem = Effect.gen(function* () {
         return (yield* client.library.list({
@@ -306,6 +336,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
       });
       // Persisted settings alone do not imply that storage is healthy.
+      yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
       });
@@ -330,6 +361,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: '/healthy' }) },
       });
+      yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
       });
@@ -343,6 +375,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { name: Library.fields.name.make('New health') },
       });
+      yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
       });
@@ -682,6 +715,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'returns before idle plugin cleanup finishes and retires beyond the request scope',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
+      const { drainScheduler } = yield* TestScheduler;
       const fixture = yield* PluginFixture;
       const library = yield* client.library.create({
         payload: createInput('Background retirement', 'npm:test'),
@@ -721,7 +755,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         })
       );
       expect(response).toEqual(library);
-      yield* started.await;
+      yield* drainScheduler;
+      expect(started.isOpen()).toBe(true);
       expect(finished.isOpen()).toBe(false);
       expect((yield* client.library.get({ params: library })).name).toBe('Background renamed');
       expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
