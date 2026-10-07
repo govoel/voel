@@ -9,9 +9,11 @@ import {
   Layer,
   Option,
   Redacted,
+  Scheduler,
   Stream,
 } from 'effect';
 import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
+import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
 
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
@@ -41,71 +43,61 @@ import {
 // The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
 
-class AtomTaskScheduler extends Context.Service<AtomTaskScheduler>()(
-  'voel/services/accounts/atoms.test/AtomTaskScheduler',
+// Route atom callbacks and service fibers through one drainable dispatcher.
+// Draining runs queued work; it does not wait for SQL, network requests, or timers.
+class TestScheduler extends Context.Service<TestScheduler>()(
+  'voel/services/accounts/atoms.test/TestScheduler',
   {
     make: Effect.sync(() => {
-      const scheduledTasks = new Set<() => void>();
+      const scheduler = new Scheduler.MixedScheduler();
+      const dispatcher = scheduler.makeDispatcher();
 
       return {
+        scheduler: {
+          executionMode: scheduler.executionMode,
+          shouldYield: (fiber) => scheduler.shouldYield(fiber),
+          makeDispatcher: () => dispatcher,
+        } satisfies Scheduler.Scheduler,
         scheduleTask: (task: () => void) => {
           let active = true;
-          const scheduledTask = () => {
+          dispatcher.scheduleTask(() => {
             if (!active) {
               return;
             }
 
             active = false;
-            scheduledTasks.delete(scheduledTask);
             task();
-          };
-
-          scheduledTasks.add(scheduledTask);
-          queueMicrotask(scheduledTask);
+          }, 0);
 
           return () => {
             active = false;
-            scheduledTasks.delete(scheduledTask);
           };
         },
-        drainAtomTasks: Effect.sync(() => {
-          let drainCount = 0;
-
-          while (scheduledTasks.size > 0) {
-            if (drainCount > 1000) {
-              throw new Error('Atom task scheduler did not settle.');
-            }
-
-            drainCount += 1;
-
-            const tasks: Array<() => void> = [];
-            for (const scheduledTask of scheduledTasks) {
-              tasks.push(scheduledTask);
-            }
-
-            for (const scheduledTask of tasks) {
-              scheduledTask();
-            }
-          }
+        drainScheduler: Effect.sync(() => {
+          dispatcher.flush();
         }),
       };
     }),
   }
 ) {
-  public static readonly layer = Layer.effect(this, this.make);
+  public static readonly layer = Layer.unwrap(
+    this.pipe(Effect.map(({ scheduler }) => Layer.succeed(Scheduler.Scheduler, scheduler)))
+  ).pipe(Layer.provideMerge(Layer.effect(this, this.make)));
 }
 
 const TestAccountsAtomsLayer = Layer.fromBuild((memoMap, scope) =>
   Effect.gen(function* () {
-    const services =
-      yield* Effect.context<Layer.Success<ReturnType<typeof makeClientTestLayers>>>();
-    const atomTaskScheduler = yield* AtomTaskScheduler;
+    const services = yield* Effect.context<
+      | Layer.Success<ReturnType<typeof makeClientTestLayers>>
+      | Layer.Success<typeof TestScheduler.layer>
+    >();
+    const { scheduleTask } = yield* TestScheduler;
     const registryLayer = AtomRegistry.layerOptions({
       initialValues: [
         Atom.initialValue(AppRuntime.layer, Layer.succeedContext(services)),
         Atom.initialValue(Atom.runtime.memoMap, memoMap),
       ],
-      scheduleTask: atomTaskScheduler.scheduleTask,
+      scheduleTask,
     });
 
     return yield* Layer.effectDiscard(Atom.mount(AppRuntime)).pipe(
@@ -113,10 +105,13 @@ const TestAccountsAtomsLayer = Layer.fromBuild((memoMap, scope) =>
       (layer) => Layer.buildWithMemoMap(layer, memoMap, scope)
     );
   })
-).pipe(Layer.provideMerge(AtomTaskScheduler.layer));
+);
 
 const makeAccountsAtomsTestLayer = () =>
-  TestAccountsAtomsLayer.pipe(Layer.provideMerge(makeClientTestLayers()));
+  TestAccountsAtomsLayer.pipe(
+    Layer.provideMerge(makeClientTestLayers()),
+    Layer.provideMerge(TestScheduler.layer)
+  );
 
 const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
   const session = yield* authClient.getSession;
@@ -145,13 +140,13 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
     'reacts to account table mutations',
     Effect.fnUntraced(
       function* () {
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        const { drainScheduler } = yield* TestScheduler;
         const manager = yield* AccountManager;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
 
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(yield* Atom.getResult(accountsAtom)).toMatchObject([
           {
             serverUrl: testServer.serverUrl,
@@ -162,7 +157,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
 
         yield* manager.removeActiveAccount;
 
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
@@ -244,7 +239,7 @@ describe('accountsSheetAtom', () => {
       Effect.fnUntraced(
         function* () {
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
-          const { drainAtomTasks } = yield* AtomTaskScheduler;
+          const { drainScheduler } = yield* TestScheduler;
           const manager = yield* AccountManager;
           const accountRepository = yield* AccountRepository;
           const account = {
@@ -293,7 +288,7 @@ describe('accountsSheetAtom', () => {
             _tag: 'Initial',
             waiting: true,
           });
-          yield* drainAtomTasks;
+          yield* drainScheduler;
           expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
             AccountsSheet.Idle({ dismissable: true })
           );
@@ -307,7 +302,7 @@ describe('accountsSheetAtom', () => {
       Effect.fnUntraced(
         function* () {
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
-          const { drainAtomTasks } = yield* AtomTaskScheduler;
+          const { drainScheduler } = yield* TestScheduler;
           const manager = yield* AccountManager;
           const accountRepository = yield* AccountRepository;
           const account = {
@@ -353,7 +348,7 @@ describe('accountsSheetAtom', () => {
           expect(failedSession).toMatchObject({ _tag: 'Failure', waiting: false });
           expect(Option.isSome(AsyncResult.error(failedSession))).toBe(true);
 
-          yield* drainAtomTasks;
+          yield* drainScheduler;
           expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
             AccountsSheet.Idle({ dismissable: true })
           );
@@ -369,7 +364,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
     'stays idle and dismissable when the session is valid',
     Effect.fnUntraced(
       function* () {
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        const { drainScheduler } = yield* TestScheduler;
         const manager = yield* AccountManager;
         const serverUrl = yield* makeServerUrl;
         const username = yield* makeUsername('test.admin');
@@ -391,7 +386,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         expect(validSession).toMatchObject({ _tag: 'Success', waiting: false });
         expect(Option.isSome(Option.flatten(AsyncResult.value(validSession)))).toBe(true);
 
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
         );
@@ -404,7 +399,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
     'shows an invalid session and remains dismissable after session revocation',
     Effect.fnUntraced(
       function* () {
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        const { drainScheduler } = yield* TestScheduler;
         const manager = yield* AccountManager;
         const serverUrl = yield* makeServerUrl;
         const username = yield* makeUsername('test.admin');
@@ -422,7 +417,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         );
         yield* Atom.mount(accountsSheetAtom);
         yield* waitForAuthenticatedSession(authClient);
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
         );
@@ -457,7 +452,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
     Effect.fnUntraced(
       function* () {
         const authClients = yield* AuthClientMap;
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        const { drainScheduler } = yield* TestScheduler;
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
         const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
@@ -470,7 +465,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         yield* waitForAuthenticatedSession(firstClient);
 
         yield* Atom.mount(accountsSheetAtom);
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
         );
@@ -500,7 +495,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
     Effect.fnUntraced(
       function* () {
         const authClients = yield* AuthClientMap;
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        const { drainScheduler } = yield* TestScheduler;
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
@@ -513,7 +508,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           userId: account.userId,
         });
 
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
           AccountsSheet.Idle({ dismissable: true })
         );
@@ -579,8 +574,8 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         }
         yield* Atom.set(deleteServerUserAtom, { userId: target.id });
         yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
-        yield* drainAtomTasks;
+        const { drainScheduler } = yield* TestScheduler;
+        yield* drainScheduler;
         const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         expect(refreshed.items).toHaveLength(10);
         expect(refreshed.items.some((user) => user.id === target.id)).toBe(false);
@@ -611,15 +606,32 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         );
 
         const secondServer = yield* setupTestServerWithUsers({ userCount: 6 });
+        const subscribed = yield* Deferred.make<true>();
+        const nextUsers = yield* Atom.toStream(listUsersAtom).pipe(
+          Stream.tap(() => Deferred.succeed(subscribed, true)),
+          Stream.drop(1),
+          // A source switch must start a refresh, then publish its first completed result.
+          Stream.dropWhile((state, index) => {
+            if (index === 0) {
+              expect(state.waiting).toBe(true);
+            }
+            return state.waiting;
+          }),
+          Stream.mapEffect(AsyncResult.toExit),
+          Stream.runHead,
+          Effect.forkChild
+        );
+        yield* Deferred.await(subscribed).pipe(Effect.timeout('10 seconds'), TestClock.withLive);
         yield* manager.signInAccount({
           serverUrl: secondServer.serverUrl,
           username: secondServer.adminUsername,
           password: secondServer.password,
         });
-        yield* Effect.yieldNow;
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
-        yield* drainAtomTasks;
-        const secondResult = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        const { drainScheduler } = yield* TestScheduler;
+        yield* drainScheduler;
+        const secondResult = Option.getOrThrow(
+          yield* Fiber.join(nextUsers).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
+        );
         const secondUsernames = secondResult.items.map((user) => user.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
@@ -660,11 +672,11 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         const read = vi.spyOn(client.admin, 'getUser');
         const list = vi.spyOn(client.admin, 'listUsers');
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        const { drainScheduler } = yield* TestScheduler;
 
         yield* Atom.set(deleteServerUserAtom, { userId: target.id });
         yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({
           id: currentUser.id,
         });
@@ -679,7 +691,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           userId: Account.fields.userId.make('missing-user'),
         });
         yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true }).pipe(Effect.flip);
-        yield* drainAtomTasks;
+        yield* drainScheduler;
         expect(read).not.toHaveBeenCalled();
         expect(list).not.toHaveBeenCalled();
       },
@@ -711,8 +723,8 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
 
         yield* Atom.set(revokeOwnSessionAtom, { token: other.token });
         yield* Atom.getResult(revokeOwnSessionAtom, { suspendOnWaiting: true });
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
-        yield* drainAtomTasks;
+        const { drainScheduler } = yield* TestScheduler;
+        yield* drainScheduler;
         const own = yield* Atom.getResult(ownSessionsAtom, { suspendOnWaiting: true });
         const admin = yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
         expect(own.sessions.some((item) => item.id === other.id)).toBe(false);
@@ -728,7 +740,7 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
     'reflects an account created by AccountManager',
     Effect.fnUntraced(
       function* () {
-        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        const { drainScheduler } = yield* TestScheduler;
         const serverUrl = yield* makeServerUrl;
 
         const manager = yield* AccountManager;
@@ -738,6 +750,16 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
 
         const username = yield* makeUsername();
 
+        const subscribed = yield* Deferred.make<true>();
+        // This long-lived stream stays waiting; assert its very next result, not a matching value.
+        const nextAccount = yield* Atom.toStream(activeAccountAtom).pipe(
+          Stream.tap(() => Deferred.succeed(subscribed, true)),
+          Stream.drop(1),
+          Stream.mapEffect(AsyncResult.toExit),
+          Stream.runHead,
+          Effect.forkChild
+        );
+        yield* Deferred.await(subscribed).pipe(Effect.timeout('10 seconds'), TestClock.withLive);
         yield* manager.setupServerWithAccount({
           serverUrl,
           name: 'Test Admin',
@@ -745,12 +767,13 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
           username,
           password: Redacted.make('ha!niceTry'),
         });
-        // Allow activeAccountKeyAtom's stream fiber to observe the manager change
-        // before synchronously draining the registry's scheduled work.
-        yield* Effect.yieldNow;
-        yield* drainAtomTasks;
+        yield* drainScheduler;
 
-        const activeAccount = Option.getOrThrow(yield* Atom.getResult(activeAccountAtom));
+        const activeAccount = Option.getOrThrow(
+          Option.getOrThrow(
+            yield* Fiber.join(nextAccount).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
+          )
+        );
 
         expect(activeAccount).toMatchObject({
           serverUrl,
