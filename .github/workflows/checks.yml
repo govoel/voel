@@ -40,14 +40,5 @@ jobs:
         with:
           packages-token: ${{ github.token }}
 
-      - name: Format
-        run: bun turbo run format:check
-
-      - name: Lint
-        run: bun turbo run lint
-
-      - name: Types
-        run: bun turbo run check-types
-
-      - name: Test
-        run: bun turbo run test
+      - name: Run checks
+        run: bun turbo run format:check lint check-types test
