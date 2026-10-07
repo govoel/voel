@@ -16,6 +16,8 @@ import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
 
+import { ForbiddenError } from '@repo/spec-api/middlewares/auth.ts';
+
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
 import {
   deleteServerUserAtom,
@@ -24,7 +26,11 @@ import {
 } from '#src/app/accounts/server/users/[id]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
-import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import {
+  accountsAtom,
+  activeAccountApiClientAtom,
+  activeAccountAtom,
+} from '#src/services/accounts/atoms.ts';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
@@ -134,6 +140,56 @@ const waitForAuthenticatedSession = (authClient: AuthClient['Service']) =>
     ),
     Stream.runHead
   );
+
+it.layer(TestServerControllerClient.layer)('activeAccountApiClientAtom', (iit) => {
+  iit.effect(
+    'fails without an active account',
+    Effect.fnUntraced(
+      function* () {
+        expect(yield* Atom.getResult(activeAccountApiClientAtom).pipe(Effect.flip)).toBeInstanceOf(
+          NoActiveAccountError
+        );
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'selects the newly active client and clears it when the account is removed',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [admin, user] = yield* signInTestServerUsers(manager, server);
+        yield* manager.setActiveAccount(admin);
+        yield* Atom.mount(activeAccountApiClientAtom);
+        const adminClient = yield* Atom.getResult(activeAccountApiClientAtom);
+        expect(
+          (yield* adminClient.library.list({ query: { cursor: Option.none(), limit: 10 } })).items
+        ).toEqual([]);
+
+        yield* manager.setActiveAccount(user);
+        yield* Effect.yieldNow;
+        const { drainAtomTasks } = yield* AtomTaskScheduler;
+        yield* drainAtomTasks;
+        const userClient = yield* Atom.getResult(activeAccountApiClientAtom);
+        expect(
+          yield* userClient.library
+            .list({ query: { cursor: Option.none(), limit: 10 } })
+            .pipe(Effect.flip)
+        ).toBeInstanceOf(ForbiddenError);
+
+        yield* manager.removeActiveAccount;
+        yield* Effect.yieldNow;
+        yield* drainAtomTasks;
+        expect(yield* Atom.getResult(activeAccountApiClientAtom).pipe(Effect.flip)).toBeInstanceOf(
+          NoActiveAccountError
+        );
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+});
 
 it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
   iit.effect(

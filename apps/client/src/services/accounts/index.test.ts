@@ -800,7 +800,11 @@ describe('AccountManager', () => {
         (effect) =>
           effect.pipe(
             Effect.scoped,
-            Effect.provide(makeClientTestLayers({ authClientStorageMap: storageItems }))
+            Effect.provide(
+              makeClientTestLayers({
+                authClientStorageLayer: AuthClientStorage.layerTest(storageItems),
+              })
+            )
           )
       )
     );
