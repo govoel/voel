@@ -3,6 +3,7 @@ import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
 import { Schema as AuthSchema, Identity, Password, Sessions } from '@yielded/auth';
 import type { Hooks } from '@yielded/auth';
+import { layerWebCrypto } from '@yielded/crypto/WebCrypto';
 import {
   Cause,
   DateTime,
@@ -18,13 +19,12 @@ import { SqlClient, SqlError } from 'effect/sql';
 
 import { SqliteMigrator } from '@repo/effect-turso';
 
-import { AppAuth } from '#src/services/auth/app.ts';
-import {
-  Persistence,
-  YieldedAuthMigrations,
-  YieldedAuthPersistence,
-  authStorage,
-} from '#src/services/auth/persistence.ts';
+import { makeAppAuth } from '#src/services/auth/app.ts';
+import { YieldedAuthMigrations, makeAuthPersistence } from '#src/services/auth/persistence.ts';
+
+const AppAuth = makeAppAuth({ resetUrl: 'https://auth.test/reset' });
+const YieldedAuthPersistence = makeAuthPersistence({ auth: AppAuth });
+const { Persistence, authStorage } = YieldedAuthPersistence;
 
 const makeFilename = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -33,11 +33,14 @@ const makeFilename = Effect.gen(function* () {
 }).pipe(Effect.provide(BunFileSystem.layer));
 
 const subjectId = AuthSchema.SubjectId.make('admin');
-const { moduleId } = AppAuth.strategies.account.persistence;
+const { moduleId } = AppAuth.strategies.password.persistence;
 const credentialId = 'admin-password';
-const identifier = Identity.LoginIdentifier.make({ namespace: 'username', value: 'admin' });
+const identifier = Identity.LoginIdentifier.make({
+  namespace: 'email',
+  value: 'admin@example.com',
+});
 
-// Fixture provisioning only; production bootstrap/sign-in are deliberately not implemented.
+// Storage-only fixtures deliberately use a non-cryptographic verifier.
 const seed = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   yield* sql.withTransaction(
@@ -66,18 +69,10 @@ const seed = Effect.gen(function* () {
           )
         values
           (
-            'username',
-            'admin',
-            ${subjectId},
-            'binding-1',
-            null,
-            1
-          ),
-          (
             'email',
             'admin@example.com',
             ${subjectId},
-            'email-1',
+            'binding-1',
             null,
             1
           )
@@ -154,7 +149,7 @@ const makeSessionInput = Effect.gen(function* () {
     ],
   });
   const claims = yield* Schema.decodeEffect(AppAuth.claims)({
-    username: 'admin',
+    displayName: 'Admin',
     email: 'admin@example.com',
     role: 'admin',
   });
@@ -215,8 +210,8 @@ describe('yielded auth persistence over Turso', () => {
               yield* passwords.findCredential({
                 moduleId,
                 identifier: Identity.LoginIdentifier.make({
-                  namespace: 'username',
-                  value: 'missing',
+                  namespace: 'email',
+                  value: 'missing@example.com',
                 }),
               })
             )
@@ -253,7 +248,7 @@ describe('yielded auth persistence over Turso', () => {
             set
               active = 0
             where
-              namespace = 'username'
+              namespace = 'email'
           `;
           expect(Option.isNone(yield* passwords.findCredential({ moduleId, identifier }))).toBe(
             true
@@ -268,7 +263,11 @@ describe('yielded auth persistence over Turso', () => {
           expect(Option.isNone(yield* passwords.readForSubject({ moduleId, subjectId }))).toBe(
             true
           );
-        }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+        }).pipe(
+          Effect.provide(
+            YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+          )
+        );
       })
   );
 
@@ -365,7 +364,11 @@ describe('yielded auth persistence over Turso', () => {
           expect(
             (yield* Effect.flip(pending.read({ digest: rejected.digest, now: input.now })))._tag
           ).toBe('PendingAuthenticationInvalid');
-        }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+        }).pipe(
+          Effect.provide(
+            YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+          )
+        );
       })
   );
 
@@ -388,7 +391,11 @@ describe('yielded auth persistence over Turso', () => {
             pragma foreign_key_check
           `
         ).toEqual([]);
-      }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+      }).pipe(
+        Effect.provide(
+          YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+        )
+      );
     })
   );
 
@@ -486,7 +493,11 @@ describe('yielded auth persistence over Turso', () => {
         }
         // The same client remains usable for a correct provisioning transaction.
         yield* seed;
-      }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+      }).pipe(
+        Effect.provide(
+          YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+        )
+      );
     })
   );
 
@@ -502,7 +513,11 @@ describe('yielded auth persistence over Turso', () => {
           );
           yield* receipt.read;
           expect(yield* SqliteMigrator.run(YieldedAuthMigrations.options)).toEqual([]);
-        }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })))
+        }).pipe(
+          Effect.provide(
+            YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+          )
+        )
       );
 
       yield* Effect.gen(function* () {
@@ -512,8 +527,8 @@ describe('yielded auth persistence over Turso', () => {
           (yield* sessions.verify({
             digest: AuthSchema.TokenDigest.make('digest-1'),
             now: yield* DateTime.now,
-          })).claims.username
-        ).toBe('admin');
+          })).claims.displayName
+        ).toBe('Admin');
         expect(
           yield* sql`
             select
@@ -540,7 +555,11 @@ describe('yielded auth persistence over Turso', () => {
           `
         ).toEqual([]);
         expect(yield* SqliteMigrator.run(YieldedAuthMigrations.options)).toEqual([]);
-      }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+      }).pipe(
+        Effect.provide(
+          YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+        )
+      );
     })
   );
 
@@ -653,7 +672,11 @@ describe('yielded auth persistence over Turso', () => {
             journal.prepare(value)
           )).read
         ).toBe(false);
-      }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+      }).pipe(
+        Effect.provide(
+          YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+        )
+      );
     })
   );
 
@@ -778,7 +801,11 @@ describe('yielded auth persistence over Turso', () => {
           (yield* Effect.flip(sessions.verify({ digest: finalSession.digest, now: final.now })))
             ._tag
         ).toBe('SessionInvalid');
-      }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+      }).pipe(
+        Effect.provide(
+          YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+        )
+      );
     })
   );
 
@@ -811,8 +838,8 @@ describe('yielded auth persistence over Turso', () => {
             identifiers (namespace, value, subject_id, revision, active)
           values
             (
-              'username',
-              'admin',
+              'email',
+              'admin@example.com',
               ${subjectId},
               'r',
               1
@@ -900,7 +927,11 @@ describe('yielded auth persistence over Turso', () => {
             pragma foreign_key_check
           `
         ).toEqual([]);
-      }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+      }).pipe(
+        Effect.provide(
+          YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+        )
+      );
     })
   );
 
@@ -967,7 +998,11 @@ describe('yielded auth persistence over Turso', () => {
           )
         );
         expect(error._tag).toBe('PasswordUnavailable');
-      }).pipe(Effect.provide(YieldedAuthPersistence.layer({ filename })));
+      }).pipe(
+        Effect.provide(
+          YieldedAuthPersistence.layer({ filename }).pipe(Layer.provideMerge(layerWebCrypto))
+        )
+      );
     })
   );
 });

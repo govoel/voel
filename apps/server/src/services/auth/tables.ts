@@ -90,4 +90,32 @@ const pending = AuthPersistence.table({
   unique: [['digest']],
 });
 
-export const AuthTables = { subjects, identifiers, credentials, passwords, sessions, pending };
+const proofs = AuthPersistence.table({
+  name: 'proofs',
+  columns: {
+    moduleId: { name: 'module_id', type: 'text' },
+    purpose: { name: 'purpose', type: 'text' },
+    seriesKey: { name: 'series_key', type: 'text' },
+    proofId: { name: 'proof_id', type: 'text' },
+    binding: { name: 'binding', type: 'text' },
+    verifierKeyId: { name: 'verifier_key_id', type: 'text' },
+    verifierDigest: { name: 'verifier_digest', type: 'text' },
+    issuedAt: { name: 'issued_at', type: 'integer' },
+    expiresAt: { name: 'expires_at', type: 'integer' },
+    failedAttempts: { name: 'failed_attempts', type: 'integer' },
+  },
+  unique: [
+    ['moduleId', 'purpose', 'seriesKey'],
+    ['moduleId', 'proofId'],
+  ],
+});
+
+export const AuthTables = {
+  subjects,
+  identifiers,
+  credentials,
+  passwords,
+  sessions,
+  pending,
+  proofs,
+};

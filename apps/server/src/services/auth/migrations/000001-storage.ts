@@ -92,6 +92,22 @@ export default Effect.gen(function* () {
     create index identifiers_subject on identifiers (subject_id)
   `;
   yield* sql`
+    create table proofs (
+      module_id text not null,
+      purpose text not null,
+      series_key text not null,
+      proof_id text not null,
+      binding text not null,
+      verifier_key_id text not null,
+      verifier_digest text not null,
+      issued_at integer not null,
+      expires_at integer not null,
+      failed_attempts integer not null check (failed_attempts >= 0),
+      unique (module_id, purpose, series_key),
+      unique (module_id, proof_id)
+    )
+  `;
+  yield* sql`
     create index credentials_subject on credentials (subject_id)
   `;
   yield* sql`
