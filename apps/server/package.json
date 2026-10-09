@@ -23,6 +23,9 @@
     "@repo/auth-api": "workspace:*",
     "@repo/effect-turso": "workspace:*",
     "@repo/spec-api": "workspace:*",
+    "@yielded/auth": "0.1.0-beta.30",
+    "@yielded/auth-persistence": "0.1.0-beta.30",
+    "@yielded/crypto": "0.1.0-beta.30",
     "effect": "4.0.0"
   },
   "devDependencies": {
