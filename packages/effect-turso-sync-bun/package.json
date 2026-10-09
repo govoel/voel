@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@repo/effect-turso-sync": "workspace:*",
-    "@tursodatabase/database-common": "0.8.1",
-    "@tursodatabase/sync": "0.8.1",
+    "@tursodatabase/database-common": "0.8.2",
+    "@tursodatabase/sync": "0.8.2",
     "effect": "4.0.0"
   },
   "devDependencies": {
