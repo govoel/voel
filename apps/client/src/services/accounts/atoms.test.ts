@@ -1,6 +1,9 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import {
+  Array,
+  Cause,
+  Clock,
   Context,
   DateTime,
   Deferred,
@@ -12,10 +15,13 @@ import {
   Scheduler,
   Stream,
 } from 'effect';
-import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, Atom, AtomRegistry, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
+import { AppState } from 'react-native';
 import { vi } from 'vitest';
 
+import { Library } from '@repo/spec-api/database/schema.ts';
+import { LibraryNotFoundError } from '@repo/spec-api/groups/library.ts';
 import { ForbiddenError } from '@repo/spec-api/middlewares/auth.ts';
 
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
@@ -31,11 +37,22 @@ import {
   activeAccountApiClientAtom,
   activeAccountAtom,
 } from '#src/services/accounts/atoms.ts';
-import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
+import {
+  AccountManager,
+  ActiveAccountKey,
+  NoActiveAccountError,
+} from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
+import { ApiClientMap } from '#src/services/api-client/index.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
+import {
+  LibraryQueryKey,
+  libraryAtom,
+  libraryStoragePluginSettingsFormAtom,
+  listLibrariesAtom,
+} from '#src/services/libraries/atoms.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
@@ -140,6 +157,474 @@ const waitForAuthenticatedSession = (authClient: AuthClient['Service']) =>
     ),
     Stream.runHead
   );
+
+it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
+  iit.effect(
+    'refreshes all mounted library queries on library invalidation',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        const key = ActiveAccountKey.make(account);
+        const { id } = yield* client.library.create({
+          payload: {
+            name: Library.fields.name.make('Before invalidation'),
+            type: Library.fields.type.make('audiobook'),
+            storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+          },
+        });
+        const list = listLibrariesAtom(key);
+        const detail = libraryAtom(LibraryQueryKey.make({ account: key, id }));
+        const form = libraryStoragePluginSettingsFormAtom(
+          LibraryQueryKey.make({ account: key, id })
+        );
+        for (const query of [list, detail, form]) {
+          yield* Atom.mount<Atom.Type<typeof query>>(query);
+          yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(query);
+        }
+        const reads = [
+          vi.spyOn(client.library, 'list'),
+          vi.spyOn(client.library, 'get'),
+          vi.spyOn(client.library, 'getStoragePluginSettingsForm'),
+        ];
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            for (const read of reads) {
+              read.mockRestore();
+            }
+          })
+        );
+
+        yield* client.library.update({
+          params: { id },
+          payload: { name: Library.fields.name.make('After invalidation') },
+        });
+        yield* Reactivity.invalidate(['library']);
+        expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({
+          name: 'After invalidation',
+        });
+        expect(
+          (yield* Atom.getResult(list, { suspendOnWaiting: true })).items.map(({ name }) => name)
+        ).toEqual(['After invalidation']);
+        expect(yield* Atom.getResult(form, { suspendOnWaiting: true })).toEqual([]);
+        for (const read of reads) {
+          expect(read).toHaveBeenCalled();
+        }
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'revalidates stale queries on app focus but keeps a fresh list cached',
+    Effect.fnUntraced(
+      function* () {
+        const events = vi.spyOn(AppState, 'addEventListener');
+        const now = yield* Clock.currentTimeMillis.pipe(TestClock.withLive);
+        const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            events.mockRestore();
+            clock.mockRestore();
+          })
+        );
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        const key = ActiveAccountKey.make(account);
+        const { id } = yield* client.library.create({
+          payload: {
+            name: Library.fields.name.make('Focus library'),
+            type: Library.fields.type.make('audiobook'),
+            storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+          },
+        });
+        const list = listLibrariesAtom(key);
+        const detail = libraryAtom(LibraryQueryKey.make({ account: key, id }));
+        const form = libraryStoragePluginSettingsFormAtom(
+          LibraryQueryKey.make({ account: key, id })
+        );
+        for (const query of [list, detail, form]) {
+          yield* Atom.mount<Atom.Type<typeof query>>(query);
+          yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(query);
+        }
+        const reads = [
+          vi.spyOn(client.library, 'list'),
+          vi.spyOn(client.library, 'get'),
+          vi.spyOn(client.library, 'getStoragePluginSettingsForm'),
+        ];
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            for (const read of reads) {
+              read.mockRestore();
+            }
+          })
+        );
+        const [, focus] = Option.getOrThrow(Array.last(events.mock.calls));
+        yield* Effect.sync(() => {
+          clock.mockReturnValue(now + 1);
+          focus('background');
+          focus('active');
+        });
+        expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({ id });
+        yield* Atom.getResult(form, { suspendOnWaiting: true });
+        expect(reads[0]).not.toHaveBeenCalled();
+        expect(reads[1]).toHaveBeenCalled();
+        expect(reads[2]).toHaveBeenCalled();
+
+        yield* Effect.sync(() => {
+          clock.mockReturnValue(now + 10_001);
+          focus('background');
+          focus('active');
+        });
+        expect((yield* Atom.getResult(list, { suspendOnWaiting: true })).items).toHaveLength(1);
+        expect(reads[0]).toHaveBeenCalledWith({ query: { cursor: Option.none(), limit: 10 } });
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'accumulates server pages, refreshes from the beginning, and reads details and settings forms',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        const key = ActiveAccountKey.make(account);
+        const list = listLibrariesAtom(key);
+        yield* Atom.mount(list);
+        expect(yield* Atom.getResult(list).pipe(Effect.flip)).toBeInstanceOf(
+          Cause.NoSuchElementError
+        );
+        const input = {
+          type: Library.fields.type.make('audiobook'),
+          storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+        };
+        const libraries = yield* Effect.forEach(
+          Array.makeBy(11, (index) => `Library ${index + 1}`),
+          (name) =>
+            client.library.create({ payload: { ...input, name: Library.fields.name.make(name) } })
+        );
+        const read = vi.spyOn(client.library, 'list');
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            read.mockRestore();
+          })
+        );
+        yield* Atom.refresh(list);
+        const first = yield* Atom.getResult(list, { suspendOnWaiting: true });
+        expect(first.items.map(({ id }) => id)).toEqual(libraries.slice(0, 10).map(({ id }) => id));
+        expect(first.done).toBe(false);
+        expect(read).toHaveBeenNthCalledWith(1, { query: { cursor: Option.none(), limit: 10 } });
+
+        yield* Atom.set(list, void 0);
+        const second = yield* Atom.getResult(list, { suspendOnWaiting: true });
+        expect(second.items.map(({ id }) => id)).toEqual(libraries.map(({ id }) => id));
+        expect(second.done).toBe(false);
+        expect(read).toHaveBeenNthCalledWith(2, {
+          query: {
+            cursor: Option.some(Option.getOrThrow(Array.last(first.items)).id),
+            limit: 10,
+          },
+        });
+        yield* Atom.set(list, void 0);
+        expect(yield* Atom.getResult(list, { suspendOnWaiting: true })).toEqual({
+          items: second.items,
+          done: true,
+        });
+        expect(read).toHaveBeenCalledTimes(2);
+
+        yield* Atom.refresh(list);
+        expect(yield* Atom.getResult(list, { suspendOnWaiting: true })).toEqual(first);
+        expect(read).toHaveBeenNthCalledWith(3, { query: { cursor: Option.none(), limit: 10 } });
+        const { id } = Option.getOrThrow(Option.fromNullishOr(libraries[0]));
+        expect(
+          yield* Atom.getResult(libraryAtom(LibraryQueryKey.make({ account: key, id })))
+        ).toMatchObject({
+          ...input,
+          id,
+          name: 'Library 1',
+          roots: [],
+          storagePluginHealth: { status: 'unknown' },
+        });
+        expect(
+          yield* Atom.getResult(
+            libraryStoragePluginSettingsFormAtom(LibraryQueryKey.make({ account: key, id }))
+          )
+        ).toEqual([]);
+        const missingId = Library.fields.id.make(999_999);
+        expect(
+          yield* Atom.getResult(
+            libraryAtom(LibraryQueryKey.make({ account: key, id: missingId }))
+          ).pipe(Effect.flip)
+        ).toBeInstanceOf(LibraryNotFoundError);
+        expect(
+          yield* Atom.getResult(
+            libraryStoragePluginSettingsFormAtom(
+              LibraryQueryKey.make({ account: key, id: missingId })
+            )
+          ).pipe(Effect.flip)
+        ).toBeInstanceOf(LibraryNotFoundError);
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'keeps same-account results while refreshing, including after a failed refresh',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        const { id } = yield* client.library.create({
+          payload: {
+            name: Library.fields.name.make('Refresh library'),
+            type: Library.fields.type.make('audiobook'),
+            storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+          },
+        });
+        const detail = libraryAtom(
+          LibraryQueryKey.make({ account: ActiveAccountKey.make(account), id })
+        );
+        yield* Atom.mount(detail);
+        const original = yield* Atom.getResult(detail);
+        yield* client.library.delete({ params: { id } });
+
+        const release = yield* Deferred.make<boolean>();
+        const { get: getLibrary } = client.library;
+        const read = vi
+          .spyOn(client.library, 'get')
+          .mockImplementation((payload) =>
+            Deferred.await(release).pipe(Effect.andThen(getLibrary(payload)))
+          );
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            read.mockRestore();
+          })
+        );
+        yield* Atom.refresh(detail);
+        const refreshing = yield* Atom.get(detail);
+        expect(refreshing.waiting).toBe(true);
+        expect(AsyncResult.value(refreshing)).toEqual(Option.some(original));
+        expect(read).toHaveBeenCalledOnce();
+
+        yield* Deferred.succeed(release, true);
+        expect(
+          yield* Atom.getResult(detail, { suspendOnWaiting: true }).pipe(Effect.flip)
+        ).toBeInstanceOf(LibraryNotFoundError);
+        expect(AsyncResult.value(yield* Atom.get(detail))).toEqual(Option.some(original));
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'selects separate state for another server while its queries are pending',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const firstServer = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [firstAccount] = yield* signInTestServerUsers(manager, firstServer);
+        const firstClient = yield* ApiClientMap.use((clients) => clients.acquire(firstAccount));
+        const input = {
+          type: Library.fields.type.make('audiobook'),
+          storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+        };
+        const { id } = yield* firstClient.library.create({
+          payload: {
+            ...input,
+            name: Library.fields.name.make('First server'),
+          },
+        });
+        yield* Effect.forEach(
+          Array.makeBy(10, (index) => `Extra ${index}`),
+          (name) =>
+            firstClient.library.create({
+              payload: { ...input, name: Library.fields.name.make(name) },
+            })
+        );
+        const firstKey = ActiveAccountKey.make(firstAccount);
+        const list = listLibrariesAtom(firstKey);
+        const detail = libraryAtom(LibraryQueryKey.make({ account: firstKey, id }));
+        const form = libraryStoragePluginSettingsFormAtom(
+          LibraryQueryKey.make({ account: firstKey, id })
+        );
+        const queries = [list, detail, form];
+
+        const secondServer = yield* setupTestServerWithUsers({ userCount: 1 });
+        const release = yield* Deferred.make<boolean>();
+        yield* manager.signInAccount({
+          serverUrl: secondServer.serverUrl,
+          username: secondServer.adminUsername,
+          password: secondServer.password,
+        });
+        const secondKey = Option.getOrThrow(yield* manager.state);
+        const secondClient = yield* ApiClientMap.use((clients) => clients.acquire(secondKey));
+        const secondLibrary = yield* secondClient.library.create({
+          payload: {
+            ...input,
+            name: Library.fields.name.make('Second server'),
+          },
+        });
+        expect(secondLibrary.id).toBe(id);
+        const {
+          list: listLibraries,
+          get: getLibrary,
+          getStoragePluginSettingsForm: getForm,
+        } = secondClient.library;
+        const reads = [
+          vi
+            .spyOn(secondClient.library, 'list')
+            .mockImplementation((payload) =>
+              Deferred.await(release).pipe(Effect.andThen(listLibraries(payload)))
+            ),
+          vi
+            .spyOn(secondClient.library, 'get')
+            .mockImplementation((payload) =>
+              Deferred.await(release).pipe(Effect.andThen(getLibrary(payload)))
+            ),
+          vi
+            .spyOn(secondClient.library, 'getStoragePluginSettingsForm')
+            .mockImplementation((payload) =>
+              Deferred.await(release).pipe(Effect.andThen(getForm(payload)))
+            ),
+        ];
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            for (const read of reads) {
+              read.mockRestore();
+            }
+          })
+        );
+
+        for (const query of queries) {
+          yield* Atom.mount<Atom.Type<typeof query>>(query);
+          yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(query);
+        }
+        yield* Atom.set(list, void 0);
+        expect((yield* Atom.getResult(list, { suspendOnWaiting: true })).items).toHaveLength(11);
+        const secondList = listLibrariesAtom(secondKey);
+        const secondDetail = libraryAtom(LibraryQueryKey.make({ account: secondKey, id }));
+        const secondForm = libraryStoragePluginSettingsFormAtom(
+          LibraryQueryKey.make({ account: secondKey, id })
+        );
+        expect(secondList).not.toBe(list);
+        expect(secondDetail).not.toBe(detail);
+        expect(secondForm).not.toBe(form);
+        for (const query of [secondList, secondDetail, secondForm]) {
+          yield* Atom.mount<Atom.Type<typeof query>>(query);
+          const pending = yield* Atom.get<Atom.Type<typeof query>>(query);
+          expect(pending.waiting).toBe(true);
+          expect(
+            AsyncResult.value<Atom.Success<typeof query>, Atom.Failure<typeof query>>(pending)
+          ).toEqual(Option.none());
+        }
+        for (const read of reads) {
+          expect(read).toHaveBeenCalled();
+        }
+        expect(reads[0]).toHaveBeenCalledWith({ query: { cursor: Option.none(), limit: 10 } });
+
+        yield* Deferred.succeed(release, true);
+        expect(yield* Atom.getResult(secondDetail, { suspendOnWaiting: true })).toMatchObject({
+          id,
+          name: 'Second server',
+        });
+        expect(
+          (yield* Atom.getResult(secondList, { suspendOnWaiting: true })).items.map(
+            ({ name }) => name
+          )
+        ).toEqual(['Second server']);
+        expect(yield* Atom.getResult(secondForm, { suspendOnWaiting: true })).toEqual([]);
+        expect(yield* Atom.getResult(detail)).toMatchObject({ name: 'First server' });
+        expect((yield* Atom.getResult(list)).items).toHaveLength(11);
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'isolates users and sign-in identities and preserves server authorization errors',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [admin, user] = yield* signInTestServerUsers(manager, server);
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(admin));
+        const { id } = yield* client.library.create({
+          payload: {
+            name: Library.fields.name.make('Admin library'),
+            type: Library.fields.type.make('audiobook'),
+            storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+          },
+        });
+        const adminKey = ActiveAccountKey.make(admin);
+        const adminList = listLibrariesAtom(adminKey);
+        const adminDetail = libraryAtom(LibraryQueryKey.make({ account: adminKey, id }));
+        const adminForm = libraryStoragePluginSettingsFormAtom(
+          LibraryQueryKey.make({ account: adminKey, id })
+        );
+        expect(listLibrariesAtom(ActiveAccountKey.make(admin))).toBe(adminList);
+        expect(
+          libraryAtom(LibraryQueryKey.make({ account: ActiveAccountKey.make(admin), id }))
+        ).toBe(adminDetail);
+        expect(
+          libraryStoragePluginSettingsFormAtom(
+            LibraryQueryKey.make({ account: ActiveAccountKey.make(admin), id })
+          )
+        ).toBe(adminForm);
+        const adminQueries = [adminList, adminDetail, adminForm];
+        for (const query of adminQueries) {
+          yield* Atom.mount<Atom.Type<typeof query>>(query);
+          yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(query);
+        }
+
+        const userKey = ActiveAccountKey.make(user);
+        expect(listLibrariesAtom(userKey)).not.toBe(adminList);
+        for (const query of [
+          listLibrariesAtom(userKey),
+          libraryAtom(LibraryQueryKey.make({ account: userKey, id })),
+          libraryStoragePluginSettingsFormAtom(LibraryQueryKey.make({ account: userKey, id })),
+        ]) {
+          expect(
+            yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(
+              query
+            ).pipe(Effect.flip)
+          ).toBeInstanceOf(ForbiddenError);
+          expect(
+            AsyncResult.value<Atom.Success<typeof query>, Atom.Failure<typeof query>>(
+              yield* Atom.get<Atom.Type<typeof query>>(query)
+            )
+          ).toEqual(Option.none());
+        }
+
+        yield* manager.signInAccount({
+          serverUrl: server.serverUrl,
+          username: server.adminUsername,
+          password: server.password,
+        });
+        const newKey = Option.getOrThrow(yield* manager.state);
+        const newDetail = libraryAtom(LibraryQueryKey.make({ account: newKey, id }));
+        expect(listLibrariesAtom(newKey)).not.toBe(adminList);
+        expect(newDetail).not.toBe(adminDetail);
+        expect(
+          libraryStoragePluginSettingsFormAtom(LibraryQueryKey.make({ account: newKey, id }))
+        ).not.toBe(adminForm);
+        expect(yield* Atom.getResult(newDetail)).toMatchObject({ name: 'Admin library' });
+        expect(yield* Atom.getResult(adminDetail)).toMatchObject({
+          name: 'Admin library',
+        });
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+});
 
 it.layer(TestServerControllerClient.layer)('activeAccountApiClientAtom', (iit) => {
   iit.effect(
