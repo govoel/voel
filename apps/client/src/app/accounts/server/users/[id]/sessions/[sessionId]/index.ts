@@ -7,7 +7,7 @@ import { serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/inde
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
-export const serverUserSessionAtom = Atom.family(
+const serverUserSessionFamily = Atom.family(
   ({
     userId,
     sessionId,
@@ -31,3 +31,9 @@ export const serverUserSessionAtom = Atom.family(
       })
     )
 );
+
+// Caller metadata must not create a second atom for the same user/session.
+export const serverUserSessionAtom = ({
+  userId,
+  sessionId,
+}: Parameters<typeof serverUserSessionFamily>[0]) => serverUserSessionFamily({ userId, sessionId });

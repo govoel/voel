@@ -16,12 +16,15 @@ import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
 
+import { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
+
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
 import {
   deleteServerUserAtom,
   serverUserAtom,
   serverUserSessionsAtom,
 } from '#src/app/accounts/server/users/[id]/index.ts';
+import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
@@ -42,6 +45,20 @@ import {
 
 // The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
+
+it('canonicalizes server session keys without merging distinct users or sessions', () => {
+  const userId = AuthUser.fields.id.make('reader');
+  const sessionId = AuthDeviceSession.fields.id.make('session');
+  const input = { userId, sessionId, extra: 'not query identity' };
+  const atom = serverUserSessionAtom(input);
+  expect(serverUserSessionAtom({ userId, sessionId })).toBe(atom);
+  expect(
+    serverUserSessionAtom({ userId: AuthUser.fields.id.make('other-reader'), sessionId })
+  ).not.toBe(atom);
+  expect(
+    serverUserSessionAtom({ userId, sessionId: AuthDeviceSession.fields.id.make('other-session') })
+  ).not.toBe(atom);
+});
 
 // Route atom callbacks and service fibers through one drainable dispatcher.
 // Draining runs queued work; it does not wait for SQL, network requests, or timers.
