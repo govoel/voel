@@ -1,24 +1,23 @@
-import { Effect, Option, Schema, Stream } from 'effect';
+import { Effect, Option, Stream } from 'effect';
 import { Atom } from 'effect/reactivity';
 
-import { Library } from '@repo/spec-api/database/schema.ts';
+import type { Library } from '@repo/spec-api/database/schema.ts';
 
 import { ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { ApiClientMap } from '#src/services/api-client/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
-/** Value equality keeps query identity stable across renders, accounts, and sign-ins. */
-export class LibraryQueryKey extends Schema.Class<
-  LibraryQueryKey,
-  { readonly brand: unique symbol }
->('voel/services/libraries/atoms/LibraryQueryKey')({
-  account: ActiveAccountKey,
-  id: Library.fields.id,
-}) {}
+// Only account identity and library ID participate in query-cache identity.
+const libraryQueryKey = ({
+  account,
+  id,
+}: {
+  readonly account: ActiveAccountKey;
+  readonly id: Library['id'];
+}) => ({ account: ActiveAccountKey.make(account), id });
 
-/** Write to load more; refresh to restart cursor pagination for this account. */
-export const listLibrariesAtom = Atom.family((account: ActiveAccountKey) =>
+const listLibrariesFamily = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.pull(
     ApiClientMap.use((clients) => clients.acquire(account)).pipe(
       Effect.map((client) =>
@@ -39,7 +38,7 @@ export const listLibrariesAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-export const libraryAtom = Atom.family(({ account, id }: LibraryQueryKey) =>
+const libraryFamily = Atom.family(({ account, id }: ReturnType<typeof libraryQueryKey>) =>
   AppRuntime.atom(
     ApiClientMap.use((clients) => clients.acquire(account)).pipe(
       Effect.flatMap((client) => client.library.get({ params: { id } }))
@@ -51,8 +50,8 @@ export const libraryAtom = Atom.family(({ account, id }: LibraryQueryKey) =>
   )
 );
 
-export const libraryStoragePluginSettingsFormAtom = Atom.family(
-  ({ account, id }: LibraryQueryKey) =>
+const libraryStoragePluginSettingsFormFamily = Atom.family(
+  ({ account, id }: ReturnType<typeof libraryQueryKey>) =>
     AppRuntime.atom(
       ApiClientMap.use((clients) => clients.acquire(account)).pipe(
         Effect.flatMap((client) => client.library.getStoragePluginSettingsForm({ params: { id } }))
@@ -63,3 +62,14 @@ export const libraryStoragePluginSettingsFormAtom = Atom.family(
       Atom.withLabel('libraryStoragePluginSettingsFormAtom')
     )
 );
+
+/** Write to load more; refresh to restart cursor pagination for this account. */
+export const listLibrariesAtom = (account: Parameters<typeof listLibrariesFamily>[0]) =>
+  listLibrariesFamily(ActiveAccountKey.make(account));
+
+export const libraryAtom = (input: Parameters<typeof libraryQueryKey>[0]) =>
+  libraryFamily(libraryQueryKey(input));
+
+export const libraryStoragePluginSettingsFormAtom = (
+  input: Parameters<typeof libraryQueryKey>[0]
+) => libraryStoragePluginSettingsFormFamily(libraryQueryKey(input));

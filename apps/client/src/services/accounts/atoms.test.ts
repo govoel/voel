@@ -48,7 +48,6 @@ import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import {
-  LibraryQueryKey,
   libraryAtom,
   libraryStoragePluginSettingsFormAtom,
   listLibrariesAtom,
@@ -65,6 +64,42 @@ import {
 
 // The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
+
+it('canonicalizes library keys without losing account or library identity', () => {
+  const identity = {
+    serverUrl: Account.fields.serverUrl.make('https://library-keys.example.test'),
+    userId: Account.fields.userId.make('reader'),
+    authStorageId: Account.fields.authStorageId.make('sign-in'),
+  };
+  const account = ActiveAccountKey.make(identity);
+  const decoratedAccount = Object.assign(ActiveAccountKey.make(account), {
+    name: 'Mutable profile name',
+    active: true,
+  });
+  const id = Library.fields.id.make(1);
+  const input = { account: decoratedAccount, id, extra: 'not query identity' };
+  expect(listLibrariesAtom(decoratedAccount)).toBe(listLibrariesAtom(account));
+  for (const family of [libraryAtom, libraryStoragePluginSettingsFormAtom]) {
+    expect(family(input)).toBe(family({ account, id }));
+    expect(family({ account, id: Library.fields.id.make(2) })).not.toBe(family(input));
+  }
+  for (const distinctAccount of [
+    ActiveAccountKey.make({
+      ...identity,
+      serverUrl: Account.fields.serverUrl.make('https://other-library-keys.example.test'),
+    }),
+    ActiveAccountKey.make({ ...identity, userId: Account.fields.userId.make('other-reader') }),
+    ActiveAccountKey.make({
+      ...identity,
+      authStorageId: Account.fields.authStorageId.make('other-sign-in'),
+    }),
+  ]) {
+    expect(listLibrariesAtom(distinctAccount)).not.toBe(listLibrariesAtom(account));
+    for (const family of [libraryAtom, libraryStoragePluginSettingsFormAtom]) {
+      expect(family({ account: distinctAccount, id })).not.toBe(family({ account, id }));
+    }
+  }
+});
 
 // Route atom callbacks and service fibers through one drainable dispatcher.
 // Draining runs queued work; it does not wait for SQL, network requests, or timers.
@@ -176,10 +211,8 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
           },
         });
         const list = listLibrariesAtom(key);
-        const detail = libraryAtom(LibraryQueryKey.make({ account: key, id }));
-        const form = libraryStoragePluginSettingsFormAtom(
-          LibraryQueryKey.make({ account: key, id })
-        );
+        const detail = libraryAtom({ account: key, id });
+        const form = libraryStoragePluginSettingsFormAtom({ account: key, id });
         for (const query of [list, detail, form]) {
           yield* Atom.mount<Atom.Type<typeof query>>(query);
           yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(query);
@@ -243,10 +276,8 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
           },
         });
         const list = listLibrariesAtom(key);
-        const detail = libraryAtom(LibraryQueryKey.make({ account: key, id }));
-        const form = libraryStoragePluginSettingsFormAtom(
-          LibraryQueryKey.make({ account: key, id })
-        );
+        const detail = libraryAtom({ account: key, id });
+        const form = libraryStoragePluginSettingsFormAtom({ account: key, id });
         for (const query of [list, detail, form]) {
           yield* Atom.mount<Atom.Type<typeof query>>(query);
           yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(query);
@@ -343,9 +374,7 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
         expect(yield* Atom.getResult(list, { suspendOnWaiting: true })).toEqual(first);
         expect(read).toHaveBeenNthCalledWith(3, { query: { cursor: Option.none(), limit: 10 } });
         const { id } = Option.getOrThrow(Option.fromNullishOr(libraries[0]));
-        expect(
-          yield* Atom.getResult(libraryAtom(LibraryQueryKey.make({ account: key, id })))
-        ).toMatchObject({
+        expect(yield* Atom.getResult(libraryAtom({ account: key, id }))).toMatchObject({
           ...input,
           id,
           name: 'Library 1',
@@ -353,21 +382,15 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
           storagePluginHealth: { status: 'unknown' },
         });
         expect(
-          yield* Atom.getResult(
-            libraryStoragePluginSettingsFormAtom(LibraryQueryKey.make({ account: key, id }))
-          )
+          yield* Atom.getResult(libraryStoragePluginSettingsFormAtom({ account: key, id }))
         ).toEqual([]);
         const missingId = Library.fields.id.make(999_999);
         expect(
-          yield* Atom.getResult(
-            libraryAtom(LibraryQueryKey.make({ account: key, id: missingId }))
-          ).pipe(Effect.flip)
+          yield* Atom.getResult(libraryAtom({ account: key, id: missingId })).pipe(Effect.flip)
         ).toBeInstanceOf(LibraryNotFoundError);
         expect(
           yield* Atom.getResult(
-            libraryStoragePluginSettingsFormAtom(
-              LibraryQueryKey.make({ account: key, id: missingId })
-            )
+            libraryStoragePluginSettingsFormAtom({ account: key, id: missingId })
           ).pipe(Effect.flip)
         ).toBeInstanceOf(LibraryNotFoundError);
       },
@@ -390,9 +413,7 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
             storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
           },
         });
-        const detail = libraryAtom(
-          LibraryQueryKey.make({ account: ActiveAccountKey.make(account), id })
-        );
+        const detail = libraryAtom({ account: ActiveAccountKey.make(account), id });
         yield* Atom.mount(detail);
         const original = yield* Atom.getResult(detail);
         yield* client.library.delete({ params: { id } });
@@ -452,10 +473,8 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
         );
         const firstKey = ActiveAccountKey.make(firstAccount);
         const list = listLibrariesAtom(firstKey);
-        const detail = libraryAtom(LibraryQueryKey.make({ account: firstKey, id }));
-        const form = libraryStoragePluginSettingsFormAtom(
-          LibraryQueryKey.make({ account: firstKey, id })
-        );
+        const detail = libraryAtom({ account: firstKey, id });
+        const form = libraryStoragePluginSettingsFormAtom({ account: firstKey, id });
         const queries = [list, detail, form];
 
         const secondServer = yield* setupTestServerWithUsers({ userCount: 1 });
@@ -511,10 +530,8 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
         yield* Atom.set(list, void 0);
         expect((yield* Atom.getResult(list, { suspendOnWaiting: true })).items).toHaveLength(11);
         const secondList = listLibrariesAtom(secondKey);
-        const secondDetail = libraryAtom(LibraryQueryKey.make({ account: secondKey, id }));
-        const secondForm = libraryStoragePluginSettingsFormAtom(
-          LibraryQueryKey.make({ account: secondKey, id })
-        );
+        const secondDetail = libraryAtom({ account: secondKey, id });
+        const secondForm = libraryStoragePluginSettingsFormAtom({ account: secondKey, id });
         expect(secondList).not.toBe(list);
         expect(secondDetail).not.toBe(detail);
         expect(secondForm).not.toBe(form);
@@ -566,18 +583,12 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
         });
         const adminKey = ActiveAccountKey.make(admin);
         const adminList = listLibrariesAtom(adminKey);
-        const adminDetail = libraryAtom(LibraryQueryKey.make({ account: adminKey, id }));
-        const adminForm = libraryStoragePluginSettingsFormAtom(
-          LibraryQueryKey.make({ account: adminKey, id })
-        );
+        const adminDetail = libraryAtom({ account: adminKey, id });
+        const adminForm = libraryStoragePluginSettingsFormAtom({ account: adminKey, id });
         expect(listLibrariesAtom(ActiveAccountKey.make(admin))).toBe(adminList);
+        expect(libraryAtom({ account: ActiveAccountKey.make(admin), id })).toBe(adminDetail);
         expect(
-          libraryAtom(LibraryQueryKey.make({ account: ActiveAccountKey.make(admin), id }))
-        ).toBe(adminDetail);
-        expect(
-          libraryStoragePluginSettingsFormAtom(
-            LibraryQueryKey.make({ account: ActiveAccountKey.make(admin), id })
-          )
+          libraryStoragePluginSettingsFormAtom({ account: ActiveAccountKey.make(admin), id })
         ).toBe(adminForm);
         const adminQueries = [adminList, adminDetail, adminForm];
         for (const query of adminQueries) {
@@ -589,8 +600,8 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
         expect(listLibrariesAtom(userKey)).not.toBe(adminList);
         for (const query of [
           listLibrariesAtom(userKey),
-          libraryAtom(LibraryQueryKey.make({ account: userKey, id })),
-          libraryStoragePluginSettingsFormAtom(LibraryQueryKey.make({ account: userKey, id })),
+          libraryAtom({ account: userKey, id }),
+          libraryStoragePluginSettingsFormAtom({ account: userKey, id }),
         ]) {
           expect(
             yield* Atom.getResult<Atom.Success<typeof query>, Atom.Failure<typeof query>>(
@@ -610,12 +621,10 @@ it.layer(TestServerControllerClient.layer)('library query atoms', (iit) => {
           password: server.password,
         });
         const newKey = Option.getOrThrow(yield* manager.state);
-        const newDetail = libraryAtom(LibraryQueryKey.make({ account: newKey, id }));
+        const newDetail = libraryAtom({ account: newKey, id });
         expect(listLibrariesAtom(newKey)).not.toBe(adminList);
         expect(newDetail).not.toBe(adminDetail);
-        expect(
-          libraryStoragePluginSettingsFormAtom(LibraryQueryKey.make({ account: newKey, id }))
-        ).not.toBe(adminForm);
+        expect(libraryStoragePluginSettingsFormAtom({ account: newKey, id })).not.toBe(adminForm);
         expect(yield* Atom.getResult(newDetail)).toMatchObject({ name: 'Admin library' });
         expect(yield* Atom.getResult(adminDetail)).toMatchObject({
           name: 'Admin library',
