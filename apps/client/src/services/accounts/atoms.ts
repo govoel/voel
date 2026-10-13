@@ -1,13 +1,9 @@
-import { Cause, DateTime, Effect, Equal, Match, Option, Stream } from 'effect';
+import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import {
-  AccountDatabaseError,
-  AccountManager,
-  NoActiveAccountError,
-} from '#src/services/accounts/index.ts';
+import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
 import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
@@ -111,31 +107,7 @@ export const activeAccountKeyAtom = AppRuntime.atom(
     Effect.map((manager) => manager.changes),
     Stream.unwrap
   )
-).pipe(
-  Atom.map((result) =>
-    Match.value(result).pipe(
-      Match.tagsExhaustive({
-        Initial: ({ waiting }) =>
-          AsyncResult.initial<Option.Option<ActiveAccountKey>, AccountDatabaseError>(waiting),
-        Success: ({ value, waiting, timestamp }) =>
-          AsyncResult.success<Option.Option<ActiveAccountKey>, AccountDatabaseError>(value, {
-            waiting,
-            timestamp,
-          }),
-        Failure: ({ cause, waiting }) =>
-          AsyncResult.failure<Option.Option<ActiveAccountKey>, AccountDatabaseError>(
-            cause.pipe(
-              Cause.map((error) =>
-                error._tag === 'NoSuchElementError' ? AccountDatabaseError.make() : error
-              )
-            ),
-            { waiting }
-          ),
-      })
-    )
-  ),
-  Atom.withLabel('activeAccountKeyAtom')
-);
+).pipe(Atom.withLabel('activeAccountKeyAtom'));
 
 /** Auth client state is owned by the complete account/storage identity, not the active slot. */
 export const accountAuthClientAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
