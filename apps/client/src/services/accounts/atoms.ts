@@ -1,10 +1,13 @@
-import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
+import { Array, Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
-import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
+import {
+  AccountManager,
+  ActiveAccountKey,
+  NoActiveAccountError,
+} from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
@@ -65,10 +68,9 @@ export const accountAtom = Atom.family((account: Option.Option<ActiveAccountKey>
   Option.match(account, {
     onNone: () => Atom.make(() => AsyncResult.success(Option.none<Account>())),
     onSome: (key) =>
-      AppRuntime.atom(
-        AccountRepository.pipe(
-          Effect.flatMap((repository) => repository.getByStorageKey(key)),
-          Reactivity.stream(['account'])
+      accountsAtom.pipe(
+        Atom.mapResult((accounts) =>
+          Array.findFirst(accounts, (row) => Equal.equals(ActiveAccountKey.make(row), key))
         )
       ),
   })

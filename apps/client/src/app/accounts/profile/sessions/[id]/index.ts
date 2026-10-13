@@ -1,5 +1,5 @@
 import { Array, Option } from 'effect';
-import { AsyncResult, Atom } from 'effect/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
@@ -15,11 +15,9 @@ export const ownSessionAtom = Atom.family(
     readonly id: typeof AuthDeviceSession.fields.id.Type;
   }) =>
     ownSessionsAtom(account).pipe(
-      Atom.map(
-        AsyncResult.map(({ sessions, currentId }) =>
-          Array.findFirst(sessions, (session) => session.id === id).pipe(
-            Option.map((session) => ({ session, isCurrent: session.id === currentId }))
-          )
+      Atom.mapResult(({ sessions, currentId }) =>
+        Array.findFirst(sessions, (session) => session.id === id).pipe(
+          Option.map((session) => ({ session, isCurrent: session.id === currentId }))
         )
       )
     )

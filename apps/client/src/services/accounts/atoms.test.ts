@@ -1,6 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import {
+  Cause,
   Context,
   DateTime,
   Deferred,
@@ -34,6 +35,7 @@ import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessi
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import {
+  accountAtom,
   accountAuthClientAtom,
   accountsAtom,
   activeAccountAtom,
@@ -844,7 +846,6 @@ it.layer(TestServerControllerClient.layer)('account query isolation', (iit) => {
       function* () {
         const manager = yield* AccountManager;
         const clients = yield* AuthClientMap;
-        const repository = yield* AccountRepository;
         const registry = yield* AtomRegistry.AtomRegistry;
         const { drainScheduler } = yield* TestScheduler;
         const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
@@ -860,9 +861,6 @@ it.layer(TestServerControllerClient.layer)('account query isolation', (iit) => {
 
         const queryAtoms = (account: Option.Option<ActiveAccountKey>) =>
           [
-            activeAccountAtom,
-            activeUserProfileAtom,
-            accountsWithActiveAccount(account),
             accountsSheetAtom,
             ownSessionsAtom(account),
             ownSessionAtom({ account, id: session.session.id }),
@@ -885,6 +883,14 @@ it.layer(TestServerControllerClient.layer)('account query isolation', (iit) => {
           yield* Atom.getResult(query);
           expect(Option.isSome(AsyncResult.value(registry.get(query)))).toBe(true);
         }
+        yield* Atom.mount(activeAccountAtom);
+        yield* Atom.mount(activeUserProfileAtom);
+        expect(Option.getOrThrow(yield* Atom.getResult(activeAccountAtom)).userId).toBe(
+          first.userId
+        );
+        expect(
+          (yield* Atom.getResult(accountsWithActiveAccount(firstKey))).activeAccount
+        ).toMatchObject({ value: { userId: first.userId } });
         yield* Atom.mount(accountAuthClientAtom(firstKey));
         expect(yield* Atom.getResult(accountAuthClientAtom(firstKey))).toBe(firstClient);
         vi.spyOn(firstClient, 'revokeSession').mockReturnValue(Effect.void);
@@ -914,10 +920,6 @@ it.layer(TestServerControllerClient.layer)('account query isolation', (iit) => {
         vi.spyOn(secondClient.admin, 'listUsers').mockReturnValue(blocked);
         vi.spyOn(secondClient.admin, 'getUser').mockReturnValue(blocked);
         vi.spyOn(secondClient.admin, 'listUserSessions').mockReturnValue(blocked);
-        const getAccount = repository.getByStorageKey;
-        vi.spyOn(repository, 'getByStorageKey').mockImplementation((key) =>
-          key.authStorageId === second.authStorageId ? blocked : getAccount(key)
-        );
 
         yield* manager.setActiveAccount(second);
         yield* Atom.toStreamResult(activeAccountKeyAtom).pipe(
@@ -927,6 +929,16 @@ it.layer(TestServerControllerClient.layer)('account query isolation', (iit) => {
           Stream.runHead
         );
         yield* drainScheduler;
+        // Account rows are already in the shared list; switching selects B immediately without a second query.
+        expect(Option.getOrThrow(yield* Atom.getResult(activeAccountAtom)).userId).toBe(
+          second.userId
+        );
+        expect(Option.getOrThrow(yield* Atom.getResult(activeUserProfileAtom)).id).toBe(
+          second.userId
+        );
+        expect(
+          (yield* Atom.getResult(accountsWithActiveAccount(secondKey))).activeAccount
+        ).toMatchObject({ value: { userId: second.userId } });
         const queries: typeof firstQueries = queryAtoms(secondKey);
         for (const query of queries) {
           yield* Atom.mount(query);
@@ -982,6 +994,7 @@ it('keys account families by full account/storage identity', () => {
     authStorageId: first.authStorageId,
   });
   for (const family of [
+    accountAtom,
     accountAuthClientAtom,
     ownSessionsAtom,
     listUsersAtom,
@@ -1000,4 +1013,78 @@ it('keys account families by full account/storage identity', () => {
     expect(family({ account: Option.some(nextLogin), userId: first.userId })).not.toBe(atom);
     expect(family({ account: Option.some(otherServer), userId: first.userId })).not.toBe(atom);
   }
+});
+
+it('never selects a previous sign-in from cached account-list results', () => {
+  const row = Account.make({
+    serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
+    userId: Account.fields.userId.make('reader'),
+    authStorageId: Account.fields.authStorageId.make('old-login'),
+    username: Account.fields.username.make('reader'),
+    name: Account.fields.name.make('Reader'),
+    email: Account.fields.email.make('reader@example.com'),
+    role: Account.fields.role.make('user'),
+    profilePicture: Account.fields.profilePicture.make(null),
+    active: Account.fields.active.make(true),
+    createdAt: DateTime.makeUnsafe(0),
+    updatedAt: DateTime.makeUnsafe(0),
+  });
+  const oldKey = Option.some(ActiveAccountKey.make(row));
+  const nextKey = Option.some(
+    ActiveAccountKey.make({
+      serverUrl: row.serverUrl,
+      userId: row.userId,
+      authStorageId: Account.fields.authStorageId.make('new-login'),
+    })
+  );
+  const previous = AsyncResult.success([row]);
+  const failure = AsyncResult.failureWithPrevious(Cause.die('account list failed'), {
+    previous: Option.some(previous),
+  });
+  const registry = AtomRegistry.make({ initialValues: [Atom.initialValue(accountsAtom, failure)] });
+  try {
+    const current = registry.get(accountsWithActiveAccount(nextKey));
+    expect(current._tag).toBe('Failure');
+    expect(Option.getOrThrow(AsyncResult.value(current)).activeAccount).toEqual(Option.none());
+    expect(Option.getOrThrow(AsyncResult.value(registry.get(accountAtom(nextKey))))).toEqual(
+      Option.none()
+    );
+    expect(
+      Option.getOrThrow(AsyncResult.value(registry.get(accountsWithActiveAccount(oldKey))))
+        .activeAccount
+    ).toEqual(Option.some(row));
+  } finally {
+    registry.dispose();
+  }
+});
+
+it.layer(TestServerControllerClient.layer)('account-list retry', (iit) => {
+  iit.effect(
+    'refreshes the single list query through its derived views',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const repository = yield* AccountRepository;
+        const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, testServer);
+        const key = Option.some(ActiveAccountKey.make(account));
+        const view = accountsWithActiveAccount(key);
+        const list = vi
+          .spyOn(repository, 'list')
+          .mockReturnValueOnce(Effect.die('account list failed'));
+        const storageRead = vi.spyOn(repository, 'getByStorageKey');
+        yield* Atom.mount(view);
+        expect((yield* Atom.getResult(view).pipe(Effect.exit))._tag).toBe('Failure');
+        storageRead.mockClear();
+        yield* Atom.refresh(view);
+        const loaded = Option.getOrThrow(
+          yield* Atom.toStream(view).pipe(Stream.filter(AsyncResult.isSuccess), Stream.runHead)
+        );
+        expect(loaded.value.activeAccount).toMatchObject({ value: { userId: account.userId } });
+        expect(list).toHaveBeenCalledTimes(2);
+        expect(storageRead).not.toHaveBeenCalled();
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
 });
