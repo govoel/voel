@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
@@ -21,6 +21,7 @@ import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 
 const SessionContent = ({
   userId,
@@ -29,9 +30,10 @@ const SessionContent = ({
   userId: typeof AuthUser.fields.id.Type;
   sessionId: typeof AuthDeviceSession.fields.id.Type;
 }) => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
-  const state = useAtomValue(serverUserSessionAtom({ userId, sessionId }));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(userId));
+  const state = useAtomValue(serverUserSessionAtom({ account: accountKey, userId, sessionId }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId }));
   const colors = useMaterialColors();
 
   return AsyncResult.matchWithError(state, {
@@ -69,7 +71,7 @@ const SessionContent = ({
                       </SegmentedListItem.HeadlineContent>
                     </SegmentedListItem>
                   )}
-                  mutation={revokeServerUserSessionAtom}
+                  mutation={revokeServerUserSessionAtom(accountKey)}
                   schema={AuthAdminRevokeSessionInput}
                   defaultValues={{ sessionToken: session.token }}
                   title="Sign out"

@@ -1,3 +1,4 @@
+import { useAtomValue } from '@effect/atom-react';
 import { useSelector } from '@tanstack/react-form';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { Array, Effect, Layer, Option, Schema } from 'effect';
@@ -142,6 +143,45 @@ describe('createEffectSchemaFormHook', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('awaits the captured mutation when completion changes the selected account', async () => {
+    const next = runtime.fn(() => Effect.succeed('next account'));
+    const first = runtime.fn((input: Schema.Void['Type'], get) => {
+      expect(input).toBe(void 0);
+      return Effect.sync(() => {
+        get.set(selected, next);
+        return 'removed account';
+      });
+    });
+    const selected = Atom.make<Atom.AtomResultFn<Schema.Void['Type'], string>>(first);
+    const onSuccess = vi.fn();
+    const TestForm = () => {
+      const form = useAppForm({
+        mutation: useAtomValue(selected),
+        onFailure: () => 'failed',
+        onSuccess,
+      });
+      return (
+        <form.AppForm>
+          <RetrySubmitButton />
+        </form.AppForm>
+      );
+    };
+    await render(<TestForm />);
+    const user = makeUser();
+    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ result: 'removed account' })
+      );
+    });
+    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenLastCalledWith(
+        expect.objectContaining({ result: 'next account' })
+      );
+    });
   });
 
   it('stores a string mutation failure without invalidating the form', async () => {

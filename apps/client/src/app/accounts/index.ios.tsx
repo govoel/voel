@@ -40,6 +40,7 @@ import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();
@@ -77,13 +78,15 @@ const AccountsList = ({ children }: PropsWithChildren) => (
 );
 
 export default function AccountsScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
-  const accounts = useAtomValue(accountsWithActiveAccount);
-  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
+  const accountsStateAtom = accountsWithActiveAccount(accountKey);
+  const accounts = useAtomValue(accountsStateAtom);
+  const refreshAccounts = useAtomRefresh(accountsStateAtom);
 
   return (
     <>
@@ -195,7 +198,7 @@ export default function AccountsScreen() {
 
                           <MutationConfirmation
                             key={`${account.serverUrl}-${account.userId}`}
-                            mutation={removeAccountAtom}
+                            mutation={removeAccountAtom(accountKey)}
                             onFailure={removeAccountFailureMessage}
                             title="Remove account from this device?"
                             confirmLabel="Remove"

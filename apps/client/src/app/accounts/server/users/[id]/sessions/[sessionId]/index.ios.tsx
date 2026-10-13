@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
@@ -18,6 +18,7 @@ import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 
 const SessionContent = ({
   userId,
@@ -26,9 +27,10 @@ const SessionContent = ({
   userId: typeof AuthUser.fields.id.Type;
   sessionId: typeof AuthDeviceSession.fields.id.Type;
 }) => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
-  const state = useAtomValue(serverUserSessionAtom({ userId, sessionId }));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(userId));
+  const state = useAtomValue(serverUserSessionAtom({ account: accountKey, userId, sessionId }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId }));
 
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
@@ -78,7 +80,7 @@ const SessionContent = ({
                       <Text>Sign out</Text>
                     </Button>
                   )}
-                  mutation={revokeServerUserSessionAtom}
+                  mutation={revokeServerUserSessionAtom(accountKey)}
                   schema={AuthAdminRevokeSessionInput}
                   defaultValues={{ sessionToken: session.token }}
                   title="Sign out"

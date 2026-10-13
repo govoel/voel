@@ -1,4 +1,4 @@
-import { useAtom, useAtomRefresh } from '@effect/atom-react';
+import { useAtom, useAtomRefresh, useAtomSuspense } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Button, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
@@ -15,11 +15,14 @@ import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 
 export default function ServerUsersScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
-  const [users, loadMoreUsers] = useAtom(listUsersAtom);
-  const refresh = useAtomRefresh(listUsersAtom);
+  const usersAtom = listUsersAtom(accountKey);
+  const [users, loadMoreUsers] = useAtom(usersAtom);
+  const refresh = useAtomRefresh(usersAtom);
   const { onSurfaceVariant } = useMaterialColors();
 
   return (
