@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
@@ -29,6 +29,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 
 const UserList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -123,9 +124,10 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
-  const state = useAtomValue(serverUserSessionsAtom(user.id));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
+  const state = useAtomValue(serverUserSessionsAtom({ account: accountKey, userId: user.id }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId: user.id }));
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
       <Section title="Active Sessions">
@@ -176,7 +178,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
                   <Text>Sign out all devices</Text>
                 </Button>
               )}
-              mutation={revokeServerUserSessionsAtom}
+              mutation={revokeServerUserSessionsAtom(accountKey)}
               schema={AuthUserIdInput}
               defaultValues={{ userId: user.id }}
               title="Sign out all devices"
@@ -195,6 +197,7 @@ const LoadedUser = ({
 }: {
   readonly user: typeof AuthAdminUserDetails.Type & { readonly isOtherUser: boolean };
 }) => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const details = userDetails({ user });
 
@@ -237,7 +240,7 @@ const LoadedUser = ({
                     <Text>Delete user</Text>
                   </Button>
                 )}
-                mutation={deleteServerUserAtom}
+                mutation={deleteServerUserAtom(accountKey)}
                 schema={AuthUserIdInput}
                 defaultValues={{ userId: user.id }}
                 title="Delete user"
@@ -288,9 +291,10 @@ const LoadedUser = ({
 };
 
 export default function ServerUserScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id } = useLocalSearchParams<{ id: (typeof AuthUser)['fields']['id']['Type'] }>();
-  const state = useAtomValue(serverUserAtom(id));
-  const refresh = useAtomRefresh(serverUserAtom(id));
+  const state = useAtomValue(serverUserAtom({ account: accountKey, userId: id }));
+  const refresh = useAtomRefresh(serverUserAtom({ account: accountKey, userId: id }));
 
   return (
     <>

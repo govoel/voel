@@ -251,7 +251,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         const database = yield* LibraryDatabase.make(account);
         expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
         yield* createLibrary('Movies');
-        yield* AccountManager.use((accounts) => accounts.removeActiveAccount);
+        yield* AccountManager.use((accounts) => accounts.removeAccount(account));
         const signedOut = yield* authentication.sessionChanges.pipe(
           Stream.filter((session) => !session.waiting),
           Stream.filter(AsyncResult.isSuccess),

@@ -1,39 +1,39 @@
-import { Array, Effect, Option } from 'effect';
-import { Atom } from 'effect/reactivity';
+import { Array, Option } from 'effect';
+import { AsyncResult, Atom } from 'effect/reactivity';
 
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 
 import { serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/index.ts';
-import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
 
 const serverUserSessionFamily = Atom.family(
   ({
+    account,
     userId,
     sessionId,
   }: {
-    userId: typeof AuthUser.fields.id.Type;
-    sessionId: typeof AuthDeviceSession.fields.id.Type;
+    readonly account: Option.Option<ActiveAccountKey>;
+    readonly userId: typeof AuthUser.fields.id.Type;
+    readonly sessionId: typeof AuthDeviceSession.fields.id.Type;
   }) =>
-    AppRuntime.atom(
-      Effect.fnUntraced(function* (get) {
-        const [{ sessions }, activeAccountKey] = yield* Effect.all(
-          [get.result(serverUserSessionsAtom(userId)), get.result(activeAccountKeyAtom)],
-          { concurrency: 'unbounded' }
-        );
-        return Array.findFirst(sessions, (session) => session.id === sessionId).pipe(
-          Option.map((session) => ({
-            ...session,
-            isOtherUser:
-              Option.isSome(activeAccountKey) && activeAccountKey.value.userId !== userId,
-          }))
-        );
-      })
+    serverUserSessionsAtom({ account, userId }).pipe(
+      Atom.map(
+        AsyncResult.map(({ sessions }) =>
+          Array.findFirst(sessions, (session) => session.id === sessionId).pipe(
+            Option.map((session) => ({
+              ...session,
+              isOtherUser: Option.isSome(account) && account.value.userId !== userId,
+            }))
+          )
+        )
+      )
     )
 );
 
-// Caller metadata must not create a second atom for the same user/session.
+// Caller metadata must not create a second atom for the same account/user/session.
 export const serverUserSessionAtom = ({
+  account,
   userId,
   sessionId,
-}: Parameters<typeof serverUserSessionFamily>[0]) => serverUserSessionFamily({ userId, sessionId });
+}: Parameters<typeof serverUserSessionFamily>[0]) =>
+  serverUserSessionFamily({ account, userId, sessionId });

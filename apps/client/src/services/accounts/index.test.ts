@@ -729,7 +729,7 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layer)('removeActiveAccount', (iit) => {
+  it.layer(TestServerControllerClient.layer)('removeAccount', (iit) => {
     const storageItems = new Map<string, string>();
 
     iit.effect(
@@ -765,7 +765,7 @@ describe('AccountManager', () => {
               user: { id: account.userId },
             });
 
-            yield* manager.removeActiveAccount;
+            yield* manager.removeAccount(ActiveAccountKey.make(account));
 
             expect(storageItems.size).toEqual(0);
             yield* authClient.refreshSession({ query: { disableCookieCache: true } });

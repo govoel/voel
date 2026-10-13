@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
@@ -35,6 +35,7 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 
 const UserList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -156,10 +157,11 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const colors = useMaterialColors();
-  const state = useAtomValue(serverUserSessionsAtom(user.id));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
+  const state = useAtomValue(serverUserSessionsAtom({ account: accountKey, userId: user.id }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId: user.id }));
   return (
     <>
       <Text variant="h4">Active Sessions</Text>
@@ -204,7 +206,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
                       </SegmentedListItem.HeadlineContent>
                     </SegmentedListItem>
                   )}
-                  mutation={revokeServerUserSessionsAtom}
+                  mutation={revokeServerUserSessionsAtom(accountKey)}
                   schema={AuthUserIdInput}
                   defaultValues={{ userId: user.id }}
                   title="Sign out all devices"
@@ -225,6 +227,7 @@ const LoadedUser = ({
 }: {
   readonly user: Atom.Success<ReturnType<typeof serverUserAtom>>;
 }) => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const details = userDetails({ user });
   const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
@@ -287,7 +290,7 @@ const LoadedUser = ({
                     </SegmentedListItem.HeadlineContent>
                   </SegmentedListItem>
                 )}
-                mutation={deleteServerUserAtom}
+                mutation={deleteServerUserAtom(accountKey)}
                 schema={AuthUserIdInput}
                 defaultValues={{ userId: user.id }}
                 title="Delete user"
@@ -343,9 +346,10 @@ const LoadedUser = ({
 };
 
 export default function ServerUserScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id } = useLocalSearchParams<{ id: typeof AuthUser.fields.id.Type }>();
-  const state = useAtomValue(serverUserAtom(id));
-  const refresh = useAtomRefresh(serverUserAtom(id));
+  const state = useAtomValue(serverUserAtom({ account: accountKey, userId: id }));
+  const refresh = useAtomRefresh(serverUserAtom({ account: accountKey, userId: id }));
 
   return (
     <AndroidAccountsSheet>

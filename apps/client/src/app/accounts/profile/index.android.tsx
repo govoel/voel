@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
@@ -28,7 +28,7 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { accountAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -91,6 +91,7 @@ const LoadedProfile = ({
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
   const colors = useMaterialColors();
@@ -147,7 +148,7 @@ const LoadedProfile = ({
                 </SegmentedListItem.HeadlineContent>
               </SegmentedListItem>
             )}
-            mutation={signOutEverywhereAtom}
+            mutation={signOutEverywhereAtom(accountKey)}
             title="Sign out everywhere"
             confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"
@@ -179,8 +180,9 @@ const LoadedProfile = ({
 };
 
 export default function ProfileScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const state = useAtomValue(activeUserProfileAtom);
-  const refresh = useAtomRefresh(activeAccountAtom);
+  const refresh = useAtomRefresh(accountAtom(accountKey));
 
   return (
     <AndroidAccountsSheet>
@@ -271,9 +273,11 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 };
 
 const OwnSessions = () => {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
-  const state = useAtomValue(ownSessionsAtom);
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const sessionsAtom = ownSessionsAtom(accountKey);
+  const state = useAtomValue(sessionsAtom);
+  const refresh = useAtomRefresh(sessionsAtom);
   return (
     <>
       <Text variant="h4">Active Sessions</Text>
