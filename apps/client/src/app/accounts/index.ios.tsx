@@ -224,7 +224,7 @@ export default function AccountsScreen() {
                                   modifiers={[
                                     foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
                                   ]}>
-                                  {account.hostname}
+                                  {new URL(account.serverUrl).hostname}
                                 </Text>
                               </VStack>
                             }>

@@ -208,7 +208,7 @@ export default function AccountsScreen() {
                         <Column verticalArrangement={{ spacedBy: 0 }}>
                           <Text variant="h4">Manage Server</Text>
                           <Text variant="caption" color={colors.onSurfaceVariant}>
-                            {account.hostname}
+                            {new URL(account.serverUrl).hostname}
                           </Text>
                         </Column>
                         <SegmentedList>
