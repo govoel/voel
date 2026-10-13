@@ -1,11 +1,11 @@
-import { Cause, DateTime, Effect, Equal, Match, Option, Stream } from 'effect';
+import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { AccountDatabaseError, NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
@@ -108,17 +108,7 @@ export const activeAccountKeyAtom = AppRuntime.atom(
     Effect.map((manager) => manager.changes),
     Stream.unwrap
   )
-).pipe(
-  (source) =>
-    AppRuntime.atom((get) =>
-      get.result(source).pipe(
-        Effect.catchTags({
-          NoSuchElementError: () => Effect.succeed<Atom.Success<typeof source>>(Option.none()),
-        })
-      )
-    ),
-  Atom.withLabel('activeAccountKeyAtom')
-);
+).pipe(Atom.withLabel('activeAccountKeyAtom'));
 
 /** Auth client state is owned by the complete account/storage identity, not the active slot. */
 export const accountAuthClientAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
