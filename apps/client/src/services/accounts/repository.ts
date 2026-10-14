@@ -1,5 +1,4 @@
-import { Context, Effect, Layer, Match, Option, Schema } from 'effect';
-import type { SqlError } from 'effect/sql/SqlError';
+import { Context, Effect, Layer, Option, Schema } from 'effect';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlSchema from 'effect/sql/SqlSchema';
 
@@ -162,53 +161,124 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
       // Only connection unavailability and lock contention are recoverable.
       // Schema/invariant violations and all other SQL failures are defects.
       // Effect SQL also keeps transaction finalization failures as defects.
-      const persistenceErrors = {
-        SchemaError: Effect.die,
-        SqlError: (cause: SqlError) =>
-          Match.value(cause.reason).pipe(
-            Match.whenOr({ _tag: 'ConnectionError' }, { _tag: 'LockTimeoutError' }, () =>
-              AccountDatabaseError.make({ cause })
-            ),
-            Match.orElse(() => Effect.die(cause))
-          ),
-      };
-
       return {
-        list: queries.list().pipe(Effect.catchTags(persistenceErrors)),
-        getActive: queries.getActive().pipe(Effect.catchTags(persistenceErrors)),
+        list: queries.list().pipe(
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
+          Effect.catchTag('SchemaError', Effect.die)
+        ),
+        getActive: queries.getActive().pipe(
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
+          Effect.catchTag('SchemaError', Effect.die)
+        ),
         getByStorageKey: (key: Parameters<typeof queries.getByStorageKey>[0]) =>
-          queries.getByStorageKey(key).pipe(Effect.catchTags(persistenceErrors)),
+          queries.getByStorageKey(key).pipe(
+            Effect.catchReasons(
+              'SqlError',
+              {
+                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              },
+              (_reason, cause) => Effect.die(cause)
+            ),
+            Effect.catchTag('SchemaError', Effect.die)
+          ),
         getByKey: Effect.fnUntraced(function* (key: AccountKey) {
-          const account = yield* queries.getByKey(key).pipe(Effect.catchTags(persistenceErrors));
+          const account = yield* queries.getByKey(key).pipe(
+            Effect.catchReasons(
+              'SqlError',
+              {
+                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              },
+              (_reason, cause) => Effect.die(cause)
+            ),
+            Effect.catchTag('SchemaError', Effect.die)
+          );
           if (Option.isNone(account)) {
             return yield* AccountNotFoundError.make(key);
           }
           return account.value;
         }),
-        setActive: Effect.fnUntraced(function* (key: AccountKey) {
-          return yield* sql.withTransaction(
-            Effect.gen(function* () {
-              yield* queries.deactivateAll();
-              const account = yield* queries.activate(key);
-              if (Option.isNone(account)) {
-                return yield* AccountNotFoundError.make(key);
-              }
-              return void 0;
-            })
-          );
-        }, Effect.catchTags(persistenceErrors)),
-        upsertActive: Effect.fnUntraced(function* (account: AccountUpsert) {
-          yield* sql.withTransaction(
-            Effect.gen(function* () {
-              yield* queries.deactivateAll();
-              yield* queries.upsert({ ...account, active: true });
-            })
-          );
-        }, Effect.catchTags(persistenceErrors)),
+        setActive: Effect.fnUntraced(
+          function* (key: AccountKey) {
+            return yield* sql.withTransaction(
+              Effect.gen(function* () {
+                yield* queries.deactivateAll();
+                const account = yield* queries.activate(key);
+                if (Option.isNone(account)) {
+                  return yield* AccountNotFoundError.make(key);
+                }
+                return void 0;
+              })
+            );
+          },
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
+          Effect.catchTag('SchemaError', Effect.die)
+        ),
+        upsertActive: Effect.fnUntraced(
+          function* (account: AccountUpsert) {
+            yield* sql.withTransaction(
+              Effect.gen(function* () {
+                yield* queries.deactivateAll();
+                yield* queries.upsert({ ...account, active: true });
+              })
+            );
+          },
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
+          Effect.catchTag('SchemaError', Effect.die)
+        ),
         updateProfile: (profile: Parameters<typeof queries.updateProfile>[0]) =>
-          queries.updateProfile(profile).pipe(Effect.catchTags(persistenceErrors)),
+          queries.updateProfile(profile).pipe(
+            Effect.catchReasons(
+              'SqlError',
+              {
+                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              },
+              (_reason, cause) => Effect.die(cause)
+            ),
+            Effect.catchTag('SchemaError', Effect.die)
+          ),
         remove: (key: Parameters<typeof queries.remove>[0]) =>
-          queries.remove(key).pipe(Effect.catchTags(persistenceErrors)),
+          queries.remove(key).pipe(
+            Effect.catchReasons(
+              'SqlError',
+              {
+                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              },
+              (_reason, cause) => Effect.die(cause)
+            ),
+            Effect.catchTag('SchemaError', Effect.die)
+          ),
       };
     }),
   }

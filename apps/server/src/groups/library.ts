@@ -179,10 +179,11 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
       return {
         getById: (request: Parameters<typeof queries.getById>[0]) =>
           queries.getById(request).pipe(
-            Effect.catchTag('NoSuchElementError', () =>
-              LibraryNotFoundError.make({ id: request.id })
-            ),
-            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
+            Effect.catchTags({
+              NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
+              SchemaError: Effect.die,
+              SqlError: Effect.die,
+            })
           ),
         list: (request: Parameters<typeof queries.list>[0]) =>
           queries.list(request).pipe(Effect.orDie),
@@ -202,17 +203,19 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             Effect.catchReason('SqlError', 'UniqueViolation', () =>
               LibraryNameConflictError.make({ name: request.name })
             ),
-            Effect.catchTag('NoSuchElementError', () =>
-              LibraryNotFoundError.make({ id: request.id })
-            ),
-            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
+            Effect.catchTags({
+              NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
+              SchemaError: Effect.die,
+              SqlError: Effect.die,
+            })
           ),
         setSettings: (request: Parameters<typeof queries.setSettings>[0]) =>
           queries.setSettings(request).pipe(
-            Effect.catchTag('NoSuchElementError', () =>
-              LibraryNotFoundError.make({ id: request.id })
-            ),
-            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
+            Effect.catchTags({
+              NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
+              SchemaError: Effect.die,
+              SqlError: Effect.die,
+            })
           ),
         setRoots: (request: Parameters<typeof queries.setRoots>[0]) =>
           queries.setRoots(request).pipe(Effect.orDie),
