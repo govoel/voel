@@ -23,8 +23,10 @@ routes remain in `app`, and server route composition remains in `http.ts`.
 ## Ownership of guarantees
 
 Repositories own persistence operations and interpret database outcomes. Account
-queries and writes expose domain persistence errors with their original causes;
-library repositories translate expected absence/conflicts and defect on unexpected
+queries and writes expose `AccountDatabaseError` only for connection unavailability
+and lock contention, retaining the original cause. Invalid internal requests,
+corrupt persisted rows, and every other SQL failure are defects, not retry prompts.
+Library repositories translate expected absence/conflicts and defect on unexpected
 SQL/schema failures. Effect SQL transaction-finalization failures remain defects.
 
 Application workflows own coordination across persistence and plugins.
