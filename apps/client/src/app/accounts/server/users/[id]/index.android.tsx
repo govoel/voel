@@ -1,27 +1,15 @@
 import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
-import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { Match } from 'effect';
+import { Match, Option } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
-
 import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
-
-import {
-  deleteServerUserAtom,
-  revokeServerUserSessionsAtom,
-  serverUserAtom,
-  serverUserSessionsAtom,
-  useServerUserProfileForm,
-  useUserPasswordForm,
-  useUserRoleForm,
-  userDetails,
-} from '#src/app/accounts/server/users/[id]/index.ts';
+import { deleteServerUserAtom, revokeServerUserSessionsAtom, serverUserAtom, serverUserSessionsAtom, useServerUserProfileForm, useUserPasswordForm, useUserRoleForm, userDetails } from '#src/app/accounts/server/users/[id]/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -36,6 +24,10 @@ import { authFailureMessage } from '#src/domains/accounts/components/management/
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+
+
 
 const UserList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -156,8 +148,13 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
   );
 };
 
-const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+const UserSessions = ({
+  accountKey,
+  user,
+}: {
+  accountKey: AccountStorageKey;
+  user: typeof AuthUser.Type;
+}) => {
   const router = useRouter();
   const colors = useMaterialColors();
   const state = useAtomValue(serverUserSessionsAtom({ account: accountKey, userId: user.id }));
@@ -223,11 +220,12 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
 };
 
 const LoadedUser = ({
+  accountKey,
   user,
 }: {
+  accountKey: AccountStorageKey;
   readonly user: Atom.Success<ReturnType<typeof serverUserAtom>>;
 }) => {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const details = userDetails({ user });
   const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
@@ -301,7 +299,7 @@ const LoadedUser = ({
                 }}
               />
             </SegmentedList>
-            <UserSessions user={user} />
+            <UserSessions accountKey={accountKey} user={user} />
           </>
         ) : (
           <Column verticalArrangement={{ spacedBy: Spacing.two }}>
@@ -333,9 +331,15 @@ const LoadedUser = ({
         }}>
         {({ close }) =>
           Match.value(editor).pipe(
-            Match.when('role', () => <UserRoleForm user={user} onSuccess={close} />),
-            Match.when('profile', () => <UserProfileForm user={user} onSuccess={close} />),
-            Match.when('password', () => <UserPasswordForm userId={user.id} onSuccess={close} />),
+            Match.when('role', () => (
+              <UserRoleForm accountKey={accountKey} user={user} onSuccess={close} />
+            )),
+            Match.when('profile', () => (
+              <UserProfileForm accountKey={accountKey} user={user} onSuccess={close} />
+            )),
+            Match.when('password', () => (
+              <UserPasswordForm accountKey={accountKey} userId={user.id} onSuccess={close} />
+            )),
             Match.when(null, () => null),
             Match.exhaustive
           )
@@ -345,50 +349,76 @@ const LoadedUser = ({
   );
 };
 
+const ServerUserContent = ({
+  accountKey,
+  id,
+}: {
+  accountKey: AccountStorageKey;
+  id: typeof AuthUser.fields.id.Type;
+}) => {
+  const state = useAtomValue(serverUserAtom({ account: accountKey, userId: id }));
+  const refresh = useAtomRefresh(serverUserAtom({ account: accountKey, userId: id }));
+  return AsyncResult.matchWithError(state, {
+    onInitial: () => (
+      <UserList>
+        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+          <Text variant="h4">User Details</Text>
+          <ListState kind="loading" />
+        </Column>
+      </UserList>
+    ),
+    onError: (error) => (
+      <UserList>
+        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+          <Text variant="h4">User Details</Text>
+          <ListState
+            kind="error"
+            message={authFailureMessage({ error })}
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
+        </Column>
+      </UserList>
+    ),
+    onDefect: () => (
+      <UserList>
+        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+          <Text variant="h4">User Details</Text>
+          <ListState
+            kind="error"
+            message="Unable to load this user."
+            onRetry={refresh}
+            retrying={state.waiting}
+          />
+        </Column>
+      </UserList>
+    ),
+    onSuccess: ({ value }) => (
+      <LoadedUser
+        key={JSON.stringify([accountKey, value.id])}
+        accountKey={accountKey}
+        user={value}
+      />
+    ),
+  });
+};
+
 export default function ServerUserScreen() {
   const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id } = useLocalSearchParams<{ id: typeof AuthUser.fields.id.Type }>();
-  const state = useAtomValue(serverUserAtom({ account: accountKey, userId: id }));
-  const refresh = useAtomRefresh(serverUserAtom({ account: accountKey, userId: id }));
 
   return (
     <AndroidAccountsSheet>
-      {AsyncResult.matchWithError(state, {
-        onInitial: () => (
+      {Option.match(accountKey, {
+        onNone: () => (
           <UserList>
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">User Details</Text>
-              <ListState kind="loading" />
-            </Column>
+            <Text variant="h4">User Details</Text>
+            <ListState kind="empty" message="No active account." />
           </UserList>
         ),
-        onError: (error) => (
-          <UserList>
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">User Details</Text>
-              <ListState
-                kind="error"
-                message={authFailureMessage({ error })}
-                onRetry={refresh}
-                retrying={state.waiting}
-              />
-            </Column>
-          </UserList>
+        onSome: (key) => (
+          <ServerUserContent key={JSON.stringify([key, id])} accountKey={key} id={id} />
         ),
-        onDefect: () => (
-          <UserList>
-            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text variant="h4">User Details</Text>
-              <ListState
-                kind="error"
-                message="Unable to load this user."
-                onRetry={refresh}
-                retrying={state.waiting}
-              />
-            </Column>
-          </UserList>
-        ),
-        onSuccess: ({ value }) => <LoadedUser key={value.id} user={value} />,
       })}
     </AndroidAccountsSheet>
   );

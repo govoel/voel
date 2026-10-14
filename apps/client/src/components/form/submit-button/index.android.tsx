@@ -1,20 +1,12 @@
-import {
-  AnimatedVisibility,
-  Button,
-  EnterTransition,
-  ExitTransition,
-  LoadingIndicator,
-  Row,
-  TextButton,
-} from '@expo/ui/jetpack-compose';
+import { AnimatedVisibility, Button, EnterTransition, ExitTransition, LoadingIndicator, Row, TextButton } from '@expo/ui/jetpack-compose';
 import { padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
-
 import { useSubmitState } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+
 
 export const SubmitButton = (({
   children,

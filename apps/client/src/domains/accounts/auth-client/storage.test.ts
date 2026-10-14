@@ -2,8 +2,8 @@ import { describe, expect, it } from '@effect/vitest';
 import { Effect, Option } from 'effect';
 import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
-
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
+
 
 describe('AuthClientStorage', () => {
   it.effect.each([{ value: null }, { value: 'session-token' }])(

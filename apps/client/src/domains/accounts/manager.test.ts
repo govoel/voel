@@ -1,37 +1,19 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import {
-  Array,
-  Context,
-  Deferred,
-  Effect,
-  Fiber,
-  Layer,
-  Option,
-  Redacted,
-  Schema,
-  Stream,
-} from 'effect';
+import { Array, Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
-
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { AccountNotFoundError, AccountDatabaseError } from '#src/domains/accounts/errors.ts';
+import { AccountStorageKey, Account } from '#src/domains/accounts/schema.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
-import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
-import { AccountManager } from '#src/domains/accounts/manager.ts';
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
-import {
-  makeAuthClient,
-  makeClientTestLayers,
-  makeServerUrl,
-  makeUsername,
-  setupTestServerWithUsers,
-  signInTestServerUsers,
-} from '#src/testing/utils.ts';
+import { makeAuthClient, makeClientTestLayers, makeServerUrl, makeUsername, setupTestServerWithUsers, signInTestServerUsers } from '#src/testing/utils.ts';
+
 
 const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list));
 
@@ -80,7 +62,7 @@ describe('AccountManager', () => {
           serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
           authStorageId: Account.fields.authStorageId.make('auth-storage-id'),
         };
-        const activeAccount = ActiveAccountKey.make({
+        const activeAccount = AccountStorageKey.make({
           ...authStorage,
           userId: Account.fields.userId.make('user-id'),
         });
@@ -765,12 +747,12 @@ describe('AccountManager', () => {
           const manager = yield* AccountManager;
           const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
           const [first, second] = yield* signInTestServerUsers(manager, testServer);
-          const firstKey = ActiveAccountKey.make({
+          const firstKey = AccountStorageKey.make({
             serverUrl: first.serverUrl,
             userId: first.userId,
             authStorageId: first.authStorageId,
           });
-          const secondKey = ActiveAccountKey.make({
+          const secondKey = AccountStorageKey.make({
             serverUrl: second.serverUrl,
             userId: second.userId,
             authStorageId: second.authStorageId,
@@ -840,7 +822,7 @@ describe('AccountManager', () => {
               user: { id: account.userId },
             });
 
-            yield* manager.removeAccount(ActiveAccountKey.make(account));
+            yield* manager.removeAccount(AccountStorageKey.make(account));
 
             expect(storageItems.size).toEqual(0);
             yield* authClient.refreshSession({ query: { disableCookieCache: true } });

@@ -1,15 +1,15 @@
 import { Context, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
+import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
+import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
+import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
+import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
+import { AppConfig } from '#src/config.ts';
+import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
 
-import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
-import { AppConfig } from '#src/config.ts';
-import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
-import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
-import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 
 const retrySchedule = Schedule.min([
   Schedule.exponential('1 second'),
@@ -38,7 +38,7 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   account,
   filenameSuffix,
 }: {
-  readonly account: ActiveAccountKey;
+  readonly account: AccountStorageKey;
   readonly filenameSuffix: string;
 }) {
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
@@ -68,7 +68,7 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
 export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
   'voel/domains/library/database/LibraryDatabase',
   {
-    make: Effect.fnUntraced(function* (account: ActiveAccountKey) {
+    make: Effect.fnUntraced(function* (account: AccountStorageKey) {
       const config = yield* AppConfig;
       const factory = yield* TursoSyncClientFactory;
       const options = yield* makeLibraryDatabaseOptions({
@@ -80,7 +80,7 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
     }),
   }
 ) {
-  public static readonly layerNoDeps = (account: ActiveAccountKey) =>
+  public static readonly layerNoDeps = (account: AccountStorageKey) =>
     Layer.effectContext(
       this.make(account).pipe(
         Effect.map((client) =>
@@ -89,7 +89,7 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
       )
     );
 
-  public static readonly layer = (account: ActiveAccountKey) =>
+  public static readonly layer = (account: AccountStorageKey) =>
     this.layerNoDeps(account).pipe(
       Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer])
     );
@@ -99,7 +99,7 @@ const synchronizeLibraryDatabase = Effect.fnUntraced(function* ({
   account,
   database,
 }: {
-  readonly account: ActiveAccountKey;
+  readonly account: AccountStorageKey;
   readonly database: LibraryDatabase['Service'];
 }) {
   const reactivity = yield* Reactivity.Reactivity;
@@ -123,7 +123,7 @@ export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
   'voel/domains/library/database/LibraryDatabaseMap',
   {
     make: LayerMap.make(
-      (account: ActiveAccountKey) =>
+      (account: AccountStorageKey) =>
         LibraryDatabase.layerNoDeps(account).pipe(
           Layer.tap((context) =>
             synchronizeLibraryDatabase({
@@ -137,15 +137,15 @@ export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
       Effect.map((map) => ({
         ...map,
         /** Acquire one replica per canonical account identity in the caller's scope. */
-        acquire: (account: Parameters<typeof ActiveAccountKey.make>[0]) =>
+        acquire: (account: Parameters<typeof AccountStorageKey.make>[0]) =>
           map
-            .contextEffect(ActiveAccountKey.make(account))
+            .contextEffect(AccountStorageKey.make(account))
             .pipe(Effect.map(Context.get(LibraryDatabase))),
       }))
     ),
   }
 ) {
-  public static readonly Key = ActiveAccountKey;
+  public static readonly Key = AccountStorageKey;
 
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 

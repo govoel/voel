@@ -1,9 +1,9 @@
 import { DateTime, Predicate, String } from 'effect';
-
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
-
 import { DetailRows } from '#src/components/detail-rows';
 import { sessionDeviceName } from '#src/domains/accounts/components/management/session-details/device-name.ts';
+
+
 
 export const SessionDetails = ({
   session,

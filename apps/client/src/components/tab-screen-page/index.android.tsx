@@ -4,13 +4,13 @@ import { fillMaxSize, fillMaxWidth, padding, weight } from '@expo/ui/jetpack-com
 import { Option } from 'effect';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-
 import { SafeScrollView } from '#src/components/safe-scroll-view';
 import { ScreenHost } from '#src/components/screen-host';
 import type { TabScreenPageComponent } from '#src/components/tab-screen-page';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+
 
 export const TabScreenPage = (({
   header,

@@ -1,19 +1,9 @@
 import { BottomSheet, Button, HStack, ProgressView, VStack } from '@expo/ui/swift-ui';
-import {
-  Animation,
-  animation,
-  buttonStyle,
-  disabled,
-  fixedSize,
-  frame,
-  hidden,
-  interactiveDismissDisabled,
-  padding,
-} from '@expo/ui/swift-ui/modifiers';
-
+import { Animation, animation, buttonStyle, disabled, fixedSize, frame, hidden, interactiveDismissDisabled, padding } from '@expo/ui/swift-ui/modifiers';
 import type { ConfirmationComponent } from '#src/components/mutation-confirmation/confirmation';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+
 
 export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...props }) => {
   const role = props.role === 'default' ? {} : { role: 'destructive' as const };

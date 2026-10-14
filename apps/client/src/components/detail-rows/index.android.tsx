@@ -1,8 +1,8 @@
 import { Array } from 'effect';
-
 import type { DetailRowsComponent } from '#src/components/detail-rows';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
+
 
 export const DetailRows = (({ details }) => (
   <SegmentedList>

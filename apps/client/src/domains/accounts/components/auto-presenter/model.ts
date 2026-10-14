@@ -1,17 +1,13 @@
 import { Data, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
-
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
-
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import {
-  accountAuthClientAtom,
-  accountsAtom,
-  activeAccountKeyAtom,
-} from '#src/domains/accounts/atoms.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { accountAuthClientAtom, accountsAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
+
+
 
 export type AccountsSheet = Data.TaggedEnum<{
   readonly Idle: { readonly dismissable: true };
@@ -32,18 +28,10 @@ export const AccountsSheet = Data.taggedEnum<
 export const accountsSheetIsIdle = AccountsSheet.$is('Idle');
 export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession');
 
-const accountSheetAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+const accountSheetAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.atom(
     Effect.fnUntraced(
       function* (get) {
-        if (Option.isNone(account)) {
-          const accounts = yield* get.result(accountsAtom);
-          return Stream.succeed<AccountsSheet>(
-            accounts.length === 0
-              ? AccountsSheet.Onboarding({ dismissable: false })
-              : AccountsSheet.MustPickAccount({ dismissable: false })
-          );
-        }
         const authClient = yield* get.result(accountAuthClientAtom(account));
         return authClient.sessionChanges.pipe(
           Stream.map((session): AccountsSheet =>
@@ -60,7 +48,24 @@ const accountSheetAtom = Atom.family((account: Option.Option<ActiveAccountKey>) 
 
 export const accountsSheetAtom = Atom.make((get) =>
   // oxlint-disable-next-line unicorn/no-array-method-this-argument -- AsyncResult.flatMap is not an array method.
-  AsyncResult.flatMap(get(activeAccountKeyAtom), (account) => get(accountSheetAtom(account)))
+  AsyncResult.flatMap(
+    get(activeAccountKeyAtom),
+    (
+      account
+    ): AsyncResult.AsyncResult<
+      AccountsSheet,
+      Atom.Failure<typeof accountsAtom> | Atom.Failure<ReturnType<typeof accountSheetAtom>>
+    > =>
+      Option.match(account, {
+        onNone: () =>
+          AsyncResult.map(get(accountsAtom), (accounts): AccountsSheet =>
+            accounts.length === 0
+              ? AccountsSheet.Onboarding({ dismissable: false })
+              : AccountsSheet.MustPickAccount({ dismissable: false })
+          ),
+        onSome: (key) => get(accountSheetAtom(key)),
+      })
+  )
 ).pipe(
   withPredefinedStates(() => [
     {

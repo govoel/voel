@@ -2,7 +2,6 @@
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
 import { Reactivity } from 'effect/reactivity';
-
 import { AppConfig } from '#src/config.ts';
 import { TursoSyncClientFactoryBunLayer } from '#src/database/factory/bun.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
@@ -14,6 +13,7 @@ import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { LibraryDatabaseMap } from '#src/domains/library/database.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
+
 
 export const makeClientTestLayers = ({
   authClientStorageMap = new Map<string, string>(),

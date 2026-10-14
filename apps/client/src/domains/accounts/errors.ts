@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
-
 import { AuthError } from '@repo/auth-api/shared.ts';
-
 import { Account } from '#src/domains/accounts/schema.ts';
+
+
 
 /** Recoverable connection unavailability or lock contention, with diagnostic cause. */
 export class AccountDatabaseError extends Schema.TaggedError<

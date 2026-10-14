@@ -1,72 +1,69 @@
-import { useAtomSuspense } from '@effect/atom-react';
 import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
-
 import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.ts';
 import type { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
-
 import { useAppForm } from '#src/components/form';
-import {
-  accountAuthClientAtom,
-  activeAccountAtom,
-  activeAccountKeyAtom,
-} from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
+import { accountAtom, accountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
+
+
 
 class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username }) => ({
   name,
   username,
 })) {}
 
-export const activeUserProfileAtom = activeAccountAtom.pipe(
-  Atom.mapResult(
-    Option.map(({ email, name, role, userId, username }) => ({
-      email,
-      id: userId,
-      name,
-      role: Account.roleToDisplayString(role),
-      username,
-    }))
-  ),
-  withPredefinedStates(() => [
-    {
-      id: PredefinedStateId.make('loading'),
-      label: 'Loading',
-      atom: Atom.make(() => AsyncResult.initial(true)),
-    },
-    {
-      id: PredefinedStateId.make('no-active-user'),
-      label: 'No active user',
-      atom: Atom.make(() => AsyncResult.success(Option.none())),
-    },
-    {
-      id: PredefinedStateId.make('loaded'),
-      label: 'Loaded profile',
-      atom: Atom.make(() =>
-        AsyncResult.success(
-          Option.some({
-            email: Account.fields.email.make('reader@example.com'),
-            id: Account.fields.userId.make('predefined-user'),
-            name: Account.fields.name.make('Alex Reader'),
-            role: Account.roleToDisplayString('admin'),
-            username: Account.fields.username.make('alex'),
-          })
-        )
-      ),
-    },
-  ]),
-  Atom.withLabel('activeUserProfileAtom')
+export const userProfileAtom = Atom.family((accountKey: AccountStorageKey) =>
+  accountAtom(accountKey).pipe(
+    Atom.mapResult(
+      Option.map(({ email, name, role, userId, username }) => ({
+        email,
+        id: userId,
+        name,
+        role: Account.roleToDisplayString(role),
+        username,
+      }))
+    ),
+    withPredefinedStates(() => [
+      {
+        id: PredefinedStateId.make('loading'),
+        label: 'Loading',
+        atom: Atom.make(() => AsyncResult.initial(true)),
+      },
+      {
+        id: PredefinedStateId.make('no-user'),
+        label: 'Profile unavailable',
+        atom: Atom.make(() => AsyncResult.success(Option.none())),
+      },
+      {
+        id: PredefinedStateId.make('loaded'),
+        label: 'Loaded profile',
+        atom: Atom.make(() =>
+          AsyncResult.success(
+            Option.some({
+              email: Account.fields.email.make('reader@example.com'),
+              id: Account.fields.userId.make('predefined-user'),
+              name: Account.fields.name.make('Alex Reader'),
+              role: Account.roleToDisplayString('admin'),
+              username: Account.fields.username.make('alex'),
+            })
+          )
+        ),
+      },
+    ]),
+    Atom.withLabel('userProfileAtom')
+  )
 );
 
-const updateCurrentUserAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+const updateCurrentUserAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -77,20 +74,21 @@ const updateCurrentUserAtom = Atom.family((account: Option.Option<ActiveAccountK
 );
 
 export const useUserProfileForm = ({
+  accountKey,
   onSuccess,
   profile,
 }: {
+  accountKey: AccountStorageKey;
   onSuccess: () => Promise<void>;
   profile: typeof UserProfileUpdateInput.Encoded;
 }) =>
   useAppForm({
     schema: UserProfileUpdateInput,
-    mutation: updateCurrentUserAtom(useAtomSuspense(activeAccountKeyAtom).value),
+    mutation: updateCurrentUserAtom(accountKey),
     defaultValues: profile,
     onFailure: ({ error }) =>
       Match.value(error).pipe(
         Match.tagsExhaustive({
-          NoActiveAccountError: () => 'No active user is available.',
           BetterAuthClientInitializationError: () =>
             'Unexpected error during authentication. Try again.',
           AuthError: (authError) =>
@@ -112,7 +110,7 @@ export const useUserProfileForm = ({
     },
   });
 
-const changePasswordAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+const changePasswordAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -125,7 +123,7 @@ const changePasswordAtom = Atom.family((account: Option.Option<ActiveAccountKey>
   )
 );
 
-export const ownSessionsAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+export const ownSessionsAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.atom(
     Effect.fnUntraced(function* (get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -139,7 +137,7 @@ export const ownSessionsAtom = Atom.family((account: Option.Option<ActiveAccount
   )
 );
 
-export const revokeOwnSessionAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+export const revokeOwnSessionAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -149,14 +147,11 @@ export const revokeOwnSessionAtom = Atom.family((account: Option.Option<ActiveAc
   )
 );
 
-export const signOutEverywhereAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+export const signOutEverywhereAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.fn<Schema.Void['Type']>()(
     Effect.fnUntraced(function* () {
-      if (Option.isNone(account)) {
-        return yield* NoActiveAccountError.make();
-      }
       const manager = yield* AccountManager;
-      return yield* manager.signOutEverywhere(account.value);
+      return yield* manager.signOutEverywhere(account);
     }),
     { reactivityKeys: ['auth.sessions'] }
   )
@@ -176,11 +171,17 @@ class PasswordFormInput extends AuthChangePasswordInput.pipe(
   )
 ) {}
 
-export const useChangePasswordForm = ({ onSuccess }: { onSuccess: () => void | Promise<void> }) =>
+export const useChangePasswordForm = ({
+  accountKey,
+  onSuccess,
+}: {
+  accountKey: AccountStorageKey;
+  onSuccess: () => void | Promise<void>;
+}) =>
   useAppForm({
     schema: PasswordFormInput,
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
-    mutation: changePasswordAtom(useAtomSuspense(activeAccountKeyAtom).value),
+    mutation: changePasswordAtom(accountKey),
     onFailure: authFailureMessage,
     onSuccess,
   });

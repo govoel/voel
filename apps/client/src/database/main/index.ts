@@ -1,11 +1,11 @@
 import { Context, Effect, Layer } from 'effect';
 import { Reactivity } from 'effect/reactivity';
-// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlClient from 'effect/sql/SqlClient';
-
 import { AppConfig } from '#src/config.ts';
 import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
 import { MainDatabaseMigrations } from '#src/database/main/migrations.ts';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlClient from 'effect/sql/SqlClient';
+
 
 export class MainDatabase extends Context.Service<MainDatabase>()(
   'voel/database/main/MainDatabase',

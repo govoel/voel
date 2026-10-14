@@ -1,9 +1,6 @@
 import type { TextFieldProps } from '@expo/ui/jetpack-compose';
+import type { PasswordInputPurpose, TextInputPurpose } from '#src/components/form/input-presets/index.ts';
 
-import type {
-  PasswordInputPurpose,
-  TextInputPurpose,
-} from '#src/components/form/input-presets/index.ts';
 
 export const textInputPresets = {
   name: { capitalization: 'words', keyboardType: 'text' },

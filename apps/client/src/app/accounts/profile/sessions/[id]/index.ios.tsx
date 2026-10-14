@@ -4,10 +4,8 @@ import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-
 import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
-
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
 import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
 import { ListState } from '#src/components/list-state';
@@ -16,9 +14,17 @@ import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 
-const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+
+
+const SessionContent = ({
+  accountKey,
+  id,
+}: {
+  accountKey: AccountStorageKey;
+  id: typeof AuthDeviceSession.fields.id.Type;
+}) => {
   const router = useRouter();
   const state = useAtomValue(ownSessionAtom({ account: accountKey, id }));
   const refresh = useAtomRefresh(ownSessionsAtom(accountKey));
@@ -89,13 +95,23 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
 };
 
 export default function SessionScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id } = useLocalSearchParams<{ id: typeof AuthDeviceSession.fields.id.Type }>();
   return (
     <>
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <SessionContent key={id} id={id} />
+          {Option.match(accountKey, {
+            onNone: () => (
+              <Section>
+                <ListState kind="empty" message="No active account." />
+              </Section>
+            ),
+            onSome: (key) => (
+              <SessionContent key={JSON.stringify([key, id])} accountKey={key} id={id} />
+            ),
+          })}
         </List>
       </Host>
     </>

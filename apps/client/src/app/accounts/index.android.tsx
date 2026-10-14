@@ -1,7 +1,4 @@
 import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
-import AccountCircle from '@expo/material-symbols/account_circle.xml';
-import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
@@ -9,13 +6,7 @@ import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-
-import {
-  accountsWithActiveAccount,
-  removeAccountAtom,
-  removeAccountFailureMessage,
-  useSetActiveAccount,
-} from '#src/app/accounts/index.ts';
+import { accountsWithActiveAccount, removeAccountAtom, removeAccountFailureMessage, useSetActiveAccount } from '#src/app/accounts/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
@@ -24,11 +15,13 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import {
-  accountsSheetAtom,
-  accountsSheetIsInvalidSession,
-} from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { accountsSheetAtom, accountsSheetIsInvalidSession } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
+import AccountCircle from '@expo/material-symbols/account_circle.xml';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
+
 
 const StackNavigationRow = ({
   index,
@@ -61,16 +54,14 @@ const StackNavigationRow = ({
 };
 
 export default function AccountsScreen() {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
-  const accountsStateAtom = accountsWithActiveAccount(accountKey);
-  const accounts = useAtomValue(accountsStateAtom);
-  const refreshAccounts = useAtomRefresh(accountsStateAtom);
+  const accounts = useAtomValue(accountsWithActiveAccount);
+  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
 
   const colors = useMaterialColors();
 
@@ -186,8 +177,8 @@ export default function AccountsScreen() {
                           href="/accounts/settings"
                         />
                         <MutationConfirmation
-                          key={`${account.serverUrl}-${account.userId}`}
-                          mutation={removeAccountAtom(accountKey)}
+                          key={JSON.stringify(AccountStorageKey.make(account))}
+                          mutation={removeAccountAtom(AccountStorageKey.make(account))}
                           onFailure={removeAccountFailureMessage}
                           title="Remove account from this device?"
                           confirmLabel="Remove"
@@ -253,9 +244,7 @@ export default function AccountsScreen() {
                     <Text variant="h3">Pick an Account</Text>
                     <LazyColumn.Items
                       data={accountList}
-                      keyExtractor={(account) =>
-                        JSON.stringify([account.serverUrl.toString(), account.userId])
-                      }>
+                      keyExtractor={(account) => JSON.stringify(AccountStorageKey.make(account))}>
                       {({ item, index }) => (
                         <SegmentedListItem
                           index={index}

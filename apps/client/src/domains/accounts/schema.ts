@@ -1,7 +1,7 @@
 import { Match, Schema, SchemaGetter } from 'effect';
 import { VariantSchema } from 'effect/schema';
-
 import { AuthUser } from '@repo/auth-api/shared.ts';
+
 
 /** A root HTTP(S) server address. Validation preserves existing account/storage keys. */
 export const ServerUrl = Schema.String.check(
@@ -95,11 +95,11 @@ export class Account extends DbModel.Class<Account>('voel/domains/accounts/schem
   );
 }
 
-/** Account identity excludes mutable profile and activity metadata. */
-export class ActiveAccountKey extends Schema.Class<
-  ActiveAccountKey,
+/** One stored login incarnation, independent of active selection and mutable profile metadata. */
+export class AccountStorageKey extends Schema.Class<
+  AccountStorageKey,
   { readonly brand: unique symbol }
->('voel/domains/accounts/schema/ActiveAccountKey')({
+>('voel/domains/accounts/schema/AccountStorageKey')({
   serverUrl: Account.fields.serverUrl,
   userId: Account.fields.userId,
   authStorageId: Account.fields.authStorageId,

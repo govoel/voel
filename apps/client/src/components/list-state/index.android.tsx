@@ -1,11 +1,11 @@
 import { LoadingIndicator } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, size } from '@expo/ui/jetpack-compose/modifiers';
-
 import type { ListStateComponent } from '#src/components/list-state';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+
 
 export const ListState = ((props) => {
   const colors = useMaterialColors();

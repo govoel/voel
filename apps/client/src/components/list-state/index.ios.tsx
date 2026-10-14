@@ -1,9 +1,9 @@
 import { Button, HStack, ProgressView } from '@expo/ui/swift-ui';
 import { containerRelativeFrame, disabled, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
-
 import type { ListStateComponent } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+
 
 export const ListState = ((props) => {
   if (props.kind === 'loading') {

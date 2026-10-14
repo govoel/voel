@@ -1,13 +1,10 @@
 import { SegmentedButton, SingleChoiceSegmentedButtonRow } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Array } from 'effect';
-
 import { Text } from '#src/components/text';
-import {
-  roles,
-  useRoleField,
-} from '#src/domains/accounts/components/management/role-field/index.tsx';
+import { roles, useRoleField } from '#src/domains/accounts/components/management/role-field/index.tsx';
 import { Account } from '#src/domains/accounts/schema.ts';
+
 
 export const RoleField = () => {
   const field = useRoleField();

@@ -2,8 +2,8 @@ import { Context } from 'effect';
 import type { Effect, Scope } from 'effect';
 import type { Reactivity } from 'effect/reactivity';
 import type { SqlError } from 'effect/sql';
-
 import type { TursoSyncClient, TursoSyncClientOptions } from '@repo/effect-turso-sync';
+
 
 /** Acquires platform-specific Turso clients inside the requesting layer's scope. */
 export class TursoSyncClientFactory extends Context.Service<

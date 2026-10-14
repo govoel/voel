@@ -3,14 +3,9 @@ import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
 import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
-
-import {
-  revokeServerUserSessionAtom,
-  serverUserSessionsAtom,
-} from '#src/app/accounts/server/users/[id]/index.ts';
+import { revokeServerUserSessionAtom, serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/index.ts';
 import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ListState } from '#src/components/list-state';
@@ -22,15 +17,19 @@ import { Spacing } from '#src/constants/theme.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
+
+
 
 const SessionContent = ({
+  accountKey,
   userId,
   sessionId,
 }: {
+  accountKey: AccountStorageKey;
   userId: typeof AuthUser.fields.id.Type;
   sessionId: typeof AuthDeviceSession.fields.id.Type;
 }) => {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const state = useAtomValue(serverUserSessionAtom({ account: accountKey, userId, sessionId }));
   const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId }));
@@ -96,6 +95,7 @@ const SessionContent = ({
 };
 
 export default function ServerUserSessionScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id, sessionId } = useLocalSearchParams<{
     id: typeof AuthUser.fields.id.Type;
     sessionId: typeof AuthDeviceSession.fields.id.Type;
@@ -106,7 +106,17 @@ export default function ServerUserSessionScreen() {
         verticalArrangement={{ spacedBy: Spacing.two }}
         contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
         <Text variant="h4">Session Details</Text>
-        <SessionContent key={`${id}-${sessionId}`} userId={id} sessionId={sessionId} />
+        {Option.match(accountKey, {
+          onNone: () => <ListState kind="empty" message="No active account." />,
+          onSome: (key) => (
+            <SessionContent
+              key={JSON.stringify([key, id, sessionId])}
+              accountKey={key}
+              userId={id}
+              sessionId={sessionId}
+            />
+          ),
+        })}
       </LazyColumn>
     </AndroidAccountsSheet>
   );

@@ -1,17 +1,17 @@
 import { Array, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
-
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
-
 import { ownSessionsAtom } from '#src/app/accounts/profile/index.ts';
-import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 
-export const ownSessionAtom = Atom.family(
+
+
+const ownSessionFamily = Atom.family(
   ({
     account,
     id,
   }: {
-    readonly account: Option.Option<ActiveAccountKey>;
+    readonly account: AccountStorageKey;
     readonly id: typeof AuthDeviceSession.fields.id.Type;
   }) =>
     ownSessionsAtom(account).pipe(
@@ -22,3 +22,6 @@ export const ownSessionAtom = Atom.family(
       )
     )
 );
+
+export const ownSessionAtom = ({ account, id }: Parameters<typeof ownSessionFamily>[0]) =>
+  ownSessionFamily({ account, id });

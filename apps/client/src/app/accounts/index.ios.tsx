@@ -1,46 +1,23 @@
 import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Host, Icon } from '@expo/ui';
-import {
-  Button,
-  Group,
-  HStack,
-  List,
-  ProgressView,
-  Section,
-  Spacer,
-  VStack,
-} from '@expo/ui/swift-ui';
-import {
-  disabled,
-  font,
-  foregroundStyle,
-  headerProminence,
-  padding,
-  tint,
-} from '@expo/ui/swift-ui/modifiers';
+import { Button, Group, HStack, List, ProgressView, Section, Spacer, VStack } from '@expo/ui/swift-ui';
+import { disabled, font, foregroundStyle, headerProminence, padding, tint } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
-
-import {
-  accountsWithActiveAccount,
-  removeAccountAtom,
-  removeAccountFailureMessage,
-  useSetActiveAccount,
-} from '#src/app/accounts/index.ts';
+import { accountsWithActiveAccount, removeAccountAtom, removeAccountFailureMessage, useSetActiveAccount } from '#src/app/accounts/index.ts';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import {
-  accountsSheetAtom,
-  accountsSheetIsInvalidSession,
-} from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { accountsSheetAtom, accountsSheetIsInvalidSession } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
+
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();
@@ -78,15 +55,13 @@ const AccountsList = ({ children }: PropsWithChildren) => (
 );
 
 export default function AccountsScreen() {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
-  const accountsStateAtom = accountsWithActiveAccount(accountKey);
-  const accounts = useAtomValue(accountsStateAtom);
-  const refreshAccounts = useAtomRefresh(accountsStateAtom);
+  const accounts = useAtomValue(accountsWithActiveAccount);
+  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
 
   return (
     <>
@@ -197,8 +172,8 @@ export default function AccountsScreen() {
                           <StackNavigationRow title="Settings" href="/accounts/settings" />
 
                           <MutationConfirmation
-                            key={`${account.serverUrl}-${account.userId}`}
-                            mutation={removeAccountAtom(accountKey)}
+                            key={JSON.stringify(AccountStorageKey.make(account))}
+                            mutation={removeAccountAtom(AccountStorageKey.make(account))}
                             onFailure={removeAccountFailureMessage}
                             title="Remove account from this device?"
                             confirmLabel="Remove"
@@ -257,7 +232,7 @@ export default function AccountsScreen() {
                         <List.ForEach
                           data={accountList}
                           keyExtractor={(account) =>
-                            JSON.stringify([account.serverUrl.toString(), account.userId])
+                            JSON.stringify(AccountStorageKey.make(account))
                           }>
                           {({ item }) => (
                             <Button

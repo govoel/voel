@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
-
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
+
 
 export type SessionListComponent = ComponentType<{
   readonly sessions: ReadonlyArray<typeof AuthDeviceSession.Type>;

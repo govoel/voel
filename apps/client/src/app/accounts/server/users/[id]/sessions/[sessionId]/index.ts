@@ -1,10 +1,10 @@
 import { Array, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
-
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
-
 import { serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/index.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
+
+
 
 const serverUserSessionFamily = Atom.family(
   ({
@@ -12,7 +12,7 @@ const serverUserSessionFamily = Atom.family(
     userId,
     sessionId,
   }: {
-    readonly account: Option.Option<ActiveAccountKey>;
+    readonly account: AccountStorageKey;
     readonly userId: typeof AuthUser.fields.id.Type;
     readonly sessionId: typeof AuthDeviceSession.fields.id.Type;
   }) =>
@@ -21,7 +21,7 @@ const serverUserSessionFamily = Atom.family(
         Array.findFirst(sessions, (session) => session.id === sessionId).pipe(
           Option.map((session) => ({
             ...session,
-            isOtherUser: Option.isSome(account) && account.value.userId !== userId,
+            isOtherUser: account.userId !== userId,
           }))
         )
       )

@@ -1,11 +1,11 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
-
 import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { textInputPresets } from '#src/components/form/input-presets/index.android.ts';
 import type { TextFieldComponent } from '#src/components/form/text-field/index.tsx';
 import { Text } from '#src/components/text';
 import { materialInputTextStyle } from '#src/constants/material.ts';
+
 
 export const TextField = (({ label, placeholder, purpose, platformProps = {} }) => {
   const { field, isSubmitting, errorMessage, onFocusChange } = useTextFieldState();

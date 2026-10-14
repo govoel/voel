@@ -2,12 +2,9 @@ import { useAtomSuspense } from '@effect/atom-react';
 import { Equal, Option } from 'effect';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-
 import type { AccountsSheet } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import {
-  accountsSheetAtom,
-  accountsSheetIsIdle,
-} from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { accountsSheetAtom, accountsSheetIsIdle } from '#src/domains/accounts/components/auto-presenter/model.ts';
+
 
 export const AccountsAutoPresenter = () => {
   const router = useRouter();

@@ -1,18 +1,16 @@
-import { useAtomSuspense } from '@effect/atom-react';
 import { Effect, Schema } from 'effect';
-import type { Option } from 'effect';
 import { Atom } from 'effect/reactivity';
-
 import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
-
 import { useAppForm } from '#src/components/form';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { accountAuthClientAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { accountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-const createServerUserAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+
+
+const createServerUserAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -43,15 +41,17 @@ class CreateUserInput extends AuthCreateUserInput.pipe(
 ) {}
 
 export const useCreateUserForm = ({
+  accountKey,
   onSuccess,
 }: {
+  readonly accountKey: AccountStorageKey;
   readonly onSuccess: (props: {
     readonly userId: typeof AuthUser.fields.id.Type;
   }) => void | Promise<void>;
 }) =>
   useAppForm({
     schema: CreateUserInput,
-    mutation: createServerUserAtom(useAtomSuspense(activeAccountKeyAtom).value),
+    mutation: createServerUserAtom(accountKey),
     defaultValues: {
       name: '',
       username: '',

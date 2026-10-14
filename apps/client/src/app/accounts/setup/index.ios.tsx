@@ -2,10 +2,10 @@ import { Host } from '@expo/ui';
 import { Group } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
 import { Stack, useRouter } from 'expo-router';
-
 import { useSetupServerForm } from '#src/app/accounts/setup/index.ts';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
+
 
 export default function SetupServerScreen() {
   const router = useRouter();

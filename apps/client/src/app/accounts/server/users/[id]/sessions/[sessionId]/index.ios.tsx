@@ -4,14 +4,9 @@ import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-
 import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
-
-import {
-  revokeServerUserSessionAtom,
-  serverUserSessionsAtom,
-} from '#src/app/accounts/server/users/[id]/index.ts';
+import { revokeServerUserSessionAtom, serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/index.ts';
 import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
@@ -19,15 +14,19 @@ import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
+
+
 
 const SessionContent = ({
+  accountKey,
   userId,
   sessionId,
 }: {
+  accountKey: AccountStorageKey;
   userId: typeof AuthUser.fields.id.Type;
   sessionId: typeof AuthDeviceSession.fields.id.Type;
 }) => {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const state = useAtomValue(serverUserSessionAtom({ account: accountKey, userId, sessionId }));
   const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId }));
@@ -105,6 +104,7 @@ const SessionContent = ({
 };
 
 export default function ServerUserSessionScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id, sessionId } = useLocalSearchParams<{
     id: typeof AuthUser.fields.id.Type;
     sessionId: typeof AuthDeviceSession.fields.id.Type;
@@ -114,7 +114,21 @@ export default function ServerUserSessionScreen() {
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <SessionContent key={`${id}-${sessionId}`} userId={id} sessionId={sessionId} />
+          {Option.match(accountKey, {
+            onNone: () => (
+              <Section>
+                <ListState kind="empty" message="No active account." />
+              </Section>
+            ),
+            onSome: (key) => (
+              <SessionContent
+                key={JSON.stringify([key, id, sessionId])}
+                accountKey={key}
+                userId={id}
+                sessionId={sessionId}
+              />
+            ),
+          })}
         </List>
       </Host>
     </>
