@@ -125,9 +125,12 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                   }).pipe(Effect.andThen(controls.onFinalize(request)))
                 );
                 const settings = yield* Persisted.decodeUnknownEffect(request.settings).pipe(
-                  Effect.catchTag('SchemaError', () =>
-                    StoragePluginConstructionError.make({ message: 'Invalid persisted settings' })
-                  )
+                  Effect.catchTags({
+                    SchemaError: () =>
+                      StoragePluginConstructionError.make({
+                        message: 'Invalid persisted settings',
+                      }),
+                  })
                 );
                 if (settings.prefix === 'unavailable' || request.library.name === 'Rejected') {
                   return yield* StoragePluginConstructionError.make({
@@ -142,9 +145,10 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                   decodeRootLocation: ({ location }) =>
                     controls.beforeRootDecode({ ...request, location }).pipe(
                       Effect.andThen(decodeRoot(location.trim())),
-                      Effect.catchTag('SchemaError', (error) =>
-                        StorageLocationValidationError.make({ message: error.message })
-                      )
+                      Effect.catchTags({
+                        SchemaError: (error) =>
+                          StorageLocationValidationError.make({ message: error.message }),
+                      })
                     ),
                   decodeMediaFileLocation: ({ location }) =>
                     Effect.succeed(StorageMediaFileLocation.make(location)),
@@ -165,12 +169,13 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                       }
                       const settings = Option.isSome(current)
                         ? yield* Persisted.decodeUnknownEffect(current.value).pipe(
-                            Effect.catchTag('SchemaError', () =>
-                              StoragePluginSettingsError.make({
-                                message:
-                                  'Storage plugin could not build the settings form from the current settings',
-                              })
-                            )
+                            Effect.catchTags({
+                              SchemaError: () =>
+                                StoragePluginSettingsError.make({
+                                  message:
+                                    'Storage plugin could not build the settings form from the current settings',
+                                }),
+                            })
                           )
                         : { prefix: '' };
                       const field = {
@@ -192,11 +197,12 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                       ),
                       Effect.andThen(
                         Input.decodeUnknownEffect(input).pipe(
-                          Effect.catchTag('SchemaError', () =>
-                            StoragePluginInvalidSettingsError.make({
-                              message: 'Submitted storage plugin settings failed validation',
-                            })
-                          )
+                          Effect.catchTags({
+                            SchemaError: () =>
+                              StoragePluginInvalidSettingsError.make({
+                                message: 'Submitted storage plugin settings failed validation',
+                              }),
+                          })
                         )
                       ),
                       Effect.map(({ root }) => {

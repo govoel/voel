@@ -73,11 +73,12 @@ export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleM
               modules.get(npmPlugin).pipe(
                 Effect.flatMap(StoragePluginModuleExport.decodeUnknownEffect),
                 Effect.map((module) => module.default),
-                Effect.catchTag('SchemaError', () =>
-                  Effect.fail(
-                    StoragePluginLoadError.make({ message: 'Invalid storage plugin module' })
-                  )
-                )
+                Effect.catchTags({
+                  SchemaError: () =>
+                    Effect.fail(
+                      StoragePluginLoadError.make({ message: 'Invalid storage plugin module' })
+                    ),
+                })
               )
             ),
             Match.exhaustive

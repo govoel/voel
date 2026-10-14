@@ -383,13 +383,12 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               const decoded = yield* Effect.validate(
                 roots,
                 ({ root }) =>
-                  storage
-                    .decodeRootLocation({ location: root })
-                    .pipe(
-                      Effect.catchTag('StorageLocationValidationError', ({ message }) =>
-                        Effect.fail({ root, message })
-                      )
-                    ),
+                  storage.decodeRootLocation({ location: root }).pipe(
+                    Effect.catchTags({
+                      StorageLocationValidationError: ({ message }) =>
+                        Effect.fail({ root, message }),
+                    })
+                  ),
                 { concurrency: 'unbounded' }
               ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
               const unique = Array.dedupe(decoded);
@@ -398,7 +397,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
             },
             sql.withTransaction,
             // Beginning the workflow transaction can still fail outside the repository.
-            Effect.catchTag('SqlError', Effect.die),
+            Effect.catchTags({ SqlError: Effect.die }),
             Effect.scoped
           )
         )

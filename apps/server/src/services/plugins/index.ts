@@ -61,9 +61,12 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
                 Exit.isFailure(exit) ? Scope.close(attemptScope, exit) : Effect.void
             ),
           // Translate loader-boundary failures without exposing installation or import details.
-          Effect.catchTag(['PlatformError', 'ModuleResolutionError'], () =>
-            Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
-          )
+          Effect.catchTags({
+            PlatformError: () =>
+              Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' })),
+            ModuleResolutionError: () =>
+              Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' })),
+          })
         ),
         {
           capacity: Infinity,

@@ -160,9 +160,10 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
         },
         (effect) =>
           effect.pipe(
-            Effect.catchTag('AccountDatabaseError', (error) =>
-              Effect.logError('Failed to synchronize account from session', error)
-            )
+            Effect.catchTags({
+              AccountDatabaseError: (error) =>
+                Effect.logError('Failed to synchronize account from session', error),
+            })
           )
       )
     ),

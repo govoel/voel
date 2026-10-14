@@ -134,9 +134,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
         const signInResult = yield* authClient.signIn
           .username({ username, password: Redacted.value(password) })
           .pipe(
-            Effect.catchTag('AuthError', (error) =>
-              AccountSignInError.make({ reason: error.reason })
-            )
+            Effect.catchTags({
+              AuthError: (error) => AccountSignInError.make({ reason: error.reason }),
+            })
           );
 
         return yield* upsertAccount({
@@ -174,9 +174,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
             password: Redacted.value(password),
           })
           .pipe(
-            Effect.catchTag('AuthError', (error) =>
-              AccountSignUpError.make({ reason: error.reason })
-            )
+            Effect.catchTags({
+              AuthError: (error) => AccountSignUpError.make({ reason: error.reason }),
+            })
           );
 
         return yield* upsertAccount({

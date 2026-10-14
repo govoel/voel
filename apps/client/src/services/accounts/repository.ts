@@ -7,7 +7,7 @@ import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 
 export type AccountKey = Pick<Account, 'serverUrl' | 'userId'>;
-export type AccountUpsert = Omit<typeof Account.upsert.Type, 'active'>;
+export type AccountUpsert = typeof Account.upsert.Type;
 
 export class AccountRepository extends Context.Service<AccountRepository>()(
   'voel/services/accounts/repository/AccountRepository',
@@ -84,7 +84,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Request: Account.upsert,
           execute: (account) => sql`
             insert into
-              account ${sql.insert(account)}
+              account ${sql.insert({ ...account, active: 1 })}
             on conflict ("serverUrl", "userId") do update
             set
               username = excluded.username,
@@ -171,7 +171,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             },
             (_reason, cause) => Effect.die(cause)
           ),
-          Effect.catchTag('SchemaError', Effect.die)
+          Effect.catchTags({ SchemaError: Effect.die })
         ),
         getActive: queries.getActive().pipe(
           Effect.catchReasons(
@@ -182,7 +182,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             },
             (_reason, cause) => Effect.die(cause)
           ),
-          Effect.catchTag('SchemaError', Effect.die)
+          Effect.catchTags({ SchemaError: Effect.die })
         ),
         getByStorageKey: (key: Parameters<typeof queries.getByStorageKey>[0]) =>
           queries.getByStorageKey(key).pipe(
@@ -194,7 +194,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               },
               (_reason, cause) => Effect.die(cause)
             ),
-            Effect.catchTag('SchemaError', Effect.die)
+            Effect.catchTags({ SchemaError: Effect.die })
           ),
         getByKey: Effect.fnUntraced(function* (key: AccountKey) {
           const account = yield* queries.getByKey(key).pipe(
@@ -206,7 +206,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               },
               (_reason, cause) => Effect.die(cause)
             ),
-            Effect.catchTag('SchemaError', Effect.die)
+            Effect.catchTags({ SchemaError: Effect.die })
           );
           if (Option.isNone(account)) {
             return yield* AccountNotFoundError.make(key);
@@ -234,14 +234,14 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             },
             (_reason, cause) => Effect.die(cause)
           ),
-          Effect.catchTag('SchemaError', Effect.die)
+          Effect.catchTags({ SchemaError: Effect.die })
         ),
         upsertActive: Effect.fnUntraced(
           function* (account: AccountUpsert) {
             yield* sql.withTransaction(
               Effect.gen(function* () {
                 yield* queries.deactivateAll();
-                yield* queries.upsert({ ...account, active: true });
+                yield* queries.upsert(account);
               })
             );
           },
@@ -253,7 +253,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             },
             (_reason, cause) => Effect.die(cause)
           ),
-          Effect.catchTag('SchemaError', Effect.die)
+          Effect.catchTags({ SchemaError: Effect.die })
         ),
         updateProfile: (profile: Parameters<typeof queries.updateProfile>[0]) =>
           queries.updateProfile(profile).pipe(
@@ -265,7 +265,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               },
               (_reason, cause) => Effect.die(cause)
             ),
-            Effect.catchTag('SchemaError', Effect.die)
+            Effect.catchTags({ SchemaError: Effect.die })
           ),
         remove: (key: Parameters<typeof queries.remove>[0]) =>
           queries.remove(key).pipe(
@@ -277,7 +277,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               },
               (_reason, cause) => Effect.die(cause)
             ),
-            Effect.catchTag('SchemaError', Effect.die)
+            Effect.catchTags({ SchemaError: Effect.die })
           ),
       };
     }),
