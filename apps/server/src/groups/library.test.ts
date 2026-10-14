@@ -282,6 +282,153 @@ const makeClient = Effect.gen(function* () {
   return yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
 });
 
+const repositoryTestLayer = LibraryRepository.layerNoDeps.pipe(
+  Layer.provideMerge(LibraryDatabase.layerNoDeps),
+  Layer.provideMerge([ApiConfig.layerTest(), Reactivity.layer])
+);
+
+it.layer(repositoryTestLayer)('library repository', (iit) => {
+  iit.effect(
+    'returns domain conflicts and missing-library failures without resurrecting rows',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const input = createInput('Repository unique');
+      const library = yield* repository.create(input);
+      expect(yield* repository.create(input).pipe(Effect.flip)).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        name: input.name,
+      });
+      const other = yield* repository.create(createInput('Repository other'));
+      expect(
+        yield* repository.rename({ ...other, name: input.name }).pipe(Effect.flip)
+      ).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        name: input.name,
+      });
+      expect((yield* repository.getById(other)).name).toBe('Repository other');
+      expect(yield* repository.rename({ ...library, name: input.name })).toEqual(library);
+
+      yield* repository.deleteById(library);
+      yield* repository.deleteById(library);
+      for (const operation of [
+        repository.getById(library),
+        repository.rename({ ...library, name: input.name }),
+        repository.setSettings({ ...library, settings: StoragePluginSettingsPersisted.make({}) }),
+      ]) {
+        expect(yield* operation.pipe(Effect.flip)).toMatchObject({
+          _tag: 'LibraryNotFoundError',
+          id: library.id,
+        });
+      }
+      const recreated = yield* repository.create(input);
+      expect(recreated.id).not.toBe(library.id);
+    })
+  );
+
+  iit.effect(
+    'treats corrupt persisted rows as defects in both single reads and listings',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const sql = yield* LibraryDatabase;
+      const library = yield* Effect.acquireRelease(
+        repository.create(createInput('Corrupt row')),
+        (created) => repository.deleteById(created)
+      );
+      yield* sql`
+        update library
+        set
+          storagepluginsettings = 'not json'
+        where
+          id = ${library.id}
+      `;
+      for (const operation of [
+        repository.getById(library).pipe(Effect.asVoid),
+        repository.list({ cursor: Option.none(), limit: 100 }).pipe(Effect.asVoid),
+      ]) {
+        const exit = yield* operation.pipe(Effect.exit);
+        expect(Exit.hasFails(exit)).toBe(false);
+        expect(Exit.findDefect(exit)).toMatchObject({
+          _tag: 'Success',
+          success: { _tag: 'SchemaError' },
+        });
+      }
+    })
+  );
+
+  iit.effect(
+    'treats malformed settings writes as defects without changing persisted settings',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const library = yield* repository.create(createInput('Malformed settings write'));
+      const value = { version: 1 };
+      const settings = StoragePluginSettingsPersisted.make(value);
+      value.version = Number.NaN;
+      const exit = yield* repository.setSettings({ ...library, settings }).pipe(Effect.exit);
+      expect(Exit.hasFails(exit)).toBe(false);
+      expect(Exit.findDefect(exit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'SchemaError' },
+      });
+      expect((yield* repository.getById(library)).storagePluginSettings).toEqual(Option.none());
+    })
+  );
+
+  iit.effect(
+    'treats an impossible empty create result as a defect',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const sql = yield* LibraryDatabase;
+      yield* Effect.acquireRelease(
+        sql`
+          create trigger ignorelibrarycreate before insert on library when new.name = 'Ignored create' begin
+          select
+            raise (ignore);
+
+          end;
+        `,
+        () =>
+          sql`
+            drop trigger ignorelibrarycreate
+          `.pipe(Effect.orDie)
+      );
+      const exit = yield* repository.create(createInput('Ignored create')).pipe(Effect.exit);
+      expect(Exit.hasFails(exit)).toBe(false);
+      expect(Exit.findDefect(exit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'NoSuchElementError' },
+      });
+    })
+  );
+
+  iit.effect(
+    'replaces roots idempotently, retains surviving IDs, and isolates other libraries',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const library = yield* repository.create(createInput('Stable roots'));
+      const other = yield* repository.create(createInput('Isolated roots'));
+      const retained = StorageRootLocation.make('/retained');
+      const added = StorageRootLocation.make('/added');
+      yield* repository.setRoots({
+        ...library,
+        roots: [retained, StorageRootLocation.make('/removed')],
+      });
+      yield* repository.setRoots({ ...other, roots: [retained] });
+      const original = (yield* repository.getById(library)).roots;
+      const isolated = (yield* repository.getById(other)).roots;
+      yield* repository.setRoots({ ...library, roots: [retained, added, retained] });
+      const replaced = (yield* repository.getById(library)).roots;
+      expect(replaced.map(({ root }) => root)).toEqual([retained, added]);
+      expect(replaced[0]).toEqual(original[0]);
+      yield* repository.setRoots({ ...library, roots: [added, retained] });
+      expect((yield* repository.getById(library)).roots).toEqual(replaced);
+      yield* repository.setRoots({ ...library, roots: [] });
+      yield* repository.setRoots({ ...library, roots: [] });
+      expect((yield* repository.getById(library)).roots).toEqual([]);
+      expect((yield* repository.getById(other)).roots).toEqual(isolated);
+    })
+  );
+});
+
 it.layer(testLayer)('library lifecycle', (iit) => {
   iit.effect(
     'collects cached failures from both plugin components',
@@ -435,8 +582,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const library = yield* repository.create(createInput('Atomic roots'));
       yield* repository.setRoots({
         ...library,
-        roots: [StorageRootLocation.make('/original')],
+        roots: [StorageRootLocation.make('/original'), StorageRootLocation.make('/retained')],
       });
+      const original = (yield* repository.getById(library)).roots;
       yield* Effect.acquireRelease(
         sql`
           create trigger "rejectRootReplacement" before insert on "libraryRoot" when new.root = '/rejected-root-replacement' begin
@@ -451,14 +599,27 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           `.pipe(Effect.orDie)
       );
 
-      expect(
-        yield* repository
-          .setRoots({ ...library, roots: [StorageRootLocation.make('/rejected-root-replacement')] })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'SqlError' });
-      expect((yield* repository.getById(library)).roots.map(({ root }) => root)).toEqual([
-        '/original',
-      ]);
+      const exit = yield* repository
+        .setRoots({
+          ...library,
+          roots: [
+            StorageRootLocation.make('/retained'),
+            StorageRootLocation.make('/inserted-before-failure'),
+            StorageRootLocation.make('/rejected-root-replacement'),
+          ],
+        })
+        .pipe(Effect.exit);
+      expect(Exit.hasFails(exit)).toBe(false);
+      expect(Exit.findDefect(exit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'SqlError' },
+      });
+      expect((yield* repository.getById(library)).roots).toEqual(original);
+      // The failed transaction does not prevent subsequent replacement.
+      yield* repository.setRoots({ ...library, roots: [StorageRootLocation.make('/retained')] });
+      expect((yield* repository.getById(library)).roots).toEqual(
+        original.filter(({ root }) => root === '/retained')
+      );
     })
   );
 

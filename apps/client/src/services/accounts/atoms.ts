@@ -12,7 +12,7 @@ import { AppRuntime } from '#src/services/runtime.ts';
 
 export const accountsAtom = AppRuntime.atom(
   Effect.service(AccountRepository).pipe(
-    Effect.flatMap((repository) => repository.list()),
+    Effect.flatMap((repository) => repository.list),
     Reactivity.stream(['account'])
   )
 ).pipe(

@@ -29,10 +29,11 @@ import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { AccountsSheet, accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
 import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
 import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
-import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
+import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
+import { insertAccountFixture } from '#src/services/database/main/testing.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
@@ -225,13 +226,17 @@ describe('accountsSheetAtom', () => {
       'requires account selection and cannot be dismissed when no account is active',
       Effect.fnUntraced(
         function* () {
-          const accountRepository = yield* AccountRepository;
           const manager = yield* AccountManager;
           const testServer = yield* setupTestServerWithUsers({
             userCount: 1,
           });
           yield* signInTestServerUsers(manager, testServer);
-          yield* accountRepository.deactivateAll();
+          const sql = yield* MainDatabase;
+          yield* sql`
+            update account
+            set
+              active = 0
+          `;
 
           yield* Effect.gen(function* () {
             expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
@@ -258,7 +263,6 @@ describe('accountsSheetAtom', () => {
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
           const { drainScheduler } = yield* TestScheduler;
           const manager = yield* AccountManager;
-          const accountRepository = yield* AccountRepository;
           const account = {
             serverUrl: Account.fields.serverUrl.make('http://pending-session.example.test'),
             userId: Account.fields.userId.make('pending-session-id'),
@@ -270,7 +274,7 @@ describe('accountsSheetAtom', () => {
             profilePicture: Account.fields.profilePicture.make(null),
             active: false,
           };
-          yield* accountRepository.upsert(account);
+          yield* insertAccountFixture(account);
           const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
@@ -321,7 +325,6 @@ describe('accountsSheetAtom', () => {
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
           const { drainScheduler } = yield* TestScheduler;
           const manager = yield* AccountManager;
-          const accountRepository = yield* AccountRepository;
           const account = {
             serverUrl: Account.fields.serverUrl.make('http://failed-session.example.test'),
             userId: Account.fields.userId.make('failed-session-id'),
@@ -333,7 +336,7 @@ describe('accountsSheetAtom', () => {
             profilePicture: Account.fields.profilePicture.make(null),
             active: false,
           };
-          yield* accountRepository.upsert(account);
+          yield* insertAccountFixture(account);
           const getSessionResponse = yield* Deferred.make<Response, Error>();
           const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);

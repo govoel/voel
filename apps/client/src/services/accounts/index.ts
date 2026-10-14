@@ -9,7 +9,6 @@ import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClientMap, makeAuthStorageKey } from '#src/services/auth-client/index.ts';
 import type { AuthClient } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 
 export class UuidGenerator extends Context.Service<UuidGenerator>()(
@@ -44,19 +43,6 @@ export class AccountSignUpError extends Schema.TaggedError<
   reason: AuthError.fields.reason,
 }) {}
 
-export class AccountDatabaseError extends Schema.TaggedError<
-  AccountDatabaseError,
-  { readonly brand: unique symbol }
->('voel/services/accounts/AccountDatabaseError')('AccountDatabaseError', {}) {}
-
-export class AccountNotFoundError extends Schema.TaggedError<
-  AccountNotFoundError,
-  { readonly brand: unique symbol }
->('voel/services/accounts/AccountNotFoundError')('AccountNotFoundError', {
-  serverUrl: Account.fields.serverUrl,
-  userId: Account.fields.userId,
-}) {}
-
 export class NoActiveAccountError extends Schema.TaggedError<
   NoActiveAccountError,
   { readonly brand: unique symbol }
@@ -76,7 +62,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
   'voel/services/accounts/AccountManager',
   {
     make: Effect.gen(function* () {
-      const sql = yield* MainDatabase;
       const accountRepository = yield* AccountRepository;
       const uuidGenerator = yield* UuidGenerator;
       const cryptoDigest = yield* CryptoDigest;
@@ -84,63 +69,16 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const authClientMap = yield* AuthClientMap;
       const reactivity = yield* Reactivity.Reactivity;
 
-      const state = accountRepository.getActive().pipe(
-        Effect.map(Option.map((account) => ActiveAccountKey.make(account))),
-        Effect.catchTags({
-          SchemaError: () => AccountDatabaseError.make(),
-          SqlError: () => AccountDatabaseError.make(),
-        })
+      const state = accountRepository.getActive.pipe(
+        Effect.map(Option.map((account) => ActiveAccountKey.make(account)))
       );
       const changes = reactivity.stream(['account'], state).pipe(Stream.changes);
 
-      const setActiveAccount = Effect.fnUntraced(function* ({ serverUrl, userId }: AccountKey) {
-        yield* sql
-          .withTransaction(
-            Effect.gen(function* () {
-              yield* accountRepository.deactivateAll();
-              const persistedAccount = yield* accountRepository.activate({ serverUrl, userId });
-              if (Option.isNone(persistedAccount)) {
-                return yield* AccountNotFoundError.make({ serverUrl, userId });
-              }
+      const setActiveAccount = (key: AccountKey) =>
+        reactivity.mutation(['account'], accountRepository.setActive(key));
 
-              return persistedAccount.value;
-            })
-          )
-          .pipe(
-            (effect) => reactivity.mutation(['account'], effect),
-            Effect.catchTags({
-              SchemaError: () => AccountDatabaseError.make(),
-              SqlError: () => AccountDatabaseError.make(),
-            })
-          );
-      });
-
-      const upsertAccount = Effect.fnUntraced(function* ({
-        account,
-      }: {
-        readonly account: Omit<AccountUpsert, 'active'>;
-      }) {
-        yield* sql
-          .withTransaction(
-            Effect.gen(function* () {
-              yield* accountRepository.deactivateAll();
-
-              const persistedAccount = yield* accountRepository.upsert({
-                ...account,
-                active: true,
-              });
-
-              return persistedAccount;
-            })
-          )
-          .pipe(
-            (effect) => reactivity.mutation(['account'], effect),
-            Effect.catchTags({
-              SchemaError: () => AccountDatabaseError.make(),
-              SqlError: () => AccountDatabaseError.make(),
-            })
-          );
-      });
+      const upsertAccount = ({ account }: { readonly account: AccountUpsert }) =>
+        reactivity.mutation(['account'], accountRepository.upsertActive(account));
 
       const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
         // we ignore errors here because the server may be offline
@@ -166,13 +104,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
           { concurrency: 'unbounded' }
         );
 
-        yield* accountRepository.remove(key).pipe(
-          (effect) => reactivity.mutation(['account'], effect),
-          Effect.catchTags({
-            SchemaError: () => AccountDatabaseError.make(),
-            SqlError: () => AccountDatabaseError.make(),
-          })
-        );
+        yield* accountRepository
+          .remove(key)
+          .pipe((effect) => reactivity.mutation(['account'], effect));
       });
 
       const removeActiveAccount = state.pipe(
@@ -281,8 +215,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         AuthClientStorage.layer,
         Reactivity.layer,
         UuidGenerator.layer,
-        CryptoDigest.layer,
-        MainDatabase.layer
+        CryptoDigest.layer
       )
     )
   );

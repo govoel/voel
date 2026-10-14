@@ -60,7 +60,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         ) as roots
       `;
 
-      return {
+      const queries = {
         getById: SqlSchema.findOne({
           Request: Schema.Struct({ id: Library.fields.id }),
           Result: LibraryRow,
@@ -173,6 +173,52 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           `,
         }),
       };
+
+      // Only domain failures leave the repository; malformed rows/requests and
+      // unexpected database outcomes are defects, not recoverable caller errors.
+      return {
+        getById: (request: Parameters<typeof queries.getById>[0]) =>
+          queries.getById(request).pipe(
+            Effect.catchTag('NoSuchElementError', () =>
+              LibraryNotFoundError.make({ id: request.id })
+            ),
+            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
+          ),
+        list: (request: Parameters<typeof queries.list>[0]) =>
+          queries.list(request).pipe(Effect.orDie),
+        create: (request: Parameters<typeof queries.create>[0]) =>
+          queries.create(request).pipe(
+            Effect.catchReason('SqlError', 'UniqueViolation', () =>
+              LibraryNameConflictError.make({ name: request.name })
+            ),
+            Effect.catchTags({
+              SchemaError: Effect.die,
+              SqlError: Effect.die,
+              NoSuchElementError: Effect.die,
+            })
+          ),
+        rename: (request: Parameters<typeof queries.rename>[0]) =>
+          queries.rename(request).pipe(
+            Effect.catchReason('SqlError', 'UniqueViolation', () =>
+              LibraryNameConflictError.make({ name: request.name })
+            ),
+            Effect.catchTag('NoSuchElementError', () =>
+              LibraryNotFoundError.make({ id: request.id })
+            ),
+            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
+          ),
+        setSettings: (request: Parameters<typeof queries.setSettings>[0]) =>
+          queries.setSettings(request).pipe(
+            Effect.catchTag('NoSuchElementError', () =>
+              LibraryNotFoundError.make({ id: request.id })
+            ),
+            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
+          ),
+        setRoots: (request: Parameters<typeof queries.setRoots>[0]) =>
+          queries.setRoots(request).pipe(Effect.orDie),
+        deleteById: (request: Parameters<typeof queries.deleteById>[0]) =>
+          queries.deleteById(request).pipe(Effect.orDie),
+      };
     }),
   }
 ) {
@@ -188,12 +234,6 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
     const editors = yield* StoragePluginSettingsMap;
     const stores = yield* StoragePluginMap;
     const retirementScope = yield* Effect.scope;
-
-    const get = ({ id }: Pick<Library, 'id'>) =>
-      repository.getById({ id }).pipe(
-        Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
-        Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die })
-      );
 
     const health = Effect.fnUntraced(function* (row: typeof LibraryRow.Type) {
       const [cached, failures] = yield* Effect.partition(
@@ -251,7 +291,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
         .handle(
           'get',
           Effect.fnUntraced(function* ({ params }) {
-            const row = yield* get(params);
+            const row = yield* repository.getById(params);
             return { ...row, storagePluginHealth: yield* health(row) };
           })
         )
@@ -260,9 +300,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
         .handle(
           'list',
           Effect.fnUntraced(function* ({ query }) {
-            const rows = yield* repository
-              .list({ cursor: query.cursor, limit: query.limit + 1 })
-              .pipe(Effect.orDie);
+            const rows = yield* repository.list({ cursor: query.cursor, limit: query.limit + 1 });
             const items = yield* Effect.forEach(
               rows.slice(0, query.limit),
               (row) =>
@@ -281,31 +319,12 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
           })
         )
 
-        .handle(
-          'create',
-          Effect.fnUntraced(function* ({ payload }) {
-            return yield* repository.create(payload).pipe(
-              Effect.catchReason('SqlError', 'UniqueViolation', () =>
-                LibraryNameConflictError.make({ name: payload.name })
-              ),
-              Effect.catchTags({
-                SchemaError: Effect.die,
-                SqlError: Effect.die,
-                NoSuchElementError: Effect.die,
-              })
-            );
-          })
-        )
+        .handle('create', ({ payload }) => repository.create(payload))
 
         .handle(
           'update',
           Effect.fnUntraced(function* ({ params: { id }, payload: { name } }) {
             return yield* repository.rename({ id, name }).pipe(
-              Effect.catchReason('SqlError', 'UniqueViolation', () =>
-                LibraryNameConflictError.make({ name })
-              ),
-              Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
-              Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
               Effect.tap(() => retire({ id })),
               Effect.uninterruptible
             );
@@ -315,7 +334,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
         .handle(
           'getStoragePluginSettingsForm',
           Effect.fnUntraced(function* ({ params: { id } }) {
-            const row = yield* get({ id });
+            const row = yield* repository.getById({ id });
             const editor = yield* editors.acquire({
               storagePlugin: row.storagePlugin,
               library: row,
@@ -327,7 +346,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
         .handle(
           'setStoragePluginSettings',
           Effect.fnUntraced(function* ({ params: { id }, payload: { input } }) {
-            const row = yield* get({ id });
+            const row = yield* repository.getById({ id });
             const editor = yield* editors.acquire({
               storagePlugin: row.storagePlugin,
               library: row,
@@ -337,8 +356,6 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               input,
             });
             return yield* repository.setSettings({ id, settings }).pipe(
-              Effect.catchTag('NoSuchElementError', () => LibraryNotFoundError.make({ id })),
-              Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
               Effect.tap(() => retire({ id })),
               Effect.uninterruptible
             );
@@ -350,7 +367,7 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
           'setRoots',
           Effect.fnUntraced(
             function* ({ params: { id }, payload: { roots } }) {
-              const row = yield* get({ id });
+              const row = yield* repository.getById({ id });
               if (Option.isNone(row.storagePluginSettings)) {
                 return yield* LibraryUnconfiguredError.make({ id });
               }
@@ -377,14 +394,14 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (
               return { id, roots: unique.map((root) => ({ root })) };
             },
             sql.withTransaction,
-            Effect.catchTags({ SchemaError: Effect.die, SqlError: Effect.die }),
+            // Beginning the workflow transaction can still fail outside the repository.
+            Effect.catchTag('SqlError', Effect.die),
             Effect.scoped
           )
         )
 
         .handle('delete', ({ params: { id } }) =>
           repository.deleteById({ id }).pipe(
-            Effect.orDie,
             Effect.tap(() => retire({ id })),
             Effect.uninterruptible
           )

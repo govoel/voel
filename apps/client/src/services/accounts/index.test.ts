@@ -4,16 +4,15 @@ import { Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stre
 import type { Scope } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
+import { vi } from 'vitest';
 
-import {
-  AccountManager,
-  AccountNotFoundError,
-  ActiveAccountKey,
-} from '#src/services/accounts/index.ts';
+import { AccountDatabaseError, AccountNotFoundError } from '#src/services/accounts/errors.ts';
+import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClient, AuthClientMap } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
+import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
@@ -25,16 +24,16 @@ import {
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
 
-const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list()));
+const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list));
 
 const getActiveAccount = AccountRepository.pipe(
-  Effect.flatMap((repository) => repository.getActive())
+  Effect.flatMap((repository) => repository.getActive)
 );
 
 const forkNextActiveAccountChange = Effect.gen(function* () {
   const accountRepository = yield* AccountRepository;
   const subscribed = yield* Deferred.make<true>();
-  const fiber = yield* accountRepository.getActive().pipe(
+  const fiber = yield* accountRepository.getActive.pipe(
     Reactivity.stream(['account']),
     Stream.tap(() => Deferred.succeed(subscribed, true)),
     Stream.drop(1),
@@ -126,7 +125,7 @@ describe('AccountManager', () => {
         const username = Account.fields.username.make('restored');
         const authStorageId = Account.fields.authStorageId.make('restored-auth-storage');
 
-        yield* accountRepository.upsert({
+        yield* accountRepository.upsertActive({
           serverUrl,
           userId,
           username,
@@ -135,7 +134,6 @@ describe('AccountManager', () => {
           authStorageId,
           role: Account.fields.role.make('user'),
           profilePicture: Account.fields.profilePicture.make(null),
-          active: true,
         });
 
         yield* Effect.gen(function* () {
@@ -430,6 +428,68 @@ describe('AccountManager', () => {
               }),
             ])
           );
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    iit.effect(
+      'continues synchronizing later session events after a domain persistence failure',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const repository = yield* AccountRepository;
+          const sql = yield* MainDatabase;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          yield* signInTestServerUsers(manager, testServer);
+          const activeKey = Option.getOrThrow(yield* manager.state);
+          const authClient = yield* AuthClientMap.use((clients) => clients.acquire(activeKey));
+          yield* waitForSessionRequest(authClient);
+          const before = Option.getOrThrow(yield* repository.getActive);
+          yield* sql`
+            create trigger reject_profile_sync before
+            update of name on account when new.name = 'Rejected profile' begin
+            select
+              raise (abort, 'Forced session persistence failure');
+
+            end
+          `;
+
+          const failedSync = yield* Deferred.make<AccountDatabaseError>();
+          const { updateProfile } = repository;
+          const updateSpy = vi
+            .spyOn(repository, 'updateProfile')
+            .mockImplementation((profile) =>
+              updateProfile(profile).pipe(
+                Effect.tapError((error) => Deferred.succeed(failedSync, error))
+              )
+            );
+          yield* Effect.addFinalizer(() =>
+            Effect.sync(() => {
+              updateSpy.mockRestore();
+            })
+          );
+          const nextAccountChange = yield* forkNextActiveAccountChange;
+
+          yield* authClient.updateUser({ name: 'Rejected profile' });
+          const error = yield* Deferred.await(failedSync);
+          expect(error).toBeInstanceOf(AccountDatabaseError);
+          expect(error.cause).toMatchObject({ _tag: 'SqlError' });
+          expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
+            name: before.name,
+            authStorageId: activeKey.authStorageId,
+          });
+
+          yield* authClient.updateUser({ name: 'Recovered profile' });
+          const synchronizedAccount = Option.getOrThrow(
+            Option.getOrThrow(yield* Fiber.join(nextAccountChange))
+          );
+          expect(synchronizedAccount).toMatchObject({
+            name: 'Recovered profile',
+            authStorageId: activeKey.authStorageId,
+            active: true,
+          });
+          expect(Option.getOrThrow(yield* repository.getActive).name).toBe('Recovered profile');
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )

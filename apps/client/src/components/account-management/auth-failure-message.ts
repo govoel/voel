@@ -3,7 +3,8 @@ import { Match } from 'effect';
 import type { BetterAuthClientInitializationError } from '@repo/auth-api/client.ts';
 import type { AuthError } from '@repo/auth-api/shared.ts';
 
-import type { AccountDatabaseError, NoActiveAccountError } from '#src/services/accounts/index.ts';
+import type { AccountDatabaseError } from '#src/services/accounts/errors.ts';
+import type { NoActiveAccountError } from '#src/services/accounts/index.ts';
 import type { AuthClientStorageRemoveItemError } from '#src/services/auth-client/storage.ts';
 
 export const authFailureMessage = ({
