@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
@@ -10,11 +10,11 @@ import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import {
-  activeUserProfileAtom,
   ownSessionsAtom,
   signOutEverywhereAtom,
   useChangePasswordForm,
   useUserProfileForm,
+  userProfileAtom,
 } from '#src/app/accounts/profile/index.ts';
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { SessionList } from '#src/components/account-management/session-list';
@@ -28,7 +28,8 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { accountAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/services/accounts/index.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -84,10 +85,12 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
 };
 
 const LoadedProfile = ({
+  accountKey,
   profile: { email, name, role, username },
 }: {
+  accountKey: AccountStorageKey;
   profile: Pick<
-    Option.Option.Value<Atom.Success<typeof activeUserProfileAtom>>,
+    Option.Option.Value<Atom.Success<ReturnType<typeof userProfileAtom>>>,
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
@@ -135,7 +138,7 @@ const LoadedProfile = ({
           </SegmentedListItem>
         </SegmentedList>
 
-        <OwnSessions />
+        <OwnSessions accountKey={accountKey} />
 
         <SegmentedList>
           <MutationConfirmation
@@ -147,7 +150,7 @@ const LoadedProfile = ({
                 </SegmentedListItem.HeadlineContent>
               </SegmentedListItem>
             )}
-            mutation={signOutEverywhereAtom}
+            mutation={signOutEverywhereAtom(accountKey)}
             title="Sign out everywhere"
             confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"
@@ -166,9 +169,15 @@ const LoadedProfile = ({
         {({ close }) =>
           Match.value(editor).pipe(
             Match.when('profile', () => (
-              <UserProfileEditor profile={{ name, username }} onSuccess={close} />
+              <UserProfileEditor
+                accountKey={accountKey}
+                profile={{ name, username }}
+                onSuccess={close}
+              />
             )),
-            Match.when('password', () => <PasswordForm onSuccess={close} />),
+            Match.when('password', () => (
+              <PasswordForm accountKey={accountKey} onSuccess={close} />
+            )),
             Match.when(null, () => null),
             Match.exhaustive
           )
@@ -178,47 +187,65 @@ const LoadedProfile = ({
   );
 };
 
+const ProfileContent = ({ accountKey }: { accountKey: AccountStorageKey }) => {
+  const state = useAtomValue(userProfileAtom(accountKey));
+  const refresh = useAtomRefresh(accountAtom(accountKey));
+  return AsyncResult.matchWithError(state, {
+    onInitial: () => (
+      <ProfileList>
+        <ListState kind="loading" />
+      </ProfileList>
+    ),
+    onError: () => (
+      <ProfileList>
+        <ListState
+          kind="error"
+          message="Unable to load your profile."
+          onRetry={refresh}
+          retrying={state.waiting}
+        />
+      </ProfileList>
+    ),
+    onDefect: () => (
+      <ProfileList>
+        <ListState
+          kind="error"
+          message="Unable to load your profile."
+          onRetry={refresh}
+          retrying={state.waiting}
+        />
+      </ProfileList>
+    ),
+    onSuccess: ({ value }) =>
+      Option.match(value, {
+        onNone: () => (
+          <ProfileList>
+            <ListState kind="empty" message="No active user." />
+          </ProfileList>
+        ),
+        onSome: (profile) => (
+          <LoadedProfile
+            key={JSON.stringify([accountKey, profile.id])}
+            accountKey={accountKey}
+            profile={profile}
+          />
+        ),
+      }),
+  });
+};
+
 export default function ProfileScreen() {
-  const state = useAtomValue(activeUserProfileAtom);
-  const refresh = useAtomRefresh(activeAccountAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
 
   return (
     <AndroidAccountsSheet>
-      {AsyncResult.matchWithError(state, {
-        onInitial: () => (
+      {Option.match(accountKey, {
+        onNone: () => (
           <ProfileList>
-            <ListState kind="loading" />
+            <ListState kind="empty" message="No active user." />
           </ProfileList>
         ),
-        onError: () => (
-          <ProfileList>
-            <ListState
-              kind="error"
-              message="Unable to load your profile."
-              onRetry={refresh}
-              retrying={state.waiting}
-            />
-          </ProfileList>
-        ),
-        onDefect: () => (
-          <ProfileList>
-            <ListState
-              kind="error"
-              message="Unable to load your profile."
-              onRetry={refresh}
-              retrying={state.waiting}
-            />
-          </ProfileList>
-        ),
-        onSuccess: ({ value }) =>
-          Option.match(value, {
-            onNone: () => (
-              <ProfileList>
-                <ListState kind="empty" message="No active user." />
-              </ProfileList>
-            ),
-            onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
-          }),
+        onSome: (key) => <ProfileContent key={JSON.stringify(key)} accountKey={key} />,
       })}
     </AndroidAccountsSheet>
   );
@@ -270,10 +297,11 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
   );
 };
 
-const OwnSessions = () => {
+const OwnSessions = ({ accountKey }: { accountKey: AccountStorageKey }) => {
   const router = useRouter();
-  const state = useAtomValue(ownSessionsAtom);
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const sessionsAtom = ownSessionsAtom(accountKey);
+  const state = useAtomValue(sessionsAtom);
+  const refresh = useAtomRefresh(sessionsAtom);
   return (
     <>
       <Text variant="h4">Active Sessions</Text>

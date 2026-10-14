@@ -1,11 +1,11 @@
 import { useAtom } from '@effect/atom-react';
-import { Cause, Effect, Exit, Match, Option } from 'effect';
+import { Array, Cause, Effect, Equal, Exit, Match, Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
-import { AccountManager } from '#src/services/accounts/index.ts';
+import { accountsAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager, AccountStorageKey } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -14,14 +14,16 @@ export const setActiveAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
 ).pipe(Atom.withLabel('setActiveAccountAtom'));
 
-export const removeAccountAtom = AppRuntime.fn(() =>
-  AccountManager.pipe(Effect.flatMap((manager) => manager.removeActiveAccount))
-).pipe(Atom.withLabel('removeAccountAtom'));
+export const removeAccountAtom = Atom.family((account: AccountStorageKey) =>
+  AppRuntime.fn(() =>
+    AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(account)))
+  ).pipe(Atom.withLabel('removeAccountAtom'))
+);
 
 export const removeAccountFailureMessage = ({
   error,
 }: {
-  readonly error: Atom.Failure<typeof removeAccountAtom>;
+  readonly error: Atom.Failure<ReturnType<typeof removeAccountAtom>>;
 }) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
@@ -30,35 +32,25 @@ export const removeAccountFailureMessage = ({
     })
   );
 
-export const accountsWithActiveAccount = AppRuntime.atom(
-  Effect.fnUntraced(function* (get) {
-    const [accounts, activeAccount] = yield* Effect.all(
-      [
-        get.result(accountsAtom),
-        get.result(activeAccountAtom).pipe(
-          Effect.map(
-            Option.map((account) => ({
-              active: account.active,
-              authStorageId: account.authStorageId,
-              createdAt: account.createdAt,
-              email: account.email,
-              hostname: new URL(account.serverUrl).hostname,
-              name: account.name,
-              profilePicture: account.profilePicture,
-              role: account.role,
-              serverUrl: account.serverUrl,
-              updatedAt: account.updatedAt,
-              userId: account.userId,
-              username: account.username,
-            }))
+export const accountsWithActiveAccount = Atom.readable(
+  (get) =>
+    // oxlint-disable-next-line unicorn/no-array-method-this-argument -- AsyncResult.flatMap is not an array method.
+    AsyncResult.flatMap(get(activeAccountKeyAtom), (accountKey) =>
+      AsyncResult.map(get(accountsAtom), (accounts) => ({
+        accounts,
+        activeAccount: accountKey.pipe(
+          Option.flatMap((key) =>
+            Array.findFirst(accounts, (account) =>
+              Equal.equals(AccountStorageKey.make(account), key)
+            )
           )
         ),
-      ],
-      { concurrency: 'unbounded' }
-    );
-
-    return { accounts, activeAccount };
-  })
+      }))
+    ),
+  (refresh) => {
+    refresh(activeAccountKeyAtom);
+    refresh(accountsAtom);
+  }
 ).pipe(
   withPredefinedStates(() => [
     {

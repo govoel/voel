@@ -1,25 +1,29 @@
 import { Effect, Schema } from 'effect';
+import { Atom } from 'effect/reactivity';
 
 import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { useAppForm } from '#src/components/form';
-import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
+import { accountAuthClientAtom } from '#src/services/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/services/accounts/index.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
-const createServerUserAtom = AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
-    return yield* client.admin.createUser({
-      name: input.name,
-      username: input.username,
-      email: input.email,
-      password: input.password,
-      role: input.role,
-    });
-  }),
-  { reactivityKeys: ['auth.users'] }
+const createServerUserAtom = Atom.family((account: AccountStorageKey) =>
+  AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
+    Effect.fnUntraced(function* (input, get) {
+      const client = yield* get.result(accountAuthClientAtom(account));
+      return yield* client.admin.createUser({
+        name: input.name,
+        username: input.username,
+        email: input.email,
+        password: input.password,
+        role: input.role,
+      });
+    }),
+    { reactivityKeys: ['auth.users'] }
+  )
 );
 
 class CreateUserInput extends AuthCreateUserInput.pipe(
@@ -37,15 +41,17 @@ class CreateUserInput extends AuthCreateUserInput.pipe(
 ) {}
 
 export const useCreateUserForm = ({
+  accountKey,
   onSuccess,
 }: {
+  readonly accountKey: AccountStorageKey;
   readonly onSuccess: (props: {
     readonly userId: typeof AuthUser.fields.id.Type;
   }) => void | Promise<void>;
 }) =>
   useAppForm({
     schema: CreateUserInput,
-    mutation: createServerUserAtom,
+    mutation: createServerUserAtom(accountKey),
     defaultValues: {
       name: '',
       username: '',

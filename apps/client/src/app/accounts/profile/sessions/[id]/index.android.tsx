@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
@@ -18,11 +18,19 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/services/accounts/index.ts';
 
-const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
+const SessionContent = ({
+  accountKey,
+  id,
+}: {
+  accountKey: AccountStorageKey;
+  id: typeof AuthDeviceSession.fields.id.Type;
+}) => {
   const router = useRouter();
-  const state = useAtomValue(ownSessionAtom(id));
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const state = useAtomValue(ownSessionAtom({ account: accountKey, id }));
+  const refresh = useAtomRefresh(ownSessionsAtom(accountKey));
   const colors = useMaterialColors();
 
   return AsyncResult.matchWithError(state, {
@@ -60,7 +68,7 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
                       </SegmentedListItem.HeadlineContent>
                     </SegmentedListItem>
                   )}
-                  mutation={revokeOwnSessionAtom}
+                  mutation={revokeOwnSessionAtom(accountKey)}
                   schema={AuthRevokeSessionInput}
                   defaultValues={{ token: session.token }}
                   title="Sign out"
@@ -78,6 +86,7 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
 };
 
 export default function SessionScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id } = useLocalSearchParams<{ id: typeof AuthDeviceSession.fields.id.Type }>();
   return (
     <AndroidAccountsSheet>
@@ -85,7 +94,12 @@ export default function SessionScreen() {
         verticalArrangement={{ spacedBy: Spacing.two }}
         contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
         <Text variant="h4">Session Details</Text>
-        <SessionContent key={id} id={id} />
+        {Option.match(accountKey, {
+          onNone: () => <ListState kind="empty" message="No active account." />,
+          onSome: (key) => (
+            <SessionContent key={JSON.stringify([key, id])} accountKey={key} id={id} />
+          ),
+        })}
       </LazyColumn>
     </AndroidAccountsSheet>
   );

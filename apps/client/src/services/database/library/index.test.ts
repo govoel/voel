@@ -25,7 +25,7 @@ import { Api } from '@repo/spec-api';
 import { Library, MediaType } from '@repo/spec-api/database/schema.ts';
 import { AuthMiddleware } from '@repo/spec-api/middlewares/auth.ts';
 
-import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
+import { AccountManager, AccountStorageKey } from '#src/services/accounts/index.ts';
 import { AuthClientMap } from '#src/services/auth-client/index.ts';
 import { LibraryDatabase, LibraryDatabaseMap } from '#src/services/database/library/index.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
@@ -201,7 +201,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
 
         const idle = yield* Effect.gen(function* () {
           const firstDatabase = yield* databases.acquire(first.account);
-          const reused = yield* databases.acquire(ActiveAccountKey.make(first.account));
+          const reused = yield* databases.acquire(AccountStorageKey.make(first.account));
           const updatedProfile = {
             serverUrl: first.account.serverUrl,
             userId: first.account.userId,
@@ -251,7 +251,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         const database = yield* LibraryDatabase.make(account);
         expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
         yield* createLibrary('Movies');
-        yield* AccountManager.use((accounts) => accounts.removeActiveAccount);
+        yield* AccountManager.use((accounts) => accounts.removeAccount(account));
         const signedOut = yield* authentication.sessionChanges.pipe(
           Stream.filter((session) => !session.waiting),
           Stream.filter(AsyncResult.isSuccess),

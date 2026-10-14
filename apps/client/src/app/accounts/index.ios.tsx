@@ -40,6 +40,7 @@ import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+import { AccountStorageKey } from '#src/services/accounts/index.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();
@@ -194,8 +195,8 @@ export default function AccountsScreen() {
                           <StackNavigationRow title="Settings" href="/accounts/settings" />
 
                           <MutationConfirmation
-                            key={`${account.serverUrl}-${account.userId}`}
-                            mutation={removeAccountAtom}
+                            key={JSON.stringify(AccountStorageKey.make(account))}
+                            mutation={removeAccountAtom(AccountStorageKey.make(account))}
                             onFailure={removeAccountFailureMessage}
                             title="Remove account from this device?"
                             confirmLabel="Remove"
@@ -221,7 +222,7 @@ export default function AccountsScreen() {
                                   modifiers={[
                                     foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
                                   ]}>
-                                  {account.hostname}
+                                  {new URL(account.serverUrl).hostname}
                                 </Text>
                               </VStack>
                             }>
@@ -254,7 +255,7 @@ export default function AccountsScreen() {
                         <List.ForEach
                           data={accountList}
                           keyExtractor={(account) =>
-                            JSON.stringify([account.serverUrl.toString(), account.userId])
+                            JSON.stringify(AccountStorageKey.make(account))
                           }>
                           {({ item }) => (
                             <Button

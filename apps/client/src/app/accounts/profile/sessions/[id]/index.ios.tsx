@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
@@ -15,11 +15,19 @@ import { SessionDetails } from '#src/components/account-management/session-detai
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/services/accounts/index.ts';
 
-const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
+const SessionContent = ({
+  accountKey,
+  id,
+}: {
+  accountKey: AccountStorageKey;
+  id: typeof AuthDeviceSession.fields.id.Type;
+}) => {
   const router = useRouter();
-  const state = useAtomValue(ownSessionAtom(id));
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const state = useAtomValue(ownSessionAtom({ account: accountKey, id }));
+  const refresh = useAtomRefresh(ownSessionsAtom(accountKey));
 
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
@@ -69,7 +77,7 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
                       <Text>Sign out</Text>
                     </Button>
                   )}
-                  mutation={revokeOwnSessionAtom}
+                  mutation={revokeOwnSessionAtom(accountKey)}
                   schema={AuthRevokeSessionInput}
                   defaultValues={{ token: session.token }}
                   title="Sign out"
@@ -87,13 +95,23 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
 };
 
 export default function SessionScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id } = useLocalSearchParams<{ id: typeof AuthDeviceSession.fields.id.Type }>();
   return (
     <>
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <SessionContent key={id} id={id} />
+          {Option.match(accountKey, {
+            onNone: () => (
+              <Section>
+                <ListState kind="empty" message="No active account." />
+              </Section>
+            ),
+            onSome: (key) => (
+              <SessionContent key={JSON.stringify([key, id])} accountKey={key} id={id} />
+            ),
+          })}
         </List>
       </Host>
     </>

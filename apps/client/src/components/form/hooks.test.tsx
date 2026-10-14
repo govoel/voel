@@ -1,6 +1,7 @@
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { useSelector } from '@tanstack/react-form';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Effect, Layer, Option, Schema } from 'effect';
+import { Deferred, Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
@@ -141,6 +142,64 @@ describe('createEffectSchemaFormHook', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('awaits the captured mutation while another account is selected during submission', async () => {
+    const started = Deferred.makeUnsafe<true>();
+    const completion = Deferred.makeUnsafe<string>();
+    const next = runtime.fn((_input: Schema.Void['Type']) => Effect.succeed('next account'));
+    const first = runtime.fn((_input: Schema.Void['Type']) =>
+      Deferred.succeed(started, true).pipe(Effect.andThen(Deferred.await(completion)))
+    );
+    const selected = Atom.make<Atom.AtomResultFn<Schema.Void['Type'], string>>(first);
+    const onSuccess = vi.fn();
+    const TestForm = () => {
+      const mutation = useAtomValue(selected);
+      const select = useAtomSet(selected);
+      const form = useAppForm({
+        mutation,
+        onSubmitMeta: { source: 'remove' },
+        onFailure: () => 'failed',
+        onSuccess: ({ value, result, meta }) => {
+          onSuccess({ value, result, meta });
+        },
+      });
+      return (
+        <form.AppForm>
+          <RetrySubmitButton />
+          <Text testID="selection">{mutation === first ? 'first account' : 'next account'}</Text>
+          <Pressable
+            role="button"
+            onPress={() => {
+              select(next);
+            }}>
+            <Text>Select next account</Text>
+          </Pressable>
+        </form.AppForm>
+      );
+    };
+    await render(<TestForm />);
+    const user = makeUser();
+    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    await Effect.runPromise(Deferred.await(started));
+    await user.press(screen.getByRole('button', { name: 'Select next account' }));
+    expect(screen.getByTestId('selection')).toHaveTextContent('next account');
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    expect(onSuccess.mock.calls).toEqual([]);
+
+    await Effect.runPromise(Deferred.succeed(completion, 'removed first account'));
+    await waitFor(() => {
+      expect(onSuccess.mock.calls).toEqual([
+        [{ value: void 0, result: 'removed first account', meta: { source: 'remove' } }],
+      ]);
+    });
+    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(() => {
+      expect(onSuccess.mock.calls).toEqual([
+        [{ value: void 0, result: 'removed first account', meta: { source: 'remove' } }],
+        [{ value: void 0, result: 'next account', meta: { source: 'remove' } }],
+      ]);
+    });
   });
 
   it('stores a string mutation failure without invalidating the form', async () => {

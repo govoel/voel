@@ -8,7 +8,7 @@ import { TestClock } from 'effect/testing';
 import {
   AccountManager,
   AccountNotFoundError,
-  ActiveAccountKey,
+  AccountStorageKey,
 } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
@@ -67,7 +67,7 @@ describe('AccountManager', () => {
           serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
           authStorageId: Account.fields.authStorageId.make('auth-storage-id'),
         };
-        const activeAccount = ActiveAccountKey.make({
+        const activeAccount = AccountStorageKey.make({
           ...authStorage,
           userId: Account.fields.userId.make('user-id'),
         });
@@ -692,12 +692,12 @@ describe('AccountManager', () => {
           const manager = yield* AccountManager;
           const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
           const [first, second] = yield* signInTestServerUsers(manager, testServer);
-          const firstKey = ActiveAccountKey.make({
+          const firstKey = AccountStorageKey.make({
             serverUrl: first.serverUrl,
             userId: first.userId,
             authStorageId: first.authStorageId,
           });
-          const secondKey = ActiveAccountKey.make({
+          const secondKey = AccountStorageKey.make({
             serverUrl: second.serverUrl,
             userId: second.userId,
             authStorageId: second.authStorageId,
@@ -729,7 +729,7 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layer)('removeActiveAccount', (iit) => {
+  it.layer(TestServerControllerClient.layer)('removeAccount', (iit) => {
     const storageItems = new Map<string, string>();
 
     iit.effect(
@@ -765,7 +765,7 @@ describe('AccountManager', () => {
               user: { id: account.userId },
             });
 
-            yield* manager.removeActiveAccount;
+            yield* manager.removeAccount(AccountStorageKey.make(account));
 
             expect(storageItems.size).toEqual(0);
             yield* authClient.refreshSession({ query: { disableCookieCache: true } });
