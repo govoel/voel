@@ -39,6 +39,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const authClientMap = yield* AuthClientMap;
       const reactivity = yield* Reactivity.Reactivity;
 
+      // Restoration is a domain prerequisite; the repository owns validation and commit.
+      yield* reactivity.mutation(['account'], accountRepository.normalizeSelection);
+
       const state = accountRepository.getActive.pipe(
         Effect.map(Option.map((account) => AccountStorageKey.make(account)))
       );

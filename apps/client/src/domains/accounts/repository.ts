@@ -14,6 +14,59 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
       const sql = yield* MainDatabase;
 
       const queries = {
+        normalizeSelection: SqlSchema.void({
+          Request: Schema.Void,
+          execute: () =>
+            Effect.gen(function* () {
+              yield* sql`
+                update account
+                set
+                  active = 0
+                where
+                  active = 1
+                  and rowid != (
+                    select
+                      rowid
+                    from
+                      account
+                    where
+                      active = 1
+                    order by
+                      "serverUrl",
+                      "userId"
+                    limit
+                      1
+                  )
+              `;
+              yield* sql`
+                update account
+                set
+                  active = 1
+                where
+                  rowid = (
+                    select
+                      rowid
+                    from
+                      account
+                    order by
+                      "serverUrl",
+                      "userId"
+                    limit
+                      1
+                  )
+                  and not exists (
+                    select
+                      1
+                    from
+                      account
+                    where
+                      active = 1
+                  )
+              `;
+            }),
+        }),
+
+
         list: SqlSchema.findAll({
           Request: Schema.Void,
           Result: Account,
@@ -265,18 +318,43 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             ),
             Effect.catchTags({ SchemaError: Effect.die })
           ),
-        remove: (key: Parameters<typeof queries.remove>[0]) =>
-          queries.remove(key).pipe(
-            Effect.catchReasons(
-              'SqlError',
-              {
-                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
-                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
-              },
-              (_reason, cause) => Effect.die(cause)
-            ),
-            Effect.catchTags({ SchemaError: Effect.die })
+        // Removal and selection repair are one repository-owned transaction.
+        remove: Effect.fnUntraced(
+          function* (key: Parameters<typeof queries.remove>[0]) {
+            yield* sql.withTransaction(
+              Effect.gen(function* () {
+                yield* queries.remove(key);
+                yield* queries.normalizeSelection();
+                // Decode before commit so a corrupt fallback rolls back the deletion.
+                yield* queries.getActive();
+              })
+            );
+          },
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
           ),
+          Effect.catchTags({ SchemaError: Effect.die })
+        ),
+        normalizeSelection: Effect.gen(function* () {
+          yield* queries.normalizeSelection();
+          yield* queries.getActive();
+        }).pipe(
+          sql.withTransaction,
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
+          Effect.catchTags({ SchemaError: Effect.die })
+        ),
       };
     }),
   }

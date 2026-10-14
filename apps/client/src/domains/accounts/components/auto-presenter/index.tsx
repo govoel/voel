@@ -1,21 +1,26 @@
-import { useAtomSuspense } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import { Equal, Option } from 'effect';
+import { AsyncResult } from 'effect/reactivity';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import type { AccountsSheet } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { accountsSheetAtom, accountsSheetIsIdle } from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { accountsSheetAtom, accountsSheetIsInvalidSession } from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 
 export const AccountsAutoPresenter = () => {
   const router = useRouter();
   const pathname = usePathname();
 
-  const sheet = useAtomSuspense(accountsSheetAtom);
+  const sheet = useAtomValue(accountsSheetAtom);
 
   const lastPresentedRef = useRef<Option.Option<AccountsSheet>>(Option.none());
 
   useEffect(() => {
-    if (accountsSheetIsIdle(sheet.value)) {
+    if (
+      !AsyncResult.isSuccess(sheet) ||
+      sheet.waiting ||
+      !accountsSheetIsInvalidSession(sheet.value)
+    ) {
       lastPresentedRef.current = Option.none();
       return;
     }

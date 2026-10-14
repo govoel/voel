@@ -11,8 +11,10 @@ import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
+import { MainDatabase } from '#src/database/main/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 import { makeAuthClient, makeClientTestLayers, makeServerUrl, makeUsername, setupTestServerWithUsers, signInTestServerUsers } from '#src/testing/utils.ts';
+
 
 
 const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list));
@@ -20,6 +22,41 @@ const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => reposi
 const getActiveAccount = AccountRepository.pipe(
   Effect.flatMap((repository) => repository.getActive)
 );
+
+const storedAccount = ({
+  userId,
+  serverUrl = 'https://stored.example.test',
+  username = userId,
+  authStorageId = `storage-${userId}`,
+  active = false,
+}: {
+  readonly userId: string;
+  readonly serverUrl?: string;
+  readonly username?: string;
+  readonly authStorageId?: string;
+  readonly active?: boolean;
+}) =>
+  Account.upsert.make({
+    serverUrl: Account.fields.serverUrl.make(serverUrl),
+    userId: Account.fields.userId.make(userId),
+    username: Account.fields.username.make(username),
+    name: Account.fields.name.make(`Stored ${userId}`),
+    email: Account.fields.email.make(`${userId}@example.test`),
+    authStorageId: Account.fields.authStorageId.make(authStorageId),
+    role: Account.fields.role.make('user'),
+    profilePicture: Account.fields.profilePicture.make(null),
+    active,
+  });
+
+const seedAccounts = Effect.fnUntraced(function* (
+  accounts: ReadonlyArray<typeof Account.upsert.Type>
+) {
+  const repository = yield* AccountRepository;
+  yield* Effect.forEach(accounts, (account) => repository.upsert(account), { discard: true });
+});
+
+const withFreshManager = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(Effect.provide(Layer.fresh(AccountManager.layerNoDeps)));
 
 const forkActiveAccountChange = Effect.fnUntraced(function* (
   matches: (account: Option.Option<Account>) => boolean
@@ -145,6 +182,297 @@ describe('AccountManager', () => {
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
   );
+
+  describe('automatic selection', () => {
+    it.effect(
+      'restores inactive rows by stable server and user identity, independent of insertion and username order',
+      Effect.fnUntraced(
+        function* () {
+          const laterServer = storedAccount({
+            userId: 'a',
+            serverUrl: 'https://z.example.test',
+            username: 'aaa',
+          });
+          const laterUser = storedAccount({ userId: 'b', username: 'bbb' });
+          const fallback = storedAccount({ userId: 'a', username: 'zzz' });
+          yield* seedAccounts([laterServer, laterUser, fallback]);
+
+          for (let lifetime = 0; lifetime < 2; lifetime += 1) {
+            yield* Effect.gen(function* () {
+              const manager = yield* AccountManager;
+              expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(fallback)));
+              expect((yield* getAccounts).filter((account) => account.active)).toMatchObject([
+                { serverUrl: fallback.serverUrl, userId: fallback.userId },
+              ]);
+            }).pipe(withFreshManager);
+          }
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'preserves the persisted active account even when a fallback sorts first',
+      Effect.fnUntraced(
+        function* () {
+          const fallback = storedAccount({ userId: 'a' });
+          const selected = storedAccount({ userId: 'z', active: true });
+          yield* seedAccounts([fallback, selected]);
+          yield* Effect.gen(function* () {
+            const manager = yield* AccountManager;
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
+            expect(yield* getAccounts).toMatchObject([
+              { userId: fallback.userId, active: false },
+              { userId: selected.userId, active: true },
+            ]);
+          }).pipe(withFreshManager);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'repairs legacy multiple-active rows deterministically without selecting an inactive row',
+      Effect.fnUntraced(
+        function* () {
+          const sql = yield* MainDatabase;
+          yield* sql`
+            drop index account_active_uniqueidx
+          `;
+          const inactive = storedAccount({ userId: 'a' });
+          const selected = storedAccount({ userId: 'b', active: true });
+          const duplicate = storedAccount({ userId: 'c', active: true });
+          yield* seedAccounts([duplicate, inactive, selected]);
+          yield* Effect.gen(function* () {
+            const manager = yield* AccountManager;
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
+            expect(yield* getAccounts).toMatchObject([
+              { userId: inactive.userId, active: false },
+              { userId: selected.userId, active: true },
+              { userId: duplicate.userId, active: false },
+            ]);
+          }).pipe(withFreshManager);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'fails manager initialization rather than exposing an empty selection when restoration fails',
+      Effect.fnUntraced(
+        function* () {
+          const sql = yield* MainDatabase;
+          yield* sql`
+            drop table account
+          `;
+          const error = yield* AccountManager.make.pipe(Effect.flip);
+          expect(error).toEqual(AccountDatabaseError.make());
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'rejects an undecodable restored account and rolls back its activation',
+      Effect.fnUntraced(
+        function* () {
+          yield* seedAccounts([storedAccount({ userId: 'a' })]);
+          const sql = yield* MainDatabase;
+          yield* sql`
+            update account
+            set
+              "serverUrl" = 'not-a-server-url'
+          `;
+          const error = yield* AccountManager.make.pipe(Effect.flip);
+          expect(error).toEqual(AccountDatabaseError.make());
+          expect(
+            yield* sql`
+              select
+                active
+              from
+                account
+            `
+          ).toEqual([{ active: 0 }]);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'removes the active row with fallback and emits the selected key, then removes the last row to None',
+      Effect.fnUntraced(
+        function* () {
+          const fallback = storedAccount({ userId: 'a' });
+          const selected = storedAccount({ userId: 'b', active: true });
+          yield* seedAccounts([selected, fallback]);
+          yield* Effect.gen(function* () {
+            const manager = yield* AccountManager;
+            const subscribed = yield* Deferred.make<true>();
+            const change = yield* manager.changes.pipe(
+              Stream.tap(() => Deferred.succeed(subscribed, true)),
+              Stream.drop(1),
+              Stream.runHead,
+              Effect.forkChild
+            );
+            yield* Deferred.await(subscribed);
+            yield* manager.removeAccount(AccountStorageKey.make(selected));
+            expect(Option.getOrThrow(yield* Fiber.join(change))).toEqual(
+              Option.some(AccountStorageKey.make(fallback))
+            );
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(fallback)));
+            expect(yield* getAccounts).toMatchObject([{ userId: fallback.userId, active: true }]);
+
+            yield* manager.removeAccount(AccountStorageKey.make(selected));
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(fallback)));
+            yield* manager.removeAccount(AccountStorageKey.make(fallback));
+            yield* manager.removeAccount(AccountStorageKey.make(fallback));
+            expect(yield* manager.state).toEqual(Option.none());
+            expect(yield* getAccounts).toEqual([]);
+          }).pipe(withFreshManager);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'preserves the active account when removing an inactive row or an obsolete storage incarnation',
+      Effect.fnUntraced(
+        function* () {
+          const inactive = storedAccount({ userId: 'a' });
+          const obsolete = storedAccount({ userId: 'b', authStorageId: 'old-storage' });
+          const replacement = storedAccount({ userId: 'b', authStorageId: 'new-storage' });
+          const selected = storedAccount({ userId: 'c', active: true });
+          yield* seedAccounts([inactive, obsolete, selected]);
+          yield* Effect.gen(function* () {
+            const manager = yield* AccountManager;
+            yield* seedAccounts([replacement]);
+            yield* manager.removeAccount(AccountStorageKey.make(obsolete));
+            yield* manager.removeAccount(AccountStorageKey.make(inactive));
+            yield* manager.removeAccount(AccountStorageKey.make(inactive));
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
+            expect(yield* getAccounts).toMatchObject([
+              {
+                userId: replacement.userId,
+                authStorageId: replacement.authStorageId,
+                active: false,
+              },
+              { userId: selected.userId, active: true },
+            ]);
+            yield* manager.setActiveAccount(replacement);
+            yield* manager.removeAccount(AccountStorageKey.make(obsolete));
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(replacement)));
+          }).pipe(withFreshManager);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'rejects an undecodable removal fallback and preserves the selected row and flags',
+      Effect.fnUntraced(
+        function* () {
+          const fallback = storedAccount({ userId: 'a' });
+          const selected = storedAccount({ userId: 'b', active: true });
+          yield* seedAccounts([fallback, selected]);
+          const sql = yield* MainDatabase;
+          yield* sql`
+            update account
+            set
+              "serverUrl" = 'not-a-server-url'
+            where
+              "userId" = 'a'
+          `;
+          yield* Effect.gen(function* () {
+            const manager = yield* AccountManager;
+            const error = yield* manager
+              .removeAccount(AccountStorageKey.make(selected))
+              .pipe(Effect.flip);
+            expect(error).toEqual(AccountDatabaseError.make());
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
+            // The corrupt row cannot be decoded by repository.list(); inspect its persisted flag.
+            expect(
+              yield* sql`
+                select
+                  "userId",
+                  active
+                from
+                  account
+                order by
+                  "userId"
+              `
+            ).toEqual([
+              { userId: 'a', active: 0 },
+              { userId: 'b', active: 1 },
+            ]);
+          }).pipe(withFreshManager);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'rolls back deletion when fallback activation fails',
+      Effect.fnUntraced(
+        function* () {
+          const fallback = storedAccount({ userId: 'a' });
+          const selected = storedAccount({ userId: 'b', active: true });
+          yield* seedAccounts([fallback, selected]);
+          yield* Effect.gen(function* () {
+            const manager = yield* AccountManager;
+            const sql = yield* MainDatabase;
+            yield* sql`
+              create trigger reject_fallback before
+              update of active on account when new.active = 1
+              and new."userId" = 'a' begin
+              select
+                raise (abort, 'fallback rejected');
+
+              end
+            `;
+            const error = yield* manager
+              .removeAccount(AccountStorageKey.make(selected))
+              .pipe(Effect.flip);
+            expect(error).toEqual(AccountDatabaseError.make());
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
+            expect(yield* getAccounts).toMatchObject([
+              { userId: fallback.userId, active: false },
+              { userId: selected.userId, active: true },
+            ]);
+          }).pipe(withFreshManager);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+
+    it.effect(
+      'serializes concurrent removal and selection without losing the remaining selected account',
+      Effect.fnUntraced(
+        function* () {
+          const fallback = storedAccount({ userId: 'a' });
+          const removed = storedAccount({ userId: 'b', active: true });
+          const selected = storedAccount({ userId: 'c' });
+          yield* seedAccounts([fallback, removed, selected]);
+          yield* Effect.gen(function* () {
+            const manager = yield* AccountManager;
+            yield* Effect.all(
+              [
+                manager.removeAccount(AccountStorageKey.make(removed)),
+                manager.setActiveAccount(selected),
+                manager.removeAccount(AccountStorageKey.make(removed)),
+              ],
+              { concurrency: 'unbounded' }
+            );
+            expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
+            expect(yield* getAccounts).toMatchObject([
+              { userId: fallback.userId, active: false },
+              { userId: selected.userId, active: true },
+            ]);
+          }).pipe(withFreshManager);
+        },
+        (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
+      )
+    );
+  });
 
   class ParsedCookie extends Schema.Class<ParsedCookie, { readonly brand: unique symbol }>(
     'voel/domains/accounts/manager.test/ParsedCookie'

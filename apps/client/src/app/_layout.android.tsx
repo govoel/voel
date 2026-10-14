@@ -1,11 +1,11 @@
 import { RegistryContext } from '@effect/atom-react';
 import { Host, LoadingIndicator, Surface } from '@expo/ui/jetpack-compose';
 import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { AppAdmission } from '#src/components/app-admission/index.tsx';
 import { materialFonts, materialSeedColor, useMaterialColors } from '#src/constants/material.ts';
-import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
 import { AppRegistry } from '#src/runtime/registry.ts';
 
 
@@ -48,18 +48,7 @@ export default function TabLayout() {
   return (
     <RegistryContext.Provider value={AppRegistry}>
       <ThemeProvider value={theme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="accounts"
-            options={{
-              presentation: 'transparentModal',
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
-        </Stack>
-
-        <AccountsAutoPresenter />
+        <AppAdmission loading={<SuspenseFallback />} />
       </ThemeProvider>
     </RegistryContext.Provider>
   );
