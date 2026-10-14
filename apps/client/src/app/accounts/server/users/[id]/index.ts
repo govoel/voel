@@ -13,10 +13,10 @@ import {
   AuthSetUserPasswordInput,
 } from '@repo/auth-api/shared.ts';
 
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { useAppForm } from '#src/components/form';
-import { activeAccountAuthClientAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
-import { Account } from '#src/services/database/main/schema.ts';
+import { activeAccountAuthClientAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { Account } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 

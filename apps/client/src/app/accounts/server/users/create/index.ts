@@ -3,9 +3,9 @@ import { Effect, Schema } from 'effect';
 import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { useAppForm } from '#src/components/form';
-import { activeAccountAuthClientAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 const createServerUserAtom = AppRuntime.fn<typeof AuthCreateUserInput.Type>()(

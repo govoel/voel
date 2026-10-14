@@ -16,10 +16,6 @@ import {
   removeAccountFailureMessage,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
-import {
-  accountsSheetAtom,
-  accountsSheetIsInvalidSession,
-} from '#src/components/accounts-auto-presenter/model.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
@@ -28,6 +24,10 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsInvalidSession,
+} from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 const StackNavigationRow = ({
   index,

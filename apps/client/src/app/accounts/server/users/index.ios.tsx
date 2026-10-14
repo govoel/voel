@@ -7,10 +7,10 @@ import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 
 export default function ServerUsersScreen() {
   const router = useRouter();

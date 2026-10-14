@@ -3,11 +3,11 @@ import { Atom } from 'effect/reactivity';
 
 import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
 
-import { AccountManager } from '#src/services/accounts/index.ts';
-import { AccountRepository } from '#src/services/accounts/repository.ts';
-import { AuthClientMap } from '#src/services/auth-client/index.ts';
+import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import { LibraryDatabaseMap } from '#src/domains/library/database.ts';
 import { TursoSyncClientFactoryReactNativeLayer } from '#src/services/database/factory/react-native.ts';
-import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
 
 export const AppRuntimeLayerNoDeps = Layer.mergeAll(
   AccountManager.layerNoDeps,

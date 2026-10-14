@@ -20,15 +20,15 @@ import {
   useUserRoleForm,
   userDetails,
 } from '#src/app/accounts/server/users/[id]/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { RoleField } from '#src/components/account-management/role-field';
-import { SessionList } from '#src/components/account-management/session-list';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { RoleField } from '#src/domains/accounts/components/management/role-field';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
 
 const UserList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>

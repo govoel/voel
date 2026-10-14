@@ -16,8 +16,6 @@ import {
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/profile/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { SessionList } from '#src/components/account-management/session-list';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -28,7 +26,9 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
