@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import { Account } from '#src/services/database/main/schema.ts';
 
+/** Recoverable connection unavailability or lock contention, with diagnostic cause. */
 export class AccountDatabaseError extends Schema.TaggedError<
   AccountDatabaseError,
   { readonly brand: unique symbol }

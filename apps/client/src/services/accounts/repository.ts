@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema } from 'effect';
+import { Context, Effect, Layer, Match, Option, Schema } from 'effect';
 import type { SqlError } from 'effect/sql/SqlError';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlSchema from 'effect/sql/SqlSchema';
@@ -159,13 +159,18 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
       };
 
-      // Normalize typed SQL/schema failures, including transaction acquisition
-      // and begin failures. Effect SQL keeps commit/rollback/cleanup failures as
-      // defects; do not turn uncertain transaction finalization into recovery.
-      // Missing accounts remain distinct domain failures.
+      // Only connection unavailability and lock contention are recoverable.
+      // Schema/invariant violations and all other SQL failures are defects.
+      // Effect SQL also keeps transaction finalization failures as defects.
       const persistenceErrors = {
-        SchemaError: (cause: Schema.SchemaError) => AccountDatabaseError.make({ cause }),
-        SqlError: (cause: SqlError) => AccountDatabaseError.make({ cause }),
+        SchemaError: Effect.die,
+        SqlError: (cause: SqlError) =>
+          Match.value(cause.reason).pipe(
+            Match.whenOr({ _tag: 'ConnectionError' }, { _tag: 'LockTimeoutError' }, () =>
+              AccountDatabaseError.make({ cause })
+            ),
+            Match.orElse(() => Effect.die(cause))
+          ),
       };
 
       return {
