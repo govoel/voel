@@ -28,7 +28,7 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { AccountStorageKey } from '#src/services/accounts/index.ts';
 
 const StackNavigationRow = ({
   index,
@@ -61,16 +61,14 @@ const StackNavigationRow = ({
 };
 
 export default function AccountsScreen() {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
-  const accountsStateAtom = accountsWithActiveAccount(accountKey);
-  const accounts = useAtomValue(accountsStateAtom);
-  const refreshAccounts = useAtomRefresh(accountsStateAtom);
+  const accounts = useAtomValue(accountsWithActiveAccount);
+  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
 
   const colors = useMaterialColors();
 
@@ -186,8 +184,8 @@ export default function AccountsScreen() {
                           href="/accounts/settings"
                         />
                         <MutationConfirmation
-                          key={`${account.serverUrl}-${account.userId}`}
-                          mutation={removeAccountAtom(accountKey)}
+                          key={JSON.stringify(AccountStorageKey.make(account))}
+                          mutation={removeAccountAtom(AccountStorageKey.make(account))}
                           onFailure={removeAccountFailureMessage}
                           title="Remove account from this device?"
                           confirmLabel="Remove"
@@ -253,9 +251,7 @@ export default function AccountsScreen() {
                     <Text variant="h3">Pick an Account</Text>
                     <LazyColumn.Items
                       data={accountList}
-                      keyExtractor={(account) =>
-                        JSON.stringify([account.serverUrl.toString(), account.userId])
-                      }>
+                      keyExtractor={(account) => JSON.stringify(AccountStorageKey.make(account))}>
                       {({ item, index }) => (
                         <SegmentedListItem
                           index={index}

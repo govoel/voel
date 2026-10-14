@@ -57,16 +57,11 @@ export class AccountNotFoundError extends Schema.TaggedError<
   userId: Account.fields.userId,
 }) {}
 
-export class NoActiveAccountError extends Schema.TaggedError<
-  NoActiveAccountError,
+/** One stored login incarnation, independent of active selection and mutable profile metadata. */
+export class AccountStorageKey extends Schema.Class<
+  AccountStorageKey,
   { readonly brand: unique symbol }
->('voel/services/accounts/NoActiveAccountError')('NoActiveAccountError', {}) {}
-
-/** Account identity excludes mutable profile and activity metadata. */
-export class ActiveAccountKey extends Schema.Class<
-  ActiveAccountKey,
-  { readonly brand: unique symbol }
->('voel/services/accounts/ActiveAccountKey')({
+>('voel/services/accounts/AccountStorageKey')({
   serverUrl: Account.fields.serverUrl,
   userId: Account.fields.userId,
   authStorageId: Account.fields.authStorageId,
@@ -85,7 +80,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const reactivity = yield* Reactivity.Reactivity;
 
       const state = accountRepository.getActive().pipe(
-        Effect.map(Option.map((account) => ActiveAccountKey.make(account))),
+        Effect.map(Option.map((account) => AccountStorageKey.make(account))),
         Effect.catchTags({
           SchemaError: () => AccountDatabaseError.make(),
           SqlError: () => AccountDatabaseError.make(),
@@ -142,7 +137,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           );
       });
 
-      const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
+      const removeAccount = Effect.fnUntraced(function* (key: AccountStorageKey) {
         // we ignore errors here because the server may be offline
         // which causes better-auth to throw
         yield* authClientMap.acquire(key).pipe(
@@ -175,7 +170,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         );
       });
 
-      const signOutEverywhere = Effect.fnUntraced(function* (key: ActiveAccountKey) {
+      const signOutEverywhere = Effect.fnUntraced(function* (key: AccountStorageKey) {
         const client = yield* authClientMap.acquire(key);
         // Keep local credentials if revocation fails so the user can retry.
         yield* client.revokeSessions;

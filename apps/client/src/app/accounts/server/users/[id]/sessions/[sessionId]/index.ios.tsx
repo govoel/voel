@@ -19,15 +19,17 @@ import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import type { AccountStorageKey } from '#src/services/accounts/index.ts';
 
 const SessionContent = ({
+  accountKey,
   userId,
   sessionId,
 }: {
+  accountKey: AccountStorageKey;
   userId: typeof AuthUser.fields.id.Type;
   sessionId: typeof AuthDeviceSession.fields.id.Type;
 }) => {
-  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const router = useRouter();
   const state = useAtomValue(serverUserSessionAtom({ account: accountKey, userId, sessionId }));
   const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId }));
@@ -105,6 +107,7 @@ const SessionContent = ({
 };
 
 export default function ServerUserSessionScreen() {
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
   const { id, sessionId } = useLocalSearchParams<{
     id: typeof AuthUser.fields.id.Type;
     sessionId: typeof AuthDeviceSession.fields.id.Type;
@@ -114,7 +117,21 @@ export default function ServerUserSessionScreen() {
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <SessionContent key={`${id}-${sessionId}`} userId={id} sessionId={sessionId} />
+          {Option.match(accountKey, {
+            onNone: () => (
+              <Section>
+                <ListState kind="empty" message="No active account." />
+              </Section>
+            ),
+            onSome: (key) => (
+              <SessionContent
+                key={JSON.stringify([key, id, sessionId])}
+                accountKey={key}
+                userId={id}
+                sessionId={sessionId}
+              />
+            ),
+          })}
         </List>
       </Host>
     </>

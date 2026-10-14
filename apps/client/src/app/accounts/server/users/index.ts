@@ -1,17 +1,16 @@
 import { Array, DateTime, Effect, Option, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
-import { AuthUser } from '@repo/auth-api/shared.ts';
+import { AuthError, AuthTransportError, AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { accountAuthClientAtom } from '#src/services/accounts/atoms.ts';
-import { NoActiveAccountError } from '#src/services/accounts/index.ts';
-import type { ActiveAccountKey } from '#src/services/accounts/index.ts';
+import type { AccountStorageKey } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 
-export const listUsersAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+export const listUsersAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.pull(
     Effect.fnUntraced(
       function* (get) {
@@ -104,10 +103,14 @@ export const listUsersAtom = Atom.family((account: Option.Option<ActiveAccountKe
         },
         {
           id: PredefinedStateId.make('failure'),
-          label: 'No active account error',
+          label: 'Unable to reach the server',
           atom: Atom.writable(
-            (): Atom.PullResult<typeof AuthUser.Type, NoActiveAccountError> =>
-              AsyncResult.fail(NoActiveAccountError.make()),
+            (): Atom.PullResult<typeof AuthUser.Type, AuthError> =>
+              AsyncResult.fail(
+                AuthError.make({
+                  reason: AuthTransportError.make({ cause: 'Predefined network failure' }),
+                })
+              ),
             () => void 0
           ),
         },

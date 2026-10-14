@@ -4,8 +4,8 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountsAtom } from '#src/services/accounts/atoms.ts';
-import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
+import { accountsAtom, activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { AccountManager, AccountStorageKey } from '#src/services/accounts/index.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
@@ -14,12 +14,9 @@ export const setActiveAccountAtom = AppRuntime.fn(
     AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
 ).pipe(Atom.withLabel('setActiveAccountAtom'));
 
-export const removeAccountAtom = Atom.family((account: Option.Option<ActiveAccountKey>) =>
+export const removeAccountAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.fn(() =>
-    Option.match(account, {
-      onNone: () => Effect.void,
-      onSome: (key) => AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(key))),
-    })
+    AccountManager.pipe(Effect.flatMap((manager) => manager.removeAccount(account)))
   ).pipe(Atom.withLabel('removeAccountAtom'))
 );
 
@@ -35,42 +32,46 @@ export const removeAccountFailureMessage = ({
     })
   );
 
-export const accountsWithActiveAccount = Atom.family(
-  (accountKey: Option.Option<ActiveAccountKey>) =>
-    accountsAtom.pipe(
-      Atom.mapResult((accounts) => ({
+export const accountsWithActiveAccount = Atom.readable(
+  (get) =>
+    // oxlint-disable-next-line unicorn/no-array-method-this-argument -- AsyncResult.flatMap is not an array method.
+    AsyncResult.flatMap(get(activeAccountKeyAtom), (accountKey) =>
+      AsyncResult.map(get(accountsAtom), (accounts) => ({
         accounts,
         activeAccount: accountKey.pipe(
           Option.flatMap((key) =>
             Array.findFirst(accounts, (account) =>
-              Equal.equals(ActiveAccountKey.make(account), key)
+              Equal.equals(AccountStorageKey.make(account), key)
             )
           )
         ),
-      })),
-      withPredefinedStates(() => [
-        {
-          id: PredefinedStateId.make('loading'),
-          label: 'Loading',
-          atom: Atom.make(() => AsyncResult.initial(true)),
-        },
-        {
-          id: PredefinedStateId.make('empty'),
-          label: 'No accounts',
-          atom: Atom.make(() =>
-            AsyncResult.success({ accounts: [], activeAccount: Option.none() })
-          ),
-        },
-        {
-          id: PredefinedStateId.make('failure'),
-          label: 'Failed to load accounts',
-          atom: Atom.make(() =>
-            AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts screen failure')))
-          ),
-        },
-      ]),
-      Atom.withLabel('accountsWithActiveAccount')
-    )
+      }))
+    ),
+  (refresh) => {
+    refresh(activeAccountKeyAtom);
+    refresh(accountsAtom);
+  }
+).pipe(
+  withPredefinedStates(() => [
+    {
+      id: PredefinedStateId.make('loading'),
+      label: 'Loading',
+      atom: Atom.make(() => AsyncResult.initial(true)),
+    },
+    {
+      id: PredefinedStateId.make('empty'),
+      label: 'No accounts',
+      atom: Atom.make(() => AsyncResult.success({ accounts: [], activeAccount: Option.none() })),
+    },
+    {
+      id: PredefinedStateId.make('failure'),
+      label: 'Failed to load accounts',
+      atom: Atom.make(() =>
+        AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts screen failure')))
+      ),
+    },
+  ]),
+  Atom.withLabel('accountsWithActiveAccount')
 );
 
 export const useSetActiveAccount = () => {
