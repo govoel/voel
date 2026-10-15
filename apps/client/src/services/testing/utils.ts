@@ -3,27 +3,30 @@ import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effec
 import type { Types } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 
-import { UuidGenerator } from '#src/services/accounts/index.ts';
-import type { AccountManager } from '#src/services/accounts/index.ts';
+import { AccountManager, UuidGenerator } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
-import { AuthClient } from '#src/services/auth-client/index.ts';
+import { AuthClient, AuthClientMap } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
 import { AppConfig } from '#src/services/config.ts';
 import { TursoSyncClientFactoryBunLayer } from '#src/services/database/factory/bun.ts';
+import { LibraryDatabaseMap } from '#src/services/database/library/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
-import { AppRuntimeLayerNoDeps } from '#src/services/runtime.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 
 export const makeClientTestLayers = ({
   authClientStorageMap = new Map<string, string>(),
   config,
+  accountRepositoryLayer = AccountRepository.layerNoDeps,
 }: {
   readonly authClientStorageMap?: Map<string, string>;
   readonly config?: Parameters<typeof AppConfig.layerTest>[0];
+  readonly accountRepositoryLayer?: typeof AccountRepository.layerNoDeps;
 } = {}) =>
-  AppRuntimeLayerNoDeps.pipe(
+  Layer.mergeAll(AccountManager.layerNoDeps, LibraryDatabaseMap.layerNoDeps).pipe(
+    Layer.provideMerge(AuthClientMap.layerNoDeps),
+    Layer.provideMerge(accountRepositoryLayer),
     Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
       Layer.mergeAll(

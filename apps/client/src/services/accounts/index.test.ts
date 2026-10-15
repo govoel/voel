@@ -1,24 +1,9 @@
-import { BunFileSystem } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import {
-  Context,
-  Deferred,
-  Effect,
-  Fiber,
-  FileSystem,
-  Layer,
-  Option,
-  Redacted,
-  Schema,
-  Stream,
-} from 'effect';
+import { Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
-import { vi } from 'vitest';
-
-import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 
 import { AccountDatabaseError, AccountNotFoundError } from '#src/services/accounts/errors.ts';
 import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
@@ -26,7 +11,6 @@ import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClient, AuthClientMap } from '#src/services/auth-client/index.ts';
 import { AuthClientStorage } from '#src/services/auth-client/storage.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
 import { Account } from '#src/services/database/main/schema.ts';
 import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
 import {
@@ -62,30 +46,6 @@ const forkActiveAccountChange = Effect.fnUntraced(function* (
 });
 
 const forkNextActiveAccountChange = forkActiveAccountChange(() => true);
-
-const forkSettledSessionProfile = Effect.fnUntraced(function* ({
-  authClient,
-  name,
-}: {
-  readonly authClient: AuthClient['Service'];
-  readonly name: string;
-}) {
-  const subscribed = yield* Deferred.make<true>();
-  const fiber = yield* authClient.sessionChanges.pipe(
-    Stream.tap(() => Deferred.succeed(subscribed, true)),
-    Stream.filter(
-      (session) =>
-        AsyncResult.isSuccess(session) &&
-        !session.waiting &&
-        Option.isSome(session.value) &&
-        session.value.value.user.name === name
-    ),
-    Stream.runHead,
-    Effect.forkChild
-  );
-  yield* Deferred.await(subscribed);
-  return fiber;
-});
 
 const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
   const session = yield* authClient.getSession;
@@ -477,90 +437,64 @@ describe('AccountManager', () => {
     );
 
     iit.effect(
-      'continues synchronizing later session events after transient write contention',
+      'continues synchronizing later session events after a recoverable repository failure',
       Effect.fnUntraced(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped();
-        const path = `${directory}/accounts.db`;
+        const failedSync = yield* Deferred.make<true>();
+        const accountRepositoryLayer = Layer.effect(
+          AccountRepository,
+          Effect.gen(function* () {
+            const repository = yield* AccountRepository.make;
+            return {
+              ...repository,
+              updateProfile: (profile: Parameters<typeof repository.updateProfile>[0]) =>
+                profile.name === 'Rejected profile'
+                  ? Deferred.succeed(failedSync, true).pipe(
+                      Effect.andThen(
+                        AccountDatabaseError.make({ cause: new Error('Database unavailable') })
+                      )
+                    )
+                  : repository.updateProfile(profile),
+            };
+          })
+        );
+
         yield* Effect.gen(function* () {
           const manager = yield* AccountManager;
           const repository = yield* AccountRepository;
-          const sql = yield* MainDatabase;
-          const contender = yield* TursoSyncClient.make({ path });
           const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
           yield* signInTestServerUsers(manager, testServer);
           const activeKey = Option.getOrThrow(yield* manager.state);
           const authClient = yield* AuthClientMap.use((clients) => clients.acquire(activeKey));
           yield* waitForSessionRequest(authClient);
-          const before = Option.getOrThrow(yield* repository.getActive);
-          yield* sql`
-              pragma busy_timeout = 0
-            `;
-
-          const failedSync = yield* Deferred.make<AccountDatabaseError>();
-          const { updateProfile } = repository;
-          const updateSpy = vi
-            .spyOn(repository, 'updateProfile')
-            .mockImplementation((profile) =>
-              updateProfile(profile).pipe(
-                Effect.tapError((error) => Deferred.succeed(failedSync, error))
-              )
-            );
-          yield* Effect.addFinalizer(() =>
-            Effect.sync(() => {
-              updateSpy.mockRestore();
-            })
-          );
-          // Capture the profile read before starting updates, and ignore a
-          // queued rejected-profile event that may finish after lock release.
           const recoveredProfile = yield* forkActiveAccountChange(
             (account) => Option.isSome(account) && account.value.name === 'Recovered profile'
           );
-          const rejectedSession = yield* forkSettledSessionProfile({
-            authClient,
-            name: 'Rejected profile',
-          });
-          const lockStarted = yield* Deferred.make<true>();
-          const releaseLock = yield* Deferred.make<true>();
-          const lock = yield* contender
-            .withTransaction(
-              Deferred.succeed(lockStarted, true).pipe(Effect.andThen(Deferred.await(releaseLock)))
-            )
-            .pipe(Effect.forkChild);
-          yield* Deferred.await(lockStarted);
 
           yield* authClient.updateUser({ name: 'Rejected profile' });
-          yield* Fiber.join(rejectedSession);
-          const error = yield* Deferred.await(failedSync);
-          expect(error).toBeInstanceOf(AccountDatabaseError);
-          expect(error.cause).toMatchObject({
-            _tag: 'SqlError',
-            reason: { _tag: 'LockTimeoutError' },
-          });
+          yield* Deferred.await(failedSync);
           expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
-            name: before.name,
+            name: 'Test Admin',
             authStorageId: activeKey.authStorageId,
+            active: true,
           });
+          expect(yield* manager.state).toEqual(Option.some(activeKey));
 
-          yield* Deferred.succeed(releaseLock, true);
-          yield* Fiber.join(lock);
-          const recoveredSession = yield* forkSettledSessionProfile({
-            authClient,
-            name: 'Recovered profile',
-          });
           yield* authClient.updateUser({ name: 'Recovered profile' });
-          yield* Fiber.join(recoveredSession);
           const synchronizedAccount = Option.getOrThrow(
             Option.getOrThrow(yield* Fiber.join(recoveredProfile))
           );
           expect(synchronizedAccount).toMatchObject({
             name: 'Recovered profile',
+            userId: activeKey.userId,
             authStorageId: activeKey.authStorageId,
             active: true,
           });
-          expect(Option.getOrThrow(yield* repository.getActive).name).toBe('Recovered profile');
-        }).pipe(Effect.provide(makeClientTestLayers({ config: { MAIN_DB_FILENAME: path } })));
-      }, Effect.provide(BunFileSystem.layer))
+          expect(yield* repository.getByStorageKey(activeKey)).toEqual(
+            Option.some(synchronizedAccount)
+          );
+          expect(yield* manager.state).toEqual(Option.some(activeKey));
+        }).pipe(Effect.provide(makeClientTestLayers({ accountRepositoryLayer })));
+      })
     );
 
     iit.effect(

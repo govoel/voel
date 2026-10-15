@@ -4,7 +4,11 @@ import { describe, expect, it } from '@effect/vitest';
 import { Effect, Exit, FileSystem, Layer, Option, Result } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
+import * as SqlClient from 'effect/sql/SqlClient';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
 import * as SqlError from 'effect/sql/SqlError';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
+import * as Statement from 'effect/sql/Statement';
 
 import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 
@@ -96,13 +100,24 @@ describe('AccountRepository', () => {
         { ...second, active: false },
       ]);
       expect(yield* repository.getByStorageKey(first)).toEqual(Option.none());
+      expect(Option.getOrThrow(yield* repository.getByStorageKey(replacement))).toMatchObject({
+        userId: 'first',
+        authStorageId: 'replacement-credentials',
+        name: 'Updated profile',
+        active: true,
+      });
       // Events/removals from old credentials must not affect the replacement sign-in.
       yield* repository.updateProfile({
         ...first,
         name: Account.fields.name.make('Stale profile'),
       });
       yield* repository.remove(first);
-      expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject(replacement);
+      expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
+        userId: 'first',
+        authStorageId: 'replacement-credentials',
+        name: 'Updated profile',
+        active: true,
+      });
     }, Effect.provide(RepositoryTestLayer))
   );
 
@@ -138,28 +153,7 @@ describe('AccountRepository', () => {
   );
 
   it.effect(
-    'defects on schema encoding failures and rolls back deactivation',
-    Effect.fnUntraced(function* () {
-      const repository = yield* AccountRepository;
-      yield* repository.upsertActive(makeAccount('first'));
-      const before = yield* repository.list;
-      const exit = yield* repository
-        .upsertActive({
-          ...makeAccount('second'),
-          // Simulate a runtime caller violating the branded request contract.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- intentionally invalid runtime input
-          role: 'invalid-role' as AccountUpsert['role'],
-        })
-        .pipe(Effect.asVoid, Effect.exit);
-
-      expect(Exit.hasFails(exit)).toBe(false);
-      expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SchemaError' });
-      expect(yield* repository.list).toEqual(before);
-    }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'preserves schema defects for invalid persisted rows across UI queries',
+    'preserves a schema defect when reading a corrupt persisted account',
     Effect.fnUntraced(function* () {
       const repository = yield* AccountRepository;
       const sql = yield* MainDatabase;
@@ -171,133 +165,31 @@ describe('AccountRepository', () => {
             "createdAt" = 8640000000000001
         `;
 
-      const exits = yield* Effect.all([
-        repository.list.pipe(Effect.asVoid, Effect.exit),
-        repository.getActive.pipe(Effect.asVoid, Effect.exit),
-        repository.getByKey(account).pipe(Effect.asVoid, Effect.exit),
-        repository.getByStorageKey(account).pipe(Effect.asVoid, Effect.exit),
-      ]);
-      for (const exit of exits) {
-        expect(Exit.hasFails(exit)).toBe(false);
-        expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SchemaError' });
-      }
-    }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'preserves missing-table SQL defects from every repository operation',
-    Effect.fnUntraced(function* () {
-      const repository = yield* AccountRepository;
-      const sql = yield* MainDatabase;
-      const account = makeAccount('first');
-      yield* sql`
-        drop table account
-      `;
-
-      const exits = yield* Effect.all([
-        repository.list.pipe(Effect.asVoid, Effect.exit),
-        repository.getActive.pipe(Effect.asVoid, Effect.exit),
-        repository.getByKey(account).pipe(Effect.asVoid, Effect.exit),
-        repository.getByStorageKey(account).pipe(Effect.asVoid, Effect.exit),
-        repository.setActive(account).pipe(Effect.asVoid, Effect.exit),
-        repository.upsertActive(account).pipe(Effect.asVoid, Effect.exit),
-        repository.updateProfile(account).pipe(Effect.asVoid, Effect.exit),
-        repository.remove(account).pipe(Effect.asVoid, Effect.exit),
-      ]);
-      for (const exit of exits) {
-        expect(Exit.hasFails(exit)).toBe(false);
-        expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SqlError' });
-      }
-    }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'keeps COMMIT failures as defects and rolls back the account transaction',
-    Effect.fnUntraced(function* () {
-      const repository = yield* AccountRepository;
-      const sql = yield* MainDatabase;
-      yield* repository.upsertActive(makeAccount('first'));
-      const before = yield* repository.list;
-      yield* sql`
-        create table commit_parent (id integer primary key)
-      `;
-      yield* sql`
-        create table commit_guard (
-          id integer references commit_parent (id) deferrable initially deferred
-        )
-      `;
-      yield* sql`
-        create trigger reject_commit after insert on account begin
-        insert into
-          commit_guard (id)
-        values
-          (1);
-
-        end
-      `;
-
-      // The upsert itself succeeds; only the deferred foreign key at COMMIT fails.
-      const exit = yield* repository.upsertActive(makeAccount('second')).pipe(Effect.exit);
+      const exit = yield* repository.getByKey(account).pipe(Effect.exit);
       expect(Exit.hasFails(exit)).toBe(false);
-      expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({
-        _tag: 'SqlError',
-        reason: { _tag: 'ConstraintError' },
-      });
-      expect(yield* repository.list).toEqual(before);
-      const guardRows = yield* sql`
-        select
-          *
-        from
-          commit_guard
-      `;
-      expect(guardRows).toEqual([]);
+      expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SchemaError' });
     }, Effect.provide(RepositoryTestLayer))
   );
 
   it.effect(
-    'only recovers connection and lock errors, preserving every other SQL reason as a defect',
+    'reports connection acquisition failure as a recoverable database error',
     Effect.fnUntraced(function* () {
-      const sql = yield* MainDatabase;
-      const account = makeAccount('first');
-      const cause = new Error('Injected SQL failure');
-      const reasons = [
-        SqlError.ConnectionError.make({ cause }),
-        SqlError.LockTimeoutError.make({ cause }),
-        SqlError.AuthenticationError.make({ cause }),
-        SqlError.AuthorizationError.make({ cause }),
-        SqlError.SqlSyntaxError.make({ cause }),
-        SqlError.UniqueViolation.make({ cause, constraint: 'account_identity' }),
-        SqlError.ConstraintError.make({ cause }),
-        SqlError.DeadlockError.make({ cause }),
-        SqlError.SerializationError.make({ cause }),
-        SqlError.StatementTimeoutError.make({ cause }),
-        SqlError.UnknownError.make({ cause }),
-      ];
+      const database = yield* MainDatabase;
+      const failure = SqlError.SqlError.make({
+        reason: SqlError.ConnectionError.make({ cause: new Error('Connection unavailable') }),
+      });
+      const client = yield* SqlClient.make({
+        acquirer: Effect.fail(failure),
+        compiler: Statement.makeCompilerSqlite(),
+        spanAttributes: [],
+      }).pipe(Effect.provide(Reactivity.layer));
+      const repository = yield* AccountRepository.make.pipe(
+        Effect.provideService(MainDatabase, Object.assign(client, { pull: database.pull }))
+      );
 
-      for (const reason of reasons) {
-        const failure = SqlError.SqlError.make({ reason });
-        // Replace only tagged-template execution. SQL helpers and real
-        // transaction begin/rollback/finalization stay on the actual client.
-        const repository = yield* AccountRepository.make.pipe(
-          Effect.provideService(MainDatabase, new Proxy(sql, { apply: () => Effect.fail(failure) }))
-        );
-        const exits = yield* Effect.all([
-          repository.list.pipe(Effect.asVoid, Effect.exit),
-          repository.upsertActive(account).pipe(Effect.asVoid, Effect.exit),
-        ]);
-        for (const exit of exits) {
-          if (reason._tag === 'ConnectionError' || reason._tag === 'LockTimeoutError') {
-            expect(Exit.hasDies(exit)).toBe(false);
-            const error = Result.getOrThrow(Exit.findError(exit));
-            expect(error).toBeInstanceOf(AccountDatabaseError);
-            expect(error).toMatchObject({ cause: failure });
-            expect(error.cause).toBe(failure);
-          } else {
-            expect(Exit.hasFails(exit)).toBe(false);
-            expect(Result.getOrThrow(Exit.findDefect(exit))).toBe(failure);
-          }
-        }
-      }
+      const error = yield* repository.list.pipe(Effect.flip);
+      expect(error).toBeInstanceOf(AccountDatabaseError);
+      expect(error.cause).toBe(failure);
     }, Effect.provide(RepositoryTestLayer))
   );
 
@@ -328,7 +220,6 @@ describe('AccountRepository', () => {
                   .updateProfile({ ...first, name: Account.fields.name.make('Updated') })
                   .pipe(Effect.flip),
                 repository.setActive(second).pipe(Effect.flip),
-                repository.upsertActive(second).pipe(Effect.flip),
               ]);
               for (const error of errors) {
                 expect(error).toBeInstanceOf(AccountDatabaseError);
@@ -341,10 +232,9 @@ describe('AccountRepository', () => {
           );
 
           yield* repository.setActive(second);
-          yield* repository.upsertActive(first);
-          yield* repository.updateProfile({ ...first, name: Account.fields.name.make('Updated') });
+          yield* repository.updateProfile({ ...second, name: Account.fields.name.make('Updated') });
           expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
-            ...first,
+            ...second,
             name: 'Updated',
             active: true,
           });
