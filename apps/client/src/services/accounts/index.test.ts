@@ -5,11 +5,8 @@ import type { Scope } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
 
-import {
-  AccountManager,
-  AccountNotFoundError,
-  ActiveAccountKey,
-} from '#src/services/accounts/index.ts';
+import { AccountDatabaseError, AccountNotFoundError } from '#src/services/accounts/errors.ts';
+import { AccountManager, ActiveAccountKey } from '#src/services/accounts/index.ts';
 import { AccountRepository } from '#src/services/accounts/repository.ts';
 import { CryptoDigest } from '#src/services/auth-client/crypto-digest.ts';
 import { AuthClient, AuthClientMap } from '#src/services/auth-client/index.ts';
@@ -25,25 +22,30 @@ import {
   signInTestServerUsers,
 } from '#src/services/testing/utils.ts';
 
-const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list()));
+const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list));
 
 const getActiveAccount = AccountRepository.pipe(
-  Effect.flatMap((repository) => repository.getActive())
+  Effect.flatMap((repository) => repository.getActive)
 );
 
-const forkNextActiveAccountChange = Effect.gen(function* () {
+const forkActiveAccountChange = Effect.fnUntraced(function* (
+  matches: (account: Option.Option<Account>) => boolean
+) {
   const accountRepository = yield* AccountRepository;
   const subscribed = yield* Deferred.make<true>();
-  const fiber = yield* accountRepository.getActive().pipe(
+  const fiber = yield* accountRepository.getActive.pipe(
     Reactivity.stream(['account']),
     Stream.tap(() => Deferred.succeed(subscribed, true)),
     Stream.drop(1),
+    Stream.filter(matches),
     Stream.runHead,
     Effect.forkChild
   );
   yield* Deferred.await(subscribed);
   return fiber;
 });
+
+const forkNextActiveAccountChange = forkActiveAccountChange(() => true);
 
 const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
   const session = yield* authClient.getSession;
@@ -126,7 +128,7 @@ describe('AccountManager', () => {
         const username = Account.fields.username.make('restored');
         const authStorageId = Account.fields.authStorageId.make('restored-auth-storage');
 
-        yield* accountRepository.upsert({
+        yield* accountRepository.upsertActive({
           serverUrl,
           userId,
           username,
@@ -135,7 +137,6 @@ describe('AccountManager', () => {
           authStorageId,
           role: Account.fields.role.make('user'),
           profilePicture: Account.fields.profilePicture.make(null),
-          active: true,
         });
 
         yield* Effect.gen(function* () {
@@ -433,6 +434,67 @@ describe('AccountManager', () => {
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
+    );
+
+    iit.effect(
+      'continues synchronizing later session events after a recoverable repository failure',
+      Effect.fnUntraced(function* () {
+        const failedSync = yield* Deferred.make<true>();
+        const accountRepositoryLayer = Layer.effect(
+          AccountRepository,
+          Effect.gen(function* () {
+            const repository = yield* AccountRepository.make;
+            return {
+              ...repository,
+              updateProfile: (profile: Parameters<typeof repository.updateProfile>[0]) =>
+                profile.name === 'Rejected profile'
+                  ? Deferred.succeed(failedSync, true).pipe(
+                      Effect.andThen(
+                        AccountDatabaseError.make({ cause: new Error('Database unavailable') })
+                      )
+                    )
+                  : repository.updateProfile(profile),
+            };
+          })
+        );
+
+        yield* Effect.gen(function* () {
+          const manager = yield* AccountManager;
+          const repository = yield* AccountRepository;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          yield* signInTestServerUsers(manager, testServer);
+          const activeKey = Option.getOrThrow(yield* manager.state);
+          const authClient = yield* AuthClientMap.use((clients) => clients.acquire(activeKey));
+          yield* waitForSessionRequest(authClient);
+          const recoveredProfile = yield* forkActiveAccountChange(
+            (account) => Option.isSome(account) && account.value.name === 'Recovered profile'
+          );
+
+          yield* authClient.updateUser({ name: 'Rejected profile' });
+          yield* Deferred.await(failedSync);
+          expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
+            name: 'Test Admin',
+            authStorageId: activeKey.authStorageId,
+            active: true,
+          });
+          expect(yield* manager.state).toEqual(Option.some(activeKey));
+
+          yield* authClient.updateUser({ name: 'Recovered profile' });
+          const synchronizedAccount = Option.getOrThrow(
+            Option.getOrThrow(yield* Fiber.join(recoveredProfile))
+          );
+          expect(synchronizedAccount).toMatchObject({
+            name: 'Recovered profile',
+            userId: activeKey.userId,
+            authStorageId: activeKey.authStorageId,
+            active: true,
+          });
+          expect(yield* repository.getByStorageKey(activeKey)).toEqual(
+            Option.some(synchronizedAccount)
+          );
+          expect(yield* manager.state).toEqual(Option.some(activeKey));
+        }).pipe(Effect.provide(makeClientTestLayers({ accountRepositoryLayer })));
+      })
     );
 
     iit.effect(

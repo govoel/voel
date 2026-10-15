@@ -12,7 +12,7 @@ import { AppRuntime } from '#src/services/runtime.ts';
 
 export const accountsAtom = AppRuntime.atom(
   Effect.service(AccountRepository).pipe(
-    Effect.flatMap((repository) => repository.list()),
+    Effect.flatMap((repository) => repository.list),
     Reactivity.stream(['account'])
   )
 ).pipe(
@@ -107,13 +107,11 @@ export const activeAccountKeyAtom = AppRuntime.atom(
 ).pipe(
   (source) =>
     AppRuntime.atom((get) =>
-      get
-        .result(source)
-        .pipe(
-          Effect.catchTag('NoSuchElementError', () =>
-            Effect.succeed<Atom.Success<typeof source>>(Option.none())
-          )
-        )
+      get.result(source).pipe(
+        Effect.catchTags({
+          NoSuchElementError: () => Effect.succeed<Atom.Success<typeof source>>(Option.none()),
+        })
+      )
     ),
   Atom.withLabel('activeAccountKeyAtom')
 );

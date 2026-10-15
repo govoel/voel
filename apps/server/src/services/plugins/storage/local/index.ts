@@ -50,15 +50,17 @@ class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
       return StoragePlugin.of({
         decodeRootLocation: ({ location }) =>
           decodeRootLocation(location).pipe(
-            Effect.catchTag('SchemaError', (error) =>
-              StorageLocationValidationError.make({ message: error.message })
-            )
+            Effect.catchTags({
+              SchemaError: (error) =>
+                StorageLocationValidationError.make({ message: error.message }),
+            })
           ),
         decodeMediaFileLocation: ({ location }) =>
           decodeMediaFileLocation(location).pipe(
-            Effect.catchTag('SchemaError', (error) =>
-              StorageLocationValidationError.make({ message: error.message })
-            )
+            Effect.catchTags({
+              SchemaError: (error) =>
+                StorageLocationValidationError.make({ message: error.message }),
+            })
           ),
       });
     }),
