@@ -9,14 +9,6 @@ import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { LibraryDatabaseMap } from '#src/domains/library/database.ts';
 import { TursoSyncClientFactoryReactNativeLayer } from '#src/services/database/factory/react-native.ts';
 
-export const AppRuntimeLayerNoDeps = Layer.mergeAll(
-  AccountManager.layerNoDeps,
-  LibraryDatabaseMap.layerNoDeps
-).pipe(
-  Layer.provideMerge(AuthClientMap.layerNoDeps),
-  Layer.provideMerge(AccountRepository.layerNoDeps)
-);
-
 const AppRuntimeLayer = Layer.mergeAll(
   AccountManager.layer,
   AccountRepository.layer,
