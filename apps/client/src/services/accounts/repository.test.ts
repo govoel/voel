@@ -67,6 +67,7 @@ describe('AccountRepository', () => {
       yield* repository.upsertActive(makeAccount('first'));
       const before = yield* repository.list;
       const missing = makeAccount('missing');
+      expect(before).toMatchObject([{ userId: 'first', active: true }]);
 
       expect(yield* repository.setActive(missing).pipe(Effect.flip)).toEqual(
         AccountNotFoundError.make({ serverUrl: missing.serverUrl, userId: missing.userId })
@@ -131,6 +132,10 @@ describe('AccountRepository', () => {
       yield* repository.upsertActive(first);
       yield* insertAccountFixture({ ...second, active: false });
       const before = yield* repository.list;
+      expect(before).toMatchObject([
+        { userId: 'first', active: true },
+        { userId: 'second', authStorageId: 'second-credentials', active: false },
+      ]);
       yield* sql`
           create trigger reject_upsert before insert on account begin
           select

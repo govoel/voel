@@ -334,6 +334,7 @@ it.layer(repositoryTestLayer)('library repository', (iit) => {
       yield* repository.setRoots({ ...other, roots: [retained] });
       const original = (yield* repository.getById(library)).roots;
       const isolated = (yield* repository.getById(other)).roots;
+      expect(isolated.map(({ root }) => root)).toEqual(['/retained']);
       yield* repository.setRoots({ ...library, roots: [retained, added, retained] });
       const replaced = (yield* repository.getById(library)).roots;
       expect(replaced.map(({ root }) => root)).toEqual([retained, added]);
