@@ -147,13 +147,11 @@ export class LibraryService extends Context.Service<LibraryService>()(
             const decoded = yield* Effect.validate(
               roots,
               ({ root }) =>
-                storage
-                  .decodeRootLocation({ location: root })
-                  .pipe(
-                    Effect.catchTags({
-                      StorageLocationValidationError: ({ message }) => Effect.fail({ root, message }),
-                    })
-                  ),
+                storage.decodeRootLocation({ location: root }).pipe(
+                  Effect.catchTags({
+                    StorageLocationValidationError: ({ message }) => Effect.fail({ root, message }),
+                  })
+                ),
               { concurrency: 'unbounded' }
             ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
             const unique = Array.dedupe(decoded);

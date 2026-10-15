@@ -29,6 +29,9 @@ corrupt persisted rows, and every other SQL failure are defects, not retry promp
 Library repositories translate expected absence/conflicts and defect on unexpected
 SQL/schema failures. Effect SQL transaction-finalization failures remain defects.
 
+Account activation is repository-owned state: `active` appears in the select
+schema, not the upsert input. `upsertActive` supplies the persisted activation bit.
+
 Application workflows own coordination across persistence and plugins.
 `LibraryService` holds the write transaction across loading the library snapshot,
 plugin root validation, and root replacement. The repository also makes standalone

@@ -99,7 +99,9 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                 const settings = yield* Persisted.decodeUnknownEffect(request.settings).pipe(
                   Effect.catchTags({
                     SchemaError: () =>
-                      StoragePluginConstructionError.make({ message: 'Invalid persisted settings' }),
+                      StoragePluginConstructionError.make({
+                        message: 'Invalid persisted settings',
+                      }),
                   })
                 );
                 if (settings.prefix === 'unavailable' || request.library.name === 'Rejected') {
