@@ -75,9 +75,7 @@ export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleM
                 Effect.map((module) => module.default),
                 Effect.catchTags({
                   SchemaError: () =>
-                    Effect.fail(
-                      StoragePluginLoadError.make({ message: 'Invalid storage plugin module' })
-                    ),
+                    StoragePluginLoadError.make({ message: 'Invalid storage plugin module' }),
                 })
               )
             ),
