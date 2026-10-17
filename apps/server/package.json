@@ -30,7 +30,7 @@
     "@repo/effect-turso-sync-bun": "workspace:*",
     "@repo/tsconfig": "workspace:*",
     "bun-types": "1.4.2",
-    "portless": "0.15.7",
+    "portless": "0.15.8",
     "typescript": "7.0.2",
     "vitest": "5.0.3"
   }
