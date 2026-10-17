@@ -31,15 +31,15 @@ import {
   removeAccountFailureMessage,
   useSetActiveAccount,
 } from '#src/app/accounts/index.ts';
-import {
-  accountsSheetAtom,
-  accountsSheetIsInvalidSession,
-} from '#src/components/accounts-auto-presenter/model.ts';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsInvalidSession,
+} from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();

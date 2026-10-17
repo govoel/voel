@@ -7,7 +7,6 @@ import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
 
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
@@ -15,6 +14,7 @@ import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 
 export default function ServerUsersScreen() {
   const router = useRouter();

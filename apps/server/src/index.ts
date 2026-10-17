@@ -2,10 +2,10 @@ import { BunHttpServer, BunRuntime } from '@effect/platform-bun';
 import { Effect, Layer, pipe } from 'effect';
 import { HttpRouter } from 'effect/http';
 
-import { ApiRoutesLayer } from '#src/groups/index.ts';
-import { AuthRouterLayer } from '#src/services/auth.ts';
-import { ApiConfig } from '#src/services/config.ts';
-import { LibrarySyncRouterLayer } from '#src/services/database/library/sync.ts';
+import { ApiConfig } from '#src/config.ts';
+import { AuthRouterLayer } from '#src/domains/auth/http.ts';
+import { LibrarySyncRouterLayer } from '#src/domains/library/database/sync.ts';
+import { ApiRoutesLayer } from '#src/http.ts';
 
 const AllRoutesLayer = Layer.mergeAll(AuthRouterLayer, LibrarySyncRouterLayer, ApiRoutesLayer);
 

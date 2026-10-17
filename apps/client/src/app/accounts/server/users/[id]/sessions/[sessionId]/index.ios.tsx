@@ -13,11 +13,11 @@ import {
   serverUserSessionsAtom,
 } from '#src/app/accounts/server/users/[id]/index.ts';
 import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { SessionDetails } from '#src/components/account-management/session-details';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 
 const SessionContent = ({
   userId,

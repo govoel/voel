@@ -4,10 +4,10 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountsAtom, activeAccountAtom } from '#src/services/accounts/atoms.ts';
-import { AccountManager } from '#src/services/accounts/index.ts';
-import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import { accountsAtom, activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 export const setActiveAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
