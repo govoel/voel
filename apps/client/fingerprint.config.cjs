@@ -68,5 +68,13 @@ const collectNativeSources = (directory) => {
 
 // oxlint-disable-next-line import/no-commonjs
 module.exports = /** @type {import('expo/fingerprint').Config} */ ({
-  extraSources: collectNativeSources(path.join(__dirname, 'src')),
+  extraSources: [
+    ...collectNativeSources(path.join(__dirname, 'src')),
+    // The balanced preset hashes dependency versions, not patched native code.
+    {
+      type: 'file',
+      filePath: '../../patches/@tursodatabase%2Fsync-react-native@0.8.1.patch',
+      reasons: ['nativeDependencyPatch'],
+    },
+  ],
 });
