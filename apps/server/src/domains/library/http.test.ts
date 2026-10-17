@@ -440,13 +440,21 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const original = yield* client.library.create({ payload: createInput('Unique') });
       expect(
         yield* client.library.create({ payload: createInput('Unique') }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNameConflictError', name: 'Unique' });
+      ).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        name: '@repo/spec-api/domains/library/schema/LibraryNameConflictError',
+        libraryName: 'Unique',
+      });
       const other = yield* client.library.create({ payload: createInput('Other') });
       expect(
         yield* client.library
           .update({ params: other, payload: { name: Library.fields.name.make('Unique') } })
           .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNameConflictError', name: 'Unique' });
+      ).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        name: '@repo/spec-api/domains/library/schema/LibraryNameConflictError',
+        libraryName: 'Unique',
+      });
       expect((yield* client.library.get({ params: other })).name).toBe('Other');
       yield* client.library.delete({ params: original });
       yield* client.library.delete({ params: original });

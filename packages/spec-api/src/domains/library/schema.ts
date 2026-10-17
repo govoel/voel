@@ -450,7 +450,7 @@ export class LibraryNameConflictError extends Schema.TaggedError<
   LibraryNameConflictError,
   { readonly brand: unique symbol }
 >('@repo/spec-api/domains/library/schema/LibraryNameConflictError')('LibraryNameConflictError', {
-  name: Library.fields.name,
+  libraryName: Library.fields.name,
 }) {}
 
 export class LibraryUnconfiguredError extends Schema.TaggedError<

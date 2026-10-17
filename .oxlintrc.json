@@ -16,6 +16,10 @@
     "node": true
   },
   "rules": {
+    // This application makes no public API stability promises and permits native collections.
+    "effecttsgo/api-stability-leak": "off",
+    "effecttsgo/prefer-effect-array": "off",
+    "effecttsgo/prefer-effect-record": "off",
     "effecttsgo/async-function": "off",
     "effecttsgo/missing-pipeable-signature": "off",
     "effecttsgo/strict-boolean-expressions": "off",

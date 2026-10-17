@@ -184,7 +184,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         create: (request: Parameters<typeof queries.create>[0]) =>
           queries.create(request).pipe(
             Effect.catchReason('SqlError', 'UniqueViolation', () =>
-              LibraryNameConflictError.make({ name: request.name })
+              LibraryNameConflictError.make({ libraryName: request.name })
             ),
             Effect.catchTags({
               SchemaError: Effect.die,
@@ -195,7 +195,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         rename: (request: Parameters<typeof queries.rename>[0]) =>
           queries.rename(request).pipe(
             Effect.catchReason('SqlError', 'UniqueViolation', () =>
-              LibraryNameConflictError.make({ name: request.name })
+              LibraryNameConflictError.make({ libraryName: request.name })
             ),
             Effect.catchTags({
               NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),

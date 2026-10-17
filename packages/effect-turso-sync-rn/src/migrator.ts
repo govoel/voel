@@ -17,6 +17,7 @@ type ResolvedMigration = readonly [
   migration: Effect.Effect<void, SqlError.SqlError, SqlClient.SqlClient>,
 ];
 
+// oxlint-disable-next-line effecttsgo/prefer-schema-tagged-error -- Preserve upstream’s Data.TaggedError in this Metro-safe specialization.
 class MigrationError extends Data.TaggedError(
   '@repo/effect-turso-sync-rn/migrator/MigrationError'
 )<{
