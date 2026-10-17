@@ -5,11 +5,11 @@ import * as SqlClient from 'effect/sql/SqlClient';
 
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
+import { AppConfig } from '#src/config.ts';
+import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
-import { AppConfig } from '#src/services/config.ts';
-import { TursoSyncClientFactory } from '#src/services/database/factory/index.ts';
 
 const retrySchedule = Schedule.exponential('1 second').pipe(
   Schedule.modifyDelay(({ duration }) =>

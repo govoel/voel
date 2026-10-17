@@ -6,7 +6,7 @@ import type { AuthUser } from '@repo/auth-api/shared.ts';
 import { useAppForm } from '#src/components/form';
 import { activeAccountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 const createServerUserAtom = AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
   Effect.fnUntraced(function* (input, get) {

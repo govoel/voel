@@ -15,9 +15,9 @@ import { authFailureMessage } from '#src/domains/accounts/components/management/
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
-import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
-import { swr } from '#src/services/swr.ts';
+import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
+import { swr } from '#src/runtime/swr.ts';
 
 class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username }) => ({
   name,

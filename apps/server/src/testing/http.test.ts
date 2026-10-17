@@ -8,6 +8,7 @@ import { Reactivity } from 'effect/reactivity';
 import { Api } from '@repo/spec-api';
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
+import { ApiConfig } from '#src/config.ts';
 import { AuthDatabase } from '#src/domains/auth/database/index.ts';
 import {
   AdminMiddlewareLayerNoDeps,
@@ -24,11 +25,10 @@ import {
   StoragePluginModuleMap,
   StoragePluginSettingsMap,
 } from '#src/domains/plugins/storage/index.ts';
-import { ApiConfig } from '#src/services/config.ts';
-import { makeAuthedClient } from '#src/services/testing/http.ts';
+import { makeAuthedClient } from '#src/testing/http.ts';
 
 class AuthUserRow extends Schema.Class<AuthUserRow, { readonly brand: unique symbol }>(
-  '@repo/server/services/testing/http.test/AuthUserRow'
+  '@repo/server/testing/http.test/AuthUserRow'
 )({
   id: Schema.String,
   name: Schema.String,
@@ -40,7 +40,7 @@ class AuthUserRow extends Schema.Class<AuthUserRow, { readonly brand: unique sym
 }
 
 class AuthSessionRow extends Schema.Class<AuthSessionRow, { readonly brand: unique symbol }>(
-  '@repo/server/services/testing/http.test/AuthSessionRow'
+  '@repo/server/testing/http.test/AuthSessionRow'
 )({
   id: Schema.String,
   token: Schema.String,
@@ -50,7 +50,7 @@ class AuthSessionRow extends Schema.Class<AuthSessionRow, { readonly brand: uniq
 }
 
 class AuthUserIdRow extends Schema.Class<AuthUserIdRow, { readonly brand: unique symbol }>(
-  '@repo/server/services/testing/http.test/AuthUserIdRow'
+  '@repo/server/testing/http.test/AuthUserIdRow'
 )({
   id: AuthUserRow.fields.id,
 }) {
@@ -58,7 +58,7 @@ class AuthUserIdRow extends Schema.Class<AuthUserIdRow, { readonly brand: unique
 }
 
 class AuthSessionIdRow extends Schema.Class<AuthSessionIdRow, { readonly brand: unique symbol }>(
-  '@repo/server/services/testing/http.test/AuthSessionIdRow'
+  '@repo/server/testing/http.test/AuthSessionIdRow'
 )({
   id: AuthSessionRow.fields.id,
 }) {
@@ -66,7 +66,7 @@ class AuthSessionIdRow extends Schema.Class<AuthSessionIdRow, { readonly brand: 
 }
 
 class UserRoleRow extends Schema.Class<UserRoleRow, { readonly brand: unique symbol }>(
-  '@repo/server/services/testing/http.test/UserRoleRow'
+  '@repo/server/testing/http.test/UserRoleRow'
 )({
   username: AuthUserRow.fields.username,
   role: AuthUserRow.fields.role,

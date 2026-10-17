@@ -3,6 +3,9 @@ import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effec
 import type { Types } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 
+import { AppConfig } from '#src/config.ts';
+import { TursoSyncClientFactoryBunLayer } from '#src/database/factory/bun.ts';
+import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
@@ -10,10 +13,7 @@ import { AccountManager, UuidGenerator } from '#src/domains/accounts/manager.ts'
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { LibraryDatabaseMap } from '#src/domains/library/database.ts';
-import { AppConfig } from '#src/services/config.ts';
-import { TursoSyncClientFactoryBunLayer } from '#src/services/database/factory/bun.ts';
-import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
-import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
+import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 
 export const makeClientTestLayers = ({
   authClientStorageMap = new Map<string, string>(),

@@ -12,22 +12,19 @@ class ApiConfigSchema extends Schema.Struct({
   ),
 }) {}
 
-export class ApiConfig extends Context.Service<ApiConfig>()(
-  '@repo/server/services/config/ApiConfig',
-  {
-    make: Effect.gen(function* () {
-      const config = yield* Config.schema(ApiConfigSchema);
-      return {
-        auth: { secret: config.AUTH_SECRET },
-        server: { port: config.PORT },
-        db: {
-          authFilename: config.AUTH_DB_FILENAME,
-          libraryFilename: config.LIBRARY_DB_FILENAME,
-        },
-      };
-    }),
-  }
-) {
+export class ApiConfig extends Context.Service<ApiConfig>()('@repo/server/config/ApiConfig', {
+  make: Effect.gen(function* () {
+    const config = yield* Config.schema(ApiConfigSchema);
+    return {
+      auth: { secret: config.AUTH_SECRET },
+      server: { port: config.PORT },
+      db: {
+        authFilename: config.AUTH_DB_FILENAME,
+        libraryFilename: config.LIBRARY_DB_FILENAME,
+      },
+    };
+  }),
+}) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
   public static readonly layer = this.layerNoDeps.pipe(

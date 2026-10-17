@@ -26,6 +26,7 @@ import {
 } from '#src/app/accounts/server/users/[id]/index.ts';
 import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { MainDatabase } from '#src/database/main/index.ts';
 import { accountsAtom, activeAccountAtom } from '#src/domains/accounts/atoms.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
@@ -37,16 +38,15 @@ import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
-import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
+import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 import {
   makeClientTestLayers,
   makeServerUrl,
   makeUsername,
   setupTestServerWithUsers,
   signInTestServerUsers,
-} from '#src/services/testing/utils.ts';
+} from '#src/testing/utils.ts';
 
 // The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));

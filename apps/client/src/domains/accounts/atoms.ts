@@ -8,8 +8,8 @@ import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
-import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 export const accountsAtom = AppRuntime.atom(
   Effect.service(AccountRepository).pipe(

@@ -12,9 +12,9 @@ class AppConfigVariables extends Schema.Struct({
 export class AppConfigError extends Schema.TaggedError<
   AppConfigError,
   { readonly brand: unique symbol }
->('voel/services/config/AppConfigError')('AppConfigError', {}) {}
+>('voel/config/AppConfigError')('AppConfigError', {}) {}
 
-export class AppConfig extends Context.Service<AppConfig>()('voel/services/config/AppConfig', {
+export class AppConfig extends Context.Service<AppConfig>()('voel/config/AppConfig', {
   make: Effect.gen(function* () {
     const config = yield* Config.schema(AppConfigVariables);
     return {

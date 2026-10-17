@@ -2,12 +2,12 @@ import { Layer, Schema } from 'effect';
 
 import { SqliteMigrator } from '@repo/effect-turso-sync-rn/migrator';
 
-import baseTablesMigration from '#src/services/database/main/migrations/000001-base-tables.ts';
+import baseTablesMigration from '#src/database/main/migrations/000001-base-tables.ts';
 
 class DatabaseMigrationError extends Schema.TaggedError<
   DatabaseMigrationError,
   { readonly brand: unique symbol }
->('voel/services/database/main/migrations/DatabaseMigrationError')('DatabaseMigrationError', {
+>('voel/database/main/migrations/DatabaseMigrationError')('DatabaseMigrationError', {
   cause: Schema.Defect(),
   database: Schema.Literal('main'),
 }) {}

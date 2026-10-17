@@ -10,8 +10,8 @@ import {
   UnauthorizedError,
 } from '@repo/spec-api/domains/auth/http.ts';
 
+import { ApiConfig } from '#src/config.ts';
 import { AuthDatabase } from '#src/domains/auth/database/index.ts';
-import { ApiConfig } from '#src/services/config.ts';
 
 export const AuthLayerNoDeps = Layer.effect(
   AuthServerClient,

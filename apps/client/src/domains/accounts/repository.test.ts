@@ -12,14 +12,14 @@ import * as Statement from 'effect/sql/Statement';
 
 import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 
+import { AppConfig } from '#src/config.ts';
+import { MainDatabase } from '#src/database/main/index.ts';
+import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
 import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import type { AccountUpsert } from '#src/domains/accounts/schema.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
-import { AppConfig } from '#src/services/config.ts';
-import { MainDatabase } from '#src/services/database/main/index.ts';
-import { MainDatabaseTestLayer } from '#src/services/database/main/testing.ts';
 
 const RepositoryTestLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),

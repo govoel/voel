@@ -4,10 +4,10 @@ import { FetchHttpClient, HttpClient } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { TestClock } from 'effect/testing';
 
-const serverDirectory = new URL('../../../../../server/', import.meta.url).pathname;
+const serverDirectory = new URL('../../../../server/', import.meta.url).pathname;
 
 export class TestServerControllerClient extends Context.Service<TestServerControllerClient>()(
-  'voel/services/testing/server-controller/client/TestServerControllerClient',
+  'voel/testing/server-controller/client/TestServerControllerClient',
   {
     make: Effect.gen(function* () {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;

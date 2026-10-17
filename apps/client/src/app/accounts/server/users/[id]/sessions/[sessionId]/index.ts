@@ -5,7 +5,7 @@ import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 
 import { serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/index.ts';
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 const serverUserSessionFamily = Atom.family(
   ({

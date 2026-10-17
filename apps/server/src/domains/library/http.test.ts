@@ -24,6 +24,7 @@ import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/domains/auth/http.ts';
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
+import { ApiConfig } from '#src/config.ts';
 import { AuthDatabase } from '#src/domains/auth/database/index.ts';
 import {
   AdminMiddlewareLayerNoDeps,
@@ -36,8 +37,7 @@ import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
 import { Input, PluginFixture, TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
 import { ApiRoutesLayerNoDeps } from '#src/http.ts';
-import { ApiConfig } from '#src/services/config.ts';
-import { makeAuthedClient } from '#src/services/testing/http.ts';
+import { makeAuthedClient } from '#src/testing/http.ts';
 
 const testDependenciesLayer = Layer.mergeAll(
   AuthMiddlewareLayerNoDeps,

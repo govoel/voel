@@ -5,11 +5,11 @@ import { Reactivity } from 'effect/reactivity';
 
 import { Library, LibraryInvalidRootError } from '@repo/spec-api/domains/library/schema.ts';
 
+import { ApiConfig } from '#src/config.ts';
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
 import { pluginLayer } from '#src/domains/library/testing.ts';
-import { ApiConfig } from '#src/services/config.ts';
 
 // No HTTP handlers, middleware, or auth database participate in this workflow.
 const testLayer = LibraryService.layerNoDeps.pipe(

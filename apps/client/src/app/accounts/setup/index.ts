@@ -6,7 +6,7 @@ import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
 import { useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { ServerUrl } from '#src/domains/accounts/schema.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 class SetupServerAccountInput extends AuthSignUpInput.pipe(
   Schema.fieldsAssign({

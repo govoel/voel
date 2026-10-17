@@ -7,7 +7,7 @@ import { useColorScheme } from 'react-native';
 
 import { materialFonts, materialSeedColor, useMaterialColors } from '#src/constants/material.ts';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
-import { AppRegistry } from '#src/services/registry.ts';
+import { AppRegistry } from '#src/runtime/registry.ts';
 
 const loadingIndicatorScale = 0.25;
 

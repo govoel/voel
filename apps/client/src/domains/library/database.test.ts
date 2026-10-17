@@ -29,8 +29,8 @@ import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { LibraryDatabase, LibraryDatabaseMap } from '#src/domains/library/database.ts';
-import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
-import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/services/testing/utils.ts';
+import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
+import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/testing/utils.ts';
 
 // Each test owns real main and replica files, closed before their directory is removed.
 const ClientTestLayer = Layer.unwrap(

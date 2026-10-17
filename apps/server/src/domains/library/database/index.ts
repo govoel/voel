@@ -4,8 +4,8 @@ import { SqlClient } from 'effect/sql';
 
 import { TursoClient } from '@repo/effect-turso';
 
+import { ApiConfig } from '#src/config.ts';
 import { LibraryMigrations } from '#src/domains/library/database/migrations.ts';
-import { ApiConfig } from '#src/services/config.ts';
 
 class DatabaseInitializationError extends Schema.TaggedError<
   DatabaseInitializationError,

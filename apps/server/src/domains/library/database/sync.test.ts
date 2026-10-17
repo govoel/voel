@@ -8,11 +8,11 @@ import { Reactivity } from 'effect/reactivity';
 import { AuthClient } from '@repo/auth-api/client.ts';
 import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 
+import { ApiConfig } from '#src/config.ts';
 import { AuthDatabase } from '#src/domains/auth/database/index.ts';
 import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/domains/auth/http.ts';
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibrarySyncRouterLayerNoDeps } from '#src/domains/library/database/sync.ts';
-import { ApiConfig } from '#src/services/config.ts';
 
 const TestServerLayer = HttpRouter.serve(
   Layer.mergeAll(AuthRouterLayerNoDeps, LibrarySyncRouterLayerNoDeps),

@@ -5,8 +5,8 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { accountsAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { AppRuntime } from '#src/services/runtime.ts';
+import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 export type AccountsSheet = Data.TaggedEnum<{
   readonly Idle: { readonly dismissable: true };

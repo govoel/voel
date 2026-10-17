@@ -5,7 +5,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "check-types": "expo customize tsconfig.json && tsc --noEmit",
-    "test": "vitest run --config vitest.rn.config.ts src/components src/domains/accounts/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts --exclude 'src/domains/accounts/components/**' src/domains/accounts src/domains/library src/services/swr.test.ts",
+    "test": "vitest run --config vitest.rn.config.ts src/components src/domains/accounts/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts --exclude 'src/domains/accounts/components/**' src/domains/accounts src/domains/library src/runtime/swr.test.ts",
     "start": "RELEASE_CHANNEL=dev expo start",
     "android:dev": "RELEASE_CHANNEL=dev expo run:android",
     "android:preview": "RELEASE_CHANNEL=preview expo run:android --variant release",

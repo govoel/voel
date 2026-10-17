@@ -12,7 +12,7 @@ import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/account
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
-import { TestServerControllerClient } from '#src/services/testing/server-controller/client.ts';
+import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 import {
   makeAuthClient,
   makeClientTestLayers,
@@ -20,7 +20,7 @@ import {
   makeUsername,
   setupTestServerWithUsers,
   signInTestServerUsers,
-} from '#src/services/testing/utils.ts';
+} from '#src/testing/utils.ts';
 
 const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list));
 

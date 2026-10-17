@@ -8,9 +8,9 @@ import { Reactivity } from 'effect/reactivity';
 import { AuthClient } from '@repo/auth-api/client.ts';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 
+import { ApiConfig } from '#src/config.ts';
 import { AuthDatabase } from '#src/domains/auth/database/index.ts';
 import { AuthLayerNoDeps, AuthRouterLayerNoDeps } from '#src/domains/auth/http.ts';
-import { ApiConfig } from '#src/services/config.ts';
 
 const TestServerLayer = Layer.effectDiscard(
   Effect.gen(function* () {
