@@ -1,13 +1,17 @@
 import { Library as PluginLibrary, MediaType as PluginMediaType } from '@govoel/plugins/library';
 import {
+  StorageLocationValidationError,
   StorageMediaFileLocation,
+  StoragePluginConstructionError,
+  StoragePluginSettingsConstructionError,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
 import { Model, VariantSchema } from 'effect/schema';
 
-import { StoragePluginId } from '#src/domains/plugins/storage.ts';
+import { PluginLoadError } from '#src/domains/plugins/schema.ts';
+import { StoragePluginId, StoragePluginLoadError } from '#src/domains/plugins/storage.ts';
 
 const DbModel = VariantSchema.make({
   variants: ['select', 'create', 'upsert', 'json', 'jsonCreate', 'jsonUpdate', 'jsonUpsert'],
@@ -434,3 +438,57 @@ export class LibraryFileMap extends DbModel.Class<LibraryFileMap>(
   }),
   ...Timestamped.fullFields,
 }) {}
+
+export class LibraryNotFoundError extends Schema.TaggedError<
+  LibraryNotFoundError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/domains/library/schema/LibraryNotFoundError')('LibraryNotFoundError', {
+  id: Library.fields.id,
+}) {}
+
+export class LibraryNameConflictError extends Schema.TaggedError<
+  LibraryNameConflictError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/domains/library/schema/LibraryNameConflictError')('LibraryNameConflictError', {
+  name: Library.fields.name,
+}) {}
+
+export class LibraryUnconfiguredError extends Schema.TaggedError<
+  LibraryUnconfiguredError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/domains/library/schema/LibraryUnconfiguredError')('LibraryUnconfiguredError', {
+  id: Library.fields.id,
+}) {}
+
+export class LibraryInvalidRootError extends Schema.TaggedError<
+  LibraryInvalidRootError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/domains/library/schema/LibraryInvalidRootError')('LibraryInvalidRootError', {
+  roots: Schema.NonEmptyArray(
+    Schema.Struct({
+      // Rejected submissions are raw strings, not validated storage locations.
+      root: Schema.String,
+      message: StorageLocationValidationError.fields.message,
+    })
+  ),
+}) {}
+
+/** Cached construction state of storage and its settings editor, not a live health probe. */
+export const StoragePluginStatus = Schema.Literals(['unknown', 'healthy', 'unhealthy']);
+
+/** Any cached failure wins; healthy means at least one current component was built successfully. */
+export const StoragePluginHealth = Schema.Union([
+  Schema.Struct({ status: Schema.Literal('unknown') }),
+  Schema.Struct({ status: Schema.Literal('healthy') }),
+  Schema.Struct({
+    status: Schema.Literal('unhealthy'),
+    errors: Schema.NonEmptyArray(
+      Schema.Union([
+        PluginLoadError,
+        StoragePluginLoadError,
+        StoragePluginConstructionError,
+        StoragePluginSettingsConstructionError,
+      ])
+    ),
+  }),
+]);

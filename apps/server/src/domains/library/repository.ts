@@ -3,10 +3,11 @@ import { Array, Context, Effect, Layer, Option, Schema } from 'effect';
 import { SqlSchema } from 'effect/sql';
 
 import {
+  Library,
   LibraryNameConflictError,
   LibraryNotFoundError,
-} from '@repo/spec-api/domains/library/errors.ts';
-import { Library, LibraryRoot } from '@repo/spec-api/domains/library/schema.ts';
+  LibraryRoot,
+} from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 

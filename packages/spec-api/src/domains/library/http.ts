@@ -11,13 +11,15 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from 'effect/http-api';
 
 import { AdminMiddleware, AuthMiddleware } from '#src/domains/auth/http.ts';
 import {
+  Library,
   LibraryInvalidRootError,
   LibraryNameConflictError,
   LibraryNotFoundError,
+  LibraryRoot,
   LibraryUnconfiguredError,
-} from '#src/domains/library/errors.ts';
-import { StoragePluginHealth, StoragePluginStatus } from '#src/domains/library/health.ts';
-import { Library, LibraryRoot } from '#src/domains/library/schema.ts';
+  StoragePluginHealth,
+  StoragePluginStatus,
+} from '#src/domains/library/schema.ts';
 import { PluginLoadError } from '#src/domains/plugins/schema.ts';
 import { StoragePluginLoadError } from '#src/domains/plugins/storage.ts';
 

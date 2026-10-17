@@ -3,8 +3,7 @@ import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Effect, Layer, Option } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 
-import { LibraryInvalidRootError } from '@repo/spec-api/domains/library/errors.ts';
-import { Library } from '@repo/spec-api/domains/library/schema.ts';
+import { Library, LibraryInvalidRootError } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';

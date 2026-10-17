@@ -4,9 +4,8 @@ import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 import {
   LibraryInvalidRootError,
   LibraryUnconfiguredError,
-} from '@repo/spec-api/domains/library/errors.ts';
-import type { StoragePluginHealth } from '@repo/spec-api/domains/library/health.ts';
-import type { Library } from '@repo/spec-api/domains/library/schema.ts';
+} from '@repo/spec-api/domains/library/schema.ts';
+import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
