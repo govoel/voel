@@ -1,6 +1,6 @@
 import { useSelector } from '@tanstack/react-form';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Effect, Layer, Option, Schema } from 'effect';
+import { Array, Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
@@ -47,9 +47,10 @@ const makeUser = () =>
 const ErrorProbe = () => {
   const form = useFormContext();
   const submissionError = useFormSubmissionError();
-  const validationFormError = useSelector(
-    form.store,
-    (state) => state.errors.find((error): error is string => typeof error === 'string') ?? null
+  const validationFormError = useSelector(form.store, (state) =>
+    Option.getOrNull(
+      Array.findFirst(state.errors, (error): error is string => typeof error === 'string')
+    )
   );
 
   return (

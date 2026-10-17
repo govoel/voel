@@ -13,7 +13,8 @@ const schemaClassConstructors = new Set([
 
 const uniqueSymbolProperties = (type: ESTree.TSType) =>
   type.type === 'TSTypeLiteral'
-    ? type.members.filter(
+    ? Array.filter(
+        type.members,
         (member): member is ESTree.TSPropertySignature =>
           member.type === 'TSPropertySignature' &&
           member.readonly &&
@@ -55,7 +56,8 @@ export const schemaClassBrandRule = defineRule({
       );
       const hasBrand = isExtend
         ? brandProperties.length > 0
-        : brandProperties.some(
+        : Array.some(
+            brandProperties,
             (property) =>
               !property.computed &&
               property.key.type === 'Identifier' &&

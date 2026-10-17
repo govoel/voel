@@ -45,7 +45,7 @@ const AgentToolsRegistrationLayer = Layer.effectDiscard(
 
     const registerAgentTools = Effect.sync(() => {
       agentClient.send('register-tool', {
-        tools: agentToolHandlers.map(({ tool }) => tool),
+        tools: Array.map(agentToolHandlers, ({ tool }) => tool),
       });
     });
 
@@ -118,7 +118,7 @@ const AgentToolsRegistrationLayer = Layer.effectDiscard(
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
         agentClient.send('unregister-tool', {
-          toolNames: agentToolHandlers.map(({ tool }) => tool.name),
+          toolNames: Array.map(agentToolHandlers, ({ tool }) => tool.name),
         });
       }).pipe(Effect.andThen(Queue.shutdown(incomingMessages)))
     );

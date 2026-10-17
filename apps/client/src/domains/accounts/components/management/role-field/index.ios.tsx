@@ -1,5 +1,6 @@
 import { Picker } from '@expo/ui/swift-ui';
 import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
+import { Array } from 'effect';
 
 import { Text } from '#src/components/text';
 import {
@@ -16,7 +17,7 @@ export const RoleField = () => {
       selection={field.value}
       onSelectionChange={field.handleSelect}
       modifiers={[pickerStyle('menu'), disabled(field.disabled)]}>
-      {roles.map((role) => (
+      {Array.map(roles, (role) => (
         <Text key={role} modifiers={[tag(role)]}>
           {Account.roleToDisplayString(role)}
         </Text>

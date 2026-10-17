@@ -16,6 +16,7 @@ import {
   StorageRootLocation,
 } from '@govoel/plugins/storage';
 import {
+  Array,
   Clock,
   ConfigProvider,
   Context,
@@ -26,6 +27,7 @@ import {
   Latch,
   Layer,
   Option,
+  Order,
   Path,
   References,
   Scope,
@@ -441,51 +443,58 @@ it.effect('isolates the plugin lifecycle and forwards factory and method inputs'
             settings: { directory: '/library' },
           });
           inspect();
-          return Layer.effect(
-            StoragePlugin,
-            Effect.sync(() => {
+          return Layer.fromBuild(() => {
+            // Custom layer builders must also run lazily inside the isolated context.
+            inspect();
+            return Effect.sync(() => {
               inspect();
-              return StoragePlugin.of({
-                decodeRootLocation: (input) => {
-                  expect(input).toEqual({ location: '/library' });
-                  inspect();
-                  return execute({ value: StorageRootLocation.make(input.location) });
-                },
-                decodeMediaFileLocation: (input) => {
-                  expect(input).toEqual({ location: '/library/file' });
-                  inspect();
-                  return execute({
-                    value: StorageMediaFileLocation.make(input.location),
-                  });
-                },
-              });
-            })
-          );
+              return Context.make(
+                StoragePlugin,
+                StoragePlugin.of({
+                  decodeRootLocation: (input) => {
+                    expect(input).toEqual({ location: '/library' });
+                    inspect();
+                    return execute({ value: StorageRootLocation.make(input.location) });
+                  },
+                  decodeMediaFileLocation: (input) => {
+                    expect(input).toEqual({ location: '/library/file' });
+                    inspect();
+                    return execute({
+                      value: StorageMediaFileLocation.make(input.location),
+                    });
+                  },
+                })
+              );
+            });
+          });
         },
         layerSettings: (configuration) => {
           expect(configuration).toEqual({ library: { id: 1, type: 'movie', name: 'Movies' } });
           inspect();
-          return Layer.effect(
-            StoragePluginSettings,
-            Effect.sync(() => {
+          return Layer.fromBuild(() => {
+            inspect();
+            return Effect.sync(() => {
               inspect();
-              return StoragePluginSettings.of({
-                getForm: (input) => {
-                  expect(input).toEqual({ current: Option.some({ directory: '/previous' }) });
-                  inspect();
-                  return execute({ value: [] });
-                },
-                decodeFormSubmission: (input) => {
-                  expect(input).toEqual({
-                    current: Option.some({ directory: '/previous' }),
-                    input: { directory: '/submitted' },
-                  });
-                  inspect();
-                  return execute({ value: request.settings });
-                },
-              });
-            })
-          );
+              return Context.make(
+                StoragePluginSettings,
+                StoragePluginSettings.of({
+                  getForm: (input) => {
+                    expect(input).toEqual({ current: Option.some({ directory: '/previous' }) });
+                    inspect();
+                    return execute({ value: [] });
+                  },
+                  decodeFormSubmission: (input) => {
+                    expect(input).toEqual({
+                      current: Option.some({ directory: '/previous' }),
+                      input: { directory: '/submitted' },
+                    });
+                    inspect();
+                    return execute({ value: request.settings });
+                  },
+                })
+              );
+            });
+          });
         },
       },
     } satisfies StoragePluginModule;
@@ -677,7 +686,8 @@ it.effect('keeps overlapping settings invocations isolated across suspension', (
     for (const metadata of [first, second]) {
       const expected = { metadata, services: noPrivateServices };
       expect(
-        observed.filter(
+        Array.filter(
+          observed,
           (value) => value.metadata.annotations['request'] === metadata.annotations.request
         )
       ).toEqual([expected, expected]);
@@ -883,7 +893,7 @@ it.effect.each(['successful', 'failed'] as const)(
         Effect.annotateLogs({ request: 'host' })
       );
 
-      expect(released.toSorted()).toEqual([
+      expect(Array.sort(released, Order.String)).toEqual([
         'acquireRelease',
         'acquireRelease',
         'addFinalizer',

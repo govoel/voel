@@ -16,6 +16,8 @@
     "node": true
   },
   "rules": {
+    // This application makes no public API stability promises.
+    "effecttsgo/api-stability-leak": "off",
     "effecttsgo/async-function": "off",
     "effecttsgo/missing-pipeable-signature": "off",
     "effecttsgo/strict-boolean-expressions": "off",
@@ -100,6 +102,8 @@
     "unicorn/no-null": "off",
     "unicorn/catch-error-name": ["error", { "ignore": ["e", "err", "error"] }],
     "unicorn/no-array-for-each": "off",
+    // Effect Array helpers take the collection and callback, not a native thisArg.
+    "unicorn/no-array-method-this-argument": "off",
     "unicorn/no-nested-ternary": "off",
     "unicorn/no-abusive-eslint-disable": "off",
     "unicorn/no-array-callback-reference": "off",

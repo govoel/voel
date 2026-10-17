@@ -1,6 +1,6 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
+import { Array, Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import {
@@ -34,7 +34,7 @@ const firstCatalog = (
   );
 
 const findAtomId = (catalog: ReadonlyArray<typeof AtomSummary.Type>, name: string): AtomIdType =>
-  Option.getOrThrow(Option.fromNullishOr(catalog.find((summary) => summary.name === name))).id;
+  Option.getOrThrow(Array.findFirst(catalog, (summary) => summary.name === name)).id;
 
 const firstAtomId = (catalog: ReadonlyArray<typeof AtomSummary.Type>): AtomIdType =>
   Option.getOrThrow(Option.fromNullishOr(catalog[0])).id;
@@ -58,12 +58,12 @@ describe('AtomDevTools', () => {
       Effect.gen(function* () {
         const service = yield* AtomDevTools;
         const initial = yield* firstCatalog(service);
-        expect(initial.map(({ name }) => name)).toEqual(['Existing']);
+        expect(Array.map(initial, ({ name }) => name)).toEqual(['Existing']);
 
         const added = Atom.make(2).pipe(Atom.withLabel('Added'));
         registry.get(added);
         const current = yield* firstCatalog(service);
-        expect(current.map(({ name }) => name)).toEqual(['Existing', 'Added']);
+        expect(Array.map(current, ({ name }) => name)).toEqual(['Existing', 'Added']);
         expect(previousAdds).toBe(1);
       })
     );
@@ -122,7 +122,7 @@ describe('AtomDevTools', () => {
         registry.reset();
 
         const catalogs = yield* Fiber.join(catalogsFiber);
-        expect(catalogs.map((catalog) => catalog.map(({ name }) => name))).toEqual([
+        expect(Array.map(catalogs, (catalog) => Array.map(catalog, ({ name }) => name))).toEqual([
           [],
           ['Transient'],
           [],
@@ -330,11 +330,10 @@ describe('AtomDevTools', () => {
           Fiber.join(secondFiber),
         ]);
         for (const snapshots of [first, second]) {
-          expect(snapshots.map(({ activePredefinedStateId }) => activePredefinedStateId)).toEqual([
-            Option.none(),
-            Option.some('equal'),
-          ]);
-          expect(snapshots.map(({ subscriberCount }) => subscriberCount)).toEqual([0, 0]);
+          expect(
+            Array.map(snapshots, ({ activePredefinedStateId }) => activePredefinedStateId)
+          ).toEqual([Option.none(), Option.some('equal')]);
+          expect(Array.map(snapshots, ({ subscriberCount }) => subscriberCount)).toEqual([0, 0]);
         }
       })
     );
@@ -369,8 +368,8 @@ describe('AtomDevTools', () => {
           Fiber.join(firstFiber),
           Fiber.join(secondFiber),
         ]);
-        expect(first.map(({ value }) => value)).toEqual(['0', '1']);
-        expect(second.map(({ value }) => value)).toEqual(['0', '1']);
+        expect(Array.map(first, ({ value }) => value)).toEqual(['0', '1']);
+        expect(Array.map(second, ({ value }) => value)).toEqual(['0', '1']);
       })
     );
   });

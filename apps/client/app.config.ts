@@ -1,7 +1,7 @@
 // oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
 import { readFileSync } from 'node:fs';
 
-import { Effect, Match } from 'effect';
+import { Array, Effect, Match } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
 import expoFont from 'expo-font/plugin';
 import expoImage from 'expo-image/plugin';
@@ -52,9 +52,10 @@ const getExpoUiAndroidDependencyVersion = (coordinate: `${string}:${string}`) =>
   }
 
   const dependencyEnd = Math.min(
-    ...["'", '"']
-      .map((quote) => expoUiAndroidBuildGradle.indexOf(quote, dependencyStart))
-      .filter((index) => index !== -1)
+    ...Array.filter(
+      Array.map(["'", '"'], (quote) => expoUiAndroidBuildGradle.indexOf(quote, dependencyStart)),
+      (index) => index !== -1
+    )
   );
 
   return expoUiAndroidBuildGradle.slice(dependencyStart, dependencyEnd);

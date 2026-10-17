@@ -2,6 +2,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
 import {
+  Array,
   Cause,
   Deferred,
   Duration,
@@ -348,7 +349,7 @@ describe('TursoClient', () => {
         order by
           name
       `;
-      expect(rows.map((row) => row['name'])).toEqual([
+      expect(Array.map(rows, (row) => row['name'])).toEqual([
         'row-1',
         'row-2',
         'row-3',
@@ -393,7 +394,9 @@ describe('TursoClient', () => {
         order by
           id
       `;
-      expect(rows).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((id) => ({ id, name: `row-${id}` })));
+      expect(rows).toEqual(
+        Array.map([1, 2, 3, 4, 5, 6, 7, 8], (id) => ({ id, name: `row-${id}` }))
+      );
     }).pipe(Effect.provide(TestLayer))
   );
 

@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it, spyOn } from 'bun:test';
 
-import { DateTime, Effect } from 'effect';
+import { Array, DateTime, Effect, Option } from 'effect';
 
 import { AuthClient } from '#src/client.ts';
 import { AuthUser } from '#src/shared.ts';
@@ -63,8 +63,10 @@ describe('auth client integration', () => {
       const { client, requests } = yield* withResponse({ users: [user], total: 1, limit: 10 });
       const page = yield* client.admin.listUsers({ limit: 10, offset: 0 });
       expect(page).toMatchObject({ users: [decodedUser], total: 1, limit: 10 });
-      const request = requests.find((item) => item.url.includes('/admin/list-users'));
-      expect(request && new URL(request.url).searchParams.get('offset')).toBe('0');
+      const request = Option.getOrThrow(
+        Array.findFirst(requests, (item) => item.url.includes('/admin/list-users'))
+      );
+      expect(new URL(request.url).searchParams.get('offset')).toBe('0');
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 
@@ -87,16 +89,20 @@ describe('auth client integration', () => {
       const { client, requests } = yield* withResponse({ user });
       yield* client.admin.createUser(createUserInput);
       yield* client.admin.setRole({ userId, role: AuthUser.fields.role.make('under18') });
-      const createRequest = requests.find((request) => request.url.endsWith('/admin/create-user'));
-      const roleRequest = requests.find((request) => request.url.endsWith('/admin/set-role'));
-      expect(yield* Effect.promise(async () => createRequest?.json())).toEqual({
+      const createRequest = Option.getOrThrow(
+        Array.findFirst(requests, (request) => request.url.endsWith('/admin/create-user'))
+      );
+      const roleRequest = Option.getOrThrow(
+        Array.findFirst(requests, (request) => request.url.endsWith('/admin/set-role'))
+      );
+      expect(yield* Effect.promise(async () => createRequest.json())).toEqual({
         name: 'Reader',
         email: 'reader@example.com',
         password: 'password',
         role: 'user',
         data: { username: 'reader' },
       });
-      expect(yield* Effect.promise(async () => roleRequest?.json())).toEqual({
+      expect(yield* Effect.promise(async () => roleRequest.json())).toEqual({
         userId,
         role: 'under18',
       });
@@ -110,7 +116,9 @@ describe('auth client integration', () => {
       const input = { name: 'Reader', role: 'admin' };
       const updateError = yield* client.updateUser(input).pipe(Effect.flip);
       expect(updateError.reason._tag).toBe('InvalidAuthInputError');
-      expect(requests.filter((request) => !request.url.endsWith('/get-session'))).toEqual([]);
+      expect(Array.filter(requests, (request) => !request.url.endsWith('/get-session'))).toEqual(
+        []
+      );
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 });

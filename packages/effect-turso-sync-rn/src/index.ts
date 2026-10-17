@@ -197,15 +197,16 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     });
 
     const { connection, db } = yield* makeConnection;
-    const { transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
-      connection: Effect.succeed(connection),
-      semaphore: yield* Semaphore.make(1),
-      isTransaction: () => db.inTransaction,
-    });
+    const { acquirer, borrower, transactionAcquirer, onCommitFailure } =
+      SqlClient.makeSqliteAcquirers({
+        connection: Effect.succeed(connection),
+        semaphore: yield* Semaphore.make(1),
+        isTransaction: () => db.inTransaction,
+      });
 
     const client = yield* SqlClient.make({
-      // Hold the lease across asynchronous native execution, including recovery.
-      acquirer: transactionAcquirer,
+      acquirer,
+      borrower,
       compiler,
       transactionAcquirer,
       onCommitFailure,
