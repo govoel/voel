@@ -17,7 +17,6 @@
   "dependencies": {
     "@better-auth/expo": "1.7.7",
     "@effect/atom-react": "4.0.0",
-    "@expo-google-fonts/google-sans": "0.4.2",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~58.0.20",
     "@repo/auth-api": "workspace:*",

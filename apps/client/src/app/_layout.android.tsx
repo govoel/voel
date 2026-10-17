@@ -5,7 +5,8 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { materialFonts, materialSeedColor, useMaterialColors } from '#src/constants/material.ts';
+import { materialFonts } from '#src/constants/material-fonts.ts';
+import { materialSeedColor, useMaterialColors } from '#src/constants/material.ts';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
 import { AppRegistry } from '#src/runtime/registry.ts';
 
