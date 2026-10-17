@@ -1,6 +1,6 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Badge, ScrollArea, Sidebar } from '@rozenite/ui';
-import { Option } from 'effect';
+import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 
 import type { AtomSummary } from '@repo/effect-atom-devtools-core/atom-dev-tools';
@@ -22,7 +22,7 @@ const AtomSidebar = ({ catalog }: { readonly catalog: ReadonlyArray<typeof AtomS
           </div>
         ) : (
           <Sidebar.Group className="p-2">
-            {catalog.map((atomSummary) => (
+            {Array.map(catalog, (atomSummary) => (
               <Sidebar.Item
                 key={atomSummary.id}
                 className="h-auto py-2"

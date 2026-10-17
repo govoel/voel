@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Badge, Button, ScrollArea } from '@rozenite/ui';
-import { Option } from 'effect';
+import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
@@ -65,7 +65,7 @@ const PredefinedStatesSection = ({ snapshot }: { readonly snapshot: typeof AtomS
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-border">
-          {snapshot.predefinedStates.map((state) => {
+          {Array.map(snapshot.predefinedStates, (state) => {
             const isActive =
               Option.isSome(snapshot.activePredefinedStateId) &&
               snapshot.activePredefinedStateId.value === state.id;
@@ -132,7 +132,7 @@ const AtomLinksSection = ({
         <p className="text-sm text-muted-foreground">None</p>
       ) : (
         <div className="flex flex-col gap-1">
-          {links.map((link) => (
+          {Array.map(links, (link) => (
             <button
               key={link.id}
               type="button"

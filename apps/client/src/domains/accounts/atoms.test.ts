@@ -1,6 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import {
+  Array,
   Context,
   DateTime,
   Deferred,
@@ -591,18 +592,16 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
 
         // Invalidation must restart pagination, not append
         // refreshed rows to the already accumulated pages.
-        const target = allUsers.items.find((user) => user.username !== testServer.adminUsername);
-        expect(target).toBeDefined();
-        if (!target) {
-          return;
-        }
+        const target = Option.getOrThrow(
+          Array.findFirst(allUsers.items, (user) => user.username !== testServer.adminUsername)
+        );
         yield* Atom.set(deleteServerUserAtom, { userId: target.id });
         yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
         const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         expect(refreshed.items).toHaveLength(10);
-        expect(refreshed.items.some((user) => user.id === target.id)).toBe(false);
+        expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
         yield* Atom.set(listUsersAtom, void 0);
         const remaining = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
         expect(remaining.items).toHaveLength(11);
@@ -624,7 +623,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         });
         yield* Atom.mount(listUsersAtom);
         const firstResult = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
-        const firstUsernames = firstResult.items.map((user) => user.username);
+        const firstUsernames = Array.map(firstResult.items, (user) => user.username);
         expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           firstServer.usernames.sort((first, second) => first.localeCompare(second))
         );
@@ -656,7 +655,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const secondResult = Option.getOrThrow(
           yield* Fiber.join(nextUsers).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
         );
-        const secondUsernames = secondResult.items.map((user) => user.username);
+        const secondUsernames = Array.map(secondResult.items, (user) => user.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
         );
@@ -684,9 +683,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         );
         const users = yield* client.admin.listUsers({ limit: 10, offset: 0 });
         const target = Option.getOrThrow(
-          Option.fromNullishOr(
-            users.users.find((user) => user.username !== testServer.adminUsername)
-          )
+          Array.findFirst(users.users, (user) => user.username !== testServer.adminUsername)
         );
         const currentUser = (yield* client.readSession).user;
         const detail = serverUserAtom(currentUser.id);
@@ -705,7 +702,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           id: currentUser.id,
         });
         const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
-        expect(refreshed.items.some((user) => user.id === target.id)).toBe(false);
+        expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
         expect(read).toHaveBeenCalled();
         expect(list).toHaveBeenCalled();
         read.mockClear();
@@ -739,11 +736,9 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           (yield* Atom.getResult(ownSessionsAtom, { suspendOnWaiting: true })).sessions.length
         ).toBeGreaterThan(1);
         yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
-        const other = (yield* client.listSessions).find((item) => item.id !== session.session.id);
-        expect(other).toBeDefined();
-        if (!other) {
-          return;
-        }
+        const other = Option.getOrThrow(
+          Array.findFirst(yield* client.listSessions, (item) => item.id !== session.session.id)
+        );
 
         yield* Atom.set(revokeOwnSessionAtom, { token: other.token });
         yield* Atom.getResult(revokeOwnSessionAtom, { suspendOnWaiting: true });
@@ -751,8 +746,8 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         yield* drainScheduler;
         const own = yield* Atom.getResult(ownSessionsAtom, { suspendOnWaiting: true });
         const admin = yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
-        expect(own.sessions.some((item) => item.id === other.id)).toBe(false);
-        expect(admin.sessions.some((item) => item.id === other.id)).toBe(false);
+        expect(Array.some(own.sessions, (item) => item.id === other.id)).toBe(false);
+        expect(Array.some(admin.sessions, (item) => item.id === other.id)).toBe(false);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )

@@ -16,6 +16,7 @@ import {
   StorageRootLocation,
 } from '@govoel/plugins/storage';
 import {
+  Array,
   Clock,
   ConfigProvider,
   Context,
@@ -26,6 +27,7 @@ import {
   Latch,
   Layer,
   Option,
+  Order,
   Path,
   References,
   Scope,
@@ -684,7 +686,8 @@ it.effect('keeps overlapping settings invocations isolated across suspension', (
     for (const metadata of [first, second]) {
       const expected = { metadata, services: noPrivateServices };
       expect(
-        observed.filter(
+        Array.filter(
+          observed,
           (value) => value.metadata.annotations['request'] === metadata.annotations.request
         )
       ).toEqual([expected, expected]);
@@ -890,7 +893,7 @@ it.effect.each(['successful', 'failed'] as const)(
         Effect.annotateLogs({ request: 'host' })
       );
 
-      expect(released.toSorted()).toEqual([
+      expect(Array.sort(released, Order.String)).toEqual([
         'acquireRelease',
         'acquireRelease',
         'addFinalizer',

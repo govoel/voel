@@ -1,7 +1,19 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, makeMethods, test } from '@effect/vitest';
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Deferred, Effect, Exit, Option, Queue, Random, Ref, Schema, Scope, Stream } from 'effect';
+import {
+  Deferred,
+  Effect,
+  Exit,
+  Option,
+  Queue,
+  Random,
+  Record,
+  Ref,
+  Schema,
+  Scope,
+  Stream,
+} from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcMessage, RpcSchema, RpcServer } from 'effect/rpc';
 
 import { makeRpcServerProtocol } from '#src/react-native/rpc/protocol.ts';
@@ -55,7 +67,7 @@ const protocolTest = test
         };
       },
       close: () => {
-        for (const eventListeners of Object.values(listeners)) {
+        for (const eventListeners of Record.values(listeners)) {
           eventListeners.clear();
         }
       },

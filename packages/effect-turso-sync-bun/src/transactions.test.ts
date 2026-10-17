@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer } from 'effect';
+import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { vi } from 'vitest';
@@ -208,7 +208,7 @@ describe('Bun Turso Sync transactions', () => {
         .pipe(Effect.exit);
       expect(Exit.isFailure(failed)).toBe(true);
       // One explicit rollback, not another failed cleanup and extra error.
-      expect(controls.filter((statement) => statement === 'ROLLBACK')).toHaveLength(1);
+      expect(Array.filter(controls, (statement) => statement === 'ROLLBACK')).toHaveLength(1);
       yield* sql`
         insert into
           parent

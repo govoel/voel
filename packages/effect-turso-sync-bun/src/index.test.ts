@@ -2,7 +2,18 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
 import { Database } from '@tursodatabase/sync';
-import { Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Option, Schema } from 'effect';
+import {
+  Array,
+  Cause,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Schema,
+} from 'effect';
 import { HttpEffect, HttpServerRequest } from 'effect/http';
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, SqlError } from 'effect/sql';
@@ -392,7 +403,7 @@ describe('TursoSyncClient', () => {
         order by
           name
       `;
-      expect(rows.map((row) => row['name'])).toEqual([
+      expect(Array.map(rows, (row) => row['name'])).toEqual([
         'row-1',
         'row-2',
         'row-3',
@@ -437,7 +448,9 @@ describe('TursoSyncClient', () => {
         order by
           id
       `;
-      expect(rows).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((id) => ({ id, name: `row-${id}` })));
+      expect(rows).toEqual(
+        Array.map([1, 2, 3, 4, 5, 6, 7, 8], (id) => ({ id, name: `row-${id}` }))
+      );
     }).pipe(Effect.provide(TestLayer))
   );
 
@@ -654,7 +667,9 @@ describe('TursoSyncClient', () => {
       ]);
       expect(yield* replica.pull).toBe(false);
       expect(authorizationHeaders.length).toBeGreaterThan(0);
-      expect(authorizationHeaders.every((header) => header === 'Bearer test-token')).toBe(true);
+      expect(Array.every(authorizationHeaders, (header) => header === 'Bearer test-token')).toBe(
+        true
+      );
     }).pipe(Effect.provide(TestLayer))
   );
 
@@ -756,7 +771,10 @@ describe('TursoSyncClient', () => {
       ).toEqual([{ id: 1 }]);
       expect(headers.slice(requestsBeforePull)).not.toHaveLength(0);
       expect(
-        headers.slice(requestsBeforePull).every((header) => header === 'Bearer rotated-token')
+        Array.every(
+          headers.slice(requestsBeforePull),
+          (header) => header === 'Bearer rotated-token'
+        )
       ).toBe(true);
     }).pipe(Effect.provide(TestLayer))
   );

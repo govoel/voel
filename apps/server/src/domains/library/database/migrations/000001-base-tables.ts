@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Array, Effect } from 'effect';
 import { SqlClient } from 'effect/sql';
 
 const createIndex = Effect.fnUntraced(function* ({
@@ -10,9 +10,10 @@ const createIndex = Effect.fnUntraced(function* ({
   readonly table: string;
   readonly columns: ReadonlyArray<string>;
 }) {
-  const indexName = `${table}_${columns.join('_')}_idx`;
+  const indexName = `${table}_${Array.join(columns, '_')}_idx`;
   const indexColumns = sql.csv(
-    columns.map(
+    Array.map(
+      columns,
       (column) => sql`
         ${sql(column)}
       `
@@ -33,9 +34,10 @@ const createUniqueIndex = Effect.fnUntraced(function* ({
   readonly table: string;
   readonly columns: ReadonlyArray<string>;
 }) {
-  const indexName = `${table}_${columns.join('_')}_uniqueidx`;
+  const indexName = `${table}_${Array.join(columns, '_')}_uniqueidx`;
   const indexColumns = sql.csv(
-    columns.map(
+    Array.map(
+      columns,
       (column) => sql`
         ${sql(column)}
       `
@@ -62,7 +64,8 @@ const createUpdatedAtTrigger = Effect.fnUntraced(function* ({
     ', ',
     false
   )(
-    columns.map(
+    Array.map(
+      columns,
       (column) => sql`
         ${sql(column)}
       `

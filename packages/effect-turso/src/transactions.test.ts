@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Scope } from 'effect';
+import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Scope } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { vi } from 'vitest';
@@ -100,7 +100,9 @@ describe('TursoClient pooled transaction recovery', () => {
         _tag: 'Failure',
         failure: { _tag: 'SqlError', reason: { _tag: 'ConnectionError' } },
       });
-      expect(firstSpy.mock.calls.filter(([statement]) => statement === 'ROLLBACK')).toHaveLength(2);
+      expect(
+        Array.filter(firstSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
+      ).toHaveLength(2);
 
       // The failed acquisition still owns its pool lease until its supplied scope closes.
       // Release only the second connection, forcing a fresh acquisition of the healthy one.
@@ -109,19 +111,23 @@ describe('TursoClient pooled transaction recovery', () => {
       const healthy = yield* Scope.provide(sql.reserve, healthyLease);
       expect(healthy).toBe(second);
       expect(yield* healthy.executeUnprepared('SELECT * FROM parent', [], void 0)).toEqual([]);
-      expect(secondSpy.mock.calls.filter(([statement]) => statement === 'ROLLBACK')).toHaveLength(
-        0
-      );
-      expect(firstSpy.mock.calls.filter(([statement]) => statement === 'ROLLBACK')).toHaveLength(2);
+      expect(
+        Array.filter(secondSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
+      ).toHaveLength(0);
+      expect(
+        Array.filter(firstSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
+      ).toHaveLength(2);
 
       yield* Scope.close(failedLease, Exit.void);
       const recoveredLease = yield* Scope.fork(scope);
       const recovered = yield* Scope.provide(sql.reserve, recoveredLease);
       expect(recovered).toBe(first);
-      expect(firstSpy.mock.calls.filter(([statement]) => statement === 'ROLLBACK')).toHaveLength(3);
-      expect(secondSpy.mock.calls.filter(([statement]) => statement === 'ROLLBACK')).toHaveLength(
-        0
-      );
+      expect(
+        Array.filter(firstSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
+      ).toHaveLength(3);
+      expect(
+        Array.filter(secondSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
+      ).toHaveLength(0);
       expect(yield* recovered.executeUnprepared('SELECT * FROM parent', [], void 0)).toEqual([]);
       expect(yield* recovered.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
     }).pipe(Effect.provide(TestLayer))
@@ -396,7 +402,7 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         .pipe(Effect.exit);
       expect(Exit.isFailure(failed)).toBe(true);
       // One explicit rollback, not another failed cleanup and extra error.
-      expect(controls.filter((statement) => statement === 'ROLLBACK')).toHaveLength(1);
+      expect(Array.filter(controls, (statement) => statement === 'ROLLBACK')).toHaveLength(1);
       yield* sql`
         insert into
           parent

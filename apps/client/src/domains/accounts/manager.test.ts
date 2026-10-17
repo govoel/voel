@@ -1,6 +1,17 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
+import {
+  Array,
+  Context,
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Option,
+  Redacted,
+  Schema,
+  Stream,
+} from 'effect';
 import type { Scope } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
@@ -776,7 +787,9 @@ describe('AccountManager', () => {
           yield* manager.signOutEverywhere(firstKey);
 
           expect(yield* manager.state).toEqual(Option.some(secondKey));
-          expect((yield* getAccounts).map((account) => account.userId)).toEqual([second.userId]);
+          expect(Array.map(yield* getAccounts, (account) => account.userId)).toEqual([
+            second.userId,
+          ]);
           expect(yield* storage.getItem(`${prefix}_cookie`)).toEqual(Option.none());
           expect(yield* storage.getItem(`${prefix}_session_data`)).toEqual(Option.none());
           yield* firstClient.listSessions.pipe(Effect.flip);
