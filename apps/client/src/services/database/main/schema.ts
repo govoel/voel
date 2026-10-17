@@ -53,7 +53,6 @@ export class Account extends DbModel.Class<Account>('voel/services/database/main
     select: Schema.BooleanFromBit.pipe(
       Schema.brand('voel/services/database/main/schema/Account/active')
     ),
-    upsert: Schema.BooleanFromBit,
   }),
   createdAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
   updatedAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),

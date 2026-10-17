@@ -125,9 +125,12 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                   }).pipe(Effect.andThen(controls.onFinalize(request)))
                 );
                 const settings = yield* Persisted.decodeUnknownEffect(request.settings).pipe(
-                  Effect.catchTag('SchemaError', () =>
-                    StoragePluginConstructionError.make({ message: 'Invalid persisted settings' })
-                  )
+                  Effect.catchTags({
+                    SchemaError: () =>
+                      StoragePluginConstructionError.make({
+                        message: 'Invalid persisted settings',
+                      }),
+                  })
                 );
                 if (settings.prefix === 'unavailable' || request.library.name === 'Rejected') {
                   return yield* StoragePluginConstructionError.make({
@@ -142,9 +145,10 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                   decodeRootLocation: ({ location }) =>
                     controls.beforeRootDecode({ ...request, location }).pipe(
                       Effect.andThen(decodeRoot(location.trim())),
-                      Effect.catchTag('SchemaError', (error) =>
-                        StorageLocationValidationError.make({ message: error.message })
-                      )
+                      Effect.catchTags({
+                        SchemaError: (error) =>
+                          StorageLocationValidationError.make({ message: error.message }),
+                      })
                     ),
                   decodeMediaFileLocation: ({ location }) =>
                     Effect.succeed(StorageMediaFileLocation.make(location)),
@@ -165,12 +169,13 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                       }
                       const settings = Option.isSome(current)
                         ? yield* Persisted.decodeUnknownEffect(current.value).pipe(
-                            Effect.catchTag('SchemaError', () =>
-                              StoragePluginSettingsError.make({
-                                message:
-                                  'Storage plugin could not build the settings form from the current settings',
-                              })
-                            )
+                            Effect.catchTags({
+                              SchemaError: () =>
+                                StoragePluginSettingsError.make({
+                                  message:
+                                    'Storage plugin could not build the settings form from the current settings',
+                                }),
+                            })
                           )
                         : { prefix: '' };
                       const field = {
@@ -192,11 +197,12 @@ class PluginFixture extends Context.Service<PluginFixture>()(
                       ),
                       Effect.andThen(
                         Input.decodeUnknownEffect(input).pipe(
-                          Effect.catchTag('SchemaError', () =>
-                            StoragePluginInvalidSettingsError.make({
-                              message: 'Submitted storage plugin settings failed validation',
-                            })
-                          )
+                          Effect.catchTags({
+                            SchemaError: () =>
+                              StoragePluginInvalidSettingsError.make({
+                                message: 'Submitted storage plugin settings failed validation',
+                              }),
+                          })
                         )
                       ),
                       Effect.map(({ root }) => {
@@ -280,6 +286,67 @@ const createInput = (
 const makeClient = Effect.gen(function* () {
   const auth = yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' });
   return yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
+});
+
+const repositoryTestLayer = LibraryRepository.layerNoDeps.pipe(
+  Layer.provideMerge(LibraryDatabase.layerNoDeps),
+  Layer.provideMerge([ApiConfig.layerTest(), Reactivity.layer])
+);
+
+it.layer(repositoryTestLayer)('library repository', (iit) => {
+  iit.effect(
+    'treats corrupt persisted settings as a read defect',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const sql = yield* LibraryDatabase;
+      const library = yield* Effect.acquireRelease(
+        repository.create(createInput('Corrupt row')),
+        (created) => repository.deleteById(created)
+      );
+      yield* sql`
+        update library
+        set
+          storagepluginsettings = 'not json'
+        where
+          id = ${library.id}
+      `;
+      const exit = yield* repository.getById(library).pipe(Effect.exit);
+      expect(Exit.hasFails(exit)).toBe(false);
+      expect(Exit.findDefect(exit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'SchemaError' },
+      });
+    })
+  );
+
+  iit.effect(
+    'replaces roots idempotently, retains surviving IDs, and isolates other libraries',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const library = yield* repository.create(createInput('Stable roots'));
+      const other = yield* repository.create(createInput('Isolated roots'));
+      const retained = StorageRootLocation.make('/retained');
+      const added = StorageRootLocation.make('/added');
+      yield* repository.setRoots({
+        ...library,
+        roots: [retained, StorageRootLocation.make('/removed')],
+      });
+      yield* repository.setRoots({ ...other, roots: [retained] });
+      const original = (yield* repository.getById(library)).roots;
+      const isolated = (yield* repository.getById(other)).roots;
+      expect(isolated.map(({ root }) => root)).toEqual(['/retained']);
+      yield* repository.setRoots({ ...library, roots: [retained, added, retained] });
+      const replaced = (yield* repository.getById(library)).roots;
+      expect(replaced.map(({ root }) => root)).toEqual([retained, added]);
+      expect(replaced[0]).toEqual(original[0]);
+      yield* repository.setRoots({ ...library, roots: [added, retained] });
+      expect((yield* repository.getById(library)).roots).toEqual(replaced);
+      yield* repository.setRoots({ ...library, roots: [] });
+      yield* repository.setRoots({ ...library, roots: [] });
+      expect((yield* repository.getById(library)).roots).toEqual([]);
+      expect((yield* repository.getById(other)).roots).toEqual(isolated);
+    })
+  );
 });
 
 it.layer(testLayer)('library lifecycle', (iit) => {
@@ -437,6 +504,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         ...library,
         roots: [StorageRootLocation.make('/original')],
       });
+      const original = (yield* repository.getById(library)).roots;
+      expect(original.map(({ root }) => root)).toEqual(['/original']);
       yield* Effect.acquireRelease(
         sql`
           create trigger "rejectRootReplacement" before insert on "libraryRoot" when new.root = '/rejected-root-replacement' begin
@@ -451,14 +520,18 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           `.pipe(Effect.orDie)
       );
 
-      expect(
-        yield* repository
-          .setRoots({ ...library, roots: [StorageRootLocation.make('/rejected-root-replacement')] })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'SqlError' });
-      expect((yield* repository.getById(library)).roots.map(({ root }) => root)).toEqual([
-        '/original',
-      ]);
+      const exit = yield* repository
+        .setRoots({
+          ...library,
+          roots: [StorageRootLocation.make('/rejected-root-replacement')],
+        })
+        .pipe(Effect.exit);
+      expect(Exit.hasFails(exit)).toBe(false);
+      expect(Exit.findDefect(exit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'SqlError' },
+      });
+      expect((yield* repository.getById(library)).roots).toEqual(original);
     })
   );
 
@@ -580,13 +653,13 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const original = yield* client.library.create({ payload: createInput('Unique') });
       expect(
         yield* client.library.create({ payload: createInput('Unique') }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNameConflictError' });
+      ).toMatchObject({ _tag: 'LibraryNameConflictError', name: 'Unique' });
       const other = yield* client.library.create({ payload: createInput('Other') });
       expect(
         yield* client.library
           .update({ params: other, payload: { name: Library.fields.name.make('Unique') } })
           .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNameConflictError' });
+      ).toMatchObject({ _tag: 'LibraryNameConflictError', name: 'Unique' });
       expect((yield* client.library.get({ params: other })).name).toBe('Other');
       yield* client.library.delete({ params: original });
       yield* client.library.delete({ params: original });
@@ -594,7 +667,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         yield* client.library
           .update({ params: original, payload: { name: Library.fields.name.make('Gone') } })
           .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNotFoundError' });
+      ).toMatchObject({ _tag: 'LibraryNotFoundError', id: original.id });
       const recreated = yield* client.library.create({ payload: createInput('Unique') });
       expect(recreated.id).not.toBe(original.id);
     })
