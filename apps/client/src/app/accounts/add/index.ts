@@ -4,8 +4,8 @@ import { Atom } from 'effect/reactivity';
 import { AuthSignInInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
-import { AccountManager } from '#src/services/accounts/index.ts';
-import { ServerUrl } from '#src/services/accounts/schema.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { ServerUrl } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 class AddAccountInput extends AuthSignInInput.pipe(

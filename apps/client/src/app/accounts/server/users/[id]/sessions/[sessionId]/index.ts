@@ -4,7 +4,7 @@ import { Atom } from 'effect/reactivity';
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 
 import { serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/index.ts';
-import { activeAccountKeyAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 
 const serverUserSessionFamily = Atom.family(

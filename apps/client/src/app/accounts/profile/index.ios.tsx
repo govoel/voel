@@ -15,15 +15,15 @@ import {
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/profile/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { SessionList } from '#src/components/account-management/session-list';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { activeAccountAtom } from '#src/services/accounts/atoms.ts';
+import { activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>

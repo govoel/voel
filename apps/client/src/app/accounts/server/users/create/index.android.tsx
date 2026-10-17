@@ -4,10 +4,10 @@ import { useRouter } from 'expo-router';
 import { useRef } from 'react';
 
 import { useCreateUserForm } from '#src/app/accounts/server/users/create/index.ts';
-import { RoleField } from '#src/components/account-management/role-field';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
+import { RoleField } from '#src/domains/accounts/components/management/role-field';
 
 export default function CreateUserScreen() {
   const router = useRouter();

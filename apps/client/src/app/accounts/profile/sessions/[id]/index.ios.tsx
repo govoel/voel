@@ -10,11 +10,11 @@ import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
 import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { SessionDetails } from '#src/components/account-management/session-details';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 
 const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
   const router = useRouter();

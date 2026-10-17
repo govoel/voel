@@ -5,16 +5,17 @@ import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.
 import type { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
 import { useAppForm } from '#src/components/form';
 import {
   activeAccountAtom,
   activeAccountAuthClientAtom,
   activeAccountKeyAtom,
-} from '#src/services/accounts/atoms.ts';
-import { AccountManager, NoActiveAccountError } from '#src/services/accounts/index.ts';
+} from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { Account } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/services/atom-devtools.ts';
-import { Account } from '#src/services/database/main/schema.ts';
 import { AppRuntime } from '#src/services/runtime.ts';
 import { swr } from '#src/services/swr.ts';
 

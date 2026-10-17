@@ -4,8 +4,8 @@ import { frame } from '@expo/ui/swift-ui/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { AccountsAutoPresenter } from '#src/components/accounts-auto-presenter/index.tsx';
-import { accountsSheetAtom } from '#src/components/accounts-auto-presenter/model.ts';
+import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
+import { accountsSheetAtom } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { AppRegistry } from '#src/services/registry.ts';
 
 export const SuspenseFallback = () => (

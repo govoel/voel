@@ -22,9 +22,6 @@ import {
   useUserRoleForm,
   userDetails,
 } from '#src/app/accounts/server/users/[id]/index.ts';
-import { authFailureMessage } from '#src/components/account-management/auth-failure-message.ts';
-import { RoleField } from '#src/components/account-management/role-field';
-import { SessionList } from '#src/components/account-management/session-list';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -35,6 +32,9 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { RoleField } from '#src/domains/accounts/components/management/role-field';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
 
 const UserList = ({ children }: PropsWithChildren) => (
   <LazyColumn
