@@ -1,4 +1,4 @@
-import { Context, Duration, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
+import { Context, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -11,12 +11,10 @@ import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 
-const retrySchedule = Schedule.exponential('1 second').pipe(
-  Schedule.modifyDelay(({ duration }) =>
-    Effect.succeed(Duration.min(duration, Duration.minutes(1)))
-  ),
-  Schedule.jittered
-);
+const retrySchedule = Schedule.min([
+  Schedule.exponential('1 second'),
+  Schedule.spaced('1 minute'),
+]).pipe(Schedule.jittered);
 
 const authToken = Effect.fnUntraced(function* (authClient: AuthClient['Service']) {
   return yield* authClient.sessionChanges.pipe(

@@ -49,8 +49,11 @@ describe('Bun Turso Sync transactions', () => {
             `)
           )
         )
-        .pipe(Effect.exit);
-      expect(Exit.isFailure(failed)).toBe(true);
+        .pipe(Effect.result);
+      expect(failed).toMatchObject({
+        _tag: 'Failure',
+        failure: { _tag: 'SqlError', reason: { _tag: 'ConstraintError' } },
+      });
       expect(
         yield* sql`
           select
@@ -141,6 +144,8 @@ describe('Bun Turso Sync transactions', () => {
         .pipe(Effect.exit);
       expect(Exit.isFailure(failed)).toBe(true);
       if (Exit.isFailure(failed)) {
+        expect(Cause.hasFails(failed.cause)).toBe(false);
+        expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
         expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
       }

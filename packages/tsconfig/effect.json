@@ -7,6 +7,13 @@
         "name": "@effect/language-service",
         // These existing integrations remain unstable in Effect v4 stable.
         "allowedUnstableApis": [
+          "@effect/atom-react",
+          "@effect/platform-bun",
+          "@effect/platform-node-shared/NodeChildProcessSpawner#layer",
+          "@effect/vitest",
+          "effect/FileSystem",
+          "effect/LayerMap",
+          "effect/Path",
           "effect/http",
           "effect/http-api",
           "effect/process",

@@ -193,16 +193,16 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     // A single physical connection backs both ordinary statements and
     // transactions. Leasing it prevents other statements from entering a
     // transaction's BEGIN..COMMIT window. Sync uses independent ownership.
-    const { transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
-      connection: Effect.succeed(connection),
-      semaphore: yield* Semaphore.make(1),
-      isTransaction: () => db.inTransaction,
-    });
+    const { acquirer, borrower, transactionAcquirer, onCommitFailure } =
+      SqlClient.makeSqliteAcquirers({
+        connection: Effect.succeed(connection),
+        semaphore: yield* Semaphore.make(1),
+        isTransaction: () => db.inTransaction,
+      });
 
     const client = yield* SqlClient.make({
-      // Turso execution is asynchronous: ordinary queries need the same scoped
-      // lease as transactions, rather than releasing it before execution starts.
-      acquirer: transactionAcquirer,
+      acquirer,
+      borrower,
       compiler,
       transactionAcquirer,
       onCommitFailure,
