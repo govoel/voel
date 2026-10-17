@@ -298,7 +298,8 @@ export const useSubmitState = () => {
       [
         state.canSubmit,
         state.isSubmitting,
-        state.errors.filter(
+        Array.filter(
+          state.errors,
           (error): error is string => Predicate.isString(error) && error.length > 0
         ),
       ] as const

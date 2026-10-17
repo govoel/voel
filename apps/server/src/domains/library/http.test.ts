@@ -6,7 +6,7 @@ import {
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Effect, Exit, Fiber, Latch, Layer, Option, Schema } from 'effect';
+import { Array, Effect, Exit, Fiber, Latch, Layer, Option, Schema } from 'effect';
 import {
   Headers,
   HttpClient,
@@ -121,10 +121,10 @@ it.layer(repositoryTestLayer)('library repository', (iit) => {
       yield* repository.setRoots({ ...other, roots: [retained] });
       const original = (yield* repository.getById(library)).roots;
       const isolated = (yield* repository.getById(other)).roots;
-      expect(isolated.map(({ root }) => root)).toEqual(['/retained']);
+      expect(Array.map(isolated, ({ root }) => root)).toEqual(['/retained']);
       yield* repository.setRoots({ ...library, roots: [retained, added, retained] });
       const replaced = (yield* repository.getById(library)).roots;
-      expect(replaced.map(({ root }) => root)).toEqual([retained, added]);
+      expect(Array.map(replaced, ({ root }) => root)).toEqual([retained, added]);
       expect(replaced[0]).toEqual(original[0]);
       yield* repository.setRoots({ ...library, roots: [added, retained] });
       expect((yield* repository.getById(library)).roots).toEqual(replaced);
@@ -174,9 +174,14 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const { drainScheduler } = yield* TestScheduler;
       const library = yield* client.library.create({ payload: createInput('Health', 'npm:test') });
       const listItem = Effect.gen(function* () {
-        return (yield* client.library.list({
-          query: { cursor: Option.none(), limit: 100 },
-        })).items.find(({ id }) => id === library.id);
+        return Option.getOrThrow(
+          Array.findFirst(
+            (yield* client.library.list({
+              query: { cursor: Option.none(), limit: 100 },
+            })).items,
+            ({ id }) => id === library.id
+          )
+        );
       });
       for (let index = 0; index < 2; index += 1) {
         expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
@@ -274,8 +279,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         'unknown'
       );
       expect(
-        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.find(
-          ({ id }) => id === library.id
+        Option.getOrThrow(
+          Array.findFirst(
+            (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items,
+            ({ id }) => id === library.id
+          )
         )
       ).toMatchObject({ storagePluginStatus: 'unknown' });
     })
@@ -292,7 +300,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         roots: [StorageRootLocation.make('/original')],
       });
       const original = (yield* repository.getById(library)).roots;
-      expect(original.map(({ root }) => root)).toEqual(['/original']);
+      expect(Array.map(original, ({ root }) => root)).toEqual(['/original']);
       yield* Effect.acquireRelease(
         sql`
           create trigger "rejectRootReplacement" before insert on "libraryRoot" when new.root = '/rejected-root-replacement' begin
@@ -342,7 +350,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         `
       ).toEqual([{ storagePluginSettings: null }]);
       expect(
-        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.some(
+        Array.some(
+          (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items,
           ({ id }) => id === library.id
         )
       ).toBe(true);
@@ -408,7 +417,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         ],
       });
       expect(
-        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+        Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
       ).toEqual(['/original']);
     })
   );
@@ -433,20 +442,31 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         errors: [{ _tag: 'PluginLoadError', message: 'Plugin unavailable' }],
       });
       expect(
-        (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items.find(
-          ({ id }) => id === missing.id
+        Option.getOrThrow(
+          Array.findFirst(
+            (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items,
+            ({ id }) => id === missing.id
+          )
         )
       ).toMatchObject({ storagePluginStatus: 'unhealthy' });
       const original = yield* client.library.create({ payload: createInput('Unique') });
       expect(
         yield* client.library.create({ payload: createInput('Unique') }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNameConflictError', name: 'Unique' });
+      ).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        name: '@repo/spec-api/domains/library/schema/LibraryNameConflictError',
+        libraryName: 'Unique',
+      });
       const other = yield* client.library.create({ payload: createInput('Other') });
       expect(
         yield* client.library
           .update({ params: other, payload: { name: Library.fields.name.make('Unique') } })
           .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNameConflictError', name: 'Unique' });
+      ).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        name: '@repo/spec-api/domains/library/schema/LibraryNameConflictError',
+        libraryName: 'Unique',
+      });
       expect((yield* client.library.get({ params: other })).name).toBe('Other');
       yield* client.library.delete({ params: original });
       yield* client.library.delete({ params: original });
@@ -515,11 +535,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         payload: { roots: [{ root: ' /one ' }, { root: '/one' }] },
       });
       expect(
-        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+        Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
       ).toEqual(['/one']);
       yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
       expect(
-        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+        Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
       ).toEqual(['/one']);
       yield* client.library.update({
         params: library,
@@ -623,7 +643,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         [{ label: 'Background renamed', initialValue: '/background' }]
       );
       expect(
-        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+        Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
       ).toEqual(['/one']);
       yield* release.open;
       yield* finished.await;
@@ -697,7 +717,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       yield* release.open;
       expect(yield* Fiber.join(pending)).toEqual({ ...library, roots: [{ root: '/pending' }] });
       expect(
-        (yield* client.library.get({ params: library })).roots.map(({ root }) => root)
+        Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
       ).toEqual(['/pending']);
       yield* client.library.update({
         params: library,
@@ -810,9 +830,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       yield* client.library.getStoragePluginSettingsForm({ params: library });
       yield* client.library.setRoots({ params: library, payload: { roots: [{ root: '/one' }] } });
       expect(
-        [...fixture.activeStorage]
-          .filter(({ library: row }) => row.id === library.id)
-          .map(({ settings }) => settings)
+        Array.map(
+          Array.filter([...fixture.activeStorage], ({ library: row }) => row.id === library.id),
+          ({ settings }) => settings
+        )
       ).toEqual([{ prefix: '/initial' }]);
       const retired = yield* Latch.make();
       fixture.controls.onFinalize = (request) =>
@@ -833,7 +854,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       yield* client.library.delete({ params: library });
       yield* retired.await;
       expect(
-        [...fixture.activeStorage].filter(({ library: row }) => row.id === library.id)
+        Array.filter([...fixture.activeStorage], ({ library: row }) => row.id === library.id)
       ).toEqual([]);
       yield* release.open;
       expect(yield* Fiber.join(pending)).toMatchObject({ _tag: 'LibraryNotFoundError' });
@@ -952,12 +973,12 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         query: { cursor: Option.some(marker.id), limit: 1 },
       });
       expect(
-        page.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
+        Array.map(page.items, ({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
       ).toEqual([{ name: 'Page first', storagePluginStatus: 'unknown' }]);
       expect(page.nextCursor).toEqual(Option.some(first.id));
       const last = yield* client.library.list({ query: { cursor: page.nextCursor, limit: 10 } });
       expect(
-        last.items.map(({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
+        Array.map(last.items, ({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
       ).toEqual([{ name: 'Page second', storagePluginStatus: 'unknown' }]);
       expect(last.nextCursor).toEqual(Option.none());
     })

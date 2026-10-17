@@ -1,5 +1,6 @@
 import { SegmentedButton, SingleChoiceSegmentedButtonRow } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { Array } from 'effect';
 
 import { Text } from '#src/components/text';
 import {
@@ -14,7 +15,7 @@ export const RoleField = () => {
     <>
       <Text>Role</Text>
       <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-        {roles.map((role) => (
+        {Array.map(roles, (role) => (
           <SegmentedButton
             key={role}
             selected={field.value === role}

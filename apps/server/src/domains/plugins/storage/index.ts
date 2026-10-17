@@ -134,11 +134,9 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
           Scope.close(scope, exit).pipe(Effect.setContext(isolatedContext))
         );
 
-        const context = yield* Effect.suspend(() =>
-          Layer.buildWithScope(
-            plugins.get(storagePlugin).pipe(Effect.map(makeLayer), Layer.unwrap),
-            pluginScope
-          )
+        const context = yield* Layer.buildWithScope(
+          plugins.get(storagePlugin).pipe(Effect.map(makeLayer), Layer.unwrap),
+          pluginScope
         ).pipe(Effect.setContext(isolatedContext));
 
         return { context, invoke };

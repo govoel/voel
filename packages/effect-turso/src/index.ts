@@ -309,7 +309,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       timeToLive: options.connectionTTL ?? Duration.minutes(45),
       timeToLiveStrategy: 'creation',
     });
-    const acquirer = Effect.flatMap(Pool.get(pool), (item) => item.acquire.pipe(Effect.as(item)));
+    const acquirer = Effect.tap(Pool.get(pool), (item) => item.acquire);
 
     // Make connection failures visible while constructing the client instead
     // of deferring them until its first statement.

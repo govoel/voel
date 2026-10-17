@@ -3,6 +3,7 @@ import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import {
+  Array,
   Context,
   Deferred,
   Effect,
@@ -173,7 +174,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         const changes = yield* libraryNames(database).pipe(
           Reactivity.stream(['library']),
           Stream.tap(() => Deferred.succeed(subscribed, true)),
-          Stream.filter((rows) => rows.some((row) => row.name === 'Movies')),
+          Stream.filter((rows) => Array.some(rows, (row) => row.name === 'Movies')),
           Stream.runHead,
           Effect.forkChild
         );

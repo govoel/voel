@@ -1,4 +1,4 @@
-import { Array, Data, Effect, Layer, Option, Order, pipe } from 'effect';
+import { Array, Data, Effect, Layer, Option, Order, Record, pipe } from 'effect';
 import type { SqlError } from 'effect/sql';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -17,6 +17,7 @@ type ResolvedMigration = readonly [
   migration: Effect.Effect<void, SqlError.SqlError, SqlClient.SqlClient>,
 ];
 
+// oxlint-disable-next-line effecttsgo/prefer-schema-tagged-error -- Preserve upstream’s Data.TaggedError in this Metro-safe specialization.
 class MigrationError extends Data.TaggedError(
   '@repo/effect-turso-sync-rn/migrator/MigrationError'
 )<{
@@ -47,7 +48,7 @@ const make = Effect.fnUntraced(function* <R = never>({
     sql`
       insert into
         ${sql(table)} ${sql.insert(
-          rows.map(([migrationId, name]) => ({ migration_id: migrationId, name }))
+          Array.map(rows, ([migrationId, name]) => ({ migration_id: migrationId, name }))
         )}
     `.withoutTransform;
 
@@ -106,17 +107,17 @@ const make = Effect.fnUntraced(function* <R = never>({
       loader,
     ]);
 
-    if (new Set(current.map(([id]) => id)).size !== current.length) {
+    if (new Set(Array.map(current, ([id]) => id)).size !== current.length) {
       return yield* new MigrationError({
         kind: 'Duplicates',
         message: "Found duplicate migration id's",
       });
     }
 
-    const required = current.filter(([id]) => id > latestMigrationId);
+    const required = Array.filter(current, ([id]) => id > latestMigrationId);
 
     if (required.length > 0) {
-      yield* insertMigrations(required.map(([id, name]) => [id, name])).pipe(
+      yield* insertMigrations(Array.map(required, ([id, name]) => [id, name])).pipe(
         Effect.catchReason(
           'SqlError',
           'UniqueViolation',
@@ -150,7 +151,7 @@ const make = Effect.fnUntraced(function* <R = never>({
       )
     );
 
-    return required.map(([id, name]) => [id, name] as const);
+    return Array.map(required, ([id, name]) => [id, name] as const);
   });
 
   yield* ensureMigrationsTable;
@@ -173,7 +174,7 @@ export const SqliteMigrator = {
     >
   ) =>
     pipe(
-      Object.entries(migrations),
+      Record.toEntries(migrations),
       Array.flatMap(([key, migration]): ReadonlyArray<ResolvedMigration> => {
         const separator = key.indexOf('_');
         if (separator <= 0 || separator === key.length - 1) {

@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer } from 'effect';
+import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { vi } from 'vitest';
@@ -49,8 +49,11 @@ describe('Bun Turso Sync transactions', () => {
             `)
           )
         )
-        .pipe(Effect.exit);
-      expect(Exit.isFailure(failed)).toBe(true);
+        .pipe(Effect.result);
+      expect(failed).toMatchObject({
+        _tag: 'Failure',
+        failure: { _tag: 'SqlError', reason: { _tag: 'ConstraintError' } },
+      });
       expect(
         yield* sql`
           select
@@ -141,6 +144,8 @@ describe('Bun Turso Sync transactions', () => {
         .pipe(Effect.exit);
       expect(Exit.isFailure(failed)).toBe(true);
       if (Exit.isFailure(failed)) {
+        expect(Cause.hasFails(failed.cause)).toBe(false);
+        expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
         expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
       }
@@ -203,7 +208,7 @@ describe('Bun Turso Sync transactions', () => {
         .pipe(Effect.exit);
       expect(Exit.isFailure(failed)).toBe(true);
       // One explicit rollback, not another failed cleanup and extra error.
-      expect(controls.filter((statement) => statement === 'ROLLBACK')).toHaveLength(1);
+      expect(Array.filter(controls, (statement) => statement === 'ROLLBACK')).toHaveLength(1);
       yield* sql`
         insert into
           parent

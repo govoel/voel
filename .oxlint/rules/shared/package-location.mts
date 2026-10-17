@@ -72,7 +72,7 @@ export const expectedIdentifier = (filename: string, className: string) =>
     const fileName = yield* Array.last(segments);
 
     const sourceSegments = fileName === 'index' ? segments.slice(0, -1) : segments;
-    const sourceIdentifier = [location.packageName, ...sourceSegments].join('/');
+    const sourceIdentifier = Array.join([location.packageName, ...sourceSegments], '/');
     const identifier =
       fileName !== 'index' && fileName.toLowerCase() === className.toLowerCase()
         ? sourceIdentifier

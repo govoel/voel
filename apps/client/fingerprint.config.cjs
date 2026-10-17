@@ -4,6 +4,8 @@
 const fs = require('node:fs');
 // oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs, effecttsgo/node-builtin-import
 const path = require('node:path');
+// oxlint-disable-next-line typescript/no-require-imports, import/no-commonjs
+const { Array, Record } = require('effect');
 
 /** @type {Readonly<Record<string, ReadonlySet<string>>>} */
 const nativeExtensionsByPlatform = {
@@ -11,7 +13,8 @@ const nativeExtensionsByPlatform = {
   ios: new Set(['.h', '.m', '.mm', '.swift']),
 };
 
-const selectedPlatforms = process.argv.flatMap((arg, index, args) => {
+const args = process.argv;
+const selectedPlatforms = Array.flatMap(args, (arg, index) => {
   if (arg !== '--platform') {
     return [];
   }
@@ -22,16 +25,16 @@ const selectedPlatforms = process.argv.flatMap((arg, index, args) => {
 });
 
 const platforms =
-  selectedPlatforms.length > 0 ? selectedPlatforms : Object.keys(nativeExtensionsByPlatform);
+  selectedPlatforms.length > 0 ? selectedPlatforms : Record.keys(nativeExtensionsByPlatform);
 
 const selectedExtensions = new Set(
-  platforms.flatMap((platform) => [...(nativeExtensionsByPlatform[platform] ?? [])])
+  Array.flatMap(platforms, (platform) => [...(nativeExtensionsByPlatform[platform] ?? [])])
 );
 
 /**
  * @param {string} filePath
  */
-const toPosixPath = (filePath) => filePath.split(path.sep).join('/');
+const toPosixPath = (filePath) => Array.join(filePath.split(path.sep), '/');
 
 /**
  * @param {string} directory
@@ -42,7 +45,7 @@ const collectNativeSources = (directory) => {
     return [];
   }
 
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+  return Array.flatMap(fs.readdirSync(directory, { withFileTypes: true }), (entry) => {
     const entryPath = path.join(directory, entry.name);
 
     if (entry.isDirectory()) {

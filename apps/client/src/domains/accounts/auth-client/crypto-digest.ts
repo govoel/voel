@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect';
+import { Array, Context, Effect, Layer } from 'effect';
 
 export class CryptoDigest extends Context.Service<CryptoDigest>()(
   'voel/domains/accounts/auth-client/crypto-digest/CryptoDigest',
@@ -22,9 +22,10 @@ export class CryptoDigest extends Context.Service<CryptoDigest>()(
     sha256: ({ input }) =>
       Effect.promise(async () => {
         const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-        return Array.from(new Uint8Array(digest), (byte) =>
-          byte.toString(16).padStart(2, '0')
-        ).join('');
+        return Array.join(
+          Array.map([...new Uint8Array(digest)], (byte) => byte.toString(16).padStart(2, '0')),
+          ''
+        );
       }),
   });
 }
