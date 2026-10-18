@@ -3,17 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/react-native/index.cjs",
-  "module": "./dist/react-native/index.js",
-  "types": "./dist/react-native/index.d.ts",
+  "main": "./dist/react-native/cjs/react-native.js",
+  "module": "./dist/react-native/react-native.js",
+  "types": "./dist/react-native/react-native.d.ts",
   "imports": {
     "#src/*": "./src/*"
   },
   "exports": {
     ".": {
-      "types": "./dist/react-native/index.d.ts",
-      "import": "./dist/react-native/index.js",
-      "require": "./dist/react-native/index.cjs"
+      "types": "./dist/react-native/react-native.d.ts",
+      "import": "./dist/react-native/react-native.js",
+      "require": "./dist/react-native/cjs/react-native.js"
     },
     "./package.json": "./package.json"
   },
@@ -26,23 +26,23 @@
   "dependencies": {
     "@effect/atom-react": "4.0.5",
     "@repo/effect-atom-devtools-core": "workspace:*",
-    "@rozenite/agent-shared": "2.2.0",
-    "@rozenite/plugin-bridge": "2.2.0",
-    "@rozenite/ui": "2.2.0",
+    "@rozenite/agent-shared": "2.5.0",
+    "@rozenite/plugin-bridge": "2.5.0",
+    "@rozenite/ui": "2.5.0",
     "effect": "4.0.5"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.5",
     "@repo/tsconfig": "workspace:*",
-    "@rozenite/vite-plugin": "2.2.0",
+    "@rozenite/vite-plugin": "2.5.0",
     "@types/react": "~19.3.0",
     "bun-types": "1.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "react-native-web": "0.21.2",
-    "rozenite": "2.2.0",
+    "react-native-web": "0.21.4",
+    "rozenite": "2.5.0",
     "typescript": "~6.0.3",
-    "vite": "7.3.6",
-    "vitest": "5.0.3"
+    "vite": "7.3.7",
+    "vitest": "5.0.5"
   }
 }

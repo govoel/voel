@@ -38,6 +38,7 @@
   "packageManager": "bun@1.4.3",
   "patchedDependencies": {
     "@tursodatabase/sync-react-native@0.8.1": "patches/@tursodatabase%2Fsync-react-native@0.8.1.patch",
-    "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch"
+    "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
+    "rozenite@2.5.0": "patches/rozenite@2.5.0.patch"
   }
 }

@@ -8,7 +8,7 @@ import {
   AtomDevToolsAtomInput,
 } from '@repo/effect-atom-devtools-core/rpc';
 
-import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
+import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '../../shared/plugin-id.ts';
 
 class AgentToolError extends Schema.TaggedError<AgentToolError, { readonly brand: unique symbol }>(
   '@repo/effect-atom-devtools-rozenite/react-native/agent/tool-handlers/AgentToolError'
