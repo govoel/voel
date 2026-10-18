@@ -3,7 +3,8 @@ import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
@@ -25,9 +26,18 @@ const SessionContent = ({
   accountKey: AccountStorageKey;
   id: typeof AuthDeviceSession.fields.id.Type;
 }) => {
+  const [completed, setCompleted] = useState(false);
   const router = useRouter();
   const state = useAtomValue(ownSessionAtom({ account: accountKey, id }));
   const refresh = useAtomRefresh(ownSessionsAtom(accountKey));
+
+  useFocusEffect(
+    useCallback(() => {
+      if (completed) {
+        router.dismissTo('/accounts/profile');
+      }
+    }, [completed, router])
+  );
 
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
@@ -83,7 +93,7 @@ const SessionContent = ({
                   title="Sign out"
                   message="This session will need to sign in again."
                   onSuccess={() => {
-                    router.dismissTo('/accounts/profile');
+                    setCompleted(true);
                   }}
                 />
               </Section>
@@ -102,7 +112,16 @@ export default function SessionScreen() {
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <SessionContent key={JSON.stringify([accountKey, id])} accountKey={accountKey} id={id} />
+          <SessionContent
+            key={JSON.stringify([
+              accountKey.serverUrl,
+              accountKey.userId,
+              accountKey.authStorageId,
+              id,
+            ])}
+            accountKey={accountKey}
+            id={id}
+          />
         </List>
       </Host>
     </>

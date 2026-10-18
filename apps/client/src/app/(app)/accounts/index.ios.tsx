@@ -67,6 +67,7 @@ export default function AccountsScreen() {
   const accountsView = accountsWithActiveAccount(accountKey);
   const accounts = useAtomValue(accountsView);
   const refreshAccounts = useAtomRefresh(accountsView);
+  const pickerAccounts = AsyncResult.isSuccess(accounts) ? accounts.value.accounts : [];
 
   return (
     <>
@@ -82,222 +83,141 @@ export default function AccountsScreen() {
               </AccountsList>
             ),
             onSuccess: ({ value: { accounts: accountList, activeAccount } }) => (
-              <>
-                <AccountsList>
-                  <Section title="Switch Account">
-                    {accountList.length === 0 ? (
-                      <ListState
-                        kind="empty"
-                        message="No accounts. Add an account to get started."
-                      />
-                    ) : (
-                      <Button
-                        modifiers={[tint('primary')]}
-                        onPress={() => {
-                          setIsSwitchAccountPresented(true);
-                        }}>
-                        <HStack alignment="center" spacing={Spacing.two}>
-                          {Option.match(activeAccount, {
-                            onNone: () => <Text>Pick an account</Text>,
-                            onSome: (account) => (
-                              <>
-                                <Icon
-                                  name="person.crop.circle.fill"
-                                  modifiers={[
-                                    font({ textStyle: 'largeTitle', weight: 'bold' }),
-                                    foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                  ]}
-                                />
-
-                                <VStack alignment="leading" spacing={Spacing.one}>
-                                  <Text>@{account.username}</Text>
-                                  <Text
-                                    variant="caption"
-                                    modifiers={[
-                                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                    ]}>
-                                    {account.serverUrl.toString()}
-                                  </Text>
-                                </VStack>
-                              </>
-                            ),
-                          })}
-
-                          <Spacer />
-
-                          <Icon
-                            name="chevron.up.chevron.down"
-                            modifiers={[
-                              font({ textStyle: 'footnote', weight: 'semibold' }),
-                              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                            ]}
-                          />
-                        </HStack>
-                      </Button>
-                    )}
-
-                    {sessionExpired
-                      ? Option.match(activeAccount, {
-                          onNone: () => null,
+              <AccountsList>
+                <Section title="Switch Account">
+                  {accountList.length === 0 ? (
+                    <ListState kind="empty" message="No accounts. Add an account to get started." />
+                  ) : (
+                    <Button
+                      modifiers={[tint('primary')]}
+                      onPress={() => {
+                        setIsSwitchAccountPresented(true);
+                      }}>
+                      <HStack alignment="center" spacing={Spacing.two}>
+                        {Option.match(activeAccount, {
+                          onNone: () => <Text>Pick an account</Text>,
                           onSome: (account) => (
-                            <StackNavigationRow
-                              title="Sign in again to continue using this account"
-                              href={{
-                                pathname: '/accounts/add',
-                                params: {
-                                  serverUrl: account.serverUrl.toString(),
-                                  username: account.username,
-                                  reauthenticate: 'true',
-                                },
-                              }}
-                            />
-                          ),
-                        })
-                      : null}
-                  </Section>
-
-                  {Option.match(activeAccount, {
-                    onNone: () => null,
-                    onSome: (account) => (
-                      <>
-                        <Section
-                          header={
-                            <VStack alignment="leading">
-                              <Text variant="h4">Your Account</Text>
-                              <Text
-                                variant="caption"
+                            <>
+                              <Icon
+                                name="person.crop.circle.fill"
                                 modifiers={[
+                                  font({ textStyle: 'largeTitle', weight: 'bold' }),
                                   foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                ]}>
-                                @{account.username}
-                              </Text>
-                            </VStack>
-                          }>
-                          <StackNavigationRow title="Profile" href="/accounts/profile" />
-                          <StackNavigationRow title="Settings" href="/accounts/settings" />
-
-                          <MutationConfirmation
-                            key={JSON.stringify(AccountStorageKey.make(account))}
-                            mutation={removeAccountAtom(AccountStorageKey.make(account))}
-                            onFailure={removeAccountFailureMessage}
-                            title="Remove account from this device?"
-                            confirmLabel="Remove"
-                            message={`This will sign you out and remove all data associated with @${account.username} on ${account.serverUrl} from this device.`}
-                            trigger={({ open, busy }) => (
-                              <Button
-                                label="Remove account from this device"
-                                role="destructive"
-                                onPress={open}
-                                modifiers={[disabled(busy)]}
+                                ]}
                               />
-                            )}
-                          />
-                        </Section>
 
-                        {account.role === 'admin' ? (
-                          <Section
-                            header={
-                              <VStack alignment="leading">
-                                <Text variant="h4">Manage Server</Text>
+                              <VStack alignment="leading" spacing={Spacing.one}>
+                                <Text>@{account.username}</Text>
                                 <Text
                                   variant="caption"
                                   modifiers={[
                                     foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
                                   ]}>
-                                  {new URL(account.serverUrl).hostname}
+                                  {account.serverUrl.toString()}
                                 </Text>
                               </VStack>
-                            }>
-                            <StackNavigationRow title="Settings" href="/accounts/server/settings" />
-                            <StackNavigationRow
-                              title="Libraries"
-                              href="/accounts/server/libraries"
-                            />
-                            <StackNavigationRow title="Users" href="/accounts/server/users" />
-                          </Section>
-                        ) : null}
-                      </>
-                    ),
-                  })}
-                </AccountsList>
+                            </>
+                          ),
+                        })}
 
-                <ControlledSheet
-                  presented={isSwitchAccountPresented}
-                  onDismiss={() => {
-                    setIsSwitchAccountPresented(false);
-                  }}>
-                  {({ close }) => (
-                    <List modifiers={[headerProminence('increased')]}>
+                        <Spacer />
+
+                        <Icon
+                          name="chevron.up.chevron.down"
+                          modifiers={[
+                            font({ textStyle: 'footnote', weight: 'semibold' }),
+                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                          ]}
+                        />
+                      </HStack>
+                    </Button>
+                  )}
+
+                  {sessionExpired
+                    ? Option.match(activeAccount, {
+                        onNone: () => null,
+                        onSome: (account) => (
+                          <StackNavigationRow
+                            title="Sign in again to continue using this account"
+                            href={{
+                              pathname: '/accounts/add',
+                              params: {
+                                serverUrl: account.serverUrl.toString(),
+                                username: account.username,
+                                reauthenticate: 'true',
+                              },
+                            }}
+                          />
+                        ),
+                      })
+                    : null}
+                </Section>
+
+                {Option.match(activeAccount, {
+                  onNone: () => null,
+                  onSome: (account) => (
+                    <>
                       <Section
                         header={
-                          <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
-                            Pick an Account
-                          </Text>
-                        }>
-                        <List.ForEach
-                          data={accountList}
-                          keyExtractor={(account) =>
-                            JSON.stringify(AccountStorageKey.make(account))
-                          }>
-                          {({ item }) => (
-                            <Button
+                          <VStack alignment="leading">
+                            <Text variant="h4">Your Account</Text>
+                            <Text
+                              variant="caption"
                               modifiers={[
-                                tint('primary'),
-                                disabled(AsyncResult.isWaiting(setActiveAccount)),
-                              ]}
-                              onPress={() => {
-                                void setActiveAccountAndDismiss({
-                                  input: {
-                                    serverUrl: item.serverUrl,
-                                    userId: item.userId,
-                                  },
-                                  onSuccess: close,
-                                });
-                              }}>
-                              <HStack alignment="center" spacing={Spacing.two}>
-                                <Icon
-                                  name={
-                                    item.active
-                                      ? 'person.crop.circle.fill.badge.checkmark'
-                                      : 'person.crop.circle.fill'
-                                  }
-                                  modifiers={[
-                                    font({ textStyle: 'largeTitle', weight: 'bold' }),
-                                    foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                  ]}
-                                />
+                                foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                              ]}>
+                              @{account.username}
+                            </Text>
+                          </VStack>
+                        }>
+                        <StackNavigationRow title="Profile" href="/accounts/profile" />
+                        <StackNavigationRow title="Settings" href="/accounts/settings" />
 
-                                <VStack alignment="leading" spacing={Spacing.one}>
-                                  <Text
-                                    modifiers={[
-                                      foregroundStyle({ type: 'hierarchical', style: 'primary' }),
-                                    ]}>
-                                    @{item.username}
-                                  </Text>
-                                  <Text
-                                    variant="caption"
-                                    modifiers={[
-                                      foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                    ]}>
-                                    {item.serverUrl.toString()}
-                                  </Text>
-                                </VStack>
-
-                                {AsyncResult.isWaiting(setActiveAccount) ? (
-                                  <>
-                                    <Spacer />
-                                    <ProgressView />
-                                  </>
-                                ) : null}
-                              </HStack>
-                            </Button>
+                        <MutationConfirmation
+                          key={JSON.stringify([
+                            account.serverUrl,
+                            account.userId,
+                            account.authStorageId,
+                          ])}
+                          mutation={removeAccountAtom(AccountStorageKey.make(account))}
+                          onFailure={removeAccountFailureMessage}
+                          title="Remove account from this device?"
+                          confirmLabel="Remove"
+                          message={`This will sign you out and remove all data associated with @${account.username} on ${account.serverUrl} from this device.`}
+                          trigger={({ open, busy }) => (
+                            <Button
+                              label="Remove account from this device"
+                              role="destructive"
+                              onPress={open}
+                              modifiers={[disabled(busy)]}
+                            />
                           )}
-                        </List.ForEach>
+                        />
                       </Section>
-                    </List>
-                  )}
-                </ControlledSheet>
-              </>
+
+                      {account.role === 'admin' ? (
+                        <Section
+                          header={
+                            <VStack alignment="leading">
+                              <Text variant="h4">Manage Server</Text>
+                              <Text
+                                variant="caption"
+                                modifiers={[
+                                  foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                                ]}>
+                                {new URL(account.serverUrl).hostname}
+                              </Text>
+                            </VStack>
+                          }>
+                          <StackNavigationRow title="Settings" href="/accounts/server/settings" />
+                          <StackNavigationRow title="Libraries" href="/accounts/server/libraries" />
+                          <StackNavigationRow title="Users" href="/accounts/server/users" />
+                        </Section>
+                      ) : null}
+                    </>
+                  ),
+                })}
+              </AccountsList>
             ),
             onError: () => (
               <AccountsList>
@@ -324,6 +244,82 @@ export default function AccountsScreen() {
               </AccountsList>
             ),
           })}
+          <ControlledSheet
+            presented={isSwitchAccountPresented}
+            onDismissRequest={() => {
+              setIsSwitchAccountPresented(false);
+            }}>
+            {({ close }) => (
+              <List modifiers={[headerProminence('increased')]}>
+                <Section
+                  header={
+                    <Text variant="h4" modifiers={[padding({ top: Spacing.three })]}>
+                      Pick an Account
+                    </Text>
+                  }>
+                  <List.ForEach
+                    data={pickerAccounts}
+                    keyExtractor={(account) =>
+                      JSON.stringify([account.serverUrl, account.userId, account.authStorageId])
+                    }>
+                    {({ item }) => (
+                      <Button
+                        modifiers={[
+                          tint('primary'),
+                          disabled(AsyncResult.isWaiting(setActiveAccount)),
+                        ]}
+                        onPress={() => {
+                          void setActiveAccountAndDismiss({
+                            input: {
+                              serverUrl: item.serverUrl,
+                              userId: item.userId,
+                            },
+                            onSuccess: close,
+                          });
+                        }}>
+                        <HStack alignment="center" spacing={Spacing.two}>
+                          <Icon
+                            name={
+                              item.active
+                                ? 'person.crop.circle.fill.badge.checkmark'
+                                : 'person.crop.circle.fill'
+                            }
+                            modifiers={[
+                              font({ textStyle: 'largeTitle', weight: 'bold' }),
+                              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                            ]}
+                          />
+
+                          <VStack alignment="leading" spacing={Spacing.one}>
+                            <Text
+                              modifiers={[
+                                foregroundStyle({ type: 'hierarchical', style: 'primary' }),
+                              ]}>
+                              @{item.username}
+                            </Text>
+                            <Text
+                              variant="caption"
+                              modifiers={[
+                                foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                              ]}>
+                              {item.serverUrl.toString()}
+                            </Text>
+                          </VStack>
+
+                          {AsyncResult.isWaiting(setActiveAccount) ? (
+                            <>
+                              <Spacer />
+                              <ProgressView />
+                            </>
+                          ) : null}
+                        </HStack>
+                      </Button>
+                    )}
+                  </List.ForEach>
+                </Section>
+              </List>
+            )}
+          </ControlledSheet>
         </Group>
       </Host>
     </>

@@ -3,7 +3,8 @@ import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
@@ -27,9 +28,21 @@ const SessionContent = ({
   userId: typeof AuthUser.fields.id.Type;
   sessionId: typeof AuthDeviceSession.fields.id.Type;
 }) => {
+  const [completed, setCompleted] = useState(false);
   const router = useRouter();
   const state = useAtomValue(serverUserSessionAtom({ account: accountKey, userId, sessionId }));
   const refresh = useAtomRefresh(serverUserSessionsAtom({ account: accountKey, userId }));
+
+  useFocusEffect(
+    useCallback(() => {
+      if (completed) {
+        router.dismissTo({
+          pathname: '/accounts/server/users/[id]',
+          params: { id: userId },
+        });
+      }
+    }, [completed, router, userId])
+  );
 
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
@@ -85,10 +98,7 @@ const SessionContent = ({
                   title="Sign out"
                   message="This session will need to sign in again."
                   onSuccess={() => {
-                    router.dismissTo({
-                      pathname: '/accounts/server/users/[id]',
-                      params: { id: userId },
-                    });
+                    setCompleted(true);
                   }}
                 />
               </Section>
@@ -115,7 +125,13 @@ export default function ServerUserSessionScreen() {
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
           <SessionContent
-            key={JSON.stringify([accountKey, id, sessionId])}
+            key={JSON.stringify([
+              accountKey.serverUrl,
+              accountKey.userId,
+              accountKey.authStorageId,
+              id,
+              sessionId,
+            ])}
             accountKey={accountKey}
             userId={id}
             sessionId={sessionId}

@@ -2,7 +2,8 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
@@ -28,10 +29,19 @@ const SessionContent = ({
   accountKey: AccountStorageKey;
   id: typeof AuthDeviceSession.fields.id.Type;
 }) => {
+  const [completed, setCompleted] = useState(false);
   const router = useRouter();
   const state = useAtomValue(ownSessionAtom({ account: accountKey, id }));
   const refresh = useAtomRefresh(ownSessionsAtom(accountKey));
   const colors = useMaterialColors();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (completed) {
+        router.dismissTo('/accounts/profile');
+      }
+    }, [completed, router])
+  );
 
   return AsyncResult.matchWithError(state, {
     onInitial: () => <ListState kind="loading" />,
@@ -74,7 +84,7 @@ const SessionContent = ({
                   title="Sign out"
                   message="This session will need to sign in again."
                   onSuccess={() => {
-                    router.dismissTo('/accounts/profile');
+                    setCompleted(true);
                   }}
                 />
               </SegmentedList>
@@ -94,7 +104,16 @@ export default function SessionScreen() {
         verticalArrangement={{ spacedBy: Spacing.two }}
         contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
         <Text variant="h4">Session Details</Text>
-        <SessionContent key={JSON.stringify([accountKey, id])} accountKey={accountKey} id={id} />
+        <SessionContent
+          key={JSON.stringify([
+            accountKey.serverUrl,
+            accountKey.userId,
+            accountKey.authStorageId,
+            id,
+          ])}
+          accountKey={accountKey}
+          id={id}
+        />
       </LazyColumn>
     </AndroidAccountsSheet>
   );

@@ -67,6 +67,7 @@ export default function AccountsScreen() {
   const accountsView = accountsWithActiveAccount(accountKey);
   const accounts = useAtomValue(accountsView);
   const refreshAccounts = useAtomRefresh(accountsView);
+  const pickerAccounts = AsyncResult.isSuccess(accounts) ? accounts.value.accounts : [];
 
   const colors = useMaterialColors();
 
@@ -175,7 +176,11 @@ export default function AccountsScreen() {
                           href="/accounts/settings"
                         />
                         <MutationConfirmation
-                          key={JSON.stringify(AccountStorageKey.make(account))}
+                          key={JSON.stringify([
+                            account.serverUrl,
+                            account.userId,
+                            account.authStorageId,
+                          ])}
                           mutation={removeAccountAtom(AccountStorageKey.make(account))}
                           onFailure={removeAccountFailureMessage}
                           title="Remove account from this device?"
@@ -225,56 +230,6 @@ export default function AccountsScreen() {
                   </>
                 ),
               })}
-
-              <ControlledSheet
-                presented={isSwitchAccountPresented}
-                onDismiss={() => {
-                  setIsSwitchAccountPresented(false);
-                }}>
-                {({ close }) => (
-                  <LazyColumn
-                    contentPadding={{
-                      start: Spacing.three,
-                      end: Spacing.three,
-                      bottom: Spacing.three,
-                    }}
-                    verticalArrangement={{ spacedBy: Spacing.two }}>
-                    <Text variant="h3">Pick an Account</Text>
-                    <LazyColumn.Items
-                      data={accountList}
-                      keyExtractor={(account) => JSON.stringify(AccountStorageKey.make(account))}>
-                      {({ item, index }) => (
-                        <SegmentedListItem
-                          index={index}
-                          count={accountList.length}
-                          selected={item.active}
-                          enabled={!AsyncResult.isWaiting(setActiveAccount)}
-                          onClick={() => {
-                            void setActiveAccountAndDismiss({
-                              input: {
-                                serverUrl: item.serverUrl,
-                                userId: item.userId,
-                              },
-                              onSuccess: close,
-                            });
-                          }}>
-                          <SegmentedListItem.LeadingContent>
-                            <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
-                          </SegmentedListItem.LeadingContent>
-                          <SegmentedListItem.HeadlineContent>
-                            <Text>@{item.username}</Text>
-                          </SegmentedListItem.HeadlineContent>
-                          <SegmentedListItem.SupportingContent>
-                            <Text variant="caption" color={colors.onSurfaceVariant}>
-                              {item.serverUrl.toString()}
-                            </Text>
-                          </SegmentedListItem.SupportingContent>
-                        </SegmentedListItem>
-                      )}
-                    </LazyColumn.Items>
-                  </LazyColumn>
-                )}
-              </ControlledSheet>
             </>
           ),
           onError: () => (
@@ -300,6 +255,58 @@ export default function AccountsScreen() {
             </Column>
           ),
         })}
+
+        <ControlledSheet
+          presented={isSwitchAccountPresented}
+          onDismissRequest={() => {
+            setIsSwitchAccountPresented(false);
+          }}>
+          {({ close }) => (
+            <LazyColumn
+              contentPadding={{
+                start: Spacing.three,
+                end: Spacing.three,
+                bottom: Spacing.three,
+              }}
+              verticalArrangement={{ spacedBy: Spacing.two }}>
+              <Text variant="h3">Pick an Account</Text>
+              <LazyColumn.Items
+                data={pickerAccounts}
+                keyExtractor={(account) =>
+                  JSON.stringify([account.serverUrl, account.userId, account.authStorageId])
+                }>
+                {({ item, index }) => (
+                  <SegmentedListItem
+                    index={index}
+                    count={pickerAccounts.length}
+                    selected={item.active}
+                    enabled={!AsyncResult.isWaiting(setActiveAccount)}
+                    onClick={() => {
+                      void setActiveAccountAndDismiss({
+                        input: {
+                          serverUrl: item.serverUrl,
+                          userId: item.userId,
+                        },
+                        onSuccess: close,
+                      });
+                    }}>
+                    <SegmentedListItem.LeadingContent>
+                      <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
+                    </SegmentedListItem.LeadingContent>
+                    <SegmentedListItem.HeadlineContent>
+                      <Text>@{item.username}</Text>
+                    </SegmentedListItem.HeadlineContent>
+                    <SegmentedListItem.SupportingContent>
+                      <Text variant="caption" color={colors.onSurfaceVariant}>
+                        {item.serverUrl.toString()}
+                      </Text>
+                    </SegmentedListItem.SupportingContent>
+                  </SegmentedListItem>
+                )}
+              </LazyColumn.Items>
+            </LazyColumn>
+          )}
+        </ControlledSheet>
 
         <SegmentedList>
           <StackNavigationRow index={0} count={2} title="Add account" href="/accounts/add" />

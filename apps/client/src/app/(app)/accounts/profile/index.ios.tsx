@@ -4,8 +4,8 @@ import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-u
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
-import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
@@ -53,18 +53,47 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
   );
 };
 
-const LoadedProfile = ({
+// Completion belongs to this editor instance, not a later reopened editor.
+const ProfileEditor = ({
   accountKey,
-  profile: { email, name, role, username },
+  profile,
+  editor,
+  close,
 }: {
   accountKey: AccountStorageKey;
-  profile: Pick<
-    Option.Option.Value<Atom.Success<ReturnType<typeof userProfileAtom>>>,
-    'email' | 'name' | 'role' | 'username'
-  >;
+  profile: Parameters<typeof useUserProfileForm>[0]['profile'];
+  editor: 'profile' | 'password';
+  close: () => void;
 }) => {
-  const router = useRouter();
-  const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
+  const [completed, setCompleted] = useState(false);
+  useEffect(() => {
+    if (completed) {
+      close();
+    }
+  }, [completed, close]);
+  const onSuccess = () => {
+    setCompleted(true);
+  };
+  return Match.value(editor).pipe(
+    Match.when('profile', () => (
+      <UserProfileEditor accountKey={accountKey} profile={profile} onSuccess={onSuccess} />
+    )),
+    Match.when('password', () => <PasswordForm accountKey={accountKey} onSuccess={onSuccess} />),
+    Match.exhaustive
+  );
+};
+
+const LoadedProfile = ({
+  accountKey,
+  profile,
+  onSignedOut,
+}: {
+  accountKey: AccountStorageKey;
+  onSignedOut: () => void;
+  profile: Option.Option.Value<Atom.Success<ReturnType<typeof userProfileAtom>>>;
+}) => {
+  const [editor, setEditor] = useState<Parameters<typeof ProfileEditor>[0]['editor'] | null>(null);
+  const { email, name, role, username } = profile;
 
   return (
     <>
@@ -108,31 +137,23 @@ const LoadedProfile = ({
           title="Sign out everywhere"
           confirmLabel="Sign out"
           message="Sign out all devices for this account on this server, including this device?"
-          onSuccess={() => {
-            router.dismissTo('/accounts');
-          }}
+          onSuccess={onSignedOut}
         />
       </ProfileList>
-
       <ControlledSheet
         presented={editor !== null}
-        onDismiss={() => {
+        onDismissRequest={() => {
           setEditor(null);
         }}>
         {({ close }) =>
-          Match.value(editor).pipe(
-            Match.when('profile', () => (
-              <UserProfileEditor
-                accountKey={accountKey}
-                profile={{ name, username }}
-                onSuccess={close}
-              />
-            )),
-            Match.when('password', () => (
-              <PasswordForm accountKey={accountKey} onSuccess={close} />
-            )),
-            Match.when(null, () => null),
-            Match.exhaustive
+          editor === null ? null : (
+            <ProfileEditor
+              key={editor}
+              accountKey={accountKey}
+              profile={profile}
+              editor={editor}
+              close={close}
+            />
           )
         }
       </ControlledSheet>
@@ -141,6 +162,15 @@ const LoadedProfile = ({
 };
 
 const ProfileContent = ({ accountKey }: { accountKey: AccountStorageKey }) => {
+  const [completed, setCompleted] = useState(false);
+  const router = useRouter();
+  useFocusEffect(
+    useCallback(() => {
+      if (completed) {
+        router.dismissTo('/accounts');
+      }
+    }, [completed, router])
+  );
   const state = useAtomValue(userProfileAtom(accountKey));
   const refresh = useAtomRefresh(accountAtom(accountKey));
   return AsyncResult.matchWithError(state, {
@@ -186,9 +216,12 @@ const ProfileContent = ({ accountKey }: { accountKey: AccountStorageKey }) => {
         ),
         onSome: (profile) => (
           <LoadedProfile
-            key={JSON.stringify([accountKey, profile.id])}
+            key={profile.id}
             accountKey={accountKey}
             profile={profile}
+            onSignedOut={() => {
+              setCompleted(true);
+            }}
           />
         ),
       }),
@@ -203,7 +236,14 @@ export default function ProfileScreen() {
       <Stack.Screen.Title>Your Profile</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <Group>
-          <ProfileContent key={JSON.stringify(accountKey)} accountKey={accountKey} />
+          <ProfileContent
+            key={JSON.stringify([
+              accountKey.serverUrl,
+              accountKey.userId,
+              accountKey.authStorageId,
+            ])}
+            accountKey={accountKey}
+          />
         </Group>
       </Host>
     </>

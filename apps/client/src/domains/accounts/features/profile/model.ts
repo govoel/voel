@@ -79,7 +79,7 @@ export const useUserProfileForm = ({
   profile,
 }: {
   accountKey: AccountStorageKey;
-  onSuccess: () => Promise<void>;
+  onSuccess: () => void | Promise<void>;
   profile: typeof UserProfileUpdateInput.Encoded;
 }) =>
   useAppForm({

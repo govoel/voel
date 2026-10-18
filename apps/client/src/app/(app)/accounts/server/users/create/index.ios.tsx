@@ -1,6 +1,8 @@
 import { Host } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
-import { Stack, useRouter } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
+import type { Href } from 'expo-router';
+import { useState } from 'react';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
@@ -8,8 +10,20 @@ import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts'
 import { useCreateUserForm } from '#src/domains/accounts/features/server/users/create/model.ts';
 
 
-const CreateUserForm = (props: Parameters<typeof useCreateUserForm>[0]) => {
-  const form = useCreateUserForm(props);
+const CreateUserForm = ({
+  accountKey,
+}: Pick<Parameters<typeof useCreateUserForm>[0], 'accountKey'>) => {
+  const [destination, setDestination] = useState<Href | null>(null);
+  const form = useCreateUserForm({
+    accountKey,
+    onSuccess: ({ userId }) => {
+      setDestination({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
+    },
+  });
+  if (destination !== null) {
+    return <Redirect href={destination} />;
+  }
+
   return (
     <form.AppForm>
       <FormLayout
@@ -59,18 +73,14 @@ const CreateUserForm = (props: Parameters<typeof useCreateUserForm>[0]) => {
 
 export default function CreateUserScreen() {
   const accountKey = useSelectedAccount();
-  const router = useRouter();
 
   return (
     <>
       <Stack.Screen.Title>Create User</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <CreateUserForm
-          key={JSON.stringify(accountKey)}
+          key={JSON.stringify([accountKey.serverUrl, accountKey.userId, accountKey.authStorageId])}
           accountKey={accountKey}
-          onSuccess={({ userId }) => {
-            router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
-          }}
         />
       </Host>
     </>

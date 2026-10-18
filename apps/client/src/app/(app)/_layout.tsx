@@ -21,11 +21,9 @@ export default function AppLayout() {
   return (
     <Stack
       screenOptions={{ headerShown: false }}
-      // Keep the navigator itself outside the keyed UI scope; switching is not a history reset.
+      // Selection updates inside the scope; never remount route scenes or native sheet hosts.
       layout={({ children }) => (
-        <SelectedAccountProvider
-          key={JSON.stringify([account.serverUrl, account.userId, account.authStorageId])}
-          value={account}>
+        <SelectedAccountProvider value={account}>
           {children}
           <AccountsAutoPresenter />
         </SelectedAccountProvider>

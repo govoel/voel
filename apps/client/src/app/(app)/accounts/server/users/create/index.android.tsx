@@ -1,7 +1,7 @@
-import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { useRouter } from 'expo-router';
-import { useRef } from 'react';
+import { Redirect } from 'expo-router';
+import type { Href } from 'expo-router';
+import { useState } from 'react';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { FormLayout } from '#src/components/form/layout';
@@ -10,8 +10,20 @@ import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts'
 import { useCreateUserForm } from '#src/domains/accounts/features/server/users/create/model.ts';
 
 
-const CreateUserForm = (props: Parameters<typeof useCreateUserForm>[0]) => {
-  const form = useCreateUserForm(props);
+const CreateUserForm = ({
+  accountKey,
+}: Pick<Parameters<typeof useCreateUserForm>[0], 'accountKey'>) => {
+  const [destination, setDestination] = useState<Href | null>(null);
+  const form = useCreateUserForm({
+    accountKey,
+    onSuccess: ({ userId }) => {
+      setDestination({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
+    },
+  });
+  if (destination !== null) {
+    return <Redirect href={destination} />;
+  }
+
   return (
     <form.AppForm>
       <FormLayout
@@ -95,18 +107,12 @@ const CreateUserForm = (props: Parameters<typeof useCreateUserForm>[0]) => {
 
 export default function CreateUserScreen() {
   const accountKey = useSelectedAccount();
-  const router = useRouter();
-  const sheetRef = useRef<ModalBottomSheetRef>(null);
 
   return (
-    <AndroidAccountsSheet ref={sheetRef}>
+    <AndroidAccountsSheet>
       <CreateUserForm
-        key={JSON.stringify(accountKey)}
+        key={JSON.stringify([accountKey.serverUrl, accountKey.userId, accountKey.authStorageId])}
         accountKey={accountKey}
-        onSuccess={async ({ userId }) => {
-          await sheetRef.current?.hide();
-          router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
-        }}
       />
     </AndroidAccountsSheet>
   );

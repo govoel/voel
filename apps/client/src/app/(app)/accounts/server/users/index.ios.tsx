@@ -101,7 +101,10 @@ export default function ServerUsersScreen() {
     <>
       <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
-        <ServerUsersContent key={JSON.stringify(accountKey)} accountKey={accountKey} />
+        <ServerUsersContent
+          key={JSON.stringify([accountKey.serverUrl, accountKey.userId, accountKey.authStorageId])}
+          accountKey={accountKey}
+        />
       </Host>
     </>
   );

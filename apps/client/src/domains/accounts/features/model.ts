@@ -79,7 +79,7 @@ export const useSetActiveAccount = () => {
     onSuccess,
   }: {
     input: Parameters<typeof setActiveAccountMutation>[0];
-    onSuccess: () => Promise<void>;
+    onSuccess: () => void | Promise<void>;
   }) => {
     const result = await setActiveAccountMutation(input);
     if (Exit.isSuccess(result)) {

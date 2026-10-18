@@ -101,7 +101,10 @@ export default function ServerUsersScreen() {
   const accountKey = useSelectedAccount();
   return (
     <AndroidAccountsSheet>
-      <ServerUsersContent key={JSON.stringify(accountKey)} accountKey={accountKey} />
+      <ServerUsersContent
+        key={JSON.stringify([accountKey.serverUrl, accountKey.userId, accountKey.authStorageId])}
+        accountKey={accountKey}
+      />
     </AndroidAccountsSheet>
   );
 }

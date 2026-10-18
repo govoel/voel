@@ -3,8 +3,8 @@ import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails, AuthUser } from '@repo/auth-api/shared.ts';
@@ -189,17 +189,54 @@ const UserSessions = ({
   });
 };
 
+// Completion belongs to this editor instance, not a later reopened editor.
+const UserEditor = ({
+  accountKey,
+  user,
+  editor,
+  close,
+}: {
+  accountKey: AccountStorageKey;
+  user: Parameters<typeof useServerUserProfileForm>[0]['user'];
+  editor: 'role' | 'profile' | 'password';
+  close: () => void;
+}) => {
+  const [completed, setCompleted] = useState(false);
+  useEffect(() => {
+    if (completed) {
+      close();
+    }
+  }, [completed, close]);
+  const onSuccess = () => {
+    setCompleted(true);
+  };
+  return Match.value(editor).pipe(
+    Match.when('role', () => (
+      <UserRoleForm accountKey={accountKey} user={user} onSuccess={onSuccess} />
+    )),
+    Match.when('profile', () => (
+      <UserProfileForm accountKey={accountKey} user={user} onSuccess={onSuccess} />
+    )),
+    Match.when('password', () => (
+      <UserPasswordForm accountKey={accountKey} userId={user.id} onSuccess={onSuccess} />
+    )),
+    Match.exhaustive
+  );
+};
+
 const LoadedUser = ({
   accountKey,
   user,
+  onDeleted,
 }: {
   accountKey: AccountStorageKey;
+  onDeleted: () => void;
   readonly user: typeof AuthAdminUserDetails.Type & { readonly isOtherUser: boolean };
 }) => {
+  const [editor, setEditor] = useState<Parameters<typeof UserEditor>[0]['editor'] | null>(null);
   const router = useRouter();
   const details = userDetails({ user });
 
-  const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
   return (
     <>
       <UserList>
@@ -244,9 +281,7 @@ const LoadedUser = ({
                 title="Delete user"
                 confirmLabel="Delete"
                 message={`Permanently delete @${user.username} (${user.email}) from this server? Their credentials and sessions will be removed. This cannot be undone.`}
-                onSuccess={() => {
-                  router.dismissTo('/accounts/server/users');
-                }}
+                onSuccess={onDeleted}
               />
             </Section>
 
@@ -268,25 +303,20 @@ const LoadedUser = ({
           </Section>
         )}
       </UserList>
-
       <ControlledSheet
-        presented={editor !== null}
-        onDismiss={() => {
+        presented={editor !== null && user.isOtherUser}
+        onDismissRequest={() => {
           setEditor(null);
         }}>
         {({ close }) =>
-          Match.value(editor).pipe(
-            Match.when('role', () => (
-              <UserRoleForm accountKey={accountKey} user={user} onSuccess={close} />
-            )),
-            Match.when('profile', () => (
-              <UserProfileForm accountKey={accountKey} user={user} onSuccess={close} />
-            )),
-            Match.when('password', () => (
-              <UserPasswordForm accountKey={accountKey} userId={user.id} onSuccess={close} />
-            )),
-            Match.when(null, () => null),
-            Match.exhaustive
+          editor === null ? null : (
+            <UserEditor
+              key={editor}
+              accountKey={accountKey}
+              user={user}
+              editor={editor}
+              close={close}
+            />
           )
         }
       </ControlledSheet>
@@ -301,6 +331,15 @@ const ServerUserContent = ({
   accountKey: AccountStorageKey;
   id: typeof AuthUser.fields.id.Type;
 }) => {
+  const [completed, setCompleted] = useState(false);
+  const router = useRouter();
+  useFocusEffect(
+    useCallback(() => {
+      if (completed) {
+        router.dismissTo('/accounts/server/users');
+      }
+    }, [completed, router])
+  );
   const state = useAtomValue(serverUserAtom({ account: accountKey, userId: id }));
   const refresh = useAtomRefresh(serverUserAtom({ account: accountKey, userId: id }));
   return AsyncResult.matchWithError(state, {
@@ -337,9 +376,12 @@ const ServerUserContent = ({
     ),
     onSuccess: ({ value }) => (
       <LoadedUser
-        key={JSON.stringify([accountKey, value.id])}
+        key={value.id}
         accountKey={accountKey}
         user={value}
+        onDeleted={() => {
+          setCompleted(true);
+        }}
       />
     ),
   });
@@ -353,7 +395,16 @@ export default function ServerUserScreen() {
     <>
       <Stack.Screen.Title>User Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
-        <ServerUserContent key={JSON.stringify([accountKey, id])} accountKey={accountKey} id={id} />
+        <ServerUserContent
+          key={JSON.stringify([
+            accountKey.serverUrl,
+            accountKey.userId,
+            accountKey.authStorageId,
+            id,
+          ])}
+          accountKey={accountKey}
+          id={id}
+        />
       </Host>
     </>
   );
