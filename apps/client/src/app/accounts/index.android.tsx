@@ -3,12 +3,13 @@ import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
+import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   accountsWithActiveAccount,
@@ -60,9 +61,12 @@ const StackNavigationRow = ({
 };
 
 export default function AccountsScreen() {
+  const router = useRouter();
+  const sheetRef = useRef<ModalBottomSheetRef>(null);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
+  const dismissable = accountsSheet.value._tag !== 'MustPickAccount';
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
@@ -72,15 +76,10 @@ export default function AccountsScreen() {
   const colors = useMaterialColors();
 
   return (
-    <AndroidAccountsSheet dismissable={accountsSheet.value.dismissable}>
+    <AndroidAccountsSheet ref={sheetRef} dismissable={dismissable}>
       <Column
         modifiers={[
-          padding(
-            Spacing.three,
-            accountsSheet.value.dismissable ? 0 : Spacing.four,
-            Spacing.three,
-            Spacing.three
-          ),
+          padding(Spacing.three, dismissable ? 0 : Spacing.four, Spacing.three, Spacing.three),
         ]}
         verticalArrangement={{ spacedBy: Spacing.four }}>
         {AsyncResult.matchWithError(accounts, {
@@ -143,11 +142,12 @@ export default function AccountsScreen() {
                               count={2}
                               title="Sign in again to continue using this account"
                               href={{
-                                pathname: '/accounts/add',
+                                pathname: '/sign-in',
                                 params: {
                                   serverUrl: account.serverUrl.toString(),
                                   username: account.username,
                                   reauthenticate: 'true',
+                                  returnTo: '/accounts',
                                 },
                               }}
                             />
@@ -185,6 +185,12 @@ export default function AccountsScreen() {
                         <MutationConfirmation
                           key={`${account.serverUrl}-${account.userId}`}
                           mutation={removeAccountAtom}
+                          onSuccess={async ({ result }) => {
+                            if (!result.accountsRemain) {
+                              await sheetRef.current?.hide();
+                              router.dismissTo('/');
+                            }
+                          }}
                           onFailure={removeAccountFailureMessage}
                           title="Remove account from this device?"
                           confirmLabel="Remove"
@@ -312,8 +318,18 @@ export default function AccountsScreen() {
         })}
 
         <SegmentedList>
-          <StackNavigationRow index={0} count={2} title="Add account" href="/accounts/add" />
-          <StackNavigationRow index={1} count={2} title="Setup new server" href="/accounts/setup" />
+          <StackNavigationRow
+            index={0}
+            count={2}
+            title="Add account"
+            href={{ pathname: '/sign-in', params: { returnTo: '/accounts' } }}
+          />
+          <StackNavigationRow
+            index={1}
+            count={2}
+            title="Setup new server"
+            href={{ pathname: '/server-setup', params: { returnTo: '/accounts' } }}
+          />
         </SegmentedList>
       </Column>
     </AndroidAccountsSheet>

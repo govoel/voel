@@ -70,13 +70,20 @@ const AccountsList = ({ children }: PropsWithChildren) => (
     {children}
 
     <Section>
-      <StackNavigationRow title="Add account" href="/accounts/add" />
-      <StackNavigationRow title="Setup new server" href="/accounts/setup" />
+      <StackNavigationRow
+        title="Add account"
+        href={{ pathname: '/sign-in', params: { returnTo: '/accounts' } }}
+      />
+      <StackNavigationRow
+        title="Setup new server"
+        href={{ pathname: '/server-setup', params: { returnTo: '/accounts' } }}
+      />
     </Section>
   </List>
 );
 
 export default function AccountsScreen() {
+  const router = useRouter();
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
@@ -160,11 +167,12 @@ export default function AccountsScreen() {
                             <StackNavigationRow
                               title="Sign in again to continue using this account"
                               href={{
-                                pathname: '/accounts/add',
+                                pathname: '/sign-in',
                                 params: {
                                   serverUrl: account.serverUrl.toString(),
                                   username: account.username,
                                   reauthenticate: 'true',
+                                  returnTo: '/accounts',
                                 },
                               }}
                             />
@@ -196,6 +204,11 @@ export default function AccountsScreen() {
                           <MutationConfirmation
                             key={`${account.serverUrl}-${account.userId}`}
                             mutation={removeAccountAtom}
+                            onSuccess={({ result }) => {
+                              if (!result.accountsRemain) {
+                                router.dismissTo('/');
+                              }
+                            }}
                             onFailure={removeAccountFailureMessage}
                             title="Remove account from this device?"
                             confirmLabel="Remove"

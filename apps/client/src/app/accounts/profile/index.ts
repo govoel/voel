@@ -14,6 +14,7 @@ import {
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -151,7 +152,9 @@ export const signOutEverywhereAtom = AppRuntime.fn<Schema.Void['Type']>()(
       return yield* NoActiveAccountError.make();
     }
     const manager = yield* AccountManager;
-    return yield* manager.signOutEverywhere(key.value);
+    yield* manager.signOutEverywhere(key.value);
+    const accounts = yield* AccountRepository.use((repository) => repository.list);
+    return { accountsRemain: accounts.length > 0 };
   }),
   { reactivityKeys: ['auth.sessions'] }
 );

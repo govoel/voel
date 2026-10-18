@@ -19,6 +19,7 @@ import { vi } from 'vitest';
 
 import { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 
+import { removeAccountAtom } from '#src/app/accounts/index.ts';
 import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
 import {
   deleteServerUserAtom,
@@ -159,6 +160,32 @@ const waitForAuthenticatedSession = (authClient: AuthClient['Service']) =>
   );
 
 it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
+  iit.effect(
+    'reports whether successful removal leaves another saved account',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [firstAccount] = yield* signInTestServerUsers(manager, server);
+
+        yield* Atom.set(removeAccountAtom, void 0);
+        expect(yield* Atom.getResult(removeAccountAtom, { suspendOnWaiting: true })).toEqual({
+          accountsRemain: true,
+        });
+
+        yield* manager.setActiveAccount({
+          serverUrl: firstAccount.serverUrl,
+          userId: firstAccount.userId,
+        });
+        yield* Atom.set(removeAccountAtom, void 0);
+        expect(yield* Atom.getResult(removeAccountAtom, { suspendOnWaiting: true })).toEqual({
+          accountsRemain: false,
+        });
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
   iit.effect(
     'reacts to account table mutations',
     Effect.fnUntraced(

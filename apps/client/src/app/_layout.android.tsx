@@ -9,6 +9,10 @@ import { materialFonts, materialSeedColor, useMaterialColors } from '#src/consta
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
 import { AppRegistry } from '#src/runtime/registry.ts';
 
+export const unstable_settings = {
+  anchor: '(tabs)',
+};
+
 const loadingIndicatorScale = 0.25;
 
 export const SuspenseFallback = () => (
@@ -48,10 +52,17 @@ export default function TabLayout() {
   return (
     <RegistryContext.Provider value={AppRegistry}>
       <ThemeProvider value={theme}>
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
             name="accounts"
+            options={{
+              presentation: 'transparentModal',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="(account-entry)"
             options={{
               presentation: 'transparentModal',
               contentStyle: { backgroundColor: 'transparent' },
