@@ -1,0 +1,15 @@
+diff --git a/dist/index.js b/dist/index.js
+index 67709a093794b2be6c855d0ce862f1643a865852..10c7a821f38891106a73663f405b0d789a5c60b7 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1144,6 +1144,10 @@ const createTsconfig = (emit) => {
+       incremental: false,
+       // Never publish output that failed to type check.
+       noEmitOnError: true,
++      // React Native's parallel ESM emit checks this same graph with modern exports.
++      // Legacy CommonJS resolution cannot resolve export-only dependencies like Effect.
++      noCheck: emit.target === "react-native" && !isEsm,
++      rewriteRelativeImportExtensions: true,
+       declaration: emit.declaration,
+       declarationMap: false,
+       sourceMap: false,

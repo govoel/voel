@@ -4,9 +4,9 @@ import { RpcServer } from 'effect/rpc';
 
 import { AtomDevToolsRpcServer } from '@repo/effect-atom-devtools-core/rpc-server';
 
-import { makeRpcServerProtocol } from '#src/react-native/rpc/protocol.ts';
-import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
-import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
+import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '../../shared/plugin-id.ts';
+import type { RpcBridgeEventMap } from '../../shared/rpc-bridge.ts';
+import { makeRpcServerProtocol } from './protocol.ts';
 
 const RozeniteRpcServerProtocolLayer = Layer.effect(
   RpcServer.Protocol,

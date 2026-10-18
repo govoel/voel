@@ -4,6 +4,7 @@ dist
 build
 coverage
 .turbo
+.rozenite
 *.tsbuildinfo
 *.db
 *.db-shm

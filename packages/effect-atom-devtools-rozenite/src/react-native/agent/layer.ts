@@ -8,7 +8,7 @@ import type {
 import { getRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Array, Cause, Data, Effect, Layer, Match, Option, Queue, Stream } from 'effect';
 
-import { agentToolHandlers } from '#src/react-native/agent/tool-handlers.ts';
+import { agentToolHandlers } from './tool-handlers.ts';
 
 const ROZENITE_AGENT_PLUGIN_ID = 'rozenite-agent';
 

@@ -116,5 +116,14 @@
     "promise/prefer-await-to-then": "off",
     "promise/prefer-await-to-callbacks": "off"
   },
-  "jsPlugins": ["eslint-plugin-turbo", "./.oxlint/index.mts"]
+  "jsPlugins": ["eslint-plugin-turbo", "./.oxlint/index.mts"],
+  "overrides": [
+    {
+      // Rozenite emits this runtime with tsc; relative imports must work in dist too.
+      "files": ["packages/effect-atom-devtools-rozenite/src/react-native/**/*.ts"],
+      "rules": {
+        "import/no-relative-parent-imports": "off"
+      }
+    }
+  ]
 }

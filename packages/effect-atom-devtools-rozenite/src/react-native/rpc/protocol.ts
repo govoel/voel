@@ -8,8 +8,8 @@ import {
   RPC_SERVER_EVENT,
   RpcBridgeClientMessage,
   RpcBridgeServerMessage,
-} from '#src/shared/rpc-bridge.ts';
-import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
+} from '../../shared/rpc-bridge.ts';
+import type { RpcBridgeEventMap } from '../../shared/rpc-bridge.ts';
 
 export const makeRpcServerProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBridgeEventMap>) =>
   RpcServer.Protocol.make(
