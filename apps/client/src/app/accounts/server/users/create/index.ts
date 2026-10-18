@@ -4,13 +4,13 @@ import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
+import { acquireActiveAccountAuthClient } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
 const createServerUserAtom = AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     return yield* client.admin.createUser({
       name: input.name,
       username: input.username,

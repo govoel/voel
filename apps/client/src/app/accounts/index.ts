@@ -30,35 +30,32 @@ export const removeAccountFailureMessage = ({
     })
   );
 
-export const accountsWithActiveAccount = AppRuntime.atom(
-  Effect.fnUntraced(function* (get) {
-    const [accounts, activeAccount] = yield* Effect.all(
-      [
-        get.result(accountsAtom),
-        get.result(activeAccountAtom).pipe(
-          Effect.map(
-            Option.map((account) => ({
-              active: account.active,
-              authStorageId: account.authStorageId,
-              createdAt: account.createdAt,
-              email: account.email,
-              hostname: new URL(account.serverUrl).hostname,
-              name: account.name,
-              profilePicture: account.profilePicture,
-              role: account.role,
-              serverUrl: account.serverUrl,
-              updatedAt: account.updatedAt,
-              userId: account.userId,
-              username: account.username,
-            }))
-          )
-        ),
-      ],
-      { concurrency: 'unbounded' }
-    );
-
-    return { accounts, activeAccount };
-  })
+export const accountsWithActiveAccount = Atom.readable(
+  (get) =>
+    AsyncResult.all({
+      accounts: get(accountsAtom),
+      activeAccount: AsyncResult.map(
+        get(activeAccountAtom),
+        Option.map((account) => ({
+          active: account.active,
+          authStorageId: account.authStorageId,
+          createdAt: account.createdAt,
+          email: account.email,
+          name: account.name,
+          profilePicture: account.profilePicture,
+          role: account.role,
+          serverUrl: account.serverUrl,
+          updatedAt: account.updatedAt,
+          userId: account.userId,
+          username: account.username,
+          hostname: new URL(account.serverUrl).hostname,
+        }))
+      ),
+    }),
+  (refresh) => {
+    refresh(accountsAtom);
+    refresh(activeAccountAtom);
+  }
 ).pipe(
   withPredefinedStates(() => [
     {

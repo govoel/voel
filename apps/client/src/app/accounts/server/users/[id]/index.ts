@@ -14,91 +14,90 @@ import {
 } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
-import { activeAccountAuthClientAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import {
+  accountAuthClientAtom,
+  accountScoped,
+  acquireActiveAccountAuthClient,
+} from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
 
 export const serverUserAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
-  AppRuntime.atom(
-    Effect.fnUntraced(function* (get) {
-      const [user, activeAccountKey] = yield* Effect.all(
-        [
-          get
-            .result(activeAccountAuthClientAtom)
-            .pipe(Effect.flatMap((client) => client.admin.getUser({ userId }))),
-          get.result(activeAccountKeyAtom),
-        ],
-        {
-          concurrency: 'unbounded',
-        }
-      );
-      return {
-        ...user,
-        isOtherUser: Option.isSome(activeAccountKey) && activeAccountKey.value.userId !== user.id,
-      };
-    })
-  ).pipe(
-    Atom.withReactivity(['auth.users']),
-    swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+  accountScoped((key) =>
+    AppRuntime.atom(
+      Effect.fnUntraced(function* (get) {
+        const client = yield* get.result(accountAuthClientAtom(key));
+        const user = yield* client.admin.getUser({ userId });
+        return {
+          ...user,
+          isOtherUser: Option.isSome(key) && key.value.userId !== user.id,
+        };
+      })
+    ).pipe(
+      Atom.withReactivity(['auth.users']),
+      swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+    )
   )
 );
 
 const setServerUserRoleAtom = AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.admin.setRole(input);
   }),
   { reactivityKeys: ['auth.users'] }
 );
 
 const updateServerUserAtom = AppRuntime.fn<typeof AuthAdminUpdateUserInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.admin.updateUser(input);
   }),
   { reactivityKeys: ['auth.users'] }
 );
 
 const setServerUserPasswordAtom = AppRuntime.fn<typeof AuthSetUserPasswordInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
   }),
   { reactivityKeys: ['auth.sessions'] }
 );
 
 export const deleteServerUserAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.admin.removeUser(input);
   }),
   { reactivityKeys: ['auth.users', 'auth.sessions'] }
 );
 
 export const serverUserSessionsAtom = Atom.family((userId: typeof AuthUser.fields.id.Type) =>
-  AppRuntime.atom(
-    Effect.fnUntraced(function* (get) {
-      const client = yield* get.result(activeAccountAuthClientAtom);
-      return yield* client.admin.listUserSessions({ userId });
-    })
-  ).pipe(
-    Atom.withReactivity(['auth.sessions']),
-    swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+  accountScoped((key) =>
+    AppRuntime.atom(
+      Effect.fnUntraced(function* (get) {
+        const client = yield* get.result(accountAuthClientAtom(key));
+        return yield* client.admin.listUserSessions({ userId });
+      })
+    ).pipe(
+      Atom.withReactivity(['auth.sessions']),
+      swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+    )
   )
 );
 
 export const revokeServerUserSessionAtom = AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.admin.revokeUserSession(input);
   }),
   { reactivityKeys: ['auth.sessions'] }
 );
 export const revokeServerUserSessionsAtom = AppRuntime.fn<typeof AuthUserIdInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.admin.revokeUserSessions(input);
   }),
   { reactivityKeys: ['auth.sessions'] }

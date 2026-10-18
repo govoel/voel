@@ -4,38 +4,59 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { activeAccountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
+import {
+  accountAuthClientAtom,
+  accountScoped,
+  activeAccountKeyAtom,
+} from '#src/domains/accounts/atoms.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
+import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
 
-export const listUsersAtom = AppRuntime.pull(
-  Effect.fnUntraced(
-    function* (get) {
-      const authClient = yield* get.result(activeAccountAuthClientAtom);
+const listUsersFamily = Atom.family((key: Option.Option<ActiveAccountKey>) =>
+  AppRuntime.pull(
+    Effect.fnUntraced(
+      function* (get) {
+        const authClient = yield* get.result(accountAuthClientAtom(key));
 
-      return Stream.paginate(
-        0,
-        Effect.fnUntraced(function* (offset) {
-          const data = yield* authClient.admin.listUsers({
-            limit: 10,
-            offset,
-          });
+        return Stream.paginate(
+          0,
+          Effect.fnUntraced(function* (offset) {
+            const data = yield* authClient.admin.listUsers({
+              limit: 10,
+              offset,
+            });
 
-          const { users } = data;
-          const nextOffset = offset + users.length;
-          const hasMore = users.length > 0 && nextOffset < data.total;
+            const { users } = data;
+            const nextOffset = offset + users.length;
+            const hasMore = users.length > 0 && nextOffset < data.total;
 
-          return [users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
-        })
-      );
-    },
-    (effect) => Stream.unwrap(effect)
+            return [users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
+          })
+        );
+      },
+      (effect) => Stream.unwrap(effect)
+    )
+  ).pipe(
+    Atom.withReactivity(['auth.users']),
+    swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true })
   )
+);
+
+const selectedUsersAtom = accountScoped(listUsersFamily);
+
+export const listUsersAtom = Atom.writable(
+  selectedUsersAtom.read,
+  (get, input: Parameters<ReturnType<typeof listUsersFamily>['write']>[1]) => {
+    const key = get.get(activeAccountKeyAtom);
+    if (AsyncResult.isSuccess(key)) {
+      get.set(listUsersFamily(key.value), input);
+    }
+  },
+  selectedUsersAtom.refresh
 ).pipe(
-  Atom.withReactivity(['auth.users']),
-  swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
   withPredefinedStates(() => {
     const alex = AuthUser.make({
       id: AuthUser.fields.id.make('predefined-user-alex'),

@@ -7,7 +7,7 @@ import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -61,16 +61,92 @@ export const accountsAtom = AppRuntime.atom(
   Atom.withLabel('accountsAtom')
 );
 
-export const activeAccountAtom = AppRuntime.atom((get) =>
-  Stream.switchMap(
-    get.streamResult(activeAccountKeyAtom),
-    Option.match({
-      onNone: () => Stream.make(Option.none()),
-      onSome: ({ authStorageId, serverUrl, userId }) =>
+export const activeAccountKeyAtom = AppRuntime.atom(
+  AccountManager.pipe(
+    Effect.map((manager) => manager.changes),
+    Stream.unwrap
+  )
+).pipe(
+  (source) =>
+    AppRuntime.atom((get) =>
+      get.result(source).pipe(
+        Effect.catchTags({
+          NoSuchElementError: () => Effect.succeed<Atom.Success<typeof source>>(Option.none()),
+        })
+      )
+    ),
+  Atom.withLabel('activeAccountKeyAtom')
+);
+
+/** Select account-owned state without giving the selector its own async history. */
+export const accountScoped = <A, E>(
+  make: (key: Option.Option<ActiveAccountKey>) => Atom.Atom<AsyncResult.AsyncResult<A, E>>
+) => {
+  const family = Atom.family(make);
+  const refreshSignal = Atom.make(() => Symbol('refresh active account query'));
+  // Keep selection/refresh lifetime independent of query updates. Refreshing a
+  // child must not replace the listener while the refresh signal is notifying it.
+  const selection = Atom.make((get) => {
+    const key = get(activeAccountKeyAtom);
+    if (AsyncResult.isInitial(key)) {
+      return {
+        _tag: 'Unavailable',
+        result: AsyncResult.initial<A, E | Atom.Failure<typeof activeAccountKeyAtom>>(key.waiting),
+      } as const;
+    }
+    if (AsyncResult.isFailure(key)) {
+      // Identity failures must not carry the previous account into a new query.
+      return {
+        _tag: 'Unavailable',
+        result: AsyncResult.failure<A, E | Atom.Failure<typeof activeAccountKeyAtom>>(key.cause),
+      } as const;
+    }
+    const scoped = family(Option.map(key.value, (value) => ActiveAccountKey.make(value)));
+    get.subscribe(refreshSignal, () => {
+      get.refresh(scoped);
+    });
+    return { _tag: 'Selected', atom: scoped } as const;
+  });
+
+  return Atom.readable(
+    (get) => {
+      const selected = get(selection);
+      return selected._tag === 'Selected' ? get(selected.atom) : selected.result;
+    },
+    (refresh) => {
+      refresh(refreshSignal);
+    }
+  );
+};
+
+export const accountAuthClientAtom = Atom.family((key: Option.Option<ActiveAccountKey>) =>
+  AppRuntime.atom(
+    Effect.gen(function* () {
+      if (Option.isNone(key)) {
+        return yield* NoActiveAccountError.make();
+      }
+      return yield* AuthClientMap.use((authClients) => authClients.acquire(key.value));
+    })
+  )
+);
+
+/** Mutations resolve persisted identity at invocation, not a cached client's previous result. */
+export const acquireActiveAccountAuthClient = Effect.gen(function* () {
+  const manager = yield* AccountManager;
+  const key = yield* manager.state;
+  if (Option.isNone(key)) {
+    return yield* NoActiveAccountError.make();
+  }
+  return yield* AuthClientMap.use((authClients) => authClients.acquire(key.value));
+});
+
+export const activeAccountAtom = accountScoped((key) =>
+  AppRuntime.atom(
+    Option.match(key, {
+      onNone: () => Stream.make(Option.none<Account>()),
+      onSome: (accountKey) =>
         AccountRepository.pipe(
-          Effect.flatMap((repository) =>
-            repository.getByStorageKey({ serverUrl, authStorageId, userId })
-          ),
+          Effect.flatMap((repository) => repository.getByStorageKey(accountKey)),
           Reactivity.stream(['account'])
         ),
     })
@@ -98,31 +174,4 @@ export const activeAccountAtom = AppRuntime.atom((get) =>
     },
   ]),
   Atom.withLabel('activeAccountAtom')
-);
-
-export const activeAccountKeyAtom = AppRuntime.atom(
-  AccountManager.pipe(
-    Effect.map((manager) => manager.changes),
-    Stream.unwrap
-  )
-).pipe(
-  (source) =>
-    AppRuntime.atom((get) =>
-      get.result(source).pipe(
-        Effect.catchTags({
-          NoSuchElementError: () => Effect.succeed<Atom.Success<typeof source>>(Option.none()),
-        })
-      )
-    ),
-  Atom.withLabel('activeAccountKeyAtom')
-);
-
-export const activeAccountAuthClientAtom = AppRuntime.atom(
-  Effect.fnUntraced(function* (get) {
-    const key = yield* get.result(activeAccountKeyAtom);
-    if (Option.isNone(key)) {
-      return yield* NoActiveAccountError.make();
-    }
-    return yield* AuthClientMap.use((authClients) => authClients.acquire(key.value));
-  })
 );

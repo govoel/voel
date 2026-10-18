@@ -3,7 +3,7 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountsAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import { accountScoped, accountsAtom } from '#src/domains/accounts/atoms.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -27,31 +27,34 @@ export const AccountsSheet = Data.taggedEnum<
 export const accountsSheetIsIdle = AccountsSheet.$is('Idle');
 export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession');
 
-export const accountsSheetAtom = AppRuntime.atom(
-  Effect.fnUntraced(
-    function* (get) {
-      const activeAccountKey = yield* get.result(activeAccountKeyAtom);
-      if (Option.isNone(activeAccountKey)) {
-        const accounts = yield* get.result(accountsAtom);
-        if (accounts.length === 0) {
-          return Stream.succeed<AccountsSheet>(AccountsSheet.Onboarding({ dismissable: false }));
+export const accountsSheetAtom = accountScoped((activeAccountKey) =>
+  AppRuntime.atom(
+    Effect.fnUntraced(
+      function* (get) {
+        if (Option.isNone(activeAccountKey)) {
+          const accounts = yield* get.result(accountsAtom);
+          if (accounts.length === 0) {
+            return Stream.succeed<AccountsSheet>(AccountsSheet.Onboarding({ dismissable: false }));
+          }
+
+          return Stream.succeed<AccountsSheet>(
+            AccountsSheet.MustPickAccount({ dismissable: false })
+          );
         }
 
-        return Stream.succeed<AccountsSheet>(AccountsSheet.MustPickAccount({ dismissable: false }));
-      }
-
-      const authClient = yield* AuthClientMap.use((authClients) =>
-        authClients.acquire(activeAccountKey.value)
-      );
-      return authClient.sessionChanges.pipe(
-        Stream.map((session): AccountsSheet =>
-          AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)
-            ? AccountsSheet.InvalidSession({ dismissable: true })
-            : AccountsSheet.Idle({ dismissable: true })
-        )
-      );
-    },
-    (effect) => Stream.unwrap(effect)
+        const authClient = yield* AuthClientMap.use((authClients) =>
+          authClients.acquire(activeAccountKey.value)
+        );
+        return authClient.sessionChanges.pipe(
+          Stream.map((session): AccountsSheet =>
+            AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)
+              ? AccountsSheet.InvalidSession({ dismissable: true })
+              : AccountsSheet.Idle({ dismissable: true })
+          )
+        );
+      },
+      (effect) => Stream.unwrap(effect)
+    )
   )
 ).pipe(
   withPredefinedStates(() => [

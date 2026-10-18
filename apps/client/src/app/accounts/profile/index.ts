@@ -7,9 +7,10 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { useAppForm } from '#src/components/form';
 import {
+  accountAuthClientAtom,
+  accountScoped,
+  acquireActiveAccountAuthClient,
   activeAccountAtom,
-  activeAccountAuthClientAtom,
-  activeAccountKeyAtom,
 } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
@@ -69,8 +70,8 @@ export const activeUserProfileAtom = activeAccountAtom.pipe(
 );
 
 const updateCurrentUserAtom = AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     return yield* client.updateUser(input);
   }),
   { reactivityKeys: ['auth.users'] }
@@ -114,8 +115,8 @@ export const useUserProfileForm = ({
   });
 
 const changePasswordAtom = AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.changePassword({
       currentPassword: input.currentPassword,
       newPassword: input.newPassword,
@@ -124,33 +125,35 @@ const changePasswordAtom = AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
   { reactivityKeys: ['auth.sessions'] }
 );
 
-export const ownSessionsAtom = AppRuntime.atom(
-  Effect.fnUntraced(function* (get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
-    const current = yield* client.readSession;
-    const sessions = yield* client.listSessions;
-    return { sessions, currentId: current.session.id };
-  })
-).pipe(
-  Atom.withReactivity(['auth.sessions']),
-  swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+export const ownSessionsAtom = accountScoped((key) =>
+  AppRuntime.atom(
+    Effect.fnUntraced(function* (get) {
+      const client = yield* get.result(accountAuthClientAtom(key));
+      const current = yield* client.readSession;
+      const sessions = yield* client.listSessions;
+      return { sessions, currentId: current.session.id };
+    })
+  ).pipe(
+    Atom.withReactivity(['auth.sessions']),
+    swr({ staleTime: 0, revalidateOnMount: true, revalidateOnFocus: true })
+  )
 );
 
 export const revokeOwnSessionAtom = AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
-  Effect.fnUntraced(function* (input, get) {
-    const client = yield* get.result(activeAccountAuthClientAtom);
+  Effect.fnUntraced(function* (input) {
+    const client = yield* acquireActiveAccountAuthClient;
     yield* client.revokeSession(input);
   }),
   { reactivityKeys: ['auth.sessions'] }
 );
 
 export const signOutEverywhereAtom = AppRuntime.fn<Schema.Void['Type']>()(
-  Effect.fnUntraced(function* (_, get) {
-    const key = yield* get.result(activeAccountKeyAtom);
+  Effect.fnUntraced(function* () {
+    const manager = yield* AccountManager;
+    const key = yield* manager.state;
     if (Option.isNone(key)) {
       return yield* NoActiveAccountError.make();
     }
-    const manager = yield* AccountManager;
     return yield* manager.signOutEverywhere(key.value);
   }),
   { reactivityKeys: ['auth.sessions'] }

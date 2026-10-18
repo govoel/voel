@@ -6,6 +6,7 @@ import {
   DateTime,
   Deferred,
   Effect,
+  Equal,
   Fiber,
   Layer,
   Option,
@@ -13,13 +14,20 @@ import {
   Scheduler,
   Stream,
 } from 'effect';
-import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, Atom, AtomRegistry, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
 
+import { BetterAuthClientInitializationError } from '@repo/auth-api/client.ts';
 import { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 
-import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
+import { accountsWithActiveAccount } from '#src/app/accounts/index.ts';
+import {
+  activeUserProfileAtom,
+  ownSessionsAtom,
+  revokeOwnSessionAtom,
+} from '#src/app/accounts/profile/index.ts';
+import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
 import {
   deleteServerUserAtom,
   serverUserAtom,
@@ -28,7 +36,12 @@ import {
 import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { MainDatabase } from '#src/database/main/index.ts';
-import { accountsAtom, activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import {
+  accountScoped,
+  accountsAtom,
+  activeAccountAtom,
+  activeAccountKeyAtom,
+} from '#src/domains/accounts/atoms.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import {
@@ -37,7 +50,7 @@ import {
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -155,6 +168,12 @@ const waitForAuthenticatedSession = (authClient: AuthClient['Service']) =>
       (session) =>
         AsyncResult.isSuccess(session) && !session.waiting && Option.isSome(session.value)
     ),
+    Stream.runHead
+  );
+
+const waitForActiveAccountKey = (key: Option.Option<ActiveAccountKey>) =>
+  Atom.toStreamResult(activeAccountKeyAtom).pipe(
+    Stream.filter((current) => Equal.equals(current, key)),
     Stream.runHead
   );
 
@@ -770,12 +789,12 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
         const username = yield* makeUsername();
 
         const subscribed = yield* Deferred.make<true>();
-        // This long-lived stream stays waiting; assert its very next result, not a matching value.
+        // Changing identity must publish loading before the new account, never retain the old one.
         const nextAccount = yield* Atom.toStream(activeAccountAtom).pipe(
           Stream.tap(() => Deferred.succeed(subscribed, true)),
           Stream.drop(1),
-          Stream.mapEffect(AsyncResult.toExit),
-          Stream.runHead,
+          Stream.take(2),
+          Stream.runCollect,
           Effect.forkChild
         );
         yield* Deferred.await(subscribed).pipe(Effect.timeout('10 seconds'), TestClock.withLive);
@@ -788,10 +807,13 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
         });
         yield* drainScheduler;
 
+        const states = yield* Fiber.join(nextAccount).pipe(
+          Effect.timeout('10 seconds'),
+          TestClock.withLive
+        );
+        expect(states[0]).toMatchObject({ _tag: 'Initial', waiting: true });
         const activeAccount = Option.getOrThrow(
-          Option.getOrThrow(
-            yield* Fiber.join(nextAccount).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
-          )
+          yield* AsyncResult.toExit(Option.getOrThrow(Array.get(states, 1)))
         );
 
         expect(activeAccount).toMatchObject({
@@ -806,3 +828,194 @@ it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
     )
   );
 });
+
+it.layer(TestServerControllerClient.layer)('account-scoped state', (iit) => {
+  iit.effect(
+    'isolates pending and failed queries, derived views, and mutation clients when switching accounts',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const authClients = yield* AuthClientMap;
+        const { drainScheduler } = yield* TestScheduler;
+        const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
+        yield* manager.setActiveAccount(firstAccount);
+        const client = yield* authClients.acquire(firstAccount);
+        const session = yield* client.readSession;
+        const queries: ReadonlyArray<
+          Atom.Atom<AsyncResult.AsyncResult<unknown, Atom.Failure<typeof listUsersAtom>>>
+        > = [
+          ownSessionsAtom,
+          ownSessionAtom(session.session.id),
+          listUsersAtom,
+          serverUserAtom(firstAccount.userId),
+          serverUserSessionsAtom(firstAccount.userId),
+          serverUserSessionAtom({ userId: firstAccount.userId, sessionId: session.session.id }),
+          accountsSheetAtom,
+        ];
+        for (const query of queries) {
+          yield* Atom.mount(query);
+          yield* Atom.getResult(query);
+        }
+        yield* Atom.mount(activeUserProfileAtom);
+        yield* Atom.mount(accountsWithActiveAccount);
+        expect(Option.getOrThrow(yield* Atom.getResult(activeUserProfileAtom)).id).toBe(
+          firstAccount.userId
+        );
+
+        const pendingClient = yield* Deferred.make<
+          AuthClient['Service'],
+          BetterAuthClientInitializationError
+        >();
+        const { acquire } = authClients;
+        const acquireSpy = vi
+          .spyOn(authClients, 'acquire')
+          .mockImplementation((key) =>
+            key.authStorageId === secondAccount.authStorageId
+              ? Deferred.await(pendingClient)
+              : acquire(key)
+          );
+        const revokeSpy = vi.spyOn(client, 'revokeSession');
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            acquireSpy.mockRestore();
+            revokeSpy.mockRestore();
+          })
+        );
+
+        yield* manager.setActiveAccount(secondAccount);
+        // Mutate before awaiting the identity stream: persisted identity, not its cached result, wins.
+        yield* Atom.mount(revokeOwnSessionAtom);
+        yield* Atom.set(revokeOwnSessionAtom, { token: session.session.token });
+        yield* Atom.toStreamResult(activeAccountKeyAtom).pipe(
+          Stream.filter((key) => Option.isSome(key) && key.value.userId === secondAccount.userId),
+          Stream.runHead
+        );
+        yield* drainScheduler;
+        for (const query of queries) {
+          const result = yield* Atom.get(query);
+          expect(result).toMatchObject({ _tag: 'Initial', waiting: true });
+          expect(AsyncResult.value(result)).toEqual(Option.none());
+        }
+        expect(Option.getOrThrow(yield* Atom.getResult(activeUserProfileAtom)).id).toBe(
+          secondAccount.userId
+        );
+        expect(
+          Option.getOrThrow((yield* Atom.getResult(accountsWithActiveAccount)).activeAccount).userId
+        ).toBe(secondAccount.userId);
+
+        yield* Deferred.fail(
+          pendingClient,
+          BetterAuthClientInitializationError.make({ error: 'offline' })
+        );
+        for (const query of queries) {
+          expect(yield* Atom.getResult(query).pipe(Effect.exit)).toMatchObject({ _tag: 'Failure' });
+          const result = yield* Atom.get(query);
+          expect(result).toMatchObject({ _tag: 'Failure', previousSuccess: Option.none() });
+          expect(AsyncResult.value(result)).toEqual(Option.none());
+        }
+        yield* Atom.getResult(revokeOwnSessionAtom, { suspendOnWaiting: true }).pipe(Effect.flip);
+        expect(acquireSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ authStorageId: secondAccount.authStorageId })
+        );
+        expect(revokeSpy).not.toHaveBeenCalled();
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+});
+
+it.effect(
+  'keys query history by server, user, and auth storage while retaining same-account refresh history',
+  Effect.fnUntraced(
+    function* () {
+      const manager = yield* AccountManager;
+      const sql = yield* MainDatabase;
+      const { drainScheduler } = yield* TestScheduler;
+      const first = {
+        serverUrl: Account.fields.serverUrl.make('https://first.example.test'),
+        userId: Account.fields.userId.make('reader'),
+        authStorageId: Account.fields.authStorageId.make('storage'),
+        username: Account.fields.username.make('reader'),
+        name: Account.fields.name.make('Reader'),
+        email: Account.fields.email.make('reader@example.test'),
+        role: Account.fields.role.make('user'),
+        profilePicture: Account.fields.profilePicture.make(null),
+        active: false,
+      };
+      const otherServer = {
+        ...first,
+        serverUrl: Account.fields.serverUrl.make('https://second.example.test'),
+      };
+      const otherUser = { ...otherServer, userId: Account.fields.userId.make('other-reader') };
+      for (const account of [first, otherServer, otherUser]) {
+        yield* insertAccountFixture(account);
+      }
+      const select = Effect.fnUntraced(function* (account: typeof first) {
+        yield* manager.setActiveAccount(account);
+        yield* waitForActiveAccountKey(Option.some(ActiveAccountKey.make(account)));
+        yield* drainScheduler;
+      });
+      let offline = false;
+      const read = vi.fn((key: ActiveAccountKey) => key);
+      const query = accountScoped((key) =>
+        Atom.make(
+          Effect.suspend(() => {
+            if (Option.isNone(key)) {
+              return Effect.fail('no account');
+            }
+            read(key.value);
+            return offline ? Effect.fail('offline') : Effect.succeed(key.value);
+          })
+        )
+      );
+      yield* select(first);
+      yield* Atom.mount(query);
+      expect(yield* Atom.getResult(query)).toEqual(ActiveAccountKey.make(first));
+      expect(read).toHaveBeenCalledTimes(1);
+
+      offline = true;
+      yield* Atom.refresh(query);
+      yield* drainScheduler;
+      expect(yield* Atom.getResult(query).pipe(Effect.flip)).toBe('offline');
+      expect(AsyncResult.value(yield* Atom.get(query))).toEqual(
+        Option.some(ActiveAccountKey.make(first))
+      );
+      expect(read).toHaveBeenCalledTimes(2);
+
+      offline = false;
+      yield* select(otherServer);
+      expect(yield* Atom.getResult(query)).toEqual(ActiveAccountKey.make(otherServer));
+      yield* select(otherServer);
+      expect(read).toHaveBeenCalledTimes(3);
+      yield* select(otherUser);
+      expect(yield* Atom.getResult(query)).toEqual(ActiveAccountKey.make(otherUser));
+      expect(read).toHaveBeenCalledTimes(4);
+
+      const newStorage = Account.fields.authStorageId.make('new-storage');
+      yield* sql`
+        update account
+        set
+          "authStorageId" = ${newStorage}
+        where
+          active = 1
+      `.pipe(Reactivity.mutation(['account']));
+      const newKey = ActiveAccountKey.make({ ...otherUser, authStorageId: newStorage });
+      yield* waitForActiveAccountKey(Option.some(newKey));
+      yield* drainScheduler;
+      expect(yield* Atom.getResult(query)).toEqual(newKey);
+      expect(read).toHaveBeenCalledTimes(5);
+
+      yield* sql`
+        update account
+        set
+          active = 0
+      `.pipe(Reactivity.mutation(['account']));
+      yield* waitForActiveAccountKey(Option.none());
+      yield* drainScheduler;
+      expect(yield* Atom.getResult(query).pipe(Effect.flip)).toBe('no account');
+      expect(AsyncResult.value(yield* Atom.get(query))).toEqual(Option.none());
+    },
+    (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+  )
+);
