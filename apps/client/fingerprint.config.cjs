@@ -73,7 +73,7 @@ module.exports = /** @type {import('expo/fingerprint').Config} */ ({
     // The balanced preset hashes dependency versions, not patched native code.
     {
       type: 'file',
-      filePath: '../../patches/@tursodatabase%2Fsync-react-native@0.8.1.patch',
+      filePath: '../../patches/@tursodatabase%2Fsync-react-native@0.8.3.patch',
       reasons: ['nativeDependencyPatch'],
     },
   ],
