@@ -3,8 +3,9 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountScoped, accountsAtom } from '#src/domains/accounts/atoms.ts';
+import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
+import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -27,7 +28,7 @@ export const AccountsSheet = Data.taggedEnum<
 export const accountsSheetIsIdle = AccountsSheet.$is('Idle');
 export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession');
 
-export const accountsSheetAtom = accountScoped((activeAccountKey) =>
+export const accountsSheetAtom = Atom.family((activeAccountKey: Option.Option<ActiveAccountKey>) =>
   AppRuntime.atom(
     Effect.fnUntraced(
       function* (get) {
@@ -55,34 +56,36 @@ export const accountsSheetAtom = accountScoped((activeAccountKey) =>
       },
       (effect) => Stream.unwrap(effect)
     )
+  ).pipe(
+    withPredefinedStates(() => [
+      {
+        id: PredefinedStateId.make('idle'),
+        label: 'Idle',
+        atom: Atom.make(() => AsyncResult.success(AccountsSheet.Idle({ dismissable: true }))),
+      },
+      {
+        id: PredefinedStateId.make('onboarding'),
+        label: 'Onboarding',
+        atom: Atom.make(() =>
+          AsyncResult.success(AccountsSheet.Onboarding({ dismissable: false }))
+        ),
+      },
+      {
+        id: PredefinedStateId.make('must-pick-account'),
+        label: 'Must pick an account',
+        atom: Atom.make(() =>
+          AsyncResult.success(AccountsSheet.MustPickAccount({ dismissable: false }))
+        ),
+      },
+      {
+        id: PredefinedStateId.make('invalid-session'),
+        label: 'Invalid session',
+        atom: Atom.make(() =>
+          AsyncResult.success(AccountsSheet.InvalidSession({ dismissable: true }))
+        ),
+      },
+    ]),
+    Atom.withEquality(Equal.equals),
+    Atom.withLabel('accountsSheetAtom')
   )
-).pipe(
-  withPredefinedStates(() => [
-    {
-      id: PredefinedStateId.make('idle'),
-      label: 'Idle',
-      atom: Atom.make(() => AsyncResult.success(AccountsSheet.Idle({ dismissable: true }))),
-    },
-    {
-      id: PredefinedStateId.make('onboarding'),
-      label: 'Onboarding',
-      atom: Atom.make(() => AsyncResult.success(AccountsSheet.Onboarding({ dismissable: false }))),
-    },
-    {
-      id: PredefinedStateId.make('must-pick-account'),
-      label: 'Must pick an account',
-      atom: Atom.make(() =>
-        AsyncResult.success(AccountsSheet.MustPickAccount({ dismissable: false }))
-      ),
-    },
-    {
-      id: PredefinedStateId.make('invalid-session'),
-      label: 'Invalid session',
-      atom: Atom.make(() =>
-        AsyncResult.success(AccountsSheet.InvalidSession({ dismissable: true }))
-      ),
-    },
-  ]),
-  Atom.withEquality(Equal.equals),
-  Atom.withLabel('accountsSheetAtom')
 );

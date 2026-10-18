@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
@@ -32,6 +32,7 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
@@ -158,8 +159,9 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
   const router = useRouter();
   const colors = useMaterialColors();
-  const state = useAtomValue(serverUserSessionsAtom(user.id));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const state = useAtomValue(serverUserSessionsAtom({ accountKey, userId: user.id }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ accountKey, userId: user.id }));
   return (
     <>
       <Text variant="h4">Active Sessions</Text>
@@ -344,8 +346,9 @@ const LoadedUser = ({
 
 export default function ServerUserScreen() {
   const { id } = useLocalSearchParams<{ id: typeof AuthUser.fields.id.Type }>();
-  const state = useAtomValue(serverUserAtom(id));
-  const refresh = useAtomRefresh(serverUserAtom(id));
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const state = useAtomValue(serverUserAtom({ accountKey, userId: id }));
+  const refresh = useAtomRefresh(serverUserAtom({ accountKey, userId: id }));
 
   return (
     <AndroidAccountsSheet>

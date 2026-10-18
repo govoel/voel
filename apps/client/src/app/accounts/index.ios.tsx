@@ -26,7 +26,7 @@ import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import {
-  accountsWithActiveAccount,
+  accountsWithActiveAccountAtom,
   removeAccountAtom,
   removeAccountFailureMessage,
   useSetActiveAccount,
@@ -36,6 +36,7 @@ import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
@@ -78,12 +79,15 @@ const AccountsList = ({ children }: PropsWithChildren) => (
 
 export default function AccountsScreen() {
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
-  const accountsSheet = useAtomSuspense(accountsSheetAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const sheetQuery = accountsSheetAtom(accountKey);
+  const accountsSheet = useAtomSuspense(sheetQuery);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
-  const accounts = useAtomValue(accountsWithActiveAccount);
-  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
+  const accountsQuery = accountsWithActiveAccountAtom(accountKey);
+  const accounts = useAtomValue(accountsQuery);
+  const refreshAccounts = useAtomRefresh(accountsQuery);
 
   return (
     <>

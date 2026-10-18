@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import {
-  accountsWithActiveAccount,
+  accountsWithActiveAccountAtom,
   removeAccountAtom,
   removeAccountFailureMessage,
   useSetActiveAccount,
@@ -24,6 +24,7 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
@@ -61,13 +62,16 @@ const StackNavigationRow = ({
 
 export default function AccountsScreen() {
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
-  const accountsSheet = useAtomSuspense(accountsSheetAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const sheetQuery = accountsSheetAtom(accountKey);
+  const accountsSheet = useAtomSuspense(sheetQuery);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
-  const accounts = useAtomValue(accountsWithActiveAccount);
-  const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
+  const accountsQuery = accountsWithActiveAccountAtom(accountKey);
+  const accounts = useAtomValue(accountsQuery);
+  const refreshAccounts = useAtomRefresh(accountsQuery);
 
   const colors = useMaterialColors();
 

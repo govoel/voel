@@ -4,6 +4,7 @@ import { frame } from '@expo/ui/swift-ui/modifiers';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
 import { accountsSheetAtom } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { AppRegistry } from '#src/runtime/registry.ts';
@@ -17,7 +18,9 @@ export const SuspenseFallback = () => (
 );
 
 const AppStack = () => {
-  const accountsSheet = useAtomSuspense(accountsSheetAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const sheetQuery = accountsSheetAtom(accountKey);
+  const accountsSheet = useAtomSuspense(sheetQuery);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

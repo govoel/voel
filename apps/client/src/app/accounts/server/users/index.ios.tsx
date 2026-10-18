@@ -1,4 +1,4 @@
-import { useAtom, useAtomRefresh } from '@effect/atom-react';
+import { useAtom, useAtomRefresh, useAtomSuspense } from '@effect/atom-react';
 import { Icon } from '@expo/ui';
 import { Button, HStack, Host, List, Section, Spacer } from '@expo/ui/swift-ui';
 import { font, foregroundStyle, frame, headerProminence, tint } from '@expo/ui/swift-ui/modifiers';
@@ -10,12 +10,15 @@ import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 
 export default function ServerUsersScreen() {
   const router = useRouter();
-  const [users, loadMoreUsers] = useAtom(listUsersAtom);
-  const refresh = useAtomRefresh(listUsersAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const usersQuery = listUsersAtom(accountKey);
+  const [users, loadMoreUsers] = useAtom(usersQuery);
+  const refresh = useAtomRefresh(usersQuery);
 
   return (
     <>

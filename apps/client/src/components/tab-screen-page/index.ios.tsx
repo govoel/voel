@@ -10,7 +10,7 @@ import { ScreenHost } from '#src/components/screen-host';
 import type { TabScreenPageComponent } from '#src/components/tab-screen-page';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import { accountAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 
 export const TabScreenPage = (({
   header,
@@ -20,7 +20,9 @@ export const TabScreenPage = (({
   readonly children?: ReactNode;
 }) => {
   const router = useRouter();
-  const activeAccount = useAtomSuspense(activeAccountAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const accountQuery = accountAtom(accountKey);
+  const activeAccount = useAtomSuspense(accountQuery);
 
   return Option.match(activeAccount.value, {
     onNone: () => (

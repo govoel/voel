@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match } from 'effect';
@@ -26,6 +26,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
@@ -124,8 +125,9 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
   const router = useRouter();
-  const state = useAtomValue(serverUserSessionsAtom(user.id));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const state = useAtomValue(serverUserSessionsAtom({ accountKey, userId: user.id }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ accountKey, userId: user.id }));
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
       <Section title="Active Sessions">
@@ -289,8 +291,9 @@ const LoadedUser = ({
 
 export default function ServerUserScreen() {
   const { id } = useLocalSearchParams<{ id: (typeof AuthUser)['fields']['id']['Type'] }>();
-  const state = useAtomValue(serverUserAtom(id));
-  const refresh = useAtomRefresh(serverUserAtom(id));
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const state = useAtomValue(serverUserAtom({ accountKey, userId: id }));
+  const refresh = useAtomRefresh(serverUserAtom({ accountKey, userId: id }));
 
   return (
     <>

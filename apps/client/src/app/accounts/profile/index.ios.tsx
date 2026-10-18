@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Button, Group, Host, List, Section } from '@expo/ui/swift-ui';
 import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Match, Option } from 'effect';
@@ -9,11 +9,11 @@ import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import {
-  activeUserProfileAtom,
   ownSessionsAtom,
   signOutEverywhereAtom,
   useChangePasswordForm,
   useUserProfileForm,
+  userProfileAtom,
 } from '#src/app/accounts/profile/index.ts';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -21,7 +21,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
 
@@ -61,7 +61,7 @@ const LoadedProfile = ({
   profile: { email, name, role, username },
 }: {
   profile: Pick<
-    Option.Option.Value<Atom.Success<typeof activeUserProfileAtom>>,
+    Option.Option.Value<Atom.Success<ReturnType<typeof userProfileAtom>>>,
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
@@ -137,8 +137,10 @@ const LoadedProfile = ({
 };
 
 export default function ProfileScreen() {
-  const state = useAtomValue(activeUserProfileAtom);
-  const refresh = useAtomRefresh(activeAccountAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const profileQuery = userProfileAtom(accountKey);
+  const state = useAtomValue(profileQuery);
+  const refresh = useAtomRefresh(profileQuery);
 
   return (
     <>
@@ -242,8 +244,10 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 
 const OwnSessions = () => {
   const router = useRouter();
-  const state = useAtomValue(ownSessionsAtom);
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const sessionsQuery = ownSessionsAtom(accountKey);
+  const state = useAtomValue(sessionsQuery);
+  const refresh = useAtomRefresh(sessionsQuery);
   return (
     <Section title="Active Sessions">
       {AsyncResult.matchWithError(state, {

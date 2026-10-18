@@ -4,8 +4,9 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountsAtom, activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import { accountAtom, accountsAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -30,53 +31,55 @@ export const removeAccountFailureMessage = ({
     })
   );
 
-export const accountsWithActiveAccount = Atom.readable(
-  (get) =>
-    AsyncResult.all({
-      accounts: get(accountsAtom),
-      activeAccount: AsyncResult.map(
-        get(activeAccountAtom),
-        Option.map((account) => ({
-          active: account.active,
-          authStorageId: account.authStorageId,
-          createdAt: account.createdAt,
-          email: account.email,
-          name: account.name,
-          profilePicture: account.profilePicture,
-          role: account.role,
-          serverUrl: account.serverUrl,
-          updatedAt: account.updatedAt,
-          userId: account.userId,
-          username: account.username,
-          hostname: new URL(account.serverUrl).hostname,
-        }))
-      ),
-    }),
-  (refresh) => {
-    refresh(accountsAtom);
-    refresh(activeAccountAtom);
-  }
-).pipe(
-  withPredefinedStates(() => [
-    {
-      id: PredefinedStateId.make('loading'),
-      label: 'Loading',
-      atom: Atom.make(() => AsyncResult.initial(true)),
-    },
-    {
-      id: PredefinedStateId.make('empty'),
-      label: 'No accounts',
-      atom: Atom.make(() => AsyncResult.success({ accounts: [], activeAccount: Option.none() })),
-    },
-    {
-      id: PredefinedStateId.make('failure'),
-      label: 'Failed to load accounts',
-      atom: Atom.make(() =>
-        AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts screen failure')))
-      ),
-    },
-  ]),
-  Atom.withLabel('accountsWithActiveAccount')
+export const accountsWithActiveAccountAtom = Atom.family((key: Option.Option<ActiveAccountKey>) =>
+  Atom.readable(
+    (get) =>
+      AsyncResult.all({
+        accounts: get(accountsAtom),
+        activeAccount: AsyncResult.map(
+          get(accountAtom(key)),
+          Option.map((account) => ({
+            active: account.active,
+            authStorageId: account.authStorageId,
+            createdAt: account.createdAt,
+            email: account.email,
+            name: account.name,
+            profilePicture: account.profilePicture,
+            role: account.role,
+            serverUrl: account.serverUrl,
+            updatedAt: account.updatedAt,
+            userId: account.userId,
+            username: account.username,
+            hostname: new URL(account.serverUrl).hostname,
+          }))
+        ),
+      }),
+    (refresh) => {
+      refresh(accountsAtom);
+      refresh(accountAtom(key));
+    }
+  ).pipe(
+    withPredefinedStates(() => [
+      {
+        id: PredefinedStateId.make('loading'),
+        label: 'Loading',
+        atom: Atom.make(() => AsyncResult.initial(true)),
+      },
+      {
+        id: PredefinedStateId.make('empty'),
+        label: 'No accounts',
+        atom: Atom.make(() => AsyncResult.success({ accounts: [], activeAccount: Option.none() })),
+      },
+      {
+        id: PredefinedStateId.make('failure'),
+        label: 'Failed to load accounts',
+        atom: Atom.make(() =>
+          AsyncResult.failure<never>(Cause.die(new Error('Predefined accounts screen failure')))
+        ),
+      },
+    ]),
+    Atom.withLabel('accountsWithActiveAccountAtom')
+  )
 );
 
 export const useSetActiveAccount = () => {

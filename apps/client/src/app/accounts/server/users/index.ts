@@ -4,22 +4,18 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import {
-  accountAuthClientAtom,
-  accountScoped,
-  activeAccountKeyAtom,
-} from '#src/domains/accounts/atoms.ts';
+import { acquireAccountAuthClient } from '#src/domains/accounts/atoms.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
 
-const listUsersFamily = Atom.family((key: Option.Option<ActiveAccountKey>) =>
+export const listUsersAtom = Atom.family((key: Option.Option<ActiveAccountKey>) =>
   AppRuntime.pull(
     Effect.fnUntraced(
-      function* (get) {
-        const authClient = yield* get.result(accountAuthClientAtom(key));
+      function* () {
+        const authClient = yield* acquireAccountAuthClient(key);
 
         return Stream.paginate(
           0,
@@ -41,96 +37,82 @@ const listUsersFamily = Atom.family((key: Option.Option<ActiveAccountKey>) =>
     )
   ).pipe(
     Atom.withReactivity(['auth.users']),
-    swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true })
+    swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
+    withPredefinedStates(() => {
+      const alex = AuthUser.make({
+        id: AuthUser.fields.id.make('predefined-user-alex'),
+        username: AuthUser.fields.username.make('alex'),
+        name: AuthUser.fields.name.make('Alex'),
+        email: AuthUser.fields.email.make('alex@example.com'),
+        role: AuthUser.fields.role.make('user'),
+        image: AuthUser.fields.image.make(null),
+        createdAt: AuthUser.fields.createdAt.make(DateTime.makeUnsafe(0)),
+        updatedAt: AuthUser.fields.updatedAt.make(DateTime.makeUnsafe(0)),
+      });
+      const sam = AuthUser.make({
+        id: AuthUser.fields.id.make('predefined-user-sam'),
+        username: AuthUser.fields.username.make('sam'),
+        name: AuthUser.fields.name.make('Sam'),
+        email: AuthUser.fields.email.make('sam@example.com'),
+        role: AuthUser.fields.role.make('user'),
+        image: AuthUser.fields.image.make(null),
+        createdAt: AuthUser.fields.createdAt.make(DateTime.makeUnsafe(0)),
+        updatedAt: AuthUser.fields.updatedAt.make(DateTime.makeUnsafe(0)),
+      });
+
+      return [
+        {
+          id: PredefinedStateId.make('loading'),
+          label: 'Loading',
+          atom: Atom.writable(
+            (): Atom.PullResult<typeof AuthUser.Type> => AsyncResult.initial(true),
+            () => void 0
+          ),
+        },
+        {
+          id: PredefinedStateId.make('loading-more'),
+          label: 'Loading more',
+          description: 'Keeps existing users visible while the next page is loading.',
+          atom: Atom.writable(
+            (): Atom.PullResult<typeof AuthUser.Type> =>
+              AsyncResult.success({ items: Array.make(alex, sam), done: false }).pipe(
+                AsyncResult.waiting()
+              ),
+            () => void 0
+          ),
+        },
+        {
+          id: PredefinedStateId.make('paginated'),
+          label: 'Page available',
+          description: 'Starts with one user and adds another when more users are requested.',
+          atom: Atom.writable(
+            (): Atom.PullResult<typeof AuthUser.Type> =>
+              AsyncResult.success({ items: [alex], done: false }),
+            (context) => {
+              context.setSelf(AsyncResult.success({ items: [alex, sam], done: true }));
+            }
+          ),
+        },
+        {
+          id: PredefinedStateId.make('loaded'),
+          label: 'All users loaded',
+          atom: Atom.writable(
+            (): Atom.PullResult<typeof AuthUser.Type> =>
+              AsyncResult.success({ items: [alex, sam], done: true }),
+            () => void 0
+          ),
+        },
+        {
+          id: PredefinedStateId.make('failure'),
+          label: 'No active account error',
+          atom: Atom.writable(
+            (): Atom.PullResult<typeof AuthUser.Type, NoActiveAccountError> =>
+              AsyncResult.fail(NoActiveAccountError.make()),
+            () => void 0
+          ),
+        },
+      ];
+    }),
+    Atom.withLabel('listUsersAtom')
   )
-);
-
-const selectedUsersAtom = accountScoped(listUsersFamily);
-
-export const listUsersAtom = Atom.writable(
-  selectedUsersAtom.read,
-  (get, input: Parameters<ReturnType<typeof listUsersFamily>['write']>[1]) => {
-    const key = get.get(activeAccountKeyAtom);
-    if (AsyncResult.isSuccess(key)) {
-      get.set(listUsersFamily(key.value), input);
-    }
-  },
-  selectedUsersAtom.refresh
-).pipe(
-  withPredefinedStates(() => {
-    const alex = AuthUser.make({
-      id: AuthUser.fields.id.make('predefined-user-alex'),
-      username: AuthUser.fields.username.make('alex'),
-      name: AuthUser.fields.name.make('Alex'),
-      email: AuthUser.fields.email.make('alex@example.com'),
-      role: AuthUser.fields.role.make('user'),
-      image: AuthUser.fields.image.make(null),
-      createdAt: AuthUser.fields.createdAt.make(DateTime.makeUnsafe(0)),
-      updatedAt: AuthUser.fields.updatedAt.make(DateTime.makeUnsafe(0)),
-    });
-    const sam = AuthUser.make({
-      id: AuthUser.fields.id.make('predefined-user-sam'),
-      username: AuthUser.fields.username.make('sam'),
-      name: AuthUser.fields.name.make('Sam'),
-      email: AuthUser.fields.email.make('sam@example.com'),
-      role: AuthUser.fields.role.make('user'),
-      image: AuthUser.fields.image.make(null),
-      createdAt: AuthUser.fields.createdAt.make(DateTime.makeUnsafe(0)),
-      updatedAt: AuthUser.fields.updatedAt.make(DateTime.makeUnsafe(0)),
-    });
-
-    return [
-      {
-        id: PredefinedStateId.make('loading'),
-        label: 'Loading',
-        atom: Atom.writable(
-          (): Atom.PullResult<typeof AuthUser.Type> => AsyncResult.initial(true),
-          () => void 0
-        ),
-      },
-      {
-        id: PredefinedStateId.make('loading-more'),
-        label: 'Loading more',
-        description: 'Keeps existing users visible while the next page is loading.',
-        atom: Atom.writable(
-          (): Atom.PullResult<typeof AuthUser.Type> =>
-            AsyncResult.success({ items: Array.make(alex, sam), done: false }).pipe(
-              AsyncResult.waiting()
-            ),
-          () => void 0
-        ),
-      },
-      {
-        id: PredefinedStateId.make('paginated'),
-        label: 'Page available',
-        description: 'Starts with one user and adds another when more users are requested.',
-        atom: Atom.writable(
-          (): Atom.PullResult<typeof AuthUser.Type> =>
-            AsyncResult.success({ items: [alex], done: false }),
-          (context) => {
-            context.setSelf(AsyncResult.success({ items: [alex, sam], done: true }));
-          }
-        ),
-      },
-      {
-        id: PredefinedStateId.make('loaded'),
-        label: 'All users loaded',
-        atom: Atom.writable(
-          (): Atom.PullResult<typeof AuthUser.Type> =>
-            AsyncResult.success({ items: [alex, sam], done: true }),
-          () => void 0
-        ),
-      },
-      {
-        id: PredefinedStateId.make('failure'),
-        label: 'No active account error',
-        atom: Atom.writable(
-          (): Atom.PullResult<typeof AuthUser.Type, NoActiveAccountError> =>
-            AsyncResult.fail(NoActiveAccountError.make()),
-          () => void 0
-        ),
-      },
-    ];
-  }),
-  Atom.withLabel('listUsersAtom')
 );

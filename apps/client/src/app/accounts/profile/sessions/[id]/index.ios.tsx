@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
@@ -13,13 +13,15 @@ import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 
 const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
   const router = useRouter();
-  const state = useAtomValue(ownSessionAtom(id));
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const state = useAtomValue(ownSessionAtom({ accountKey, id }));
+  const refresh = useAtomRefresh(ownSessionsAtom(accountKey));
 
   return AsyncResult.matchWithError(state, {
     onInitial: () => (

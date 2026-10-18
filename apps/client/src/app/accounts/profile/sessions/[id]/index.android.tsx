@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { useAtomRefresh, useAtomSuspense, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
@@ -16,13 +16,15 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 
 const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
   const router = useRouter();
-  const state = useAtomValue(ownSessionAtom(id));
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const state = useAtomValue(ownSessionAtom({ accountKey, id }));
+  const refresh = useAtomRefresh(ownSessionsAtom(accountKey));
   const colors = useMaterialColors();
 
   return AsyncResult.matchWithError(state, {

@@ -7,15 +7,15 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { useAppForm } from '#src/components/form';
 import {
-  accountAuthClientAtom,
-  accountScoped,
+  accountAtom,
+  acquireAccountAuthClient,
   acquireActiveAccountAuthClient,
-  activeAccountAtom,
 } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
+import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
@@ -25,48 +25,46 @@ class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username
   username,
 })) {}
 
-export const activeUserProfileAtom = activeAccountAtom.pipe(
-  Atom.map((result) =>
-    result.pipe(
-      AsyncResult.map(
-        Option.map(({ email, name, role, userId, username }) => ({
-          email,
-          id: userId,
-          name,
-          role: Account.roleToDisplayString(role),
-          username,
-        }))
-      )
-    )
-  ),
-  withPredefinedStates(() => [
-    {
-      id: PredefinedStateId.make('loading'),
-      label: 'Loading',
-      atom: Atom.make(() => AsyncResult.initial(true)),
-    },
-    {
-      id: PredefinedStateId.make('no-active-user'),
-      label: 'No active user',
-      atom: Atom.make(() => AsyncResult.success(Option.none())),
-    },
-    {
-      id: PredefinedStateId.make('loaded'),
-      label: 'Loaded profile',
-      atom: Atom.make(() =>
-        AsyncResult.success(
-          Option.some({
-            email: Account.fields.email.make('reader@example.com'),
-            id: Account.fields.userId.make('predefined-user'),
-            name: Account.fields.name.make('Alex Reader'),
-            role: Account.roleToDisplayString('admin'),
-            username: Account.fields.username.make('alex'),
-          })
-        )
-      ),
-    },
-  ]),
-  Atom.withLabel('activeUserProfileAtom')
+export const userProfileAtom = Atom.family((key: Option.Option<ActiveAccountKey>) =>
+  accountAtom(key).pipe(
+    Atom.mapResult(
+      Option.map(({ email, name, role, userId, username }) => ({
+        email,
+        id: userId,
+        name,
+        role: Account.roleToDisplayString(role),
+        username,
+      }))
+    ),
+    withPredefinedStates(() => [
+      {
+        id: PredefinedStateId.make('loading'),
+        label: 'Loading',
+        atom: Atom.make(() => AsyncResult.initial(true)),
+      },
+      {
+        id: PredefinedStateId.make('no-active-user'),
+        label: 'No active user',
+        atom: Atom.make(() => AsyncResult.success(Option.none())),
+      },
+      {
+        id: PredefinedStateId.make('loaded'),
+        label: 'Loaded profile',
+        atom: Atom.make(() =>
+          AsyncResult.success(
+            Option.some({
+              email: Account.fields.email.make('reader@example.com'),
+              id: Account.fields.userId.make('predefined-user'),
+              name: Account.fields.name.make('Alex Reader'),
+              role: Account.roleToDisplayString('admin'),
+              username: Account.fields.username.make('alex'),
+            })
+          )
+        ),
+      },
+    ]),
+    Atom.withLabel('userProfileAtom')
+  )
 );
 
 const updateCurrentUserAtom = AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
@@ -125,10 +123,10 @@ const changePasswordAtom = AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
   { reactivityKeys: ['auth.sessions'] }
 );
 
-export const ownSessionsAtom = accountScoped((key) =>
+export const ownSessionsAtom = Atom.family((key: Option.Option<ActiveAccountKey>) =>
   AppRuntime.atom(
-    Effect.fnUntraced(function* (get) {
-      const client = yield* get.result(accountAuthClientAtom(key));
+    Effect.fnUntraced(function* () {
+      const client = yield* acquireAccountAuthClient(key);
       const current = yield* client.readSession;
       const sessions = yield* client.listSessions;
       return { sessions, currentId: current.session.id };

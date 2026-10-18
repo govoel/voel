@@ -3,6 +3,7 @@ import { Equal, Option } from 'effect';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import type { AccountsSheet } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import {
   accountsSheetAtom,
@@ -13,7 +14,9 @@ export const AccountsAutoPresenter = () => {
   const router = useRouter();
   const pathname = usePathname();
 
-  const sheet = useAtomSuspense(accountsSheetAtom);
+  const accountKey = useAtomSuspense(activeAccountKeyAtom).value;
+  const sheetQuery = accountsSheetAtom(accountKey);
+  const sheet = useAtomSuspense(sheetQuery);
 
   const lastPresentedRef = useRef<Option.Option<AccountsSheet>>(Option.none());
 
