@@ -2,9 +2,9 @@ import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import { Icon, IconButton, Row } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useRouter } from 'expo-router';
+
 import type { TabScreenHeaderComponent } from '#src/components/tab-screen-header';
 import { Text } from '#src/components/text';
-
 
 export const TabScreenHeader = (({ title }) => {
   const router = useRouter();

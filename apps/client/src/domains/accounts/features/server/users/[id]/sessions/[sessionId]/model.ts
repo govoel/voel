@@ -1,10 +1,10 @@
 import { Array, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
+
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
+
 import { serverUserSessionsAtom } from '#src/domains/accounts/features/server/users/[id]/model.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
-
 
 const serverUserSessionFamily = Atom.family(
   ({

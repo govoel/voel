@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
@@ -7,8 +8,7 @@ import { AsyncResult } from 'effect/reactivity';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { SessionList } from '#src/domains/accounts/components/management/session-list';
+
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -19,12 +19,18 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { ownSessionsAtom, signOutEverywhereAtom, useChangePasswordForm, useUserProfileForm, userProfileAtom } from '#src/domains/accounts/features/profile/model.ts';
-import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import { accountAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import {
+  ownSessionsAtom,
+  signOutEverywhereAtom,
+  useChangePasswordForm,
+  useUserProfileForm,
+  userProfileAtom,
+} from '#src/domains/accounts/features/profile/model.ts';
+import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn

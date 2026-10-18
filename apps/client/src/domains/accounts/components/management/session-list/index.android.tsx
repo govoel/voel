@@ -1,12 +1,12 @@
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
+
 import { ListState } from '#src/components/list-state';
 import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { sessionDeviceName } from '#src/domains/accounts/components/management/session-details/device-name.ts';
 import type { SessionListComponent } from '#src/domains/accounts/components/management/session-list';
-
 
 export const SessionList = (({ sessions, currentId, onSelect }) => {
   'use memo';

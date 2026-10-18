@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Schema } from 'effect';
-import { ServerUrl } from '#src/domains/accounts/schema.ts';
 
+import { ServerUrl } from '#src/domains/accounts/schema.ts';
 
 describe('ServerUrl', () => {
   it.effect.each([

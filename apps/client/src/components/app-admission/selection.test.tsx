@@ -1,19 +1,22 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Cause, DateTime, Deferred, Effect, Option } from 'effect';
+import { Array, Cause, DateTime, Deferred, Effect, Option } from 'effect';
 import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
 import { useEffect, useImperativeHandle, useRef } from 'react';
 import type { PropsWithChildren, ReactNode, Ref } from 'react';
 import { Button, Text, TextInput, View } from 'react-native';
 import { afterEach, expect, it, vi } from 'vitest';
-import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
-import { SelectedAccountProvider, useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
-import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
-import { AccountStorageKey, Account } from '#src/domains/accounts/schema.ts';
-import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 
 import ProfileScreen from '#src/app/(app)/accounts/profile/index.android.tsx';
+import { useFieldContext, useFormContext } from '#src/components/form/hooks.tsx';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import type * as ProfileModel from '#src/domains/accounts/features/profile/model.ts';
+import {
+  SelectedAccountProvider,
+  useSelectedAccount,
+} from '#src/domains/accounts/features/selection.ts';
+import { Account, AccountStorageKey } from '#src/domains/accounts/schema.ts';
 
 const Content = vi.hoisted(() => ({ children }: PropsWithChildren) => <View>{children}</View>);
 vi.mock('expo-router', () => ({
@@ -61,7 +64,7 @@ vi.mock('#src/components/text', () => ({ Text }));
 vi.mock('#src/components/detail-rows', () => ({
   DetailRows: ({ details }: { details: ReadonlyArray<{ label: string; value: string }> }) => (
     <View>
-      {details.map(({ label, value }) => (
+      {Array.map(details, ({ label, value }) => (
         <Text key={label}>
           {label}: {value}
         </Text>
@@ -75,7 +78,9 @@ vi.mock('#src/components/list-state', () => ({
   ),
 }));
 vi.mock('#src/components/mutation-confirmation', () => ({ MutationConfirmation: () => null }));
-vi.mock('#src/domains/accounts/components/management/session-list', () => ({ SessionList: () => null }));
+vi.mock('#src/domains/accounts/components/management/session-list', () => ({
+  SessionList: () => null,
+}));
 vi.mock('#src/components/segmented-list/index.tsx', () => ({
   SegmentedList: Content,
   SegmentedListItem: Object.assign(
@@ -251,7 +256,9 @@ const makeRegistry = ({ accounts }: { accounts: ReadonlyArray<Account> }) => {
   registries.push(registry);
   registry.set(
     accountResponsesAtom,
-    new Map(accounts.map((row) => [identity(row), AsyncResult.success(Option.some(row))]))
+    new Map(
+      Array.map(accounts, (row) => [identity(row), AsyncResult.success(Option.some(row))] as const)
+    )
   );
   return registry;
 };

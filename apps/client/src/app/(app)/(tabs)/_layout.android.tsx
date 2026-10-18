@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
-import { materialFonts, useMaterialColors } from '#src/constants/material.ts';
 
+import { materialFonts, useMaterialColors } from '#src/constants/material.ts';
 
 export const unstable_settings = {
   anchor: '(home)',

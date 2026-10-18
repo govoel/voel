@@ -3,10 +3,10 @@ import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack } from 'expo-router';
 import { Platform } from 'react-native';
+
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
 import { SelectedAccountProvider } from '#src/domains/accounts/features/selection.ts';
-import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
-
 
 export const unstable_settings = { anchor: '(tabs)' };
 

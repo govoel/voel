@@ -1,7 +1,7 @@
 import { Match, Schema, SchemaGetter } from 'effect';
 import { VariantSchema } from 'effect/schema';
-import { AuthUser } from '@repo/auth-api/shared.ts';
 
+import { AuthUser } from '@repo/auth-api/shared.ts';
 
 /** A root HTTP(S) server address. Validation preserves existing account/storage keys. */
 export const ServerUrl = Schema.String.check(

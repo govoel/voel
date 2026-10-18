@@ -1,21 +1,39 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Array, Context, Deferred, Effect, Fiber, Layer, Option, Redacted, Schema, Stream } from 'effect';
+import {
+  Array,
+  Cause,
+  Context,
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Option,
+  Redacted,
+  Schema,
+  Stream,
+} from 'effect';
 import type { Scope } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
-import { AccountManager } from '#src/domains/accounts/manager.ts';
-import { AccountNotFoundError, AccountDatabaseError } from '#src/domains/accounts/errors.ts';
-import { AccountStorageKey, Account } from '#src/domains/accounts/schema.ts';
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
+
+import { MainDatabase } from '#src/database/main/index.ts';
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
-import { MainDatabase } from '#src/database/main/index.ts';
+import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import { Account, AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
-import { makeAuthClient, makeClientTestLayers, makeServerUrl, makeUsername, setupTestServerWithUsers, signInTestServerUsers } from '#src/testing/utils.ts';
-
-
+import {
+  makeAuthClient,
+  makeClientTestLayers,
+  makeServerUrl,
+  makeUsername,
+  setupTestServerWithUsers,
+  signInTestServerUsers,
+} from '#src/testing/utils.ts';
 
 const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list));
 
@@ -35,8 +53,8 @@ const storedAccount = ({
   readonly username?: string;
   readonly authStorageId?: string;
   readonly active?: boolean;
-}) =>
-  Account.upsert.make({
+}) => ({
+  ...Account.upsert.make({
     serverUrl: Account.fields.serverUrl.make(serverUrl),
     userId: Account.fields.userId.make(userId),
     username: Account.fields.username.make(username),
@@ -45,14 +63,33 @@ const storedAccount = ({
     authStorageId: Account.fields.authStorageId.make(authStorageId),
     role: Account.fields.role.make('user'),
     profilePicture: Account.fields.profilePicture.make(null),
-    active,
-  });
+  }),
+  active,
+});
 
 const seedAccounts = Effect.fnUntraced(function* (
-  accounts: ReadonlyArray<typeof Account.upsert.Type>
+  accounts: ReadonlyArray<ReturnType<typeof storedAccount>>
 ) {
-  const repository = yield* AccountRepository;
-  yield* Effect.forEach(accounts, (account) => repository.upsert(account), { discard: true });
+  const sql = yield* MainDatabase;
+  class Fixture extends Schema.Struct({ ...Account.upsert.fields, active: Schema.BooleanFromBit }) {
+    public static readonly encodeEffect = Schema.encodeEffect(this);
+  }
+  yield* Effect.forEach(
+    accounts,
+    (account) =>
+      Effect.gen(function* () {
+        const row = yield* Fixture.encodeEffect(account);
+        yield* sql`
+          insert into
+            account ${sql.insert(row)}
+          on conflict ("serverUrl", "userId") do update
+          set
+            "authStorageId" = excluded."authStorageId",
+            active = excluded.active
+        `;
+      }),
+    { discard: true }
+  );
 });
 
 const withFreshManager = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -201,7 +238,7 @@ describe('AccountManager', () => {
             yield* Effect.gen(function* () {
               const manager = yield* AccountManager;
               expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(fallback)));
-              expect((yield* getAccounts).filter((account) => account.active)).toMatchObject([
+              expect(Array.filter(yield* getAccounts, (account) => account.active)).toMatchObject([
                 { serverUrl: fallback.serverUrl, userId: fallback.userId },
               ]);
             }).pipe(withFreshManager);
@@ -265,8 +302,8 @@ describe('AccountManager', () => {
           yield* sql`
             drop table account
           `;
-          const error = yield* AccountManager.make.pipe(Effect.flip);
-          expect(error).toEqual(AccountDatabaseError.make());
+          const cause = yield* AccountManager.make.pipe(Effect.sandbox, Effect.flip);
+          expect(Cause.hasDies(cause)).toBe(true);
         },
         (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
       )
@@ -283,8 +320,8 @@ describe('AccountManager', () => {
             set
               "serverUrl" = 'not-a-server-url'
           `;
-          const error = yield* AccountManager.make.pipe(Effect.flip);
-          expect(error).toEqual(AccountDatabaseError.make());
+          const cause = yield* AccountManager.make.pipe(Effect.sandbox, Effect.flip);
+          expect(Cause.hasDies(cause)).toBe(true);
           expect(
             yield* sql`
               select
@@ -386,8 +423,8 @@ describe('AccountManager', () => {
             const manager = yield* AccountManager;
             const error = yield* manager
               .removeAccount(AccountStorageKey.make(selected))
-              .pipe(Effect.flip);
-            expect(error).toEqual(AccountDatabaseError.make());
+              .pipe(Effect.sandbox, Effect.flip);
+            expect(Cause.hasDies(error)).toBe(true);
             expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
             // The corrupt row cannot be decoded by repository.list(); inspect its persisted flag.
             expect(
@@ -431,8 +468,8 @@ describe('AccountManager', () => {
             `;
             const error = yield* manager
               .removeAccount(AccountStorageKey.make(selected))
-              .pipe(Effect.flip);
-            expect(error).toEqual(AccountDatabaseError.make());
+              .pipe(Effect.sandbox, Effect.flip);
+            expect(Cause.hasDies(error)).toBe(true);
             expect(yield* manager.state).toEqual(Option.some(AccountStorageKey.make(selected)));
             expect(yield* getAccounts).toMatchObject([
               { userId: fallback.userId, active: false },

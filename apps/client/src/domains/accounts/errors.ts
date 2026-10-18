@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
+
 import { AuthError } from '@repo/auth-api/shared.ts';
+
 import { Account } from '#src/domains/accounts/schema.ts';
-
-
 
 /** Recoverable connection unavailability or lock contention, with diagnostic cause. */
 export class AccountDatabaseError extends Schema.TaggedError<
@@ -33,8 +33,3 @@ export class AccountSignUpError extends Schema.TaggedError<
 >('voel/domains/accounts/errors/AccountSignUpError')('AccountSignUpError', {
   reason: AuthError.fields.reason,
 }) {}
-
-export class NoActiveAccountError extends Schema.TaggedError<
-  NoActiveAccountError,
-  { readonly brand: unique symbol }
->('voel/domains/accounts/errors/NoActiveAccountError')('NoActiveAccountError', {}) {}

@@ -4,9 +4,9 @@ import { AsyncResult } from 'effect/reactivity';
 import { Stack, useTheme } from 'expo-router';
 import type { ReactElement } from 'react';
 import { Button, Text, View } from 'react-native';
+
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
-
 
 /** Restoration must finish before either complementary route group is admitted. */
 export const AppAdmission = ({ loading }: { readonly loading: ReactElement }) => {

@@ -1,14 +1,14 @@
 import { useAtom } from '@effect/atom-react';
 import { Array, Cause, Effect, Equal, Exit, Match, Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
+
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
-
-
 
 export const setActiveAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>

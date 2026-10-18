@@ -1,20 +1,19 @@
 import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
+
 import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.ts';
 import type { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { useAppForm } from '#src/components/form';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { accountAtom, accountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
+import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
-
-
 
 class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username }) => ({
   name,

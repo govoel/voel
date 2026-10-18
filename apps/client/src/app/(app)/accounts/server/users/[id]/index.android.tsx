@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
@@ -7,11 +8,10 @@ import { AsyncResult } from 'effect/reactivity';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
+
 import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { RoleField } from '#src/domains/accounts/components/management/role-field';
-import { SessionList } from '#src/domains/accounts/components/management/session-list';
+
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -22,12 +22,21 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { RoleField } from '#src/domains/accounts/components/management/role-field';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
-import { deleteServerUserAtom, revokeServerUserSessionsAtom, serverUserAtom, serverUserSessionsAtom, useServerUserProfileForm, useUserPasswordForm, useUserRoleForm, userDetails } from '#src/domains/accounts/features/server/users/[id]/model.ts';
+import {
+  deleteServerUserAtom,
+  revokeServerUserSessionsAtom,
+  serverUserAtom,
+  serverUserSessionsAtom,
+  useServerUserProfileForm,
+  useUserPasswordForm,
+  useUserRoleForm,
+  userDetails,
+} from '#src/domains/accounts/features/server/users/[id]/model.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-
-
 
 const UserList = ({ children }: PropsWithChildren) => (
   <LazyColumn

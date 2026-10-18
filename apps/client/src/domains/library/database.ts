@@ -1,15 +1,15 @@
 import { Context, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
-import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
-import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
-import { AppConfig } from '#src/config.ts';
-import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
 
+import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
+import { AppConfig } from '#src/config.ts';
+import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
+import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
+import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
+import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 
 const retrySchedule = Schedule.min([
   Schedule.exponential('1 second'),

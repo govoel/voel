@@ -2,15 +2,6 @@ import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Exit, FileSystem, Layer, Option, Result } from 'effect';
 import { Reactivity } from 'effect/reactivity';
-import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
-import { AppConfig } from '#src/config.ts';
-import { MainDatabase } from '#src/database/main/index.ts';
-import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
-import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { AccountUpsert } from '#src/domains/accounts/schema.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
-import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -19,7 +10,16 @@ import * as SqlError from 'effect/sql/SqlError';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
 import * as Statement from 'effect/sql/Statement';
 
+import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 
+import { AppConfig } from '#src/config.ts';
+import { MainDatabase } from '#src/database/main/index.ts';
+import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
+import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import type { AccountUpsert } from '#src/domains/accounts/schema.ts';
+import { Account } from '#src/domains/accounts/schema.ts';
+import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 
 const RepositoryTestLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),

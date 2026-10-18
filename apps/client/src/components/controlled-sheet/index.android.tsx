@@ -3,8 +3,8 @@ import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { Effect } from 'effect';
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
-import type { ControlledSheetComponent } from '#src/components/controlled-sheet';
 
+import type { ControlledSheetComponent } from '#src/components/controlled-sheet';
 
 export const ControlledSheet = ({
   presented,

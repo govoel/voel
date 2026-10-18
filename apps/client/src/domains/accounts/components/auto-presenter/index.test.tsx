@@ -3,10 +3,10 @@ import { act, render } from '@testing-library/react-native';
 import { Cause, Option } from 'effect';
 import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
 import { afterEach, expect, it, vi } from 'vitest';
+
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
 import { accountsSheetAtom } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import type { AccountsSheet } from '#src/domains/accounts/components/auto-presenter/model.ts';
-
 
 const navigation = vi.hoisted(() => ({ pathname: '/', router: { push: vi.fn() } }));
 vi.mock('expo-router', () => ({

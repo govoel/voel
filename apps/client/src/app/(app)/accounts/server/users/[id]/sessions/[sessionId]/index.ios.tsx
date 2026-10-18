@@ -5,19 +5,22 @@ import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+
 import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
-import { revokeServerUserSessionAtom, serverUserSessionsAtom } from '#src/domains/accounts/features/server/users/[id]/model.ts';
+import {
+  revokeServerUserSessionAtom,
+  serverUserSessionsAtom,
+} from '#src/domains/accounts/features/server/users/[id]/model.ts';
 import { serverUserSessionAtom } from '#src/domains/accounts/features/server/users/[id]/sessions/[sessionId]/model.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
-
 
 const SessionContent = ({
   accountKey,

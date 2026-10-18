@@ -1,10 +1,10 @@
 import { Group, Host } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 import { useAddAccountForm } from '#src/domains/accounts/features/add/model.ts';
-
 
 export const AddAccountScreen = ({ mode }: { readonly mode: 'onboarding' | 'management' }) => {
   const router = useRouter();

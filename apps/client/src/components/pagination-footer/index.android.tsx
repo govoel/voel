@@ -1,9 +1,9 @@
 import { LoadingIndicator } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, onVisibilityChanged, padding } from '@expo/ui/jetpack-compose/modifiers';
+
 import type { PaginationFooterComponent } from '#src/components/pagination-footer';
 import { usePaginationFooter } from '#src/components/pagination-footer/index.tsx';
 import { Spacing } from '#src/constants/theme.ts';
-
 
 export const PaginationFooter = ((props) => {
   const setVisible = usePaginationFooter(props);

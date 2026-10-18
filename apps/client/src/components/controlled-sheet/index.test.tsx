@@ -3,8 +3,8 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { useState } from 'react';
 import { Button, Text, TextInput, View } from 'react-native';
 import { afterEach, expect, it, vi } from 'vitest';
-import { ControlledSheet } from '#src/components/controlled-sheet/index.android.tsx';
 
+import { ControlledSheet } from '#src/components/controlled-sheet/index.android.tsx';
 
 const native = vi.hoisted(() => ({ hide: vi.fn<() => Promise<null>>() }));
 

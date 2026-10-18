@@ -1,14 +1,14 @@
 import { Effect, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
+
 import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
+
 import { useAppForm } from '#src/components/form';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { accountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
-
-
 
 const createServerUserAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.fn<typeof AuthCreateUserInput.Type>()(

@@ -7,19 +7,25 @@ import { AsyncResult } from 'effect/reactivity';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { SessionList } from '#src/domains/accounts/components/management/session-list';
+
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { ownSessionsAtom, signOutEverywhereAtom, useChangePasswordForm, useUserProfileForm, userProfileAtom } from '#src/domains/accounts/features/profile/model.ts';
-import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import { accountAtom } from '#src/domains/accounts/atoms.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import {
+  ownSessionsAtom,
+  signOutEverywhereAtom,
+  useChangePasswordForm,
+  useUserProfileForm,
+  userProfileAtom,
+} from '#src/domains/accounts/features/profile/model.ts';
+import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>

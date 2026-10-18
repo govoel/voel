@@ -1,6 +1,6 @@
 import { Option, String } from 'effect';
-import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
+import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
 export const sessionDeviceName = ({
   session,

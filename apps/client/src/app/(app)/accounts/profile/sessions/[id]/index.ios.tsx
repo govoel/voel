@@ -5,19 +5,22 @@ import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+
 import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/domains/accounts/features/profile/model.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+import {
+  ownSessionsAtom,
+  revokeOwnSessionAtom,
+} from '#src/domains/accounts/features/profile/model.ts';
 import { ownSessionAtom } from '#src/domains/accounts/features/profile/sessions/[id]/model.ts';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
-
 
 const SessionContent = ({
   accountKey,

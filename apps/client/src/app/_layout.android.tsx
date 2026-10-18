@@ -4,10 +4,10 @@ import { graphicsLayer } from '@expo/ui/jetpack-compose/modifiers';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import type { Theme } from 'expo-router';
 import { useColorScheme } from 'react-native';
+
 import { AppAdmission } from '#src/components/app-admission/index.tsx';
 import { materialFonts, materialSeedColor, useMaterialColors } from '#src/constants/material.ts';
 import { AppRegistry } from '#src/runtime/registry.ts';
-
 
 const loadingIndicatorScale = 0.25;
 

@@ -3,12 +3,12 @@ import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
+
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 import { materialSeedColor } from '#src/constants/material.ts';
 import { useAddAccountForm } from '#src/domains/accounts/features/add/model.ts';
-
 
 export const AddAccountScreen = ({ mode }: { readonly mode: 'onboarding' | 'management' }) => {
   const router = useRouter();

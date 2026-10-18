@@ -1,11 +1,11 @@
 import { Icon } from '@expo/ui';
 import { Button, HStack, List, Spacer } from '@expo/ui/swift-ui';
 import { font, foregroundStyle, tint } from '@expo/ui/swift-ui/modifiers';
+
 import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 import { sessionDeviceName } from '#src/domains/accounts/components/management/session-details/device-name.ts';
 import type { SessionListComponent } from '#src/domains/accounts/components/management/session-list';
-
 
 export const SessionList = (({ sessions, currentId, onSelect }) => {
   'use memo';

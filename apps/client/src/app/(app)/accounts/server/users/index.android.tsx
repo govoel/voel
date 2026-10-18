@@ -1,10 +1,11 @@
 import { useAtom, useAtomRefresh } from '@effect/atom-react';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Button, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
@@ -12,11 +13,10 @@ import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import { listUsersAtom } from '#src/domains/accounts/features/server/users/model.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-
 
 const ServerUsersContent = ({ accountKey }: { accountKey: AccountStorageKey }) => {
   const router = useRouter();

@@ -1,15 +1,15 @@
 import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
+
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
-import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
-
-
 
 export const accountsAtom = AppRuntime.atom(
   Effect.service(AccountRepository).pipe(

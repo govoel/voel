@@ -1,13 +1,19 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { useSelector } from '@tanstack/react-form';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect, Layer, Option, Schema } from 'effect';
+import { Array, Deferred, Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createEffectSchemaFormHook, fieldContext, formContext, useFormContext, useFormSubmissionError } from '#src/components/form/hooks.tsx';
 
+import {
+  createEffectSchemaFormHook,
+  fieldContext,
+  formContext,
+  useFormContext,
+  useFormSubmissionError,
+} from '#src/components/form/hooks.tsx';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
 

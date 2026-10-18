@@ -1,8 +1,8 @@
 import { Text as SwiftText } from '@expo/ui/swift-ui';
 import { font, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import type { ComponentProps } from 'react';
-import type { TextComponent } from '#src/components/text/index.tsx';
 
+import type { TextComponent } from '#src/components/text/index.tsx';
 
 const textStyles = {
   h1: { textStyle: 'largeTitle', weight: 'bold' },

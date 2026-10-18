@@ -1,9 +1,9 @@
 import { make, useAtomValue } from '@effect/atom-react';
 import { Option } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
+
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
 
 /**
  * The provider seeds a concrete admitted identity once, but its atom follows selection.

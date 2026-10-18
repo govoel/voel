@@ -1,16 +1,13 @@
 import { RegistryContext } from '@effect/atom-react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { DateTime, Deferred, Effect } from 'effect';
+import { Array, DateTime, Deferred, Effect } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { createContext, useContext, useEffect } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
 import { Button, Text, View } from 'react-native';
 import { afterEach, expect, it, vi } from 'vitest';
-import { AuthAdminUserDetails, AuthDeviceSession } from '@repo/auth-api/shared.ts';
-import type { ConfirmationComponent } from '#src/components/mutation-confirmation/confirmation';
-import { AccountStorageKey, Account } from '#src/domains/accounts/schema.ts';
-import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 
+import { AuthAdminUserDetails, AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
 import AndroidProfile from '#src/app/(app)/accounts/profile/index.android.tsx';
 import IOSProfile from '#src/app/(app)/accounts/profile/index.ios.tsx';
@@ -18,8 +15,11 @@ import AndroidSession from '#src/app/(app)/accounts/profile/sessions/[id]/index.
 import IOSSession from '#src/app/(app)/accounts/profile/sessions/[id]/index.ios.tsx';
 import AndroidUser from '#src/app/(app)/accounts/server/users/[id]/index.android.tsx';
 import IOSUser from '#src/app/(app)/accounts/server/users/[id]/index.ios.tsx';
+import type { ConfirmationComponent } from '#src/components/mutation-confirmation/confirmation';
+import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import type * as ProfileModel from '#src/domains/accounts/features/profile/model.ts';
 import type * as UserModel from '#src/domains/accounts/features/server/users/[id]/model.ts';
+import { Account, AccountStorageKey } from '#src/domains/accounts/schema.ts';
 
 const Content = vi.hoisted(() => ({ children }: PropsWithChildren) => <View>{children}</View>);
 const Selection = createContext<AccountStorageKey | null>(null);
@@ -79,7 +79,7 @@ vi.mock('#src/components/text', () => ({ Text }));
 vi.mock('#src/components/detail-rows', () => ({
   DetailRows: ({ details }: { details: ReadonlyArray<{ label: string; value: string }> }) => (
     <View>
-      {details.map(({ label, value }) => (
+      {Array.map(details, ({ label, value }) => (
         <Text key={label}>
           {label}: {value}
         </Text>
@@ -87,8 +87,12 @@ vi.mock('#src/components/detail-rows', () => ({
     </View>
   ),
 }));
-vi.mock('#src/domains/accounts/components/management/session-list', () => ({ SessionList: () => null }));
-vi.mock('#src/domains/accounts/components/management/role-field', () => ({ RoleField: () => null }));
+vi.mock('#src/domains/accounts/components/management/session-list', () => ({
+  SessionList: () => null,
+}));
+vi.mock('#src/domains/accounts/components/management/role-field', () => ({
+  RoleField: () => null,
+}));
 vi.mock('#src/components/list-state', () => ({ ListState: () => <Text>Unavailable</Text> }));
 vi.mock('#src/components/segmented-list/index.tsx', () => ({
   SegmentedList: Content,

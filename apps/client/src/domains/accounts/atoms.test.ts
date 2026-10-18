@@ -1,40 +1,76 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { accountsWithActiveAccount, removeAccountAtom } from '#src/app/accounts/index.ts';
-import { ownSessionsAtom, revokeOwnSessionAtom, userProfileAtom } from '#src/app/accounts/profile/index.ts';
-import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
-import { deleteServerUserAtom, serverUserAtom, serverUserSessionsAtom } from '#src/app/accounts/server/users/[id]/index.ts';
-import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
-import { MainDatabase } from '#src/database/main/index.ts';
-import { Cause, Context, DateTime, Deferred, Effect, Fiber, Layer, Option, Redacted, Ref, Scheduler, Stream } from 'effect';
+import {
+  Array,
+  Cause,
+  Context,
+  DateTime,
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Option,
+  Redacted,
+  Ref,
+  Scheduler,
+  Stream,
+} from 'effect';
 import { AsyncResult, Atom, AtomRegistry, Reactivity } from 'effect/reactivity';
-import { ConnectionError, SqlError } from 'effect/sql/SqlError';
 import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
-import { AuthDeviceSession, AuthError, AuthTransportError, AuthUser } from '@repo/auth-api/shared.ts';
-import { AccountsSheet, accountsSheetAtom } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { accountsWithActiveAccount, removeAccountAtom } from '#src/domains/accounts/features/model.ts';
-import { ownSessionsAtom, revokeOwnSessionAtom, userProfileAtom } from '#src/domains/accounts/features/profile/model.ts';
-import { ownSessionAtom } from '#src/domains/accounts/features/profile/sessions/[id]/model.ts';
-import { deleteServerUserAtom, serverUserAtom, serverUserSessionsAtom } from '#src/domains/accounts/features/server/users/[id]/model.ts';
-import { serverUserSessionAtom } from '#src/domains/accounts/features/server/users/[id]/sessions/[sessionId]/model.ts';
-import { listUsersAtom } from '#src/domains/accounts/features/server/users/model.ts';
-import { accountAtom, accountAuthClientAtom, accountsAtom, activeAccountAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
-import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
-import { AccountManager } from '#src/domains/accounts/manager.ts';
-import { AccountStorageKey, Account } from '#src/domains/accounts/schema.ts';
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
+
+import {
+  AuthDeviceSession,
+  AuthError,
+  AuthTransportError,
+  AuthUser,
+} from '@repo/auth-api/shared.ts';
+
+/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
+import { MainDatabase } from '#src/database/main/index.ts';
+import {
+  accountAtom,
+  accountAuthClientAtom,
+  accountsAtom,
+  activeAccountAtom,
+  activeAccountKeyAtom,
+} from '#src/domains/accounts/atoms.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
+import {
+  AccountsSheet,
+  accountsSheetAtom,
+} from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
+import {
+  accountsWithActiveAccount,
+  removeAccountAtom,
+} from '#src/domains/accounts/features/model.ts';
+import {
+  ownSessionsAtom,
+  revokeOwnSessionAtom,
+  userProfileAtom,
+} from '#src/domains/accounts/features/profile/model.ts';
+import { ownSessionAtom } from '#src/domains/accounts/features/profile/sessions/[id]/model.ts';
+import {
+  deleteServerUserAtom,
+  serverUserAtom,
+  serverUserSessionsAtom,
+} from '#src/domains/accounts/features/server/users/[id]/model.ts';
+import { serverUserSessionAtom } from '#src/domains/accounts/features/server/users/[id]/sessions/[sessionId]/model.ts';
+import { listUsersAtom } from '#src/domains/accounts/features/server/users/model.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import { Account, AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
-import { makeClientTestLayers, makeServerUrl, makeUsername, setupTestServerWithUsers, signInTestServerUsers } from '#src/testing/utils.ts';
-
-
-
-
+import {
+  makeClientTestLayers,
+  makeServerUrl,
+  makeUsername,
+  setupTestServerWithUsers,
+  signInTestServerUsers,
+} from '#src/testing/utils.ts';
 
 // The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
@@ -156,35 +192,40 @@ it.effect(
   Effect.fnUntraced(
     function* () {
       const repository = yield* AccountRepository;
-      const sql = yield* MainDatabase;
-      const stored = Account.upsert.make({
-        serverUrl: Account.fields.serverUrl.make('https://stored.example.test'),
-        userId: Account.fields.userId.make('restored-reader'),
-        authStorageId: Account.fields.authStorageId.make('restored-login'),
-        username: Account.fields.username.make('reader'),
-        name: Account.fields.name.make('Stored Reader'),
-        email: Account.fields.email.make('reader@example.test'),
-        role: Account.fields.role.make('user'),
-        profilePicture: Account.fields.profilePicture.make(null),
+      const stored = {
+        ...Account.upsert.make({
+          serverUrl: Account.fields.serverUrl.make('https://stored.example.test'),
+          userId: Account.fields.userId.make('restored-reader'),
+          authStorageId: Account.fields.authStorageId.make('restored-login'),
+          username: Account.fields.username.make('reader'),
+          name: Account.fields.name.make('Stored Reader'),
+          email: Account.fields.email.make('reader@example.test'),
+          role: Account.fields.role.make('user'),
+          profilePicture: Account.fields.profilePicture.make(null),
+        }),
         active: false,
-      });
+      };
       const key = AccountStorageKey.make(stored);
-      yield* repository.upsert(stored);
-      yield* sql`
-        create trigger reject_restoration before
-        update of active on account when new.active = 1 begin
-        select
-          raise (abort, 'restoration rejected');
-
-        end
-      `;
-
+      yield* insertAccountFixture(stored);
+      const unavailable = yield* Ref.make(true);
+      const readUnavailable = yield* Ref.make(false);
+      const error = AccountDatabaseError.make({ cause: new Error('connection unavailable') });
+      const recoverableRepository = {
+        ...repository,
+        normalizeSelection: Ref.get(unavailable).pipe(
+          Effect.flatMap((failed) => (failed ? Effect.fail(error) : repository.normalizeSelection))
+        ),
+        getActive: Ref.get(readUnavailable).pipe(
+          Effect.flatMap((failed) => (failed ? Effect.fail(error) : repository.getActive))
+        ),
+      };
       const services = Context.omit(AccountManager)(
         yield* Effect.context<Layer.Success<ReturnType<typeof makeClientTestLayers>>>()
       );
       // Keep the real SQL repository/dependencies, but construct the manager inside
       // the owning runtime (not in the already-built fixture service context).
       const runtimeLayer = AccountManager.layerNoDeps.pipe(
+        Layer.provide(Layer.succeed(AccountRepository, recoverableRepository)),
         Layer.provideMerge(Layer.succeedContext(services)),
         Layer.orDie,
         Layer.fresh
@@ -197,13 +238,9 @@ it.effect(
             Stream.runHead
           )
         );
-        expect(AsyncResult.cause(failed)).toEqual(
-          Option.some(Cause.die(AccountDatabaseError.make()))
-        );
-        expect((yield* repository.list()).map((account) => account.active)).toEqual([false]);
-        yield* sql`
-          drop trigger reject_restoration
-        `;
+        expect(AsyncResult.cause(failed)).toEqual(Option.some(Cause.die(error)));
+        expect(Array.map(yield* repository.list, (account) => account.active)).toEqual([false]);
+        yield* Ref.set(unavailable, false);
 
         // This is the same public refresh used by AppAdmission's useAtomRefresh.
         yield* Atom.refresh(AppRuntime);
@@ -220,25 +257,17 @@ it.effect(
           active: true,
         });
 
-        // A query can fail after restoration too. Invalidate through the real
-        // mutation API so the mounted manager stream observes the undecodable row.
-        yield* sql`
-          update account
-          set
-            "serverUrl" = 'not-a-server-url'
-        `.pipe(Reactivity.mutation(['account']));
+        // Recoverable connection loss after restoration is exposed, not treated as None.
+        yield* Ref.set(readUnavailable, true);
+        yield* Effect.void.pipe(Reactivity.mutation(['account']));
         const readFailure = Option.getOrThrow(
           yield* Atom.toStream(activeAccountKeyAtom).pipe(
             Stream.filter((result) => AsyncResult.isFailure(result) && !result.waiting),
             Stream.runHead
           )
         );
-        expect(AsyncResult.error(readFailure)).toEqual(Option.some(AccountDatabaseError.make()));
-        yield* sql`
-          update account
-          set
-            "serverUrl" = ${stored.serverUrl}
-        `;
+        expect(AsyncResult.error(readFailure)).toEqual(Option.some(error));
+        yield* Ref.set(readUnavailable, false);
         yield* Atom.refresh(AppRuntime);
         expect(
           yield* Atom.toStream(activeAccountKeyAtom).pipe(
@@ -247,7 +276,7 @@ it.effect(
             Stream.runHead
           )
         ).toEqual(Option.some(Option.some(key)));
-        expect(Option.getOrThrow(yield* repository.getActive())).toMatchObject({
+        expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
           userId: 'restored-reader',
           serverUrl: 'https://stored.example.test',
           active: true,
@@ -716,18 +745,16 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
 
         // Invalidation must restart pagination, not append
         // refreshed rows to the already accumulated pages.
-        const target = allUsers.items.find((user) => user.username !== testServer.adminUsername);
-        expect(target).toBeDefined();
-        if (!target) {
-          return;
-        }
+        const target = Option.getOrThrow(
+          Array.findFirst(allUsers.items, (user) => user.username !== testServer.adminUsername)
+        );
         yield* Atom.set(deletion, { userId: target.id });
         yield* Atom.getResult(deletion, { suspendOnWaiting: true });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
         const refreshed = yield* Atom.getResult(users, { suspendOnWaiting: true });
         expect(refreshed.items).toHaveLength(10);
-        expect(refreshed.items.some((user) => user.id === target.id)).toBe(false);
+        expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
         yield* Atom.set(users, void 0);
         const remaining = yield* Atom.getResult(users, { suspendOnWaiting: true });
         expect(remaining.items).toHaveLength(11);
@@ -750,7 +777,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const firstUsers = listUsersAtom(Option.getOrThrow(yield* manager.state));
         yield* Atom.mount(firstUsers);
         const firstResult = yield* Atom.getResult(firstUsers, { suspendOnWaiting: true });
-        const firstUsernames = firstResult.items.map((user) => user.username);
+        const firstUsernames = Array.map(firstResult.items, (user) => user.username);
         expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           firstServer.usernames.sort((first, second) => first.localeCompare(second))
         );
@@ -766,7 +793,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         yield* Atom.mount(secondUsers);
         const secondResult = yield* Atom.getResult(secondUsers, { suspendOnWaiting: true });
         expect(yield* Atom.getResult(firstUsers, { suspendOnWaiting: true })).toEqual(firstResult);
-        const secondUsernames = secondResult.items.map((user) => user.username);
+        const secondUsernames = Array.map(secondResult.items, (user) => user.username);
         expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
           secondServer.usernames.sort((first, second) => first.localeCompare(second))
         );
@@ -801,9 +828,10 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const deletion = deleteServerUserAtom(accountKey);
         yield* Atom.mount(userList);
         expect(
-          (yield* Atom.getResult(userList, { suspendOnWaiting: true })).items
-            .map((user) => user.username)
-            .sort()
+          Array.map(
+            (yield* Atom.getResult(userList, { suspendOnWaiting: true })).items,
+            (user) => user.username
+          ).sort()
         ).toEqual([...testServer.usernames].sort());
         const { drainScheduler } = yield* TestScheduler;
 
@@ -811,7 +839,9 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         yield* Atom.getResult(deletion, { suspendOnWaiting: true });
         yield* drainScheduler;
         const refreshed = yield* Atom.getResult(userList, { suspendOnWaiting: true });
-        expect(refreshed.items.map((user) => user.username)).toEqual([testServer.adminUsername]);
+        expect(Array.map(refreshed.items, (user) => user.username)).toEqual([
+          testServer.adminUsername,
+        ]);
 
         yield* Atom.set(deletion, {
           userId: Account.fields.userId.make('missing-user'),
@@ -848,12 +878,13 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         expect(before.currentId).toBe(session.session.id);
         expect(before.sessions).toHaveLength(2);
         const other = Option.getOrThrow(
-          Option.fromNullishOr(before.sessions.find((item) => item.id !== session.session.id))
+          Array.findFirst(before.sessions, (item) => item.id !== session.session.id)
         );
         expect(
-          (yield* Atom.getResult(adminSessions, { suspendOnWaiting: true })).sessions
-            .map((item) => item.id)
-            .sort()
+          Array.map(
+            (yield* Atom.getResult(adminSessions, { suspendOnWaiting: true })).sessions,
+            (item) => item.id
+          ).sort()
         ).toEqual([session.session.id, other.id].sort());
 
         yield* Atom.set(revocation, { token: other.token });
@@ -863,8 +894,8 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const own = yield* Atom.getResult(ownSessions, { suspendOnWaiting: true });
         const admin = yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
         expect(own.currentId).toBe(session.session.id);
-        expect(own.sessions.map((item) => item.id)).toEqual([session.session.id]);
-        expect(admin.sessions.map((item) => item.id)).toEqual([session.session.id]);
+        expect(Array.map(own.sessions, (item) => item.id)).toEqual([session.session.id]);
+        expect(Array.map(admin.sessions, (item) => item.id)).toEqual([session.session.id]);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -980,10 +1011,8 @@ it.layer(TestServerControllerClient.layer)('account scope transitions', (iit) =>
         const [first, second] = yield* signInTestServerUsers(manager, testServer);
         const firstKey = AccountStorageKey.make(first);
         const secondKey = AccountStorageKey.make(second);
-        const response = yield* Deferred.make<Option.Option<Account>, SqlError>();
-        const error = SqlError.make({
-          reason: ConnectionError.make({ cause: 'database unavailable' }),
-        });
+        const response = yield* Deferred.make<Option.Option<Account>, AccountDatabaseError>();
+        const error = AccountDatabaseError.make({ cause: new Error('database unavailable') });
         yield* manager.setActiveAccount(firstKey);
 
         yield* Effect.gen(function* () {
@@ -1078,7 +1107,11 @@ it.layer(TestServerControllerClient.layer)('account scope transitions', (iit) =>
           yield* Atom.mount(firstSessions);
           const loaded = yield* Atom.getResult(firstSessions, { suspendOnWaiting: true });
           expect(loaded.currentId).toBe(session.session.id);
-          expect(loaded.sessions.find((item) => item.id === loaded.currentId)).toMatchObject({
+          expect(
+            Option.getOrThrow(
+              Array.findFirst(loaded.sessions, (item) => item.id === loaded.currentId)
+            )
+          ).toMatchObject({
             userId: first.userId,
             token: session.session.token,
           });
@@ -1149,7 +1182,11 @@ it.layer(TestServerControllerClient.layer)('account scope transitions', (iit) =>
           });
           const before = yield* Atom.getResult(oldSessions, { suspendOnWaiting: true });
           expect(before.currentId).toBe(firstSession.session.id);
-          expect(before.sessions.find((session) => session.id === before.currentId)).toMatchObject({
+          expect(
+            Option.getOrThrow(
+              Array.findFirst(before.sessions, (session) => session.id === before.currentId)
+            )
+          ).toMatchObject({
             userId: first.userId,
             token: firstSession.session.token,
           });
@@ -1200,8 +1237,10 @@ it.layer(TestServerControllerClient.layer)('account scope transitions', (iit) =>
           yield* Atom.refresh(nextSessions);
           const remaining = yield* Atom.getResult(nextSessions, { suspendOnWaiting: true });
           expect(remaining.currentId).toBe(nextSession.session.id);
-          expect(remaining.sessions.map((session) => session.id)).toContain(nextSession.session.id);
-          expect(remaining.sessions.map((session) => session.id)).not.toContain(
+          expect(Array.map(remaining.sessions, (session) => session.id)).toContain(
+            nextSession.session.id
+          );
+          expect(Array.map(remaining.sessions, (session) => session.id)).not.toContain(
             firstSession.session.id
           );
         }).pipe(
@@ -1245,7 +1284,7 @@ it('does not mark an old storage row active when a failed list retains the previ
     userId: row.userId,
     authStorageId: Account.fields.authStorageId.make('new-login'),
   });
-  const error = SqlError.make({ reason: ConnectionError.make({ cause: 'database unavailable' }) });
+  const error = AccountDatabaseError.make({ cause: new Error('database unavailable') });
   const registry = AtomRegistry.make({
     initialValues: [
       Atom.initialValue(activeAccountKeyAtom, AsyncResult.success(Option.some(nextKey))),
@@ -1271,19 +1310,29 @@ it('does not mark an old storage row active when a failed list retains the previ
   }
 });
 
-it.layer(TestServerControllerClient.layer)('account-list retry', (iit) => {
-  iit.effect(
+describe('account-list retry', () => {
+  it.effect(
     'retrying the accounts view replaces a database failure with the current account list and selection',
     Effect.fnUntraced(
       function* () {
-        const manager = yield* AccountManager;
         const repository = yield* AccountRepository;
-        const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
-        const [account] = yield* signInTestServerUsers(manager, testServer);
+        const stored = {
+          ...Account.upsert.make({
+            serverUrl: Account.fields.serverUrl.make('https://stored.example.test'),
+            userId: Account.fields.userId.make('reader'),
+            authStorageId: Account.fields.authStorageId.make('login'),
+            username: Account.fields.username.make('reader'),
+            name: Account.fields.name.make('Stored Reader'),
+            email: Account.fields.email.make('reader@example.test'),
+            role: Account.fields.role.make('user'),
+            profilePicture: Account.fields.profilePicture.make(null),
+          }),
+          active: true,
+        };
+        yield* insertAccountFixture(stored);
+        const account = yield* repository.getByKey(stored);
         const available = yield* Ref.make(false);
-        const error = SqlError.make({
-          reason: ConnectionError.make({ cause: 'database unavailable' }),
-        });
+        const error = AccountDatabaseError.make({ cause: new Error('database unavailable') });
         yield* Effect.gen(function* () {
           const accountsView = accountsWithActiveAccount(AccountStorageKey.make(account));
           yield* Atom.mount(accountsView);
@@ -1308,10 +1357,9 @@ it.layer(TestServerControllerClient.layer)('account-list retry', (iit) => {
               Layer.provideMerge(
                 Layer.succeed(AccountRepository, {
                   ...repository,
-                  list: () =>
-                    Ref.get(available).pipe(
-                      Effect.flatMap((ready) => (ready ? repository.list() : Effect.fail(error)))
-                    ),
+                  list: Ref.get(available).pipe(
+                    Effect.flatMap((ready) => (ready ? repository.list : Effect.fail(error)))
+                  ),
                 })
               )
             )

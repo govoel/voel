@@ -1,11 +1,11 @@
 import { Context, Effect, Layer, Option, Schema } from 'effect';
+// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
+import * as SqlSchema from 'effect/sql/SqlSchema';
+
 import { MainDatabase } from '#src/database/main/index.ts';
 import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import type { AccountKey, AccountUpsert } from '#src/domains/accounts/schema.ts';
-// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlSchema from 'effect/sql/SqlSchema';
-
 
 export class AccountRepository extends Context.Service<AccountRepository>()(
   'voel/domains/accounts/repository/AccountRepository',
@@ -65,7 +65,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               `;
             }),
         }),
-
 
         list: SqlSchema.findAll({
           Request: Schema.Void,

@@ -1,12 +1,21 @@
 import { Button, HStack, ProgressView } from '@expo/ui/swift-ui';
-import { Animation, animation, disabled as disabledModifier, fixedSize, foregroundStyle, hidden as hiddenModifier, multilineTextAlignment, padding } from '@expo/ui/swift-ui/modifiers';
+import {
+  Animation,
+  animation,
+  disabled as disabledModifier,
+  fixedSize,
+  foregroundStyle,
+  hidden as hiddenModifier,
+  multilineTextAlignment,
+  padding,
+} from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { PlatformColor } from 'react-native';
+
 import { useSubmitState } from '#src/components/form/hooks.tsx';
 import type { SubmitButtonComponent } from '#src/components/form/submit-button/index.tsx';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-
 
 export const SubmitButton = (({
   children,

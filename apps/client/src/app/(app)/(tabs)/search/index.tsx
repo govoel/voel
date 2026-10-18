@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
+
 import { TabScreenPage } from '#src/components/tab-screen-page';
 import { Text } from '#src/components/text';
-
 
 export default function SearchScreen() {
   return (

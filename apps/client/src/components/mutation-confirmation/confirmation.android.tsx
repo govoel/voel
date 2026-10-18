@@ -1,10 +1,19 @@
-import { AlertDialog, AnimatedVisibility, Column, EnterTransition, ExitTransition, LoadingIndicator, Row, TextButton } from '@expo/ui/jetpack-compose';
+import {
+  AlertDialog,
+  AnimatedVisibility,
+  Column,
+  EnterTransition,
+  ExitTransition,
+  LoadingIndicator,
+  Row,
+  TextButton,
+} from '@expo/ui/jetpack-compose';
 import { size } from '@expo/ui/jetpack-compose/modifiers';
+
 import type { ConfirmationComponent } from '#src/components/mutation-confirmation/confirmation';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-
 
 export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...props }) => {
   const colors = useMaterialColors();

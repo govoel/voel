@@ -2,10 +2,10 @@ import { Host } from '@expo/ui';
 import { Group } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
 import { Stack, useRouter } from 'expo-router';
+
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 import { useSetupServerForm } from '#src/domains/accounts/features/setup/model.ts';
-
 
 export const SetupServerScreen = ({ mode }: { readonly mode: 'onboarding' | 'management' }) => {
   const router = useRouter();

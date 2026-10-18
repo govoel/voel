@@ -2,10 +2,10 @@ import { List, Section, VStack } from '@expo/ui/swift-ui';
 import { frame, headerProminence, padding } from '@expo/ui/swift-ui/modifiers';
 import { requireNativeView } from 'expo';
 import type { PropsWithChildren } from 'react';
+
 import type { FormLayoutComponent } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-
 
 const NativeFormLayoutInset = requireNativeView<PropsWithChildren>(
   'FormLayoutInset',

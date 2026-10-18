@@ -2,8 +2,8 @@ import { Host, ModalBottomSheet } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { useRouter } from 'expo-router';
 import type { ReactNode, Ref } from 'react';
-import { materialSeedColor } from '#src/constants/material.ts';
 
+import { materialSeedColor } from '#src/constants/material.ts';
 
 export const AndroidAccountsSheet = ({
   children,

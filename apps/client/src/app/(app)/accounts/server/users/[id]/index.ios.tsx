@@ -6,22 +6,31 @@ import { AsyncResult } from 'effect/reactivity';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
+
 import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails, AuthUser } from '@repo/auth-api/shared.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import { RoleField } from '#src/domains/accounts/components/management/role-field';
-import { SessionList } from '#src/domains/accounts/components/management/session-list';
+
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { RoleField } from '#src/domains/accounts/components/management/role-field';
+import { SessionList } from '#src/domains/accounts/components/management/session-list';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
-import { deleteServerUserAtom, revokeServerUserSessionsAtom, serverUserAtom, serverUserSessionsAtom, useServerUserProfileForm, useUserPasswordForm, useUserRoleForm, userDetails } from '#src/domains/accounts/features/server/users/[id]/model.ts';
+import {
+  deleteServerUserAtom,
+  revokeServerUserSessionsAtom,
+  serverUserAtom,
+  serverUserSessionsAtom,
+  useServerUserProfileForm,
+  useUserPasswordForm,
+  useUserRoleForm,
+  userDetails,
+} from '#src/domains/accounts/features/server/users/[id]/model.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
-
 
 const UserList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>

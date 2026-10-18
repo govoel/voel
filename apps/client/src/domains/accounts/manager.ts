@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Option, Random, Redacted, Stream } from 'effect';
 import { Reactivity } from 'effect/reactivity';
+
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClientMap, makeAuthStorageKey } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
@@ -8,7 +9,6 @@ import { AccountSignInError, AccountSignUpError } from '#src/domains/accounts/er
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import type { AccountKey, AccountUpsert } from '#src/domains/accounts/schema.ts';
 import { Account, AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
 
 export class UuidGenerator extends Context.Service<UuidGenerator>()(
   'voel/domains/accounts/manager/UuidGenerator',

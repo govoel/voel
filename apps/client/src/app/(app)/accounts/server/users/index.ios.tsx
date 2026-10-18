@@ -5,14 +5,14 @@ import { font, foregroundStyle, frame, headerProminence, tint } from '@expo/ui/s
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import { listUsersAtom } from '#src/domains/accounts/features/server/users/model.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
 
 const ServerUsersContent = ({ accountKey }: { accountKey: AccountStorageKey }) => {
   const router = useRouter();

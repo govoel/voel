@@ -1,10 +1,10 @@
 import { VStack } from '@expo/ui/swift-ui';
 import { padding } from '@expo/ui/swift-ui/modifiers';
 import type { ReactNode } from 'react';
+
 import { SafeScrollView } from '#src/components/safe-scroll-view';
 import type { TabScreenPageComponent } from '#src/components/tab-screen-page';
 import { Spacing } from '#src/constants/theme.ts';
-
 
 export const TabScreenPage = (({
   header,

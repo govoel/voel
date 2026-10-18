@@ -1,7 +1,15 @@
 import type { SecureFieldProps, TextFieldProps } from '@expo/ui/swift-ui';
-import { autocorrectionDisabled, keyboardType, textContentType, textInputAutocapitalization } from '@expo/ui/swift-ui/modifiers';
-import type { PasswordInputPurpose, TextInputPurpose } from '#src/components/form/input-presets/index.ts';
+import {
+  autocorrectionDisabled,
+  keyboardType,
+  textContentType,
+  textInputAutocapitalization,
+} from '@expo/ui/swift-ui/modifiers';
 
+import type {
+  PasswordInputPurpose,
+  TextInputPurpose,
+} from '#src/components/form/input-presets/index.ts';
 
 export const textInputPresets = {
   name: [textContentType('name')],

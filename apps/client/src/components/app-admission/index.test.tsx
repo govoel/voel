@@ -6,12 +6,12 @@ import { useRef, useState } from 'react';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Button, Text, View } from 'react-native';
 import { afterEach, expect, it, vi } from 'vitest';
-import { AppAdmission } from '#src/components/app-admission/index.tsx';
-import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
-import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
-import { AccountStorageKey, Account } from '#src/domains/accounts/schema.ts';
 
 import AppLayout from '#src/app/(app)/_layout.tsx';
+import { AppAdmission } from '#src/components/app-admission/index.tsx';
+import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
+import { Account, AccountStorageKey } from '#src/domains/accounts/schema.ts';
 
 const restoration = vi.hoisted(() => ({
   // UI-only restoration stays pending until the test supplies a response.

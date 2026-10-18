@@ -1,23 +1,47 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Host, Icon } from '@expo/ui';
-import { Button, Group, HStack, List, ProgressView, Section, Spacer, VStack } from '@expo/ui/swift-ui';
-import { disabled, font, foregroundStyle, headerProminence, padding, tint } from '@expo/ui/swift-ui/modifiers';
+import {
+  Button,
+  Group,
+  HStack,
+  List,
+  ProgressView,
+  Section,
+  Spacer,
+  VStack,
+} from '@expo/ui/swift-ui';
+import {
+  disabled,
+  font,
+  foregroundStyle,
+  headerProminence,
+  padding,
+  tint,
+} from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
-import { accountsSheetAtom, accountsSheetIsInvalidSession } from '#src/domains/accounts/components/auto-presenter/model.ts';
+
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { accountsWithActiveAccount, removeAccountAtom, removeAccountFailureMessage, useSetActiveAccount } from '#src/domains/accounts/features/model.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsInvalidSession,
+} from '#src/domains/accounts/components/auto-presenter/model.ts';
+import {
+  accountsWithActiveAccount,
+  removeAccountAtom,
+  removeAccountFailureMessage,
+  useSetActiveAccount,
+} from '#src/domains/accounts/features/model.ts';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();

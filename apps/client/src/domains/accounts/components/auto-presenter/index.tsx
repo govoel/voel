@@ -3,9 +3,12 @@ import { Equal, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import type { AccountsSheet } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { accountsSheetAtom, accountsSheetIsInvalidSession } from '#src/domains/accounts/components/auto-presenter/model.ts';
 
+import type { AccountsSheet } from '#src/domains/accounts/components/auto-presenter/model.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsInvalidSession,
+} from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 export const AccountsAutoPresenter = () => {
   const router = useRouter();

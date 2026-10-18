@@ -1,14 +1,12 @@
 import { Data, Effect, Equal, Option, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
+
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
-import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
+
 import { accountAuthClientAtom, activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
-
-
-
 
 export type AccountsSheet = Data.TaggedEnum<{
   readonly Idle: { readonly dismissable: true };

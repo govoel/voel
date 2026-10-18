@@ -1,4 +1,7 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import AccountCircle from '@expo/material-symbols/account_circle.xml';
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
@@ -6,7 +9,7 @@ import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { accountsSheetAtom, accountsSheetIsInvalidSession } from '#src/domains/accounts/components/auto-presenter/model.ts';
+
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
@@ -15,13 +18,18 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { accountsWithActiveAccount, removeAccountAtom, removeAccountFailureMessage, useSetActiveAccount } from '#src/domains/accounts/features/model.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsInvalidSession,
+} from '#src/domains/accounts/components/auto-presenter/model.ts';
+import {
+  accountsWithActiveAccount,
+  removeAccountAtom,
+  removeAccountFailureMessage,
+  useSetActiveAccount,
+} from '#src/domains/accounts/features/model.ts';
 import { useSelectedAccount } from '#src/domains/accounts/features/selection.ts';
 import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
-import AccountCircle from '@expo/material-symbols/account_circle.xml';
-import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
-
 
 const StackNavigationRow = ({
   index,

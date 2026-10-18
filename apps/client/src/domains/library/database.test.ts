@@ -2,23 +2,36 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Context, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Option, Redacted, Scope, Stream } from 'effect';
+import {
+  Array,
+  Context,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Redacted,
+  Scope,
+  Stream,
+} from 'effect';
 import { FetchHttpClient, HttpClientRequest } from 'effect/http';
 import { HttpApiClient, HttpApiMiddleware } from 'effect/http-api';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { TestClock } from 'effect/testing';
+
 import { Api } from '@repo/spec-api';
 import { AuthMiddleware } from '@repo/spec-api/domains/auth/http.ts';
 import { Library, MediaType } from '@repo/spec-api/domains/library/schema.ts';
+
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { LibraryDatabase, LibraryDatabaseMap } from '#src/domains/library/database.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/testing/utils.ts';
-
-
 
 // Each test owns real main and replica files, closed before their directory is removed.
 const ClientTestLayer = Layer.unwrap(

@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
+
 import { MainDatabase } from '#src/database/main/index.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
-
 
 class AccountFixture extends Schema.Struct({
   ...Account.upsert.fields,

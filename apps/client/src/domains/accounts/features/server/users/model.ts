@@ -1,14 +1,14 @@
 import { Array, DateTime, Effect, Option, Stream } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
+
 import { AuthError, AuthTransportError, AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
+
 import { accountAuthClientAtom } from '#src/domains/accounts/atoms.ts';
 import type { AccountStorageKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
-
-
 
 export const listUsersAtom = Atom.family((account: AccountStorageKey) =>
   AppRuntime.pull(

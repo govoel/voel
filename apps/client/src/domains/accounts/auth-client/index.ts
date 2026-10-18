@@ -1,15 +1,26 @@
 import { expoClient } from '@better-auth/expo/client';
-import { Context, Duration, Effect, Layer, LayerMap, Match, Option, Schema, Stream, String } from 'effect';
+import {
+  Context,
+  Duration,
+  Effect,
+  Layer,
+  LayerMap,
+  Match,
+  Option,
+  Schema,
+  Stream,
+  String,
+} from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
+import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
+
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
-import * as Device from 'expo-device';
-
-
 
 export const makeAuthStorageKey = ({ serverUrl, authStorageId }: AuthClientKey) =>
   `voel::auth::${serverUrl}::${authStorageId}`;
