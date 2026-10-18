@@ -87,7 +87,7 @@
       "dependencies": {
         "@effect/platform-bun": "4.0.5",
         "@govoel/plugins": "workspace:*",
-        "@govoel/turso-database": "0.8.1",
+        "@govoel/turso-database": "0.8.3",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-turso": "workspace:*",
         "@repo/spec-api": "workspace:*",
@@ -161,7 +161,7 @@
       "name": "@repo/effect-turso",
       "version": "0.0.0",
       "dependencies": {
-        "@govoel/turso-database": "0.8.1",
+        "@govoel/turso-database": "0.8.3",
         "effect": "4.0.5",
       },
       "devDependencies": {
@@ -190,8 +190,8 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/effect-turso-sync": "workspace:*",
-        "@tursodatabase/database-common": "0.8.1",
-        "@tursodatabase/sync": "0.8.1",
+        "@tursodatabase/database-common": "0.8.3",
+        "@tursodatabase/sync": "0.8.3",
         "effect": "4.0.5",
       },
       "devDependencies": {
@@ -209,7 +209,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/effect-turso-sync": "workspace:*",
-        "@tursodatabase/sync-react-native": "0.8.1",
+        "@tursodatabase/sync-react-native": "0.8.3",
         "effect": "4.0.5",
       },
       "devDependencies": {
@@ -255,7 +255,7 @@
   "patchedDependencies": {
     "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
     "rozenite@2.5.0": "patches/rozenite@2.5.0.patch",
-    "@tursodatabase/sync-react-native@0.8.1": "patches/@tursodatabase%2Fsync-react-native@0.8.1.patch",
+    "@tursodatabase/sync-react-native@0.8.3": "patches/@tursodatabase%2Fsync-react-native@0.8.3.patch",
   },
   "packages": {
     "2g": ["2g@1.0.1", "", { "peerDependencies": { "typescript": ">=5.8.0" }, "optionalPeers": ["typescript"], "bin": { "2g": "bin/cli.js" } }, "sha512-+uViadKOS/wwR4pFu5g8TPn3QHpKqoX19JHCnp8k/3cLpImdcXozwvZA6Q/5PeW3AcU8neL8faaMidBcv7o8CA=="],
@@ -618,15 +618,15 @@
 
     "@govoel/plugins": ["@govoel/plugins@workspace:packages/plugins"],
 
-    "@govoel/turso-database": ["@govoel/turso-database@0.8.1", "https://npm.pkg.github.com/download/@govoel/turso-database/0.8.1/318e5447da8cf27b0c65a8d732a13de72732035f", { "dependencies": { "@tursodatabase/database-common": "^0.8.1" }, "optionalDependencies": { "@govoel/turso-database-darwin-arm64": "0.8.1", "@govoel/turso-database-linux-arm64-gnu": "0.8.1", "@govoel/turso-database-linux-x64-gnu": "0.8.1", "@govoel/turso-database-win32-x64-msvc": "0.8.1" } }, "sha512-coSkl9V5Ii7e16CwnQUWuPYWkBjMUiICwzITSyHKoZ3XDhSYuCYMd7YJSUkdBy6CQH5ef0RRSISaxM5hyFxgoA=="],
+    "@govoel/turso-database": ["@govoel/turso-database@0.8.3", "https://npm.pkg.github.com/download/@govoel/turso-database/0.8.3/fd1dd74eb666d69a8ab09d6b98edc55fc90900d3", { "dependencies": { "@tursodatabase/database-common": "^0.8.3" }, "optionalDependencies": { "@govoel/turso-database-darwin-arm64": "0.8.3", "@govoel/turso-database-linux-arm64-gnu": "0.8.3", "@govoel/turso-database-linux-x64-gnu": "0.8.3", "@govoel/turso-database-win32-x64-msvc": "0.8.3" } }, "sha512-zBkWye5VSUE7zvuD4tN/9ZBmTrqU4LfNBRiGU/VenIK731mfASWwpZ+RkUluLRvWRz3Wsg83E2tndhtGnXzjpA=="],
 
-    "@govoel/turso-database-darwin-arm64": ["@govoel/turso-database-darwin-arm64@0.8.1", "https://npm.pkg.github.com/download/@govoel/turso-database-darwin-arm64/0.8.1/898336c423d8da556f2003506cc220299bc5fbf6", { "os": "darwin", "cpu": "arm64" }, "sha512-MscWh1pckGOTPcs0DmUY9s9tVVDoVG5CkTUCZFwQAlU89PW2xhL+qOoeqvo3bkuffxlMJFk0k/+LQzMkzAknVg=="],
+    "@govoel/turso-database-darwin-arm64": ["@govoel/turso-database-darwin-arm64@0.8.3", "https://npm.pkg.github.com/download/@govoel/turso-database-darwin-arm64/0.8.3/4bb2351e410f9a02683487ae53cbd04c5445ec95", { "os": "darwin", "cpu": "arm64" }, "sha512-8tzgFPNP3f6M+lodc5eZxI0CqDdNPBOZGyKkul/s2oMPdiaxFz/6uAazybS/65tsSuyuIuYCySIOD03Iu0sv7w=="],
 
-    "@govoel/turso-database-linux-arm64-gnu": ["@govoel/turso-database-linux-arm64-gnu@0.8.1", "https://npm.pkg.github.com/download/@govoel/turso-database-linux-arm64-gnu/0.8.1/8084b08794d6894b4a5ca3bd323c26798b91abdb", { "os": "linux", "cpu": "arm64" }, "sha512-23e+teWxt3gEzVWxA9Z/euQG2n+ur9DEC/87Crdd2PKC6STVLMXiHlODto+d4UEJcBjY/0JCykHcFazepMAJYw=="],
+    "@govoel/turso-database-linux-arm64-gnu": ["@govoel/turso-database-linux-arm64-gnu@0.8.3", "https://npm.pkg.github.com/download/@govoel/turso-database-linux-arm64-gnu/0.8.3/c361231e5df176e668be9c1e101247a93d8905fd", { "os": "linux", "cpu": "arm64" }, "sha512-7C/H+zb1C4ZzNsVZQlY/rvDeinZ4WlmXk7DuH0nFaHsQZ8heUBWzZ2eFzUohZSjiZjL/I6lHZv7w2IDbzt4mzw=="],
 
-    "@govoel/turso-database-linux-x64-gnu": ["@govoel/turso-database-linux-x64-gnu@0.8.1", "https://npm.pkg.github.com/download/@govoel/turso-database-linux-x64-gnu/0.8.1/74ac2269588e1af2641c9bb1be07963577b7b49b", { "os": "linux", "cpu": "x64" }, "sha512-WYSqcjmSkYa+lxOhaEBEp003lfBz0ePoC/LEeODBNQdh6vXLC+X0sSiiToID3cIdQTm6dRfuZLYQHwjd6RXUFA=="],
+    "@govoel/turso-database-linux-x64-gnu": ["@govoel/turso-database-linux-x64-gnu@0.8.3", "https://npm.pkg.github.com/download/@govoel/turso-database-linux-x64-gnu/0.8.3/e4ae243ebcffae4847cbda99c23ddb2567b63d70", { "os": "linux", "cpu": "x64" }, "sha512-Uvs2zCgMZMFS4yvio0yc4cdnhlZnzZ83cn1oyVHe5rRAbmHiM7jKEXsvZ4jVj64IYGilKuhaRMCSre9K6qY2Jw=="],
 
-    "@govoel/turso-database-win32-x64-msvc": ["@govoel/turso-database-win32-x64-msvc@0.8.1", "https://npm.pkg.github.com/download/@govoel/turso-database-win32-x64-msvc/0.8.1/72e857e02277577d13d2da8793d8412ed3fb2684", { "os": "win32", "cpu": "x64" }, "sha512-5tmFDj4eL85KYnqkYGns2TKqdDyW6M+fu6d4CL6xF8fdp4GvGrsztqtjW614ahxRespHuj9PTJkqBV8nAu0sHA=="],
+    "@govoel/turso-database-win32-x64-msvc": ["@govoel/turso-database-win32-x64-msvc@0.8.3", "https://npm.pkg.github.com/download/@govoel/turso-database-win32-x64-msvc/0.8.3/757ecb18d8b687d29c93cb3b98b441d94ce7d2bf", { "os": "win32", "cpu": "x64" }, "sha512-tRCNv5DR2tOzDkKIZGcuxV408b3ATkvqI896W9czheqaVqNc4f5UiYfi6p+CVo7rrCPUlJgZbutO6E18awABzg=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 
@@ -1040,23 +1040,23 @@
 
     "@turbo/windows-arm64": ["@turbo/windows-arm64@2.11.9", "", { "os": "win32", "cpu": "arm64" }, "sha512-PgjBpLPW/WDsKzeBmNuw2QHtPxT/PtcloN3rHFTqVyMsqkLlyHVJbSusuhYoYFdi08lZ9Stryw66UOuPg/yW0w=="],
 
-    "@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.1", "", {}, "sha512-l1XrojOmYVme5YHpEmDT2V4iavt5prNCimOS/bhg1FbmmQPM2HE59/6LcNRIaGwXoqHpBojoRflOTw+eZ3WxoA=="],
+    "@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.3", "", {}, "sha512-T8sMfSnRjgGzKMDVkSg0lh1Jh6dDtTWzjYFK0ZJHtKzr+zs69a7Igo4Z+sxfh+rk9gEqn2njLgRYfpMEghMVMw=="],
 
     "@tursodatabase/serverless": ["@tursodatabase/serverless@0.2.4", "", {}, "sha512-kqf3FINvTGx8N1iH/4e1Dkbr/om5q9qitshzvljtQXwZFQIsVP/mDE76mGg9U2dg/ElOZKFKtT1VXDgd39Dr1w=="],
 
-    "@tursodatabase/sync": ["@tursodatabase/sync@0.8.1", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.1", "@tursodatabase/sync-common": "^0.8.1" }, "optionalDependencies": { "@tursodatabase/sync-darwin-arm64": "0.8.1", "@tursodatabase/sync-linux-arm64-gnu": "0.8.1", "@tursodatabase/sync-linux-x64-gnu": "0.8.1", "@tursodatabase/sync-win32-x64-msvc": "0.8.1" } }, "sha512-0kEi27NFUK3WEVLcscerEcpWPO+e87yO0BXq0htC0J1sOkdpdhhTF2yGTmOgQn60HIy3bOrebw5mToRhEhvbXw=="],
+    "@tursodatabase/sync": ["@tursodatabase/sync@0.8.3", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.3", "@tursodatabase/sync-common": "^0.8.3" }, "optionalDependencies": { "@tursodatabase/sync-darwin-arm64": "0.8.3", "@tursodatabase/sync-linux-arm64-gnu": "0.8.3", "@tursodatabase/sync-linux-x64-gnu": "0.8.3", "@tursodatabase/sync-win32-x64-msvc": "0.8.3" } }, "sha512-NB7lgKHNBDmeotjdv9jsfZ7OtAdHztHy6/ut5NBxsAKhoA4d8IJsRA8+X/TpDKyZ4xfQPDPaIPPWnSQEm4wChg=="],
 
     "@tursodatabase/sync-common": ["@tursodatabase/sync-common@0.8.3", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.3", "@tursodatabase/serverless": "^0.2.2" } }, "sha512-y8a3f3+AzenDD1uY6+iGNf3hpj8CtdJ/sfXCJXSW+bOJyFgqV68WsRzZZqy6fU3ua7wJ+yRRqNJJr31kfQ8wsw=="],
 
-    "@tursodatabase/sync-darwin-arm64": ["@tursodatabase/sync-darwin-arm64@0.8.1", "", { "os": "darwin", "cpu": "arm64" }, "sha512-ickpStMcOoJqcHJ9IMMQWe13tv3Qb6DcU+OFSh4DlMuagfVNuFHkuUEPO8enOR9LyAPy/yvlEmZVDgxWh7CwUQ=="],
+    "@tursodatabase/sync-darwin-arm64": ["@tursodatabase/sync-darwin-arm64@0.8.3", "", { "os": "darwin", "cpu": "arm64" }, "sha512-G6ZOmF5+K7CYVA4Wn+jlQ22H6tqI5GdRu1DWt1J0q3u3H6ORiEJlyfguKTTI6iaJFh8miLm5Gjp3qy8hKFIN7g=="],
 
-    "@tursodatabase/sync-linux-arm64-gnu": ["@tursodatabase/sync-linux-arm64-gnu@0.8.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-64QHpg3o/+IC7ilCfjOI9uDjztYBkqLfuFn+WHjDVffElDMWDEXHOu4aOBhabOH5Pb7o1K882bdF3MkFFnBiZw=="],
+    "@tursodatabase/sync-linux-arm64-gnu": ["@tursodatabase/sync-linux-arm64-gnu@0.8.3", "", { "os": "linux", "cpu": "arm64" }, "sha512-B/8c8ZqJCi9oe5yoghYRVkg8DYEHlIKn1t7Kh02hAWYRqc3FqNR7YxSG+kOV+evfk1QSAO0XVXGnoe6/dO3XEg=="],
 
-    "@tursodatabase/sync-linux-x64-gnu": ["@tursodatabase/sync-linux-x64-gnu@0.8.1", "", { "os": "linux", "cpu": "x64" }, "sha512-pHSkjqllRexDV4JahkGc8DajjSawGS4CAM70eZ/oM9rUTDB7D3+lEeN7KltaBqeNlLZ24p2FiHMr15lEPhvG+A=="],
+    "@tursodatabase/sync-linux-x64-gnu": ["@tursodatabase/sync-linux-x64-gnu@0.8.3", "", { "os": "linux", "cpu": "x64" }, "sha512-WMqSQRuGwNKVjSF4Ktik9Om+D6hpVPSMhzu+/+WfASVCCHKXkYjr9hP4DRx4bmFXHl/VWhOffw+hFLJ4t1DneA=="],
 
-    "@tursodatabase/sync-react-native": ["@tursodatabase/sync-react-native@0.8.1", "", { "dependencies": { "@babel/runtime": "^7.25.0" }, "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.76.0" } }, "sha512-EFmxpiw6OKWzV8naVU58EpT7bheIfRwsRXwP+OvEUrXcVnHxFPZpIBA6GU4QLdhDSVaTCwzSYUyCfb1LtrmZpg=="],
+    "@tursodatabase/sync-react-native": ["@tursodatabase/sync-react-native@0.8.3", "", { "dependencies": { "@babel/runtime": "^7.25.0" }, "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.76.0" } }, "sha512-JuWqH1jXb5eIsaP6LVhTvJjbJfphsE3F2ZQ1YdA+eL8hDiEab+thh1r1NcfAfHp2J2oyv6o8EtPLnwRv/ELvUA=="],
 
-    "@tursodatabase/sync-win32-x64-msvc": ["@tursodatabase/sync-win32-x64-msvc@0.8.1", "", { "os": "win32", "cpu": "x64" }, "sha512-bir9itC1p6jNKwdrmGgjtISYYadvENJhy1r0+H/ZF2BtnaQ8FBU6GK3d/JcqvGm6UTlmYLTLQ+i8W23GKEyNfw=="],
+    "@tursodatabase/sync-win32-x64-msvc": ["@tursodatabase/sync-win32-x64-msvc@0.8.3", "", { "os": "win32", "cpu": "x64" }, "sha512-2AJ5uLke0OY1shxtCp7UZebCgNR51aW33J1HvjUwmszd6Z7e1FApwNX9RK1Hj6yEJBlz9j8NdUtGCgGS4s3JNQ=="],
 
     "@types/babel__core": ["@types/babel__core@7.20.5", "", { "dependencies": { "@babel/parser": "^7.20.7", "@babel/types": "^7.20.7", "@types/babel__generator": "*", "@types/babel__template": "*", "@types/babel__traverse": "*" } }, "sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA=="],
 
@@ -2219,8 +2219,6 @@
     "@tailwindcss/oxide-wasm32-wasi/@tybys/wasm-util": ["@tybys/wasm-util@0.10.4", "", { "dependencies": { "tslib": "^2.4.0" }, "bundled": true }, "sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A=="],
 
     "@tailwindcss/oxide-wasm32-wasi/tslib": ["tslib@2.8.1", "", { "bundled": true }, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
-
-    "@tursodatabase/sync-common/@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.3", "", {}, "sha512-T8sMfSnRjgGzKMDVkSg0lh1Jh6dDtTWzjYFK0ZJHtKzr+zs69a7Igo4Z+sxfh+rk9gEqn2njLgRYfpMEghMVMw=="],
 
     "@vitejs/plugin-react/vite": ["vite@8.3.4", "", { "dependencies": { "lightningcss": "^1.33.0", "picomatch": "^4.0.7", "postcss": "^8.5.29", "rolldown": "~1.2.12", "tinyglobby": "^0.2.17" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^20.19.0 || >=22.12.0", "@vitejs/devtools": "^0.7.1", "esbuild": "^0.27.0 || ^0.28.0", "jiti": ">=1.21.0", "less": "^4.0.0", "sass": "^1.70.0", "sass-embedded": "^1.70.0", "stylus": ">=0.54.8", "sugarss": "^5.0.0", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "@vitejs/devtools", "esbuild", "jiti", "less", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, "sha512-IftLE8phJhdNRIGNEV4JCCvfNScoZQVfcXaN8TQropWGJtOHcu+iAB9pHcuGvmEb/kddw0LBe/jS8ztdC6xdiQ=="],
 
