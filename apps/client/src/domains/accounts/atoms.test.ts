@@ -255,6 +255,35 @@ describe('accountsSheetAtom', () => {
 
   it.layer(TestServerControllerClient.layer)('with persisted accounts', (iit) => {
     iit.effect(
+      'does not ask to pick an account when the active-key stream lags behind saved accounts',
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const server = yield* setupTestServerWithUsers({ userCount: 1 });
+          yield* signInTestServerUsers(manager, server);
+
+          yield* Effect.gen(function* () {
+            expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
+              AccountsSheet.Idle({ dismissable: true })
+            );
+          }).pipe(
+            Effect.provide(
+              Layer.fresh(TestAccountsAtomsLayer).pipe(
+                Layer.provideMerge(
+                  Layer.succeed(AccountManager, {
+                    ...manager,
+                    changes: Stream.succeed(Option.none()),
+                  })
+                )
+              )
+            )
+          );
+        },
+        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      )
+    );
+
+    iit.effect(
       'requires account selection and cannot be dismissed when no account is active',
       Effect.fnUntraced(
         function* () {

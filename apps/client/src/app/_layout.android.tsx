@@ -52,7 +52,12 @@ export default function TabLayout() {
   return (
     <RegistryContext.Provider value={AppRegistry}>
       <ThemeProvider value={theme}>
-        <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'none',
+            statusBarStyle: colorScheme === 'dark' ? 'light' : 'dark',
+          }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
             name="accounts"
