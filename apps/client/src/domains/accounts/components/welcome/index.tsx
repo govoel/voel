@@ -33,14 +33,14 @@ export const Welcome = () => {
                 onPress={() => {
                   router.push('/sign-in');
                 }}>
-                <Text>Add account</Text>
+                <Text modifiers={[frame({ maxWidth: Infinity })]}>Add account</Text>
               </Button>
               <Button
                 modifiers={[buttonStyle('bordered')]}
                 onPress={() => {
                   router.push('/server-setup');
                 }}>
-                <Text>Set up new server</Text>
+                <Text modifiers={[frame({ maxWidth: Infinity })]}>Set up new server</Text>
               </Button>
             </VStack>
           </VStack>
