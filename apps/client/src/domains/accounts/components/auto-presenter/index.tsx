@@ -7,6 +7,7 @@ import type { AccountsSheet } from '#src/domains/accounts/components/auto-presen
 import {
   accountsSheetAtom,
   accountsSheetIsIdle,
+  accountsSheetIsOnboarding,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 export const AccountsAutoPresenter = () => {
@@ -18,7 +19,7 @@ export const AccountsAutoPresenter = () => {
   const lastPresentedRef = useRef<Option.Option<AccountsSheet>>(Option.none());
 
   useEffect(() => {
-    if (accountsSheetIsIdle(sheet.value) || sheet.value._tag === 'Onboarding') {
+    if (accountsSheetIsIdle(sheet.value) || accountsSheetIsOnboarding(sheet.value)) {
       lastPresentedRef.current = Option.none();
       return;
     }

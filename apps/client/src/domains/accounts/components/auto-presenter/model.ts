@@ -26,6 +26,8 @@ export const AccountsSheet = Data.taggedEnum<
 >();
 
 export const accountsSheetIsIdle = AccountsSheet.$is('Idle');
+export const accountsSheetIsOnboarding = AccountsSheet.$is('Onboarding');
+export const accountsSheetIsMustPickAccount = AccountsSheet.$is('MustPickAccount');
 export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession');
 
 export const accountsSheetAtom = AppRuntime.atom(

@@ -28,6 +28,7 @@ import { Spacing } from '#src/constants/theme.ts';
 import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
+  accountsSheetIsMustPickAccount,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 const StackNavigationRow = ({
@@ -66,7 +67,7 @@ export default function AccountsScreen() {
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
-  const dismissable = accountsSheet.value._tag !== 'MustPickAccount';
+  const dismissable = !accountsSheetIsMustPickAccount(accountsSheet.value);
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 

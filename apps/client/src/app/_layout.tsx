@@ -5,7 +5,10 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter/index.tsx';
-import { accountsSheetAtom } from '#src/domains/accounts/components/auto-presenter/model.ts';
+import {
+  accountsSheetAtom,
+  accountsSheetIsMustPickAccount,
+} from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { AppRegistry } from '#src/runtime/registry.ts';
 
 export const unstable_settings = {
@@ -30,7 +33,7 @@ const AppStack = () => {
         name="accounts"
         options={{
           presentation: 'modal',
-          gestureEnabled: accountsSheet.value._tag !== 'MustPickAccount',
+          gestureEnabled: !accountsSheetIsMustPickAccount(accountsSheet.value),
         }}
       />
       <Stack.Screen name="(account-entry)" options={{ presentation: 'modal' }} />
