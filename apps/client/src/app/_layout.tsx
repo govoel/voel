@@ -24,23 +24,16 @@ const AppStack = () => {
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
+    <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="accounts"
         options={{
           presentation: 'modal',
-          animation: 'slide_from_bottom',
           gestureEnabled: accountsSheet.value._tag !== 'MustPickAccount',
         }}
       />
-      <Stack.Screen
-        name="(account-entry)"
-        options={{
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
-        }}
-      />
+      <Stack.Screen name="(account-entry)" options={{ presentation: 'modal' }} />
     </Stack>
   );
 };
