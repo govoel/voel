@@ -3,13 +3,12 @@ import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
-import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import {
   accountsWithActiveAccount,
@@ -63,7 +62,6 @@ const StackNavigationRow = ({
 
 export default function AccountsScreen() {
   const router = useRouter();
-  const sheetRef = useRef<ModalBottomSheetRef>(null);
   const [setActiveAccount, setActiveAccountAndDismiss] = useSetActiveAccount();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
@@ -77,7 +75,7 @@ export default function AccountsScreen() {
   const colors = useMaterialColors();
 
   return (
-    <AndroidAccountsSheet ref={sheetRef} dismissable={dismissable}>
+    <AndroidAccountsSheet dismissable={dismissable}>
       <Column
         modifiers={[
           padding(Spacing.three, dismissable ? 0 : Spacing.four, Spacing.three, Spacing.three),
@@ -186,9 +184,8 @@ export default function AccountsScreen() {
                         <MutationConfirmation
                           key={`${account.serverUrl}-${account.userId}`}
                           mutation={removeAccountAtom}
-                          onSuccess={async ({ result }) => {
+                          onSuccess={({ result }) => {
                             if (!result.accountsRemain) {
-                              await sheetRef.current?.hide();
                               router.dismissTo('/');
                             }
                           }}
