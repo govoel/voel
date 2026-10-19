@@ -6,6 +6,7 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { accountsAtom, activeAccountAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -15,7 +16,12 @@ export const setActiveAccountAtom = AppRuntime.fn(
 ).pipe(Atom.withLabel('setActiveAccountAtom'));
 
 export const removeAccountAtom = AppRuntime.fn(() =>
-  AccountManager.pipe(Effect.flatMap((manager) => manager.removeActiveAccount))
+  Effect.gen(function* () {
+    const manager = yield* AccountManager;
+    yield* manager.removeActiveAccount;
+    const accounts = yield* AccountRepository.use((repository) => repository.list);
+    return { accountsRemain: accounts.length > 0 };
+  })
 ).pipe(Atom.withLabel('removeAccountAtom'));
 
 export const removeAccountFailureMessage = ({

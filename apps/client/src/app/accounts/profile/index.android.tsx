@@ -1,12 +1,13 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
+import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import {
@@ -85,13 +86,14 @@ const UserProfileEditor = (props: Parameters<typeof useUserProfileForm>[0]) => {
 
 const LoadedProfile = ({
   profile: { email, name, role, username },
+  onSignedOut,
 }: {
+  onSignedOut: (result: Atom.Success<typeof signOutEverywhereAtom>) => Promise<void>;
   profile: Pick<
     Option.Option.Value<Atom.Success<typeof activeUserProfileAtom>>,
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
-  const router = useRouter();
   const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
   const colors = useMaterialColors();
 
@@ -151,8 +153,8 @@ const LoadedProfile = ({
             title="Sign out everywhere"
             confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"
-            onSuccess={() => {
-              router.dismissTo('/accounts');
+            onSuccess={async ({ result }) => {
+              await onSignedOut(result);
             }}
           />
         </SegmentedList>
@@ -179,11 +181,13 @@ const LoadedProfile = ({
 };
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const sheetRef = useRef<ModalBottomSheetRef>(null);
   const state = useAtomValue(activeUserProfileAtom);
   const refresh = useAtomRefresh(activeAccountAtom);
 
   return (
-    <AndroidAccountsSheet>
+    <AndroidAccountsSheet ref={sheetRef}>
       {AsyncResult.matchWithError(state, {
         onInitial: () => (
           <ProfileList>
@@ -217,7 +221,16 @@ export default function ProfileScreen() {
                 <ListState kind="empty" message="No active user." />
               </ProfileList>
             ),
-            onSome: (profile) => <LoadedProfile key={profile.id} profile={profile} />,
+            onSome: (profile) => (
+              <LoadedProfile
+                key={profile.id}
+                profile={profile}
+                onSignedOut={async ({ accountsRemain }) => {
+                  await sheetRef.current?.hide();
+                  router.dismissTo(accountsRemain ? '/accounts' : '/');
+                }}
+              />
+            ),
           }),
       })}
     </AndroidAccountsSheet>

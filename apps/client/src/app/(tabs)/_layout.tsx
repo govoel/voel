@@ -1,13 +1,15 @@
 import { Stack } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
 
+import { MainShell } from '#src/domains/accounts/components/main-shell/index.tsx';
+
 export const unstable_settings = {
   anchor: '(home)',
 };
 
 export default function TabsLayoutIOS() {
   return (
-    <>
+    <MainShell>
       <Stack.Screen options={{ headerShown: false }} />
 
       <NativeTabs>
@@ -32,6 +34,6 @@ export default function TabsLayoutIOS() {
           <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
-    </>
+    </MainShell>
   );
 }

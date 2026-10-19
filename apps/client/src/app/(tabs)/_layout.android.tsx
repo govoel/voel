@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
 
 import { materialFonts, useMaterialColors } from '#src/constants/material.ts';
+import { MainShell } from '#src/domains/accounts/components/main-shell/index.tsx';
 
 export const unstable_settings = {
   anchor: '(home)',
@@ -11,7 +12,7 @@ export default function TabsLayoutAndroid() {
   const colors = useMaterialColors();
 
   return (
-    <>
+    <MainShell>
       <Stack.Screen options={{ headerShown: false }} />
 
       <NativeTabs
@@ -46,6 +47,6 @@ export default function TabsLayoutAndroid() {
           <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
-    </>
+    </MainShell>
   );
 }

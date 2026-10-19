@@ -110,8 +110,8 @@ const LoadedProfile = ({
           title="Sign out everywhere"
           confirmLabel="Sign out"
           message="Sign out all devices for this account on this server, including this device?"
-          onSuccess={() => {
-            router.dismissTo('/accounts');
+          onSuccess={({ result }) => {
+            router.dismissTo(result.accountsRemain ? '/accounts' : '/');
           }}
         />
       </ProfileList>

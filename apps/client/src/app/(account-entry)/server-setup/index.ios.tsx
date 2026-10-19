@@ -1,32 +1,22 @@
-import { Group, Host } from '@expo/ui/swift-ui';
+import { Host } from '@expo/ui';
+import { Group } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 
-import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
+import { useSetupServerForm } from '#src/app/(account-entry)/server-setup/index.ts';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
+import { useCompleteAccountEntry } from '#src/domains/accounts/components/account-entry/navigation.ts';
 
-export default function AddAccountScreen() {
-  const router = useRouter();
-  const { serverUrl, username, reauthenticate } = useLocalSearchParams<{
-    serverUrl?: string;
-    username?: string;
-    reauthenticate?: string;
-  }>();
-  const form = useAddAccountForm({
-    ...(serverUrl !== void 0 && username !== void 0
-      ? { initialAccount: { serverUrl, username } }
-      : {}),
-    onSuccess: async () => {
-      router.back();
-    },
+export default function SetupServerScreen() {
+  const completeAccountEntry = useCompleteAccountEntry();
+  const form = useSetupServerForm({
+    onSuccess: completeAccountEntry,
   });
 
   return (
     <>
-      <Stack.Screen.Title>
-        {reauthenticate === 'true' ? 'Sign In Again' : 'Add Account'}
-      </Stack.Screen.Title>
+      <Stack.Title>Setup New Server</Stack.Title>
       <Host style={{ flex: 1 }}>
         <Group>
           <form.AppForm>
@@ -35,7 +25,7 @@ export default function AddAccountScreen() {
                 <form.SubmitButton
                   platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
                   containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
-                  <Text>Login</Text>
+                  <Text>Create account</Text>
                 </form.SubmitButton>
               }>
               <form.AppField name="serverUrl">
@@ -47,6 +37,14 @@ export default function AddAccountScreen() {
                   />
                 )}
               </form.AppField>
+              <form.AppField name="name">
+                {(field) => <field.TextField purpose="name" label="Name" placeholder="Your Name" />}
+              </form.AppField>
+              <form.AppField name="email">
+                {(field) => (
+                  <field.TextField purpose="email" label="Email" placeholder="you@example.com" />
+                )}
+              </form.AppField>
               <form.AppField name="username">
                 {(field) => (
                   <field.TextField purpose="username" label="Username" placeholder="you" />
@@ -55,7 +53,7 @@ export default function AddAccountScreen() {
               <form.AppField name="password">
                 {(field) => (
                   <field.SecureField
-                    purpose="currentPassword"
+                    purpose="newPassword"
                     label="Password"
                     placeholder="ha!NiceTry"
                   />

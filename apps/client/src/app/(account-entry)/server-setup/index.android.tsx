@@ -1,39 +1,32 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
 
-import { useAddAccountForm } from '#src/app/accounts/add/index.ts';
+import { useSetupServerForm } from '#src/app/(account-entry)/server-setup/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { FormLayout } from '#src/components/form/layout';
 import { Text } from '#src/components/text';
+import { useCompleteAccountEntry } from '#src/domains/accounts/components/account-entry/navigation.ts';
 
-export default function AddAccountScreen() {
-  const router = useRouter();
+export default function SetupServerScreen() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
-  const { serverUrl, username, reauthenticate } = useLocalSearchParams<{
-    serverUrl?: string;
-    username?: string;
-    reauthenticate?: string;
-  }>();
-  const form = useAddAccountForm({
-    ...(serverUrl !== void 0 && username !== void 0
-      ? { initialAccount: { serverUrl, username } }
-      : {}),
-    onSuccess: async () => {
+  const completeAccountEntry = useCompleteAccountEntry({
+    beforeDismiss: async () => {
       await sheetRef.current?.hide();
-      router.dismissTo('/accounts');
     },
+  });
+  const form = useSetupServerForm({
+    onSuccess: completeAccountEntry,
   });
 
   return (
     <AndroidAccountsSheet ref={sheetRef}>
       <form.AppForm>
         <FormLayout
-          title={reauthenticate === 'true' ? 'Sign in again' : 'Add an account'}
+          title="Setup new server"
           footer={
             <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-              <Text>Login</Text>
+              <Text>Create account</Text>
             </form.SubmitButton>
           }>
           <form.AppField name="serverUrl">
@@ -42,6 +35,32 @@ export default function AddAccountScreen() {
                 purpose="url"
                 label="Server URL"
                 placeholder="https://demo.voel.app"
+                platformProps={{
+                  android: {
+                    modifiers: [fillMaxWidth()],
+                  },
+                }}
+              />
+            )}
+          </form.AppField>
+
+          <form.AppField name="name">
+            {(field) => (
+              <field.TextField
+                purpose="name"
+                label="Name"
+                placeholder="Your Name"
+                platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+              />
+            )}
+          </form.AppField>
+
+          <form.AppField name="email">
+            {(field) => (
+              <field.TextField
+                purpose="email"
+                label="Email"
+                placeholder="you@example.com"
                 platformProps={{
                   android: {
                     modifiers: [fillMaxWidth()],
@@ -69,7 +88,7 @@ export default function AddAccountScreen() {
           <form.AppField name="password">
             {(field) => (
               <field.SecureField
-                purpose="currentPassword"
+                purpose="newPassword"
                 label="Password"
                 placeholder="ha!NiceTry"
                 platformProps={{ android: { modifiers: [fillMaxWidth()] } }}

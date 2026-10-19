@@ -7,6 +7,7 @@ import type { AccountsSheet } from '#src/domains/accounts/components/auto-presen
 import {
   accountsSheetAtom,
   accountsSheetIsIdle,
+  accountsSheetIsOnboarding,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 export const AccountsAutoPresenter = () => {
@@ -18,8 +19,17 @@ export const AccountsAutoPresenter = () => {
   const lastPresentedRef = useRef<Option.Option<AccountsSheet>>(Option.none());
 
   useEffect(() => {
-    if (accountsSheetIsIdle(sheet.value)) {
+    if (accountsSheetIsIdle(sheet.value) || accountsSheetIsOnboarding(sheet.value)) {
       lastPresentedRef.current = Option.none();
+      return;
+    }
+
+    if (pathname === '/accounts' || pathname.startsWith('/accounts/')) {
+      lastPresentedRef.current = Option.some(sheet.value);
+      return;
+    }
+
+    if (pathname === '/sign-in' || pathname === '/server-setup') {
       return;
     }
 
@@ -27,10 +37,6 @@ export const AccountsAutoPresenter = () => {
       Option.isSome(lastPresentedRef.current) &&
       Equal.equals(lastPresentedRef.current.value, sheet.value)
     ) {
-      return;
-    }
-
-    if (pathname.startsWith('/accounts')) {
       return;
     }
 
