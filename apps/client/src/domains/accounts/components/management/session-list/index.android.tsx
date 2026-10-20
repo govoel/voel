@@ -1,10 +1,12 @@
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 
 import { ListState } from '#src/components/list-state';
 import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
+import { Spacing } from '#src/constants/theme.ts';
 import { sessionDeviceName } from '#src/domains/accounts/components/management/session-details/device-name.ts';
 import type { SessionListComponent } from '#src/domains/accounts/components/management/session-list';
 
@@ -21,6 +23,8 @@ export const SessionList = (({ sessions, currentId, onSelect }) => {
         <SegmentedListItem
           index={index}
           count={sessions.length}
+          // Match Material's SegmentedGap without inheriting page-level section spacing.
+          modifiers={[padding(0, 0, 0, index < sessions.length - 1 ? Spacing.half : 0)]}
           onClick={() => {
             onSelect(item);
           }}>
