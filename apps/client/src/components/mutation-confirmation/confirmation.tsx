@@ -1,4 +1,4 @@
-import type { ComponentType, ReactElement } from 'react';
+import type { ComponentType } from 'react';
 
 export type ConfirmationComponent = ComponentType<{
   readonly state: {
@@ -7,12 +7,12 @@ export type ConfirmationComponent = ComponentType<{
     readonly feedback: string;
     readonly execute: () => Promise<void>;
     readonly handleDismiss: () => void;
+    readonly handleDismissed: () => void;
   };
   readonly title: string;
   readonly message: string;
   readonly confirmLabel?: string;
   readonly role?: 'destructive' | 'default';
-  readonly trigger: ReactElement;
 }>;
 
 export declare const Confirmation: ConfirmationComponent;

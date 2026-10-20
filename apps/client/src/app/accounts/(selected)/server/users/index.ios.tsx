@@ -6,16 +6,19 @@ import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
 
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+import { listUsersAtom } from '#src/app/accounts/(selected)/server/users/index.ts';
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 export default function ServerUsersScreen() {
+  const account = useSelectedAccount();
   const router = useRouter();
-  const [users, loadMoreUsers] = useAtom(listUsersAtom);
-  const refresh = useAtomRefresh(listUsersAtom);
+  const query = listUsersAtom(account);
+  const [users, loadMoreUsers] = useAtom(query);
+  const refresh = useAtomRefresh(query);
 
   return (
     <>

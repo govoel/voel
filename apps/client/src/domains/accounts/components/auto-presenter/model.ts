@@ -9,21 +9,13 @@ import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-export type AccountsSheet = Data.TaggedEnum<{
-  readonly Idle: { readonly dismissable: true };
-  readonly Onboarding: { readonly dismissable: false };
-  readonly MustPickAccount: { readonly dismissable: false };
-  readonly InvalidSession: { readonly dismissable: true };
-}>;
+export type AccountsSheet =
+  | { readonly _tag: 'Idle' }
+  | { readonly _tag: 'Onboarding' }
+  | { readonly _tag: 'MustPickAccount' }
+  | { readonly _tag: 'InvalidSession' };
 
-export const AccountsSheet = Data.taggedEnum<
-  Data.TaggedEnum<{
-    readonly Idle: { readonly dismissable: true };
-    readonly Onboarding: { readonly dismissable: false };
-    readonly MustPickAccount: { readonly dismissable: false };
-    readonly InvalidSession: { readonly dismissable: true };
-  }>
->();
+export const AccountsSheet = Data.taggedEnum<AccountsSheet>();
 
 export const accountsSheetIsIdle = AccountsSheet.$is('Idle');
 export const accountsSheetIsOnboarding = AccountsSheet.$is('Onboarding');
@@ -39,10 +31,10 @@ export const accountsSheetAtom = AppRuntime.atom(
       const activeAccount = Array.findFirst(accounts, (account) => account.active);
       if (Option.isNone(activeAccount)) {
         if (accounts.length === 0) {
-          return Stream.succeed<AccountsSheet>(AccountsSheet.Onboarding({ dismissable: false }));
+          return Stream.succeed<AccountsSheet>(AccountsSheet.Onboarding());
         }
 
-        return Stream.succeed<AccountsSheet>(AccountsSheet.MustPickAccount({ dismissable: false }));
+        return Stream.succeed<AccountsSheet>(AccountsSheet.MustPickAccount());
       }
 
       const authClient = yield* AuthClientMap.use((authClients) =>
@@ -51,8 +43,8 @@ export const accountsSheetAtom = AppRuntime.atom(
       return authClient.sessionChanges.pipe(
         Stream.map((session): AccountsSheet =>
           AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)
-            ? AccountsSheet.InvalidSession({ dismissable: true })
-            : AccountsSheet.Idle({ dismissable: true })
+            ? AccountsSheet.InvalidSession()
+            : AccountsSheet.Idle()
         )
       );
     },
@@ -63,26 +55,22 @@ export const accountsSheetAtom = AppRuntime.atom(
     {
       id: PredefinedStateId.make('idle'),
       label: 'Idle',
-      atom: Atom.make(() => AsyncResult.success(AccountsSheet.Idle({ dismissable: true }))),
+      atom: Atom.make(() => AsyncResult.success(AccountsSheet.Idle())),
     },
     {
       id: PredefinedStateId.make('onboarding'),
       label: 'Onboarding',
-      atom: Atom.make(() => AsyncResult.success(AccountsSheet.Onboarding({ dismissable: false }))),
+      atom: Atom.make(() => AsyncResult.success(AccountsSheet.Onboarding())),
     },
     {
       id: PredefinedStateId.make('must-pick-account'),
       label: 'Must pick an account',
-      atom: Atom.make(() =>
-        AsyncResult.success(AccountsSheet.MustPickAccount({ dismissable: false }))
-      ),
+      atom: Atom.make(() => AsyncResult.success(AccountsSheet.MustPickAccount())),
     },
     {
       id: PredefinedStateId.make('invalid-session'),
       label: 'Invalid session',
-      atom: Atom.make(() =>
-        AsyncResult.success(AccountsSheet.InvalidSession({ dismissable: true }))
-      ),
+      atom: Atom.make(() => AsyncResult.success(AccountsSheet.InvalidSession())),
     },
   ]),
   Atom.withEquality(Equal.equals),

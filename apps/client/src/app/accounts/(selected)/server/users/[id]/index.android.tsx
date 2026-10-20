@@ -6,11 +6,11 @@ import { Match } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
+import { useState } from 'react';
 
-import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthUser } from '@repo/auth-api/shared.ts';
+import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 
 import {
   deleteServerUserAtom,
@@ -21,7 +21,7 @@ import {
   useUserPasswordForm,
   useUserRoleForm,
   userDetails,
-} from '#src/app/accounts/server/users/[id]/index.ts';
+} from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -35,6 +35,7 @@ import { Spacing } from '#src/constants/theme.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const UserList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -156,10 +157,11 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
+  const account = useSelectedAccount();
   const router = useRouter();
   const colors = useMaterialColors();
-  const state = useAtomValue(serverUserSessionsAtom(user.id));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
+  const state = useAtomValue(serverUserSessionsAtom({ account, userId: user.id }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ account, userId: user.id }));
   return (
     <>
       <Text variant="h4">Active Sessions</Text>
@@ -204,7 +206,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
                       </SegmentedListItem.HeadlineContent>
                     </SegmentedListItem>
                   )}
-                  mutation={revokeServerUserSessionsAtom}
+                  mutation={revokeServerUserSessionsAtom(account)}
                   schema={AuthUserIdInput}
                   defaultValues={{ userId: user.id }}
                   title="Sign out all devices"
@@ -225,6 +227,7 @@ const LoadedUser = ({
 }: {
   readonly user: Atom.Success<ReturnType<typeof serverUserAtom>>;
 }) => {
+  const account = useSelectedAccount();
   const router = useRouter();
   const details = userDetails({ user });
   const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
@@ -287,7 +290,7 @@ const LoadedUser = ({
                     </SegmentedListItem.HeadlineContent>
                   </SegmentedListItem>
                 )}
-                mutation={deleteServerUserAtom}
+                mutation={deleteServerUserAtom(account)}
                 schema={AuthUserIdInput}
                 defaultValues={{ userId: user.id }}
                 title="Delete user"
@@ -343,9 +346,10 @@ const LoadedUser = ({
 };
 
 export default function ServerUserScreen() {
+  const account = useSelectedAccount();
   const { id } = useLocalSearchParams<{ id: typeof AuthUser.fields.id.Type }>();
-  const state = useAtomValue(serverUserAtom(id));
-  const refresh = useAtomRefresh(serverUserAtom(id));
+  const state = useAtomValue(serverUserAtom({ account, userId: id }));
+  const refresh = useAtomRefresh(serverUserAtom({ account, userId: id }));
 
   return (
     <AndroidAccountsSheet>

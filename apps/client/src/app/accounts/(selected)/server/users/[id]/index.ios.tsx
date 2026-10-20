@@ -4,11 +4,11 @@ import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-u
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
+import { useState } from 'react';
 
-import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 import type { AuthAdminUserDetails, AuthUser } from '@repo/auth-api/shared.ts';
+import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 
 import {
   deleteServerUserAtom,
@@ -19,7 +19,7 @@ import {
   useUserPasswordForm,
   useUserRoleForm,
   userDetails,
-} from '#src/app/accounts/server/users/[id]/index.ts';
+} from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
@@ -29,6 +29,7 @@ import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const UserList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -123,9 +124,10 @@ const UserRoleForm = (props: Parameters<typeof useUserRoleForm>[0]) => {
 };
 
 const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
+  const account = useSelectedAccount();
   const router = useRouter();
-  const state = useAtomValue(serverUserSessionsAtom(user.id));
-  const refresh = useAtomRefresh(serverUserSessionsAtom(user.id));
+  const state = useAtomValue(serverUserSessionsAtom({ account, userId: user.id }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ account, userId: user.id }));
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
       <Section title="Active Sessions">
@@ -176,7 +178,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
                   <Text>Sign out all devices</Text>
                 </Button>
               )}
-              mutation={revokeServerUserSessionsAtom}
+              mutation={revokeServerUserSessionsAtom(account)}
               schema={AuthUserIdInput}
               defaultValues={{ userId: user.id }}
               title="Sign out all devices"
@@ -195,6 +197,7 @@ const LoadedUser = ({
 }: {
   readonly user: typeof AuthAdminUserDetails.Type & { readonly isOtherUser: boolean };
 }) => {
+  const account = useSelectedAccount();
   const router = useRouter();
   const details = userDetails({ user });
 
@@ -237,7 +240,7 @@ const LoadedUser = ({
                     <Text>Delete user</Text>
                   </Button>
                 )}
-                mutation={deleteServerUserAtom}
+                mutation={deleteServerUserAtom(account)}
                 schema={AuthUserIdInput}
                 defaultValues={{ userId: user.id }}
                 title="Delete user"
@@ -288,9 +291,10 @@ const LoadedUser = ({
 };
 
 export default function ServerUserScreen() {
+  const account = useSelectedAccount();
   const { id } = useLocalSearchParams<{ id: (typeof AuthUser)['fields']['id']['Type'] }>();
-  const state = useAtomValue(serverUserAtom(id));
-  const refresh = useAtomRefresh(serverUserAtom(id));
+  const state = useAtomValue(serverUserAtom({ account, userId: id }));
+  const refresh = useAtomRefresh(serverUserAtom({ account, userId: id }));
 
   return (
     <>

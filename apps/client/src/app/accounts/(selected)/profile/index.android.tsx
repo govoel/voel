@@ -1,14 +1,14 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
+import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   activeUserProfileAtom,
@@ -16,7 +16,7 @@ import {
   signOutEverywhereAtom,
   useChangePasswordForm,
   useUserProfileForm,
-} from '#src/app/accounts/profile/index.ts';
+} from '#src/app/accounts/(selected)/profile/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
@@ -27,9 +27,9 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { activeAccountAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { accountAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <LazyColumn
@@ -88,12 +88,13 @@ const LoadedProfile = ({
   profile: { email, name, role, username },
   onSignedOut,
 }: {
-  onSignedOut: (result: Atom.Success<typeof signOutEverywhereAtom>) => Promise<void>;
+  onSignedOut: (result: Atom.Success<ReturnType<typeof signOutEverywhereAtom>>) => Promise<void>;
   profile: Pick<
-    Option.Option.Value<Atom.Success<typeof activeUserProfileAtom>>,
+    Option.Option.Value<Atom.Success<ReturnType<typeof activeUserProfileAtom>>>,
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
+  const account = useSelectedAccount();
   const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
   const colors = useMaterialColors();
 
@@ -149,7 +150,7 @@ const LoadedProfile = ({
                 </SegmentedListItem.HeadlineContent>
               </SegmentedListItem>
             )}
-            mutation={signOutEverywhereAtom}
+            mutation={signOutEverywhereAtom(account)}
             title="Sign out everywhere"
             confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"
@@ -181,10 +182,13 @@ const LoadedProfile = ({
 };
 
 export default function ProfileScreen() {
+  const account = useSelectedAccount();
   const router = useRouter();
   const sheetRef = useRef<ModalBottomSheetRef>(null);
-  const state = useAtomValue(activeUserProfileAtom);
-  const refresh = useAtomRefresh(activeAccountAtom);
+  const profileQuery = activeUserProfileAtom(account);
+  const state = useAtomValue(profileQuery);
+  const query = accountAtom(account);
+  const refresh = useAtomRefresh(query);
 
   return (
     <AndroidAccountsSheet ref={sheetRef}>
@@ -284,9 +288,11 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 };
 
 const OwnSessions = () => {
+  const account = useSelectedAccount();
   const router = useRouter();
-  const state = useAtomValue(ownSessionsAtom);
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const query = ownSessionsAtom(account);
+  const state = useAtomValue(query);
+  const refresh = useAtomRefresh(query);
   return (
     <>
       <Text variant="h4">Active Sessions</Text>

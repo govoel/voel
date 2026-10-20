@@ -5,21 +5,32 @@ import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
-import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
-import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
+import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
+import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 
-import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
-import { ownSessionAtom } from '#src/app/accounts/profile/sessions/[id]/index.ts';
+import {
+  revokeServerUserSessionAtom,
+  serverUserSessionsAtom,
+} from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
+import { serverUserSessionAtom } from '#src/app/accounts/(selected)/server/users/[id]/sessions/[sessionId]/index.ts';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
-const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
+const SessionContent = ({
+  userId,
+  sessionId,
+}: {
+  userId: typeof AuthUser.fields.id.Type;
+  sessionId: typeof AuthDeviceSession.fields.id.Type;
+}) => {
+  const account = useSelectedAccount();
   const router = useRouter();
-  const state = useAtomValue(ownSessionAtom(id));
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const state = useAtomValue(serverUserSessionAtom({ account, userId, sessionId }));
+  const refresh = useAtomRefresh(serverUserSessionsAtom({ account, userId }));
 
   return AsyncResult.matchWithError(state, {
     onInitial: () => (
@@ -54,13 +65,13 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
             <ListState kind="message" message="This session is no longer active." />
           </Section>
         ),
-        onSome: ({ session, isCurrent }) => (
+        onSome: (session) => (
           <>
             <Section>
-              <SessionDetails session={session} isCurrent={isCurrent} />
+              <SessionDetails session={session} isCurrent={false} />
             </Section>
 
-            {!isCurrent ? (
+            {session.isOtherUser ? (
               <Section>
                 <MutationConfirmation
                   onFailure={authFailureMessage}
@@ -69,31 +80,41 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
                       <Text>Sign out</Text>
                     </Button>
                   )}
-                  mutation={revokeOwnSessionAtom}
-                  schema={AuthRevokeSessionInput}
-                  defaultValues={{ token: session.token }}
+                  mutation={revokeServerUserSessionAtom(account)}
+                  schema={AuthAdminRevokeSessionInput}
+                  defaultValues={{ sessionToken: session.token }}
                   title="Sign out"
                   message="This session will need to sign in again."
                   onSuccess={() => {
-                    router.dismissTo('/accounts/profile');
+                    router.dismissTo({
+                      pathname: '/accounts/server/users/[id]',
+                      params: { id: userId },
+                    });
                   }}
                 />
               </Section>
-            ) : null}
+            ) : (
+              <Section>
+                <Text>Use your profile to manage your own signed-in devices.</Text>
+              </Section>
+            )}
           </>
         ),
       }),
   });
 };
 
-export default function SessionScreen() {
-  const { id } = useLocalSearchParams<{ id: typeof AuthDeviceSession.fields.id.Type }>();
+export default function ServerUserSessionScreen() {
+  const { id, sessionId } = useLocalSearchParams<{
+    id: typeof AuthUser.fields.id.Type;
+    sessionId: typeof AuthDeviceSession.fields.id.Type;
+  }>();
   return (
     <>
       <Stack.Screen.Title>Session Details</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <SessionContent key={id} id={id} />
+          <SessionContent key={`${id}-${sessionId}`} userId={id} sessionId={sessionId} />
         </List>
       </Host>
     </>

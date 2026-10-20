@@ -5,8 +5,8 @@ import { Match, Option } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
+import { useState } from 'react';
 
 import {
   activeUserProfileAtom,
@@ -14,16 +14,16 @@ import {
   signOutEverywhereAtom,
   useChangePasswordForm,
   useUserProfileForm,
-} from '#src/app/accounts/profile/index.ts';
+} from '#src/app/accounts/(selected)/profile/index.ts';
 import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { activeAccountAtom } from '#src/domains/accounts/atoms.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { accountAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -61,10 +61,11 @@ const LoadedProfile = ({
   profile: { email, name, role, username },
 }: {
   profile: Pick<
-    Option.Option.Value<Atom.Success<typeof activeUserProfileAtom>>,
+    Option.Option.Value<Atom.Success<ReturnType<typeof activeUserProfileAtom>>>,
     'email' | 'name' | 'role' | 'username'
   >;
 }) => {
+  const account = useSelectedAccount();
   const router = useRouter();
   const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
 
@@ -106,7 +107,7 @@ const LoadedProfile = ({
               <Text>Sign out everywhere</Text>
             </Button>
           )}
-          mutation={signOutEverywhereAtom}
+          mutation={signOutEverywhereAtom(account)}
           title="Sign out everywhere"
           confirmLabel="Sign out"
           message="Sign out all devices for this account on this server, including this device?"
@@ -137,8 +138,11 @@ const LoadedProfile = ({
 };
 
 export default function ProfileScreen() {
-  const state = useAtomValue(activeUserProfileAtom);
-  const refresh = useAtomRefresh(activeAccountAtom);
+  const account = useSelectedAccount();
+  const profileQuery = activeUserProfileAtom(account);
+  const state = useAtomValue(profileQuery);
+  const query = accountAtom(account);
+  const refresh = useAtomRefresh(query);
 
   return (
     <>
@@ -241,9 +245,11 @@ const PasswordForm = (props: Parameters<typeof useChangePasswordForm>[0]) => {
 };
 
 const OwnSessions = () => {
+  const account = useSelectedAccount();
   const router = useRouter();
-  const state = useAtomValue(ownSessionsAtom);
-  const refresh = useAtomRefresh(ownSessionsAtom);
+  const query = ownSessionsAtom(account);
+  const state = useAtomValue(query);
+  const refresh = useAtomRefresh(query);
   return (
     <Section title="Active Sessions">
       {AsyncResult.matchWithError(state, {

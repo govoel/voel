@@ -168,6 +168,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         state,
         setActiveAccount,
         removeActiveAccount,
+        removeAccount,
         signOutEverywhere,
         signInAccount,
         setupServerWithAccount,

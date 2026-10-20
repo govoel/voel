@@ -7,11 +7,9 @@ import { materialSeedColor } from '#src/constants/material.ts';
 
 export const AndroidAccountsSheet = ({
   children,
-  dismissable = true,
   ref,
 }: {
   readonly children: ReactNode;
-  readonly dismissable?: boolean;
   readonly ref?: Ref<ModalBottomSheetRef>;
 }) => {
   const router = useRouter();
@@ -21,12 +19,6 @@ export const AndroidAccountsSheet = ({
       <ModalBottomSheet
         {...(ref ? { ref } : {})}
         skipPartiallyExpanded
-        sheetGesturesEnabled={dismissable}
-        showDragHandle={dismissable}
-        properties={{
-          shouldDismissOnBackPress: dismissable,
-          shouldDismissOnClickOutside: dismissable,
-        }}
         onDismissRequest={() => {
           router.back();
         }}>

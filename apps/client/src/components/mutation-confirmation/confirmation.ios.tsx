@@ -15,54 +15,50 @@ import type { ConfirmationComponent } from '#src/components/mutation-confirmatio
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const Confirmation = (({ state, trigger, confirmLabel = 'Confirm', ...props }) => {
+export const Confirmation = (({ state, confirmLabel = 'Confirm', ...props }) => {
   const role = props.role === 'default' ? {} : { role: 'destructive' as const };
   return (
     <BottomSheet
-      anchor={trigger}
       fitToContents
+      onDismiss={state.handleDismissed}
       isPresented={state.presented}
       onIsPresentedChange={(visible) => {
         if (!visible) {
           state.handleDismiss();
         }
       }}>
-      {state.presented ? (
-        <VStack
-          alignment="leading"
-          spacing={Spacing.two}
-          modifiers={[
-            interactiveDismissDisabled(state.busy),
-            padding({ horizontal: Spacing.three, top: Spacing.four, bottom: Spacing.three }),
-          ]}>
-          <Text variant="h3">{props.title}</Text>
-          <Text modifiers={[fixedSize({ horizontal: false, vertical: true })]}>
-            {props.message}
-          </Text>
-          {state.feedback.length > 0 ? <Text>{state.feedback}</Text> : null}
-          <Button
-            {...role}
-            onPress={() => {
-              void state.execute();
-            }}
-            modifiers={[buttonStyle('bordered'), disabled(state.busy)]}>
-            <HStack
-              alignment="center"
-              spacing={Spacing.one}
-              modifiers={[frame({ maxWidth: Infinity }), animation(Animation.default, state.busy)]}>
-              {state.busy ? <ProgressView modifiers={[hidden(!state.busy)]} /> : null}
+      <VStack
+        alignment="leading"
+        spacing={Spacing.two}
+        modifiers={[
+          interactiveDismissDisabled(state.busy),
+          padding({ horizontal: Spacing.three, top: Spacing.four, bottom: Spacing.three }),
+        ]}>
+        <Text variant="h3">{props.title}</Text>
+        <Text modifiers={[fixedSize({ horizontal: false, vertical: true })]}>{props.message}</Text>
+        {state.feedback.length > 0 ? <Text>{state.feedback}</Text> : null}
+        <Button
+          {...role}
+          onPress={() => {
+            void state.execute();
+          }}
+          modifiers={[buttonStyle('bordered'), disabled(state.busy)]}>
+          <HStack
+            alignment="center"
+            spacing={Spacing.one}
+            modifiers={[frame({ maxWidth: Infinity }), animation(Animation.default, state.busy)]}>
+            {state.busy ? <ProgressView modifiers={[hidden(!state.busy)]} /> : null}
 
-              <Text>{confirmLabel}</Text>
-            </HStack>
-          </Button>
-          <Button
-            role="cancel"
-            onPress={state.handleDismiss}
-            modifiers={[buttonStyle('bordered'), disabled(state.busy)]}>
-            <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
-          </Button>
-        </VStack>
-      ) : null}
+            <Text>{confirmLabel}</Text>
+          </HStack>
+        </Button>
+        <Button
+          role="cancel"
+          onPress={state.handleDismiss}
+          modifiers={[buttonStyle('bordered'), disabled(state.busy)]}>
+          <Text modifiers={[frame({ maxWidth: Infinity })]}>Cancel</Text>
+        </Button>
+      </VStack>
     </BottomSheet>
   );
 }) satisfies ConfirmationComponent;
