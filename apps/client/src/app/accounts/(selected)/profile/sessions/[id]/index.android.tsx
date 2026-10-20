@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -56,7 +57,7 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
           <>
             <SessionDetails session={session} isCurrent={isCurrent} />
             {!isCurrent ? (
-              <SegmentedList>
+              <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
                 <MutationConfirmation
                   onFailure={authFailureMessage}
                   trigger={({ open, busy }) => (
@@ -88,9 +89,10 @@ export default function SessionScreen() {
   return (
     <AndroidAccountsSheet>
       <LazyColumn
-        verticalArrangement={{ spacedBy: Spacing.two }}
         contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
-        <Text variant="h4">Session Details</Text>
+        <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+          Session Details
+        </Text>
         <SessionContent key={id} id={id} />
       </LazyColumn>
     </AndroidAccountsSheet>

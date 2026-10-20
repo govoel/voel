@@ -5,7 +5,7 @@ import type { DetailRowsComponent } from '#src/components/detail-rows';
 import { Text } from '#src/components/text';
 
 export const DetailRows = (({ details }) => (
-  <List.ForEach data={details} keyExtractor={({ label }) => label} recycling={false}>
+  <List.ForEach data={details} keyExtractor={({ label }) => label}>
     {({ item: { label, value } }) => (
       <LabeledContent label={label}>
         <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>

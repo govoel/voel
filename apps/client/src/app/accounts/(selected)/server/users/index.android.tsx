@@ -1,7 +1,7 @@
 import { useAtom, useAtomRefresh } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import { Button, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { Button, Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
+import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
@@ -28,11 +28,12 @@ export default function ServerUsersScreen() {
   return (
     <AndroidAccountsSheet>
       <LazyColumn
-        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
-        verticalArrangement={{ spacedBy: Spacing.two }}>
-        <Text variant="h3">Manage Users</Text>
+        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+        <Text variant="h3" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+          Manage Users
+        </Text>
         <Button
-          modifiers={[fillMaxWidth()]}
+          modifiers={[fillMaxWidth(), padding(0, 0, 0, Spacing.two)]}
           onClick={() => {
             router.push('/accounts/server/users/create');
           }}>
@@ -50,6 +51,9 @@ export default function ServerUsersScreen() {
                     <SegmentedListItem
                       index={index}
                       count={page.items.length}
+                      modifiers={[
+                        padding(0, 0, 0, index < page.items.length - 1 ? Spacing.half : 0),
+                      ]}
                       onClick={() => {
                         router.push({
                           pathname: '/accounts/server/users/[id]',
@@ -66,12 +70,16 @@ export default function ServerUsersScreen() {
                   )}
                 </LazyColumn.Items>
               )}
-              <PaginationFooter
-                key={page.items.length}
-                page={page}
-                waiting={waiting}
-                onLoadMore={loadMoreUsers}
-              />
+              {!page.done ? (
+                <Column modifiers={[padding(0, Spacing.two, 0, 0)]}>
+                  <PaginationFooter
+                    key={page.items.length}
+                    page={page}
+                    waiting={waiting}
+                    onLoadMore={loadMoreUsers}
+                  />
+                </Column>
+              ) : null}
             </>
           ),
           onError: (error) => (

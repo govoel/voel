@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
@@ -38,9 +38,7 @@ import { SessionList } from '#src/domains/accounts/components/management/session
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const UserList = ({ children }: PropsWithChildren) => (
-  <LazyColumn
-    contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}
-    verticalArrangement={{ spacedBy: Spacing.two }}>
+  <LazyColumn contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
     {children}
   </LazyColumn>
 );
@@ -164,7 +162,9 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
   const refresh = useAtomRefresh(serverUserSessionsAtom({ account, userId: user.id }));
   return (
     <>
-      <Text variant="h4">Active Sessions</Text>
+      <Text variant="h4" modifiers={[padding(0, Spacing.two, 0, Spacing.two)]}>
+        Active Sessions
+      </Text>
       {AsyncResult.matchWithError(state, {
         onInitial: () => <ListState kind="loading" />,
         onError: (error) => (
@@ -196,7 +196,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
               }}
             />
             {sessions.length > 0 ? (
-              <SegmentedList>
+              <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
                 <MutationConfirmation
                   onFailure={authFailureMessage}
                   trigger={({ open, busy }) => (
@@ -235,13 +235,13 @@ const LoadedUser = ({
   return (
     <>
       <UserList>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">User Details</Text>
-          <DetailRows details={details} />
-        </Column>
+        <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+          User Details
+        </Text>
+        <DetailRows details={details} />
         {user.isOtherUser ? (
           <>
-            <SegmentedList>
+            <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
               <SegmentedListItem
                 index={0}
                 count={4}
@@ -304,7 +304,9 @@ const LoadedUser = ({
             <UserSessions user={user} />
           </>
         ) : (
-          <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+          <Column
+            modifiers={[padding(0, Spacing.two, 0, 0)]}
+            verticalArrangement={{ spacedBy: Spacing.two }}>
             <SegmentedList>
               <SegmentedListItem
                 index={0}

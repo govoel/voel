@@ -1,5 +1,6 @@
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { AsyncResult } from 'effect/reactivity';
 
 import { useSetActiveAccount } from '#src/app/accounts/index.ts';
@@ -24,9 +25,10 @@ export const AccountPicker = ({
         start: Spacing.three,
         end: Spacing.three,
         bottom: Spacing.three,
-      }}
-      verticalArrangement={{ spacedBy: Spacing.two }}>
-      <Text variant="h3">Pick an Account</Text>
+      }}>
+      <Text variant="h3" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+        Pick an Account
+      </Text>
       <LazyColumn.Items
         data={accounts}
         keyExtractor={(account) => JSON.stringify([account.serverUrl.toString(), account.userId])}>
@@ -34,6 +36,7 @@ export const AccountPicker = ({
           <SegmentedListItem
             index={index}
             count={accounts.length}
+            modifiers={[padding(0, 0, 0, index < accounts.length - 1 ? Spacing.half : 0)]}
             selected={item.active}
             enabled={!AsyncResult.isWaiting(setActiveAccount)}
             onClick={() => {

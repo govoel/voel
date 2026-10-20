@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { LazyColumn } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -61,7 +62,7 @@ const SessionContent = ({
           <>
             <SessionDetails session={session} isCurrent={false} />
             {session.isOtherUser ? (
-              <SegmentedList>
+              <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
                 <MutationConfirmation
                   onFailure={authFailureMessage}
                   trigger={({ open, busy }) => (
@@ -85,7 +86,10 @@ const SessionContent = ({
                 />
               </SegmentedList>
             ) : (
-              <Text variant="caption" color={colors.onSurfaceVariant}>
+              <Text
+                variant="caption"
+                color={colors.onSurfaceVariant}
+                modifiers={[padding(0, Spacing.two, 0, 0)]}>
                 Use your profile to manage your own signed-in devices.
               </Text>
             )}
@@ -103,9 +107,10 @@ export default function ServerUserSessionScreen() {
   return (
     <AndroidAccountsSheet>
       <LazyColumn
-        verticalArrangement={{ spacedBy: Spacing.two }}
         contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
-        <Text variant="h4">Session Details</Text>
+        <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+          Session Details
+        </Text>
         <SessionContent key={`${id}-${sessionId}`} userId={id} sessionId={sessionId} />
       </LazyColumn>
     </AndroidAccountsSheet>
