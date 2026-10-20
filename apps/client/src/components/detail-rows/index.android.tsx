@@ -1,13 +1,18 @@
-import { Array } from 'effect';
+import { LazyColumn } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 
 import type { DetailRowsComponent } from '#src/components/detail-rows';
-import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
+import { Spacing } from '#src/constants/theme.ts';
 
 export const DetailRows = (({ details }) => (
-  <SegmentedList>
-    {Array.map(details, ({ label, value }, index) => (
-      <SegmentedListItem key={label} index={index} count={details.length}>
+  <LazyColumn.Items data={details} keyExtractor={({ label }) => label}>
+    {({ item: { label, value }, index }) => (
+      <SegmentedListItem
+        index={index}
+        count={details.length}
+        modifiers={[padding(0, 0, 0, index < details.length - 1 ? Spacing.half : 0)]}>
         <SegmentedListItem.HeadlineContent>
           <Text variant="caption">{label}</Text>
         </SegmentedListItem.HeadlineContent>
@@ -15,6 +20,6 @@ export const DetailRows = (({ details }) => (
           <Text>{value}</Text>
         </SegmentedListItem.SupportingContent>
       </SegmentedListItem>
-    ))}
-  </SegmentedList>
+    )}
+  </LazyColumn.Items>
 )) satisfies DetailRowsComponent;

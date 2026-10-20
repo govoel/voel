@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
@@ -32,10 +32,10 @@ import { authFailureMessage } from '#src/domains/accounts/components/management/
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
-  <LazyColumn
-    verticalArrangement={{ spacedBy: Spacing.two }}
-    contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
-    <Text variant="h4">Your Profile</Text>
+  <LazyColumn contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+    <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+      Your Profile
+    </Text>
     {children}
   </LazyColumn>
 );
@@ -108,7 +108,7 @@ const LoadedProfile = ({
             { label: 'Role', value: role },
           ]}
         />
-        <SegmentedList>
+        <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
           <SegmentedListItem
             index={0}
             count={2}
@@ -139,7 +139,7 @@ const LoadedProfile = ({
 
         <OwnSessions />
 
-        <SegmentedList>
+        <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
           <MutationConfirmation
             onFailure={authFailureMessage}
             trigger={({ open, busy }) => (
@@ -289,7 +289,9 @@ const OwnSessions = () => {
   const refresh = useAtomRefresh(ownSessionsAtom);
   return (
     <>
-      <Text variant="h4">Active Sessions</Text>
+      <Text variant="h4" modifiers={[padding(0, Spacing.two, 0, Spacing.two)]}>
+        Active Sessions
+      </Text>
       {AsyncResult.matchWithError(state, {
         onInitial: () => <ListState kind="loading" />,
         onError: (error) => (
