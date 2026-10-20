@@ -232,10 +232,10 @@ const LoadedUser = ({
   return (
     <>
       <UserList>
-        <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text variant="h4">User Details</Text>
-          <DetailRows details={details} />
-        </Column>
+        <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+          User Details
+        </Text>
+        <DetailRows details={details} />
         {user.isOtherUser ? (
           <>
             <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>

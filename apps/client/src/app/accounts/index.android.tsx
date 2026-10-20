@@ -249,9 +249,10 @@ export default function AccountsScreen() {
                       start: Spacing.three,
                       end: Spacing.three,
                       bottom: Spacing.three,
-                    }}
-                    verticalArrangement={{ spacedBy: Spacing.two }}>
-                    <Text variant="h3">Pick an Account</Text>
+                    }}>
+                    <Text variant="h3" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+                      Pick an Account
+                    </Text>
                     <LazyColumn.Items
                       data={accountList}
                       keyExtractor={(account) =>
@@ -261,6 +262,9 @@ export default function AccountsScreen() {
                         <SegmentedListItem
                           index={index}
                           count={accountList.length}
+                          modifiers={[
+                            padding(0, 0, 0, index < accountList.length - 1 ? Spacing.half : 0),
+                          ]}
                           selected={item.active}
                           enabled={!AsyncResult.isWaiting(setActiveAccount)}
                           onClick={() => {
