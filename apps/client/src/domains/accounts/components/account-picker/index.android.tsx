@@ -1,11 +1,8 @@
 import AccountCircle from '@expo/material-symbols/account_circle.xml';
-import { Button, Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
-import { fillMaxSize, padding } from '@expo/ui/jetpack-compose/modifiers';
+import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { AsyncResult } from 'effect/reactivity';
-import { useRouter } from 'expo-router';
 
 import { useSetActiveAccount } from '#src/app/accounts/index.ts';
-import { ScreenHost } from '#src/components/screen-host';
 import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
@@ -15,13 +12,10 @@ import type { Account } from '#src/domains/accounts/schema.ts';
 export const AccountPicker = ({
   accounts,
   onSelected,
-  entryActions = false,
 }: {
-  readonly entryActions?: boolean;
   readonly accounts: ReadonlyArray<Account>;
-  readonly onSelected?: () => Promise<void>;
+  readonly onSelected: () => Promise<void>;
 }) => {
-  const router = useRouter();
   const [setActiveAccount, selectAccount] = useSetActiveAccount();
   const colors = useMaterialColors();
   return (
@@ -48,9 +42,7 @@ export const AccountPicker = ({
                   serverUrl: item.serverUrl,
                   userId: item.userId,
                 },
-                onSuccess: async () => {
-                  await onSelected?.();
-                },
+                onSuccess: onSelected,
               });
             }}>
             <SegmentedListItem.LeadingContent>
@@ -67,36 +59,6 @@ export const AccountPicker = ({
           </SegmentedListItem>
         )}
       </LazyColumn.Items>
-      {entryActions ? (
-        <>
-          <Button
-            onClick={() => {
-              router.push('/sign-in');
-            }}>
-            <Text>Add account</Text>
-          </Button>
-          <Button
-            onClick={() => {
-              router.push('/server-setup');
-            }}>
-            <Text>Set up new server</Text>
-          </Button>
-        </>
-      ) : null}
     </LazyColumn>
   );
 };
-
-export const InlineAccountPicker = ({
-  accounts,
-}: {
-  readonly accounts: ReadonlyArray<Account>;
-}) => (
-  <ScreenHost>
-    {(contentTopInset) => (
-      <Column modifiers={[fillMaxSize(), padding(0, contentTopInset, 0, 0)]}>
-        <AccountPicker accounts={accounts} entryActions />
-      </Column>
-    )}
-  </ScreenHost>
-);

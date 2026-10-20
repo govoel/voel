@@ -27,6 +27,7 @@ import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
+  accountsSheetIsMustPickAccount,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 
@@ -64,6 +65,7 @@ export default function AccountsScreen() {
   const router = useRouter();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
+  const mustPickAccount = accountsSheetIsMustPickAccount(accountsSheet.value);
 
   const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
 
@@ -73,9 +75,9 @@ export default function AccountsScreen() {
   const colors = useMaterialColors();
 
   return (
-    <AndroidAccountsSheet>
+    <AndroidAccountsSheet dismissable={!mustPickAccount}>
       <Column
-        modifiers={[padding(Spacing.three, 0, Spacing.three, Spacing.three)]}
+        modifiers={[padding(Spacing.three, Spacing.three, Spacing.three, Spacing.three)]}
         verticalArrangement={{ spacedBy: Spacing.four }}>
         {AsyncResult.matchWithError(accounts, {
           onInitial: () => (

@@ -13,6 +13,7 @@ import { deleteServerUserAtom } from '#src/app/accounts/(selected)/server/users/
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
+import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
 import { MainShell } from '#src/domains/accounts/components/main-shell';
 import { AccountManagementBoundary } from '#src/domains/accounts/components/selected-account-boundary';
@@ -22,10 +23,10 @@ import { Account } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const navigation = vi.hoisted(() => ({ pathname: '/', push: vi.fn(), replace: vi.fn() }));
 vi.mock('expo-router', () => ({
   useRouter: () => navigation,
-  usePathname: () => '/',
+  usePathname: () => navigation.pathname,
   Redirect: ({ href }: { href: string }) => {
     navigation.replace(href);
     return null;
@@ -81,6 +82,7 @@ vi.mock('@expo/ui/swift-ui/modifiers', () => ({
   buttonStyle: () => ({}),
   foregroundStyle: () => ({}),
   frame: () => ({}),
+  multilineTextAlignment: () => ({}),
   padding: () => ({}),
   disabled: () => ({}),
   font: () => ({}),
@@ -135,6 +137,7 @@ afterEach(async () => {
   );
   fixtures.clear();
   vi.restoreAllMocks();
+  navigation.pathname = '/';
   navigation.push.mockClear();
   navigation.replace.mockClear();
 });
@@ -199,12 +202,14 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
       ),
     replace: async (accounts: ReadonlyArray<Account>) =>
       runtime.runPromise(Ref.set(rows, [...accounts]).pipe(Reactivity.mutation(['account']))),
-    render: async (children: ReactNode) =>
-      render(
-        <RegistryContext.Provider value={registry}>
-          <Suspense fallback={<Text>Loading</Text>}>{children}</Suspense>
-        </RegistryContext.Provider>
-      ),
+    render: async (element: Parameters<typeof render>[0]) =>
+      render(element, {
+        wrapper: ({ children }: PropsWithChildren) => (
+          <RegistryContext.Provider value={registry}>
+            <Suspense fallback={<Text>Loading</Text>}>{children}</Suspense>
+          </RegistryContext.Provider>
+        ),
+      }),
   };
   fixtures.add(fixture);
   return fixture;
@@ -252,25 +257,78 @@ const AccountContent = () => {
   );
 };
 
-it('shows Welcome only without saved accounts, and the shared inline picker when none is selected', async () => {
-  const fixture = await makeFixture([]);
-  await fixture.render(
+const PresentedMainShell = () => (
+  <>
+    <AccountsAutoPresenter />
     <MainShell>
       <AccountContent />
     </MainShell>
+  </>
+);
+
+it('shows Welcome without saved accounts, then one shared no-account page until an account is selected', async () => {
+  const fixture = await makeFixture([]);
+  await fixture.render(
+    <>
+      <AccountsAutoPresenter />
+      <MainShell>
+        <AccountContent />
+      </MainShell>
+    </>
   );
   expect(await screen.findByText('Welcome to Voel')).toBeOnTheScreen();
+  expect(screen.queryByText('Fresh draft')).not.toBeOnTheScreen();
+  expect(navigation.push).not.toHaveBeenCalled();
   await act(async () =>
     fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })])
   );
-  expect(await screen.findByText('Pick an Account')).toBeOnTheScreen();
-  expect(screen.getByText('@alice')).toBeOnTheScreen();
-  expect(screen.getByText('Add account')).toBeOnTheScreen();
-  expect(screen.getByText('Set up new server')).toBeOnTheScreen();
+  expect(await screen.findByText('No active account')).toBeOnTheScreen();
+  expect(screen.getAllByText('No active account')).toHaveLength(1);
+  expect(screen.getByText('Select or add an account to continue.')).toBeOnTheScreen();
+  expect(screen.queryByText('Welcome to Voel')).not.toBeOnTheScreen();
+  expect(screen.queryByText('Pick an Account')).not.toBeOnTheScreen();
+  expect(screen.queryByText('Fresh draft')).not.toBeOnTheScreen();
+  await waitFor(() => {
+    expect(navigation.push).toHaveBeenCalledWith('/accounts', { withAnchor: true });
+  });
+  navigation.push.mockClear();
+  await fireEvent.press(screen.getByText('Manage accounts'));
+  expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts');
+  await act(async () => fixture.select(alice));
+  expect(await screen.findByText('Alice')).toBeOnTheScreen();
+  expect(screen.getByText('Fresh draft')).toBeOnTheScreen();
+  expect(screen.queryByText('No active account')).not.toBeOnTheScreen();
+});
+
+it('selects a saved account through the modal picker and closes it after scoped content becomes available', async () => {
+  const fixture = await makeFixture([
+    Account.make({ ...alice, active: Account.fields.active.make(false) }),
+  ]);
+  const Picker = () => {
+    const [presented, setPresented] = useState(true);
+    return (
+      <>
+        <MainShell>
+          <AccountContent />
+        </MainShell>
+        {presented ? (
+          <AccountPicker
+            accounts={[alice]}
+            onSelected={async () => {
+              setPresented(false);
+            }}
+          />
+        ) : null}
+      </>
+    );
+  };
+  await fixture.render(<Picker />);
+  expect(await screen.findByText('No active account')).toBeOnTheScreen();
   await fireEvent.press(screen.getByText('@alice'));
   expect(await screen.findByText('Alice')).toBeOnTheScreen();
-  expect(navigation.push).not.toHaveBeenCalled();
-  expect(navigation.replace).not.toHaveBeenCalled();
+  expect(screen.getByText('Fresh draft')).toBeOnTheScreen();
+  expect(screen.queryByText('Pick an Account')).not.toBeOnTheScreen();
+  expect(screen.queryByText('No active account')).not.toBeOnTheScreen();
 });
 
 it('remounts account content on A → B → A and credential changes, but updates profile metadata without losing drafts', async () => {
@@ -339,10 +397,47 @@ it('returns scoped management routes to /accounts when selection is lost', async
   expect(screen.queryByText('Alice')).not.toBeOnTheScreen();
 });
 
-it('does not auto-present MustPickAccount, but still presents InvalidSession recovery', async () => {
+it('automatically presents the mandatory account picker once across account list and route updates', async () => {
   const fixture = await makeFixture([
     Account.make({ ...alice, active: Account.fields.active.make(false) }),
   ]);
+  const view = await fixture.render(<AccountsAutoPresenter />);
+  await waitFor(() => {
+    expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
+  });
+  await act(async () =>
+    fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) }), bob])
+  );
+  navigation.pathname = '/movies';
+  await view.rerender(<AccountsAutoPresenter />);
+  expect(navigation.push).toHaveBeenCalledTimes(1);
+});
+
+it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
+  'does not interrupt an existing %s route with the mandatory picker',
+  async (pathname) => {
+    navigation.pathname = pathname;
+    const fixture = await makeFixture([
+      Account.make({ ...alice, active: Account.fields.active.make(false) }),
+    ]);
+    const view = await fixture.render(<PresentedMainShell />);
+    expect(await screen.findByText('No active account')).toBeOnTheScreen();
+    await act(async () => fixture.replace([bob]));
+    expect(navigation.push).not.toHaveBeenCalled();
+    navigation.pathname = '/';
+    await view.rerender(<PresentedMainShell />);
+    if (pathname.startsWith('/accounts')) {
+      expect(navigation.push).not.toHaveBeenCalled();
+    } else {
+      await waitFor(() => {
+        expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
+      });
+    }
+  }
+);
+
+it('still presents InvalidSession recovery for a selected account', async () => {
+  const fixture = await makeFixture([alice]);
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(
     new Response('null', { headers: { 'content-type': 'application/json' } })
   );
@@ -354,10 +449,8 @@ it('does not auto-present MustPickAccount, but still presents InvalidSession rec
       </MainShell>
     </>
   );
-  expect(await screen.findByText('Pick an Account')).toBeOnTheScreen();
-  expect(navigation.push).not.toHaveBeenCalled();
-  await act(async () => fixture.select(alice));
+  expect(await screen.findByText('Alice')).toBeOnTheScreen();
   await waitFor(() => {
-    expect(navigation.push).toHaveBeenCalledWith('/accounts', { withAnchor: true });
+    expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
   });
 });
