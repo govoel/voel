@@ -40,12 +40,9 @@ export const makeClientTestLayers = ({
     )
   );
 
-export const makeServerUrl = Effect.gen(function* () {
-  const port = yield* Random.nextIntBetween(49_152, 65_535);
-  return yield* TestServerControllerClient.use((controller) => controller.start({ port })).pipe(
-    Effect.map((url) => Account.fields.serverUrl.make(url))
-  );
-});
+export const makeServerUrl = TestServerControllerClient.pipe(
+  Effect.flatMap((controller) => controller.start)
+);
 
 export const makeUsername = (prefix = 'test.user') =>
   Random.nextInt.pipe(
