@@ -154,9 +154,7 @@ const LoadedProfile = ({
             title="Sign out everywhere"
             confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"
-            onSuccess={async ({ result }) => {
-              await onSignedOut(result);
-            }}
+            onSuccess={async ({ result }) => onSignedOut(result)}
           />
         </SegmentedList>
       </ProfileList>

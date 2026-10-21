@@ -27,17 +27,15 @@ class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username
 
 export const activeUserProfileAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
   accountAtom(account).pipe(
-    Atom.map((result) =>
-      result.pipe(
-        AsyncResult.map(
-          Option.map(({ email, name, role, userId, username }) => ({
-            email,
-            id: userId,
-            name,
-            role: Account.roleToDisplayString(role),
-            username,
-          }))
-        )
+    Atom.map(
+      AsyncResult.map(
+        Option.map(({ email, name, role, userId, username }) => ({
+          email,
+          id: userId,
+          name,
+          role: Account.roleToDisplayString(role),
+          username,
+        }))
       )
     ),
     withPredefinedStates(() => [
@@ -112,9 +110,7 @@ export const useUserProfileForm = ({
             ),
         })
       ),
-    onSuccess: async () => {
-      await onSuccess();
-    },
+    onSuccess,
   });
 };
 

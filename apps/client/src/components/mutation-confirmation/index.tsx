@@ -60,7 +60,7 @@ const ConfirmationForm = ({
         presented,
         busy: isSubmitting,
         feedback: Option.getOrElse(errorMessage, () => ''),
-        execute: async () => form.handleSubmit(),
+        execute: form.handleSubmit,
         handleDismiss: () => {
           if (!isSubmitting) {
             onDismiss();
@@ -87,9 +87,7 @@ const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = 
     onSuccess: (result) => {
       setPresentation({
         tag: 'closing',
-        onDismissed: async () => {
-          await props.onSuccess?.(result);
-        },
+        onDismissed: async () => props.onSuccess?.(result),
       });
     },
   });

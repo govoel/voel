@@ -23,33 +23,30 @@ export const accountsSheetIsMustPickAccount = AccountsSheet.$is('MustPickAccount
 export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession');
 
 export const accountsSheetAtom = AppRuntime.atom(
-  Effect.fnUntraced(
-    function* (get) {
-      // Read account presence and selection from one snapshot so sign-in cannot
-      // temporarily look like saved accounts without an active account.
-      const accounts = yield* get.result(accountsAtom);
-      const activeAccount = Array.findFirst(accounts, (account) => account.active);
-      if (Option.isNone(activeAccount)) {
-        if (accounts.length === 0) {
-          return Stream.succeed<AccountsSheet>(AccountsSheet.Onboarding());
-        }
-
-        return Stream.succeed<AccountsSheet>(AccountsSheet.MustPickAccount());
+  Effect.fnUntraced(function* (get) {
+    // Read account presence and selection from one snapshot so sign-in cannot
+    // temporarily look like saved accounts without an active account.
+    const accounts = yield* get.result(accountsAtom);
+    const activeAccount = Array.findFirst(accounts, (account) => account.active);
+    if (Option.isNone(activeAccount)) {
+      if (accounts.length === 0) {
+        return Stream.succeed<AccountsSheet>(AccountsSheet.Onboarding());
       }
 
-      const authClient = yield* AuthClientMap.use((authClients) =>
-        authClients.acquire(ActiveAccountKey.make(activeAccount.value))
-      );
-      return authClient.sessionChanges.pipe(
-        Stream.map((session): AccountsSheet =>
-          AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)
-            ? AccountsSheet.InvalidSession()
-            : AccountsSheet.Idle()
-        )
-      );
-    },
-    (effect) => Stream.unwrap(effect)
-  )
+      return Stream.succeed<AccountsSheet>(AccountsSheet.MustPickAccount());
+    }
+
+    const authClient = yield* AuthClientMap.use((authClients) =>
+      authClients.acquire(ActiveAccountKey.make(activeAccount.value))
+    );
+    return authClient.sessionChanges.pipe(
+      Stream.map((session): AccountsSheet =>
+        AsyncResult.isSuccess(session) && !session.waiting && Option.isNone(session.value)
+          ? AccountsSheet.InvalidSession()
+          : AccountsSheet.Idle()
+      )
+    );
+  }, Stream.unwrap)
 ).pipe(
   withPredefinedStates(() => [
     {

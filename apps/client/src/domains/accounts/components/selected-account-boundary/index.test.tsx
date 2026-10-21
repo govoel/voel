@@ -148,14 +148,11 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
     list: Ref.get(rows),
-    getActive: Ref.get(rows).pipe(
-      Effect.map((accounts) => Array.findFirst(accounts, (account) => account.active))
-    ),
+    getActive: Ref.get(rows).pipe(Effect.map(Array.findFirst((account) => account.active))),
     getByStorageKey: (key) =>
       Ref.get(rows).pipe(
-        Effect.map((accounts) =>
+        Effect.map(
           Array.findFirst(
-            accounts,
             (account) =>
               account.serverUrl === key.serverUrl &&
               account.userId === key.userId &&
@@ -164,8 +161,9 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
         )
       ),
     setActive: (key) =>
-      Ref.update(rows, (accounts) =>
-        Array.map(accounts, (account) =>
+      Ref.update(
+        rows,
+        Array.map((account) =>
           Struct.assign(account, {
             active: Account.fields.active.make(
               account.serverUrl === key.serverUrl && account.userId === key.userId

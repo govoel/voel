@@ -1,5 +1,5 @@
 import { useAtom } from '@effect/atom-react';
-import { Array, Cause, Effect, Exit, Match, Option } from 'effect';
+import { Array, Cause, Effect, Exit, Match, Option, Struct } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
@@ -13,12 +13,12 @@ import { AppRuntime } from '#src/runtime/index.ts';
 
 export const setActiveAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
+    AccountManager.use((manager) => manager.setActiveAccount(input))
 ).pipe(Atom.withLabel('setActiveAccountAtom'));
 
 export const removeAccountAtom = Atom.family((key: ActiveAccountKey) =>
-  AppRuntime.fn(() =>
-    Effect.gen(function* () {
+  AppRuntime.fn(
+    Effect.fnUntraced(function* () {
       const manager = yield* AccountManager;
       yield* manager.removeAccount(key);
       const accounts = yield* AccountRepository.use((repository) => repository.list);
@@ -43,20 +43,9 @@ export const accountsWithActiveAccount = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {
     const accounts = yield* get.result(accountsAtom);
     const activeAccount = Array.findFirst(accounts, (account) => account.active).pipe(
-      Option.map((account) => ({
-        active: account.active,
-        authStorageId: account.authStorageId,
-        createdAt: account.createdAt,
-        email: account.email,
-        hostname: new URL(account.serverUrl).hostname,
-        name: account.name,
-        profilePicture: account.profilePicture,
-        role: account.role,
-        serverUrl: account.serverUrl,
-        updatedAt: account.updatedAt,
-        userId: account.userId,
-        username: account.username,
-      }))
+      Option.map((account) =>
+        Struct.assign(account, { hostname: new URL(account.serverUrl).hostname })
+      )
     );
 
     return { accounts, activeAccount };

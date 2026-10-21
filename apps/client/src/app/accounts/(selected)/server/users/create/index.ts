@@ -60,8 +60,6 @@ export const useCreateUserForm = ({
       role: 'under18',
     },
     onFailure: authFailureMessage,
-    onSuccess: async ({ result }) => {
-      await onSuccess({ userId: result.user.id });
-    },
+    onSuccess: async ({ result }) => onSuccess({ userId: result.user.id }),
   });
 };

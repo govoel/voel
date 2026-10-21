@@ -12,28 +12,25 @@ import { swr } from '#src/runtime/swr.ts';
 
 export const listUsersAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
   AppRuntime.pull(
-    Effect.fnUntraced(
-      function* (get) {
-        const authClient = yield* get.result(accountAuthClientAtom(account));
+    Effect.fnUntraced(function* (get) {
+      const authClient = yield* get.result(accountAuthClientAtom(account));
 
-        return Stream.paginate(
-          0,
-          Effect.fnUntraced(function* (offset) {
-            const data = yield* authClient.admin.listUsers({
-              limit: 10,
-              offset,
-            });
+      return Stream.paginate(
+        0,
+        Effect.fnUntraced(function* (offset) {
+          const data = yield* authClient.admin.listUsers({
+            limit: 10,
+            offset,
+          });
 
-            const { users } = data;
-            const nextOffset = offset + users.length;
-            const hasMore = users.length > 0 && nextOffset < data.total;
+          const { users } = data;
+          const nextOffset = offset + users.length;
+          const hasMore = users.length > 0 && nextOffset < data.total;
 
-            return [users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
-          })
-        );
-      },
-      (effect) => Stream.unwrap(effect)
-    )
+          return [users, hasMore ? Option.some(nextOffset) : Option.none()] as const;
+        })
+      );
+    }, Stream.unwrap)
   ).pipe(
     Atom.withReactivity(['auth.users']),
     swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
