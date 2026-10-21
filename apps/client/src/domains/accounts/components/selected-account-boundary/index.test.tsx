@@ -1,10 +1,10 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { RegistryContext, useAtom, useAtomValue } from '@effect/atom-react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { Array, DateTime, Effect, Layer, ManagedRuntime, Option, Ref, Struct } from 'effect';
 import { AsyncResult, AtomRegistry, Reactivity } from 'effect/reactivity';
 import type { PropsWithChildren, ReactNode } from 'react';
-import { Suspense, useContext, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { afterEach, expect, it, vi } from 'vitest';
 
@@ -217,14 +217,8 @@ const AccountContent = () => {
   const account = useSelectedAccount();
   const profileQuery = activeUserProfileAtom(account);
   const profile = useAtomValue(profileQuery);
-  const registry = useContext(RegistryContext);
   const mutationAtom = deleteServerUserAtom(account);
   const [mutation, removeUser] = useAtom(mutationAtom);
-  // An external observer can outlive the React subtree. Retain its mutation
-  // until registry disposal to exercise fresh-scope isolation, not idle eviction.
-  useEffect(() => {
-    registry.mount(mutationAtom);
-  }, [registry, mutationAtom]);
   const [draft, setDraft] = useState('Fresh draft');
   return (
     <>
@@ -263,6 +257,10 @@ const PresentedMainShell = () => (
     </MainShell>
   </>
 );
+
+it('requires a selected-account provider instead of inventing an account', async () => {
+  await expect(renderHook(() => useSelectedAccount())).rejects.toThrow(/SelectedAccountBoundary/u);
+});
 
 it('shows Welcome without saved accounts, then one shared no-account page until an account is selected', async () => {
   const fixture = await makeFixture([]);

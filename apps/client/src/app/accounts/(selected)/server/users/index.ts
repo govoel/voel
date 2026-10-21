@@ -10,7 +10,7 @@ import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
 
-export const listUsersAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const listUsersAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.pull(
     Effect.fnUntraced(function* (get) {
       const authClient = yield* get.result(accountAuthClientAtom(account));

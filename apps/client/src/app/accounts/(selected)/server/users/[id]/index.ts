@@ -26,7 +26,7 @@ export const serverUserAtom = Atom.family(
     account,
     userId,
   }: {
-    readonly account: Atom.Atom<ActiveAccountKey>;
+    readonly account: ActiveAccountKey;
     readonly userId: typeof AuthUser.fields.id.Type;
   }) =>
     AppRuntime.atom(
@@ -35,7 +35,7 @@ export const serverUserAtom = Atom.family(
         const user = yield* client.admin.getUser({ userId });
         return {
           ...user,
-          isOtherUser: get(account).userId !== user.id,
+          isOtherUser: account.userId !== user.id,
         };
       })
     ).pipe(
@@ -44,7 +44,7 @@ export const serverUserAtom = Atom.family(
     )
 );
 
-const setServerUserRoleAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+const setServerUserRoleAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -54,7 +54,7 @@ const setServerUserRoleAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>)
   )
 );
 
-const updateServerUserAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+const updateServerUserAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthAdminUpdateUserInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -64,7 +64,7 @@ const updateServerUserAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) 
   )
 );
 
-const setServerUserPasswordAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+const setServerUserPasswordAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthSetUserPasswordInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -74,7 +74,7 @@ const setServerUserPasswordAtom = Atom.family((account: Atom.Atom<ActiveAccountK
   )
 );
 
-export const deleteServerUserAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const deleteServerUserAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthUserIdInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -89,7 +89,7 @@ export const serverUserSessionsAtom = Atom.family(
     account,
     userId,
   }: {
-    readonly account: Atom.Atom<ActiveAccountKey>;
+    readonly account: ActiveAccountKey;
     readonly userId: typeof AuthUser.fields.id.Type;
   }) =>
     AppRuntime.atom(
@@ -103,7 +103,7 @@ export const serverUserSessionsAtom = Atom.family(
     )
 );
 
-export const revokeServerUserSessionAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const revokeServerUserSessionAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -112,7 +112,7 @@ export const revokeServerUserSessionAtom = Atom.family((account: Atom.Atom<Activ
     { reactivityKeys: ['auth.sessions'] }
   )
 );
-export const revokeServerUserSessionsAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const revokeServerUserSessionsAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthUserIdInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));

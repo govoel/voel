@@ -13,7 +13,7 @@ export const serverUserSessionAtom = Atom.family(
     userId,
     sessionId,
   }: {
-    readonly account: Atom.Atom<ActiveAccountKey>;
+    readonly account: ActiveAccountKey;
     readonly userId: typeof AuthUser.fields.id.Type;
     readonly sessionId: typeof AuthDeviceSession.fields.id.Type;
   }) =>
@@ -23,7 +23,7 @@ export const serverUserSessionAtom = Atom.family(
         return Array.findFirst(sessions, (session) => session.id === sessionId).pipe(
           Option.map((session) => ({
             ...session,
-            isOtherUser: get(account).userId !== userId,
+            isOtherUser: account.userId !== userId,
           }))
         );
       })

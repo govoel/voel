@@ -11,7 +11,7 @@ export const ownSessionAtom = Atom.family(
     account,
     id,
   }: {
-    readonly account: Atom.Atom<ActiveAccountKey>;
+    readonly account: ActiveAccountKey;
     readonly id: typeof AuthDeviceSession.fields.id.Type;
   }) =>
     ownSessionsAtom(account).pipe(

@@ -25,7 +25,7 @@ class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username
   username,
 })) {}
 
-export const activeUserProfileAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const activeUserProfileAtom = Atom.family((account: ActiveAccountKey) =>
   accountAtom(account).pipe(
     Atom.map(
       AsyncResult.map(
@@ -69,7 +69,7 @@ export const activeUserProfileAtom = Atom.family((account: Atom.Atom<ActiveAccou
   )
 );
 
-const updateCurrentUserAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+const updateCurrentUserAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -114,7 +114,7 @@ export const useUserProfileForm = ({
   });
 };
 
-const changePasswordAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+const changePasswordAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -127,7 +127,7 @@ const changePasswordAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
   )
 );
 
-export const ownSessionsAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const ownSessionsAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.atom(
     Effect.fnUntraced(function* (get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -141,7 +141,7 @@ export const ownSessionsAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>
   )
 );
 
-export const revokeOwnSessionAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const revokeOwnSessionAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));
@@ -151,12 +151,11 @@ export const revokeOwnSessionAtom = Atom.family((account: Atom.Atom<ActiveAccoun
   )
 );
 
-export const signOutEverywhereAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+export const signOutEverywhereAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<Schema.Void['Type']>()(
-    Effect.fnUntraced(function* (_, get) {
-      const key = get(account);
+    Effect.fnUntraced(function* () {
       const manager = yield* AccountManager;
-      yield* manager.signOutEverywhere(key);
+      yield* manager.signOutEverywhere(account);
       const accounts = yield* AccountRepository.use((repository) => repository.list);
       return { accountsRemain: accounts.length > 0 };
     }),

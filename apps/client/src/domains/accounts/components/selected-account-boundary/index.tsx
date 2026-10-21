@@ -5,7 +5,7 @@ import { Redirect } from 'expo-router';
 import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 
 import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
-import { SelectedAccount } from '#src/domains/accounts/scope.ts';
+import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
 
 // Only descendants remount; root and management navigation stay mounted.
 export const SelectedAccountBoundary = ({
@@ -16,11 +16,11 @@ export const SelectedAccountBoundary = ({
   return Option.match(selected, {
     onNone: (): ReactNode => fallback,
     onSome: (key) => (
-      <SelectedAccount.Provider
+      <SelectedAccountContext.Provider
         key={JSON.stringify([key.serverUrl, key.userId, key.authStorageId])}
         value={key}>
         {children}
-      </SelectedAccount.Provider>
+      </SelectedAccountContext.Provider>
     ),
   });
 };

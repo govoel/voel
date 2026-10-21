@@ -10,7 +10,7 @@ import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { accountAuthClientAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-const createServerUserAtom = Atom.family((account: Atom.Atom<ActiveAccountKey>) =>
+const createServerUserAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
     Effect.fnUntraced(function* (input, get) {
       const client = yield* get.result(accountAuthClientAtom(account));

@@ -5,7 +5,6 @@ import {
   Context,
   Deferred,
   Effect,
-  Equal,
   Fiber,
   Layer,
   Option,
@@ -594,25 +593,25 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        const scope = Equal.byReference(Atom.make(Option.getOrThrow(yield* manager.state)));
-        yield* Atom.mount(listUsersAtom(scope));
+        const key = Option.getOrThrow(yield* manager.state);
+        yield* Atom.mount(listUsersAtom(key));
 
-        const firstPage = yield* Atom.getResult(listUsersAtom(scope), {
+        const firstPage = yield* Atom.getResult(listUsersAtom(key), {
           suspendOnWaiting: true,
         });
         expect(firstPage).toMatchObject({ done: false });
         expect(firstPage.items).toHaveLength(10);
 
-        yield* Atom.set(listUsersAtom(scope), void 0);
-        const allUsers = yield* Atom.getResult(listUsersAtom(scope), {
+        yield* Atom.set(listUsersAtom(key), void 0);
+        const allUsers = yield* Atom.getResult(listUsersAtom(key), {
           suspendOnWaiting: true,
         });
         expect(allUsers).toMatchObject({ done: false });
         expect(allUsers.items).toHaveLength(12);
 
-        yield* Atom.set(listUsersAtom(scope), void 0);
+        yield* Atom.set(listUsersAtom(key), void 0);
         expect(
-          yield* Atom.getResult(listUsersAtom(scope), {
+          yield* Atom.getResult(listUsersAtom(key), {
             suspendOnWaiting: true,
           })
         ).toMatchObject({ done: true, items: allUsers.items });
@@ -622,15 +621,15 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const target = Option.getOrThrow(
           Array.findFirst(allUsers.items, (user) => user.username !== testServer.adminUsername)
         );
-        yield* Atom.set(deleteServerUserAtom(scope), { userId: target.id });
-        yield* Atom.getResult(deleteServerUserAtom(scope), { suspendOnWaiting: true });
+        yield* Atom.set(deleteServerUserAtom(key), { userId: target.id });
+        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
-        const refreshed = yield* Atom.getResult(listUsersAtom(scope), { suspendOnWaiting: true });
+        const refreshed = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(refreshed.items).toHaveLength(10);
         expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
-        yield* Atom.set(listUsersAtom(scope), void 0);
-        const remaining = yield* Atom.getResult(listUsersAtom(scope), { suspendOnWaiting: true });
+        yield* Atom.set(listUsersAtom(key), void 0);
+        const remaining = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(remaining.items).toHaveLength(11);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
@@ -638,7 +637,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   );
 
   iit.effect(
-    'isolates mounted account queries and resets pagination and mutation state on A → B → A',
+    'keeps queries and mutations bound to their account after selection changes',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
@@ -649,15 +648,9 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           password: firstServer.password,
         });
         const firstKey = Option.getOrThrow(yield* manager.state);
-        const first = Equal.byReference(Atom.make(firstKey));
-        const firstUsers = listUsersAtom(first);
-        yield* Atom.mount(firstUsers);
+        const firstUsers = listUsersAtom(firstKey);
         const page = yield* Atom.getResult(firstUsers, { suspendOnWaiting: true });
         expect(page.items).toHaveLength(10);
-        yield* Atom.set(firstUsers, void 0);
-        expect((yield* Atom.getResult(firstUsers, { suspendOnWaiting: true })).items).toHaveLength(
-          12
-        );
 
         const secondServer = yield* setupTestServerWithUsers({ userCount: 3 });
         yield* manager.signInAccount({
@@ -666,20 +659,19 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           password: secondServer.password,
         });
         const secondKey = Option.getOrThrow(yield* manager.state);
-        const second = Equal.byReference(Atom.make(secondKey));
-        const secondUsers = yield* Atom.getResult(listUsersAtom(second), {
+        const secondUsers = yield* Atom.getResult(listUsersAtom(secondKey), {
           suspendOnWaiting: true,
         });
         expect(Array.map(secondUsers.items, (user) => user.username).sort()).toEqual(
           [...secondServer.usernames].sort()
         );
 
-        // Executing an old scope while B is selected must still target A.
+        // A captured key still targets A while B is selected.
         const victim = Option.getOrThrow(
           Array.findFirst(page.items, (user) => user.username !== firstServer.adminUsername)
         );
-        yield* Atom.set(deleteServerUserAtom(first), { userId: victim.id });
-        yield* Atom.getResult(deleteServerUserAtom(first), { suspendOnWaiting: true });
+        yield* Atom.set(deleteServerUserAtom(firstKey), { userId: victim.id });
+        yield* Atom.getResult(deleteServerUserAtom(firstKey), { suspendOnWaiting: true });
         const secondClient = yield* AuthClientMap.use((clients) => clients.acquire(secondKey));
         expect((yield* secondClient.admin.listUsers({ limit: 20, offset: 0 })).users).toHaveLength(
           3
@@ -692,22 +684,12 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         expect(
           yield* Atom.getResult(
             serverUserSessionAtom({
-              account: first,
+              account: firstKey,
               userId: firstKey.userId,
               sessionId: secondSession.id,
             })
           )
         ).toEqual(Option.none());
-
-        yield* manager.setActiveAccount(firstKey);
-        const returned = Equal.byReference(Atom.make(firstKey));
-        expect((yield* Atom.get(listUsersAtom(returned)))._tag).toBe('Initial');
-        expect((yield* Atom.get(deleteServerUserAtom(returned)))._tag).toBe('Initial');
-        const returnedPage = yield* Atom.getResult(listUsersAtom(returned), {
-          suspendOnWaiting: true,
-        });
-        expect(returnedPage.items).toHaveLength(10);
-        expect(Array.some(returnedPage.items, (user) => user.id === victim.id)).toBe(false);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -726,41 +708,42 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        const authClientKey = Option.getOrThrow(yield* manager.state);
-        const client = yield* AuthClientMap.use((authClients) =>
-          authClients.acquire(authClientKey)
-        );
+        const key = Option.getOrThrow(yield* manager.state);
+        const client = yield* AuthClientMap.use((authClients) => authClients.acquire(key));
         const users = yield* client.admin.listUsers({ limit: 10, offset: 0 });
         const target = Option.getOrThrow(
           Array.findFirst(users.users, (user) => user.username !== testServer.adminUsername)
         );
-        const scope = Equal.byReference(Atom.make(authClientKey));
         const currentUser = (yield* client.readSession).user;
-        const detail = serverUserAtom({ account: scope, userId: currentUser.id });
+        const detail = serverUserAtom({ account: key, userId: currentUser.id });
         yield* Atom.mount(detail);
-        yield* Atom.mount(listUsersAtom(scope));
+        yield* Atom.mount(listUsersAtom(key));
         yield* Atom.getResult(detail, { suspendOnWaiting: true });
-        yield* Atom.getResult(listUsersAtom(scope), { suspendOnWaiting: true });
+        yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
+        expect(
+          yield* Atom.getResult(serverUserAtom({ account: key, userId: target.id }))
+        ).toMatchObject({ id: target.id, isOtherUser: true });
         const { drainScheduler } = yield* TestScheduler;
 
-        yield* Atom.set(deleteServerUserAtom(scope), { userId: target.id });
-        yield* Atom.getResult(deleteServerUserAtom(scope), { suspendOnWaiting: true });
+        yield* Atom.set(deleteServerUserAtom(key), { userId: target.id });
+        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true });
         yield* drainScheduler;
         expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({
           id: currentUser.id,
+          isOtherUser: false,
         });
-        const refreshed = yield* Atom.getResult(listUsersAtom(scope), { suspendOnWaiting: true });
+        const refreshed = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
 
-        yield* Atom.set(deleteServerUserAtom(scope), {
+        yield* Atom.set(deleteServerUserAtom(key), {
           userId: Account.fields.userId.make('missing-user'),
         });
-        yield* Atom.getResult(deleteServerUserAtom(scope), { suspendOnWaiting: true }).pipe(
+        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true }).pipe(
           Effect.flip
         );
         yield* drainScheduler;
         expect(
-          (yield* Atom.getResult(listUsersAtom(scope), { suspendOnWaiting: true })).items
+          (yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true })).items
         ).toEqual(refreshed.items);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
@@ -775,22 +758,21 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
         const client = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
-        const scope = Equal.byReference(Atom.make(ActiveAccountKey.make(account)));
+        const key = ActiveAccountKey.make(account);
         const session = yield* client.readSession;
-        const adminSessions = serverUserSessionsAtom({ account: scope, userId: account.userId });
-        yield* Atom.mount(ownSessionsAtom(scope));
+        const adminSessions = serverUserSessionsAtom({ account: key, userId: account.userId });
+        yield* Atom.mount(ownSessionsAtom(key));
         yield* Atom.mount(adminSessions);
         expect(
-          (yield* Atom.getResult(ownSessionsAtom(scope), { suspendOnWaiting: true })).sessions
-            .length
+          (yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true })).sessions.length
         ).toBeGreaterThan(1);
         yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
         const other = Option.getOrThrow(
           Array.findFirst(yield* client.listSessions, (item) => item.id !== session.session.id)
         );
-        const ownDetail = ownSessionAtom({ account: scope, id: other.id });
+        const ownDetail = ownSessionAtom({ account: key, id: other.id });
         const adminDetail = serverUserSessionAtom({
-          account: scope,
+          account: key,
           userId: account.userId,
           sessionId: other.id,
         });
@@ -803,26 +785,26 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           Option.getOrThrow(yield* Atom.getResult(adminDetail, { suspendOnWaiting: true }))
         ).toMatchObject({ id: other.id, isOtherUser: false });
 
-        yield* Atom.set(revokeOwnSessionAtom(scope), { token: other.token });
-        yield* Atom.getResult(revokeOwnSessionAtom(scope), { suspendOnWaiting: true });
+        yield* Atom.set(revokeOwnSessionAtom(key), { token: other.token });
+        yield* Atom.getResult(revokeOwnSessionAtom(key), { suspendOnWaiting: true });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
-        const own = yield* Atom.getResult(ownSessionsAtom(scope), { suspendOnWaiting: true });
+        const own = yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true });
         const admin = yield* Atom.getResult(
-          serverUserSessionsAtom({ account: scope, userId: account.userId }),
+          serverUserSessionsAtom({ account: key, userId: account.userId }),
           { suspendOnWaiting: true }
         );
         expect(Array.some(own.sessions, (item) => item.id === other.id)).toBe(false);
         expect(Array.some(admin.sessions, (item) => item.id === other.id)).toBe(false);
         expect(
-          yield* Atom.getResult(ownSessionAtom({ account: scope, id: other.id }), {
+          yield* Atom.getResult(ownSessionAtom({ account: key, id: other.id }), {
             suspendOnWaiting: true,
           })
         ).toEqual(Option.none());
         expect(
           yield* Atom.getResult(
             serverUserSessionAtom({
-              account: scope,
+              account: key,
               userId: account.userId,
               sessionId: other.id,
             }),
@@ -843,8 +825,8 @@ it.layer(TestServerControllerClient.layer)('accountAtom', (iit) => {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [first, second] = yield* signInTestServerUsers(manager, server);
-        const scope = Equal.byReference(Atom.make(ActiveAccountKey.make(first)));
-        const metadata = accountAtom(scope);
+        const key = ActiveAccountKey.make(first);
+        const metadata = accountAtom(key);
         yield* Atom.mount(metadata);
         const original = Option.getOrThrow(yield* Atom.getResult(metadata));
         yield* manager.setActiveAccount(second);
