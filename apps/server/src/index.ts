@@ -7,7 +7,11 @@ import { AuthRouterLayer } from '#src/domains/auth/http.ts';
 import { LibrarySyncRouterLayer } from '#src/domains/library/database/sync.ts';
 import { ApiRoutesLayer } from '#src/http.ts';
 
-const AllRoutesLayer = Layer.mergeAll(AuthRouterLayer, LibrarySyncRouterLayer, ApiRoutesLayer);
+export const AllRoutesLayer = Layer.mergeAll(
+  AuthRouterLayer,
+  LibrarySyncRouterLayer,
+  ApiRoutesLayer
+);
 
 if (import.meta.main) {
   const HttpServerLayer = pipe(
