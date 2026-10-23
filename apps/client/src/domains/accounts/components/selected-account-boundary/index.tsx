@@ -1,11 +1,30 @@
 import { useAtomSuspense } from '@effect/atom-react';
-import { Option } from 'effect';
+import { Effect, Option, Stream } from 'effect';
+import { Atom } from 'effect/reactivity';
 import type { Stack } from 'expo-router';
 import { Redirect } from 'expo-router';
 import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 
-import { activeAccountKeyAtom } from '#src/domains/accounts/atoms.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
+
+const activeAccountKeyAtom = AppRuntime.atom(
+  AccountManager.pipe(
+    Effect.map((manager) => manager.changes),
+    Stream.unwrap
+  )
+).pipe(
+  (source) =>
+    AppRuntime.atom((get) =>
+      get.result(source).pipe(
+        Effect.catchTags({
+          NoSuchElementError: () => Effect.succeedNone,
+        })
+      )
+    ),
+  Atom.withLabel('activeAccountKeyAtom')
+);
 
 // Only descendants remount; root and management navigation stay mounted.
 export const SelectedAccountBoundary = ({

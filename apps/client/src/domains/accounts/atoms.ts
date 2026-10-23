@@ -1,9 +1,8 @@
-import { Cause, DateTime, Effect, Equal, Option, Stream } from 'effect';
+import { Cause, DateTime, Effect, Equal } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
@@ -57,21 +56,4 @@ export const accountsAtom = AppRuntime.atom(
   ]),
   Atom.withEquality(Equal.equals),
   Atom.withLabel('accountsAtom')
-);
-
-export const activeAccountKeyAtom = AppRuntime.atom(
-  AccountManager.pipe(
-    Effect.map((manager) => manager.changes),
-    Stream.unwrap
-  )
-).pipe(
-  (source) =>
-    AppRuntime.atom((get) =>
-      get.result(source).pipe(
-        Effect.catchTags({
-          NoSuchElementError: () => Effect.succeed<Atom.Success<typeof source>>(Option.none()),
-        })
-      )
-    ),
-  Atom.withLabel('activeAccountKeyAtom')
 );
