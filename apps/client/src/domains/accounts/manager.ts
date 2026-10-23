@@ -79,10 +79,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
           .pipe((effect) => reactivity.mutation(['account'], effect));
       });
 
-      const removeActiveAccount = state.pipe(
-        Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: removeAccount }))
-      );
-
       const signOutEverywhere = Effect.fnUntraced(function* (key: ActiveAccountKey) {
         const client = yield* authClientMap.acquire(key);
         // Keep local credentials if revocation fails so the user can retry.
@@ -167,7 +163,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
         changes,
         state,
         setActiveAccount,
-        removeActiveAccount,
         removeAccount,
         signOutEverywhere,
         signInAccount,

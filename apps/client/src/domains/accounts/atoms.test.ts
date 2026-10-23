@@ -27,7 +27,7 @@ import {
 } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { serverUserSessionAtom } from '#src/app/accounts/(selected)/server/users/[id]/sessions/[sessionId]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/(selected)/server/users/index.ts';
-import { removeAccountAtom } from '#src/app/accounts/index.ts';
+import { accountsWithActiveAccount, removeAccountAtom } from '#src/app/accounts/index.ts';
 import { MainDatabase } from '#src/database/main/index.ts';
 import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
@@ -202,7 +202,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           },
         ]);
 
-        yield* manager.removeActiveAccount;
+        yield* manager.removeAccount(ActiveAccountKey.make(account));
 
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
@@ -212,13 +212,20 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
   );
 
   iit.effect(
-    'returns persisted account rows with current active flags',
+    'refreshes persisted account rows through the management projection',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
         const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
 
+        yield* Atom.mount(accountsWithActiveAccount);
+        expect(
+          Option.getOrThrow((yield* Atom.getResult(accountsWithActiveAccount)).activeAccount)
+        ).toMatchObject({
+          userId: secondAccount.userId,
+          hostname: new URL(testServer.serverUrl).hostname,
+        });
         expect(yield* Atom.getResult(accountsAtom)).toMatchObject([
           {
             serverUrl: testServer.serverUrl,
@@ -230,6 +237,26 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
             username: secondAccount.username,
             active: true,
           },
+        ]);
+
+        // Bypass invalidation: Retry must reach the repository through the mapped atom.
+        yield* AccountRepository.use((repository) => repository.setActive(firstAccount));
+        yield* Atom.refresh(accountsWithActiveAccount);
+        const refreshed = Option.getOrThrow(
+          yield* Atom.toStreamResult(accountsWithActiveAccount).pipe(
+            Stream.filter(
+              ({ activeAccount }) =>
+                Option.isSome(activeAccount) && activeAccount.value.userId === firstAccount.userId
+            ),
+            Stream.runHead
+          )
+        );
+        expect(Option.getOrThrow(refreshed.activeAccount)).toMatchObject({
+          userId: firstAccount.userId,
+        });
+        expect(refreshed.accounts).toMatchObject([
+          { userId: firstAccount.userId, active: true },
+          { userId: secondAccount.userId, active: false },
         ]);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
@@ -697,6 +724,42 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
 });
 
 it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
+  iit.effect(
+    'refreshes the admin session query through its session detail projection',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const key = ActiveAccountKey.make(account);
+        const client = yield* AuthClientMap.use((clients) => clients.acquire(key));
+        const current = yield* client.readSession;
+        const other = Option.getOrThrow(
+          Array.findFirst(
+            yield* client.listSessions,
+            (session) => session.id !== current.session.id
+          )
+        );
+        const detail = serverUserSessionAtom({
+          account: key,
+          userId: key.userId,
+          sessionId: other.id,
+        });
+        yield* Atom.mount(detail);
+        expect(Option.getOrThrow(yield* Atom.getResult(detail))).toMatchObject({
+          id: other.id,
+          isOtherUser: false,
+        });
+
+        // Call the client directly so no mutation atom invalidates the query for us.
+        yield* client.admin.revokeUserSession({ sessionToken: other.token });
+        yield* Atom.refresh(detail);
+        expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toEqual(Option.none());
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
   iit.effect(
     'refreshes user queries after successful mutations, but not failed mutations',
     Effect.fnUntraced(

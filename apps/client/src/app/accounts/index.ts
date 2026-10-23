@@ -39,9 +39,8 @@ export const removeAccountFailureMessage = ({
     })
   );
 
-export const accountsWithActiveAccount = AppRuntime.atom(
-  Effect.fnUntraced(function* (get) {
-    const accounts = yield* get.result(accountsAtom);
+export const accountsWithActiveAccount = accountsAtom.pipe(
+  Atom.mapResult((accounts) => {
     const activeAccount = Array.findFirst(accounts, (account) => account.active).pipe(
       Option.map((account) =>
         Struct.assign(account, { hostname: new URL(account.serverUrl).hostname })
@@ -49,8 +48,7 @@ export const accountsWithActiveAccount = AppRuntime.atom(
     );
 
     return { accounts, activeAccount };
-  })
-).pipe(
+  }),
   withPredefinedStates(() => [
     {
       id: PredefinedStateId.make('loading'),

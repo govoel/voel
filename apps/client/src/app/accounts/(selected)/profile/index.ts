@@ -6,16 +6,13 @@ import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { useAppForm } from '#src/components/form';
+import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
-import {
-  accountAtom,
-  accountAuthClientAtom,
-  useSelectedAccount,
-} from '#src/domains/accounts/scope.ts';
+import { accountAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
@@ -71,8 +68,8 @@ export const activeUserProfileAtom = Atom.family((account: ActiveAccountKey) =>
 
 const updateCurrentUserAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
-    Effect.fnUntraced(function* (input, get) {
-      const client = yield* get.result(accountAuthClientAtom(account));
+    Effect.fnUntraced(function* (input) {
+      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
       return yield* client.updateUser(input);
     }),
     { reactivityKeys: ['auth.users'] }
@@ -116,8 +113,8 @@ export const useUserProfileForm = ({
 
 const changePasswordAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
-    Effect.fnUntraced(function* (input, get) {
-      const client = yield* get.result(accountAuthClientAtom(account));
+    Effect.fnUntraced(function* (input) {
+      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
       yield* client.changePassword({
         currentPassword: input.currentPassword,
         newPassword: input.newPassword,
@@ -129,8 +126,8 @@ const changePasswordAtom = Atom.family((account: ActiveAccountKey) =>
 
 export const ownSessionsAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.atom(
-    Effect.fnUntraced(function* (get) {
-      const client = yield* get.result(accountAuthClientAtom(account));
+    Effect.fnUntraced(function* () {
+      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
       const current = yield* client.readSession;
       const sessions = yield* client.listSessions;
       return { sessions, currentId: current.session.id };
@@ -143,8 +140,8 @@ export const ownSessionsAtom = Atom.family((account: ActiveAccountKey) =>
 
 export const revokeOwnSessionAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
-    Effect.fnUntraced(function* (input, get) {
-      const client = yield* get.result(accountAuthClientAtom(account));
+    Effect.fnUntraced(function* (input) {
+      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
       yield* client.revokeSession(input);
     }),
     { reactivityKeys: ['auth.sessions'] }

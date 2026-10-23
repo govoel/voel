@@ -4,16 +4,16 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
+import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
-import { accountAuthClientAtom } from '#src/domains/accounts/scope.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
 
 export const listUsersAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.pull(
-    Effect.fnUntraced(function* (get) {
-      const authClient = yield* get.result(accountAuthClientAtom(account));
+    Effect.fnUntraced(function* () {
+      const authClient = yield* AuthClientMap.use((clients) => clients.acquire(account));
 
       return Stream.paginate(
         0,

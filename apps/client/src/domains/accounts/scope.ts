@@ -1,7 +1,6 @@
 import { Atom, Reactivity } from 'effect/reactivity';
 import { createContext, useContext } from 'react';
 
-import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -15,10 +14,6 @@ export const useSelectedAccount = () => {
   }
   return account;
 };
-
-export const accountAuthClientAtom = Atom.family((account: ActiveAccountKey) =>
-  AppRuntime.atom(AuthClientMap.use((clients) => clients.acquire(account)))
-);
 
 export const accountAtom = Atom.family((account: ActiveAccountKey) =>
   AppRuntime.atom(
