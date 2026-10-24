@@ -1,6 +1,6 @@
 import { defineRule } from '@oxlint/plugins';
 import type { ESTree } from '@oxlint/plugins';
-import { Array, Option, String, pipe } from 'effect';
+import { Array, Option, String } from 'effect';
 
 import {
   analyzeSuperclass,
@@ -141,11 +141,7 @@ export const deterministicIdentifiersRule = defineRule({
         }
 
         const brand = evaluateString(brandNode.value, constants);
-        if (
-          Option.exists(brand, (value) =>
-            pipe(value, String.startsWith(`${location.value.sourceIdentifier}/`))
-          )
-        ) {
+        if (Option.exists(brand, String.startsWith(`${location.value.sourceIdentifier}/`))) {
           return;
         }
 
