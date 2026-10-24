@@ -7,9 +7,10 @@ import { useAppForm } from '#src/components/form';
 import { useSubmitState } from '#src/components/form/hooks.tsx';
 import { Confirmation } from '#src/components/mutation-confirmation/confirmation';
 
-type PresentationProps = Omit<ComponentProps<typeof Confirmation>, 'state'> & {
-  readonly trigger: (state: { readonly open: () => void; readonly busy: boolean }) => ReactElement;
-};
+type MutationProps<Input, Encoded, Success, Failure, EncodingServices> = Parameters<
+  typeof useAppForm<Input, Encoded, Success, Failure, EncodingServices>
+>[0] &
+  Omit<ComponentProps<typeof Confirmation>, 'state'>;
 
 const PresentationContext = createContext<{
   readonly busy: boolean;
@@ -75,40 +76,35 @@ const ConfirmationForm = ({
 const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = never>({
   dismiss,
   ...props
-}: Parameters<typeof useAppForm<Input, Encoded, Success, Failure, EncodingServices>>[0] &
-  Omit<ComponentProps<typeof Confirmation>, 'state'> & { readonly dismiss: () => void }) => {
-  const [presentation, setPresentation] = useState<
-    | { readonly tag: 'presented' }
-    | { readonly tag: 'closing'; readonly onDismissed?: () => void | Promise<void> }
-  >({ tag: 'presented' });
-  const dismissed = useRef(false);
+}: MutationProps<Input, Encoded, Success, Failure, EncodingServices> & {
+  readonly dismiss: () => void;
+}) => {
+  const [presented, setPresented] = useState(true);
+  const completeDismissal = useRef<(() => void) | null>(dismiss);
   const form = useAppForm({
     ...props,
     onSuccess: (result) => {
-      setPresentation({
-        tag: 'closing',
-        onDismissed: async () => props.onSuccess?.(result),
-      });
+      // Navigation may remove the host too. Wait until native dismissal completes.
+      completeDismissal.current = () => {
+        dismiss();
+        void props.onSuccess?.(result);
+      };
+      setPresented(false);
     },
   });
   return (
     <form.AppForm>
       <ConfirmationForm
         {...props}
-        presented={presentation.tag === 'presented'}
+        presented={presented}
         onDismiss={() => {
-          setPresentation((current) => (current.tag === 'closing' ? current : { tag: 'closing' }));
+          setPresented(false);
         }}
         onDismissed={() => {
-          if (dismissed.current) {
-            return;
-          }
-          dismissed.current = true;
-          // Navigation may remove the host too. Only run it after native dismissal completes.
-          dismiss();
-          if (presentation.tag === 'closing') {
-            void presentation.onDismissed?.();
-          }
+          // Native adapters can report completion more than once. Consume it once.
+          const complete = completeDismissal.current;
+          completeDismissal.current = null;
+          complete?.();
         }}
       />
     </form.AppForm>
@@ -118,8 +114,9 @@ const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = 
 export const MutationConfirmation = <Input, Encoded, Success, Failure, EncodingServices = never>({
   trigger,
   ...props
-}: Parameters<typeof useAppForm<Input, Encoded, Success, Failure, EncodingServices>>[0] &
-  PresentationProps) => {
+}: MutationProps<Input, Encoded, Success, Failure, EncodingServices> & {
+  readonly trigger: (state: { readonly open: () => void; readonly busy: boolean }) => ReactElement;
+}) => {
   const presentation = useContext(PresentationContext);
   if (presentation === null) {
     throw new Error('MutationConfirmation requires MutationConfirmationProvider');

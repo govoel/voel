@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Context, Deferred, Effect, Layer, Schema } from 'effect';
+import { Array, Context, Deferred, Effect, Layer, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { PropsWithChildren } from 'react';
 import { useState } from 'react';
@@ -56,6 +56,56 @@ class Operation extends Context.Service<Operation>()(
     make: Effect.succeed({ execute: Effect.fail(OperationFailure.make({})).pipe(Effect.asVoid) }),
   }
 ) {}
+
+it('reserves the host until cancellation finishes and opens the next request with fresh state', async () => {
+  const execute = vi.fn(() => Effect.void);
+  const onSuccess = vi.fn();
+  const runtime = Atom.runtime(Layer.succeed(Operation, { execute: Effect.suspend(execute) }));
+  const remove = runtime.fn(() => Operation.use((service) => service.execute));
+  await render(
+    <MutationConfirmationProvider>
+      {Array.map(['Alice', 'Bob'], (name) => (
+        <MutationConfirmation
+          key={name}
+          mutation={remove}
+          title={`Remove ${name}`}
+          message="Remove this account"
+          onFailure={() => 'Try again'}
+          onSuccess={onSuccess}
+          trigger={({ open, busy }) => (
+            <Pressable role="button" onPress={open}>
+              <Text>{`Open ${name}`}</Text>
+              <Text>{busy ? 'Busy' : 'Ready'}</Text>
+            </Pressable>
+          )}
+        />
+      ))}
+    </MutationConfirmationProvider>
+  );
+  await fireEvent.press(screen.getByText('Open Alice'));
+  expect(screen.getAllByText('Busy')).toHaveLength(2);
+  await fireEvent.press(screen.getByText('Open Bob'));
+  expect(screen.getByText('Remove Alice')).toBeVisible();
+  expect(screen.queryByText('Remove Bob')).toBeNull();
+
+  await fireEvent.press(screen.getByText('Cancel'));
+  await fireEvent.press(screen.getByText('Open Bob'));
+  expect(screen.getByText('Remove Alice')).toBeVisible();
+  expect(execute).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByText('Finish native dismissal'));
+  expect(onSuccess).not.toHaveBeenCalled();
+  expect(screen.getAllByText('Ready')).toHaveLength(2);
+
+  await fireEvent.press(screen.getByText('Open Bob'));
+  expect(screen.getByText('Remove Bob')).toBeVisible();
+  await fireEvent.press(screen.getByText('Confirm'));
+  await screen.findByText('Finish native dismissal');
+  expect(execute).toHaveBeenCalledOnce();
+  expect(onSuccess).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByText('Finish native dismissal'));
+  expect(onSuccess).toHaveBeenCalledOnce();
+  expect(screen.queryByText('Remove Bob')).toBeNull();
+});
 
 it('survives removal of its initiating subtree and navigates only after native dismissal', async () => {
   const completed = await Effect.runPromise(Deferred.make<undefined>());

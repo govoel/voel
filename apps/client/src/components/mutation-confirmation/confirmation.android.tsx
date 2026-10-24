@@ -16,7 +16,13 @@ import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const Confirmation = (({ state, confirmLabel = 'Confirm', ...props }) => {
+export const Confirmation = (({
+  state,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  role = 'destructive',
+}) => {
   const { presented, handleDismissed } = state;
   useEffect(() => {
     if (!presented) {
@@ -24,15 +30,15 @@ export const Confirmation = (({ state, confirmLabel = 'Confirm', ...props }) => 
     }
   }, [presented, handleDismissed]);
   const colors = useMaterialColors();
-  const color = props.role === 'default' ? colors.primary : colors.error;
-  return state.presented ? (
+  const color = role === 'default' ? colors.primary : colors.error;
+  return presented ? (
     <AlertDialog onDismissRequest={state.handleDismiss}>
       <AlertDialog.Title>
-        <Text>{props.title}</Text>
+        <Text>{title}</Text>
       </AlertDialog.Title>
       <AlertDialog.Text>
         <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-          <Text>{props.message}</Text>
+          <Text>{message}</Text>
           {state.feedback.length > 0 ? <Text color={colors.error}>{state.feedback}</Text> : null}
         </Column>
       </AlertDialog.Text>
