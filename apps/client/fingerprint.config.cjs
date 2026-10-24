@@ -19,9 +19,9 @@ const selectedPlatforms = Array.flatMap(args, (arg, index) => {
     return [];
   }
 
-  const platform = args[index + 1];
+  const platform = args.at(index + 1);
 
-  return platform ? [platform] : [];
+  return platform !== void 0 && platform.length > 0 ? [platform] : [];
 });
 
 const platforms =

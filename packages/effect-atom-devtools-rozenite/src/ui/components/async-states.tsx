@@ -27,7 +27,7 @@ export const ErrorState = ({
       </pre>
     }
     action={
-      onRetry ? (
+      onRetry !== void 0 ? (
         <Button variant="outline" size="sm" onClick={onRetry}>
           Retry
         </Button>

@@ -6,7 +6,7 @@ import * as SqlClient from 'effect/sql/SqlClient';
 /**
  * Metro-safe SQLite specialization of Effect's SQL migrator.
  *
- * This follows `.repos/effect/packages/effect/src/unstable/sql/Migrator.ts`, while
+ * This follows Effect 4.0.6's `effect/sql/Migrator`, while
  * intentionally omitting its filesystem loader. Metro cannot transform that
  * loader's non-literal dynamic import even when it is unused.
  */
@@ -80,14 +80,14 @@ const make = Effect.fnUntraced(function* <R = never>({
 
   const runMigration = ([id, name, migration]: ResolvedMigration) =>
     migration.pipe(
-      Effect.catch((cause) =>
-        Effect.die(
+      Effect.catchTag(
+        'SqlError',
+        (cause) =>
           new MigrationError({
             cause,
             kind: 'Failed',
             message: `Migration "${id}_${name}" failed`,
           })
-        )
       ),
       Effect.annotateLogs('migration_id', String(id)),
       Effect.annotateLogs('migration_name', name),

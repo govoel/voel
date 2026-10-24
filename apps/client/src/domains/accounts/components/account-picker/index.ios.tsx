@@ -51,7 +51,7 @@ export const AccountPicker = ({
               <HStack alignment="center" spacing={Spacing.two}>
                 <Icon
                   name={
-                    item.active
+                    item.active === true
                       ? 'person.crop.circle.fill.badge.checkmark'
                       : 'person.crop.circle.fill'
                   }

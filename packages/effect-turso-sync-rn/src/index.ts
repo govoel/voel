@@ -65,7 +65,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
           try: () =>
             new Database({
               ...options,
-              ...(sync.authToken ? { authToken: sync.authToken } : {}),
+              ...(sync.authToken !== void 0 ? { authToken: sync.authToken } : {}),
             }),
           catch: mapConnectionError,
         }),
@@ -178,7 +178,9 @@ export class TursoSyncClient extends CoreTursoSyncClient {
         db,
         connection: {
           execute(sql, params, transformRows) {
-            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+            return transformRows !== void 0
+              ? Effect.map(run(sql, params), transformRows)
+              : run(sql, params);
           },
           executeRaw(sql, params) {
             return runRaw(sql, params);
@@ -190,7 +192,9 @@ export class TursoSyncClient extends CoreTursoSyncClient {
             return runValues(sql, params);
           },
           executeUnprepared(sql, params, transformRows) {
-            return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+            return transformRows !== void 0
+              ? Effect.map(run(sql, params), transformRows)
+              : run(sql, params);
           },
           executeStream(_sql, _params) {
             return Stream.die('executeStream not implemented');
@@ -200,7 +204,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     });
 
     const { connection, db } = yield* makeConnection;
-    const { acquirer, borrower, transactionAcquirer, onCommitFailure } =
+    const { acquirer, borrower, transactionAcquirer, onCommitFailure, isTransaction } =
       SqlClient.makeSqliteAcquirers({
         connection: Effect.succeed(connection),
         semaphore: yield* Semaphore.make(1),
@@ -214,12 +218,13 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       compiler,
       transactionAcquirer,
       onCommitFailure,
+      isTransaction,
       beginTransaction: 'BEGIN IMMEDIATE',
       releaseSavepoint: (name) => `RELEASE SAVEPOINT ${name}`,
       spanAttributes: [[ATTR_DB_SYSTEM_NAME, 'turso']],
     });
 
-    if (onConnect) {
+    if (onConnect !== void 0) {
       yield* onConnect(client);
     }
 
