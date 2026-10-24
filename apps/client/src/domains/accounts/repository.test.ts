@@ -1,7 +1,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Exit, FileSystem, Layer, Option, Result } from 'effect';
+import { Effect, Exit, FileSystem, Layer, Option, Record, Result } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -17,8 +17,7 @@ import { MainDatabase } from '#src/database/main/index.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
 import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { AccountUpsert } from '#src/domains/accounts/schema.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 
 const RepositoryTestLayer = AccountRepository.layerNoDeps.pipe(
@@ -36,7 +35,7 @@ const makeAccount = (id: string) =>
     email: Account.fields.email.make(`${id}@example.test`),
     role: Account.fields.role.make('user'),
     profilePicture: Account.fields.profilePicture.make(null),
-  }) satisfies AccountUpsert;
+  }) satisfies typeof Account.upsert.Type;
 
 describe('AccountRepository', () => {
   it.effect(
@@ -45,6 +44,7 @@ describe('AccountRepository', () => {
       const repository = yield* AccountRepository;
       const first = makeAccount('first');
       const second = makeAccount('second');
+      expect(yield* repository.getActiveKey).toEqual(Option.none());
       yield* repository.upsertActive(first);
       yield* insertAccountFixture({ ...second, active: false });
 
@@ -55,6 +55,13 @@ describe('AccountRepository', () => {
         { userId: first.userId, active: false },
         { userId: second.userId, active: true },
       ]);
+      const key = Option.getOrThrow(yield* repository.getActiveKey);
+      expect(key).toBeInstanceOf(ActiveAccountKey);
+      expect(Record.keys(key).sort()).toEqual(['authStorageId', 'serverUrl', 'userId']);
+      expect(key).toEqual(ActiveAccountKey.make(second));
+
+      yield* repository.updateProfile({ ...second, name: Account.fields.name.make('Updated') });
+      expect(yield* repository.getActiveKey).toEqual(Option.some(key));
     }, Effect.provide(RepositoryTestLayer))
   );
 
@@ -111,7 +118,10 @@ describe('AccountRepository', () => {
         name: Account.fields.name.make('Stale profile'),
       });
       yield* repository.remove(first);
-      expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
+      expect(yield* repository.getActiveKey).toEqual(
+        Option.some(ActiveAccountKey.make(replacement))
+      );
+      expect(yield* repository.getByKey(replacement)).toMatchObject({
         userId: 'first',
         authStorageId: 'replacement-credentials',
         name: 'Updated profile',
@@ -236,7 +246,10 @@ describe('AccountRepository', () => {
 
           yield* repository.setActive(second);
           yield* repository.updateProfile({ ...second, name: Account.fields.name.make('Updated') });
-          expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
+          expect(yield* repository.getActiveKey).toEqual(
+            Option.some(ActiveAccountKey.make(second))
+          );
+          expect(yield* repository.getByKey(second)).toMatchObject({
             ...second,
             name: 'Updated',
             active: true,

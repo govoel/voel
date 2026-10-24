@@ -1,0 +1,100 @@
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { LazyColumn } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
+import { Option } from 'effect';
+import { AsyncResult } from 'effect/reactivity';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
+import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+
+import {
+  ownSessionsAtom,
+  revokeOwnSessionAtom,
+} from '#src/app/accounts/(selected)/profile/index.ts';
+import { ownSessionAtom } from '#src/app/accounts/(selected)/profile/sessions/[id]/index.ts';
+import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
+import { ListState } from '#src/components/list-state';
+import { MutationConfirmation } from '#src/components/mutation-confirmation';
+import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Text } from '#src/components/text';
+import { useMaterialColors } from '#src/constants/material.ts';
+import { Spacing } from '#src/constants/theme.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
+
+const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type }) => {
+  const account = useSelectedAccount();
+  const router = useRouter();
+  const state = useAtomValue(ownSessionAtom({ account, id }));
+  const query = ownSessionsAtom(account);
+  const refresh = useAtomRefresh(query);
+  const colors = useMaterialColors();
+
+  return AsyncResult.matchWithError(state, {
+    onInitial: () => <ListState kind="loading" />,
+    onError: (error) => (
+      <ListState
+        kind="error"
+        message={authFailureMessage({ error })}
+        onRetry={refresh}
+        retrying={state.waiting}
+      />
+    ),
+    onDefect: () => (
+      <ListState
+        kind="error"
+        message="Unable to load session."
+        onRetry={refresh}
+        retrying={state.waiting}
+      />
+    ),
+    onSuccess: ({ value }) =>
+      Option.match(value, {
+        onNone: () => <ListState kind="message" message="This session is no longer active." />,
+        onSome: ({ session, isCurrent }) => (
+          <>
+            <SessionDetails session={session} isCurrent={isCurrent} />
+            {!isCurrent ? (
+              <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
+                <MutationConfirmation
+                  onFailure={authFailureMessage}
+                  trigger={({ open, busy }) => (
+                    <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>
+                      <SegmentedListItem.HeadlineContent>
+                        <Text color={colors.error}>Sign out</Text>
+                      </SegmentedListItem.HeadlineContent>
+                    </SegmentedListItem>
+                  )}
+                  mutation={revokeOwnSessionAtom(account)}
+                  schema={AuthRevokeSessionInput}
+                  defaultValues={{ token: session.token }}
+                  title="Sign out"
+                  message="This session will need to sign in again."
+                  onSuccess={() => {
+                    router.dismissTo('/accounts/profile');
+                  }}
+                />
+              </SegmentedList>
+            ) : null}
+          </>
+        ),
+      }),
+  });
+};
+
+export default function SessionScreen() {
+  const { id } = useLocalSearchParams<{ id: typeof AuthDeviceSession.fields.id.Type }>();
+  return (
+    <AndroidAccountsSheet>
+      <LazyColumn
+        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+        <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+          Session Details
+        </Text>
+        <SessionContent key={id} id={id} />
+      </LazyColumn>
+    </AndroidAccountsSheet>
+  );
+}

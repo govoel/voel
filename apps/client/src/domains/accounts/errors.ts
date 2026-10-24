@@ -33,8 +33,3 @@ export class AccountSignUpError extends Schema.TaggedError<
 >('voel/domains/accounts/errors/AccountSignUpError')('AccountSignUpError', {
   reason: AuthError.fields.reason,
 }) {}
-
-export class NoActiveAccountError extends Schema.TaggedError<
-  NoActiveAccountError,
-  { readonly brand: unique symbol }
->('voel/domains/accounts/errors/NoActiveAccountError')('NoActiveAccountError', {}) {}

@@ -36,7 +36,8 @@ import {
 const getAccounts = AccountRepository.pipe(Effect.flatMap((repository) => repository.list));
 
 const getActiveAccount = AccountRepository.pipe(
-  Effect.flatMap((repository) => repository.getActive)
+  Effect.flatMap((repository) => repository.list),
+  Effect.map(Array.findFirst((account) => account.active))
 );
 
 const forkActiveAccountChange = Effect.fnUntraced(function* (
@@ -44,7 +45,8 @@ const forkActiveAccountChange = Effect.fnUntraced(function* (
 ) {
   const accountRepository = yield* AccountRepository;
   const subscribed = yield* Deferred.make<true>();
-  const fiber = yield* accountRepository.getActive.pipe(
+  const fiber = yield* accountRepository.list.pipe(
+    Effect.map(Array.findFirst((account) => account.active)),
     Reactivity.stream(['account']),
     Stream.tap(() => Deferred.succeed(subscribed, true)),
     Stream.drop(1),
@@ -483,7 +485,7 @@ describe('AccountManager', () => {
 
           yield* authClient.updateUser({ name: 'Rejected profile' });
           yield* Deferred.await(failedSync);
-          expect(Option.getOrThrow(yield* repository.getActive)).toMatchObject({
+          expect(Option.getOrThrow(yield* getActiveAccount)).toMatchObject({
             name: 'Test Admin',
             authStorageId: activeKey.authStorageId,
             active: true,
@@ -804,7 +806,7 @@ describe('AccountManager', () => {
     );
   });
 
-  it.layer(TestServerControllerClient.layer)('removeActiveAccount', (iit) => {
+  it.layer(TestServerControllerClient.layer)('removeAccount', (iit) => {
     const storageItems = new Map<string, string>();
 
     iit.effect(
@@ -840,7 +842,7 @@ describe('AccountManager', () => {
               user: { id: account.userId },
             });
 
-            yield* manager.removeActiveAccount;
+            yield* manager.removeAccount(ActiveAccountKey.make(account));
 
             expect(storageItems.size).toEqual(0);
             yield* authClient.refreshSession({ query: { disableCookieCache: true } });

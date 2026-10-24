@@ -28,7 +28,9 @@ export const AndroidAccountsSheet = ({
           shouldDismissOnClickOutside: dismissable,
         }}
         onDismissRequest={() => {
-          router.back();
+          if (dismissable) {
+            router.back();
+          }
         }}>
         {children}
       </ModalBottomSheet>

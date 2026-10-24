@@ -3,7 +3,6 @@ import { describe, expect, it } from '@effect/vitest';
 import {
   Array,
   Context,
-  DateTime,
   Deferred,
   Effect,
   Fiber,
@@ -13,32 +12,34 @@ import {
   Scheduler,
   Stream,
 } from 'effect';
-import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
-import { TestClock } from 'effect/testing';
+import { AsyncResult, Atom, AtomRegistry, Reactivity } from 'effect/reactivity';
 import { vi } from 'vitest';
 
-import { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
-
-import { removeAccountAtom } from '#src/app/accounts/index.ts';
-import { ownSessionsAtom, revokeOwnSessionAtom } from '#src/app/accounts/profile/index.ts';
+import {
+  ownSessionsAtom,
+  revokeOwnSessionAtom,
+} from '#src/app/accounts/(selected)/profile/index.ts';
+import { ownSessionAtom } from '#src/app/accounts/(selected)/profile/sessions/[id]/index.ts';
 import {
   deleteServerUserAtom,
   serverUserAtom,
   serverUserSessionsAtom,
-} from '#src/app/accounts/server/users/[id]/index.ts';
-import { serverUserSessionAtom } from '#src/app/accounts/server/users/[id]/sessions/[sessionId]/index.ts';
-import { listUsersAtom } from '#src/app/accounts/server/users/index.ts';
+} from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
+import { serverUserSessionAtom } from '#src/app/accounts/(selected)/server/users/[id]/sessions/[sessionId]/index.ts';
+import { listUsersAtom } from '#src/app/accounts/(selected)/server/users/index.ts';
+import { accountsWithActiveAccount, removeAccountAtom } from '#src/app/accounts/index.ts';
 import { MainDatabase } from '#src/database/main/index.ts';
-import { accountsAtom, activeAccountAtom } from '#src/domains/accounts/atoms.ts';
-import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
+import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
+import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import {
   AccountsSheet,
   accountsSheetAtom,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { NoActiveAccountError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { accountAtom } from '#src/domains/accounts/scope.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -52,20 +53,6 @@ import {
 
 // The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
-
-it('canonicalizes server session keys without merging distinct users or sessions', () => {
-  const userId = AuthUser.fields.id.make('reader');
-  const sessionId = AuthDeviceSession.fields.id.make('session');
-  const input = { userId, sessionId, extra: 'not query identity' };
-  const atom = serverUserSessionAtom(input);
-  expect(serverUserSessionAtom({ userId, sessionId })).toBe(atom);
-  expect(
-    serverUserSessionAtom({ userId: AuthUser.fields.id.make('other-reader'), sessionId })
-  ).not.toBe(atom);
-  expect(
-    serverUserSessionAtom({ userId, sessionId: AuthDeviceSession.fields.id.make('other-session') })
-  ).not.toBe(atom);
-});
 
 // Route atom callbacks and service fibers through one drainable dispatcher.
 // Draining runs queued work; it does not wait for SQL, network requests, or timers.
@@ -161,24 +148,34 @@ const waitForAuthenticatedSession = (authClient: AuthClient['Service']) =>
 
 it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
   iit.effect(
-    'reports whether successful removal leaves another saved account',
+    'removes its captured account even if selection changes, and reports remaining accounts',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
-        const [firstAccount] = yield* signInTestServerUsers(manager, server);
+        const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, server);
+        const removeSecond = removeAccountAtom(ActiveAccountKey.make(secondAccount));
+        yield* manager.setActiveAccount({
+          serverUrl: firstAccount.serverUrl,
+          userId: firstAccount.userId,
+        });
 
-        yield* Atom.set(removeAccountAtom, void 0);
-        expect(yield* Atom.getResult(removeAccountAtom, { suspendOnWaiting: true })).toEqual({
+        yield* Atom.set(removeSecond, void 0);
+        expect(yield* Atom.getResult(removeSecond, { suspendOnWaiting: true })).toEqual({
           accountsRemain: true,
         });
+        const repository = yield* AccountRepository;
+        expect(yield* repository.getActiveKey).toMatchObject(
+          Option.some({ userId: firstAccount.userId })
+        );
 
         yield* manager.setActiveAccount({
           serverUrl: firstAccount.serverUrl,
           userId: firstAccount.userId,
         });
-        yield* Atom.set(removeAccountAtom, void 0);
-        expect(yield* Atom.getResult(removeAccountAtom, { suspendOnWaiting: true })).toEqual({
+        const removeFirst = removeAccountAtom(ActiveAccountKey.make(firstAccount));
+        yield* Atom.set(removeFirst, void 0);
+        expect(yield* Atom.getResult(removeFirst, { suspendOnWaiting: true })).toEqual({
           accountsRemain: false,
         });
       },
@@ -205,7 +202,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           },
         ]);
 
-        yield* manager.removeActiveAccount;
+        yield* manager.removeAccount(ActiveAccountKey.make(account));
 
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
@@ -215,13 +212,20 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
   );
 
   iit.effect(
-    'returns persisted account rows with current active flags',
+    'refreshes persisted account rows through the management projection',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
         const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
 
+        yield* Atom.mount(accountsWithActiveAccount);
+        expect(
+          Option.getOrThrow((yield* Atom.getResult(accountsWithActiveAccount)).activeAccount)
+        ).toMatchObject({
+          userId: secondAccount.userId,
+          hostname: new URL(testServer.serverUrl).hostname,
+        });
         expect(yield* Atom.getResult(accountsAtom)).toMatchObject([
           {
             serverUrl: testServer.serverUrl,
@@ -234,6 +238,26 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
             active: true,
           },
         ]);
+
+        // Bypass invalidation: Retry must reach the repository through the mapped atom.
+        yield* AccountRepository.use((repository) => repository.setActive(firstAccount));
+        yield* Atom.refresh(accountsWithActiveAccount);
+        const refreshed = Option.getOrThrow(
+          yield* Atom.toStreamResult(accountsWithActiveAccount).pipe(
+            Stream.filter(
+              ({ activeAccount }) =>
+                Option.isSome(activeAccount) && activeAccount.value.userId === firstAccount.userId
+            ),
+            Stream.runHead
+          )
+        );
+        expect(Option.getOrThrow(refreshed.activeAccount)).toMatchObject({
+          userId: firstAccount.userId,
+        });
+        expect(refreshed.accounts).toMatchObject([
+          { userId: firstAccount.userId, active: true },
+          { userId: secondAccount.userId, active: false },
+        ]);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -245,9 +269,7 @@ describe('accountsSheetAtom', () => {
     'shows onboarding and cannot be dismissed when there are no accounts',
     Effect.fnUntraced(
       function* () {
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-          AccountsSheet.Onboarding({ dismissable: false })
-        );
+        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Onboarding());
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -263,9 +285,7 @@ describe('accountsSheetAtom', () => {
           yield* signInTestServerUsers(manager, server);
 
           yield* Effect.gen(function* () {
-            expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-              AccountsSheet.Idle({ dismissable: true })
-            );
+            expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
           }).pipe(
             Effect.provide(
               Layer.fresh(TestAccountsAtomsLayer).pipe(
@@ -301,7 +321,7 @@ describe('accountsSheetAtom', () => {
 
           yield* Effect.gen(function* () {
             expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-              AccountsSheet.MustPickAccount({ dismissable: false })
+              AccountsSheet.MustPickAccount()
             );
           }).pipe(
             Effect.provide(
@@ -318,7 +338,7 @@ describe('accountsSheetAtom', () => {
 
   describe('session states', () => {
     it.effect(
-      'stays idle and dismissable while the session is pending',
+      'stays idle while the session is pending',
       Effect.fnUntraced(
         function* () {
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
@@ -371,16 +391,14 @@ describe('accountsSheetAtom', () => {
             waiting: true,
           });
           yield* drainScheduler;
-          expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-            AccountsSheet.Idle({ dismissable: true })
-          );
+          expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
         },
         (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
       )
     );
 
     it.effect(
-      'stays idle and dismissable when the app starts offline',
+      'stays idle when the app starts offline',
       Effect.fnUntraced(
         function* () {
           const runPromise = Effect.runPromiseWith(yield* Effect.context());
@@ -430,9 +448,7 @@ describe('accountsSheetAtom', () => {
           expect(Option.isSome(AsyncResult.error(failedSession))).toBe(true);
 
           yield* drainScheduler;
-          expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-            AccountsSheet.Idle({ dismissable: true })
-          );
+          expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
         },
         (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
       )
@@ -442,7 +458,7 @@ describe('accountsSheetAtom', () => {
 
 it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (iit) => {
   iit.effect(
-    'stays idle and dismissable when the session is valid',
+    'stays idle when the session is valid',
     Effect.fnUntraced(
       function* () {
         const { drainScheduler } = yield* TestScheduler;
@@ -468,16 +484,14 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         expect(Option.isSome(Option.flatten(AsyncResult.value(validSession)))).toBe(true);
 
         yield* drainScheduler;
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-          AccountsSheet.Idle({ dismissable: true })
-        );
+        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
   iit.effect(
-    'shows an invalid session and remains dismissable after session revocation',
+    'shows an invalid session after session revocation',
     Effect.fnUntraced(
       function* () {
         const { drainScheduler } = yield* TestScheduler;
@@ -499,9 +513,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         yield* Atom.mount(accountsSheetAtom);
         yield* waitForAuthenticatedSession(authClient);
         yield* drainScheduler;
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-          AccountsSheet.Idle({ dismissable: true })
-        );
+        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
 
         const invalidSessionFiber = yield* authClient.sessionChanges.pipe(
           Stream.filter(
@@ -522,7 +534,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
             Stream.filter(AccountsSheet.$is('InvalidSession')),
             Stream.runHead
           )
-        ).toEqual(Option.some(AccountsSheet.InvalidSession({ dismissable: true })));
+        ).toEqual(Option.some(AccountsSheet.InvalidSession()));
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -547,9 +559,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
 
         yield* Atom.mount(accountsSheetAtom);
         yield* drainScheduler;
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-          AccountsSheet.Idle({ dismissable: true })
-        );
+        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
 
         yield* manager.setActiveAccount({
           serverUrl: testServer.serverUrl,
@@ -565,7 +575,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
             Stream.filter(AccountsSheet.$is('InvalidSession')),
             Stream.runHead
           )
-        ).toEqual(Option.some(AccountsSheet.InvalidSession({ dismissable: true })));
+        ).toEqual(Option.some(AccountsSheet.InvalidSession()));
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -590,9 +600,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         });
 
         yield* drainScheduler;
-        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(
-          AccountsSheet.Idle({ dismissable: true })
-        );
+        expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
         expect(yield* authClients.acquire(Option.getOrThrow(yield* manager.state))).toBe(client);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
@@ -601,18 +609,6 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
 });
 
 it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
-  iit.effect(
-    'fails with NoActiveAccountError without an active account',
-    Effect.fnUntraced(
-      function* () {
-        const error = yield* Atom.getResult(listUsersAtom).pipe(Effect.flip);
-
-        expect(error).toBeInstanceOf(NoActiveAccountError);
-      },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
-    )
-  );
-
   iit.effect(
     'loads successive pages until all users are returned',
     Effect.fnUntraced(
@@ -624,24 +620,25 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        yield* Atom.mount(listUsersAtom);
+        const key = Option.getOrThrow(yield* manager.state);
+        yield* Atom.mount(listUsersAtom(key));
 
-        const firstPage = yield* Atom.getResult(listUsersAtom, {
+        const firstPage = yield* Atom.getResult(listUsersAtom(key), {
           suspendOnWaiting: true,
         });
         expect(firstPage).toMatchObject({ done: false });
         expect(firstPage.items).toHaveLength(10);
 
-        yield* Atom.set(listUsersAtom, void 0);
-        const allUsers = yield* Atom.getResult(listUsersAtom, {
+        yield* Atom.set(listUsersAtom(key), void 0);
+        const allUsers = yield* Atom.getResult(listUsersAtom(key), {
           suspendOnWaiting: true,
         });
         expect(allUsers).toMatchObject({ done: false });
         expect(allUsers.items).toHaveLength(12);
 
-        yield* Atom.set(listUsersAtom, void 0);
+        yield* Atom.set(listUsersAtom(key), void 0);
         expect(
-          yield* Atom.getResult(listUsersAtom, {
+          yield* Atom.getResult(listUsersAtom(key), {
             suspendOnWaiting: true,
           })
         ).toMatchObject({ done: true, items: allUsers.items });
@@ -651,15 +648,15 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const target = Option.getOrThrow(
           Array.findFirst(allUsers.items, (user) => user.username !== testServer.adminUsername)
         );
-        yield* Atom.set(deleteServerUserAtom, { userId: target.id });
-        yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
+        yield* Atom.set(deleteServerUserAtom(key), { userId: target.id });
+        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
-        const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        const refreshed = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(refreshed.items).toHaveLength(10);
         expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
-        yield* Atom.set(listUsersAtom, void 0);
-        const remaining = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        yield* Atom.set(listUsersAtom(key), void 0);
+        const remaining = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(remaining.items).toHaveLength(11);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
@@ -667,54 +664,59 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
   );
 
   iit.effect(
-    'loads users from the newly active server after switching accounts',
+    'keeps queries and mutations bound to their account after selection changes',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
-        const firstServer = yield* setupTestServerWithUsers({ userCount: 3 });
+        const firstServer = yield* setupTestServerWithUsers({ userCount: 12 });
         yield* manager.signInAccount({
           serverUrl: firstServer.serverUrl,
           username: firstServer.adminUsername,
           password: firstServer.password,
         });
-        yield* Atom.mount(listUsersAtom);
-        const firstResult = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
-        const firstUsernames = Array.map(firstResult.items, (user) => user.username);
-        expect(firstUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
-          firstServer.usernames.sort((first, second) => first.localeCompare(second))
-        );
+        const firstKey = Option.getOrThrow(yield* manager.state);
+        const firstUsers = listUsersAtom(firstKey);
+        const page = yield* Atom.getResult(firstUsers, { suspendOnWaiting: true });
+        expect(page.items).toHaveLength(10);
 
-        const secondServer = yield* setupTestServerWithUsers({ userCount: 6 });
-        const subscribed = yield* Deferred.make<true>();
-        const nextUsers = yield* Atom.toStream(listUsersAtom).pipe(
-          Stream.tap(() => Deferred.succeed(subscribed, true)),
-          Stream.drop(1),
-          // A source switch must start a refresh, then publish its first completed result.
-          Stream.dropWhile((state, index) => {
-            if (index === 0) {
-              expect(state.waiting).toBe(true);
-            }
-            return state.waiting;
-          }),
-          Stream.mapEffect(AsyncResult.toExit),
-          Stream.runHead,
-          Effect.forkChild
-        );
-        yield* Deferred.await(subscribed).pipe(Effect.timeout('10 seconds'), TestClock.withLive);
+        const secondServer = yield* setupTestServerWithUsers({ userCount: 3 });
         yield* manager.signInAccount({
           serverUrl: secondServer.serverUrl,
           username: secondServer.adminUsername,
           password: secondServer.password,
         });
-        const { drainScheduler } = yield* TestScheduler;
-        yield* drainScheduler;
-        const secondResult = Option.getOrThrow(
-          yield* Fiber.join(nextUsers).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
+        const secondKey = Option.getOrThrow(yield* manager.state);
+        const secondUsers = yield* Atom.getResult(listUsersAtom(secondKey), {
+          suspendOnWaiting: true,
+        });
+        expect(Array.map(secondUsers.items, (user) => user.username).sort()).toEqual(
+          [...secondServer.usernames].sort()
         );
-        const secondUsernames = Array.map(secondResult.items, (user) => user.username);
-        expect(secondUsernames.sort((first, second) => first.localeCompare(second))).toEqual(
-          secondServer.usernames.sort((first, second) => first.localeCompare(second))
+
+        // A captured key still targets A while B is selected.
+        const victim = Option.getOrThrow(
+          Array.findFirst(page.items, (user) => user.username !== firstServer.adminUsername)
         );
+        yield* Atom.set(deleteServerUserAtom(firstKey), { userId: victim.id });
+        yield* Atom.getResult(deleteServerUserAtom(firstKey), { suspendOnWaiting: true });
+        const secondClient = yield* AuthClientMap.use((clients) => clients.acquire(secondKey));
+        expect((yield* secondClient.admin.listUsers({ limit: 20, offset: 0 })).users).toHaveLength(
+          3
+        );
+        const firstClient = yield* AuthClientMap.use((clients) => clients.acquire(firstKey));
+        expect((yield* firstClient.admin.listUsers({ limit: 20, offset: 0 })).users).toHaveLength(
+          11
+        );
+        const secondSession = (yield* secondClient.readSession).session;
+        expect(
+          yield* Atom.getResult(
+            serverUserSessionAtom({
+              account: firstKey,
+              userId: firstKey.userId,
+              sessionId: secondSession.id,
+            })
+          )
+        ).toEqual(Option.none());
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -722,6 +724,42 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
 });
 
 it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
+  iit.effect(
+    'refreshes the admin session query through its session detail projection',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const key = ActiveAccountKey.make(account);
+        const client = yield* AuthClientMap.use((clients) => clients.acquire(key));
+        const current = yield* client.readSession;
+        const other = Option.getOrThrow(
+          Array.findFirst(
+            yield* client.listSessions,
+            (session) => session.id !== current.session.id
+          )
+        );
+        const detail = serverUserSessionAtom({
+          account: key,
+          userId: key.userId,
+          sessionId: other.id,
+        });
+        yield* Atom.mount(detail);
+        expect(Option.getOrThrow(yield* Atom.getResult(detail))).toMatchObject({
+          id: other.id,
+          isOtherUser: false,
+        });
+
+        // Call the client directly so no mutation atom invalidates the query for us.
+        yield* client.admin.revokeUserSession({ sessionToken: other.token });
+        yield* Atom.refresh(detail);
+        expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toEqual(Option.none());
+      },
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+    )
+  );
+
   iit.effect(
     'refreshes user queries after successful mutations, but not failed mutations',
     Effect.fnUntraced(
@@ -733,44 +771,43 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           username: testServer.adminUsername,
           password: testServer.password,
         });
-        const authClientKey = Option.getOrThrow(yield* manager.state);
-        const client = yield* AuthClientMap.use((authClients) =>
-          authClients.acquire(authClientKey)
-        );
+        const key = Option.getOrThrow(yield* manager.state);
+        const client = yield* AuthClientMap.use((authClients) => authClients.acquire(key));
         const users = yield* client.admin.listUsers({ limit: 10, offset: 0 });
         const target = Option.getOrThrow(
           Array.findFirst(users.users, (user) => user.username !== testServer.adminUsername)
         );
         const currentUser = (yield* client.readSession).user;
-        const detail = serverUserAtom(currentUser.id);
+        const detail = serverUserAtom({ account: key, userId: currentUser.id });
         yield* Atom.mount(detail);
-        yield* Atom.mount(listUsersAtom);
+        yield* Atom.mount(listUsersAtom(key));
         yield* Atom.getResult(detail, { suspendOnWaiting: true });
-        yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
-        const read = vi.spyOn(client.admin, 'getUser');
-        const list = vi.spyOn(client.admin, 'listUsers');
+        yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
+        expect(
+          yield* Atom.getResult(serverUserAtom({ account: key, userId: target.id }))
+        ).toMatchObject({ id: target.id, isOtherUser: true });
         const { drainScheduler } = yield* TestScheduler;
 
-        yield* Atom.set(deleteServerUserAtom, { userId: target.id });
-        yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true });
+        yield* Atom.set(deleteServerUserAtom(key), { userId: target.id });
+        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true });
         yield* drainScheduler;
         expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({
           id: currentUser.id,
+          isOtherUser: false,
         });
-        const refreshed = yield* Atom.getResult(listUsersAtom, { suspendOnWaiting: true });
+        const refreshed = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
-        expect(read).toHaveBeenCalled();
-        expect(list).toHaveBeenCalled();
-        read.mockClear();
-        list.mockClear();
 
-        yield* Atom.set(deleteServerUserAtom, {
+        yield* Atom.set(deleteServerUserAtom(key), {
           userId: Account.fields.userId.make('missing-user'),
         });
-        yield* Atom.getResult(deleteServerUserAtom, { suspendOnWaiting: true }).pipe(Effect.flip);
+        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true }).pipe(
+          Effect.flip
+        );
         yield* drainScheduler;
-        expect(read).not.toHaveBeenCalled();
-        expect(list).not.toHaveBeenCalled();
+        expect(
+          (yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true })).items
+        ).toEqual(refreshed.items);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
@@ -784,79 +821,99 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
         const client = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
+        const key = ActiveAccountKey.make(account);
         const session = yield* client.readSession;
-        const adminSessions = serverUserSessionsAtom(account.userId);
-        yield* Atom.mount(ownSessionsAtom);
+        const adminSessions = serverUserSessionsAtom({ account: key, userId: account.userId });
+        yield* Atom.mount(ownSessionsAtom(key));
         yield* Atom.mount(adminSessions);
         expect(
-          (yield* Atom.getResult(ownSessionsAtom, { suspendOnWaiting: true })).sessions.length
+          (yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true })).sessions.length
         ).toBeGreaterThan(1);
         yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
         const other = Option.getOrThrow(
           Array.findFirst(yield* client.listSessions, (item) => item.id !== session.session.id)
         );
+        const ownDetail = ownSessionAtom({ account: key, id: other.id });
+        const adminDetail = serverUserSessionAtom({
+          account: key,
+          userId: account.userId,
+          sessionId: other.id,
+        });
+        yield* Atom.mount(ownDetail);
+        yield* Atom.mount(adminDetail);
+        expect(
+          Option.getOrThrow(yield* Atom.getResult(ownDetail, { suspendOnWaiting: true }))
+        ).toMatchObject({ session: { id: other.id }, isCurrent: false });
+        expect(
+          Option.getOrThrow(yield* Atom.getResult(adminDetail, { suspendOnWaiting: true }))
+        ).toMatchObject({ id: other.id, isOtherUser: false });
 
-        yield* Atom.set(revokeOwnSessionAtom, { token: other.token });
-        yield* Atom.getResult(revokeOwnSessionAtom, { suspendOnWaiting: true });
+        yield* Atom.set(revokeOwnSessionAtom(key), { token: other.token });
+        yield* Atom.getResult(revokeOwnSessionAtom(key), { suspendOnWaiting: true });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
-        const own = yield* Atom.getResult(ownSessionsAtom, { suspendOnWaiting: true });
-        const admin = yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
+        const own = yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true });
+        const admin = yield* Atom.getResult(
+          serverUserSessionsAtom({ account: key, userId: account.userId }),
+          { suspendOnWaiting: true }
+        );
         expect(Array.some(own.sessions, (item) => item.id === other.id)).toBe(false);
         expect(Array.some(admin.sessions, (item) => item.id === other.id)).toBe(false);
+        expect(
+          yield* Atom.getResult(ownSessionAtom({ account: key, id: other.id }), {
+            suspendOnWaiting: true,
+          })
+        ).toEqual(Option.none());
+        expect(
+          yield* Atom.getResult(
+            serverUserSessionAtom({
+              account: key,
+              userId: account.userId,
+              sessionId: other.id,
+            }),
+            { suspendOnWaiting: true }
+          )
+        ).toEqual(Option.none());
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 });
 
-it.layer(TestServerControllerClient.layer)('activeAccountAtom', (iit) => {
+it.layer(TestServerControllerClient.layer)('accountAtom', (iit) => {
   iit.effect(
-    'reflects an account created by AccountManager',
+    'reacts to profile updates without following account selection',
     Effect.fnUntraced(
       function* () {
-        const { drainScheduler } = yield* TestScheduler;
-        const serverUrl = yield* makeServerUrl;
-
         const manager = yield* AccountManager;
-        yield* Atom.mount(activeAccountAtom);
-
-        expect(yield* Atom.getResult(activeAccountAtom)).toBe(Option.none());
-
-        const username = yield* makeUsername();
-
-        const subscribed = yield* Deferred.make<true>();
-        // This long-lived stream stays waiting; assert its very next result, not a matching value.
-        const nextAccount = yield* Atom.toStream(activeAccountAtom).pipe(
-          Stream.tap(() => Deferred.succeed(subscribed, true)),
-          Stream.drop(1),
-          Stream.mapEffect(AsyncResult.toExit),
-          Stream.runHead,
-          Effect.forkChild
+        const server = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [first, second] = yield* signInTestServerUsers(manager, server);
+        const key = ActiveAccountKey.make(first);
+        const metadata = accountAtom(key);
+        yield* Atom.mount(metadata);
+        const original = Option.getOrThrow(yield* Atom.getResult(metadata));
+        yield* manager.setActiveAccount(second);
+        const repository = yield* AccountRepository;
+        yield* repository
+          .updateProfile({
+            serverUrl: original.serverUrl,
+            userId: original.userId,
+            authStorageId: original.authStorageId,
+            username: original.username,
+            email: original.email,
+            role: original.role,
+            profilePicture: original.profilePicture,
+            name: Account.fields.name.make('Updated profile'),
+          })
+          .pipe(Reactivity.mutation(['account']));
+        const updated = yield* Atom.toStreamResult(metadata).pipe(
+          Stream.filter((value) => Option.isSome(value) && value.value.name === 'Updated profile'),
+          Stream.runHead
         );
-        yield* Deferred.await(subscribed).pipe(Effect.timeout('10 seconds'), TestClock.withLive);
-        yield* manager.setupServerWithAccount({
-          serverUrl,
-          name: 'Test Admin',
-          email: `${username}@voel.app`,
-          username,
-          password: Redacted.make('ha!niceTry'),
+        expect(Option.getOrThrow(Option.getOrThrow(updated))).toMatchObject({
+          userId: first.userId,
+          name: 'Updated profile',
         });
-        yield* drainScheduler;
-
-        const activeAccount = Option.getOrThrow(
-          Option.getOrThrow(
-            yield* Fiber.join(nextAccount).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
-          )
-        );
-
-        expect(activeAccount).toMatchObject({
-          serverUrl,
-          username,
-          active: true,
-        });
-        expect(DateTime.isUtc(activeAccount.createdAt)).toBe(true);
-        expect(DateTime.isUtc(activeAccount.updatedAt)).toBe(true);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )

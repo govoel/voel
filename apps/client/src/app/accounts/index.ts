@@ -1,33 +1,36 @@
 import { useAtom } from '@effect/atom-react';
-import { Cause, Effect, Exit, Match, Option } from 'effect';
+import { Array, Cause, Effect, Exit, Match, Option, Struct } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { accountsAtom, activeAccountAtom } from '#src/domains/accounts/atoms.ts';
+import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
 export const setActiveAccountAtom = AppRuntime.fn(
   (input: Parameters<typeof AccountManager.Service.setActiveAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.setActiveAccount(input)))
+    AccountManager.use((manager) => manager.setActiveAccount(input))
 ).pipe(Atom.withLabel('setActiveAccountAtom'));
 
-export const removeAccountAtom = AppRuntime.fn(() =>
-  Effect.gen(function* () {
-    const manager = yield* AccountManager;
-    yield* manager.removeActiveAccount;
-    const accounts = yield* AccountRepository.use((repository) => repository.list);
-    return { accountsRemain: accounts.length > 0 };
-  })
-).pipe(Atom.withLabel('removeAccountAtom'));
+export const removeAccountAtom = Atom.family((key: ActiveAccountKey) =>
+  AppRuntime.fn(
+    Effect.fnUntraced(function* () {
+      const manager = yield* AccountManager;
+      yield* manager.removeAccount(key);
+      const accounts = yield* AccountRepository.use((repository) => repository.list);
+      return { accountsRemain: accounts.length > 0 };
+    })
+  ).pipe(Atom.withLabel('removeAccountAtom'))
+);
 
 export const removeAccountFailureMessage = ({
   error,
 }: {
-  readonly error: Atom.Failure<typeof removeAccountAtom>;
+  readonly error: Atom.Failure<ReturnType<typeof removeAccountAtom>>;
 }) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
@@ -36,36 +39,16 @@ export const removeAccountFailureMessage = ({
     })
   );
 
-export const accountsWithActiveAccount = AppRuntime.atom(
-  Effect.fnUntraced(function* (get) {
-    const [accounts, activeAccount] = yield* Effect.all(
-      [
-        get.result(accountsAtom),
-        get.result(activeAccountAtom).pipe(
-          Effect.map(
-            Option.map((account) => ({
-              active: account.active,
-              authStorageId: account.authStorageId,
-              createdAt: account.createdAt,
-              email: account.email,
-              hostname: new URL(account.serverUrl).hostname,
-              name: account.name,
-              profilePicture: account.profilePicture,
-              role: account.role,
-              serverUrl: account.serverUrl,
-              updatedAt: account.updatedAt,
-              userId: account.userId,
-              username: account.username,
-            }))
-          )
-        ),
-      ],
-      { concurrency: 'unbounded' }
+export const accountsWithActiveAccount = accountsAtom.pipe(
+  Atom.mapResult((accounts) => {
+    const activeAccount = Array.findFirst(accounts, (account) => account.active).pipe(
+      Option.map((account) =>
+        Struct.assign(account, { hostname: new URL(account.serverUrl).hostname })
+      )
     );
 
     return { accounts, activeAccount };
-  })
-).pipe(
+  }),
   withPredefinedStates(() => [
     {
       id: PredefinedStateId.make('loading'),
@@ -93,7 +76,7 @@ export const useSetActiveAccount = () => {
     mode: 'promiseExit',
   });
 
-  const setActiveAccountAndDismiss = async ({
+  const selectAccount = async ({
     input,
     onSuccess,
   }: {
@@ -106,5 +89,5 @@ export const useSetActiveAccount = () => {
     }
   };
 
-  return [setActiveAccount, setActiveAccountAndDismiss] as const;
+  return [setActiveAccount, selectAccount] as const;
 };

@@ -106,4 +106,3 @@ export class ActiveAccountKey extends Schema.Class<
 }) {}
 
 export type AccountKey = Pick<Account, 'serverUrl' | 'userId'>;
-export type AccountUpsert = typeof Account.upsert.Type;

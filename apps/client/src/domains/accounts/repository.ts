@@ -4,8 +4,8 @@ import * as SqlSchema from 'effect/sql/SqlSchema';
 
 import { MainDatabase } from '#src/database/main/index.ts';
 import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
-import type { AccountKey, AccountUpsert } from '#src/domains/accounts/schema.ts';
+import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 
 export class AccountRepository extends Context.Service<AccountRepository>()(
   'voel/domains/accounts/repository/AccountRepository',
@@ -27,12 +27,14 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
 
-        getActive: SqlSchema.findOneOption({
+        getActiveKey: SqlSchema.findOneOption({
           Request: Schema.Void,
-          Result: Account,
+          Result: ActiveAccountKey,
           execute: () => sql`
             select
-              *
+              "serverUrl",
+              "userId",
+              "authStorageId"
             from
               account
             where
@@ -171,7 +173,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           ),
           Effect.catchTags({ SchemaError: Effect.die })
         ),
-        getActive: queries.getActive().pipe(
+        getActiveKey: queries.getActiveKey().pipe(
           Effect.catchReasons(
             'SqlError',
             {
@@ -235,7 +237,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Effect.catchTags({ SchemaError: Effect.die })
         ),
         upsertActive: Effect.fnUntraced(
-          function* (account: AccountUpsert) {
+          function* (account: typeof Account.upsert.Type) {
             yield* sql.withTransaction(
               Effect.gen(function* () {
                 yield* queries.deactivateAll();
