@@ -321,6 +321,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     ];
 
     const client = yield* SqlClient.make({
+      driver: 'turso',
       acquirer,
       compiler,
       transactionAcquirer: acquirer,

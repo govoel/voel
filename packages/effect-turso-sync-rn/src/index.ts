@@ -205,6 +205,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       });
 
     const client = yield* SqlClient.make({
+      driver: 'turso-sync-rn',
       acquirer,
       borrower,
       compiler,

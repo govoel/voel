@@ -17,13 +17,13 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@better-auth/expo": "1.7.10",
-    "better-auth": "1.7.10",
-    "effect": "4.0.5"
+    "@better-auth/expo": "1.7.12",
+    "better-auth": "1.7.12",
+    "effect": "4.0.6"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
-    "bun-types": "1.4.3",
+    "bun-types": "1.4.4",
     "typescript": "7.0.2"
   }
 }

@@ -20,6 +20,8 @@
     "effecttsgo/api-stability-leak": "off",
     "effecttsgo/async-function": "off",
     "effecttsgo/missing-pipeable-signature": "off",
+    // Native string methods are permitted; upgrading tooling shouldn't require a style migration.
+    "effecttsgo/prefer-effect-string": "off",
     "effecttsgo/strict-boolean-expressions": "off",
 
     // Effect conventions enforced by built-in Oxlint rules.
