@@ -46,7 +46,7 @@ const NativeSegmentedListItem =
 const SlotNativeView: ComponentType<SlotProps> = requireNativeView('ExpoUI', 'SlotView');
 
 const getModifierProps = ({ modifiers }: { modifiers?: PrimitiveBaseProps['modifiers'] }) =>
-  modifiers ? { modifiers, ...createViewModifierEventListener(modifiers) } : {};
+  modifiers !== void 0 ? { modifiers, ...createViewModifierEventListener(modifiers) } : {};
 
 const HeadlineContent = (props: { children: ReactNode }) => (
   <SlotNativeView slotName="headlineContent">{props.children}</SlotNativeView>
@@ -84,7 +84,7 @@ const SegmentedListItemComponent = ({
     {...restProps}
     enabled={enabled}
     selected={selected}
-    {...(onClick
+    {...(onClick !== void 0
       ? {
           onSegmentedListItemClick: () => {
             onClick();

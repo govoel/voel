@@ -1,5 +1,5 @@
 import { useAtomSuspense } from '@effect/atom-react';
-import { Equal, Option } from 'effect';
+import { Equal, Option, String, pipe } from 'effect';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
@@ -24,7 +24,7 @@ export const AccountsAutoPresenter = () => {
       return;
     }
 
-    if (pathname === '/accounts' || pathname.startsWith('/accounts/')) {
+    if (pathname === '/accounts' || pipe(pathname, String.startsWith('/accounts/'))) {
       lastPresentedRef.current = Option.some(sheet.value);
       return;
     }

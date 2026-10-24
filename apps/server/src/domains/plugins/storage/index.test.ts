@@ -31,6 +31,7 @@ import {
   Path,
   References,
   Scope,
+  String,
 } from 'effect';
 import { HttpClient } from 'effect/http';
 
@@ -311,11 +312,11 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
                 // Model decoders that normalize but neglect to validate their outputs.
                 decodeRootLocation: ({ location }) =>
                   Effect.succeed(
-                    StorageRootLocation.make(location.trim(), { disableChecks: true })
+                    StorageRootLocation.make(String.trim(location), { disableChecks: true })
                   ),
                 decodeMediaFileLocation: ({ location }) =>
                   Effect.succeed(
-                    StorageMediaFileLocation.make(location.trim(), { disableChecks: true })
+                    StorageMediaFileLocation.make(String.trim(location), { disableChecks: true })
                   ),
               }),
             layerSettings: () => settingsLayer,

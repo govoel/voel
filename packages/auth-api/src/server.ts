@@ -85,7 +85,6 @@ const createServerAuthClient = (config: {
           },
         }),
       },
-      // @ts-expect-error - better-auth plugins don't really support exactOptionalPropertyTypes
       testUtils(),
     ],
     hooks: {

@@ -19,7 +19,7 @@ export const AndroidAccountsSheet = ({
   return (
     <Host seedColor={materialSeedColor} style={{ flex: 1 }}>
       <ModalBottomSheet
-        {...(ref ? { ref } : {})}
+        {...(ref !== null && ref !== void 0 ? { ref } : {})}
         skipPartiallyExpanded
         sheetGesturesEnabled={dismissable}
         showDragHandle={dismissable}

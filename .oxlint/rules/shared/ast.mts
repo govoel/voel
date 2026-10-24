@@ -1,5 +1,5 @@
 import type { ESTree } from '@oxlint/plugins';
-import { Array, Option } from 'effect';
+import { Array, Option, String, pipe } from 'effect';
 
 const isWrappedExpression = (
   expression: ESTree.Expression
@@ -63,6 +63,6 @@ export const analyzeSuperclass = (superClass: ESTree.Expression) =>
       calls,
       constructorName,
       innermostCall,
-      isExtend: constructorName.endsWith('.extend'),
+      isExtend: pipe(constructorName, String.endsWith('.extend')),
     };
   });

@@ -1,7 +1,19 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Scope } from 'effect';
+import {
+  Array,
+  Cause,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Scope,
+  String,
+  pipe,
+} from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { vi } from 'vitest';
@@ -91,7 +103,7 @@ describe('TursoClient pooled transaction recovery', () => {
         expect(Cause.hasFails(failed.cause)).toBe(false);
         expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
-        expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+        expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
       }
 
       const failedLease = yield* Scope.fork(scope);
@@ -191,7 +203,7 @@ describe('TursoClient pooled transaction recovery', () => {
         const failed = yield* Fiber.join(transaction);
         expect(Exit.isFailure(failed)).toBe(true);
         if (Exit.isFailure(failed)) {
-          expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+          expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
         }
         expect(yield* Fiber.join(waiting)).toBe(first);
         expect(yield* healthy.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
@@ -341,7 +353,7 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         expect(Cause.hasFails(failed.cause)).toBe(false);
         expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
-        expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+        expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
       }
 
       const unavailable = yield* sql`
@@ -376,6 +388,28 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
             parent
         `
       ).toEqual([{ id: 2 }]);
+    }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect('preserves the typed SQL error after automatic rollback', () =>
+    Effect.gen(function* () {
+      const sql = yield* make;
+      yield* sql`
+        insert into
+          parent
+        values
+          (1)
+      `;
+      const failed = yield* sql`
+        insert or rollback into
+          parent
+        values
+          (1)
+      `.pipe(sql.withTransaction, Effect.result);
+      expect(failed).toMatchObject({
+        _tag: 'Failure',
+        failure: { _tag: 'SqlError', reason: { _tag: 'UniqueViolation' } },
+      });
     }).pipe(Effect.provide(TestLayer))
   );
 
@@ -429,7 +463,7 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
       const spy = vi
         .spyOn(connection, 'executeUnprepared')
         .mockImplementation((statement, params, transformRows) => {
-          if (statement.startsWith('RELEASE SAVEPOINT')) {
+          if (pipe(statement, String.startsWith('RELEASE SAVEPOINT'))) {
             releases.push(statement);
           }
           return execute(statement, params, transformRows);

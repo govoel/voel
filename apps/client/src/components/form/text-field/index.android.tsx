@@ -19,7 +19,7 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
         ...('android' in platformProps ? platformProps.android.textStyle : {}),
       }}
       keyboardOptions={{
-        ...(purpose ? textInputPresets[purpose] : {}),
+        ...(purpose !== void 0 ? textInputPresets[purpose] : {}),
         ...('android' in platformProps ? platformProps.android.keyboardOptions : {}),
       }}
       value={value}

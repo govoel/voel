@@ -16,11 +16,11 @@
   "dependencies": {
     "@repo/effect-turso-sync": "workspace:*",
     "@tursodatabase/sync-react-native": "0.8.3",
-    "effect": "4.0.5"
+    "effect": "4.0.6"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
-    "bun-types": "1.4.3",
+    "bun-types": "1.4.4",
     "typescript": "7.0.2"
   }
 }
