@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Random, Redacted, Stream } from 'effect';
+import { Context, Effect, Layer, Random, Redacted, Stream } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
@@ -7,8 +7,8 @@ import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountSignInError, AccountSignUpError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { AccountKey, AccountUpsert } from '#src/domains/accounts/schema.ts';
-import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { Account } from '#src/domains/accounts/schema.ts';
 
 export class UuidGenerator extends Context.Service<UuidGenerator>()(
   'voel/domains/accounts/manager/UuidGenerator',
@@ -39,15 +39,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const authClientMap = yield* AuthClientMap;
       const reactivity = yield* Reactivity.Reactivity;
 
-      const state = accountRepository.getActive.pipe(
-        Effect.map(Option.map((account) => ActiveAccountKey.make(account)))
-      );
+      const state = accountRepository.getActiveKey;
       const changes = reactivity.stream(['account'], state).pipe(Stream.changes);
 
       const setActiveAccount = (key: AccountKey) =>
         reactivity.mutation(['account'], accountRepository.setActive(key));
 
-      const upsertAccount = ({ account }: { readonly account: AccountUpsert }) =>
+      const upsertAccount = ({ account }: { readonly account: typeof Account.upsert.Type }) =>
         reactivity.mutation(['account'], accountRepository.upsertActive(account));
 
       const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {

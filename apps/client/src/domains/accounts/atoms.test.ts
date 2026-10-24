@@ -165,7 +165,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           accountsRemain: true,
         });
         const repository = yield* AccountRepository;
-        expect(yield* repository.getActive).toMatchObject(
+        expect(yield* repository.getActiveKey).toMatchObject(
           Option.some({ userId: firstAccount.userId })
         );
 

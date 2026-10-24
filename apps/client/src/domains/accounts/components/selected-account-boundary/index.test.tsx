@@ -19,7 +19,7 @@ import { MainShell } from '#src/domains/accounts/components/main-shell';
 import { AccountManagementBoundary } from '#src/domains/accounts/components/selected-account-boundary';
 import { AccountManager, UuidGenerator } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -148,7 +148,10 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
     list: Ref.get(rows),
-    getActive: Ref.get(rows).pipe(Effect.map(Array.findFirst((account) => account.active))),
+    getActiveKey: Ref.get(rows).pipe(
+      Effect.map(Array.findFirst((account) => account.active)),
+      Effect.map(Option.map((account) => ActiveAccountKey.make(account)))
+    ),
     getByStorageKey: (key) =>
       Ref.get(rows).pipe(
         Effect.map(

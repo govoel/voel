@@ -5,7 +5,6 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -37,7 +36,7 @@ export const accountsSheetAtom = AppRuntime.atom(
     }
 
     const authClient = yield* AuthClientMap.use((authClients) =>
-      authClients.acquire(ActiveAccountKey.make(activeAccount.value))
+      authClients.acquire(activeAccount.value)
     );
     return authClient.sessionChanges.pipe(
       Stream.map((session): AccountsSheet =>
