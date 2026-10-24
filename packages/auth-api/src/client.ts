@@ -181,7 +181,7 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           Request: AuthAdminUpdateUserInput,
           execute: async ({ userId, username, ...data }) => {
             const current = await coreClient.admin.getUser({ query: { id: userId } });
-            if (current.error) {
+            if (current.error !== null) {
               return current;
             }
             // Better Auth's username hook checks the acting admin rather than the target.

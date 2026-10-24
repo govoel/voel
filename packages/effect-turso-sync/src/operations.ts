@@ -32,7 +32,7 @@ export const makeSyncOperations = Effect.fnUntraced(function* <R>({
     ).pipe(Semaphore.withPermit(semaphore));
 
   return {
-    ...(authToken ? { authToken: async () => runPromise(authToken, { signal }) } : {}),
+    ...(authToken !== void 0 ? { authToken: async () => runPromise(authToken, { signal }) } : {}),
     withSyncOperation,
   };
 });

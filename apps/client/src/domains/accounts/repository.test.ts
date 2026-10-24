@@ -192,6 +192,7 @@ describe('AccountRepository', () => {
         reason: SqlError.ConnectionError.make({ cause: new Error('Connection unavailable') }),
       });
       const client = yield* SqlClient.make({
+        driver: 'test',
         acquirer: Effect.fail(failure),
         compiler: Statement.makeCompilerSqlite(),
         spanAttributes: [],

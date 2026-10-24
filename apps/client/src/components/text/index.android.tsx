@@ -6,7 +6,7 @@ import { materialFonts } from '#src/constants/material.ts';
 
 export const Text = (({ variant = 'body', modifiers, children, color }) => (
   <ComposeText
-    {...(modifiers ? { modifiers } : {})}
+    {...(modifiers !== void 0 ? { modifiers } : {})}
     {...(typeof color === 'string' ? { color } : {})}
     style={Match.value(variant).pipe(
       Match.when('h1', () => ({

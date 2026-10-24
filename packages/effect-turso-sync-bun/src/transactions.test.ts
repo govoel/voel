@@ -1,7 +1,18 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer } from 'effect';
+import {
+  Array,
+  Cause,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  String,
+  pipe,
+} from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { vi } from 'vitest';
@@ -147,7 +158,7 @@ describe('Bun Turso Sync transactions', () => {
         expect(Cause.hasFails(failed.cause)).toBe(false);
         expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
-        expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+        expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
       }
 
       const unavailable = yield* sql`
@@ -183,6 +194,68 @@ describe('Bun Turso Sync transactions', () => {
         `
       ).toEqual([{ id: 2 }]);
     }).pipe(Effect.provide(TestLayer))
+  );
+
+  it.effect.each(['top-level', 'nested'] as const)(
+    'preserves typed errors when SQLite rolls back the whole transaction (%s)',
+    (level) =>
+      Effect.gen(function* () {
+        const sql = yield* make;
+        yield* sql`
+          insert into
+            parent
+          values
+            (1)
+        `;
+        const conflict = sql`
+          insert or rollback into
+            parent
+          values
+            (1)
+        `;
+        const failed = yield* sql
+          .withTransaction(
+            Effect.gen(function* () {
+              yield* sql`
+                insert into
+                  parent
+                values
+                  (2)
+              `;
+              yield* level === 'nested' ? sql.withTransaction(conflict) : conflict;
+            })
+          )
+          .pipe(Effect.result);
+        expect(failed).toMatchObject({
+          _tag: 'Failure',
+          failure: { _tag: 'SqlError', reason: { _tag: 'UniqueViolation' } },
+        });
+        expect(
+          yield* sql`
+            select
+              *
+            from
+              parent
+          `
+        ).toEqual([{ id: 1 }]);
+
+        yield* sql`
+          insert into
+            parent
+          values
+            (3)
+        `.pipe(sql.withTransaction);
+        expect(
+          yield* sql`
+            select
+              *
+            from
+              parent
+            order by
+              id
+          `
+        ).toEqual([{ id: 1 }, { id: 3 }]);
+      }).pipe(Effect.provide(TestLayer))
   );
 
   it.effect('does not roll back an already-ended transaction after COMMIT fails', () =>
@@ -235,7 +308,7 @@ describe('Bun Turso Sync transactions', () => {
       const spy = vi
         .spyOn(connection, 'executeUnprepared')
         .mockImplementation((statement, params, transformRows) => {
-          if (statement.startsWith('RELEASE SAVEPOINT')) {
+          if (pipe(statement, String.startsWith('RELEASE SAVEPOINT'))) {
             releases.push(statement);
           }
           return execute(statement, params, transformRows);

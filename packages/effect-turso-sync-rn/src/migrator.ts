@@ -1,4 +1,4 @@
-import { Array, Data, Effect, Layer, Option, Order, Record, pipe } from 'effect';
+import { Array, Data, Effect, Layer, Option, Order, Record, String as Str, pipe } from 'effect';
 import type { SqlError } from 'effect/sql';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -6,7 +6,7 @@ import * as SqlClient from 'effect/sql/SqlClient';
 /**
  * Metro-safe SQLite specialization of Effect's SQL migrator.
  *
- * This follows `.repos/effect/packages/effect/src/unstable/sql/Migrator.ts`, while
+ * This follows Effect 4.0.6's `effect/sql/Migrator`, while
  * intentionally omitting its filesystem loader. Metro cannot transform that
  * loader's non-literal dynamic import even when it is unused.
  */
@@ -80,14 +80,14 @@ const make = Effect.fnUntraced(function* <R = never>({
 
   const runMigration = ([id, name, migration]: ResolvedMigration) =>
     migration.pipe(
-      Effect.catch((cause) =>
-        Effect.die(
+      Effect.catchTag(
+        'SqlError',
+        (cause) =>
           new MigrationError({
             cause,
             kind: 'Failed',
             message: `Migration "${id}_${name}" failed`,
           })
-        )
       ),
       Effect.annotateLogs('migration_id', String(id)),
       Effect.annotateLogs('migration_name', name),
@@ -176,17 +176,21 @@ export const SqliteMigrator = {
     pipe(
       Record.toEntries(migrations),
       Array.flatMap(([key, migration]): ReadonlyArray<ResolvedMigration> => {
-        const separator = key.indexOf('_');
-        if (separator <= 0 || separator === key.length - 1) {
+        const separator = pipe(key, Str.indexOf('_'));
+        if (
+          Option.isNone(separator) ||
+          separator.value <= 0 ||
+          separator.value === key.length - 1
+        ) {
           return [];
         }
 
-        const id = key.slice(0, separator);
+        const id = pipe(key, Str.slice(0, separator.value));
         if (!/^\d+$/u.test(id)) {
           return [];
         }
 
-        return [[Number(id), key.slice(separator + 1), migration]];
+        return [[Number(id), pipe(key, Str.slice(separator.value + 1)), migration]];
       }),
       Array.sort(migrationOrder),
       Effect.succeed

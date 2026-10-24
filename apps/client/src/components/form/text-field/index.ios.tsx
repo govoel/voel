@@ -21,7 +21,7 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
         {...('ios' in platformProps ? platformProps.ios : {})}
         placeholder={placeholder}
         modifiers={[
-          ...(purpose ? textInputPresets[purpose] : []),
+          ...(purpose !== void 0 ? textInputPresets[purpose] : []),
           disabled(isSubmitting),
           ...('ios' in platformProps ? (platformProps.ios.modifiers ?? []) : []),
         ]}

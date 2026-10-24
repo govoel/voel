@@ -18,7 +18,7 @@ export const noContextServiceSecondTypeArgumentRule = defineRule({
       }
 
       const secondTypeArgument = node.typeArguments?.params[1];
-      if (secondTypeArgument) {
+      if (secondTypeArgument !== void 0) {
         context.report({
           message:
             "Omit Context.Service's second type argument and infer the service type from make.",

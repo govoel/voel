@@ -1,7 +1,18 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { RegistryContext, useAtom, useAtomValue } from '@effect/atom-react';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
-import { Array, DateTime, Effect, Layer, ManagedRuntime, Option, Ref, Struct } from 'effect';
+import {
+  Array,
+  DateTime,
+  Effect,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Ref,
+  String,
+  Struct,
+  pipe,
+} from 'effect';
 import { AsyncResult, AtomRegistry, Reactivity } from 'effect/reactivity';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Suspense, useState } from 'react';
@@ -425,7 +436,7 @@ it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
     expect(navigation.push).not.toHaveBeenCalled();
     navigation.pathname = '/';
     await view.rerender(<PresentedMainShell />);
-    if (pathname.startsWith('/accounts')) {
+    if (pipe(pathname, String.startsWith('/accounts'))) {
       expect(navigation.push).not.toHaveBeenCalled();
     } else {
       await waitFor(() => {

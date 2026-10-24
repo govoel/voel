@@ -5,12 +5,15 @@ import {
   Duration,
   Effect,
   Layer,
+  Option,
   Pool,
   Predicate,
   Schema,
   ScopedCache,
   Semaphore,
   Stream,
+  String,
+  pipe,
 } from 'effect';
 import { HttpServerError, HttpServerResponse } from 'effect/http';
 import type { HttpServerRequest } from 'effect/http';
@@ -91,9 +94,10 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     }
 
     const compiler = Statement.makeCompilerSqlite(options.transformQueryNames);
-    const defaultTransformRows = options.transformResultNames
-      ? Statement.defaultTransforms(options.transformResultNames).array
-      : void 0;
+    const defaultTransformRows =
+      options.transformResultNames !== void 0
+        ? Statement.defaultTransforms(options.transformResultNames).array
+        : void 0;
 
     const makeConnection = Effect.gen(function* () {
       const busyTimeoutMillis = Math.min(
@@ -129,7 +133,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         )
       );
 
-      if (options.onConnect) {
+      if (options.onConnect !== void 0) {
         yield* options.onConnect({
           exec: (sql: string) =>
             Effect.tryPromise({
@@ -262,7 +266,9 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
 
       const connection = {
         execute(sql, params, transformRows) {
-          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+          return transformRows !== void 0
+            ? Effect.map(run(sql, params), transformRows)
+            : run(sql, params);
         },
         executeRaw(sql, params) {
           return runRaw(sql, params);
@@ -274,10 +280,12 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
           return runValues(sql, params);
         },
         executeUnprepared(sql, params, transformRows) {
-          return transformRows ? Effect.map(run(sql, params), transformRows) : run(sql, params);
+          return transformRows !== void 0
+            ? Effect.map(run(sql, params), transformRows)
+            : run(sql, params);
         },
         executeStream(sql, params, transformRows) {
-          return transformRows
+          return transformRows !== void 0
             ? runStream(sql, params).pipe(
                 Stream.map((row) => transformRows([row])),
                 Stream.flattenIterable
@@ -286,14 +294,16 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         },
       } satisfies SqlConnection.Connection;
       // Recovery belongs to each physical connection, not the whole pool.
+      const isTransaction = () => db.inTransaction;
       const { transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
         connection: Effect.succeed(connection),
         semaphore: yield* Semaphore.make(1),
-        isTransaction: () => db.inTransaction,
+        isTransaction,
       });
       return Object.assign(connection, {
         acquire: transactionAcquirer,
         onCommitFailure,
+        isTransaction,
         handleSyncRequest: (request: SyncRequest) =>
           Effect.tryPromise({
             try: async () => db.handleSyncRequest(request),
@@ -316,11 +326,12 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     yield* Effect.scoped(acquirer);
 
     const spanAttributes: ReadonlyArray<readonly [string, unknown]> = [
-      ...(options.spanAttributes ? Object.entries(options.spanAttributes) : []),
+      ...Object.entries(options.spanAttributes ?? {}),
       [ATTR_DB_SYSTEM_NAME, 'turso'],
     ];
 
     const client = yield* SqlClient.make({
+      driver: 'turso',
       acquirer,
       compiler,
       transactionAcquirer: acquirer,
@@ -330,6 +341,11 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         const item = connection as Effect.Success<typeof makeConnection>;
         return item.onCommitFailure(item);
+      },
+      isTransaction: (connection) => {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const item = connection as Effect.Success<typeof makeConnection>;
+        return item.isTransaction();
       },
       releaseSavepoint: (name) => `RELEASE SAVEPOINT ${name}`,
       spanAttributes,
@@ -407,22 +423,25 @@ const classifyTursoError = (cause: unknown, options: { message?: string; operati
     text = cause.message;
   }
 
-  if (text.includes('UNIQUE constraint failed')) {
+  if (pipe(text, String.includes('UNIQUE constraint failed'))) {
     return SqlError.UniqueViolation.make({
       ...props,
       constraint: uniqueConstraintFromMessage(text),
     });
   }
-  if (text.includes('constraint failed')) {
+  if (pipe(text, String.includes('constraint failed'))) {
     return SqlError.ConstraintError.make(props);
   }
-  if (text.includes('syntax error') || text.includes('Parse error')) {
+  if (pipe(text, String.includes('syntax error')) || pipe(text, String.includes('Parse error'))) {
     return SqlError.SqlSyntaxError.make(props);
   }
-  if (text.includes('is locked') || text.includes('database is busy')) {
+  if (pipe(text, String.includes('is locked')) || pipe(text, String.includes('database is busy'))) {
     return SqlError.LockTimeoutError.make(props);
   }
-  if (text.includes('failed to open database') || text.includes('unable to open database')) {
+  if (
+    pipe(text, String.includes('failed to open database')) ||
+    pipe(text, String.includes('unable to open database'))
+  ) {
     return SqlError.ConnectionError.make(props);
   }
 
@@ -431,11 +450,11 @@ const classifyTursoError = (cause: unknown, options: { message?: string; operati
 
 const uniqueConstraintFromMessage = (message: string) => {
   const prefix = 'UNIQUE constraint failed:';
-  const index = message.indexOf(prefix);
-  if (index === -1) {
+  const index = pipe(message, String.indexOf(prefix));
+  if (Option.isNone(index)) {
     return 'unknown';
   }
-  const constraint = message.slice(index + prefix.length).trim();
+  const constraint = pipe(message, String.slice(index.value + prefix.length), String.trim);
   return constraint.length > 0 ? constraint : 'unknown';
 };
 
