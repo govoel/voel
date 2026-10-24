@@ -1,4 +1,4 @@
-import { String } from 'effect';
+import { String, pipe } from 'effect';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export const StatusBarGradient = ({
@@ -14,7 +14,7 @@ export const StatusBarGradient = ({
     return null;
   }
 
-  const colorWithoutAlpha = String.slice(0, 7)(backgroundColor);
+  const colorWithoutAlpha = pipe(backgroundColor, String.slice(0, 7));
 
   return (
     <LinearGradient

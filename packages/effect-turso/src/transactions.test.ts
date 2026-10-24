@@ -12,6 +12,7 @@ import {
   Layer,
   Scope,
   String,
+  pipe,
 } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
@@ -440,7 +441,7 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
       const spy = vi
         .spyOn(connection, 'executeUnprepared')
         .mockImplementation((statement, params, transformRows) => {
-          if (String.startsWith('RELEASE SAVEPOINT')(statement)) {
+          if (pipe(statement, String.startsWith('RELEASE SAVEPOINT'))) {
             releases.push(statement);
           }
           return execute(statement, params, transformRows);

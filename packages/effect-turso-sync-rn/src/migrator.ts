@@ -176,7 +176,7 @@ export const SqliteMigrator = {
     pipe(
       Record.toEntries(migrations),
       Array.flatMap(([key, migration]): ReadonlyArray<ResolvedMigration> => {
-        const separator = Str.indexOf('_')(key);
+        const separator = pipe(key, Str.indexOf('_'));
         if (
           Option.isNone(separator) ||
           separator.value <= 0 ||
@@ -185,12 +185,12 @@ export const SqliteMigrator = {
           return [];
         }
 
-        const id = Str.slice(0, separator.value)(key);
+        const id = pipe(key, Str.slice(0, separator.value));
         if (!/^\d+$/u.test(id)) {
           return [];
         }
 
-        return [[Number(id), Str.slice(separator.value + 1)(key), migration]];
+        return [[Number(id), pipe(key, Str.slice(separator.value + 1)), migration]];
       }),
       Array.sort(migrationOrder),
       Effect.succeed

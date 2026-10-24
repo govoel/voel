@@ -10,6 +10,7 @@ import {
   Semaphore,
   Stream,
   String,
+  pipe,
 } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import type { SqlConnection } from 'effect/sql';
@@ -260,25 +261,25 @@ const classifyTursoError = (cause: unknown, options: { message?: string; operati
     text = cause.message;
   }
 
-  if (String.includes('UNIQUE constraint failed')(text)) {
+  if (pipe(text, String.includes('UNIQUE constraint failed'))) {
     return SqlError.UniqueViolation.make({
       ...props,
       constraint: uniqueConstraintFromMessage(text),
     });
   }
-  if (String.includes('constraint failed')(text)) {
+  if (pipe(text, String.includes('constraint failed'))) {
     return SqlError.ConstraintError.make(props);
   }
-  if (String.includes('syntax error')(text) || String.includes('Parse error')(text)) {
+  if (pipe(text, String.includes('syntax error')) || pipe(text, String.includes('Parse error'))) {
     return SqlError.SqlSyntaxError.make(props);
   }
-  if (String.includes('is locked')(text) || String.includes('database is busy')(text)) {
+  if (pipe(text, String.includes('is locked')) || pipe(text, String.includes('database is busy'))) {
     return SqlError.LockTimeoutError.make(props);
   }
   if (
-    String.includes('failed to open database')(text) ||
-    String.includes('unable to open database')(text) ||
-    String.includes('Native module not found')(text)
+    pipe(text, String.includes('failed to open database')) ||
+    pipe(text, String.includes('unable to open database')) ||
+    pipe(text, String.includes('Native module not found'))
   ) {
     return SqlError.ConnectionError.make(props);
   }
@@ -288,10 +289,10 @@ const classifyTursoError = (cause: unknown, options: { message?: string; operati
 
 const uniqueConstraintFromMessage = (message: string) => {
   const prefix = 'UNIQUE constraint failed:';
-  const index = String.indexOf(prefix)(message);
+  const index = pipe(message, String.indexOf(prefix));
   if (Option.isNone(index)) {
     return 'unknown';
   }
-  const constraint = String.trim(String.slice(index.value + prefix.length)(message));
+  const constraint = pipe(message, String.slice(index.value + prefix.length), String.trim);
   return constraint.length > 0 ? constraint : 'unknown';
 };

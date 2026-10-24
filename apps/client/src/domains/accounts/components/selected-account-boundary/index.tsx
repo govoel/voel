@@ -1,5 +1,5 @@
 import { useAtomSuspense } from '@effect/atom-react';
-import { Effect, Option, Stream, String } from 'effect';
+import { Effect, Option, Stream, String, pipe } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { Stack } from 'expo-router';
 import { Redirect } from 'expo-router';
@@ -53,7 +53,7 @@ export const AccountManagementBoundary = ({ children }: PropsWithChildren) => (
 // Groups without a layout are hoisted into the management Stack. Scope only
 // their screen content so native headers/back history and the modal stay mounted.
 export const accountManagementScreenLayout = (({ route, children }) =>
-  String.startsWith('(selected)/')(route.name) ? (
+  pipe(route.name, String.startsWith('(selected)/')) ? (
     <AccountManagementBoundary>{children}</AccountManagementBoundary>
   ) : (
     children

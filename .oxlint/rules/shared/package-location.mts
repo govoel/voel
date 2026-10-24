@@ -69,7 +69,7 @@ const getPackageLocation = (filename: string) =>
 export const expectedIdentifier = (filename: string, className: string) =>
   Option.gen(function* () {
     const location = yield* getPackageLocation(filename);
-    const segments = String.split('/')(location.sourcePath);
+    const segments = pipe(location.sourcePath, String.split('/'));
     const fileName = yield* Array.last(segments);
 
     const sourceSegments = fileName === 'index' ? segments.slice(0, -1) : segments;

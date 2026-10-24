@@ -11,6 +11,7 @@ import {
   Ref,
   String,
   Struct,
+  pipe,
 } from 'effect';
 import { AsyncResult, AtomRegistry, Reactivity } from 'effect/reactivity';
 import type { PropsWithChildren, ReactNode } from 'react';
@@ -435,7 +436,7 @@ it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
     expect(navigation.push).not.toHaveBeenCalled();
     navigation.pathname = '/';
     await view.rerender(<PresentedMainShell />);
-    if (String.startsWith('/accounts')(pathname)) {
+    if (pipe(pathname, String.startsWith('/accounts'))) {
       expect(navigation.push).not.toHaveBeenCalled();
     } else {
       await waitFor(() => {

@@ -1,7 +1,7 @@
 // oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
 import { readFileSync } from 'node:fs';
 
-import { Array, Effect, Match, Option, String } from 'effect';
+import { Array, Effect, Match, Option, String, pipe } from 'effect';
 import expoBuildProperties from 'expo-build-properties/plugin';
 import expoFont from 'expo-font/plugin';
 import expoImage from 'expo-image/plugin';
@@ -19,18 +19,18 @@ import pkg from './package.json';
 
 // oxlint-disable-next-line unicorn/prefer-module
 const expoUiPackageJsonPath = require.resolve('@expo/ui/package.json');
-const expoUiAndroidBuildGradlePath = String.replace(
-  /package\.json$/u,
-  'android/build.gradle'
-)(expoUiPackageJsonPath);
+const expoUiAndroidBuildGradlePath = pipe(
+  expoUiPackageJsonPath,
+  String.replace(/package\.json$/u, 'android/build.gradle')
+);
 const expoUiAndroidBuildGradle = readFileSync(expoUiAndroidBuildGradlePath, 'utf8');
 
 // oxlint-disable-next-line unicorn/prefer-module
 const reactNativePackageJsonPath = require.resolve('react-native/package.json');
-const reactNativeGradleVersionsPath = String.replace(
-  /package\.json$/u,
-  'gradle/libs.versions.toml'
-)(reactNativePackageJsonPath);
+const reactNativeGradleVersionsPath = pipe(
+  reactNativePackageJsonPath,
+  String.replace(/package\.json$/u, 'gradle/libs.versions.toml')
+);
 const reactNativeGradleVersions = readFileSync(reactNativeGradleVersionsPath, 'utf8');
 
 const getReactNativeKotlinVersion = () => {
@@ -46,15 +46,15 @@ const getReactNativeKotlinVersion = () => {
 
 const getExpoUiAndroidDependencyVersion = (coordinate: `${string}:${string}`) => {
   const dependencyStart = Option.getOrThrowWith(
-    String.indexOf(`${coordinate}:`)(expoUiAndroidBuildGradle),
+    pipe(expoUiAndroidBuildGradle, String.indexOf(`${coordinate}:`)),
     () => new Error(`Could not find ${coordinate} in @expo/ui android/build.gradle`)
   );
-  const dependency = String.slice(dependencyStart)(expoUiAndroidBuildGradle);
+  const dependency = pipe(expoUiAndroidBuildGradle, String.slice(dependencyStart));
   const dependencyEnd = Math.min(
-    ...Array.getSomes(Array.map(["'", '"'], (quote) => String.indexOf(quote)(dependency)))
+    ...Array.getSomes(Array.map(["'", '"'], (quote) => pipe(dependency, String.indexOf(quote))))
   );
 
-  return String.slice(0, dependencyEnd)(dependency);
+  return pipe(dependency, String.slice(0, dependencyEnd));
 };
 
 const withExpoInlineComposeModules = ((expoConfig) =>
@@ -79,14 +79,17 @@ project(':expo') {
 }
 `;
 
-    if (!String.includes(composePluginClasspath)(config.modResults.contents)) {
-      config.modResults.contents = String.replace(
-        `    classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')`,
-        `    classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')\n${composePluginClasspath}`
-      )(config.modResults.contents);
+    if (!pipe(config.modResults.contents, String.includes(composePluginClasspath))) {
+      config.modResults.contents = pipe(
+        config.modResults.contents,
+        String.replace(
+          `    classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')`,
+          `    classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')\n${composePluginClasspath}`
+        )
+      );
     }
 
-    if (!String.includes("project(':expo')")(config.modResults.contents)) {
+    if (!pipe(config.modResults.contents, String.includes("project(':expo')"))) {
       config.modResults.contents = `${String.trimEnd(config.modResults.contents)}\n${expoComposeProject}`;
     }
 
