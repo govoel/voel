@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 // oxlint-disable-next-line import/no-nodejs-modules, effecttsgo/node-builtin-import
 import path from 'node:path';
 
-import { Array, Option, Schema } from 'effect';
+import { Array, Option, Schema, String, pipe } from 'effect';
 
 const decodePackageManifest = Schema.decodeUnknownOption(
   Schema.Struct({ name: Schema.NonEmptyString })
@@ -57,24 +57,25 @@ const getPackageLocation = (filename: string) =>
   findPackageFromDirectory(path.dirname(filename)).pipe(
     Option.map((packageLocation) => ({
       packageName: packageLocation.name,
-      sourcePath: path
-        .relative(packageLocation.root, filename)
-        .replaceAll('\\', '/')
-        .replace(/^src\//u, '')
-        .replace(/\.(?:mts|tsx?|cts)$/u, ''),
+      sourcePath: pipe(
+        path.relative(packageLocation.root, filename),
+        String.replaceAll('\\', '/'),
+        String.replace(/^src\//u, ''),
+        String.replace(/\.(?:mts|tsx?|cts)$/u, '')
+      ),
     }))
   );
 
 export const expectedIdentifier = (filename: string, className: string) =>
   Option.gen(function* () {
     const location = yield* getPackageLocation(filename);
-    const segments = location.sourcePath.split('/');
+    const segments = String.split('/')(location.sourcePath);
     const fileName = yield* Array.last(segments);
 
     const sourceSegments = fileName === 'index' ? segments.slice(0, -1) : segments;
     const sourceIdentifier = Array.join([location.packageName, ...sourceSegments], '/');
     const identifier =
-      fileName !== 'index' && fileName.toLowerCase() === className.toLowerCase()
+      fileName !== 'index' && String.toLowerCase(fileName) === String.toLowerCase(className)
         ? sourceIdentifier
         : `${sourceIdentifier}/${className}`;
 

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 // oxlint-disable-next-line import/no-nodejs-modules, typescript/no-require-imports, import/no-commonjs, effecttsgo/node-builtin-import
 const path = require('node:path');
 // oxlint-disable-next-line typescript/no-require-imports, import/no-commonjs
-const { Array, Record } = require('effect');
+const { Array, Record, String } = require('effect');
 
 /** @type {Readonly<Record<string, ReadonlySet<string>>>} */
 const nativeExtensionsByPlatform = {
@@ -34,7 +34,7 @@ const selectedExtensions = new Set(
 /**
  * @param {string} filePath
  */
-const toPosixPath = (filePath) => Array.join(filePath.split(path.sep), '/');
+const toPosixPath = (filePath) => Array.join(String.split(path.sep)(filePath), '/');
 
 /**
  * @param {string} directory

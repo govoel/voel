@@ -1,3 +1,4 @@
+import { String } from 'effect';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export const StatusBarGradient = ({
@@ -13,7 +14,7 @@ export const StatusBarGradient = ({
     return null;
   }
 
-  const colorWithoutAlpha = backgroundColor.slice(0, 7);
+  const colorWithoutAlpha = String.slice(0, 7)(backgroundColor);
 
   return (
     <LinearGradient

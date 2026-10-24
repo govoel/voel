@@ -1,7 +1,18 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Scope } from 'effect';
+import {
+  Array,
+  Cause,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Scope,
+  String,
+} from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { vi } from 'vitest';
@@ -91,7 +102,7 @@ describe('TursoClient pooled transaction recovery', () => {
         expect(Cause.hasFails(failed.cause)).toBe(false);
         expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
-        expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+        expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
       }
 
       const failedLease = yield* Scope.fork(scope);
@@ -191,7 +202,7 @@ describe('TursoClient pooled transaction recovery', () => {
         const failed = yield* Fiber.join(transaction);
         expect(Exit.isFailure(failed)).toBe(true);
         if (Exit.isFailure(failed)) {
-          expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+          expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
         }
         expect(yield* Fiber.join(waiting)).toBe(first);
         expect(yield* healthy.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
@@ -341,7 +352,7 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         expect(Cause.hasFails(failed.cause)).toBe(false);
         expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
-        expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+        expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
       }
 
       const unavailable = yield* sql`
@@ -429,7 +440,7 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
       const spy = vi
         .spyOn(connection, 'executeUnprepared')
         .mockImplementation((statement, params, transformRows) => {
-          if (statement.startsWith('RELEASE SAVEPOINT')) {
+          if (String.startsWith('RELEASE SAVEPOINT')(statement)) {
             releases.push(statement);
           }
           return execute(statement, params, transformRows);

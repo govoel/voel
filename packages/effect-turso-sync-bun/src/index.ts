@@ -5,10 +5,12 @@ import {
   Duration,
   Effect,
   Layer,
+  Option,
   Predicate,
   ScopedCache,
   Semaphore,
   Stream,
+  String,
 } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, SqlError, Statement } from 'effect/sql';
@@ -250,22 +252,25 @@ const classifyTursoError = (cause: unknown, options: { message?: string; operati
     text = cause.message;
   }
 
-  if (text.includes('UNIQUE constraint failed')) {
+  if (String.includes('UNIQUE constraint failed')(text)) {
     return SqlError.UniqueViolation.make({
       ...props,
       constraint: uniqueConstraintFromMessage(text),
     });
   }
-  if (text.includes('constraint failed')) {
+  if (String.includes('constraint failed')(text)) {
     return SqlError.ConstraintError.make(props);
   }
-  if (text.includes('syntax error') || text.includes('Parse error')) {
+  if (String.includes('syntax error')(text) || String.includes('Parse error')(text)) {
     return SqlError.SqlSyntaxError.make(props);
   }
-  if (text.includes('is locked') || text.includes('database is busy')) {
+  if (String.includes('is locked')(text) || String.includes('database is busy')(text)) {
     return SqlError.LockTimeoutError.make(props);
   }
-  if (text.includes('failed to open database') || text.includes('unable to open database')) {
+  if (
+    String.includes('failed to open database')(text) ||
+    String.includes('unable to open database')(text)
+  ) {
     return SqlError.ConnectionError.make(props);
   }
 
@@ -274,10 +279,10 @@ const classifyTursoError = (cause: unknown, options: { message?: string; operati
 
 const uniqueConstraintFromMessage = (message: string) => {
   const prefix = 'UNIQUE constraint failed:';
-  const index = message.indexOf(prefix);
-  if (index === -1) {
+  const index = String.indexOf(prefix)(message);
+  if (Option.isNone(index)) {
     return 'unknown';
   }
-  const constraint = message.slice(index + prefix.length).trim();
+  const constraint = String.trim(String.slice(index.value + prefix.length)(message));
   return constraint.length > 0 ? constraint : 'unknown';
 };

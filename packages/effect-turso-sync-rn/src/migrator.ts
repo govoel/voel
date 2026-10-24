@@ -1,4 +1,4 @@
-import { Array, Data, Effect, Layer, Option, Order, Record, pipe } from 'effect';
+import { Array, Data, Effect, Layer, Option, Order, Record, String as Str, pipe } from 'effect';
 import type { SqlError } from 'effect/sql';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -176,17 +176,21 @@ export const SqliteMigrator = {
     pipe(
       Record.toEntries(migrations),
       Array.flatMap(([key, migration]): ReadonlyArray<ResolvedMigration> => {
-        const separator = key.indexOf('_');
-        if (separator <= 0 || separator === key.length - 1) {
+        const separator = Str.indexOf('_')(key);
+        if (
+          Option.isNone(separator) ||
+          separator.value <= 0 ||
+          separator.value === key.length - 1
+        ) {
           return [];
         }
 
-        const id = key.slice(0, separator);
+        const id = Str.slice(0, separator.value)(key);
         if (!/^\d+$/u.test(id)) {
           return [];
         }
 
-        return [[Number(id), key.slice(separator + 1), migration]];
+        return [[Number(id), Str.slice(separator.value + 1)(key), migration]];
       }),
       Array.sort(migrationOrder),
       Effect.succeed

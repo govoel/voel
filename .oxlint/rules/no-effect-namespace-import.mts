@@ -1,7 +1,8 @@
 import { defineRule } from '@oxlint/plugins';
+import { String } from 'effect';
 
 const isEffectModule = (moduleName: string) =>
-  moduleName === 'effect' || moduleName.startsWith('effect/');
+  moduleName === 'effect' || String.startsWith('effect/')(moduleName);
 
 /** Keep Effect imports on its public named-export barrels. */
 export const noEffectNamespaceImportRule = defineRule({

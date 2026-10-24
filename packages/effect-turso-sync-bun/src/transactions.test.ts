@@ -1,7 +1,7 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { describe, expect, it } from '@effect/vitest';
-import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer } from 'effect';
+import { Array, Cause, Deferred, Effect, Exit, Fiber, FileSystem, Layer, String } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { vi } from 'vitest';
@@ -147,7 +147,7 @@ describe('Bun Turso Sync transactions', () => {
         expect(Cause.hasFails(failed.cause)).toBe(false);
         expect(Cause.hasDies(failed.cause)).toBe(true);
         expect(Cause.pretty(failed.cause)).toContain('Injected rollback failure');
-        expect(Cause.pretty(failed.cause).toLowerCase()).toContain('foreign key');
+        expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
       }
 
       const unavailable = yield* sql`
@@ -235,7 +235,7 @@ describe('Bun Turso Sync transactions', () => {
       const spy = vi
         .spyOn(connection, 'executeUnprepared')
         .mockImplementation((statement, params, transformRows) => {
-          if (statement.startsWith('RELEASE SAVEPOINT')) {
+          if (String.startsWith('RELEASE SAVEPOINT')(statement)) {
             releases.push(statement);
           }
           return execute(statement, params, transformRows);
