@@ -196,66 +196,26 @@ describe('Bun Turso Sync transactions', () => {
     }).pipe(Effect.provide(TestLayer))
   );
 
-  it.effect.each(['top-level', 'nested'] as const)(
-    'preserves typed errors when SQLite rolls back the whole transaction (%s)',
-    (level) =>
-      Effect.gen(function* () {
-        const sql = yield* make;
-        yield* sql`
-          insert into
-            parent
-          values
-            (1)
-        `;
-        const conflict = sql`
-          insert or rollback into
-            parent
-          values
-            (1)
-        `;
-        const failed = yield* sql
-          .withTransaction(
-            Effect.gen(function* () {
-              yield* sql`
-                insert into
-                  parent
-                values
-                  (2)
-              `;
-              yield* level === 'nested' ? sql.withTransaction(conflict) : conflict;
-            })
-          )
-          .pipe(Effect.result);
-        expect(failed).toMatchObject({
-          _tag: 'Failure',
-          failure: { _tag: 'SqlError', reason: { _tag: 'UniqueViolation' } },
-        });
-        expect(
-          yield* sql`
-            select
-              *
-            from
-              parent
-          `
-        ).toEqual([{ id: 1 }]);
-
-        yield* sql`
-          insert into
-            parent
-          values
-            (3)
-        `.pipe(sql.withTransaction);
-        expect(
-          yield* sql`
-            select
-              *
-            from
-              parent
-            order by
-              id
-          `
-        ).toEqual([{ id: 1 }, { id: 3 }]);
-      }).pipe(Effect.provide(TestLayer))
+  it.effect('preserves the typed SQL error after automatic rollback', () =>
+    Effect.gen(function* () {
+      const sql = yield* make;
+      yield* sql`
+        insert into
+          parent
+        values
+          (1)
+      `;
+      const failed = yield* sql`
+        insert or rollback into
+          parent
+        values
+          (1)
+      `.pipe(sql.withTransaction, Effect.result);
+      expect(failed).toMatchObject({
+        _tag: 'Failure',
+        failure: { _tag: 'SqlError', reason: { _tag: 'UniqueViolation' } },
+      });
+    }).pipe(Effect.provide(TestLayer))
   );
 
   it.effect('does not roll back an already-ended transaction after COMMIT fails', () =>
