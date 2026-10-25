@@ -7,7 +7,7 @@ import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountSignInError, AccountSignUpError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { AccountKey, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 
 export class UuidGenerator extends Context.Service<UuidGenerator>()(
@@ -41,12 +41,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const state = accountRepository.getActiveKey;
       const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
 
-      const setActiveAccount = (key: AccountKey) =>
-        accountRepository.setActive(key).pipe(Reactivity.mutation(['account']));
-
-      const upsertAccount = ({ account }: { readonly account: typeof Account.upsert.Type }) =>
-        accountRepository.upsertActive(account).pipe(Reactivity.mutation(['account']));
-
       const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
         // we ignore errors here because the server may be offline
         // which causes better-auth to throw
@@ -71,7 +65,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           { concurrency: 'unbounded' }
         );
 
-        yield* accountRepository.remove(key).pipe(Reactivity.mutation(['account']));
+        yield* accountRepository.remove(key);
       });
 
       const signOutEverywhere = Effect.fnUntraced(function* (key: ActiveAccountKey) {
@@ -100,17 +94,15 @@ export class AccountManager extends Context.Service<AccountManager>()(
             })
           );
 
-        return yield* upsertAccount({
-          account: {
-            serverUrl,
-            userId: signInResult.user.id,
-            username: signInResult.user.username,
-            name: signInResult.user.name,
-            email: signInResult.user.email,
-            authStorageId,
-            role: signInResult.user.role,
-            profilePicture: signInResult.user.image,
-          },
+        return yield* accountRepository.upsertActive({
+          serverUrl,
+          userId: signInResult.user.id,
+          username: signInResult.user.username,
+          name: signInResult.user.name,
+          email: signInResult.user.email,
+          authStorageId,
+          role: signInResult.user.role,
+          profilePicture: signInResult.user.image,
         });
       }, Effect.scoped);
 
@@ -140,24 +132,22 @@ export class AccountManager extends Context.Service<AccountManager>()(
             })
           );
 
-        return yield* upsertAccount({
-          account: {
-            serverUrl,
-            userId: signUpResult.user.id,
-            username: signUpResult.user.username,
-            name: signUpResult.user.name,
-            email: signUpResult.user.email,
-            authStorageId,
-            role: signUpResult.user.role,
-            profilePicture: signUpResult.user.image,
-          },
+        return yield* accountRepository.upsertActive({
+          serverUrl,
+          userId: signUpResult.user.id,
+          username: signUpResult.user.username,
+          name: signUpResult.user.name,
+          email: signUpResult.user.email,
+          authStorageId,
+          role: signUpResult.user.role,
+          profilePicture: signUpResult.user.image,
         });
       }, Effect.scoped);
 
       return {
         changes,
         state,
-        setActiveAccount,
+        setActiveAccount: accountRepository.setActive,
         removeAccount,
         signOutEverywhere,
         signInAccount,

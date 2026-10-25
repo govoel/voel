@@ -154,7 +154,7 @@ afterEach(async () => {
 });
 
 // Substitute the persistence boundary, not atoms/components or selection logic.
-// AccountManager and account invalidation run exactly as in the application.
+// The repository double publishes account changes just like the SQL repository.
 const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
@@ -184,7 +184,7 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
             ),
           })
         )
-      ).pipe(Effect.as(void 0)),
+      ).pipe(Effect.as(void 0), Reactivity.mutation(['account'])),
   });
   const services = AccountManager.layerNoDeps.pipe(
     Layer.provideMerge(AuthClientMap.layerNoDeps),

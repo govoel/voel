@@ -22,6 +22,7 @@ import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 
 const RepositoryTestLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),
+  Layer.provideMerge(Reactivity.layer),
   Layer.provide(AppConfig.layerTest())
 );
 
@@ -38,6 +39,86 @@ const makeAccount = (id: string) =>
   }) satisfies typeof Account.upsert.Type;
 
 describe('AccountRepository', () => {
+  it.effect(
+    'publishes each repository write once, only after the outermost transaction commits',
+    Effect.fnUntraced(function* () {
+      const repository = yield* AccountRepository;
+      const sql = yield* MainDatabase;
+      const reactivity = yield* Reactivity.Reactivity;
+      const first = makeAccount('first');
+      const second = makeAccount('second');
+      yield* repository.upsertActive(first);
+      const invalidations = { count: 0 };
+      yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          reactivity.registerUnsafe(['account'], () => {
+            invalidations.count += 1;
+          })
+        ),
+        (unregister) => Effect.sync(unregister)
+      );
+
+      const writes = [
+        repository.upsertActive(second),
+        repository.setActive(first),
+        repository.updateProfile({ ...first, name: Account.fields.name.make('Updated') }),
+        repository.remove(first),
+      ];
+      for (const [index, write] of writes.entries()) {
+        yield* sql.withTransaction(
+          Effect.gen(function* () {
+            yield* write;
+            expect(invalidations.count).toBe(index);
+          })
+        );
+        expect(invalidations.count).toBe(index + 1);
+      }
+      expect(yield* repository.list).toMatchObject([{ ...second, active: false }]);
+    }, Effect.provide(RepositoryTestLayer))
+  );
+
+  it.effect(
+    'discards repository invalidations and writes when an outer transaction rolls back',
+    Effect.fnUntraced(function* () {
+      const repository = yield* AccountRepository;
+      const sql = yield* MainDatabase;
+      const reactivity = yield* Reactivity.Reactivity;
+      const first = makeAccount('first');
+      const second = makeAccount('second');
+      yield* repository.upsertActive(first);
+      const before = yield* repository.list;
+      const invalidations = { count: 0 };
+      yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          reactivity.registerUnsafe(['account'], () => {
+            invalidations.count += 1;
+          })
+        ),
+        (unregister) => Effect.sync(unregister)
+      );
+
+      const error = yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* repository.upsertActive(second);
+            yield* repository.setActive(first);
+            yield* repository.updateProfile({
+              ...first,
+              name: Account.fields.name.make('Updated'),
+            });
+            yield* repository.remove(second);
+            expect(invalidations.count).toBe(0);
+            return yield* Effect.fail('Roll back account changes');
+          })
+        )
+        .pipe(Effect.flip);
+
+      expect(error).toBe('Roll back account changes');
+      expect(invalidations.count).toBe(0);
+      expect(yield* repository.list).toEqual(before);
+    }, Effect.provide(RepositoryTestLayer))
+  );
+
   it.effect(
     'atomically selects an existing account and converges on repeated selection',
     Effect.fnUntraced(function* () {
@@ -259,6 +340,7 @@ describe('AccountRepository', () => {
           Effect.provide(
             AccountRepository.layerNoDeps.pipe(
               Layer.provideMerge(MainDatabaseTestLayer),
+              Layer.provide(Reactivity.layer),
               Layer.provide(AppConfig.layerTest({ MAIN_DB_FILENAME: path }))
             )
           )
