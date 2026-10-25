@@ -1,5 +1,3 @@
-/* oxlint-disable effect-conventions/schema-class-brand -- Variant-aware inheritance preserves the existing structural database model types. */
-
 import { Library as PluginLibrary, MediaType as PluginMediaType } from '@govoel/plugins/library';
 import {
   StorageLocationValidationError,
