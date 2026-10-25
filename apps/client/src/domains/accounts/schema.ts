@@ -1,5 +1,4 @@
-import { Effect, Match, Schema, SchemaGetter, Struct } from 'effect';
-import { VariantSchema } from 'effect/schema';
+import { Effect, Match, Schema, SchemaGetter } from 'effect';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 
@@ -17,64 +16,16 @@ export const ServerUrl = Schema.String.check(
   })
 ).pipe(Schema.brand('voel/domains/accounts/schema/ServerUrl'));
 
-const DbModel = VariantSchema.make({
-  variants: ['select', 'upsert', 'update'],
-  defaultVariant: 'select',
-});
-
 export const AuthStorageData = Schema.Record(Schema.String, Schema.String);
 
 export const EncryptedAuthStorage = Schema.String.pipe(
   Schema.brand('voel/domains/accounts/schema/EncryptedAuthStorage')
 );
 
-class AccountRow extends DbModel.Class<AccountRow>('voel/domains/accounts/schema/AccountRow')({
-  serverUrl: DbModel.Field({
-    select: ServerUrl,
-    upsert: ServerUrl,
-    update: ServerUrl,
-  }),
-  userId: DbModel.Field({
-    select: AuthUser.fields.id,
-    upsert: AuthUser.fields.id,
-    update: AuthUser.fields.id,
-  }),
-  username: DbModel.Field({
-    select: AuthUser.fields.username,
-    upsert: AuthUser.fields.username,
-    update: AuthUser.fields.username,
-  }),
-  name: DbModel.Field({
-    select: AuthUser.fields.name,
-    upsert: AuthUser.fields.name,
-    update: AuthUser.fields.name,
-  }),
-  email: DbModel.Field({
-    select: AuthUser.fields.email,
-    upsert: AuthUser.fields.email,
-    update: AuthUser.fields.email,
-  }),
-  role: DbModel.Field({
-    select: AuthUser.fields.role,
-    upsert: AuthUser.fields.role,
-    update: AuthUser.fields.role,
-  }),
-  profilePicture: DbModel.Field({
-    select: AuthUser.fields.image,
-    upsert: AuthUser.fields.image,
-    update: AuthUser.fields.image,
-  }),
-  active: DbModel.Field({
-    select: Schema.BooleanFromBit.pipe(Schema.brand('voel/domains/accounts/schema/Account/active')),
-  }),
-  createdAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
-  updatedAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
-}) {}
-
 /** A persisted account identity, decoded as part of repository query results. */
 export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
   'voel/domains/accounts/schema/AccountKey'
-)({ serverUrl: AccountRow.fields.serverUrl, userId: AccountRow.fields.userId }) {
+)({ serverUrl: ServerUrl, userId: AuthUser.fields.id }) {
   private static readonly encodeFields = Schema.encodeEffect(
     Schema.fromJsonString(Schema.Struct(this.fields))
   );
@@ -90,21 +41,15 @@ export class Account extends Schema.Class<Account, { readonly brand: unique symb
   'voel/domains/accounts/schema/Account'
 )({
   key: AccountKey,
-  ...Struct.omit(AccountRow.fields, ['serverUrl', 'userId']),
+  username: AuthUser.fields.username,
+  name: AuthUser.fields.name,
+  email: AuthUser.fields.email,
+  role: AuthUser.fields.role,
+  profilePicture: AuthUser.fields.image,
+  active: Schema.Boolean.pipe(Schema.brand('voel/domains/accounts/schema/Account/active')),
+  createdAt: Schema.DateTimeUtc,
+  updatedAt: Schema.DateTimeUtc,
 }) {
-  public static readonly row = AccountRow;
-
-  /** Reshape flat SQL columns before decoding the key and account fields. */
-  public static readonly fromRow = Schema.toEncoded(this.row).pipe(
-    Schema.decodeTo(this, {
-      decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
-        key: { serverUrl, userId },
-        ...details,
-      })),
-      encode: SchemaGetter.transform(({ key, ...details }) => ({ ...key, ...details })),
-    })
-  );
-
   public static readonly roleToDisplayString = this.fields.role.pipe(
     Schema.decodeTo(
       Schema.Literals(['Admin', 'User', 'Under 18']).pipe(

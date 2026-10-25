@@ -1,7 +1,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Exit, FileSystem, Layer, Option, Record, Result, Schema } from 'effect';
+import { DateTime, Effect, Exit, FileSystem, Layer, Option, Record, Result, Schema } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -116,10 +116,21 @@ describe('AccountRepository', () => {
         expect(account.key).toBeInstanceOf(AccountKey);
         expect(account).not.toHaveProperty('serverUrl');
         expect(account).not.toHaveProperty('userId');
-        const row = yield* Schema.encodeEffect(Account.fromRow)(account);
-        expect(row).toMatchObject({ serverUrl: account.key.serverUrl, userId: account.key.userId });
+        const row = yield* Schema.encodeEffect(AccountRepository.fromRow)(account);
+        expect(row).toMatchObject({
+          serverUrl: account.key.serverUrl,
+          userId: account.key.userId,
+          active: account.active === true ? 1 : 0,
+          createdAt: DateTime.toEpochMillis(account.createdAt),
+          updatedAt: DateTime.toEpochMillis(account.updatedAt),
+        });
+        expect(yield* Schema.encodeEffect(Account)(account)).toMatchObject({
+          active: account.active,
+          createdAt: account.createdAt,
+          updatedAt: account.updatedAt,
+        });
         expect(row).not.toHaveProperty('key');
-        expect(yield* Schema.decodeEffect(Account.fromRow)(row)).toEqual(account);
+        expect(yield* Schema.decodeEffect(AccountRepository.fromRow)(row)).toEqual(account);
         expect(yield* repository.getByKey(account.key)).toEqual(account);
       }
       expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);
