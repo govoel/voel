@@ -7,9 +7,10 @@ import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
 import { AppConfig } from '#src/config.ts';
 import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
+import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
-import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
 
 const retrySchedule = Schedule.min([
   Schedule.exponential('1 second'),
@@ -38,14 +39,18 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   account,
   filenameSuffix,
 }: {
-  readonly account: ActiveAccountKey;
+  readonly account: AccountKey;
   readonly filenameSuffix: string;
 }) {
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
+  const digest = yield* CryptoDigest;
+  const filename = yield* digest.sha256({
+    input: yield* AccountKey.encodeContext(account),
+  });
 
   return {
-    // Auth storage identity is unique to each sign-in, including across servers.
-    path: `${filenameSuffix}-${account.authStorageId}.db`,
+    // A stable, filesystem-safe name for this server/user pair, across logins.
+    path: `${filenameSuffix}-${filename}.db`,
     url: new URL('/api/sync/library', account.serverUrl).toString(),
     // Turso asks for credentials before every request, allowing Better Auth
     // to rotate or invalidate a session without rebuilding the replica.
@@ -67,7 +72,7 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
 export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
   'voel/domains/library/database/LibraryDatabase',
   {
-    make: Effect.fnUntraced(function* (account: ActiveAccountKey) {
+    make: Effect.fnUntraced(function* (account: AccountKey) {
       const config = yield* AppConfig;
       const factory = yield* TursoSyncClientFactory;
       const options = yield* makeLibraryDatabaseOptions({
@@ -79,7 +84,7 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
     }),
   }
 ) {
-  public static readonly layerNoDeps = (account: ActiveAccountKey) =>
+  public static readonly layerNoDeps = (account: AccountKey) =>
     Layer.effectContext(
       this.make(account).pipe(
         Effect.map((client) =>
@@ -88,9 +93,9 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
       )
     );
 
-  public static readonly layer = (account: ActiveAccountKey) =>
+  public static readonly layer = (account: AccountKey) =>
     this.layerNoDeps(account).pipe(
-      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer])
+      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, CryptoDigest.layer])
     );
 }
 
@@ -98,7 +103,7 @@ const synchronizeLibraryDatabase = Effect.fnUntraced(function* ({
   account,
   database,
 }: {
-  readonly account: ActiveAccountKey;
+  readonly account: AccountKey;
   readonly database: LibraryDatabase['Service'];
 }) {
   yield* database.pull.pipe(
@@ -120,7 +125,7 @@ export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
   'voel/domains/library/database/LibraryDatabaseMap',
   {
     make: LayerMap.make(
-      (account: ActiveAccountKey) =>
+      (account: AccountKey) =>
         LibraryDatabase.layerNoDeps(account).pipe(
           Layer.tap((context) =>
             synchronizeLibraryDatabase({
@@ -134,19 +139,15 @@ export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
       Effect.map((map) => ({
         ...map,
         /** Acquire one replica per canonical account identity in the caller's scope. */
-        acquire: (account: Parameters<typeof ActiveAccountKey.make>[0]) =>
-          map
-            .contextEffect(ActiveAccountKey.make(account))
-            .pipe(Effect.map(Context.get(LibraryDatabase))),
+        acquire: (account: AccountKey) =>
+          map.contextEffect(account).pipe(Effect.map(Context.get(LibraryDatabase))),
       }))
     ),
   }
 ) {
-  public static readonly Key = ActiveAccountKey;
-
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
   public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer])
+    Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, CryptoDigest.layer])
   );
 }

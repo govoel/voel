@@ -41,10 +41,7 @@ export const AccountPicker = ({
               modifiers={[tint('primary'), disabled(AsyncResult.isWaiting(setActiveAccount))]}
               onPress={() => {
                 void selectAccount({
-                  input: {
-                    serverUrl: item.serverUrl,
-                    userId: item.userId,
-                  },
+                  input: item.key,
                   onSuccess: onSelected,
                 });
               }}>

@@ -7,7 +7,7 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -16,7 +16,7 @@ export const setActiveAccountAtom = AppRuntime.fn(
     AccountManager.use((manager) => manager.setActiveAccount(input))
 ).pipe(Atom.withLabel('setActiveAccountAtom'));
 
-export const removeAccountAtom = Atom.family((key: ActiveAccountKey) =>
+export const removeAccountAtom = Atom.family((key: AccountKey) =>
   AppRuntime.fn(
     Effect.fnUntraced(function* () {
       const manager = yield* AccountManager;
@@ -34,7 +34,6 @@ export const removeAccountFailureMessage = ({
 }) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
-      AuthClientStorageRemoveItemError: () => 'Failed to clear account storage. Try again.',
       AccountDatabaseError: () => 'A database error occurred. Try again.',
     })
   );

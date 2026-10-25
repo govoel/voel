@@ -21,16 +21,14 @@ import { afterEach, expect, it, vi } from 'vitest';
 
 import { activeUserProfileAtom } from '#src/app/accounts/(selected)/profile/index.ts';
 import { deleteServerUserAtom } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
-import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
 import { MainShell } from '#src/domains/accounts/components/main-shell';
 import { AccountManagementBoundary } from '#src/domains/accounts/components/selected-account-boundary';
-import { AccountManager, UuidGenerator } from '#src/domains/accounts/manager.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -116,9 +114,12 @@ vi.mock('expo-linking', () => ({ createURL: (path: string) => `voel://${path}` }
 vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove: () => void 0 }) }));
 
 const alice = {
+  key: AccountKey.make({
+    serverUrl: Account.fields.serverUrl.make('https://a.example.test'),
+    userId: Account.fields.userId.make('alice'),
+  }),
   serverUrl: Account.fields.serverUrl.make('https://a.example.test'),
   userId: Account.fields.userId.make('alice'),
-  authStorageId: Account.fields.authStorageId.make('alice-credentials'),
   username: Account.fields.username.make('alice'),
   name: Account.fields.name.make('Alice'),
   email: Account.fields.email.make('alice@example.test'),
@@ -130,11 +131,14 @@ const alice = {
 } satisfies Account;
 const bob = {
   ...alice,
+  key: AccountKey.make({
+    serverUrl: Account.fields.serverUrl.make('https://b.example.test'),
+    userId: Account.fields.userId.make('bob'),
+  }),
   serverUrl: Account.fields.serverUrl.make('https://b.example.test'),
   userId: Account.fields.userId.make('bob'),
   username: Account.fields.username.make('bob'),
   name: Account.fields.name.make('Bob'),
-  authStorageId: Account.fields.authStorageId.make('bob-credentials'),
   active: Account.fields.active.make(false),
 } satisfies Account;
 
@@ -158,19 +162,19 @@ afterEach(async () => {
 const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
+    prepareCredentials: Effect.void,
+    readAuthStorage: () => Effect.succeed({}),
+    writeAuthStorageItem: () => Effect.void,
     list: Ref.get(rows),
     getActiveKey: Ref.get(rows).pipe(
       Effect.map(Array.findFirst((account) => account.active)),
-      Effect.map(Option.map((account) => ActiveAccountKey.make(account)))
+      Effect.map(Option.map((account) => account.key))
     ),
-    getByStorageKey: (key) =>
+    findByKey: (key) =>
       Ref.get(rows).pipe(
         Effect.map(
           Array.findFirst(
-            (account) =>
-              account.serverUrl === key.serverUrl &&
-              account.userId === key.userId &&
-              account.authStorageId === key.authStorageId
+            (account) => account.serverUrl === key.serverUrl && account.userId === key.userId
           )
         )
       ),
@@ -189,14 +193,7 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const services = AccountManager.layerNoDeps.pipe(
     Layer.provideMerge(AuthClientMap.layerNoDeps),
     Layer.provideMerge(repository),
-    Layer.provideMerge(
-      Layer.mergeAll(
-        Reactivity.layer,
-        CryptoDigest.layerTest,
-        UuidGenerator.layerTest,
-        AuthClientStorage.layerTest(new Map())
-      )
-    )
+    Layer.provideMerge(Reactivity.layer)
   );
   const runtime = ManagedRuntime.make(services);
   const context = await runtime.runPromise(Effect.context<Layer.Success<typeof services>>());
@@ -210,7 +207,7 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
     registry,
     select: async (account: Account) =>
       runtime.runPromise(
-        Effect.flatMap(AccountManager, (manager) => manager.setActiveAccount(account))
+        Effect.flatMap(AccountManager, (manager) => manager.setActiveAccount(account.key))
       ),
     replace: async (accounts: ReadonlyArray<Account>) =>
       runtime.runPromise(Ref.set(rows, [...accounts]).pipe(Reactivity.mutation(['account']))),
@@ -341,7 +338,7 @@ it('selects a saved account through the modal picker and closes it after scoped 
   expect(screen.queryByText('No active account')).not.toBeOnTheScreen();
 });
 
-it('remounts account content on A → B → A and credential changes, but updates profile metadata without losing drafts', async () => {
+it('remounts account content on A → B → A, but updates profile metadata without losing drafts', async () => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
     Response.json(
       { code: 'FORBIDDEN', message: 'Not allowed' },
@@ -376,17 +373,6 @@ it('remounts account content on A → B → A and credential changes, but update
   expect(await screen.findByText('Alice updated')).toBeOnTheScreen();
   expect(screen.getByText('Initial')).toBeOnTheScreen();
   expect(screen.getByText('Fresh draft')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByText('Fresh draft'));
-  await act(async () =>
-    fixture.replace([
-      Account.make({
-        ...alice,
-        authStorageId: Account.fields.authStorageId.make('new-credentials'),
-      }),
-      bob,
-    ])
-  );
-  expect(await screen.findByText('Fresh draft')).toBeOnTheScreen();
 });
 
 it('returns scoped management routes to /accounts when selection is lost', async () => {

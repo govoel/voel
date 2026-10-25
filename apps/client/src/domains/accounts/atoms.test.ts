@@ -38,7 +38,7 @@ import {
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { Account } from '#src/domains/accounts/schema.ts';
 import { accountAtom } from '#src/domains/accounts/scope.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -154,11 +154,8 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, server);
-        const removeSecond = removeAccountAtom(ActiveAccountKey.make(secondAccount));
-        yield* manager.setActiveAccount({
-          serverUrl: firstAccount.serverUrl,
-          userId: firstAccount.userId,
-        });
+        const removeSecond = removeAccountAtom(secondAccount.key);
+        yield* manager.setActiveAccount(firstAccount.key);
 
         yield* Atom.set(removeSecond, void 0);
         expect(yield* Atom.getResult(removeSecond, { suspendOnWaiting: true })).toEqual({
@@ -169,11 +166,8 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           Option.some({ userId: firstAccount.userId })
         );
 
-        yield* manager.setActiveAccount({
-          serverUrl: firstAccount.serverUrl,
-          userId: firstAccount.userId,
-        });
-        const removeFirst = removeAccountAtom(ActiveAccountKey.make(firstAccount));
+        yield* manager.setActiveAccount(firstAccount.key);
+        const removeFirst = removeAccountAtom(firstAccount.key);
         yield* Atom.set(removeFirst, void 0);
         expect(yield* Atom.getResult(removeFirst, { suspendOnWaiting: true })).toEqual({
           accountsRemain: false,
@@ -202,7 +196,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           },
         ]);
 
-        yield* manager.removeAccount(ActiveAccountKey.make(account));
+        yield* manager.removeAccount(account.key);
 
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
@@ -240,7 +234,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         ]);
 
         // Bypass invalidation: Retry must reach the repository through the mapped atom.
-        yield* AccountRepository.use((repository) => repository.setActive(firstAccount));
+        yield* AccountRepository.use((repository) => repository.setActive(firstAccount.key));
         yield* Atom.refresh(accountsWithActiveAccount);
         const refreshed = Option.getOrThrow(
           yield* Atom.toStreamResult(accountsWithActiveAccount).pipe(
@@ -350,12 +344,11 @@ describe('accountsSheetAtom', () => {
             username: Account.fields.username.make('pending-session'),
             name: Account.fields.name.make('Pending Session'),
             email: Account.fields.email.make('pending-session@example.test'),
-            authStorageId: Account.fields.authStorageId.make('pending-session-auth-storage'),
             role: Account.fields.role.make('user'),
             profilePicture: Account.fields.profilePicture.make(null),
             active: false,
           };
-          yield* insertAccountFixture(account);
+          const fixtureKey = yield* insertAccountFixture(account);
           const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
             if (requestUrl.pathname !== '/api/auth/get-session') {
@@ -377,10 +370,7 @@ describe('accountsSheetAtom', () => {
               fetchSpy.mockRestore();
             })
           );
-          yield* manager.setActiveAccount({
-            serverUrl: account.serverUrl,
-            userId: account.userId,
-          });
+          yield* manager.setActiveAccount(fixtureKey);
 
           const activeAccount = Option.getOrThrow(yield* manager.state);
           const authClient = yield* AuthClientMap.use((authClients) =>
@@ -410,12 +400,11 @@ describe('accountsSheetAtom', () => {
             username: Account.fields.username.make('failed-session'),
             name: Account.fields.name.make('Failed Session'),
             email: Account.fields.email.make('failed-session@example.test'),
-            authStorageId: Account.fields.authStorageId.make('failed-session-auth-storage'),
             role: Account.fields.role.make('user'),
             profilePicture: Account.fields.profilePicture.make(null),
             active: false,
           };
-          yield* insertAccountFixture(account);
+          const fixtureKey = yield* insertAccountFixture(account);
           const getSessionResponse = yield* Deferred.make<Response, Error>();
           const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
             const requestUrl = input instanceof Request ? new URL(input.url) : new URL(input);
@@ -430,10 +419,7 @@ describe('accountsSheetAtom', () => {
               fetchSpy.mockRestore();
             })
           );
-          yield* manager.setActiveAccount({
-            serverUrl: account.serverUrl,
-            userId: account.userId,
-          });
+          yield* manager.setActiveAccount(fixtureKey);
           const activeAccount = Option.getOrThrow(yield* manager.state);
           const authClient = yield* AuthClientMap.use((authClients) =>
             authClients.acquire(activeAccount)
@@ -550,10 +536,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         const testServer = yield* setupTestServerWithUsers({ userCount: 2 });
         const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, testServer);
 
-        yield* manager.setActiveAccount({
-          serverUrl: testServer.serverUrl,
-          userId: firstAccount.userId,
-        });
+        yield* manager.setActiveAccount(firstAccount.key);
         const firstClient = yield* authClients.acquire(Option.getOrThrow(yield* manager.state));
         yield* waitForAuthenticatedSession(firstClient);
 
@@ -561,10 +544,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
 
-        yield* manager.setActiveAccount({
-          serverUrl: testServer.serverUrl,
-          userId: secondAccount.userId,
-        });
+        yield* manager.setActiveAccount(secondAccount.key);
         const secondClient = yield* authClients.acquire(Option.getOrThrow(yield* manager.state));
         yield* waitForAuthenticatedSession(secondClient);
         yield* secondClient.signOut;
@@ -594,10 +574,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         yield* waitForAuthenticatedSession(client);
 
         yield* Atom.mount(accountsSheetAtom);
-        yield* manager.setActiveAccount({
-          serverUrl: testServer.serverUrl,
-          userId: account.userId,
-        });
+        yield* manager.setActiveAccount(account.key);
 
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
@@ -731,7 +708,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, server);
-        const key = ActiveAccountKey.make(account);
+        const { key } = account;
         const client = yield* AuthClientMap.use((clients) => clients.acquire(key));
         const current = yield* client.readSession;
         const other = Option.getOrThrow(
@@ -820,8 +797,8 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const manager = yield* AccountManager;
         const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, testServer);
-        const client = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
-        const key = ActiveAccountKey.make(account);
+        const client = yield* AuthClientMap.use((authClients) => authClients.acquire(account.key));
+        const { key } = account;
         const session = yield* client.readSession;
         const adminSessions = serverUserSessionsAtom({ account: key, userId: account.userId });
         yield* Atom.mount(ownSessionsAtom(key));
@@ -888,21 +865,21 @@ it.layer(TestServerControllerClient.layer)('accountAtom', (iit) => {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [first, second] = yield* signInTestServerUsers(manager, server);
-        const key = ActiveAccountKey.make(first);
+        const { key } = first;
         const metadata = accountAtom(key);
         yield* Atom.mount(metadata);
         const original = Option.getOrThrow(yield* Atom.getResult(metadata));
-        yield* manager.setActiveAccount(second);
+        yield* manager.setActiveAccount(second.key);
         const repository = yield* AccountRepository;
         yield* repository.updateProfile({
-          serverUrl: original.serverUrl,
-          userId: original.userId,
-          authStorageId: original.authStorageId,
-          username: original.username,
-          email: original.email,
-          role: original.role,
-          profilePicture: original.profilePicture,
-          name: Account.fields.name.make('Updated profile'),
+          key: original.key,
+          profile: {
+            username: original.username,
+            email: original.email,
+            role: original.role,
+            profilePicture: original.profilePicture,
+            name: Account.fields.name.make('Updated profile'),
+          },
         });
         const updated = yield* Atom.toStreamResult(metadata).pipe(
           Stream.filter((value) => Option.isSome(value) && value.value.name === 'Updated profile'),

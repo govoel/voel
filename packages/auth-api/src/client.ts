@@ -64,20 +64,43 @@ export class BetterAuthClientInitializationError extends Schema.TaggedError<
 
 type CoreAuthClient = ReturnType<typeof createAuthClient<[]>>;
 
+const makeClient = Effect.fnUntraced(function* <
+  const Plugins extends ReadonlyArray<BetterAuthClientPlugin>,
+>(config: Parameters<typeof createAuthClient<Plugins>>[0]) {
+  const client = yield* Effect.try({
+    try: () => createAuthClient<Plugins>(config),
+    catch: (error) => BetterAuthClientInitializationError.make({ error }),
+  });
+  // Built-in actions are appended after caller plugins and win at runtime.
+  return {
+    rawClient: client,
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    coreClient: client as typeof client & CoreAuthClient,
+  };
+});
+
+const authenticationActions = (client: CoreAuthClient) => ({
+  signIn: {
+    username: AuthClientSchema.request({
+      Request: AuthSignInInput,
+      execute: async (command) => client.signIn.username(command),
+      Result: AuthUserResponse,
+    }),
+  },
+  signUp: {
+    email: AuthClientSchema.request({
+      Request: AuthSignUpInput,
+      execute: async (command) => client.signUp.email(command),
+      Result: AuthUserResponse,
+    }),
+  },
+});
+
 export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/client/AuthClient', {
   make: Effect.fnUntraced(function* <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>(
     config: Parameters<typeof createAuthClient<Plugins>>[0]
   ) {
-    const client = yield* Effect.try({
-      try: () => createAuthClient<Plugins>(config),
-      catch: (error) => BetterAuthClientInitializationError.make({ error }),
-    });
-
-    // Built-in plugins are appended after caller plugins, so their actions
-    // always win at runtime even though Better Auth cannot prove that for an
-    // unresolved generic plugin tuple.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const coreClient = client as typeof client & CoreAuthClient;
+    const { rawClient: client, coreClient } = yield* makeClient(config);
 
     const sessionState = yield* SubscriptionRef.make<
       AsyncResult.AsyncResult<Option.Option<typeof AuthSession.Type>, AuthError>
@@ -263,27 +286,13 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
           catch: (cause) => AuthTransportError.make({ cause }),
         }),
 
-      signIn: {
-        username: AuthClientSchema.request({
-          Request: AuthSignInInput,
-          execute: async (command) => coreClient.signIn.username(command),
-          Result: AuthUserResponse,
-        }),
-      },
+      ...authenticationActions(coreClient),
 
       signOut: AuthClientSchema.request({
         Request: Schema.Void,
         execute: async () => coreClient.signOut(),
         Result: Schema.Void,
       })(),
-
-      signUp: {
-        email: AuthClientSchema.request({
-          Request: AuthSignUpInput,
-          execute: async (command) => coreClient.signUp.email(command),
-          Result: AuthUserResponse,
-        }),
-      },
 
       changePassword: AuthClientSchema.request({
         Request: AuthChangePasswordInput,
@@ -298,4 +307,11 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       }),
     };
   }),
-}) {}
+}) {
+  /** A short-lived login client: no session subscriptions or background refreshes. */
+  public static readonly makeAuthentication = Effect.fnUntraced(function* <
+    const Plugins extends ReadonlyArray<BetterAuthClientPlugin>,
+  >(config: Parameters<typeof createAuthClient<Plugins>>[0]) {
+    return authenticationActions((yield* makeClient(config)).coreClient);
+  });
+}

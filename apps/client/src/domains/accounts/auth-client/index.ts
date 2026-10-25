@@ -1,4 +1,5 @@
 import { expoClient } from '@better-auth/expo/client';
+import type { ExpoClientStorage } from '@better-auth/expo/client';
 import {
   Context,
   Duration,
@@ -17,30 +18,18 @@ import { Platform } from 'react-native';
 
 import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
 
-import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
-import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
+import {
+  makeAccountAuthStorage,
+  makeMemoryAuthStorage,
+} from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
-
-export const makeAuthStorageKey = ({ serverUrl, authStorageId }: AuthClientKey) =>
-  `voel::auth::${serverUrl}::${authStorageId}`;
-
-export type AuthClientKey = Pick<Account, 'serverUrl' | 'authStorageId'>;
-
-class AuthClientCacheKey extends Schema.Class<
-  AuthClientCacheKey,
-  { readonly brand: unique symbol }
->('voel/domains/accounts/auth-client/AuthClientCacheKey')({
-  serverUrl: Account.fields.serverUrl,
-  authStorageId: Account.fields.authStorageId,
-}) {}
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 
 class AuthClientGetCookieError extends Schema.TaggedError<
   AuthClientGetCookieError,
   { readonly brand: unique symbol }
 >('voel/domains/accounts/auth-client/AuthClientGetCookieError')('AuthClientGetCookieError', {}) {}
 
-// better-auth uses this as the session name
 const userAgent =
   Device.deviceName ??
   Device.modelName ??
@@ -53,116 +42,103 @@ const userAgent =
     Match.exhaustive
   );
 
+const clientOptions = ({
+  serverUrl,
+  storage,
+}: Pick<AccountKey, 'serverUrl'> & { readonly storage: ExpoClientStorage }) => ({
+  baseURL: serverUrl,
+  fetchOptions: { headers: { 'User-Agent': userAgent } },
+  // Storage is already scoped to an account row; no additional namespace ID.
+  plugins: [expoClient({ storage, storagePrefix: 'voel', cookiePrefix: 'auth' })],
+  sessionOptions: { refetchInterval: Duration.toSeconds(Duration.minutes(5)) },
+});
+
+const makeClient = Effect.fnUntraced(function* (options: Parameters<typeof clientOptions>[0]) {
+  const { rawClient, ...client } = yield* CoreAuthClient.make(clientOptions(options));
+  return {
+    ...client,
+    getCookie: Effect.tryPromise({
+      try: async () => rawClient.getCookie(),
+      catch: () => AuthClientGetCookieError.make(),
+    }).pipe(Effect.map(Option.liftPredicate(String.isNonEmpty))),
+  };
+});
+
+/** Authentication has no persisted identity or background subscriptions yet. */
+export const makeAuthenticationClient = Effect.fnUntraced(function* ({
+  serverUrl,
+}: Pick<AccountKey, 'serverUrl'>) {
+  const temporary = makeMemoryAuthStorage();
+  const client = yield* CoreAuthClient.makeAuthentication(
+    clientOptions({ serverUrl, storage: temporary.storage })
+  );
+  return { ...client, snapshot: temporary.snapshot };
+});
+
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/domains/accounts/auth-client/AuthClient',
   {
-    make: Effect.fnUntraced(function* (key: AuthClientKey) {
-      const cryptoDigest = yield* CryptoDigest;
-      const storagePrefix = yield* cryptoDigest.sha256({
-        input: makeAuthStorageKey({ serverUrl: key.serverUrl, authStorageId: key.authStorageId }),
+    make: Effect.fnUntraced(function* (key: AccountKey) {
+      return yield* makeClient({
+        serverUrl: key.serverUrl,
+        storage: yield* makeAccountAuthStorage(key),
       });
-
-      const storage = yield* AuthClientStorage;
-      const context = yield* Effect.context();
-      const runPromise = Effect.runPromiseWith(context);
-      const runSync = Effect.runSyncWith(context);
-
-      const { rawClient, ...client } = yield* CoreAuthClient.make({
-        baseURL: key.serverUrl,
-        fetchOptions: { headers: { 'User-Agent': userAgent } },
-        plugins: [
-          expoClient({
-            storage: {
-              getItem: (k) => runSync(storage.getItem(k).pipe(Effect.map(Option.getOrNull))),
-              getItemAsync: async (k) =>
-                runPromise(storage.getItem(k).pipe(Effect.map(Option.getOrNull))),
-              setItem: (k, v) => {
-                runSync(storage.setItem(k, v));
-              },
-              setItemAsync: async (k, v) => {
-                await runPromise(storage.setItem(k, v));
-              },
-            },
-            storagePrefix,
-            cookiePrefix: 'auth',
-          }),
-        ],
-        sessionOptions: {
-          refetchInterval: Duration.fromInputUnsafe('5 minutes').pipe(Duration.toSeconds),
-        },
-      });
-
-      const getCookie = Effect.tryPromise({
-        try: async () => rawClient.getCookie(),
-        catch: () => AuthClientGetCookieError.make(),
-      }).pipe(Effect.map(Option.liftPredicate(String.isNonEmpty)));
-
-      return {
-        getCookie,
-        ...client,
-      };
     }),
   }
 ) {
-  public static readonly layerNoDeps = (key: AuthClientKey) => Layer.effect(this, this.make(key));
+  public static readonly layerNoDeps = (key: AccountKey) => Layer.effect(this, this.make(key));
+  public static readonly layer = (key: AccountKey) =>
+    this.layerNoDeps(key).pipe(Layer.provide(AccountRepository.layer));
 
-  public static readonly layer = (key: AuthClientKey) =>
-    this.layerNoDeps(key).pipe(
-      Layer.provide(Layer.mergeAll(AuthClientStorage.layer, CryptoDigest.layer))
-    );
+  /** Isolated non-persistent clients for server test fixtures. */
+  public static readonly makeTemporary = ({ serverUrl }: Pick<AccountKey, 'serverUrl'>) =>
+    makeClient({ serverUrl, storage: makeMemoryAuthStorage().storage });
 }
 
 const synchronizeAccountFromSession = Effect.fnUntraced(function* (
-  key: AuthClientKey,
-  authClient: AuthClient['Service']
+  key: AccountKey,
+  client: AuthClient['Service']
 ) {
-  const accountRepository = yield* AccountRepository;
-
-  yield* authClient.sessionChanges.pipe(
+  const repository = yield* AccountRepository;
+  yield* client.sessionChanges.pipe(
     Stream.runForEach(
       Effect.fnUntraced(
         function* (session) {
           if (!AsyncResult.isSuccess(session) || Option.isNone(session.value)) {
             return;
           }
-
-          const account = yield* accountRepository.getByStorageKey({
-            serverUrl: key.serverUrl,
-            userId: session.value.value.user.id,
-            authStorageId: key.authStorageId,
-          });
+          const { user } = session.value.value;
+          if (user.id !== key.userId) {
+            return;
+          }
+          const account = yield* repository.findByKey(key);
           if (Option.isNone(account)) {
             return;
           }
-
           if (
-            account.value.username === session.value.value.user.username &&
-            account.value.name === session.value.value.user.name &&
-            account.value.email === session.value.value.user.email &&
-            account.value.role === session.value.value.user.role &&
-            account.value.profilePicture === session.value.value.user.image
+            account.value.username === user.username &&
+            account.value.name === user.name &&
+            account.value.email === user.email &&
+            account.value.role === user.role &&
+            account.value.profilePicture === user.image
           ) {
             return;
           }
-
-          yield* accountRepository.updateProfile({
-            serverUrl: key.serverUrl,
-            userId: session.value.value.user.id,
-            authStorageId: key.authStorageId,
-            username: session.value.value.user.username,
-            name: session.value.value.user.name,
-            email: session.value.value.user.email,
-            role: session.value.value.user.role,
-            profilePicture: session.value.value.user.image,
+          yield* repository.updateProfile({
+            key,
+            profile: {
+              username: user.username,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              profilePicture: user.image,
+            },
           });
         },
-        (effect) =>
-          effect.pipe(
-            Effect.catchTags({
-              AccountDatabaseError: (error) =>
-                Effect.logError('Failed to synchronize account from session', error),
-            })
-          )
+        Effect.catchTags({
+          AccountDatabaseError: (error) =>
+            Effect.logError('Failed to synchronize account from session', error),
+        })
       )
     ),
     Effect.forkScoped({ startImmediately: true })
@@ -173,7 +149,7 @@ export class AuthClientMap extends Context.Service<AuthClientMap>()(
   'voel/domains/accounts/auth-client/AuthClientMap',
   {
     make: LayerMap.make(
-      (key: AuthClientCacheKey) =>
+      (key: AccountKey) =>
         AuthClient.layerNoDeps(key).pipe(
           Layer.tap((context) =>
             synchronizeAccountFromSession(key, Context.get(context, AuthClient))
@@ -183,23 +159,14 @@ export class AuthClientMap extends Context.Service<AuthClientMap>()(
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        /** Acquire a shared auth client in the caller's scope using its auth storage identity. */
-        acquire: (key: Parameters<typeof AuthClientCacheKey.make>[0]) =>
-          map.contextEffect(AuthClientCacheKey.make(key)).pipe(Effect.map(Context.get(AuthClient))),
+        acquire: (key: AccountKey) =>
+          map.contextEffect(key).pipe(Effect.map(Context.get(AuthClient))),
       }))
     ),
   }
 ) {
-  public static readonly Key = AuthClientCacheKey;
-
   public static readonly layerNoDeps = Layer.effect(this, this.make);
-
   public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide([
-      AccountRepository.layer,
-      AuthClientStorage.layer,
-      Reactivity.layer,
-      CryptoDigest.layer,
-    ])
+    Layer.provide([AccountRepository.layer, Reactivity.layer])
   );
 }

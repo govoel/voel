@@ -1,4 +1,4 @@
-import { Cause, DateTime, Effect, Equal } from 'effect';
+import { Cause, Effect, Equal, Schema } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
@@ -28,22 +28,24 @@ export const accountsAtom = AppRuntime.atom(
     {
       id: PredefinedStateId.make('account-available'),
       label: 'Account available',
-      atom: Atom.make(() =>
-        AsyncResult.success([
-          {
-            active: Account.fields.active.make(false),
-            authStorageId: Account.fields.authStorageId.make('predefined-auth-storage'),
-            createdAt: DateTime.makeUnsafe(0),
-            email: Account.fields.email.make('alex@example.com'),
-            name: Account.fields.name.make('Alex Reader'),
-            profilePicture: Account.fields.profilePicture.make(null),
-            role: Account.fields.role.make('admin'),
-            serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
-            updatedAt: DateTime.makeUnsafe(0),
-            userId: Account.fields.userId.make('predefined-user'),
-            username: Account.fields.username.make('alex'),
-          },
-        ])
+      atom: Atom.make(
+        // Predefined rendering data is decoded like an encoded database row.
+        Schema.decodeEffect(Account)({
+          key: '{"serverUrl":"https://voel.example.com","userId":"predefined-user"}',
+          active: 0,
+          createdAt: 0,
+          updatedAt: 0,
+          email: 'alex@example.com',
+          name: 'Alex Reader',
+          profilePicture: null,
+          role: 'admin',
+          serverUrl: 'https://voel.example.com',
+          userId: 'predefined-user',
+          username: 'alex',
+        }).pipe(
+          Effect.map((account) => [account]),
+          Effect.orDie
+        )
       ),
     },
     {

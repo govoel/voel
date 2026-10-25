@@ -15,39 +15,126 @@ import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 import { AppConfig } from '#src/config.ts';
 import { MainDatabase } from '#src/database/main/index.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
-import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
+import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts';
+import { makeAccountAuthStorage } from '#src/domains/accounts/auth-client/storage.ts';
+import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
-import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
+import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 
-const RepositoryTestLayer = AccountRepository.layerNoDeps.pipe(
+const RepositoryDatabaseLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),
-  Layer.provideMerge(Reactivity.layer),
-  Layer.provide(AppConfig.layerTest())
+  Layer.provideMerge([Reactivity.layer, AuthEncryption.layerTest])
 );
-
+const RepositoryTestLayer = RepositoryDatabaseLayer.pipe(Layer.provide(AppConfig.layerTest()));
 const makeAccount = (id: string) =>
   ({
-    serverUrl: Account.fields.serverUrl.make('https://accounts.example.test'),
-    userId: Account.fields.userId.make(id),
-    authStorageId: Account.fields.authStorageId.make(`${id}-credentials`),
-    username: Account.fields.username.make(id),
-    name: Account.fields.name.make(id),
-    email: Account.fields.email.make(`${id}@example.test`),
-    role: Account.fields.role.make('user'),
-    profilePicture: Account.fields.profilePicture.make(null),
-  }) satisfies typeof Account.upsert.Type;
+    account: {
+      serverUrl: Account.fields.serverUrl.make('https://accounts.example.test'),
+      userId: Account.fields.userId.make(id),
+      username: Account.fields.username.make(id),
+      name: Account.fields.name.make(id),
+      email: Account.fields.email.make(`${id}@example.test`),
+      role: Account.fields.role.make('user'),
+      profilePicture: Account.fields.profilePicture.make(null),
+    },
+    authStorage: { voel_cookie: `credential-for-${id}` },
+  }) satisfies Parameters<typeof AccountRepository.Service.upsertActive>[0];
 
 describe('AccountRepository', () => {
   it.effect(
-    'publishes each repository write once, only after the outermost transaction commits',
+    'recovers from real database contention without publishing selection or credential changes',
+    Effect.fnUntraced(
+      function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const directory = yield* fs.makeTempDirectoryScoped();
+        const path = `${directory}/accounts.db`;
+        yield* Effect.gen(function* () {
+          const repository = yield* AccountRepository;
+          const sql = yield* MainDatabase;
+          const contender = yield* TursoSyncClient.make({ path });
+          const first = yield* repository.upsertActive(makeAccount('first'));
+          const second = yield* repository.upsertActive(makeAccount('second'));
+          yield* repository.setActive(first);
+          const before = yield* repository.list;
+          const credentials = yield* repository.readAuthStorage(first);
+          yield* sql`
+            pragma busy_timeout = 0
+          `;
+          yield* contender.withTransaction(
+            Effect.gen(function* () {
+              const errors = yield* Effect.all([
+                repository.setActive(second).pipe(Effect.flip),
+                repository
+                  .writeAuthStorageItem({ key: first, name: 'voel_cookie', value: 'replacement' })
+                  .pipe(Effect.flip),
+              ]);
+              for (const error of errors) {
+                expect(error).toBeInstanceOf(AccountDatabaseError);
+                expect(error).toMatchObject({ cause: { reason: { _tag: 'LockTimeoutError' } } });
+              }
+              expect(yield* repository.list).toEqual(before);
+              expect(yield* repository.readAuthStorage(first)).toEqual(credentials);
+            })
+          );
+          yield* repository.setActive(second);
+          expect(yield* repository.getActiveKey).toEqual(Option.some(second));
+        }).pipe(
+          Effect.provide(
+            RepositoryDatabaseLayer.pipe(
+              Layer.provide(AppConfig.layerTest({ MAIN_DB_FILENAME: path }))
+            )
+          )
+        );
+      },
+      Effect.provide([BunFileSystem.layer, Reactivity.layer])
+    )
+  );
+
+  it.effect(
+    'returns branded database keys, deduplicates sign-ins, and keeps credentials out of account projections',
     Effect.fnUntraced(function* () {
       const repository = yield* AccountRepository;
       const sql = yield* MainDatabase;
+      const first = yield* repository.upsertActive(makeAccount('first'));
+      const second = yield* repository.upsertActive(makeAccount('second'));
+      const replacement = {
+        ...makeAccount('first'),
+        authStorage: { voel_cookie: 'replacement-credential' },
+      };
+      expect(yield* repository.upsertActive(replacement)).toEqual(first);
+      expect(first).toBeInstanceOf(AccountKey);
+      expect(Record.keys(first).sort()).toEqual(['serverUrl', 'userId']);
+      const accounts = yield* repository.list;
+      expect(accounts).toHaveLength(2);
+      expect(accounts).toMatchObject([
+        { key: first, active: true },
+        { key: second, active: false },
+      ]);
+      expect(accounts[0]).not.toHaveProperty('authStorage');
+      expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);
+      const rows = yield* sql<{ authStorage: string }>`
+        select
+          "authStorage"
+        from
+          account
+      `;
+      for (const row of rows) {
+        expect(row.authStorage).not.toContain('credential');
+      }
+      yield* repository.setActive(second);
+      yield* repository.setActive(second);
+      expect(yield* repository.getActiveKey).toEqual(Option.some(second));
+    }, Effect.provide(RepositoryTestLayer))
+  );
+
+  it.effect(
+    'publishes account changes once, only after the outer transaction commits',
+    Effect.fnUntraced(function* () {
+      const repository = yield* AccountRepository;
+      const sql = yield* MainDatabase;
+      const first = yield* repository.upsertActive(makeAccount('first'));
+      const second = yield* repository.upsertActive(makeAccount('second'));
       const reactivity = yield* Reactivity.Reactivity;
-      const first = makeAccount('first');
-      const second = makeAccount('second');
-      yield* repository.upsertActive(first);
       const invalidations = { count: 0 };
       yield* Effect.acquireRelease(
         Effect.sync(() =>
@@ -55,14 +142,13 @@ describe('AccountRepository', () => {
             invalidations.count += 1;
           })
         ),
-        (unregister) => Effect.sync(unregister)
+        (remove) => Effect.sync(remove)
       );
-
+      const profile = makeAccount('first').account;
       const writes = [
-        repository.upsertActive(second),
         repository.setActive(first),
-        repository.updateProfile({ ...first, name: Account.fields.name.make('Updated') }),
-        repository.remove(first),
+        repository.updateProfile({ key: first, profile }),
+        repository.remove(second),
       ];
       for (const [index, write] of writes.entries()) {
         yield* sql.withTransaction(
@@ -73,200 +159,122 @@ describe('AccountRepository', () => {
         );
         expect(invalidations.count).toBe(index + 1);
       }
-      expect(yield* repository.list).toMatchObject([{ ...second, active: false }]);
-    }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'discards repository invalidations and writes when an outer transaction rolls back',
-    Effect.fnUntraced(function* () {
-      const repository = yield* AccountRepository;
-      const sql = yield* MainDatabase;
-      const reactivity = yield* Reactivity.Reactivity;
-      const first = makeAccount('first');
-      const second = makeAccount('second');
-      yield* repository.upsertActive(first);
       const before = yield* repository.list;
-      const invalidations = { count: 0 };
-      yield* Effect.acquireRelease(
-        Effect.sync(() =>
-          reactivity.registerUnsafe(['account'], () => {
-            invalidations.count += 1;
-          })
-        ),
-        (unregister) => Effect.sync(unregister)
-      );
-
-      const error = yield* sql
+      yield* sql
         .withTransaction(
           Effect.gen(function* () {
-            yield* repository.upsertActive(second);
-            yield* repository.setActive(first);
-            yield* repository.updateProfile({
-              ...first,
-              name: Account.fields.name.make('Updated'),
-            });
-            yield* repository.remove(second);
-            expect(invalidations.count).toBe(0);
-            return yield* Effect.fail('Roll back account changes');
+            yield* repository.upsertActive(makeAccount('third'));
+            return yield* Effect.fail('rollback');
           })
         )
         .pipe(Effect.flip);
-
-      expect(error).toBe('Roll back account changes');
-      expect(invalidations.count).toBe(0);
+      expect(invalidations.count).toBe(3);
       expect(yield* repository.list).toEqual(before);
     }, Effect.provide(RepositoryTestLayer))
   );
 
   it.effect(
-    'atomically selects an existing account and converges on repeated selection',
-    Effect.fnUntraced(function* () {
-      const repository = yield* AccountRepository;
-      const first = makeAccount('first');
-      const second = makeAccount('second');
-      expect(yield* repository.getActiveKey).toEqual(Option.none());
-      yield* repository.upsertActive(first);
-      yield* insertAccountFixture({ ...second, active: false });
-
-      yield* repository.setActive(second);
-      yield* repository.setActive(second);
-
-      expect(yield* repository.list).toMatchObject([
-        { userId: first.userId, active: false },
-        { userId: second.userId, active: true },
-      ]);
-      const key = Option.getOrThrow(yield* repository.getActiveKey);
-      expect(key).toBeInstanceOf(ActiveAccountKey);
-      expect(Record.keys(key).sort()).toEqual(['authStorageId', 'serverUrl', 'userId']);
-      expect(key).toEqual(ActiveAccountKey.make(second));
-
-      yield* repository.updateProfile({ ...second, name: Account.fields.name.make('Updated') });
-      expect(yield* repository.getActiveKey).toEqual(Option.some(key));
-    }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'rolls back selection of a missing account without changing the previous active row',
-    Effect.fnUntraced(function* () {
-      const repository = yield* AccountRepository;
-      yield* repository.upsertActive(makeAccount('first'));
-      const before = yield* repository.list;
-      const missing = makeAccount('missing');
-      expect(before).toMatchObject([{ userId: 'first', active: true }]);
-
-      expect(yield* repository.setActive(missing).pipe(Effect.flip)).toEqual(
-        AccountNotFoundError.make({ serverUrl: missing.serverUrl, userId: missing.userId })
-      );
-      expect(yield* repository.list).toEqual(before);
-      expect(yield* repository.getByKey(missing).pipe(Effect.flip)).toEqual(
-        AccountNotFoundError.make({ serverUrl: missing.serverUrl, userId: missing.userId })
-      );
-    }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'upserts and activates together, replacing credentials without duplicating an account',
-    Effect.fnUntraced(function* () {
-      const repository = yield* AccountRepository;
-      const first = makeAccount('first');
-      const second = makeAccount('second');
-      yield* repository.upsertActive(first);
-      yield* repository.upsertActive(second);
-      const replacement = {
-        ...first,
-        authStorageId: Account.fields.authStorageId.make('replacement-credentials'),
-        name: Account.fields.name.make('Updated profile'),
-      };
-
-      yield* repository.upsertActive(replacement);
-      yield* repository.upsertActive(replacement);
-
-      expect(yield* repository.list).toMatchObject([
-        { ...replacement, active: true },
-        { ...second, active: false },
-      ]);
-      expect(yield* repository.getByStorageKey(first)).toEqual(Option.none());
-      expect(Option.getOrThrow(yield* repository.getByStorageKey(replacement))).toMatchObject({
-        userId: 'first',
-        authStorageId: 'replacement-credentials',
-        name: 'Updated profile',
-        active: true,
-      });
-      // Events/removals from old credentials must not affect the replacement sign-in.
-      yield* repository.updateProfile({
-        ...first,
-        name: Account.fields.name.make('Stale profile'),
-      });
-      yield* repository.remove(first);
-      expect(yield* repository.getActiveKey).toEqual(
-        Option.some(ActiveAccountKey.make(replacement))
-      );
-      expect(yield* repository.getByKey(replacement)).toMatchObject({
-        userId: 'first',
-        authStorageId: 'replacement-credentials',
-        name: 'Updated profile',
-        active: true,
-      });
-    }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'rolls back deactivation and credential replacement when an upsert fails in SQL',
+    'rolls back account selection and credential replacement together when SQL fails',
     Effect.fnUntraced(function* () {
       const repository = yield* AccountRepository;
       const sql = yield* MainDatabase;
-      const first = makeAccount('first');
-      const second = makeAccount('second');
-      yield* repository.upsertActive(first);
-      yield* insertAccountFixture({ ...second, active: false });
+      const first = yield* repository.upsertActive(makeAccount('first'));
       const before = yield* repository.list;
-      expect(before).toMatchObject([
-        { userId: 'first', active: true },
-        { userId: 'second', authStorageId: 'second-credentials', active: false },
-      ]);
+      const credentials = yield* repository.readAuthStorage(first);
       yield* sql`
-          create trigger reject_upsert before insert on account begin
-          select
-            raise (abort, 'Forced account write failure');
+        create trigger reject_account before insert on account begin
+        select
+          raise (abort, 'forced write failure');
 
-          end
-        `;
-
+        end
+      `;
       const exit = yield* repository
-        .upsertActive({
-          ...second,
-          authStorageId: Account.fields.authStorageId.make('replacement-credentials'),
-        })
-        .pipe(Effect.asVoid, Effect.exit);
-
+        .upsertActive({ ...makeAccount('first'), authStorage: { voel_cookie: 'replacement' } })
+        .pipe(Effect.exit);
       expect(Exit.hasFails(exit)).toBe(false);
       expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SqlError' });
       expect(yield* repository.list).toEqual(before);
+      expect(yield* repository.readAuthStorage(first)).toEqual(credentials);
     }, Effect.provide(RepositoryTestLayer))
   );
 
   it.effect(
-    'preserves a schema defect when reading a corrupt persisted account',
+    'serializes encrypted storage updates and removes credentials with the account',
+    Effect.fnUntraced(function* () {
+      const repository = yield* AccountRepository;
+      const key = yield* repository.upsertActive(makeAccount('first'));
+      const storage = yield* makeAccountAuthStorage(key);
+      yield* Effect.promise(async () =>
+        Promise.all([
+          storage.setItemAsync('voel_cookie', 'rotated-cookie'),
+          storage.setItemAsync('voel_session_data', 'cached-session'),
+          storage.setItemAsync('voel_cookie.0.0', 'a chunk'),
+        ])
+      );
+      expect(yield* repository.readAuthStorage(key)).toEqual({
+        voel_cookie: 'rotated-cookie',
+        voel_session_data: 'cached-session',
+        'voel_cookie.0.0': 'a chunk',
+      });
+      yield* repository.remove(key);
+      expect(yield* repository.getActiveKey).toEqual(Option.none());
+      expect(yield* repository.findByKey(key)).toEqual(Option.none());
+      expect(yield* Effect.promise(async () => storage.getItemAsync('voel_cookie'))).toBeNull();
+      yield* Effect.promise(async () => storage.setItemAsync('voel_cookie', 'late callback'));
+      expect(yield* repository.list).toEqual([]);
+      expect(yield* repository.setActive(key).pipe(Effect.flip)).toMatchObject({
+        _tag: 'AccountNotFoundError',
+      });
+    }, Effect.provide(RepositoryTestLayer))
+  );
+
+  it.effect(
+    'authenticates encrypted data against the account identity',
     Effect.fnUntraced(function* () {
       const repository = yield* AccountRepository;
       const sql = yield* MainDatabase;
-      const account = makeAccount('first');
-      yield* repository.upsertActive(account);
+      const first = yield* repository.upsertActive(makeAccount('first'));
+      const second = yield* repository.upsertActive(makeAccount('second'));
       yield* sql`
-          update account
-          set
-            "createdAt" = 8640000000000001
-        `;
+        update account
+        set
+          "authStorage" = (
+            select
+              "authStorage"
+            from
+              account
+            where
+              "userId" = ${first.userId}
+          )
+        where
+          "userId" = ${second.userId}
+      `;
+      expect(yield* repository.readAuthStorage(second).pipe(Effect.flip)).toMatchObject({
+        _tag: 'AccountCredentialsError',
+      });
+      expect(yield* repository.readAuthStorage(first)).toEqual(makeAccount('first').authStorage);
+    }, Effect.provide(RepositoryTestLayer))
+  );
 
-      const exit = yield* repository.getByKey(account).pipe(Effect.exit);
+  it.effect(
+    'preserves schema defects when reading corrupt persisted rows',
+    Effect.fnUntraced(function* () {
+      const repository = yield* AccountRepository;
+      const sql = yield* MainDatabase;
+      const key = yield* repository.upsertActive(makeAccount('first'));
+      yield* sql`
+        update account
+        set
+          "createdAt" = 8640000000000001
+      `;
+      const exit = yield* repository.getByKey(key).pipe(Effect.exit);
       expect(Exit.hasFails(exit)).toBe(false);
       expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SchemaError' });
     }, Effect.provide(RepositoryTestLayer))
   );
 
   it.effect(
-    'reports connection acquisition failure as a recoverable database error',
+    'reports connection acquisition failures as recoverable database errors',
     Effect.fnUntraced(function* () {
       const database = yield* MainDatabase;
       const failure = SqlError.SqlError.make({
@@ -277,76 +285,13 @@ describe('AccountRepository', () => {
         acquirer: Effect.fail(failure),
         compiler: Statement.makeCompilerSqlite(),
         spanAttributes: [],
-      }).pipe(Effect.provide(Reactivity.layer));
+      });
       const repository = yield* AccountRepository.make.pipe(
         Effect.provideService(MainDatabase, Object.assign(client, { pull: database.pull }))
       );
-
       const error = yield* repository.list.pipe(Effect.flip);
       expect(error).toBeInstanceOf(AccountDatabaseError);
       expect(error.cause).toBe(failure);
     }, Effect.provide(RepositoryTestLayer))
-  );
-
-  it.effect(
-    'recovers from real write and BEGIN contention without changing the previous active account',
-    Effect.fnUntraced(
-      function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped();
-        const path = `${directory}/accounts.db`;
-        yield* Effect.gen(function* () {
-          const repository = yield* AccountRepository;
-          const sql = yield* MainDatabase;
-          const contender = yield* TursoSyncClient.make({ path });
-          const first = makeAccount('first');
-          const second = makeAccount('second');
-          yield* repository.upsertActive(first);
-          yield* insertAccountFixture({ ...second, active: false });
-          const before = yield* repository.list;
-          yield* sql`
-            pragma busy_timeout = 0
-          `;
-
-          yield* contender.withTransaction(
-            Effect.gen(function* () {
-              const errors = yield* Effect.all([
-                repository
-                  .updateProfile({ ...first, name: Account.fields.name.make('Updated') })
-                  .pipe(Effect.flip),
-                repository.setActive(second).pipe(Effect.flip),
-              ]);
-              for (const error of errors) {
-                expect(error).toBeInstanceOf(AccountDatabaseError);
-                expect(error).toMatchObject({
-                  cause: { _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } },
-                });
-              }
-              expect(yield* repository.list).toEqual(before);
-            })
-          );
-
-          yield* repository.setActive(second);
-          yield* repository.updateProfile({ ...second, name: Account.fields.name.make('Updated') });
-          expect(yield* repository.getActiveKey).toEqual(
-            Option.some(ActiveAccountKey.make(second))
-          );
-          expect(yield* repository.getByKey(second)).toMatchObject({
-            ...second,
-            name: 'Updated',
-            active: true,
-          });
-        }).pipe(
-          Effect.provide(
-            AccountRepository.layerNoDeps.pipe(
-              Layer.provideMerge(MainDatabaseTestLayer),
-              Layer.provide(Reactivity.layer),
-              Layer.provide(AppConfig.layerTest({ MAIN_DB_FILENAME: path }))
-            )
-          )
-        );
-      },
-      Effect.provide([BunFileSystem.layer, Reactivity.layer])
-    )
   );
 });

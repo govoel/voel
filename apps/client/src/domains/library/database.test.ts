@@ -28,7 +28,6 @@ import { Library, MediaType } from '@repo/spec-api/domains/library/schema.ts';
 
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
-import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 import { LibraryDatabase, LibraryDatabaseMap } from '#src/domains/library/database.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/testing/utils.ts';
@@ -89,7 +88,11 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
     createLibrary,
     account,
     authentication,
-    reauthenticate: authentication.signIn.username({ username, password: 'password' }),
+    reauthenticate: accounts.signInAccount({
+      serverUrl,
+      username,
+      password: Redacted.make('password'),
+    }),
     stopServer: Scope.close(serverScope, Exit.void),
   };
 });
@@ -203,21 +206,10 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
 
         const idle = yield* Effect.gen(function* () {
           const firstDatabase = yield* databases.acquire(first.account);
-          const reused = yield* databases.acquire(ActiveAccountKey.make(first.account));
-          const updatedProfile = {
-            serverUrl: first.account.serverUrl,
-            userId: first.account.userId,
-            authStorageId: first.account.authStorageId,
-            username: 'Renamed',
-            active: false,
-          };
-          const profileDatabase = yield* databases.acquire(updatedProfile);
-          const profileKey = LibraryDatabaseMap.Key.make(updatedProfile);
-          expect(profileKey).toEqual(first.account);
-          expect(Option.isSome(yield* databases.contextEffectOption(profileKey))).toBe(true);
+          const reused = yield* databases.acquire(first.account);
+          expect(Option.isSome(yield* databases.contextEffectOption(first.account))).toBe(true);
           const secondDatabase = yield* databases.acquire(second.account);
           expect(reused).toBe(firstDatabase);
-          expect(profileDatabase).toBe(firstDatabase);
           expect(secondDatabase).not.toBe(firstDatabase);
           expect(yield* libraryNames(firstDatabase)).toEqual([{ name: 'First server' }]);
           expect(yield* libraryNames(secondDatabase)).toEqual([{ name: 'Second server' }]);

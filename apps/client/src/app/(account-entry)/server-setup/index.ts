@@ -48,6 +48,7 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
               })
             ),
           AccountDatabaseError: () => 'A database error occurred. Try again.',
+          AccountCredentialsError: () => 'Unable to securely save credentials. Try again.',
         })
       ),
     onSuccess: async ({ formApi }) => {

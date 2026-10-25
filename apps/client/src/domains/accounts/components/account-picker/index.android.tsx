@@ -41,10 +41,7 @@ export const AccountPicker = ({
             enabled={!AsyncResult.isWaiting(setActiveAccount)}
             onClick={() => {
               void selectAccount({
-                input: {
-                  serverUrl: item.serverUrl,
-                  userId: item.userId,
-                },
+                input: item.key,
                 onSuccess: onSelected,
               });
             }}>

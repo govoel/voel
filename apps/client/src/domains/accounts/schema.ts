@@ -1,4 +1,4 @@
-import { Match, Schema, SchemaGetter } from 'effect';
+import { Effect, Match, Schema, SchemaGetter } from 'effect';
 import { VariantSchema } from 'effect/schema';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
@@ -22,7 +22,26 @@ const DbModel = VariantSchema.make({
   defaultVariant: 'select',
 });
 
+class AccountIdentity extends Schema.Struct({ serverUrl: ServerUrl, userId: AuthUser.fields.id }) {}
+const encodeIdentity = Schema.encodeEffect(Schema.fromJsonString(AccountIdentity));
+
+/** A persisted account identity, decoded by the repository rather than assembled by callers. */
+export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
+  'voel/domains/accounts/schema/AccountKey'
+)(AccountIdentity.fields) {
+  /** Canonical bytes for encryption AAD and stable replica filenames, not a key constructor. */
+  public static readonly encodeContext = (identity: typeof AccountIdentity.Type) =>
+    encodeIdentity(identity).pipe(Effect.orDie);
+}
+
+export const AuthStorageData = Schema.Record(Schema.String, Schema.String);
+
+export const EncryptedAuthStorage = Schema.String.pipe(
+  Schema.brand('voel/domains/accounts/schema/EncryptedAuthStorage')
+);
+
 export class Account extends DbModel.Class<Account>('voel/domains/accounts/schema/Account')({
+  key: DbModel.Field({ select: Schema.fromJsonString(AccountKey) }),
   serverUrl: DbModel.Field({
     select: ServerUrl,
     upsert: ServerUrl,
@@ -48,9 +67,6 @@ export class Account extends DbModel.Class<Account>('voel/domains/accounts/schem
     upsert: AuthUser.fields.email,
     update: AuthUser.fields.email,
   }),
-  authStorageId: Schema.String.pipe(
-    Schema.brand('voel/domains/accounts/schema/Account/authStorageId')
-  ),
   role: DbModel.Field({
     select: AuthUser.fields.role,
     upsert: AuthUser.fields.role,
@@ -94,15 +110,3 @@ export class Account extends DbModel.Class<Account>('voel/domains/accounts/schem
     Schema.decodeSync
   );
 }
-
-/** Account identity excludes mutable profile and activity metadata. */
-export class ActiveAccountKey extends Schema.Class<
-  ActiveAccountKey,
-  { readonly brand: unique symbol }
->('voel/domains/accounts/schema/ActiveAccountKey')({
-  serverUrl: Account.fields.serverUrl,
-  userId: Account.fields.userId,
-  authStorageId: Account.fields.authStorageId,
-}) {}
-
-export type AccountKey = Pick<Account, 'serverUrl' | 'userId'>;

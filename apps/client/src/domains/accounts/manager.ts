@@ -1,111 +1,75 @@
-import { Context, Effect, Layer, Random, Redacted, Stream } from 'effect';
+import { Context, Effect, Layer, Redacted, Stream } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 
-import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
-import { AuthClientMap, makeAuthStorageKey } from '#src/domains/accounts/auth-client/index.ts';
+import {
+  AuthClientMap,
+  makeAuthenticationClient,
+} from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
-import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountSignInError, AccountSignUpError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
-
-export class UuidGenerator extends Context.Service<UuidGenerator>()(
-  'voel/domains/accounts/manager/UuidGenerator',
-  {
-    make: Effect.gen(function* () {
-      const { randomUUID } = yield* Effect.promise(async () => import('expo-crypto'));
-      return { v4: Effect.sync(() => randomUUID()) };
-    }),
-  }
-) {
-  public static readonly layer = Layer.effect(this, this.make);
-
-  public static readonly layerTest = Layer.succeed(this, {
-    v4: Effect.all([Random.nextInt, Random.nextInt]).pipe(
-      Effect.map(([left, right]) => `test-${Math.abs(left)}-${Math.abs(right)}`)
-    ),
-  });
-}
+import type { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/domains/accounts/manager/AccountManager',
   {
     make: Effect.gen(function* () {
-      const accountRepository = yield* AccountRepository;
-      const uuidGenerator = yield* UuidGenerator;
-      const cryptoDigest = yield* CryptoDigest;
-      const authClientStorageService = yield* AuthClientStorage;
-      const authClientMap = yield* AuthClientMap;
-
-      const state = accountRepository.getActiveKey;
+      const repository = yield* AccountRepository;
+      const clients = yield* AuthClientMap;
+      const state = repository.getActiveKey;
       const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
-
-      const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
-        // we ignore errors here because the server may be offline
-        // which causes better-auth to throw
-        yield* authClientMap.acquire(key).pipe(
-          Effect.flatMap((authClient) => authClient.signOut),
+      const removeAccount = Effect.fnUntraced(function* (key: AccountKey) {
+        // Local removal must also work when server revocation is unavailable.
+        yield* clients.acquire(key).pipe(
+          Effect.flatMap((client) => client.signOut),
           Effect.ignore,
           Effect.scoped
         );
-
-        // Mimic Better Auth and remove the auth storage items for this account
-        const storagePrefix = yield* cryptoDigest.sha256({
-          input: makeAuthStorageKey({
-            serverUrl: key.serverUrl,
-            authStorageId: key.authStorageId,
-          }),
-        });
-        yield* Effect.all(
-          [
-            authClientStorageService.removeItem(`${storagePrefix}_cookie`),
-            authClientStorageService.removeItem(`${storagePrefix}_session_data`),
-          ],
-          { concurrency: 'unbounded' }
-        );
-
-        yield* accountRepository.remove(key);
+        yield* repository.remove(key);
       });
-
-      const signOutEverywhere = Effect.fnUntraced(function* (key: ActiveAccountKey) {
-        const client = yield* authClientMap.acquire(key);
-        // Keep local credentials if revocation fails so the user can retry.
+      const signOutEverywhere = Effect.fnUntraced(function* (key: AccountKey) {
+        const client = yield* clients.acquire(key);
         yield* client.revokeSessions;
         yield* removeAccount(key);
       }, Effect.scoped);
-
       const signInAccount = Effect.fnUntraced(function* ({
         serverUrl,
         username,
         password,
       }: Pick<Account, 'serverUrl'> &
         Omit<Parameters<AuthClient['Service']['signIn']['username']>[0], 'password'> & {
-          password: Redacted.Redacted;
+          readonly password: Redacted.Redacted;
         }) {
-        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* authClientMap.acquire({ serverUrl, authStorageId });
-
-        const signInResult = yield* authClient.signIn
+        yield* repository.prepareCredentials;
+        const client = yield* makeAuthenticationClient({ serverUrl });
+        const result = yield* client.signIn
           .username({ username, password: Redacted.value(password) })
           .pipe(
             Effect.catchTags({
               AuthError: (error) => AccountSignInError.make({ reason: error.reason }),
             })
           );
-
-        return yield* accountRepository.upsertActive({
-          serverUrl,
-          userId: signInResult.user.id,
-          username: signInResult.user.username,
-          name: signInResult.user.name,
-          email: signInResult.user.email,
-          authStorageId,
-          role: signInResult.user.role,
-          profilePicture: signInResult.user.image,
+        const key = yield* repository.upsertActive({
+          account: {
+            serverUrl,
+            userId: result.user.id,
+            username: result.user.username,
+            name: result.user.name,
+            email: result.user.email,
+            role: result.user.role,
+            profilePicture: result.user.image,
+          },
+          authStorage: client.snapshot(),
         });
+        // A stable account key may already have a cached, signed-out client.
+        // Refresh it from the newly committed credentials; failed network refreshes
+        // do not undo a successful login or its local transaction.
+        yield* clients.acquire(key).pipe(
+          Effect.flatMap((current) => current.refreshSession(void 0)),
+          Effect.ignore
+        );
+        return key;
       }, Effect.scoped);
-
       const setupServerWithAccount = Effect.fnUntraced(function* ({
         serverUrl,
         name,
@@ -114,40 +78,39 @@ export class AccountManager extends Context.Service<AccountManager>()(
         password,
       }: Pick<Account, 'serverUrl'> &
         Omit<Parameters<AuthClient['Service']['signUp']['email']>[0], 'password'> & {
-          password: Redacted.Redacted;
+          readonly password: Redacted.Redacted;
         }) {
-        const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-        const authClient = yield* authClientMap.acquire({ serverUrl, authStorageId });
-
-        const signUpResult = yield* authClient.signUp
-          .email({
-            name,
-            email,
-            username,
-            password: Redacted.value(password),
-          })
+        yield* repository.prepareCredentials;
+        const client = yield* makeAuthenticationClient({ serverUrl });
+        const result = yield* client.signUp
+          .email({ name, email, username, password: Redacted.value(password) })
           .pipe(
             Effect.catchTags({
               AuthError: (error) => AccountSignUpError.make({ reason: error.reason }),
             })
           );
-
-        return yield* accountRepository.upsertActive({
-          serverUrl,
-          userId: signUpResult.user.id,
-          username: signUpResult.user.username,
-          name: signUpResult.user.name,
-          email: signUpResult.user.email,
-          authStorageId,
-          role: signUpResult.user.role,
-          profilePicture: signUpResult.user.image,
+        const key = yield* repository.upsertActive({
+          account: {
+            serverUrl,
+            userId: result.user.id,
+            username: result.user.username,
+            name: result.user.name,
+            email: result.user.email,
+            role: result.user.role,
+            profilePicture: result.user.image,
+          },
+          authStorage: client.snapshot(),
         });
+        yield* clients.acquire(key).pipe(
+          Effect.flatMap((current) => current.refreshSession(void 0)),
+          Effect.ignore
+        );
+        return key;
       }, Effect.scoped);
-
       return {
-        changes,
         state,
-        setActiveAccount: accountRepository.setActive,
+        changes,
+        setActiveAccount: repository.setActive,
         removeAccount,
         signOutEverywhere,
         signInAccount,
@@ -157,16 +120,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
   }
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
-
   public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide(
-      Layer.mergeAll(
-        AuthClientMap.layer,
-        AccountRepository.layer,
-        AuthClientStorage.layer,
-        UuidGenerator.layer,
-        CryptoDigest.layer
-      )
-    )
+    Layer.provide([AuthClientMap.layer, AccountRepository.layer])
   );
 }

@@ -12,6 +12,13 @@ export class AccountDatabaseError extends Schema.TaggedError<
   cause: Schema.Defect(),
 }) {}
 
+export class AccountCredentialsError extends Schema.TaggedError<
+  AccountCredentialsError,
+  { readonly brand: unique symbol }
+>('voel/domains/accounts/errors/AccountCredentialsError')('AccountCredentialsError', {
+  cause: Schema.Defect(),
+}) {}
+
 export class AccountNotFoundError extends Schema.TaggedError<
   AccountNotFoundError,
   { readonly brand: unique symbol }

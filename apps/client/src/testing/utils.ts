@@ -7,20 +7,18 @@ import { AppConfig } from '#src/config.ts';
 import { TursoSyncClientFactoryBunLayer } from '#src/database/factory/bun.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
 import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
+import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts';
 import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
-import { AccountManager, UuidGenerator } from '#src/domains/accounts/manager.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { LibraryDatabaseMap } from '#src/domains/library/database.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 
 export const makeClientTestLayers = ({
-  authClientStorageMap = new Map<string, string>(),
   config,
   accountRepositoryLayer = AccountRepository.layerNoDeps,
 }: {
-  readonly authClientStorageMap?: Map<string, string>;
   readonly config?: Parameters<typeof AppConfig.layerTest>[0];
   readonly accountRepositoryLayer?: typeof AccountRepository.layerNoDeps;
 } = {}) =>
@@ -30,8 +28,7 @@ export const makeClientTestLayers = ({
     Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
       Layer.mergeAll(
-        AuthClientStorage.layerTest(authClientStorageMap),
-        UuidGenerator.layerTest,
+        AuthEncryption.layerTest,
         CryptoDigest.layerTest,
         AppConfig.layerTest(config),
         Reactivity.layer,
@@ -52,17 +49,7 @@ export const makeUsername = (prefix = 'test.user') =>
 export const makeAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
 }: Pick<Account, 'serverUrl'>) {
-  const uuidGenerator = yield* UuidGenerator;
-  const authStorageId = Account.fields.authStorageId.make(yield* uuidGenerator.v4);
-  const storage = new Map<string, string>();
-
-  return yield* AuthClient.pipe(
-    Effect.provide(
-      AuthClient.layerNoDeps({ serverUrl, authStorageId }).pipe(
-        Layer.provide(Layer.mergeAll(AuthClientStorage.layerTest(storage), CryptoDigest.layerTest))
-      )
-    )
-  );
+  return yield* AuthClient.makeTemporary({ serverUrl });
 });
 
 interface TestServer<UserCount extends number> {

@@ -36,7 +36,7 @@ export const accountsSheetAtom = AppRuntime.atom(
     }
 
     const authClient = yield* AuthClientMap.use((authClients) =>
-      authClients.acquire(activeAccount.value)
+      authClients.acquire(activeAccount.value.key)
     );
     return authClient.sessionChanges.pipe(
       Stream.map((session): AccountsSheet =>

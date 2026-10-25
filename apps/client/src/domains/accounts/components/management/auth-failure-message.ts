@@ -3,8 +3,7 @@ import { Match } from 'effect';
 import type { BetterAuthClientInitializationError } from '@repo/auth-api/client.ts';
 import type { AuthError } from '@repo/auth-api/shared.ts';
 
-import type { AuthClientStorageRemoveItemError } from '#src/domains/accounts/auth-client/storage.ts';
-import type { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
+import type { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
 
 export const authFailureMessage = ({
   error,
@@ -13,12 +12,12 @@ export const authFailureMessage = ({
     | AuthError
     | AccountDatabaseError
     | BetterAuthClientInitializationError
-    | AuthClientStorageRemoveItemError;
+    | AccountNotFoundError;
 }) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
       AccountDatabaseError: () => 'Unable to read the account. Try again.',
-      AuthClientStorageRemoveItemError: () => 'Unable to clear account storage. Try again.',
+      AccountNotFoundError: () => 'The account is no longer available.',
       BetterAuthClientInitializationError: () => 'Unable to initialize authentication. Try again.',
       AuthError: ({ reason }) =>
         Match.value(reason).pipe(

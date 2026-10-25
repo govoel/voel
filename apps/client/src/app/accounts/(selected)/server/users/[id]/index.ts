@@ -16,7 +16,7 @@ import {
 import { useAppForm } from '#src/components/form';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -27,7 +27,7 @@ export const serverUserAtom = Atom.family(
     account,
     userId,
   }: {
-    readonly account: ActiveAccountKey;
+    readonly account: AccountKey;
     readonly userId: typeof AuthUser.fields.id.Type;
   }) =>
     AppRuntime.atom(
@@ -45,7 +45,7 @@ export const serverUserAtom = Atom.family(
     )
 );
 
-const setServerUserRoleAtom = Atom.family((account: ActiveAccountKey) =>
+const setServerUserRoleAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -55,7 +55,7 @@ const setServerUserRoleAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-const updateServerUserAtom = Atom.family((account: ActiveAccountKey) =>
+const updateServerUserAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthAdminUpdateUserInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -65,7 +65,7 @@ const updateServerUserAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-const setServerUserPasswordAtom = Atom.family((account: ActiveAccountKey) =>
+const setServerUserPasswordAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthSetUserPasswordInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -75,7 +75,7 @@ const setServerUserPasswordAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-export const deleteServerUserAtom = Atom.family((account: ActiveAccountKey) =>
+export const deleteServerUserAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthUserIdInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -90,7 +90,7 @@ export const serverUserSessionsAtom = Atom.family(
     account,
     userId,
   }: {
-    readonly account: ActiveAccountKey;
+    readonly account: AccountKey;
     readonly userId: typeof AuthUser.fields.id.Type;
   }) =>
     AppRuntime.atom(
@@ -104,7 +104,7 @@ export const serverUserSessionsAtom = Atom.family(
     )
 );
 
-export const revokeServerUserSessionAtom = Atom.family((account: ActiveAccountKey) =>
+export const revokeServerUserSessionAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -113,7 +113,7 @@ export const revokeServerUserSessionAtom = Atom.family((account: ActiveAccountKe
     { reactivityKeys: ['auth.sessions'] }
   )
 );
-export const revokeServerUserSessionsAtom = Atom.family((account: ActiveAccountKey) =>
+export const revokeServerUserSessionsAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthUserIdInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));

@@ -30,7 +30,6 @@ import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();
@@ -193,7 +192,7 @@ export default function AccountsScreen() {
 
                           <MutationConfirmation
                             key={`${account.serverUrl}-${account.userId}`}
-                            mutation={removeAccountAtom(ActiveAccountKey.make(account))}
+                            mutation={removeAccountAtom(account.key)}
                             onSuccess={({ result }) => {
                               if (!result.accountsRemain) {
                                 router.dismissTo('/');
