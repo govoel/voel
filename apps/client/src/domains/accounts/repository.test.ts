@@ -1,7 +1,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Exit, FileSystem, Layer, Option, Record, Result } from 'effect';
+import { Effect, Exit, FileSystem, Layer, Option, Record, Result, Schema } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -19,7 +19,7 @@ import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts'
 import { makeAccountAuthStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
+import { Account, AccountFromRow, AccountKey } from '#src/domains/accounts/schema.ts';
 
 const RepositoryDatabaseLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),
@@ -29,8 +29,8 @@ const RepositoryTestLayer = RepositoryDatabaseLayer.pipe(Layer.provide(AppConfig
 const makeAccount = (id: string) =>
   ({
     account: {
-      serverUrl: Account.fields.serverUrl.make('https://accounts.example.test'),
-      userId: Account.fields.userId.make(id),
+      serverUrl: AccountKey.fields.serverUrl.make('https://accounts.example.test'),
+      userId: AccountKey.fields.userId.make(id),
       username: Account.fields.username.make(id),
       name: Account.fields.name.make(id),
       email: Account.fields.email.make(`${id}@example.test`),
@@ -111,6 +111,17 @@ describe('AccountRepository', () => {
         { key: second, active: false },
       ]);
       expect(accounts[0]).not.toHaveProperty('authStorage');
+      for (const account of accounts) {
+        expect(account).toBeInstanceOf(Account);
+        expect(account.key).toBeInstanceOf(AccountKey);
+        expect(account).not.toHaveProperty('serverUrl');
+        expect(account).not.toHaveProperty('userId');
+        const row = yield* Schema.encodeEffect(AccountFromRow)(account);
+        expect(row).toMatchObject({ serverUrl: account.key.serverUrl, userId: account.key.userId });
+        expect(row).not.toHaveProperty('key');
+        expect(yield* Schema.decodeEffect(AccountFromRow)(row)).toEqual(account);
+        expect(yield* repository.getByKey(account.key)).toEqual(account);
+      }
       expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);
       const rows = yield* sql<{ authStorage: string }>`
         select

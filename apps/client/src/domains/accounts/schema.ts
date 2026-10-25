@@ -1,4 +1,4 @@
-import { Effect, Match, Schema, SchemaGetter } from 'effect';
+import { Effect, Match, Schema, SchemaGetter, Struct } from 'effect';
 import { VariantSchema } from 'effect/schema';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
@@ -22,26 +22,15 @@ const DbModel = VariantSchema.make({
   defaultVariant: 'select',
 });
 
-class AccountIdentity extends Schema.Struct({ serverUrl: ServerUrl, userId: AuthUser.fields.id }) {}
-const encodeIdentity = Schema.encodeEffect(Schema.fromJsonString(AccountIdentity));
-
-/** A persisted account identity, decoded by the repository rather than assembled by callers. */
-export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
-  'voel/domains/accounts/schema/AccountKey'
-)(AccountIdentity.fields) {
-  /** Canonical bytes for encryption AAD and stable replica filenames, not a key constructor. */
-  public static readonly encodeContext = (identity: typeof AccountIdentity.Type) =>
-    encodeIdentity(identity).pipe(Effect.orDie);
-}
-
 export const AuthStorageData = Schema.Record(Schema.String, Schema.String);
 
 export const EncryptedAuthStorage = Schema.String.pipe(
   Schema.brand('voel/domains/accounts/schema/EncryptedAuthStorage')
 );
 
-export class Account extends DbModel.Class<Account>('voel/domains/accounts/schema/Account')({
-  key: DbModel.Field({ select: Schema.fromJsonString(AccountKey) }),
+export class AccountRow extends DbModel.Class<AccountRow>(
+  'voel/domains/accounts/schema/AccountRow'
+)({
   serverUrl: DbModel.Field({
     select: ServerUrl,
     upsert: ServerUrl,
@@ -82,6 +71,28 @@ export class Account extends DbModel.Class<Account>('voel/domains/accounts/schem
   }),
   createdAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
   updatedAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
+}) {}
+
+/** A persisted account identity, decoded as part of repository query results. */
+export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
+  'voel/domains/accounts/schema/AccountKey'
+)({ serverUrl: AccountRow.fields.serverUrl, userId: AccountRow.fields.userId }) {
+  private static readonly encodeFields = Schema.encodeEffect(
+    Schema.fromJsonString(Schema.Struct(this.fields))
+  );
+
+  /** Canonical bytes for authenticated encryption and stable replica filenames. */
+  public static readonly encodeContext = (
+    identity: Parameters<typeof AccountKey.encodeFields>[0]
+  ) => this.encodeFields(identity).pipe(Effect.orDie);
+}
+
+/** Application account data: identity appears only in its database-decoded key. */
+export class Account extends Schema.Class<Account, { readonly brand: unique symbol }>(
+  'voel/domains/accounts/schema/Account'
+)({
+  key: AccountKey,
+  ...Struct.omit(AccountRow.fields, ['serverUrl', 'userId']),
 }) {
   public static readonly roleToDisplayString = this.fields.role.pipe(
     Schema.decodeTo(
@@ -110,3 +121,14 @@ export class Account extends DbModel.Class<Account>('voel/domains/accounts/schem
     Schema.decodeSync
   );
 }
+
+/** Reshape flat SQL columns before decoding the key and account fields. */
+export const AccountFromRow = Schema.toEncoded(AccountRow).pipe(
+  Schema.decodeTo(Account, {
+    decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
+      key: { serverUrl, userId },
+      ...details,
+    })),
+    encode: SchemaGetter.transform(({ key, ...details }) => ({ ...key, ...details })),
+  })
+);

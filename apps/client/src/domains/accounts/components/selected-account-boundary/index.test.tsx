@@ -64,7 +64,9 @@ vi.mock('@expo/ui/swift-ui', async () => {
       data: ReadonlyArray<Account>;
       children: (props: { item: Account }) => ReactNode;
     }) =>
-      Array.map(data, (item) => <native.View key={item.userId}>{children({ item })}</native.View>),
+      Array.map(data, (item) => (
+        <native.View key={item.key.userId}>{children({ item })}</native.View>
+      )),
   });
   return {
     List,
@@ -113,13 +115,11 @@ vi.mock('expo-constants', () => ({
 vi.mock('expo-linking', () => ({ createURL: (path: string) => `voel://${path}` }));
 vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove: () => void 0 }) }));
 
-const alice = {
+const alice = Account.make({
   key: AccountKey.make({
-    serverUrl: Account.fields.serverUrl.make('https://a.example.test'),
-    userId: Account.fields.userId.make('alice'),
+    serverUrl: AccountKey.fields.serverUrl.make('https://a.example.test'),
+    userId: AccountKey.fields.userId.make('alice'),
   }),
-  serverUrl: Account.fields.serverUrl.make('https://a.example.test'),
-  userId: Account.fields.userId.make('alice'),
   username: Account.fields.username.make('alice'),
   name: Account.fields.name.make('Alice'),
   email: Account.fields.email.make('alice@example.test'),
@@ -128,19 +128,18 @@ const alice = {
   active: Account.fields.active.make(true),
   createdAt: DateTime.makeUnsafe(0),
   updatedAt: DateTime.makeUnsafe(0),
-} satisfies Account;
-const bob = {
-  ...alice,
-  key: AccountKey.make({
-    serverUrl: Account.fields.serverUrl.make('https://b.example.test'),
-    userId: Account.fields.userId.make('bob'),
-  }),
-  serverUrl: Account.fields.serverUrl.make('https://b.example.test'),
-  userId: Account.fields.userId.make('bob'),
-  username: Account.fields.username.make('bob'),
-  name: Account.fields.name.make('Bob'),
-  active: Account.fields.active.make(false),
-} satisfies Account;
+});
+const bob = Account.make(
+  Struct.assign(alice, {
+    key: AccountKey.make({
+      serverUrl: AccountKey.fields.serverUrl.make('https://b.example.test'),
+      userId: AccountKey.fields.userId.make('bob'),
+    }),
+    username: Account.fields.username.make('bob'),
+    name: Account.fields.name.make('Bob'),
+    active: Account.fields.active.make(false),
+  })
+);
 
 const fixtures = new Set<Awaited<ReturnType<typeof makeFixture>>>();
 afterEach(async () => {
@@ -174,7 +173,8 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
       Ref.get(rows).pipe(
         Effect.map(
           Array.findFirst(
-            (account) => account.serverUrl === key.serverUrl && account.userId === key.userId
+            (account) =>
+              account.key.serverUrl === key.serverUrl && account.key.userId === key.userId
           )
         )
       ),
@@ -184,7 +184,7 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
         Array.map((account) =>
           Struct.assign(account, {
             active: Account.fields.active.make(
-              account.serverUrl === key.serverUrl && account.userId === key.userId
+              account.key.serverUrl === key.serverUrl && account.key.userId === key.userId
             ),
           })
         )
@@ -245,7 +245,7 @@ const AccountContent = () => {
       <Pressable
         role="button"
         onPress={() => {
-          removeUser({ userId: Account.fields.userId.make('missing-user') });
+          removeUser({ userId: AccountKey.fields.userId.make('missing-user') });
         }}>
         <Text>Delete missing user</Text>
       </Pressable>
@@ -287,7 +287,9 @@ it('shows Welcome without saved accounts, then one shared no-account page until 
   expect(screen.queryByText('Fresh draft')).not.toBeOnTheScreen();
   expect(navigation.push).not.toHaveBeenCalled();
   await act(async () =>
-    fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })])
+    fixture.replace([
+      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
+    ])
   );
   expect(await screen.findByText('No active account')).toBeOnTheScreen();
   expect(screen.getAllByText('No active account')).toHaveLength(1);
@@ -309,7 +311,7 @@ it('shows Welcome without saved accounts, then one shared no-account page until 
 
 it('selects a saved account through the modal picker and closes it after scoped content becomes available', async () => {
   const fixture = await makeFixture([
-    Account.make({ ...alice, active: Account.fields.active.make(false) }),
+    Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
   ]);
   const Picker = () => {
     const [presented, setPresented] = useState(true);
@@ -357,7 +359,7 @@ it('remounts account content on A → B → A, but updates profile metadata with
   expect(await screen.findByText('Failure')).toBeOnTheScreen();
   await act(async () =>
     fixture.replace([
-      Account.make({ ...alice, name: Account.fields.name.make('Alice updated') }),
+      Account.make(Struct.assign(alice, { name: Account.fields.name.make('Alice updated') })),
       bob,
     ])
   );
@@ -384,7 +386,9 @@ it('returns scoped management routes to /accounts when selection is lost', async
   );
   expect(await screen.findByText('Alice')).toBeOnTheScreen();
   await act(async () =>
-    fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })])
+    fixture.replace([
+      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
+    ])
   );
   await waitFor(() => {
     expect(navigation.replace).toHaveBeenCalledWith('/accounts');
@@ -395,14 +399,17 @@ it('returns scoped management routes to /accounts when selection is lost', async
 
 it('automatically presents the mandatory account picker once across account list and route updates', async () => {
   const fixture = await makeFixture([
-    Account.make({ ...alice, active: Account.fields.active.make(false) }),
+    Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
   ]);
   const view = await fixture.render(<AccountsAutoPresenter />);
   await waitFor(() => {
     expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
   });
   await act(async () =>
-    fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) }), bob])
+    fixture.replace([
+      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
+      bob,
+    ])
   );
   navigation.pathname = '/movies';
   await view.rerender(<AccountsAutoPresenter />);
@@ -414,7 +421,7 @@ it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
   async (pathname) => {
     navigation.pathname = pathname;
     const fixture = await makeFixture([
-      Account.make({ ...alice, active: Account.fields.active.make(false) }),
+      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
     ]);
     const view = await fixture.render(<PresentedMainShell />);
     expect(await screen.findByText('No active account')).toBeOnTheScreen();

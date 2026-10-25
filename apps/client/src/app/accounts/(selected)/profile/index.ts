@@ -10,8 +10,7 @@ import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { AccountKey } from '#src/domains/accounts/schema.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 import { accountAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -26,9 +25,9 @@ export const activeUserProfileAtom = Atom.family((account: AccountKey) =>
   accountAtom(account).pipe(
     Atom.map(
       AsyncResult.map(
-        Option.map(({ email, name, role, userId, username }) => ({
+        Option.map(({ key, email, name, role, username }) => ({
           email,
-          id: userId,
+          id: key.userId,
           name,
           role: Account.roleToDisplayString(role),
           username,
@@ -53,7 +52,7 @@ export const activeUserProfileAtom = Atom.family((account: AccountKey) =>
           AsyncResult.success(
             Option.some({
               email: Account.fields.email.make('reader@example.com'),
-              id: Account.fields.userId.make('predefined-user'),
+              id: AccountKey.fields.userId.make('predefined-user'),
               name: Account.fields.name.make('Alex Reader'),
               role: Account.roleToDisplayString('admin'),
               username: Account.fields.username.make('alex'),

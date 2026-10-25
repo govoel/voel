@@ -11,6 +11,7 @@ import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts'
 import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { LibraryDatabaseMap } from '#src/domains/library/database.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -48,14 +49,14 @@ export const makeUsername = (prefix = 'test.user') =>
 
 export const makeAuthClient = Effect.fnUntraced(function* ({
   serverUrl,
-}: Pick<Account, 'serverUrl'>) {
+}: Pick<AccountKey, 'serverUrl'>) {
   return yield* AuthClient.makeTemporary({ serverUrl });
 });
 
 interface TestServer<UserCount extends number> {
   readonly adminUsername: Account['username'];
   readonly password: Redacted.Redacted;
-  readonly serverUrl: Account['serverUrl'];
+  readonly serverUrl: AccountKey['serverUrl'];
   readonly userCount: UserCount;
   readonly usernames: Types.TupleOf<UserCount, Account['username']>;
 }

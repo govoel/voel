@@ -34,7 +34,7 @@ export const AccountPicker = ({
         <List.ForEach
           data={accounts}
           keyExtractor={(account) =>
-            JSON.stringify([account.serverUrl.toString(), account.userId])
+            JSON.stringify([account.key.serverUrl.toString(), account.key.userId])
           }>
           {({ item }) => (
             <Button
@@ -65,7 +65,7 @@ export const AccountPicker = ({
                   <Text
                     variant="caption"
                     modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-                    {item.serverUrl.toString()}
+                    {item.key.serverUrl.toString()}
                   </Text>
                 </VStack>
 

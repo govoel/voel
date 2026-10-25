@@ -38,7 +38,7 @@ import {
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 import { accountAtom } from '#src/domains/accounts/scope.ts';
 import { insertAccountFixture } from '#src/domains/accounts/testing.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -163,7 +163,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         });
         const repository = yield* AccountRepository;
         expect(yield* repository.getActiveKey).toMatchObject(
-          Option.some({ userId: firstAccount.userId })
+          Option.some({ userId: firstAccount.key.userId })
         );
 
         yield* manager.setActiveAccount(firstAccount.key);
@@ -190,7 +190,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsAtom)).toMatchObject([
           {
-            serverUrl: testServer.serverUrl,
+            key: { serverUrl: testServer.serverUrl },
             username: account.username,
             active: true,
           },
@@ -217,17 +217,17 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         expect(
           Option.getOrThrow((yield* Atom.getResult(accountsWithActiveAccount)).activeAccount)
         ).toMatchObject({
-          userId: secondAccount.userId,
+          key: secondAccount.key,
           hostname: new URL(testServer.serverUrl).hostname,
         });
         expect(yield* Atom.getResult(accountsAtom)).toMatchObject([
           {
-            serverUrl: testServer.serverUrl,
+            key: { serverUrl: testServer.serverUrl },
             username: firstAccount.username,
             active: false,
           },
           {
-            serverUrl: testServer.serverUrl,
+            key: { serverUrl: testServer.serverUrl },
             username: secondAccount.username,
             active: true,
           },
@@ -240,17 +240,18 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           yield* Atom.toStreamResult(accountsWithActiveAccount).pipe(
             Stream.filter(
               ({ activeAccount }) =>
-                Option.isSome(activeAccount) && activeAccount.value.userId === firstAccount.userId
+                Option.isSome(activeAccount) &&
+                activeAccount.value.key.userId === firstAccount.key.userId
             ),
             Stream.runHead
           )
         );
         expect(Option.getOrThrow(refreshed.activeAccount)).toMatchObject({
-          userId: firstAccount.userId,
+          key: firstAccount.key,
         });
         expect(refreshed.accounts).toMatchObject([
-          { userId: firstAccount.userId, active: true },
-          { userId: secondAccount.userId, active: false },
+          { key: firstAccount.key, active: true },
+          { key: secondAccount.key, active: false },
         ]);
       },
       (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
@@ -339,8 +340,8 @@ describe('accountsSheetAtom', () => {
           const { drainScheduler } = yield* TestScheduler;
           const manager = yield* AccountManager;
           const account = {
-            serverUrl: Account.fields.serverUrl.make('http://pending-session.example.test'),
-            userId: Account.fields.userId.make('pending-session-id'),
+            serverUrl: AccountKey.fields.serverUrl.make('http://pending-session.example.test'),
+            userId: AccountKey.fields.userId.make('pending-session-id'),
             username: Account.fields.username.make('pending-session'),
             name: Account.fields.name.make('Pending Session'),
             email: Account.fields.email.make('pending-session@example.test'),
@@ -395,8 +396,8 @@ describe('accountsSheetAtom', () => {
           const { drainScheduler } = yield* TestScheduler;
           const manager = yield* AccountManager;
           const account = {
-            serverUrl: Account.fields.serverUrl.make('http://failed-session.example.test'),
-            userId: Account.fields.userId.make('failed-session-id'),
+            serverUrl: AccountKey.fields.serverUrl.make('http://failed-session.example.test'),
+            userId: AccountKey.fields.userId.make('failed-session-id'),
             username: Account.fields.username.make('failed-session'),
             name: Account.fields.name.make('Failed Session'),
             email: Account.fields.email.make('failed-session@example.test'),
@@ -776,7 +777,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
 
         yield* Atom.set(deleteServerUserAtom(key), {
-          userId: Account.fields.userId.make('missing-user'),
+          userId: AccountKey.fields.userId.make('missing-user'),
         });
         yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true }).pipe(
           Effect.flip
@@ -800,7 +801,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const client = yield* AuthClientMap.use((authClients) => authClients.acquire(account.key));
         const { key } = account;
         const session = yield* client.readSession;
-        const adminSessions = serverUserSessionsAtom({ account: key, userId: account.userId });
+        const adminSessions = serverUserSessionsAtom({ account: key, userId: account.key.userId });
         yield* Atom.mount(ownSessionsAtom(key));
         yield* Atom.mount(adminSessions);
         expect(
@@ -813,7 +814,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const ownDetail = ownSessionAtom({ account: key, id: other.id });
         const adminDetail = serverUserSessionAtom({
           account: key,
-          userId: account.userId,
+          userId: account.key.userId,
           sessionId: other.id,
         });
         yield* Atom.mount(ownDetail);
@@ -831,7 +832,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         yield* drainScheduler;
         const own = yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true });
         const admin = yield* Atom.getResult(
-          serverUserSessionsAtom({ account: key, userId: account.userId }),
+          serverUserSessionsAtom({ account: key, userId: account.key.userId }),
           { suspendOnWaiting: true }
         );
         expect(Array.some(own.sessions, (item) => item.id === other.id)).toBe(false);
@@ -845,7 +846,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           yield* Atom.getResult(
             serverUserSessionAtom({
               account: key,
-              userId: account.userId,
+              userId: account.key.userId,
               sessionId: other.id,
             }),
             { suspendOnWaiting: true }
@@ -886,7 +887,7 @@ it.layer(TestServerControllerClient.layer)('accountAtom', (iit) => {
           Stream.runHead
         );
         expect(Option.getOrThrow(Option.getOrThrow(updated))).toMatchObject({
-          userId: first.userId,
+          key: first.key,
           name: 'Updated profile',
         });
       },

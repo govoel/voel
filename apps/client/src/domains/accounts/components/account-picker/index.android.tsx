@@ -31,7 +31,9 @@ export const AccountPicker = ({
       </Text>
       <LazyColumn.Items
         data={accounts}
-        keyExtractor={(account) => JSON.stringify([account.serverUrl.toString(), account.userId])}>
+        keyExtractor={(account) =>
+          JSON.stringify([account.key.serverUrl.toString(), account.key.userId])
+        }>
         {({ item, index }) => (
           <SegmentedListItem
             index={index}
@@ -53,7 +55,7 @@ export const AccountPicker = ({
             </SegmentedListItem.HeadlineContent>
             <SegmentedListItem.SupportingContent>
               <Text variant="caption" color={colors.onSurfaceVariant}>
-                {item.serverUrl.toString()}
+                {item.key.serverUrl.toString()}
               </Text>
             </SegmentedListItem.SupportingContent>
           </SegmentedListItem>

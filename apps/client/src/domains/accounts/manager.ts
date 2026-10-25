@@ -8,7 +8,7 @@ import {
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountSignInError, AccountSignUpError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { Account, AccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 
 export class AccountManager extends Context.Service<AccountManager>()(
   'voel/domains/accounts/manager/AccountManager',
@@ -36,7 +36,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         serverUrl,
         username,
         password,
-      }: Pick<Account, 'serverUrl'> &
+      }: Pick<AccountKey, 'serverUrl'> &
         Omit<Parameters<AuthClient['Service']['signIn']['username']>[0], 'password'> & {
           readonly password: Redacted.Redacted;
         }) {
@@ -76,7 +76,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         email,
         username,
         password,
-      }: Pick<Account, 'serverUrl'> &
+      }: Pick<AccountKey, 'serverUrl'> &
         Omit<Parameters<AuthClient['Service']['signUp']['email']>[0], 'password'> & {
           readonly password: Redacted.Redacted;
         }) {

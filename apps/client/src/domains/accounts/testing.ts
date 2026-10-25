@@ -2,10 +2,10 @@ import { Effect, Schema } from 'effect';
 
 import { MainDatabase } from '#src/database/main/index.ts';
 import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts';
-import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
+import { AccountKey, AccountRow } from '#src/domains/accounts/schema.ts';
 
 class AccountFixture extends Schema.Struct({
-  ...Account.upsert.fields,
+  ...AccountRow.upsert.fields,
   active: Schema.BooleanFromBit,
 }) {
   public static readonly encodeEffect = Schema.encodeEffect(this);

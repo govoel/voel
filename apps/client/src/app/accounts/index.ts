@@ -42,7 +42,7 @@ export const accountsWithActiveAccount = accountsAtom.pipe(
   Atom.mapResult((accounts) => {
     const activeAccount = Array.findFirst(accounts, (account) => account.active).pipe(
       Option.map((account) =>
-        Struct.assign(account, { hostname: new URL(account.serverUrl).hostname })
+        Struct.assign(account, { hostname: new URL(account.key.serverUrl).hostname })
       )
     );
 
