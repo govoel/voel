@@ -11,7 +11,8 @@
     "./*": "./src/*"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@govoel/plugins": "workspace:*",
