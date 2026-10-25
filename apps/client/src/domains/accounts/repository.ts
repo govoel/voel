@@ -8,12 +8,7 @@ import { MainDatabase } from '#src/database/main/index.ts';
 import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts';
 import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
 import type { AuthStorageData } from '#src/domains/accounts/schema.ts';
-import {
-  AccountFromRow,
-  AccountKey,
-  AccountRow,
-  EncryptedAuthStorage,
-} from '#src/domains/accounts/schema.ts';
+import { Account, AccountKey, EncryptedAuthStorage } from '#src/domains/accounts/schema.ts';
 
 const recoverSqlError = (cause: SqlError) =>
   Match.value(cause.reason).pipe(
@@ -33,7 +28,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
       const queries = {
         list: SqlSchema.findAll({
           Request: Schema.Void,
-          Result: AccountFromRow,
+          Result: Account.fromRow,
           execute: () => sql`
             select
               *
@@ -58,7 +53,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         findByKey: SqlSchema.findOneOption({
           Request: AccountKey,
-          Result: AccountFromRow,
+          Result: Account.fromRow,
           execute: ({ serverUrl, userId }) => sql`
             select
               *
@@ -71,7 +66,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         upsert: SqlSchema.findOne({
           Request: Schema.Struct({
-            ...AccountRow.upsert.fields,
+            ...Account.row.upsert.fields,
             authStorage: EncryptedAuthStorage,
           }),
           Result: AccountKey,
@@ -120,7 +115,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         updateProfile: SqlSchema.void({
           Request: Schema.Struct({
             key: AccountKey,
-            profile: Schema.Struct(Struct.omit(AccountRow.update.fields, ['serverUrl', 'userId'])),
+            profile: Schema.Struct(Struct.omit(Account.row.update.fields, ['serverUrl', 'userId'])),
           }),
           execute: ({ key, profile }) => sql`
             update account
@@ -231,7 +226,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             account,
             authStorage,
           }: {
-            readonly account: typeof AccountRow.upsert.Type;
+            readonly account: typeof Account.row.upsert.Type;
             readonly authStorage: typeof AuthStorageData.Type;
           }) {
             // Encryption (including key creation) must succeed before selection changes.

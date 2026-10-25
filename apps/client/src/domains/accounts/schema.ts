@@ -28,9 +28,7 @@ export const EncryptedAuthStorage = Schema.String.pipe(
   Schema.brand('voel/domains/accounts/schema/EncryptedAuthStorage')
 );
 
-export class AccountRow extends DbModel.Class<AccountRow>(
-  'voel/domains/accounts/schema/AccountRow'
-)({
+class AccountRow extends DbModel.Class<AccountRow>('voel/domains/accounts/schema/AccountRow')({
   serverUrl: DbModel.Field({
     select: ServerUrl,
     upsert: ServerUrl,
@@ -94,6 +92,19 @@ export class Account extends Schema.Class<Account, { readonly brand: unique symb
   key: AccountKey,
   ...Struct.omit(AccountRow.fields, ['serverUrl', 'userId']),
 }) {
+  public static readonly row = AccountRow;
+
+  /** Reshape flat SQL columns before decoding the key and account fields. */
+  public static readonly fromRow = Schema.toEncoded(this.row).pipe(
+    Schema.decodeTo(this, {
+      decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
+        key: { serverUrl, userId },
+        ...details,
+      })),
+      encode: SchemaGetter.transform(({ key, ...details }) => ({ ...key, ...details })),
+    })
+  );
+
   public static readonly roleToDisplayString = this.fields.role.pipe(
     Schema.decodeTo(
       Schema.Literals(['Admin', 'User', 'Under 18']).pipe(
@@ -121,14 +132,3 @@ export class Account extends Schema.Class<Account, { readonly brand: unique symb
     Schema.decodeSync
   );
 }
-
-/** Reshape flat SQL columns before decoding the key and account fields. */
-export const AccountFromRow = Schema.toEncoded(AccountRow).pipe(
-  Schema.decodeTo(Account, {
-    decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
-      key: { serverUrl, userId },
-      ...details,
-    })),
-    encode: SchemaGetter.transform(({ key, ...details }) => ({ ...key, ...details })),
-  })
-);

@@ -19,7 +19,7 @@ import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts'
 import { makeAccountAuthStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, AccountFromRow, AccountKey } from '#src/domains/accounts/schema.ts';
+import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 
 const RepositoryDatabaseLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),
@@ -116,10 +116,10 @@ describe('AccountRepository', () => {
         expect(account.key).toBeInstanceOf(AccountKey);
         expect(account).not.toHaveProperty('serverUrl');
         expect(account).not.toHaveProperty('userId');
-        const row = yield* Schema.encodeEffect(AccountFromRow)(account);
+        const row = yield* Schema.encodeEffect(Account.fromRow)(account);
         expect(row).toMatchObject({ serverUrl: account.key.serverUrl, userId: account.key.userId });
         expect(row).not.toHaveProperty('key');
-        expect(yield* Schema.decodeEffect(AccountFromRow)(row)).toEqual(account);
+        expect(yield* Schema.decodeEffect(Account.fromRow)(row)).toEqual(account);
         expect(yield* repository.getByKey(account.key)).toEqual(account);
       }
       expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);

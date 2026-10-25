@@ -4,7 +4,7 @@ import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { AccountFromRow } from '#src/domains/accounts/schema.ts';
+import { Account } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -30,7 +30,7 @@ export const accountsAtom = AppRuntime.atom(
       label: 'Account available',
       atom: Atom.make(
         // Predefined rendering data is decoded like an encoded database row.
-        Schema.decodeEffect(AccountFromRow)({
+        Schema.decodeEffect(Account.fromRow)({
           active: 0,
           createdAt: 0,
           updatedAt: 0,
