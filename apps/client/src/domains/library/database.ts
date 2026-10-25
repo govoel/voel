@@ -105,7 +105,9 @@ const synchronizeLibraryDatabase = Effect.fnUntraced(function* ({
   const reactivity = yield* Reactivity.Reactivity;
 
   yield* database.pull.pipe(
-    Effect.tap((changed) => (changed ? reactivity.invalidate(['library']) : Effect.void)),
+    Effect.tap((changed) =>
+      changed ? reactivity.invalidate(['library'] satisfies Reactivity.KeysInput) : Effect.void
+    ),
     Effect.tapError((error) => Effect.logWarning('Library synchronization failed', error)),
     Effect.retry(retrySchedule),
     Effect.repeat(Schedule.spaced('1 second')),
