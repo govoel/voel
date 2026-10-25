@@ -59,7 +59,8 @@ export class LibraryService extends Context.Service<LibraryService>()(
         }) satisfies typeof StoragePluginHealth.Type;
       }, Effect.scoped);
 
-      // Retirement outlives requests but belongs to the service layer's lifetime.
+      // afterCommit only launches retirement: waiting here could deadlock against a
+      // plugin editor still held by the request. Retirement belongs to the service lifetime.
       // Invalidating releases the cache's reference, not scopes held by in-flight operations.
       const retire = Effect.fnUntraced(
         function* ({ id }: Pick<Library, 'id'>) {
@@ -103,8 +104,9 @@ export class LibraryService extends Context.Service<LibraryService>()(
         create: repository.create,
         rename: (request: Parameters<typeof repository.rename>[0]) =>
           repository.rename(request).pipe(
-            Effect.tap(() => retire({ id: request.id })),
-            Effect.uninterruptible
+            Effect.tap(() => sql.afterCommit(retire({ id: request.id }))),
+            sql.withTransaction,
+            Effect.catchTags({ SqlError: Effect.die })
           ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
@@ -117,14 +119,16 @@ export class LibraryService extends Context.Service<LibraryService>()(
         }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
           const row = yield* repository.getById({ id });
           const editor = yield* editors.acquire({ storagePlugin: row.storagePlugin, library: row });
-          // Plugin decoding is interruptible; persistence and retirement form one commit sequence.
+          // Decode before opening the persistence transaction. It owns registration
+          // and launches retirement after the outermost commit, even during cancellation.
           const settings = yield* editor.decodeFormSubmission({
             current: row.storagePluginSettings,
             input,
           });
           return yield* repository.setSettings({ id, settings }).pipe(
-            Effect.tap(() => retire({ id })),
-            Effect.uninterruptible
+            Effect.tap(() => sql.afterCommit(retire({ id }))),
+            sql.withTransaction,
+            Effect.catchTags({ SqlError: Effect.die })
           );
         }, Effect.scoped),
         // The outer transaction holds the write lock from loading the snapshot through decoding.
@@ -163,8 +167,9 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ),
         delete: (request: Pick<Library, 'id'>) =>
           repository.deleteById(request).pipe(
-            Effect.tap(() => retire(request)),
-            Effect.uninterruptible
+            Effect.tap(() => sql.afterCommit(retire(request))),
+            sql.withTransaction,
+            Effect.catchTags({ SqlError: Effect.die })
           ),
       };
     }),
