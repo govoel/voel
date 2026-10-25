@@ -1,5 +1,5 @@
-import { describe, expect, it } from '@effect/vitest';
-import { Effect, Option } from 'effect';
+import { beforeEach, describe, expect, it } from '@effect/vitest';
+import { Context, Effect, Layer, Option } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import {
@@ -12,6 +12,15 @@ import {
 } from '#src/predefined-states.ts';
 
 describe('makeWithPredefinedStates', () => {
+  // oxlint-disable-next-line init-declarations -- initialized by scoped setup before every test
+  let registry: AtomRegistry.AtomRegistry;
+  beforeEach(() =>
+    Effect.gen(function* () {
+      const context = yield* Layer.build(AtomRegistry.layer);
+      registry = Context.get(context, AtomRegistry.AtomRegistry);
+    })
+  );
+
   it('is an identity and does not evaluate states when disabled', () => {
     const atom = Atom.make(1);
     let evaluated = false;
@@ -41,7 +50,6 @@ describe('makeWithPredefinedStates', () => {
   });
 
   it('caches states and switches read and write programs', () => {
-    const registry = AtomRegistry.make();
     const original = Atom.make(1);
     const alternate = Atom.make(10);
     let evaluations = 0;
@@ -79,7 +87,6 @@ describe('makeWithPredefinedStates', () => {
   });
 
   it('reads an inactive predefined state without creating its control node', () => {
-    const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(Atom.make(1), () => []);
 
     expect(hasPredefinedStates(atom)).toBe(true);
@@ -92,44 +99,50 @@ describe('makeWithPredefinedStates', () => {
     expect(registry.getNodes().size).toBe(0);
   });
 
-  it('clears an active state when the decorated atom becomes inactive', () => {
-    const scheduled = new Set<() => void>();
-    const registry = AtomRegistry.make({
-      scheduleTask: (task) => {
-        scheduled.add(task);
-        return () => {
-          scheduled.delete(task);
-        };
-      },
-    });
-    const atom = makeWithPredefinedStates({ enabled: true })(Atom.make('normal'), () => [
-      { id: PredefinedStateId.make('alternate'), label: 'Alternate', atom: Atom.make('alternate') },
-    ]);
+  it.effect('clears an active state when the decorated atom becomes inactive', () =>
+    Effect.gen(function* () {
+      const scheduled = new Set<() => void>();
+      const context = yield* Layer.build(
+        AtomRegistry.layerOptions({
+          scheduleTask: (task) => {
+            scheduled.add(task);
+            return () => {
+              scheduled.delete(task);
+            };
+          },
+        })
+      );
+      const scheduledRegistry = Context.get(context, AtomRegistry.AtomRegistry);
+      const atom = makeWithPredefinedStates({ enabled: true })(Atom.make('normal'), () => [
+        {
+          id: PredefinedStateId.make('alternate'),
+          label: 'Alternate',
+          atom: Atom.make('alternate'),
+        },
+      ]);
 
-    expect(registry.get(atom)).toBe('normal');
+      expect(scheduledRegistry.get(atom)).toBe('normal');
 
-    expect(hasPredefinedStates(atom)).toBe(true);
-    if (!hasPredefinedStates(atom)) {
-      throw new Error('Expected atom to have predefined states');
-    }
+      expect(hasPredefinedStates(atom)).toBe(true);
+      if (!hasPredefinedStates(atom)) {
+        throw new Error('Expected atom to have predefined states');
+      }
 
-    const state = Option.getOrThrow(
-      Option.fromNullishOr(atom[PredefinedStatesTypeId].getStates()[0])
-    );
-    atom[PredefinedStatesTypeId].activate(registry, state);
-    expect(registry.get(atom)).toBe('alternate');
+      const state = Option.getOrThrow(
+        Option.fromNullishOr(atom[PredefinedStatesTypeId].getStates()[0])
+      );
+      atom[PredefinedStatesTypeId].activate(scheduledRegistry, state);
+      expect(scheduledRegistry.get(atom)).toBe('alternate');
 
-    for (const task of scheduled) {
-      task();
-    }
+      for (const task of scheduled) {
+        task();
+      }
 
-    expect(registry.get(atom)).toBe('normal');
-
-    registry.dispose();
-  });
+      expect(scheduledRegistry.get(atom)).toBe('normal');
+    })
+  );
 
   it('finalizes an active state atom before starting the next state atom', () => {
-    const registry = AtomRegistry.make();
     const finalized: Array<string> = [];
     const makeStateAtom = (name: string) =>
       Atom.make(

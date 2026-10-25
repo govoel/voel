@@ -1,6 +1,6 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { describe, expect, it } from '@effect/vitest';
-import { Array, Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
+import { beforeEach, describe, expect, it } from '@effect/vitest';
+import { Array, Context, Effect, Fiber, Latch, Layer, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import {
@@ -43,8 +43,16 @@ const firstSnapshot = (service: AtomDevTools['Service'], id: AtomIdType) =>
   service.watch(id).pipe(Stream.runHead, Effect.map(Option.getOrThrow));
 
 describe('AtomDevTools', () => {
+  // oxlint-disable-next-line init-declarations -- initialized by scoped setup before every test
+  let registry: AtomRegistry.AtomRegistry;
+  beforeEach(() =>
+    Effect.gen(function* () {
+      const context = yield* Layer.build(AtomRegistry.layer);
+      registry = Context.get(context, AtomRegistry.AtomRegistry);
+    })
+  );
+
   it('discovers existing and newly added nodes and restores registry callbacks', async () => {
-    const registry = AtomRegistry.make();
     const existing = Atom.make(1).pipe(Atom.withLabel('Existing'));
     registry.get(existing);
     let previousAdds = 0;
@@ -72,7 +80,6 @@ describe('AtomDevTools', () => {
   });
 
   it('does not overwrite registry callbacks installed after acquisition', async () => {
-    const registry = AtomRegistry.make();
     let added = 0;
     let removed = 0;
     const newerOnNodeAdded = (_node: AtomRegistry.Node<unknown>): void => {
@@ -102,8 +109,6 @@ describe('AtomDevTools', () => {
   });
 
   it('folds typed catalog additions and removals after the initial snapshot', async () => {
-    const registry = AtomRegistry.make();
-
     await runWithService(
       registry,
       Effect.gen(function* () {
@@ -132,7 +137,6 @@ describe('AtomDevTools', () => {
   });
 
   it('watches metadata, graph links, and values', async () => {
-    const registry = AtomRegistry.make();
     const dependency = Atom.make('dependency').pipe(Atom.withLabel('Dependency'));
     const derived = Atom.make((get) => ({ value: get(dependency), extra: 'long text' })).pipe(
       Atom.withLabel('Derived'),
@@ -163,7 +167,6 @@ describe('AtomDevTools', () => {
   });
 
   it('uses serializable keys as ids', async () => {
-    const registry = AtomRegistry.make();
     const atom = Atom.make(1).pipe(Atom.serializable({ key: 'count', schema: Schema.Finite }));
     registry.get(atom);
 
@@ -180,7 +183,6 @@ describe('AtomDevTools', () => {
   });
 
   it('executes predefined-state commands', async () => {
-    const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('normal').pipe(Atom.withLabel('Scenario'), Atom.keepAlive),
       () => [{ id: PredefinedStateId.make('empty'), label: 'Empty', atom: Atom.make('empty') }]
@@ -216,7 +218,6 @@ describe('AtomDevTools', () => {
   });
 
   it('reports command and watch errors', async () => {
-    const registry = AtomRegistry.make();
     const atom = Atom.make(1);
     registry.get(atom);
 
@@ -241,7 +242,6 @@ describe('AtomDevTools', () => {
   });
 
   it('subtracts its watch listener from subscriber counts', async () => {
-    const registry = AtomRegistry.make();
     const atom = Atom.make(1).pipe(Atom.withLabel('Watched'));
     registry.get(atom);
 
@@ -257,7 +257,6 @@ describe('AtomDevTools', () => {
   });
 
   it('emits state metadata changes when the selected state has an equal value', async () => {
-    const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('same').pipe(Atom.withLabel('Equal state'), Atom.keepAlive),
       () => [{ id: PredefinedStateId.make('equal'), label: 'Equal', atom: Atom.make('same') }]
@@ -298,7 +297,6 @@ describe('AtomDevTools', () => {
   });
 
   it('emits one command snapshot to each watcher', async () => {
-    const registry = AtomRegistry.make();
     const atom = makeWithPredefinedStates({ enabled: true })(
       Atom.make('same').pipe(Atom.withLabel('Shared watch'), Atom.keepAlive),
       () => [{ id: PredefinedStateId.make('equal'), label: 'Equal', atom: Atom.make('same') }]
@@ -340,7 +338,6 @@ describe('AtomDevTools', () => {
   });
 
   it('broadcasts value changes to each watcher', async () => {
-    const registry = AtomRegistry.make();
     const atom = Atom.make(0).pipe(Atom.withLabel('Shared value'), Atom.keepAlive);
     registry.get(atom);
 
@@ -375,7 +372,6 @@ describe('AtomDevTools', () => {
   });
 
   it('emits one initial snapshot for an uninitialized node', async () => {
-    const registry = AtomRegistry.make();
     const atom = Atom.make(() => 1).pipe(Atom.withLabel('Uninitialized'));
     const cancelExternal = registry.subscribe(atom, () => void 0);
 
@@ -407,7 +403,6 @@ describe('AtomDevTools', () => {
   });
 
   it('fails a watch when its node is removed and allows watching a replacement', async () => {
-    const registry = AtomRegistry.make();
     const atom = Atom.make(1).pipe(Atom.withLabel('Resettable'), Atom.keepAlive);
     registry.get(atom);
 
@@ -439,7 +434,6 @@ describe('AtomDevTools', () => {
   });
 
   it('fails displaced watchers when a replacement is added before the old node is removed', async () => {
-    const registry = AtomRegistry.make();
     const atom = Atom.make(1).pipe(Atom.withLabel('Replaceable'), Atom.keepAlive);
     registry.get(atom);
 

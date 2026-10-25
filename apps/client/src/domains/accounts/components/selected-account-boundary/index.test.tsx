@@ -1,9 +1,12 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { RegistryContext, useAtom, useAtomValue } from '@effect/atom-react';
+import { beforeEach } from '@effect/vitest';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import {
   Array,
+  Context,
   DateTime,
+  Deferred,
   Effect,
   Layer,
   ManagedRuntime,
@@ -13,11 +16,11 @@ import {
   Struct,
   pipe,
 } from 'effect';
-import { AsyncResult, AtomRegistry, Reactivity } from 'effect/reactivity';
+import { AsyncResult, Atom, AtomRegistry, Reactivity } from 'effect/reactivity';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Suspense, useState } from 'react';
 import { Pressable, Text } from 'react-native';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { activeUserProfileAtom } from '#src/app/accounts/(selected)/profile/index.ts';
 import { deleteServerUserAtom } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
@@ -138,15 +141,7 @@ const bob = {
   active: Account.fields.active.make(false),
 } satisfies Account;
 
-const fixtures = new Set<Awaited<ReturnType<typeof makeFixture>>>();
-afterEach(async () => {
-  await Promise.all(
-    Array.map(Array.fromIterable(fixtures), async (fixture) => {
-      fixture.registry.dispose();
-      await fixture.runtime.dispose();
-    })
-  );
-  fixtures.clear();
+afterEach(() => {
   vi.restoreAllMocks();
   navigation.pathname = '/';
   navigation.push.mockClear();
@@ -155,8 +150,8 @@ afterEach(async () => {
 
 // Substitute the persistence boundary, not atoms/components or selection logic.
 // AccountManager and account invalidation run exactly as in the application.
-const makeFixture = async (initial: ReadonlyArray<Account>) => {
-  const rows = Ref.makeUnsafe([...initial]);
+const acquireFixture = Effect.gen(function* () {
+  const rows = yield* Ref.make<Array<Account>>([]);
   const repository = Layer.mock(AccountRepository, {
     list: Ref.get(rows),
     getActiveKey: Ref.get(rows).pipe(
@@ -198,14 +193,21 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
       )
     )
   );
-  const runtime = ManagedRuntime.make(services);
-  const context = await runtime.runPromise(Effect.context<Layer.Success<typeof services>>());
-  const registry = AtomRegistry.make({
-    initialValues: [[AppRuntime.layer, Layer.succeedContext(context)]],
-  });
+  const runtime = yield* Effect.acquireRelease(
+    Effect.sync(() => ManagedRuntime.make(services)),
+    (acquired) => acquired.disposeEffect
+  );
+  const context = yield* runtime.contextEffect;
+  // Acquired second, so the registry closes before the services it uses.
+  const registryContext = yield* Layer.build(
+    AtomRegistry.layerOptions({
+      initialValues: [[AppRuntime.layer, Layer.succeedContext(context)]],
+    })
+  );
+  const registry = Context.get(registryContext, AtomRegistry.AtomRegistry);
   registry.mount(AppRuntime);
-  await Effect.runPromise(AtomRegistry.getResult(registry, AppRuntime));
-  const fixture = {
+  yield* AtomRegistry.getResult(registry, AppRuntime);
+  return {
     runtime,
     registry,
     select: async (account: Account) =>
@@ -223,9 +225,19 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
         ),
       }),
   };
-  fixtures.add(fixture);
-  return fixture;
-};
+});
+
+// oxlint-disable-next-line init-declarations -- initialized by scoped setup before every test
+let fixture: Effect.Success<typeof acquireFixture>;
+beforeEach(() =>
+  acquireFixture.pipe(
+    Effect.tap((acquired) =>
+      Effect.sync(() => {
+        fixture = acquired;
+      })
+    )
+  )
+);
 
 const AccountContent = () => {
   const account = useSelectedAccount();
@@ -277,7 +289,6 @@ it('requires a selected-account provider instead of inventing an account', async
 });
 
 it('shows Welcome without saved accounts, then one shared no-account page until an account is selected', async () => {
-  const fixture = await makeFixture([]);
   await fixture.render(
     <>
       <AccountsAutoPresenter />
@@ -311,9 +322,7 @@ it('shows Welcome without saved accounts, then one shared no-account page until 
 });
 
 it('selects a saved account through the modal picker and closes it after scoped content becomes available', async () => {
-  const fixture = await makeFixture([
-    Account.make({ ...alice, active: Account.fields.active.make(false) }),
-  ]);
+  await fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })]);
   const Picker = () => {
     const [presented, setPresented] = useState(true);
     return (
@@ -348,7 +357,7 @@ it('remounts account content on A → B → A and credential changes, but update
       { status: 403, headers: { 'content-type': 'application/json' } }
     )
   );
-  const fixture = await makeFixture([alice, bob]);
+  await fixture.replace([alice, bob]);
   await fixture.render(
     <MainShell>
       <AccountContent />
@@ -390,7 +399,7 @@ it('remounts account content on A → B → A and credential changes, but update
 });
 
 it('returns scoped management routes to /accounts when selection is lost', async () => {
-  const fixture = await makeFixture([alice]);
+  await fixture.replace([alice]);
   await fixture.render(
     <AccountManagementBoundary>
       <AccountContent />
@@ -408,9 +417,7 @@ it('returns scoped management routes to /accounts when selection is lost', async
 });
 
 it('automatically presents the mandatory account picker once across account list and route updates', async () => {
-  const fixture = await makeFixture([
-    Account.make({ ...alice, active: Account.fields.active.make(false) }),
-  ]);
+  await fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })]);
   const view = await fixture.render(<AccountsAutoPresenter />);
   await waitFor(() => {
     expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
@@ -427,9 +434,7 @@ it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
   'does not interrupt an existing %s route with the mandatory picker',
   async (pathname) => {
     navigation.pathname = pathname;
-    const fixture = await makeFixture([
-      Account.make({ ...alice, active: Account.fields.active.make(false) }),
-    ]);
+    await fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })]);
     const view = await fixture.render(<PresentedMainShell />);
     expect(await screen.findByText('No active account')).toBeOnTheScreen();
     await act(async () => fixture.replace([bob]));
@@ -447,7 +452,7 @@ it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
 );
 
 it('still presents InvalidSession recovery for a selected account', async () => {
-  const fixture = await makeFixture([alice]);
+  await fixture.replace([alice]);
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(
     new Response('null', { headers: { 'content-type': 'application/json' } })
   );
@@ -462,5 +467,70 @@ it('still presents InvalidSession recovery for a selected account', async () => 
   expect(await screen.findByText('Alice')).toBeOnTheScreen();
   await waitFor(() => {
     expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
+  });
+});
+
+describe('fixture lifecycle', { concurrent: false }, () => {
+  // oxlint-disable-next-line init-declarations -- retained only to check disposal in the following test
+  let previous: typeof fixture;
+  const releases: Array<string> = [];
+  let incompleteSetupTestRan = false;
+
+  it.fails('owns resources even when a test fails', async () => {
+    previous = fixture;
+    await fixture.replace([alice]);
+    fixture.registry.mount(
+      Atom.make((get) => {
+        get.addFinalizer(() => {
+          // The registry must still be able to use its services while closing.
+          releases.push(previous.runtime.runSync(Effect.succeed('registry')));
+        });
+        return 0;
+      })
+    );
+    const ready = Deferred.makeUnsafe<boolean>();
+    fixture.runtime.runFork(
+      Effect.acquireRelease(Deferred.succeed(ready, true), () =>
+        Effect.sleep(10).pipe(Effect.andThen(Effect.sync(() => releases.push('runtime'))))
+      ).pipe(Effect.andThen(Effect.never), Effect.scoped)
+    );
+    await Effect.runPromise(Deferred.await(ready));
+    throw new Error('test failed with live fixture resources');
+  });
+
+  it('finishes ordered teardown before starting with an isolated fixture', async () => {
+    expect(releases).toEqual(['registry', 'runtime']);
+    expect(() => previous.registry.get(AppRuntime)).toThrow(/registry is disposed/u);
+    await expect(previous.runtime.runPromise(Effect.void)).rejects.toThrow(
+      /ManagedRuntime disposed/u
+    );
+    expect(fixture.registry).not.toBe(previous.registry);
+    expect(fixture.runtime).not.toBe(previous.runtime);
+    await fixture.render(<PresentedMainShell />);
+    expect(await screen.findByText('Welcome to Voel')).toBeOnTheScreen();
+    expect(screen.queryByText('Alice')).not.toBeOnTheScreen();
+  });
+
+  describe('incomplete setup', () => {
+    beforeEach(() =>
+      acquireFixture.pipe(
+        Effect.flatMap((acquired) => {
+          previous = acquired;
+          return Effect.die(new Error('setup failed after acquiring resources'));
+        })
+      )
+    );
+
+    it.fails('fails before entering the test', () => {
+      incompleteSetupTestRan = true;
+    });
+  });
+
+  it('releases resources acquired by incomplete setup', async () => {
+    expect(incompleteSetupTestRan).toBe(false);
+    expect(() => previous.registry.get(AppRuntime)).toThrow(/registry is disposed/u);
+    await expect(previous.runtime.runPromise(Effect.void)).rejects.toThrow(
+      /ManagedRuntime disposed/u
+    );
   });
 });
