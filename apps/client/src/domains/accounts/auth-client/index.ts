@@ -145,18 +145,16 @@ const synchronizeAccountFromSession = Effect.fnUntraced(function* (
             return;
           }
 
-          yield* accountRepository
-            .updateProfile({
-              serverUrl: key.serverUrl,
-              userId: session.value.value.user.id,
-              authStorageId: key.authStorageId,
-              username: session.value.value.user.username,
-              name: session.value.value.user.name,
-              email: session.value.value.user.email,
-              role: session.value.value.user.role,
-              profilePicture: session.value.value.user.image,
-            })
-            .pipe(Reactivity.mutation(['account']));
+          yield* accountRepository.updateProfile({
+            serverUrl: key.serverUrl,
+            userId: session.value.value.user.id,
+            authStorageId: key.authStorageId,
+            username: session.value.value.user.username,
+            name: session.value.value.user.name,
+            email: session.value.value.user.email,
+            role: session.value.value.user.role,
+            profilePicture: session.value.value.user.image,
+          });
         },
         (effect) =>
           effect.pipe(

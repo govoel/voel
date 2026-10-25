@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Option, Schema } from 'effect';
+import { Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlSchema from 'effect/sql/SqlSchema';
 
@@ -161,6 +162,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
       // Only connection unavailability and lock contention are recoverable.
       // Schema/invariant violations and all other SQL failures are defects.
       // Effect SQL also keeps transaction finalization failures as defects.
+      // Register write invalidations inside the transaction so only an outermost
+      // commit publishes them, including when the caller is interrupted afterward.
       return {
         list: queries.list().pipe(
           Effect.catchReasons(
@@ -215,17 +218,15 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         setActive: Effect.fnUntraced(
           function* (key: AccountKey) {
-            return yield* sql.withTransaction(
-              Effect.gen(function* () {
-                yield* queries.deactivateAll();
-                const account = yield* queries.activate(key);
-                if (Option.isNone(account)) {
-                  return yield* AccountNotFoundError.make(key);
-                }
-                return void 0;
-              })
-            );
+            yield* queries.deactivateAll();
+            const account = yield* queries.activate(key);
+            if (Option.isNone(account)) {
+              return yield* AccountNotFoundError.make(key);
+            }
+            return void 0;
           },
+          Reactivity.mutation(['account']),
+          sql.withTransaction,
           Effect.catchReasons(
             'SqlError',
             {
@@ -238,13 +239,11 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         ),
         upsertActive: Effect.fnUntraced(
           function* (account: typeof Account.upsert.Type) {
-            yield* sql.withTransaction(
-              Effect.gen(function* () {
-                yield* queries.deactivateAll();
-                yield* queries.upsert(account);
-              })
-            );
+            yield* queries.deactivateAll();
+            yield* queries.upsert(account);
           },
+          Reactivity.mutation(['account']),
+          sql.withTransaction,
           Effect.catchReasons(
             'SqlError',
             {
@@ -257,6 +256,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         ),
         updateProfile: (profile: Parameters<typeof queries.updateProfile>[0]) =>
           queries.updateProfile(profile).pipe(
+            Reactivity.mutation(['account']),
+            sql.withTransaction,
             Effect.catchReasons(
               'SqlError',
               {
@@ -269,6 +270,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           ),
         remove: (key: Parameters<typeof queries.remove>[0]) =>
           queries.remove(key).pipe(
+            Reactivity.mutation(['account']),
+            sql.withTransaction,
             Effect.catchReasons(
               'SqlError',
               {

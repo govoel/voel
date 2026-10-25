@@ -12,7 +12,7 @@ import {
   Scheduler,
   Stream,
 } from 'effect';
-import { AsyncResult, Atom, AtomRegistry, Reactivity } from 'effect/reactivity';
+import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
 import { vi } from 'vitest';
 
 import {
@@ -894,18 +894,16 @@ it.layer(TestServerControllerClient.layer)('accountAtom', (iit) => {
         const original = Option.getOrThrow(yield* Atom.getResult(metadata));
         yield* manager.setActiveAccount(second);
         const repository = yield* AccountRepository;
-        yield* repository
-          .updateProfile({
-            serverUrl: original.serverUrl,
-            userId: original.userId,
-            authStorageId: original.authStorageId,
-            username: original.username,
-            email: original.email,
-            role: original.role,
-            profilePicture: original.profilePicture,
-            name: Account.fields.name.make('Updated profile'),
-          })
-          .pipe(Reactivity.mutation(['account']));
+        yield* repository.updateProfile({
+          serverUrl: original.serverUrl,
+          userId: original.userId,
+          authStorageId: original.authStorageId,
+          username: original.username,
+          email: original.email,
+          role: original.role,
+          profilePicture: original.profilePicture,
+          name: Account.fields.name.make('Updated profile'),
+        });
         const updated = yield* Atom.toStreamResult(metadata).pipe(
           Stream.filter((value) => Option.isSome(value) && value.value.name === 'Updated profile'),
           Stream.runHead
