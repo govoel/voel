@@ -5,7 +5,7 @@ import {
 } from '@govoel/plugins/storage';
 import { Array, Effect, Exit, Fiber, Latch, Layer, Match, Option, RcMap } from 'effect';
 import { Reactivity } from 'effect/reactivity';
-import { vi } from 'vitest';
+import { SqlClient, Statement } from 'effect/sql';
 
 import { Library, LibraryInvalidRootError } from '@repo/spec-api/domains/library/schema.ts';
 
@@ -149,36 +149,44 @@ it.layer(testLayer)('library service without transport', (iit) => {
   iit.effect.each(['body', 'commit'] as const)(
     'settings retirement follows the commit outcome when interrupted during the transaction %s',
     Effect.fnUntraced(function* (boundary) {
-      const sql = yield* LibraryDatabase;
-      const repository = yield* LibraryRepository;
+      const backing = yield* LibraryDatabase;
       const { drainScheduler } = yield* TestScheduler;
       const target = yield* warmLibrary(`Interrupted ${boundary}`);
       const entered = yield* Latch.make();
       const release = yield* Latch.make();
 
+      // Inject the commit boundary while retaining real Turso connections and queries.
+      // Both the service and repository must capture this client, not the suite's client.
+      const databaseLayer = Layer.effect(
+        LibraryDatabase,
+        SqlClient.make({
+          driver: backing.driver,
+          acquirer: backing.reserve,
+          compiler: Statement.makeCompilerSqlite(),
+          spanAttributes: [],
+          beginTransaction: 'BEGIN IMMEDIATE',
+          releaseSavepoint: (name) => `RELEASE SAVEPOINT ${name}`,
+          commit: (connection) =>
+            (boundary === 'commit'
+              ? entered.open.pipe(Effect.andThen(release.await))
+              : Effect.void
+            ).pipe(
+              Effect.andThen(connection.executeUnprepared('COMMIT', [], void 0)),
+              Effect.asVoid
+            ),
+        }).pipe(
+          Effect.map((client) =>
+            Object.assign(client, { config: backing.config, syncHandler: backing.syncHandler })
+          )
+        )
+      );
+
       yield* Effect.gen(function* () {
+        const sql = yield* LibraryDatabase;
+        const repository = yield* LibraryRepository;
         const request = yield* sql
           .withTransaction(
             Effect.gen(function* () {
-              const [connection] = Option.getOrThrow(
-                yield* Effect.serviceOption(sql.transactionService)
-              );
-              const execute = connection.executeUnprepared;
-              const spy = vi
-                .spyOn(connection, 'executeUnprepared')
-                .mockImplementation((statement, params, transformRows) =>
-                  statement === 'COMMIT' && boundary === 'commit'
-                    ? entered.open.pipe(
-                        Effect.andThen(release.await),
-                        Effect.andThen(execute(statement, params, transformRows))
-                      )
-                    : execute(statement, params, transformRows)
-                );
-              yield* Effect.addFinalizer(() =>
-                Effect.sync(() => {
-                  spy.mockRestore();
-                })
-              );
               yield* mutate({ ...target.library, operation: 'settings' });
               if (boundary === 'body') {
                 yield* entered.open;
@@ -187,21 +195,30 @@ it.layer(testLayer)('library service without transport', (iit) => {
               return void 0;
             })
           )
-          .pipe(Effect.scoped, Effect.forkChild);
+          .pipe(Effect.forkChild);
         yield* entered.await;
         const interrupting = yield* Fiber.interrupt(request).pipe(Effect.forkChild);
         yield* drainScheduler;
         yield* release.open;
         yield* Fiber.join(interrupting);
         expect(Exit.hasInterrupts(yield* Fiber.await(request))).toBe(true);
-      }).pipe(Effect.ensuring(release.open));
-
-      yield* drainScheduler;
-      expect(yield* cacheKeys(target.library)).toEqual(
-        boundary === 'commit' ? { editors: [], stores: [] } : target.keys
-      );
-      expect((yield* repository.getById(target.library)).storagePluginSettings).toEqual(
-        Option.some({ prefix: boundary === 'commit' ? '/updated' : '/initial' })
+        yield* drainScheduler;
+        expect(yield* cacheKeys(target.library)).toEqual(
+          boundary === 'commit' ? { editors: [], stores: [] } : target.keys
+        );
+        expect((yield* repository.getById(target.library)).storagePluginSettings).toEqual(
+          Option.some({ prefix: boundary === 'commit' ? '/updated' : '/initial' })
+        );
+      }).pipe(
+        Effect.ensuring(release.open),
+        // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this test boundary owns the service and retirement lifetime
+        Effect.provide(
+          LibraryService.layerNoDeps.pipe(
+            Layer.provideMerge(LibraryRepository.layerNoDeps),
+            Layer.provideMerge(databaseLayer),
+            Layer.fresh
+          )
+        )
       );
     })
   );
