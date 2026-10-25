@@ -23,13 +23,16 @@ class Timestamped extends DbModel.Class<Timestamped>(
 )({
   createdAt: Model.GeneratedByDb(Schema.DateTimeUtcFromMillis),
   updatedAt: Model.GeneratedByDb(Schema.DateTimeUtcFromMillis),
+}) {}
+
+class SoftDeletable extends Timestamped.extend<SoftDeletable>(
+  '@repo/spec-api/domains/library/schema/SoftDeletable'
+)({
   deletedAt: DbModel.Field({
     select: Schema.NullOr(Schema.DateTimeUtcFromMillis),
     json: Schema.NullOr(Schema.DateTimeUtcFromMillis),
   }),
-}) {
-  public static readonly fullFields = Model.fields(this);
-}
+}) {}
 
 export class MediaType extends DbModel.Class<MediaType>(
   '@repo/spec-api/domains/library/schema/MediaType'
@@ -40,7 +43,7 @@ export class MediaType extends DbModel.Class<MediaType>(
   }),
 }) {}
 
-export class MediaItem extends DbModel.Class<MediaItem>(
+export class MediaItem extends SoftDeletable.extend<MediaItem>(
   '@repo/spec-api/domains/library/schema/MediaItem'
 )({
   id: DbModel.Field({
@@ -48,10 +51,9 @@ export class MediaItem extends DbModel.Class<MediaItem>(
     json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/domains/library/schema/MediaItem/id')),
   }),
   type: DbModel.Field({ select: MediaType.fields.type, json: MediaType.fields.type }),
-  ...Timestamped.fullFields,
 }) {}
 
-export class Audiobook extends DbModel.Class<Audiobook>(
+export class Audiobook extends SoftDeletable.extend<Audiobook>(
   '@repo/spec-api/domains/library/schema/Audiobook'
 )({
   id: DbModel.Field({
@@ -112,10 +114,9 @@ export class Audiobook extends DbModel.Class<Audiobook>(
       Schema.String.pipe(Schema.brand('@repo/spec-api/domains/library/schema/Audiobook/summary'))
     ),
   }),
-  ...Timestamped.fullFields,
 }) {}
 
-export class AudiobookSeries extends DbModel.Class<AudiobookSeries>(
+export class AudiobookSeries extends SoftDeletable.extend<AudiobookSeries>(
   '@repo/spec-api/domains/library/schema/AudiobookSeries'
 )({
   id: DbModel.Field({
@@ -154,10 +155,9 @@ export class AudiobookSeries extends DbModel.Class<AudiobookSeries>(
       )
     ),
   }),
-  ...Timestamped.fullFields,
 }) {}
 
-export class AudiobookSeriesMap extends DbModel.Class<AudiobookSeriesMap>(
+export class AudiobookSeriesMap extends SoftDeletable.extend<AudiobookSeriesMap>(
   '@repo/spec-api/domains/library/schema/AudiobookSeriesMap'
 )({
   id: DbModel.Field({
@@ -197,10 +197,9 @@ export class AudiobookSeriesMap extends DbModel.Class<AudiobookSeriesMap>(
       Schema.brand('@repo/spec-api/domains/library/schema/AudiobookSeriesMap/sort')
     ),
   }),
-  ...Timestamped.fullFields,
 }) {}
 
-export class AudiobookContributor extends DbModel.Class<AudiobookContributor>(
+export class AudiobookContributor extends SoftDeletable.extend<AudiobookContributor>(
   '@repo/spec-api/domains/library/schema/AudiobookContributor'
 )({
   id: DbModel.Field({
@@ -263,7 +262,6 @@ export class AudiobookContributor extends DbModel.Class<AudiobookContributor>(
       )
     ),
   }),
-  ...Timestamped.fullFields,
 }) {}
 
 export class AudiobookContributorRole extends DbModel.Class<AudiobookContributorRole>(
@@ -279,7 +277,7 @@ export class AudiobookContributorRole extends DbModel.Class<AudiobookContributor
   }),
 }) {}
 
-export class AudiobookContributorMap extends DbModel.Class<AudiobookContributorMap>(
+export class AudiobookContributorMap extends SoftDeletable.extend<AudiobookContributorMap>(
   '@repo/spec-api/domains/library/schema/AudiobookContributorMap'
 )({
   id: DbModel.Field({
@@ -307,10 +305,9 @@ export class AudiobookContributorMap extends DbModel.Class<AudiobookContributorM
     select: AudiobookContributorRole.fields.role,
     json: AudiobookContributorRole.fields.role,
   }),
-  ...Timestamped.fullFields,
 }) {}
 
-export class Library extends DbModel.Class<Library>(
+export class Library extends Timestamped.extend<Library>(
   '@repo/spec-api/domains/library/schema/Library'
 )({
   id: DbModel.Field({
@@ -341,11 +338,9 @@ export class Library extends DbModel.Class<Library>(
     select: Schema.OptionFromNullOr(StoragePluginSettingsPersisted.fromJsonString),
     json: Schema.Option(StoragePluginSettingsPersisted),
   }),
-  createdAt: Timestamped.fullFields.createdAt,
-  updatedAt: Timestamped.fullFields.updatedAt,
 }) {}
 
-export class LibraryRoot extends DbModel.Class<LibraryRoot>(
+export class LibraryRoot extends Timestamped.extend<LibraryRoot>(
   '@repo/spec-api/domains/library/schema/LibraryRoot'
 )({
   id: DbModel.Field({
@@ -365,11 +360,9 @@ export class LibraryRoot extends DbModel.Class<LibraryRoot>(
     json: StorageRootLocation,
     jsonUpsert: Schema.NonEmptyString,
   }),
-  createdAt: Timestamped.fullFields.createdAt,
-  updatedAt: Timestamped.fullFields.updatedAt,
 }) {}
 
-export class MediaFile extends DbModel.Class<MediaFile>(
+export class MediaFile extends SoftDeletable.extend<MediaFile>(
   '@repo/spec-api/domains/library/schema/MediaFile'
 )({
   id: DbModel.Field({
@@ -388,10 +381,9 @@ export class MediaFile extends DbModel.Class<MediaFile>(
       Schema.brand('@repo/spec-api/domains/library/schema/MediaFile/durationMs')
     ),
   }),
-  ...Timestamped.fullFields,
 }) {}
 
-export class LibraryFileMap extends DbModel.Class<LibraryFileMap>(
+export class LibraryFileMap extends SoftDeletable.extend<LibraryFileMap>(
   '@repo/spec-api/domains/library/schema/LibraryFileMap'
 )({
   id: DbModel.Field({
@@ -436,7 +428,6 @@ export class LibraryFileMap extends DbModel.Class<LibraryFileMap>(
       Schema.brand('@repo/spec-api/domains/library/schema/LibraryFileMap/customOrder')
     ),
   }),
-  ...Timestamped.fullFields,
 }) {}
 
 export class LibraryNotFoundError extends Schema.TaggedError<
