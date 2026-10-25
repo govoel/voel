@@ -33,15 +33,15 @@ export const schemaClassBrandRule = defineRule({
     },
   },
   createOnce: (context) => {
-    const declarationOf = (identifier: Extract<ESTree.Expression, { type: 'Identifier' }>) => {
+    const definitionOf = (identifier: Extract<ESTree.Expression, { type: 'Identifier' }>) => {
       let scope = context.sourceCode.getScope(identifier);
       for (;;) {
         const variable = scope.set.get(identifier.name);
         if (variable !== void 0) {
-          return Array.head(variable.defs).pipe(Option.map((definition) => definition.node));
+          return Array.head(variable.defs);
         }
         if (scope.upper === null) {
-          return Option.none<ESTree.Node>();
+          return Option.none();
         }
         scope = scope.upper;
       }
@@ -59,10 +59,7 @@ export const schemaClassBrandRule = defineRule({
       if (Option.isNone(analysis)) {
         return false;
       }
-      const { constructorName, innermostCall, isExtend } = analysis.value;
-      if (constructorName === 'Model.Class') {
-        return true;
-      }
+      const { innermostCall, isExtend } = analysis.value;
       const callee = unwrapExpression(innermostCall.callee);
       if (callee.type !== 'MemberExpression' || callee.property.type !== 'Identifier') {
         return false;
@@ -71,25 +68,35 @@ export const schemaClassBrandRule = defineRule({
       if (base.type !== 'Identifier') {
         return false;
       }
-      const declaration = declarationOf(base);
-      if (Option.isNone(declaration)) {
+      const definition = definitionOf(base);
+      if (Option.isNone(definition)) {
         return false;
       }
+      const { node: declaration, parent } = definition.value;
       if (isExtend) {
         return (
-          declaration.value.type === 'ClassDeclaration' &&
-          declaration.value.superClass !== null &&
-          isVariantClass(declaration.value.superClass, seen)
+          declaration.type === 'ClassDeclaration' &&
+          declaration.superClass !== null &&
+          isVariantClass(declaration.superClass, seen)
         );
       }
-      if (
-        callee.property.name !== 'Class' ||
-        declaration.value.type !== 'VariableDeclarator' ||
-        declaration.value.init === null
-      ) {
+      if (callee.property.name !== 'Class') {
         return false;
       }
-      const initializer = unwrapExpression(declaration.value.init);
+      if (declaration.type === 'ImportSpecifier') {
+        const { imported } = declaration;
+        return (
+          parent?.type === 'ImportDeclaration' &&
+          parent.source.value === 'effect/schema' &&
+          parent.importKind !== 'type' &&
+          declaration.importKind !== 'type' &&
+          (imported.type === 'Identifier' ? imported.name : imported.value) === 'Model'
+        );
+      }
+      if (declaration.type !== 'VariableDeclarator' || declaration.init === null) {
+        return false;
+      }
+      const initializer = unwrapExpression(declaration.init);
       return (
         initializer.type === 'CallExpression' &&
         Option.contains(staticMemberName(initializer.callee), 'VariantSchema.make')

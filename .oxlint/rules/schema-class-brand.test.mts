@@ -19,7 +19,16 @@ new RuleTester().run('schema-class-brand', schemaClassBrandRule, {
     {
       filename,
       code: `
+        import { Model } from "effect/schema";
         class User extends Model.Class<User>("User")({}) {}
+        class Admin extends User.extend<Admin>("Admin")({}) {}
+      `,
+    },
+    {
+      filename,
+      code: `
+        import { Model as DbModel } from "effect/schema";
+        class User extends DbModel.Class<User>("User")({}) {}
         class Admin extends User.extend<Admin>("Admin")({}) {}
       `,
     },
@@ -112,10 +121,69 @@ new RuleTester().run('schema-class-brand', schemaClassBrandRule, {
     {
       filename,
       code: `
+        import { Model } from "effect/schema";
         class User extends Model.Class<User>("User")({}) {}
         function makeAdmin(User) {
           class Admin extends User.extend<Admin>("Admin")({}) {}
         }
+      `,
+      errors: [
+        {
+          message:
+            'Add a readonly unique-symbol brand to this schema subclass. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.',
+        },
+      ],
+    },
+    {
+      filename,
+      code: `
+        const Model = Schema;
+        class User extends Model.Class<User, { readonly brand: unique symbol }>("User")({}) {}
+        class Admin extends User.extend<Admin>("Admin")({}) {}
+      `,
+      errors: [
+        {
+          message:
+            'Add a readonly unique-symbol brand to this schema subclass. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.',
+        },
+      ],
+    },
+    {
+      filename,
+      code: `
+        import { Schema as Model } from "effect";
+        class User extends Model.Class<User, { readonly brand: unique symbol }>("User")({}) {}
+        class Admin extends User.extend<Admin>("Admin")({}) {}
+      `,
+      errors: [
+        {
+          message:
+            'Add a readonly unique-symbol brand to this schema subclass. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.',
+        },
+      ],
+    },
+    {
+      filename,
+      code: `
+        import { Model } from "effect/schema";
+        function makeAdmin(Model) {
+          class User extends Model.Class<User, { readonly brand: unique symbol }>("User")({}) {}
+          class Admin extends User.extend<Admin>("Admin")({}) {}
+        }
+      `,
+      errors: [
+        {
+          message:
+            'Add a readonly unique-symbol brand to this schema subclass. If nominal typing is not desired, extend Schema.Struct, Schema.TaggedStruct, or Schema.Opaque instead.',
+        },
+      ],
+    },
+    {
+      filename,
+      code: `
+        import { Model } from "./models";
+        class User extends Model.Class<User, { readonly brand: unique symbol }>("User")({}) {}
+        class Admin extends User.extend<Admin>("Admin")({}) {}
       `,
       errors: [
         {
