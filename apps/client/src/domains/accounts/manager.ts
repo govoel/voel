@@ -37,16 +37,15 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const cryptoDigest = yield* CryptoDigest;
       const authClientStorageService = yield* AuthClientStorage;
       const authClientMap = yield* AuthClientMap;
-      const reactivity = yield* Reactivity.Reactivity;
 
       const state = accountRepository.getActiveKey;
-      const changes = reactivity.stream(['account'], state).pipe(Stream.changes);
+      const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
 
       const setActiveAccount = (key: AccountKey) =>
-        reactivity.mutation(['account'], accountRepository.setActive(key));
+        accountRepository.setActive(key).pipe(Reactivity.mutation(['account']));
 
       const upsertAccount = ({ account }: { readonly account: typeof Account.upsert.Type }) =>
-        reactivity.mutation(['account'], accountRepository.upsertActive(account));
+        accountRepository.upsertActive(account).pipe(Reactivity.mutation(['account']));
 
       const removeAccount = Effect.fnUntraced(function* (key: ActiveAccountKey) {
         // we ignore errors here because the server may be offline
@@ -72,9 +71,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
           { concurrency: 'unbounded' }
         );
 
-        yield* accountRepository
-          .remove(key)
-          .pipe((effect) => reactivity.mutation(['account'], effect));
+        yield* accountRepository.remove(key).pipe(Reactivity.mutation(['account']));
       });
 
       const signOutEverywhere = Effect.fnUntraced(function* (key: ActiveAccountKey) {
@@ -177,7 +174,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
         AuthClientMap.layer,
         AccountRepository.layer,
         AuthClientStorage.layer,
-        Reactivity.layer,
         UuidGenerator.layer,
         CryptoDigest.layer
       )
