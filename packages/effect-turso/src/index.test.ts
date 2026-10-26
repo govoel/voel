@@ -33,8 +33,9 @@ const makeTempDir = Effect.gen(function* () {
 });
 
 describe('TursoClient', () => {
-  it.effect('uses one connection for in-memory databases by default', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'uses one connection for in-memory databases by default',
+    Effect.fnUntraced(function* () {
       const sql = yield* TursoClient.make({ filename: ':memory:' });
       yield* sql`
         create table test (id integer primary key)
@@ -53,11 +54,12 @@ describe('TursoClient', () => {
             test
         `
       ).toEqual([{ id: 1 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('rejects multiple connections for in-memory databases', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'rejects multiple connections for in-memory databases',
+    Effect.fnUntraced(function* () {
       const errors = yield* Effect.all([
         Effect.flip(TursoClient.make<never>({ filename: ':memory:', minConnections: 2 })),
         Effect.flip(TursoClient.make<never>({ filename: ':memory:', maxConnections: 2 })),
@@ -66,11 +68,12 @@ describe('TursoClient', () => {
       for (const error of errors) {
         expect(error).toBeInstanceOf(TursoConfigError);
       }
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('executes queries and transactions', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'executes queries and transactions',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       const created = yield* sql`
@@ -115,11 +118,12 @@ describe('TursoClient', () => {
         { id: 1, name: 'hello' },
         { id: 2, name: 'world' },
       ]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('returns raw run info', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'returns raw run info',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -154,11 +158,12 @@ describe('TursoClient', () => {
         { id: 1, name: 'hello' },
         { id: 2, name: 'world' },
       ]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('returns rows from raw queries', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'returns rows from raw queries',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -178,11 +183,12 @@ describe('TursoClient', () => {
           test
       `.raw;
       expect(rows).toEqual([{ id: 1, name: 'hello' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('returns positional values', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'returns positional values',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -201,11 +207,12 @@ describe('TursoClient', () => {
           test
       `.values;
       expect(rows).toEqual([[1, 'hello']]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('streams query results', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'streams query results',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({
         filename: `${dir}/test.db`,
@@ -256,11 +263,12 @@ describe('TursoClient', () => {
             test
         `
       ).toEqual([{ count: 2 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('rolls back failed transactions', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'rolls back failed transactions',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -280,11 +288,12 @@ describe('TursoClient', () => {
           test
       `;
       expect(rows).toEqual([]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('nested transactions use savepoints', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'nested transactions use savepoints',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -321,11 +330,12 @@ describe('TursoClient', () => {
           test
       `;
       expect(rows).toEqual([{ id: 1, name: 'kept' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('executes concurrent statements', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'executes concurrent statements',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -359,11 +369,12 @@ describe('TursoClient', () => {
         'row-7',
         'row-8',
       ]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('serializes concurrent statements inside a transaction', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'serializes concurrent statements inside a transaction',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -397,11 +408,12 @@ describe('TursoClient', () => {
       expect(rows).toEqual(
         Array.map([1, 2, 3, 4, 5, 6, 7, 8], (id) => ({ id, name: `row-${id}` }))
       );
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('preserves result modes for concurrent statements inside a transaction', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'preserves result modes for concurrent statements inside a transaction',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -433,11 +445,12 @@ describe('TursoClient', () => {
           expect(values).toEqual([[1], [2]]);
         })
       );
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('uses another pooled connection while a transaction reserves one', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'uses another pooled connection while a transaction reserves one',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({
         filename: `${dir}/test.db`,
@@ -471,22 +484,22 @@ describe('TursoClient', () => {
 
       yield* Deferred.succeed(releaseTransaction, true);
       yield* Fiber.join(transaction);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('runs onConnect for every pooled connection', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'runs onConnect for every pooled connection',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       let connections = 0;
       const sql = yield* TursoClient.make({
         filename: `${dir}/test.db`,
         minConnections: 1,
         maxConnections: 2,
-        onConnect: ({ exec }) =>
-          Effect.gen(function* () {
-            connections += 1;
-            yield* exec('PRAGMA foreign_keys = ON');
-          }),
+        onConnect: Effect.fnUntraced(function* ({ exec }) {
+          connections += 1;
+          yield* exec('PRAGMA foreign_keys = ON');
+        }),
       });
 
       const transactionStarted = yield* Deferred.make<boolean>();
@@ -510,11 +523,12 @@ describe('TursoClient', () => {
 
       yield* Deferred.succeed(releaseTransaction, true);
       yield* Fiber.join(transaction);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('applies query and result name transforms', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'applies query and result name transforms',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({
         filename: `${dir}/test.db`,
@@ -546,11 +560,12 @@ describe('TursoClient', () => {
           test
       `;
       expect(rawRows).toEqual([{ first_name: 'John' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('classifies unique violations with the constraint name', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'classifies unique violations with the constraint name',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -575,11 +590,12 @@ describe('TursoClient', () => {
       }
       expect(error.reason.constraint).toBe('test.name');
       expect(error.reason.isRetryable).toBe(false);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('classifies constraint violations', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'classifies constraint violations',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -593,22 +609,24 @@ describe('TursoClient', () => {
       `);
       expect(SqlError.isSqlError(error)).toBe(true);
       expect(error.reason._tag).toBe('ConstraintError');
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('classifies syntax errors', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'classifies syntax errors',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       // oxlint-disable-next-line sql/format -- malformed intentionally to exercise syntax errors
       const error = yield* Effect.flip(sql`SELEC 1`);
       expect(SqlError.isSqlError(error)).toBe(true);
       expect(error.reason._tag).toBe('SqlSyntaxError');
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('fails a contended transaction with a typed retryable error', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'fails a contended transaction with a typed retryable error',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const client = yield* TursoClient.make({ filename: `${dir}/test.db` });
       const contender = yield* TursoClient.make({ filename: `${dir}/test.db` });
@@ -640,11 +658,12 @@ describe('TursoClient', () => {
         return;
       }
       expect(error.reason.isRetryable).toBe(true);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('uses a 5 second busy timeout by default', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'uses a 5 second busy timeout by default',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       expect(
@@ -652,11 +671,12 @@ describe('TursoClient', () => {
           pragma busy_timeout
         `
       ).toEqual([{ busy_timeout: 5000 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('defaults to WAL journal mode', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'defaults to WAL journal mode',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       expect(
@@ -664,11 +684,12 @@ describe('TursoClient', () => {
           pragma journal_mode
         `
       ).toEqual([{ journal_mode: 'wal' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('handles Turso Sync protocol requests through the Effect client', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'handles Turso Sync protocol requests through the Effect client',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({
         disableWalAutoActions: true,
@@ -713,11 +734,12 @@ describe('TursoClient', () => {
             synced
         `
       ).toEqual([{ value: 'yes' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('requires automatic WAL actions to be disabled for sync requests', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'requires automatic WAL actions to be disabled for sync requests',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       const error = yield* Effect.flip(
@@ -729,11 +751,12 @@ describe('TursoClient', () => {
       );
 
       expect(error).toBeInstanceOf(TursoConfigError);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('supports safe integers', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'supports safe integers',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
       yield* sql`
@@ -769,11 +792,12 @@ describe('TursoClient', () => {
         true
       );
       expect(safe).toEqual([{ id: 9_007_199_254_740_993n }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('supports readonly clients', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'supports readonly clients',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const filename = `${dir}/test.db`;
 
@@ -820,11 +844,12 @@ describe('TursoClient', () => {
           expect(SqlError.isSqlError(error)).toBe(true);
         })
       );
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('layer provides the concrete and generic client services', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'layer provides the concrete and generic client services',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       yield* Effect.gen(function* () {
         const concrete = yield* TursoClient;
@@ -853,6 +878,6 @@ describe('TursoClient', () => {
           })
         )
       );
-    }).pipe(Effect.provide(BunFileSystem.layer))
+    }, Effect.provide(BunFileSystem.layer))
   );
 });

@@ -15,8 +15,8 @@ export const makeSyncOperations = Effect.fnUntraced(function* <R>({
 
   const withSyncOperation = <A, E, Services>(operation: Effect.Effect<A, E, Services>) =>
     Effect.uninterruptibleMask((restore) =>
-      Effect.scopedWith((parentScope) =>
-        Effect.gen(function* () {
+      Effect.scopedWith(
+        Effect.fnUntraced(function* (parentScope) {
           const scope = yield* Scope.fork(parentScope);
           signal = yield* Effect.abortSignal.pipe(Scope.provide(scope));
           // Native promises cannot simply be abandoned. Keep the worker alive while

@@ -96,8 +96,8 @@ class TestScheduler extends Context.Service<TestScheduler>()(
   ).pipe(Layer.provideMerge(Layer.effect(this, this.make)));
 }
 
-const TestAccountsAtomsLayer = Layer.fromBuild((memoMap, scope) =>
-  Effect.gen(function* () {
+const TestAccountsAtomsLayer = Layer.fromBuild(
+  Effect.fnUntraced(function* (memoMap, scope) {
     const services = yield* Effect.context<
       | Layer.Success<ReturnType<typeof makeClientTestLayers>>
       | Layer.Success<typeof TestScheduler.layer>

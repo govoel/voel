@@ -127,14 +127,15 @@ it.layer(testLayer)('library service without transport', (iit) => {
       expect(yield* cacheKeys(target.library)).toEqual({ editors: [], stores: [] });
       expect(yield* cacheKeys(unrelated.library)).toEqual(unrelated.keys);
       yield* Match.value(operation).pipe(
-        Match.when('delete', () =>
-          Effect.gen(function* () {
+        Match.when(
+          'delete',
+          Effect.fnUntraced(function* () {
             const error = yield* repository.getById(target.library).pipe(Effect.flip);
             expect(error._tag).toBe('LibraryNotFoundError');
           })
         ),
-        Match.orElse(() =>
-          Effect.gen(function* () {
+        Match.orElse(
+          Effect.fnUntraced(function* () {
             const row = yield* repository.getById(target.library);
             expect(row.name).toBe(operation === 'rename' ? 'Renamed' : target.row.name);
             expect(row.storagePluginSettings).toEqual(

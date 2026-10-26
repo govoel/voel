@@ -52,15 +52,14 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
     authToken: authToken(authentication),
     bootstrapIfEmpty: true,
     longPollTimeoutMs: 30_000,
-    onConnect: (sql) =>
-      Effect.gen(function* () {
-        yield* sql`
+    onConnect: Effect.fnUntraced(function* (sql) {
+      yield* sql`
           pragma foreign_keys = on
         `;
-        yield* sql`
+      yield* sql`
           pragma query_only = 1
         `;
-      }),
+    }),
   } satisfies TursoSyncClientOptions;
 });
 
