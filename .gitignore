@@ -1,5 +1,7 @@
 .DS_Store
 node_modules
+# Oxlint's language server uses Git ignores to skip vendored config discovery.
+/.repos/
 dist
 build
 coverage
