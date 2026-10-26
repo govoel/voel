@@ -97,7 +97,7 @@ describe('createEffectSchemaFormHook', () => {
     const mutation = runtime.fn((input: undefined) => {
       inputs.push(input);
       return inputs.length === 1
-        ? Effect.fail(TestSubmitError.make({ message: 'failed' }))
+        ? TestSubmitError.make({ message: 'failed' })
         : Effect.succeed('removed');
     });
     const onSuccess = vi.fn();
@@ -146,7 +146,7 @@ describe('createEffectSchemaFormHook', () => {
 
   it('stores a string mutation failure without invalidating the form', async () => {
     const mutation = runtime.fn((_value: TestFormInput) =>
-      Effect.fail(TestSubmitError.make({ message: 'failed' }))
+      TestSubmitError.make({ message: 'failed' })
     );
 
     const TestForm = () => {
@@ -192,7 +192,7 @@ describe('createEffectSchemaFormHook', () => {
       mutationAttempts += 1;
 
       return mutationAttempts === 1
-        ? Effect.fail(TestSubmitError.make({ message: 'failed' }))
+        ? TestSubmitError.make({ message: 'failed' })
         : Effect.succeed('saved');
     });
     const onSuccess = vi.fn();
@@ -236,7 +236,7 @@ describe('createEffectSchemaFormHook', () => {
 
   it('passes per-submit metadata to onFailure', async () => {
     const mutation = runtime.fn((_value: TestFormInput) =>
-      Effect.fail(TestSubmitError.make({ message: 'failed' }))
+      TestSubmitError.make({ message: 'failed' })
     );
     const onFailure = vi.fn(() => 'failed');
 
