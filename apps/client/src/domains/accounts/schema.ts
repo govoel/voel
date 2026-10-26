@@ -25,14 +25,7 @@ const AuthStorage = encryptedJson(Schema.Record(Schema.String, Schema.String));
 export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
   'voel/domains/accounts/schema/AccountKey'
 )({ serverUrl: ServerUrl, userId: AuthUser.fields.id }) {
-  private static readonly encodeFields = Schema.encodeEffect(
-    Schema.fromJsonString(Schema.Struct(this.fields))
-  );
-
-  /** Canonical identity representation for stable replica filenames. */
-  public static readonly encodeIdentity = (
-    identity: Parameters<typeof AccountKey.encodeFields>[0]
-  ) => this.encodeFields(identity).pipe(Effect.orDie);
+  public static readonly encodeIdentity = Schema.encodeEffect(Schema.fromJsonString(this));
 }
 
 const DbModel = VariantSchema.make({
