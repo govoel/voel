@@ -145,7 +145,7 @@ describe('AccountRepository', () => {
         });
         expect(row).not.toHaveProperty('key');
         expect(yield* Schema.decodeEffect(AccountRepository.fromRow)(row)).toEqual(account);
-        expect(yield* repository.getByKey(account.key)).toEqual(account);
+        expect(Option.getOrThrow(yield* repository.findByKey(account.key))).toEqual(account);
       }
       expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);
       const rows = yield* sql<{ authStorage: string }>`
@@ -326,7 +326,7 @@ describe('AccountRepository', () => {
         _tag: 'AccountCredentialsError',
       });
       expect(yield* repository.list).toEqual(before);
-      expect(yield* repository.getByKey(key)).toEqual(before[0]);
+      expect(Option.getOrThrow(yield* repository.findByKey(key))).toEqual(before[0]);
     }, Effect.provide(RepositoryTestLayer))
   );
 
@@ -341,7 +341,7 @@ describe('AccountRepository', () => {
         set
           "createdAt" = 8640000000000001
       `;
-      const exit = yield* repository.getByKey(key).pipe(Effect.exit);
+      const exit = yield* repository.findByKey(key).pipe(Effect.exit);
       expect(Exit.hasFails(exit)).toBe(false);
       expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SchemaError' });
     }, Effect.provide(RepositoryTestLayer))

@@ -119,7 +119,7 @@ export const signInTestServerUsers = Effect.fnUntraced(function* <const UserCoun
     Effect.fnUntraced(function* (username) {
       yield* manager.signInAccount({ serverUrl, username, password });
       const activeAccountKey = Option.getOrThrow(yield* manager.state);
-      return yield* accountRepository.getByKey(activeAccountKey);
+      return Option.getOrThrow(yield* accountRepository.findByKey(activeAccountKey));
     })
   );
 

@@ -1,6 +1,5 @@
-import { Context, Effect, Layer, Match, Option, Schema, SchemaGetter, Struct } from 'effect';
+import { Context, Effect, Layer, Option, Schema, SchemaGetter, Struct } from 'effect';
 import { Reactivity } from 'effect/reactivity';
-import type { SqlError } from 'effect/sql/SqlError';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlSchema from 'effect/sql/SqlSchema';
 
@@ -12,15 +11,6 @@ import {
   AccountNotFoundError,
 } from '#src/domains/accounts/errors.ts';
 import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
-
-const recoverSqlError = (cause: SqlError) =>
-  Match.value(cause.reason).pipe(
-    Match.tags({
-      ConnectionError: () => AccountDatabaseError.make({ cause }),
-      LockTimeoutError: () => AccountDatabaseError.make({ cause }),
-    }),
-    Match.orElse(() => Effect.die(cause))
-  );
 
 /** Reshape encoded SQL columns, then decode the repository's key-aware projection. */
 const accountFromRow = Schema.toEncoded(
@@ -197,16 +187,16 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
       };
-      const findByKey = (key: AccountKey) =>
-        queries
-          .findByKey(key)
-          .pipe(
-            Effect.catchTags({ SqlError: recoverSqlError }),
-            Effect.catchTags({ SchemaError: Effect.die })
-          );
       const readAuthStorage = Effect.fnUntraced(function* (key: AccountKey) {
         const row = yield* queries.readAuthStorage(key).pipe(
-          Effect.catchTags({ SqlError: recoverSqlError }),
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
           Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         );
         return Option.isNone(row) ? {} : row.value.authStorage;
@@ -215,26 +205,40 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
       // Mutation invalidations are registered inside the transaction and published
       // only by its outermost commit. Schema and SQL invariant violations are defects.
       return {
-        list: queries
-          .list()
-          .pipe(
-            Effect.catchTags({ SqlError: recoverSqlError }),
+        list: queries.list().pipe(
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
+          Effect.catchTags({ SchemaError: Effect.die })
+        ),
+        getActiveKey: queries.getActiveKey().pipe(
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
+          Effect.catchTags({ SchemaError: Effect.die })
+        ),
+        findByKey: (key: AccountKey) =>
+          queries.findByKey(key).pipe(
+            Effect.catchReasons(
+              'SqlError',
+              {
+                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              },
+              (_reason, cause) => Effect.die(cause)
+            ),
             Effect.catchTags({ SchemaError: Effect.die })
           ),
-        getActiveKey: queries
-          .getActiveKey()
-          .pipe(
-            Effect.catchTags({ SqlError: recoverSqlError }),
-            Effect.catchTags({ SchemaError: Effect.die })
-          ),
-        findByKey,
-        getByKey: Effect.fnUntraced(function* (key: AccountKey) {
-          const account = yield* findByKey(key);
-          if (Option.isNone(account)) {
-            return yield* AccountNotFoundError.make(key);
-          }
-          return account.value;
-        }),
         setActive: Effect.fnUntraced(
           function* (key: AccountKey) {
             yield* queries.deactivateAll();
@@ -246,7 +250,14 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           },
           Reactivity.mutation(['account']),
           sql.withTransaction,
-          Effect.catchTags({ SqlError: recoverSqlError }),
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
           Effect.catchTags({ SchemaError: Effect.die })
         ),
         upsertActive: Effect.fnUntraced(
@@ -259,27 +270,44 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Reactivity.mutation(['account']),
           sql.withTransaction,
           Effect.provideContext(services),
-          Effect.catchTags({ SqlError: recoverSqlError }),
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
           Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         ),
         updateProfile: (input: Parameters<typeof queries.updateProfile>[0]) =>
-          queries
-            .updateProfile(input)
-            .pipe(
-              Reactivity.mutation(['account']),
-              sql.withTransaction,
-              Effect.catchTags({ SqlError: recoverSqlError }),
-              Effect.catchTags({ SchemaError: Effect.die })
+          queries.updateProfile(input).pipe(
+            Reactivity.mutation(['account']),
+            sql.withTransaction,
+            Effect.catchReasons(
+              'SqlError',
+              {
+                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              },
+              (_reason, cause) => Effect.die(cause)
             ),
+            Effect.catchTags({ SchemaError: Effect.die })
+          ),
         remove: (key: AccountKey) =>
-          queries
-            .remove(key)
-            .pipe(
-              Reactivity.mutation(['account']),
-              sql.withTransaction,
-              Effect.catchTags({ SqlError: recoverSqlError }),
-              Effect.catchTags({ SchemaError: Effect.die })
+          queries.remove(key).pipe(
+            Reactivity.mutation(['account']),
+            sql.withTransaction,
+            Effect.catchReasons(
+              'SqlError',
+              {
+                ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+                LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              },
+              (_reason, cause) => Effect.die(cause)
             ),
+            Effect.catchTags({ SchemaError: Effect.die })
+          ),
         readAuthStorage,
         writeAuthStorageItem: Effect.fnUntraced(
           function* ({
@@ -298,7 +326,14 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           },
           sql.withTransaction,
           Effect.provideContext(services),
-          Effect.catchTags({ SqlError: recoverSqlError }),
+          Effect.catchReasons(
+            'SqlError',
+            {
+              ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+              LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
+            },
+            (_reason, cause) => Effect.die(cause)
+          ),
           Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         ),
       };

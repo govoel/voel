@@ -36,7 +36,7 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         });
         expect(key).toBeInstanceOf(AccountKey);
         expect(yield* manager.state).toEqual(Option.some(key));
-        expect(yield* repository.getByKey(key)).toMatchObject({
+        expect(Option.getOrThrow(yield* repository.findByKey(key))).toMatchObject({
           key,
           username,
           name: 'First Admin',
@@ -166,7 +166,7 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         const recovered = yield* manager.signInAccount({ serverUrl, username, password });
         expect(recovered).toBeInstanceOf(AccountKey);
         expect(yield* repository.list).toHaveLength(2);
-        expect(yield* repository.getByKey(recovered)).toMatchObject({
+        expect(Option.getOrThrow(yield* repository.findByKey(recovered))).toMatchObject({
           username,
           role: 'admin',
           active: true,
@@ -205,7 +205,7 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         yield* client.updateUser({ name: 'Updated Admin' });
         yield* Fiber.join(changed);
         expect(yield* manager.state).toEqual(Option.some(first.key));
-        expect(yield* repository.getByKey(first.key)).toMatchObject({
+        expect(Option.getOrThrow(yield* repository.findByKey(first.key))).toMatchObject({
           key: first.key,
           name: 'Updated Admin',
         });
@@ -269,7 +269,7 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         expect(yield* manager.signOutEverywhere(account.key).pipe(Effect.flip)).toMatchObject({
           _tag: 'AuthError',
         });
-        expect(yield* repository.getByKey(account.key)).toMatchObject({
+        expect(Option.getOrThrow(yield* repository.findByKey(account.key))).toMatchObject({
           key: account.key,
           active: true,
         });
