@@ -44,13 +44,41 @@ const DbModel = VariantSchema.make({
 
 /** Flat account persistence model; repository results own their key-aware projection. */
 export class Account extends DbModel.Class<Account>('voel/domains/accounts/schema/Account')({
-  serverUrl: ServerUrl,
-  userId: AuthUser.fields.id,
-  username: AuthUser.fields.username,
-  name: AuthUser.fields.name,
-  email: AuthUser.fields.email,
-  role: AuthUser.fields.role,
-  profilePicture: AuthUser.fields.image,
+  serverUrl: DbModel.Field({
+    select: ServerUrl,
+    upsert: ServerUrl,
+    update: ServerUrl,
+  }),
+  userId: DbModel.Field({
+    select: AuthUser.fields.id,
+    upsert: AuthUser.fields.id,
+    update: AuthUser.fields.id,
+  }),
+  username: DbModel.Field({
+    select: AuthUser.fields.username,
+    upsert: AuthUser.fields.username,
+    update: AuthUser.fields.username,
+  }),
+  name: DbModel.Field({
+    select: AuthUser.fields.name,
+    upsert: AuthUser.fields.name,
+    update: AuthUser.fields.name,
+  }),
+  email: DbModel.Field({
+    select: AuthUser.fields.email,
+    upsert: AuthUser.fields.email,
+    update: AuthUser.fields.email,
+  }),
+  role: DbModel.Field({
+    select: AuthUser.fields.role,
+    upsert: AuthUser.fields.role,
+    update: AuthUser.fields.role,
+  }),
+  profilePicture: DbModel.Field({
+    select: AuthUser.fields.image,
+    upsert: AuthUser.fields.image,
+    update: AuthUser.fields.image,
+  }),
   active: DbModel.Field({
     select: Schema.BooleanFromBit.pipe(Schema.brand('voel/domains/accounts/schema/Account/active')),
   }),
