@@ -3,6 +3,8 @@ import { VariantSchema } from 'effect/schema';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 
+import { encryptedJson } from '#src/domains/accounts/encryption/encrypted-json.ts';
+
 /** A root HTTP(S) server address. Validation preserves existing account/storage keys. */
 export const ServerUrl = Schema.String.check(
   Schema.makeFilter((value) => {
@@ -17,11 +19,7 @@ export const ServerUrl = Schema.String.check(
   })
 ).pipe(Schema.brand('voel/domains/accounts/schema/ServerUrl'));
 
-export const AuthStorageData = Schema.Record(Schema.String, Schema.String);
-
-export const EncryptedAuthStorage = Schema.String.pipe(
-  Schema.brand('voel/domains/accounts/schema/EncryptedAuthStorage')
-);
+const AuthStorage = encryptedJson(Schema.Record(Schema.String, Schema.String));
 
 /** A persisted account identity, decoded as part of repository query results. */
 export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
@@ -31,8 +29,8 @@ export class AccountKey extends Schema.Class<AccountKey, { readonly brand: uniqu
     Schema.fromJsonString(Schema.Struct(this.fields))
   );
 
-  /** Canonical bytes for authenticated encryption and stable replica filenames. */
-  public static readonly encodeContext = (
+  /** Canonical identity representation for stable replica filenames. */
+  public static readonly encodeIdentity = (
     identity: Parameters<typeof AccountKey.encodeFields>[0]
   ) => this.encodeFields(identity).pipe(Effect.orDie);
 }
@@ -78,6 +76,10 @@ export class Account extends DbModel.Class<Account>('voel/domains/accounts/schem
     select: AuthUser.fields.image,
     upsert: AuthUser.fields.image,
     update: AuthUser.fields.image,
+  }),
+  authStorage: DbModel.Field({
+    select: AuthStorage,
+    upsert: AuthStorage,
   }),
   active: DbModel.Field({
     select: Schema.BooleanFromBit.pipe(Schema.brand('voel/domains/accounts/schema/Account/active')),

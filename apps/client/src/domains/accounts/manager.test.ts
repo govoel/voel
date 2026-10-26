@@ -2,11 +2,9 @@
 import { expect, it } from '@effect/vitest';
 import { Array, Effect, Exit, Fiber, Layer, Option, Redacted, Scope, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
-import { vi } from 'vitest';
 
 import { MainDatabase } from '#src/database/main/index.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { AccountCredentialsError } from '#src/domains/accounts/errors.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
@@ -20,51 +18,6 @@ import {
 } from '#src/testing/utils.ts';
 
 it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
-  iit.effect(
-    'prepares secure storage before either authentication request and leaves existing state untouched on failure',
-    Effect.fnUntraced(
-      function* () {
-        const repository = yield* AccountRepository;
-        const error = AccountCredentialsError.make({
-          cause: new Error('SecureStore is unavailable'),
-        });
-        const manager = yield* AccountManager.make.pipe(
-          Effect.provideService(AccountRepository, {
-            ...repository,
-            prepareCredentials: Effect.fail(error),
-          })
-        );
-        const serverUrl = yield* makeServerUrl;
-        const password = Redacted.make('test-password-12345');
-        const spy = vi.spyOn(globalThis, 'fetch');
-        yield* Effect.addFinalizer(() =>
-          Effect.sync(() => {
-            spy.mockRestore();
-          })
-        );
-        expect(
-          yield* manager
-            .signInAccount({ serverUrl, username: 'reader', password })
-            .pipe(Effect.flip)
-        ).toBe(error);
-        expect(
-          yield* manager
-            .setupServerWithAccount({
-              serverUrl,
-              username: 'reader',
-              name: 'Reader',
-              email: 'reader@example.test',
-              password,
-            })
-            .pipe(Effect.flip)
-        ).toBe(error);
-        expect(spy).not.toHaveBeenCalled();
-        expect(yield* repository.list).toEqual([]);
-      },
-      (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
-    )
-  );
-
   iit.effect(
     'sets up an account atomically and restores authentication using only the encrypted database row',
     Effect.fnUntraced(

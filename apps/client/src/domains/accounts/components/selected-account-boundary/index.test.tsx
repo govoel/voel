@@ -26,6 +26,7 @@ import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
 import { MainShell } from '#src/domains/accounts/components/main-shell';
 import { AccountManagementBoundary } from '#src/domains/accounts/components/selected-account-boundary';
+import { Encryption } from '#src/domains/accounts/encryption/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
@@ -161,7 +162,6 @@ afterEach(async () => {
 const makeFixture = async (initial: ReadonlyArray<AccountResult>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
-    prepareCredentials: Effect.void,
     readAuthStorage: () => Effect.succeed({}),
     writeAuthStorageItem: () => Effect.void,
     list: Ref.get(rows),
@@ -193,7 +193,7 @@ const makeFixture = async (initial: ReadonlyArray<AccountResult>) => {
   const services = AccountManager.layerNoDeps.pipe(
     Layer.provideMerge(AuthClientMap.layerNoDeps),
     Layer.provideMerge(repository),
-    Layer.provideMerge(Reactivity.layer)
+    Layer.provideMerge([Reactivity.layer, Encryption.layerTest])
   );
   const runtime = ManagedRuntime.make(services);
   const context = await runtime.runPromise(Effect.context<Layer.Success<typeof services>>());

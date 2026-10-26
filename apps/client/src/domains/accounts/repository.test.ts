@@ -1,7 +1,18 @@
 import { BunFileSystem } from '@effect/platform-bun';
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
-import { DateTime, Effect, Exit, FileSystem, Layer, Option, Record, Result, Schema } from 'effect';
+import {
+  DateTime,
+  Effect,
+  Exit,
+  FileSystem,
+  Layer,
+  Option,
+  Record,
+  Result,
+  Schema,
+  Struct,
+} from 'effect';
 import { Reactivity } from 'effect/reactivity';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
 import * as SqlClient from 'effect/sql/SqlClient';
@@ -15,28 +26,26 @@ import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 import { AppConfig } from '#src/config.ts';
 import { MainDatabase } from '#src/database/main/index.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
-import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts';
 import { makeAccountAuthStorage } from '#src/domains/accounts/auth-client/storage.ts';
+import { Encryption, EncryptionError } from '#src/domains/accounts/encryption/index.ts';
 import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 
 const RepositoryDatabaseLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),
-  Layer.provideMerge([Reactivity.layer, AuthEncryption.layerTest])
+  Layer.provideMerge([Reactivity.layer, Encryption.layerTest])
 );
 const RepositoryTestLayer = RepositoryDatabaseLayer.pipe(Layer.provide(AppConfig.layerTest()));
 const makeAccount = (id: string) =>
   ({
-    account: {
-      serverUrl: AccountKey.fields.serverUrl.make('https://accounts.example.test'),
-      userId: AccountKey.fields.userId.make(id),
-      username: Account.fields.username.make(id),
-      name: Account.fields.name.make(id),
-      email: Account.fields.email.make(`${id}@example.test`),
-      role: Account.fields.role.make('user'),
-      profilePicture: Account.fields.profilePicture.make(null),
-    },
+    serverUrl: AccountKey.fields.serverUrl.make('https://accounts.example.test'),
+    userId: AccountKey.fields.userId.make(id),
+    username: Account.fields.username.make(id),
+    name: Account.fields.name.make(id),
+    email: Account.fields.email.make(`${id}@example.test`),
+    role: Account.fields.role.make('user'),
+    profilePicture: Account.fields.profilePicture.make(null),
     authStorage: { voel_cookie: `credential-for-${id}` },
   }) satisfies Parameters<typeof AccountRepository.Service.upsertActive>[0];
 
@@ -123,7 +132,11 @@ describe('AccountRepository', () => {
           createdAt: DateTime.toEpochMillis(account.createdAt),
           updatedAt: DateTime.toEpochMillis(account.updatedAt),
         });
-        expect(yield* Schema.decodeEffect(Account)(row)).toMatchObject({
+        expect(
+          yield* Schema.decodeEffect(Schema.Struct(Struct.omit(Account.fields, ['authStorage'])))(
+            row
+          )
+        ).toMatchObject({
           serverUrl: account.key.serverUrl,
           userId: account.key.userId,
           active: account.active,
@@ -137,12 +150,18 @@ describe('AccountRepository', () => {
       expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);
       const rows = yield* sql<{ authStorage: string }>`
         select
-          "authStorage"
+          *
         from
           account
       `;
       for (const row of rows) {
         expect(row.authStorage).not.toContain('credential');
+        const decoded = yield* Schema.decodeUnknownEffect(Account)(row);
+        expect(decoded.authStorage).toEqual(
+          decoded.userId === first.userId
+            ? replacement.authStorage
+            : makeAccount('second').authStorage
+        );
       }
       yield* repository.setActive(second);
       yield* repository.setActive(second);
@@ -167,7 +186,7 @@ describe('AccountRepository', () => {
         ),
         (remove) => Effect.sync(remove)
       );
-      const profile = makeAccount('first').account;
+      const profile = Struct.omit(makeAccount('first'), ['authStorage']);
       const writes = [
         repository.setActive(first),
         repository.updateProfile({ key: first, profile }),
@@ -222,6 +241,44 @@ describe('AccountRepository', () => {
   );
 
   it.effect(
+    'rolls back selection and credentials when column encoding fails',
+    Effect.fnUntraced(function* () {
+      const repository = yield* AccountRepository;
+      const first = yield* repository.upsertActive(makeAccount('first'));
+      const before = yield* repository.list;
+      const encryption = yield* Encryption;
+      const error = EncryptionError.make({ cause: new Error('Encryption unavailable') });
+      const failing = yield* AccountRepository.make.pipe(
+        Effect.provideService(Encryption, { ...encryption, encrypt: () => Effect.fail(error) })
+      );
+      const reactivity = yield* Reactivity.Reactivity;
+      let invalidations = 0;
+      yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          reactivity.registerUnsafe(['account'], () => {
+            invalidations += 1;
+          })
+        ),
+        (remove) => Effect.sync(remove)
+      );
+      expect(yield* failing.upsertActive(makeAccount('second')).pipe(Effect.flip)).toMatchObject({
+        _tag: 'AccountCredentialsError',
+      });
+      expect(
+        yield* failing
+          .writeAuthStorageItem({ key: first, name: 'voel_cookie', value: 'replacement' })
+          .pipe(Effect.flip)
+      ).toMatchObject({
+        _tag: 'AccountCredentialsError',
+      });
+      expect(yield* repository.list).toEqual(before);
+      expect(yield* repository.getActiveKey).toEqual(Option.some(first));
+      expect(yield* repository.readAuthStorage(first)).toEqual(makeAccount('first').authStorage);
+      expect(invalidations).toBe(0);
+    }, Effect.provide(RepositoryTestLayer))
+  );
+
+  it.effect(
     'serializes encrypted storage updates and removes credentials with the account',
     Effect.fnUntraced(function* () {
       const repository = yield* AccountRepository;
@@ -252,30 +309,24 @@ describe('AccountRepository', () => {
   );
 
   it.effect(
-    'authenticates encrypted data against the account identity',
+    'reports corrupt credentials as recoverable errors without affecting account projections',
     Effect.fnUntraced(function* () {
       const repository = yield* AccountRepository;
       const sql = yield* MainDatabase;
-      const first = yield* repository.upsertActive(makeAccount('first'));
-      const second = yield* repository.upsertActive(makeAccount('second'));
+      const key = yield* repository.upsertActive(makeAccount('first'));
+      const before = yield* repository.list;
       yield* sql`
         update account
         set
-          "authStorage" = (
-            select
-              "authStorage"
-            from
-              account
-            where
-              "userId" = ${first.userId}
-          )
+          "authStorage" = 'invalid ciphertext'
         where
-          "userId" = ${second.userId}
+          "userId" = ${key.userId}
       `;
-      expect(yield* repository.readAuthStorage(second).pipe(Effect.flip)).toMatchObject({
+      expect(yield* repository.readAuthStorage(key).pipe(Effect.flip)).toMatchObject({
         _tag: 'AccountCredentialsError',
       });
-      expect(yield* repository.readAuthStorage(first)).toEqual(makeAccount('first').authStorage);
+      expect(yield* repository.list).toEqual(before);
+      expect(yield* repository.getByKey(key)).toEqual(before[0]);
     }, Effect.provide(RepositoryTestLayer))
   );
 

@@ -40,7 +40,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
         Omit<Parameters<AuthClient['Service']['signIn']['username']>[0], 'password'> & {
           readonly password: Redacted.Redacted;
         }) {
-        yield* repository.prepareCredentials;
         const client = yield* makeAuthenticationClient({ serverUrl });
         const result = yield* client.signIn
           .username({ username, password: Redacted.value(password) })
@@ -50,15 +49,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
             })
           );
         const key = yield* repository.upsertActive({
-          account: {
-            serverUrl,
-            userId: result.user.id,
-            username: result.user.username,
-            name: result.user.name,
-            email: result.user.email,
-            role: result.user.role,
-            profilePicture: result.user.image,
-          },
+          serverUrl,
+          userId: result.user.id,
+          username: result.user.username,
+          name: result.user.name,
+          email: result.user.email,
+          role: result.user.role,
+          profilePicture: result.user.image,
           authStorage: client.snapshot(),
         });
         // A stable account key may already have a cached, signed-out client.
@@ -80,7 +77,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
         Omit<Parameters<AuthClient['Service']['signUp']['email']>[0], 'password'> & {
           readonly password: Redacted.Redacted;
         }) {
-        yield* repository.prepareCredentials;
         const client = yield* makeAuthenticationClient({ serverUrl });
         const result = yield* client.signUp
           .email({ name, email, username, password: Redacted.value(password) })
@@ -90,15 +86,13 @@ export class AccountManager extends Context.Service<AccountManager>()(
             })
           );
         const key = yield* repository.upsertActive({
-          account: {
-            serverUrl,
-            userId: result.user.id,
-            username: result.user.username,
-            name: result.user.name,
-            email: result.user.email,
-            role: result.user.role,
-            profilePicture: result.user.image,
-          },
+          serverUrl,
+          userId: result.user.id,
+          username: result.user.username,
+          name: result.user.name,
+          email: result.user.email,
+          role: result.user.role,
+          profilePicture: result.user.image,
           authStorage: client.snapshot(),
         });
         yield* clients.acquire(key).pipe(

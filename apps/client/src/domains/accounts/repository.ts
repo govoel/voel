@@ -5,10 +5,13 @@ import type { SqlError } from 'effect/sql/SqlError';
 import * as SqlSchema from 'effect/sql/SqlSchema';
 
 import { MainDatabase } from '#src/database/main/index.ts';
-import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts';
-import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/accounts/errors.ts';
-import type { AuthStorageData } from '#src/domains/accounts/schema.ts';
-import { Account, AccountKey, EncryptedAuthStorage } from '#src/domains/accounts/schema.ts';
+import { Encryption } from '#src/domains/accounts/encryption/index.ts';
+import {
+  AccountCredentialsError,
+  AccountDatabaseError,
+  AccountNotFoundError,
+} from '#src/domains/accounts/errors.ts';
+import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 
 const recoverSqlError = (cause: SqlError) =>
   Match.value(cause.reason).pipe(
@@ -20,9 +23,14 @@ const recoverSqlError = (cause: SqlError) =>
   );
 
 /** Reshape encoded SQL columns, then decode the repository's key-aware projection. */
-const accountFromRow = Schema.toEncoded(Account).pipe(
+const accountFromRow = Schema.toEncoded(
+  Schema.Struct(Struct.omit(Account.fields, ['authStorage']))
+).pipe(
   Schema.decodeTo(
-    Schema.Struct({ key: AccountKey, ...Struct.omit(Account.fields, ['serverUrl', 'userId']) }),
+    Schema.Struct({
+      key: AccountKey,
+      ...Struct.omit(Account.fields, ['serverUrl', 'userId', 'authStorage']),
+    }),
     {
       decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
         key: { serverUrl, userId },
@@ -38,14 +46,23 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
   {
     make: Effect.gen(function* () {
       const sql = yield* MainDatabase;
-      const encryption = yield* AuthEncryption;
+      const services = yield* Effect.context<typeof Account.DecodingServices>();
       const queries = {
         list: SqlSchema.findAll({
           Request: Schema.Void,
           Result: accountFromRow,
           execute: () => sql`
             select
-              *
+              "serverUrl",
+              "userId",
+              username,
+              name,
+              email,
+              role,
+              "profilePicture",
+              active,
+              "createdAt",
+              "updatedAt"
             from
               account
             order by
@@ -70,7 +87,16 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Result: accountFromRow,
           execute: ({ serverUrl, userId }) => sql`
             select
-              *
+              "serverUrl",
+              "userId",
+              username,
+              name,
+              email,
+              role,
+              "profilePicture",
+              active,
+              "createdAt",
+              "updatedAt"
             from
               account
             where
@@ -79,10 +105,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         upsert: SqlSchema.findOne({
-          Request: Schema.Struct({
-            ...Account.upsert.fields,
-            authStorage: EncryptedAuthStorage,
-          }),
+          Request: Account.upsert,
           Result: AccountKey,
           execute: (account) => sql`
             insert into
@@ -151,7 +174,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         readAuthStorage: SqlSchema.findOneOption({
           Request: AccountKey,
-          Result: Schema.Struct({ authStorage: EncryptedAuthStorage }),
+          Result: Schema.Struct({ authStorage: Account.fields.authStorage }),
           execute: ({ serverUrl, userId }) => sql`
             select
               "authStorage"
@@ -163,7 +186,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         writeAuthStorage: SqlSchema.void({
-          Request: Schema.Struct({ key: AccountKey, authStorage: EncryptedAuthStorage }),
+          Request: Schema.Struct({ key: AccountKey, authStorage: Account.fields.authStorage }),
           execute: ({ key, authStorage }) => sql`
             update account
             set
@@ -182,25 +205,16 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             Effect.catchTags({ SchemaError: Effect.die })
           );
       const readAuthStorage = Effect.fnUntraced(function* (key: AccountKey) {
-        const row = yield* queries
-          .readAuthStorage(key)
-          .pipe(
-            Effect.catchTags({ SqlError: recoverSqlError }),
-            Effect.catchTags({ SchemaError: Effect.die })
-          );
-        if (Option.isNone(row)) {
-          return {} satisfies typeof AuthStorageData.Type;
-        }
-        return yield* encryption.decrypt({
-          data: row.value.authStorage,
-          context: yield* AccountKey.encodeContext(key),
-        });
-      });
+        const row = yield* queries.readAuthStorage(key).pipe(
+          Effect.catchTags({ SqlError: recoverSqlError }),
+          Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
+        );
+        return Option.isNone(row) ? {} : row.value.authStorage;
+      }, Effect.provideContext(services));
 
       // Mutation invalidations are registered inside the transaction and published
       // only by its outermost commit. Schema and SQL invariant violations are defects.
       return {
-        prepareCredentials: encryption.prepare,
         list: queries
           .list()
           .pipe(
@@ -236,27 +250,17 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Effect.catchTags({ SchemaError: Effect.die })
         ),
         upsertActive: Effect.fnUntraced(
-          function* ({
-            account,
-            authStorage,
-          }: {
-            readonly account: typeof Account.upsert.Type;
-            readonly authStorage: typeof AuthStorageData.Type;
-          }) {
-            // Encryption (including key creation) must succeed before selection changes.
-            const encrypted = yield* encryption.encrypt({
-              data: authStorage,
-              context: yield* AccountKey.encodeContext(account),
-            });
-            return yield* Effect.gen(function* () {
-              yield* queries.deactivateAll();
-              return yield* queries
-                .upsert({ ...account, authStorage: encrypted })
-                .pipe(Effect.catchTags({ NoSuchElementError: Effect.die }));
-            }).pipe(Reactivity.mutation(['account']), sql.withTransaction);
+          function* (account: typeof Account.upsert.Type) {
+            yield* queries.deactivateAll();
+            return yield* queries
+              .upsert(account)
+              .pipe(Effect.catchTags({ NoSuchElementError: Effect.die }));
           },
+          Reactivity.mutation(['account']),
+          sql.withTransaction,
+          Effect.provideContext(services),
           Effect.catchTags({ SqlError: recoverSqlError }),
-          Effect.catchTags({ SchemaError: Effect.die })
+          Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         ),
         updateProfile: (input: Parameters<typeof queries.updateProfile>[0]) =>
           queries
@@ -290,15 +294,12 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             // Serialize the entire read/decrypt/modify/encrypt/write, including
             // Better Auth's chunk keys. Never recreate a removed account here.
             const previous = yield* readAuthStorage(key);
-            const authStorage = yield* encryption.encrypt({
-              data: { ...previous, [name]: value },
-              context: yield* AccountKey.encodeContext(key),
-            });
-            yield* queries.writeAuthStorage({ key, authStorage });
+            yield* queries.writeAuthStorage({ key, authStorage: { ...previous, [name]: value } });
           },
           sql.withTransaction,
+          Effect.provideContext(services),
           Effect.catchTags({ SqlError: recoverSqlError }),
-          Effect.catchTags({ SchemaError: Effect.die })
+          Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         ),
       };
     }),
@@ -308,6 +309,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
 
   public static readonly layerNoDeps = Layer.effect(this, this.make);
   public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide([MainDatabase.layer, AuthEncryption.layer])
+    Layer.provide([MainDatabase.layer, Encryption.layer])
   );
 }

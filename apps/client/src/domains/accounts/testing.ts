@@ -1,7 +1,6 @@
 import { Effect, Schema } from 'effect';
 
 import { MainDatabase } from '#src/database/main/index.ts';
-import { AuthEncryption } from '#src/domains/accounts/auth-client/encryption.ts';
 import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 
 class AccountFixture extends Schema.Struct({
@@ -13,18 +12,13 @@ class AccountFixture extends Schema.Struct({
 
 /** Seed a row directly, including inactive accounts that application writes never create. */
 export const insertAccountFixture = Effect.fnUntraced(function* (
-  account: typeof AccountFixture.Type
+  account: Omit<typeof AccountFixture.Type, 'authStorage'>
 ) {
   const sql = yield* MainDatabase;
-  const row = yield* AccountFixture.encodeEffect(account);
-  const encryption = yield* AuthEncryption;
-  const authStorage = yield* encryption.encrypt({
-    data: {},
-    context: yield* AccountKey.encodeContext(account),
-  });
+  const row = yield* AccountFixture.encodeEffect({ ...account, authStorage: {} });
   const rows = yield* sql`
     insert into
-      account ${sql.insert({ ...row, authStorage })}
+      account ${sql.insert(row)}
     returning
       "serverUrl",
       "userId"
