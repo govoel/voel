@@ -32,6 +32,8 @@ import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
+type AccountResult = typeof AccountRepository.fromRow.Type;
+
 const navigation = vi.hoisted(() => ({ pathname: '/', push: vi.fn(), replace: vi.fn() }));
 vi.mock('expo-router', () => ({
   useRouter: () => navigation,
@@ -61,8 +63,8 @@ vi.mock('@expo/ui/swift-ui', async () => {
       data,
       children,
     }: {
-      data: ReadonlyArray<Account>;
-      children: (props: { item: Account }) => ReactNode;
+      data: ReadonlyArray<AccountResult>;
+      children: (props: { item: AccountResult }) => ReactNode;
     }) =>
       Array.map(data, (item) => (
         <native.View key={item.key.userId}>{children({ item })}</native.View>
@@ -115,7 +117,7 @@ vi.mock('expo-constants', () => ({
 vi.mock('expo-linking', () => ({ createURL: (path: string) => `voel://${path}` }));
 vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove: () => void 0 }) }));
 
-const alice = Account.make({
+const alice = {
   key: AccountKey.make({
     serverUrl: AccountKey.fields.serverUrl.make('https://a.example.test'),
     userId: AccountKey.fields.userId.make('alice'),
@@ -128,18 +130,16 @@ const alice = Account.make({
   active: Account.fields.active.make(true),
   createdAt: DateTime.makeUnsafe(0),
   updatedAt: DateTime.makeUnsafe(0),
-});
-const bob = Account.make(
-  Struct.assign(alice, {
-    key: AccountKey.make({
-      serverUrl: AccountKey.fields.serverUrl.make('https://b.example.test'),
-      userId: AccountKey.fields.userId.make('bob'),
-    }),
-    username: Account.fields.username.make('bob'),
-    name: Account.fields.name.make('Bob'),
-    active: Account.fields.active.make(false),
-  })
-);
+} satisfies AccountResult;
+const bob = Struct.assign(alice, {
+  key: AccountKey.make({
+    serverUrl: AccountKey.fields.serverUrl.make('https://b.example.test'),
+    userId: AccountKey.fields.userId.make('bob'),
+  }),
+  username: Account.fields.username.make('bob'),
+  name: Account.fields.name.make('Bob'),
+  active: Account.fields.active.make(false),
+}) satisfies AccountResult;
 
 const fixtures = new Set<Awaited<ReturnType<typeof makeFixture>>>();
 afterEach(async () => {
@@ -158,7 +158,7 @@ afterEach(async () => {
 
 // Substitute the persistence boundary, not atoms/components or selection logic.
 // The repository double publishes account changes just like the SQL repository.
-const makeFixture = async (initial: ReadonlyArray<Account>) => {
+const makeFixture = async (initial: ReadonlyArray<AccountResult>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
     prepareCredentials: Effect.void,
@@ -205,11 +205,11 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const fixture = {
     runtime,
     registry,
-    select: async (account: Account) =>
+    select: async (account: AccountResult) =>
       runtime.runPromise(
         Effect.flatMap(AccountManager, (manager) => manager.setActiveAccount(account.key))
       ),
-    replace: async (accounts: ReadonlyArray<Account>) =>
+    replace: async (accounts: ReadonlyArray<AccountResult>) =>
       runtime.runPromise(Ref.set(rows, [...accounts]).pipe(Reactivity.mutation(['account']))),
     render: async (element: Parameters<typeof render>[0]) =>
       render(element, {
@@ -287,9 +287,7 @@ it('shows Welcome without saved accounts, then one shared no-account page until 
   expect(screen.queryByText('Fresh draft')).not.toBeOnTheScreen();
   expect(navigation.push).not.toHaveBeenCalled();
   await act(async () =>
-    fixture.replace([
-      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
-    ])
+    fixture.replace([Struct.assign(alice, { active: Account.fields.active.make(false) })])
   );
   expect(await screen.findByText('No active account')).toBeOnTheScreen();
   expect(screen.getAllByText('No active account')).toHaveLength(1);
@@ -311,7 +309,7 @@ it('shows Welcome without saved accounts, then one shared no-account page until 
 
 it('selects a saved account through the modal picker and closes it after scoped content becomes available', async () => {
   const fixture = await makeFixture([
-    Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
+    Struct.assign(alice, { active: Account.fields.active.make(false) }),
   ]);
   const Picker = () => {
     const [presented, setPresented] = useState(true);
@@ -359,7 +357,7 @@ it('remounts account content on A → B → A, but updates profile metadata with
   expect(await screen.findByText('Failure')).toBeOnTheScreen();
   await act(async () =>
     fixture.replace([
-      Account.make(Struct.assign(alice, { name: Account.fields.name.make('Alice updated') })),
+      Struct.assign(alice, { name: Account.fields.name.make('Alice updated') }),
       bob,
     ])
   );
@@ -386,9 +384,7 @@ it('returns scoped management routes to /accounts when selection is lost', async
   );
   expect(await screen.findByText('Alice')).toBeOnTheScreen();
   await act(async () =>
-    fixture.replace([
-      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
-    ])
+    fixture.replace([Struct.assign(alice, { active: Account.fields.active.make(false) })])
   );
   await waitFor(() => {
     expect(navigation.replace).toHaveBeenCalledWith('/accounts');
@@ -399,17 +395,14 @@ it('returns scoped management routes to /accounts when selection is lost', async
 
 it('automatically presents the mandatory account picker once across account list and route updates', async () => {
   const fixture = await makeFixture([
-    Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
+    Struct.assign(alice, { active: Account.fields.active.make(false) }),
   ]);
   const view = await fixture.render(<AccountsAutoPresenter />);
   await waitFor(() => {
     expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
   });
   await act(async () =>
-    fixture.replace([
-      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
-      bob,
-    ])
+    fixture.replace([Struct.assign(alice, { active: Account.fields.active.make(false) }), bob])
   );
   navigation.pathname = '/movies';
   await view.rerender(<AccountsAutoPresenter />);
@@ -421,7 +414,7 @@ it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
   async (pathname) => {
     navigation.pathname = pathname;
     const fixture = await makeFixture([
-      Account.make(Struct.assign(alice, { active: Account.fields.active.make(false) })),
+      Struct.assign(alice, { active: Account.fields.active.make(false) }),
     ]);
     const view = await fixture.render(<PresentedMainShell />);
     expect(await screen.findByText('No active account')).toBeOnTheScreen();

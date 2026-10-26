@@ -1,4 +1,5 @@
 import { Effect, Match, Schema, SchemaGetter } from 'effect';
+import { VariantSchema } from 'effect/schema';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 
@@ -36,19 +37,25 @@ export class AccountKey extends Schema.Class<AccountKey, { readonly brand: uniqu
   ) => this.encodeFields(identity).pipe(Effect.orDie);
 }
 
-/** Application account data: identity appears only in its database-decoded key. */
-export class Account extends Schema.Class<Account, { readonly brand: unique symbol }>(
-  'voel/domains/accounts/schema/Account'
-)({
-  key: AccountKey,
+const DbModel = VariantSchema.make({
+  variants: ['select', 'upsert', 'update'],
+  defaultVariant: 'select',
+});
+
+/** Flat account persistence model; repository results own their key-aware projection. */
+export class Account extends DbModel.Class<Account>('voel/domains/accounts/schema/Account')({
+  serverUrl: ServerUrl,
+  userId: AuthUser.fields.id,
   username: AuthUser.fields.username,
   name: AuthUser.fields.name,
   email: AuthUser.fields.email,
   role: AuthUser.fields.role,
   profilePicture: AuthUser.fields.image,
-  active: Schema.Boolean.pipe(Schema.brand('voel/domains/accounts/schema/Account/active')),
-  createdAt: Schema.DateTimeUtc,
-  updatedAt: Schema.DateTimeUtc,
+  active: DbModel.Field({
+    select: Schema.BooleanFromBit.pipe(Schema.brand('voel/domains/accounts/schema/Account/active')),
+  }),
+  createdAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
+  updatedAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
 }) {
   public static readonly roleToDisplayString = this.fields.role.pipe(
     Schema.decodeTo(

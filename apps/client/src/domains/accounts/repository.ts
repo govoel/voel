@@ -1,6 +1,5 @@
 import { Context, Effect, Layer, Match, Option, Schema, SchemaGetter, Struct } from 'effect';
 import { Reactivity } from 'effect/reactivity';
-import { VariantSchema } from 'effect/schema';
 import type { SqlError } from 'effect/sql/SqlError';
 // oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
 import * as SqlSchema from 'effect/sql/SqlSchema';
@@ -11,21 +10,6 @@ import { AccountDatabaseError, AccountNotFoundError } from '#src/domains/account
 import type { AuthStorageData } from '#src/domains/accounts/schema.ts';
 import { Account, AccountKey, EncryptedAuthStorage } from '#src/domains/accounts/schema.ts';
 
-const DbModel = VariantSchema.make({
-  variants: ['select', 'upsert', 'update'],
-  defaultVariant: 'select',
-});
-
-class AccountRow extends DbModel.Class<AccountRow>('voel/domains/accounts/repository/AccountRow')({
-  ...AccountKey.fields,
-  ...Struct.omit(Account.fields, ['key', 'active', 'createdAt', 'updatedAt']),
-  active: DbModel.Field({
-    select: Schema.BooleanFromBit.pipe(Schema.decodeTo(Account.fields.active)),
-  }),
-  createdAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
-  updatedAt: DbModel.Field({ select: Schema.DateTimeUtcFromMillis }),
-}) {}
-
 const recoverSqlError = (cause: SqlError) =>
   Match.value(cause.reason).pipe(
     Match.tags({
@@ -35,22 +19,18 @@ const recoverSqlError = (cause: SqlError) =>
     Match.orElse(() => Effect.die(cause))
   );
 
-/** SQL owns the flat shape and its conversions; the domain only receives accounts. */
-const accountFromRow = AccountRow.pipe(
-  Schema.decodeTo(Schema.toType(Account), {
-    decode: SchemaGetter.transformEffect(({ serverUrl, userId, ...details }) =>
-      Schema.decodeEffect(Account)({ key: { serverUrl, userId }, ...details }).pipe(
-        Effect.catchTag('SchemaError', (error) => Effect.fail(error.issue))
-      )
-    ),
-    encode: SchemaGetter.transform(({ key, ...details }) =>
-      AccountRow.make({
-        serverUrl: key.serverUrl,
-        userId: key.userId,
+/** Reshape encoded SQL columns, then decode the repository's key-aware projection. */
+const accountFromRow = Schema.toEncoded(Account).pipe(
+  Schema.decodeTo(
+    Schema.Struct({ key: AccountKey, ...Struct.omit(Account.fields, ['serverUrl', 'userId']) }),
+    {
+      decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
+        key: { serverUrl, userId },
         ...details,
-      })
-    ),
-  })
+      })),
+      encode: SchemaGetter.transform(({ key, ...details }) => ({ ...key, ...details })),
+    }
+  )
 );
 
 export class AccountRepository extends Context.Service<AccountRepository>()(
@@ -100,7 +80,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         upsert: SqlSchema.findOne({
           Request: Schema.Struct({
-            ...AccountRow.upsert.fields,
+            ...Account.upsert.fields,
             authStorage: EncryptedAuthStorage,
           }),
           Result: AccountKey,
@@ -149,7 +129,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         updateProfile: SqlSchema.void({
           Request: Schema.Struct({
             key: AccountKey,
-            profile: Schema.Struct(Struct.omit(AccountRow.update.fields, ['serverUrl', 'userId'])),
+            profile: Schema.Struct(Struct.omit(Account.update.fields, ['serverUrl', 'userId'])),
           }),
           execute: ({ key, profile }) => sql`
             update account
@@ -260,7 +240,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             account,
             authStorage,
           }: {
-            readonly account: typeof AccountRow.upsert.Type;
+            readonly account: typeof Account.upsert.Type;
             readonly authStorage: typeof AuthStorageData.Type;
           }) {
             // Encryption (including key creation) must succeed before selection changes.
@@ -324,8 +304,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
     }),
   }
 ) {
-  public static readonly row = AccountRow;
-
   public static readonly fromRow = accountFromRow;
 
   public static readonly layerNoDeps = Layer.effect(this, this.make);

@@ -13,13 +13,13 @@ import { AsyncResult } from 'effect/reactivity';
 import { useSetActiveAccount } from '#src/app/accounts/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import type { Account } from '#src/domains/accounts/schema.ts';
+import type { AccountRepository } from '#src/domains/accounts/repository.ts';
 
 export const AccountPicker = ({
   accounts,
   onSelected,
 }: {
-  readonly accounts: ReadonlyArray<Account>;
+  readonly accounts: ReadonlyArray<typeof AccountRepository.fromRow.Type>;
   readonly onSelected: () => Promise<void>;
 }) => {
   const [setActiveAccount, selectAccount] = useSetActiveAccount();

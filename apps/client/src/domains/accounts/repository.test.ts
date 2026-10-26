@@ -112,7 +112,6 @@ describe('AccountRepository', () => {
       ]);
       expect(accounts[0]).not.toHaveProperty('authStorage');
       for (const account of accounts) {
-        expect(account).toBeInstanceOf(Account);
         expect(account.key).toBeInstanceOf(AccountKey);
         expect(account).not.toHaveProperty('serverUrl');
         expect(account).not.toHaveProperty('userId');
@@ -124,7 +123,9 @@ describe('AccountRepository', () => {
           createdAt: DateTime.toEpochMillis(account.createdAt),
           updatedAt: DateTime.toEpochMillis(account.updatedAt),
         });
-        expect(yield* Schema.encodeEffect(Account)(account)).toMatchObject({
+        expect(yield* Schema.decodeEffect(Account)(row)).toMatchObject({
+          serverUrl: account.key.serverUrl,
+          userId: account.key.userId,
           active: account.active,
           createdAt: account.createdAt,
           updatedAt: account.updatedAt,
