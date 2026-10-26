@@ -249,7 +249,7 @@ describe('AccountRepository', () => {
       const encryption = yield* Encryption;
       const error = EncryptionError.make({ cause: new Error('Encryption unavailable') });
       const failing = yield* AccountRepository.make.pipe(
-        Effect.provideService(Encryption, { ...encryption, encrypt: () => Effect.fail(error) })
+        Effect.provideService(Encryption, { ...encryption, encrypt: () => error })
       );
       const reactivity = yield* Reactivity.Reactivity;
       let invalidations = 0;
@@ -356,7 +356,7 @@ describe('AccountRepository', () => {
       });
       const client = yield* SqlClient.make({
         driver: 'test',
-        acquirer: Effect.fail(failure),
+        acquirer: failure,
         compiler: Statement.makeCompilerSqlite(),
         spanAttributes: [],
       });

@@ -35,6 +35,8 @@ const EncryptedUtf8 = Schema.String.pipe(
   })
 );
 
-/** A JSON value in application code, an encrypted string in storage. */
-export const encryptedJson = <S extends Schema.Constraint>(schema: S) =>
-  EncryptedUtf8.pipe(Schema.decodeTo(Schema.fromJsonString(schema)));
+export const Encrypted = {
+  /** A JSON value in application code, an encrypted string in storage. */
+  Json: <S extends Schema.Constraint>(schema: S) =>
+    EncryptedUtf8.pipe(Schema.decodeTo(Schema.fromJsonString(schema))),
+};

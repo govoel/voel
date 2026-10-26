@@ -3,7 +3,7 @@ import { VariantSchema } from 'effect/schema';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 
-import { encryptedJson } from '#src/domains/accounts/encryption/encrypted-json.ts';
+import { Encrypted } from '#src/domains/accounts/encryption/encrypted.ts';
 
 /** A root HTTP(S) server address. Validation preserves existing account/storage keys. */
 export const ServerUrl = Schema.String.check(
@@ -19,7 +19,7 @@ export const ServerUrl = Schema.String.check(
   })
 ).pipe(Schema.brand('voel/domains/accounts/schema/ServerUrl'));
 
-const AuthStorage = encryptedJson(Schema.Record(Schema.String, Schema.String));
+const AuthStorage = Encrypted.Json(Schema.Record(Schema.String, Schema.String));
 
 /** A persisted account identity, decoded as part of repository query results. */
 export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
