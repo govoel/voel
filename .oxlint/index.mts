@@ -5,6 +5,7 @@ import { noContextServiceClassMakeRule } from './rules/no-context-service-class-
 import { noContextServiceSecondTypeArgumentRule } from './rules/no-context-service-second-type-argument.mts';
 import { noEffectNamespaceImportRule } from './rules/no-effect-namespace-import.mts';
 import { noSchemaStructAssignmentRule } from './rules/no-schema-struct-assignment.mts';
+import { preferFnUntracedRule } from './rules/prefer-fn-untraced.mts';
 import { schemaClassBrandRule } from './rules/schema-class-brand.mts';
 
 const plugin = eslintCompatPlugin({
@@ -15,6 +16,7 @@ const plugin = eslintCompatPlugin({
     'no-context-service-second-type-argument': noContextServiceSecondTypeArgumentRule,
     'no-effect-namespace-import': noEffectNamespaceImportRule,
     'no-schema-struct-assignment': noSchemaStructAssignmentRule,
+    'prefer-fn-untraced': preferFnUntracedRule,
     'schema-class-brand': schemaClassBrandRule,
   },
 });
