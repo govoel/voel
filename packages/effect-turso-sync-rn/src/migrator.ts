@@ -160,7 +160,7 @@ const make = Effect.fnUntraced(function* <R = never>({
     .withTransaction(run)
     .pipe(
       Effect.catchTag('@repo/effect-turso-sync-rn/migrator/MigrationError', (error) =>
-        error.kind === 'Locked' ? Effect.as(Effect.logDebug(error.message), []) : Effect.fail(error)
+        error.kind === 'Locked' ? Effect.as(Effect.logDebug(error.message), []) : error
       )
     );
 });

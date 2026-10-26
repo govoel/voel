@@ -794,7 +794,7 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
                 if (outcome === 'synchronous throw') {
                   throw defect;
                 }
-                return Effect.fail(error);
+                return error;
               },
               decodeFormSubmission: () => Effect.succeed(request.settings),
             })
@@ -860,12 +860,12 @@ it.effect.each(['successful', 'failed'] as const)(
         layer: () =>
           (outcome === 'successful'
             ? storageLayer
-            : Layer.effect(StoragePlugin, Effect.fail(storageError))
+            : Layer.effect(StoragePlugin, storageError)
           ).pipe(Layer.provide(resources)),
         layerSettings: () =>
           (outcome === 'successful'
             ? settingsLayer
-            : Layer.effect(StoragePluginSettings, Effect.fail(settingsError))
+            : Layer.effect(StoragePluginSettings, settingsError)
           ).pipe(Layer.provide(resources)),
       },
     } satisfies StoragePluginModule;

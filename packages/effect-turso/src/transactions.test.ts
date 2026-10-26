@@ -68,7 +68,7 @@ describe('TursoClient pooled transaction recovery', () => {
         .mockImplementation((statement, params, transformRows) => {
           if (statement === 'ROLLBACK' && failures > 0) {
             failures -= 1;
-            return Effect.fail(cleanupError);
+            return cleanupError;
           }
           return execute(statement, params, transformRows);
         });
@@ -325,7 +325,7 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         .mockImplementation((statement, params, transformRows) => {
           if (statement === 'ROLLBACK' && failures > 0) {
             failures -= 1;
-            return Effect.fail(cleanupError);
+            return cleanupError;
           }
           return execute(statement, params, transformRows);
         });

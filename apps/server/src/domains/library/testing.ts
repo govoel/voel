@@ -213,7 +213,7 @@ export const pluginLayer = Layer.mergeAll(
         return {
           get: (plugin) =>
             plugin === Library.fields.storagePlugin.make('npm:missing')
-              ? Effect.fail(PluginLoadError.make({ message: 'Plugin unavailable' }))
+              ? PluginLoadError.make({ message: 'Plugin unavailable' })
               : Effect.succeed({ default: fixture.module }),
         };
       })

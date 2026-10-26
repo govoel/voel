@@ -128,7 +128,7 @@ describe('Bun Turso Sync transactions', () => {
         .mockImplementation((statement, params, transformRows) => {
           if (statement === 'ROLLBACK' && failures > 0) {
             failures -= 1;
-            return Effect.fail(cleanupError);
+            return cleanupError;
           }
           return execute(statement, params, transformRows);
         });

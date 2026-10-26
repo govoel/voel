@@ -53,7 +53,7 @@ class OperationFailure extends Schema.TaggedError<
 class Operation extends Context.Service<Operation>()(
   'voel/components/mutation-confirmation/index.test/Operation',
   {
-    make: Effect.succeed({ execute: Effect.fail(OperationFailure.make({})).pipe(Effect.asVoid) }),
+    make: Effect.succeed({ execute: OperationFailure.make({}).pipe(Effect.asVoid) }),
   }
 ) {}
 
@@ -171,7 +171,7 @@ it('keeps failure feedback and retry available after its trigger disappears', as
     Layer.succeed(Operation, {
       execute: Effect.suspend(() => {
         attempts += 1;
-        return attempts === 1 ? Effect.fail(OperationFailure.make({})) : Effect.void;
+        return attempts === 1 ? OperationFailure.make({}) : Effect.void;
       }),
     })
   );

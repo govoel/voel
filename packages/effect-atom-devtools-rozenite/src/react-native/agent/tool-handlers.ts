@@ -69,7 +69,7 @@ export const agentToolHandlers: ReadonlyArray<{
         Effect.flatMap(({ atomId }) =>
           AtomDevTools.pipe(Effect.flatMap(({ watch }) => watch(atomId).pipe(Stream.runHead)))
         ),
-        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(makeAtomNotFoundError(id)))
+        Effect.catchTag('AtomNotFound', ({ id }) => makeAtomNotFoundError(id))
       ),
   },
   {
@@ -102,13 +102,11 @@ export const agentToolHandlers: ReadonlyArray<{
         ),
         Effect.as({ activated: true } as const),
         Effect.catchTags({
-          AtomNotFound: ({ id }) => Effect.fail(makeAtomNotFoundError(id)),
+          AtomNotFound: ({ id }) => makeAtomNotFoundError(id),
           PredefinedStateNotFound: ({ atomId, stateId }) =>
-            Effect.fail(
-              AgentToolError.make({
-                message: `Predefined state "${stateId}" was not found for atom "${atomId}". Call get-atom-details for that atom to list its available predefined states.`,
-              })
-            ),
+            AgentToolError.make({
+              message: `Predefined state "${stateId}" was not found for atom "${atomId}". Call get-atom-details for that atom to list its available predefined states.`,
+            }),
         })
       ),
   },
@@ -133,7 +131,7 @@ export const agentToolHandlers: ReadonlyArray<{
           )
         ),
         Effect.as({ cleared: true } as const),
-        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(makeAtomNotFoundError(id)))
+        Effect.catchTag('AtomNotFound', ({ id }) => makeAtomNotFoundError(id))
       ),
   },
   {
@@ -170,7 +168,7 @@ export const agentToolHandlers: ReadonlyArray<{
           AtomDevTools.pipe(Effect.flatMap(({ refresh }) => refresh(atomId)))
         ),
         Effect.as({ refreshed: true } as const),
-        Effect.catchTag('AtomNotFound', ({ id }) => Effect.fail(makeAtomNotFoundError(id)))
+        Effect.catchTag('AtomNotFound', ({ id }) => makeAtomNotFoundError(id))
       ),
   },
 ];
