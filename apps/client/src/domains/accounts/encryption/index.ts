@@ -14,7 +14,7 @@ const keyName = 'voel.encryption.aes-key';
 export class Encryption extends Context.Service<Encryption>()(
   'voel/domains/accounts/encryption/Encryption',
   {
-    make: <Key>({
+    make: Effect.fnUntraced(function* <Key>({
       loadKey,
       encrypt,
       decrypt,
@@ -28,25 +28,22 @@ export class Encryption extends Context.Service<Encryption>()(
         readonly key: Key;
         readonly ciphertext: string;
       }) => Effect.Effect<Uint8Array, EncryptionError>;
-    }) =>
-      Effect.gen(function* () {
-        // Keep callers attached until native key creation/persistence has finished.
-        const getKey = Effect.uninterruptible(
-          yield* loadKey.pipe(
-            Effect.cachedWithTTL((exit) =>
-              Exit.isSuccess(exit) ? Duration.infinity : Duration.zero
-            )
-          )
-        );
-        return {
-          encrypt: Effect.fnUntraced(function* ({ plaintext }: { readonly plaintext: Uint8Array }) {
-            return yield* encrypt({ key: yield* getKey, plaintext });
-          }),
-          decrypt: Effect.fnUntraced(function* ({ ciphertext }: { readonly ciphertext: string }) {
-            return yield* decrypt({ key: yield* getKey, ciphertext });
-          }),
-        };
-      }),
+    }) {
+      // Keep callers attached until native key creation/persistence has finished.
+      const getKey = Effect.uninterruptible(
+        yield* loadKey.pipe(
+          Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero))
+        )
+      );
+      return {
+        encrypt: Effect.fnUntraced(function* ({ plaintext }: { readonly plaintext: Uint8Array }) {
+          return yield* encrypt({ key: yield* getKey, plaintext });
+        }),
+        decrypt: Effect.fnUntraced(function* ({ ciphertext }: { readonly ciphertext: string }) {
+          return yield* decrypt({ key: yield* getKey, ciphertext });
+        }),
+      };
+    }),
   }
 ) {
   public static readonly layer = Layer.effect(

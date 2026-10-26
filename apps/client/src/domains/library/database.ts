@@ -45,7 +45,9 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
   const digest = yield* CryptoDigest;
   const filename = yield* digest.sha256({
-    input: yield* AccountKey.encodeIdentity(account).pipe(Effect.catchTags({ SchemaError: Effect.die })),
+    input: yield* AccountKey.encodeIdentity(account).pipe(
+      Effect.catchTags({ SchemaError: Effect.die })
+    ),
   });
 
   return {

@@ -4,8 +4,8 @@ import { Encryption } from '#src/domains/accounts/encryption/index.ts';
 
 const EncryptedUtf8 = Schema.String.pipe(
   Schema.decodeTo(Schema.String, {
-    decode: SchemaGetter.transformEffect((ciphertext) =>
-      Effect.gen(function* () {
+    decode: SchemaGetter.transformEffect(
+      Effect.fnUntraced(function* (ciphertext: string) {
         const encryption = yield* Encryption;
         const plaintext = yield* encryption
           .decrypt({ ciphertext })
@@ -20,8 +20,8 @@ const EncryptedUtf8 = Schema.String.pipe(
         });
       })
     ),
-    encode: SchemaGetter.transformEffect((plaintext) =>
-      Effect.gen(function* () {
+    encode: SchemaGetter.transformEffect(
+      Effect.fnUntraced(function* (plaintext: string) {
         const encryption = yield* Encryption;
         return yield* encryption
           .encrypt({ plaintext: new TextEncoder().encode(plaintext) })
