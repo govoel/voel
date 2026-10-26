@@ -57,25 +57,25 @@ const makeSyncFetch = (
 };
 
 describe('TursoSyncClient', () => {
-  it.effect('initializes once with the SQL client before returning it', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'initializes once with the SQL client before returning it',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       let calls = 0;
       const sql = yield* TursoSyncClient.make({
         path: `${dir}/local.db`,
-        onConnect: (client) =>
-          Effect.gen(function* () {
-            calls += 1;
-            yield* client`PRAGMA foreign_keys = ON`;
-            yield* client`PRAGMA busy_timeout = 10000`;
-            yield* client`create table initialized (value text not null)`;
-            yield* client.withTransaction(client`
+        onConnect: Effect.fnUntraced(function* (client) {
+          calls += 1;
+          yield* client`PRAGMA foreign_keys = ON`;
+          yield* client`PRAGMA busy_timeout = 10000`;
+          yield* client`create table initialized (value text not null)`;
+          yield* client.withTransaction(client`
               insert into
                 initialized
               values
                 (${'ready'})
             `);
-          }),
+        }),
       });
 
       expect(
@@ -97,11 +97,12 @@ describe('TursoSyncClient', () => {
         `
       ).toEqual([{ value: 'ready' }]);
       expect(calls).toBe(1);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('fails construction and closes the connection when initialization fails', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'fails construction and closes the connection when initialization fails',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const close = yield* Effect.acquireRelease(
         Effect.sync(() => vi.spyOn(Database.prototype, 'close')),
@@ -119,11 +120,12 @@ describe('TursoSyncClient', () => {
       expect(SqlError.isSqlError(error)).toBe(true);
       expect(error.reason._tag).toBe('SqlSyntaxError');
       expect(close).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('executes queries and transactions', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'executes queries and transactions',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       const created = yield* sql`
@@ -168,11 +170,12 @@ describe('TursoSyncClient', () => {
         { id: 1, name: 'hello' },
         { id: 2, name: 'world' },
       ]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('returns raw run info', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'returns raw run info',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -207,11 +210,12 @@ describe('TursoSyncClient', () => {
         { id: 1, name: 'hello' },
         { id: 2, name: 'world' },
       ]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('returns rows from raw queries', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'returns rows from raw queries',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -231,11 +235,12 @@ describe('TursoSyncClient', () => {
           test
       `.raw;
       expect(rows).toEqual([{ id: 1, name: 'hello' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('returns positional values', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'returns positional values',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -254,11 +259,12 @@ describe('TursoSyncClient', () => {
           test
       `.values;
       expect(rows).toEqual([[1, 'hello']]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('rolls back failed transactions', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'rolls back failed transactions',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -278,11 +284,12 @@ describe('TursoSyncClient', () => {
           test
       `;
       expect(rows).toEqual([]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('nested transactions use savepoints', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'nested transactions use savepoints',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -319,67 +326,67 @@ describe('TursoSyncClient', () => {
           test
       `;
       expect(rows).toEqual([{ id: 1, name: 'kept' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
   it.effect(
     'times out queued statements without waiting for the transaction to release its connection',
-    () =>
-      Effect.gen(function* () {
-        const dir = yield* makeTempDir;
-        const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
-        yield* sql`
+    Effect.fnUntraced(function* () {
+      const dir = yield* makeTempDir;
+      const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
+      yield* sql`
           create table test (name text)
         `;
-        const entered = yield* Deferred.make<true>();
-        const release = yield* Deferred.make<true>();
-        const transaction = yield* sql
-          .withTransaction(
-            Deferred.succeed(entered, true).pipe(Effect.andThen(Deferred.await(release)))
-          )
-          .pipe(Effect.forkChild);
-        yield* Deferred.await(entered);
+      const entered = yield* Deferred.make<true>();
+      const release = yield* Deferred.make<true>();
+      const transaction = yield* sql
+        .withTransaction(
+          Deferred.succeed(entered, true).pipe(Effect.andThen(Deferred.await(release)))
+        )
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(entered);
 
-        const queued = yield* sql`
+      const queued = yield* sql`
           insert into
             test (name)
           values
             ('cancelled')
         `.pipe(
-          Effect.timeout('1 second'),
-          Effect.exit,
-          Effect.forkChild({ startImmediately: true })
-        );
-        yield* Effect.gen(function* () {
-          yield* TestClock.adjust('1 second');
-          expect(queued.pollUnsafe()).toBeDefined();
-          const exit = yield* Fiber.join(queued);
-          expect(Exit.isFailure(exit)).toBe(true);
-          if (Exit.isFailure(exit)) {
-            expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))._tag).toBe('TimeoutError');
-          }
-        }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
+        Effect.timeout('1 second'),
+        Effect.exit,
+        Effect.forkChild({ startImmediately: true })
+      );
+      yield* Effect.gen(function* () {
+        yield* TestClock.adjust('1 second');
+        expect(queued.pollUnsafe()).toBeDefined();
+        const exit = yield* Fiber.join(queued);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))._tag).toBe('TimeoutError');
+        }
+      }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
 
-        yield* Fiber.join(transaction);
-        yield* sql`
+      yield* Fiber.join(transaction);
+      yield* sql`
           insert into
             test (name)
           values
             ('after timeout')
         `;
-        expect(
-          yield* sql`
+      expect(
+        yield* sql`
             select
               name
             from
               test
           `
-        ).toEqual([{ name: 'after timeout' }]);
-      }).pipe(Effect.provide(TestLayer))
+      ).toEqual([{ name: 'after timeout' }]);
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('executes concurrent statements', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'executes concurrent statements',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -413,11 +420,12 @@ describe('TursoSyncClient', () => {
         'row-7',
         'row-8',
       ]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('serializes concurrent statements inside a transaction', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'serializes concurrent statements inside a transaction',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -451,11 +459,12 @@ describe('TursoSyncClient', () => {
       expect(rows).toEqual(
         Array.map([1, 2, 3, 4, 5, 6, 7, 8], (id) => ({ id, name: `row-${id}` }))
       );
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('preserves result modes for concurrent statements inside a transaction', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'preserves result modes for concurrent statements inside a transaction',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -487,11 +496,12 @@ describe('TursoSyncClient', () => {
           expect(values).toEqual([[1], [2]]);
         })
       );
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('classifies unique violations with the constraint name', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'classifies unique violations with the constraint name',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -516,11 +526,12 @@ describe('TursoSyncClient', () => {
       }
       expect(error.reason.constraint).toBe('test.name');
       expect(error.reason.isRetryable).toBe(false);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('classifies constraint violations', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'classifies constraint violations',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       yield* sql`
@@ -534,22 +545,24 @@ describe('TursoSyncClient', () => {
       `);
       expect(SqlError.isSqlError(error)).toBe(true);
       expect(error.reason._tag).toBe('ConstraintError');
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('classifies syntax errors', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'classifies syntax errors',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       // oxlint-disable-next-line sql/format -- malformed intentionally to exercise syntax errors
       const error = yield* Effect.flip(sql`SELEC 1`);
       expect(SqlError.isSqlError(error)).toBe(true);
       expect(error.reason._tag).toBe('SqlSyntaxError');
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('fails a contended transaction with a typed retryable error', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'fails a contended transaction with a typed retryable error',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const client = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       const contender = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
@@ -581,11 +594,12 @@ describe('TursoSyncClient', () => {
         return;
       }
       expect(error.reason.isRetryable).toBe(true);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('uses a 5 second busy timeout by default', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'uses a 5 second busy timeout by default',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       expect(
@@ -593,11 +607,12 @@ describe('TursoSyncClient', () => {
           pragma busy_timeout
         `
       ).toEqual([{ busy_timeout: 5000 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('defaults to WAL journal mode', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'defaults to WAL journal mode',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
       expect(
@@ -605,11 +620,12 @@ describe('TursoSyncClient', () => {
           pragma journal_mode
         `
       ).toEqual([{ journal_mode: 'wal' }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('bootstraps and pulls changes through the Turso Sync protocol', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'bootstraps and pulls changes through the Turso Sync protocol',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const source = yield* SourceTursoClient.make({
         disableWalAutoActions: true,
@@ -670,11 +686,12 @@ describe('TursoSyncClient', () => {
       expect(Array.every(authorizationHeaders, (header) => header === 'Bearer test-token')).toBe(
         true
       );
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('wraps pull failures without affecting local SQL', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'wraps pull failures without affecting local SQL',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const source = yield* SourceTursoClient.make({
         disableWalAutoActions: true,
@@ -711,11 +728,12 @@ describe('TursoSyncClient', () => {
             synced
         `
       ).toEqual([]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('waits for fresh credentials without blocking SQL and resumes the pull', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'waits for fresh credentials without blocking SQL and resumes the pull',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const source = yield* SourceTursoClient.make({
         disableWalAutoActions: true,
@@ -776,11 +794,12 @@ describe('TursoSyncClient', () => {
           (header) => header === 'Bearer rotated-token'
         )
       ).toBe(true);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('drains a cancelled credential wait before starting another pull', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'drains a cancelled credential wait before starting another pull',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const source = yield* SourceTursoClient.make({
         disableWalAutoActions: true,
@@ -836,11 +855,12 @@ describe('TursoSyncClient', () => {
       expect(Exit.hasInterrupts(yield* Fiber.await(first))).toBe(true);
       expect(yield* Fiber.join(second)).toBe(false);
       expect(tokenCalls).toBeGreaterThan(callsBeforeSecondPull);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('cancels bootstrap authentication and can reopen the replica', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'cancels bootstrap authentication and can reopen the replica',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const source = yield* SourceTursoClient.make({
         disableWalAutoActions: true,
@@ -878,11 +898,12 @@ describe('TursoSyncClient', () => {
           synced
       `
       ).toEqual([]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('layer provides the concrete and generic client services', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'layer provides the concrete and generic client services',
+    Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       yield* Effect.gen(function* () {
         const concrete = yield* TursoSyncClient;
@@ -905,6 +926,6 @@ describe('TursoSyncClient', () => {
         `
         ).toEqual([{ id: 1 }]);
       }).pipe(Effect.provide(TursoSyncClient.layer({ path: `${dir}/local.db` })));
-    }).pipe(Effect.provide(BunFileSystem.layer))
+    }, Effect.provide(BunFileSystem.layer))
   );
 });

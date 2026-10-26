@@ -10,8 +10,9 @@ describe('ServerUrl', () => {
     'http://localhost:3000',
     'http://192.168.1.10:8080/',
     'http://[::1]:3000',
-  ])('validates %s without changing account/storage identity', (value) =>
-    Effect.gen(function* () {
+  ])(
+    'validates %s without changing account/storage identity',
+    Effect.fnUntraced(function* (value) {
       expect(yield* Schema.decodeEffect(ServerUrl)(value)).toBe(value);
     })
   );

@@ -132,34 +132,33 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
               StoragePluginSettings,
               Effect.sync(() =>
                 StoragePluginSettings.of({
-                  getForm: ({ current }) =>
-                    Effect.gen(function* () {
-                      if (controls.settingsError) {
-                        return yield* StoragePluginSettingsError.make({
-                          message: 'Settings unavailable',
-                        });
-                      }
-                      const settings = Option.isSome(current)
-                        ? yield* Persisted.decodeUnknownEffect(current.value).pipe(
-                            Effect.catchTags({
-                              SchemaError: () =>
-                                StoragePluginSettingsError.make({
-                                  message:
-                                    'Storage plugin could not build the settings form from the current settings',
-                                }),
-                            })
-                          )
-                        : { prefix: '' };
-                      const field = {
-                        _tag: 'TextField' as const,
-                        name: StoragePluginSettingsForm.value.fields.name.make('root'),
-                        label: request.library.name,
-                        placeholder: '',
-                        initialValue: settings.prefix,
-                      };
-                      // A malformed descriptor returned by an otherwise valid module must be host-rejected.
-                      return controls.invalidForm ? [field, field] : [field];
-                    }),
+                  getForm: Effect.fnUntraced(function* ({ current }) {
+                    if (controls.settingsError) {
+                      return yield* StoragePluginSettingsError.make({
+                        message: 'Settings unavailable',
+                      });
+                    }
+                    const settings = Option.isSome(current)
+                      ? yield* Persisted.decodeUnknownEffect(current.value).pipe(
+                          Effect.catchTags({
+                            SchemaError: () =>
+                              StoragePluginSettingsError.make({
+                                message:
+                                  'Storage plugin could not build the settings form from the current settings',
+                              }),
+                          })
+                        )
+                      : { prefix: '' };
+                    const field = {
+                      _tag: 'TextField' as const,
+                      name: StoragePluginSettingsForm.value.fields.name.make('root'),
+                      label: request.library.name,
+                      placeholder: '',
+                      initialValue: settings.prefix,
+                    };
+                    // A malformed descriptor returned by an otherwise valid module must be host-rejected.
+                    return controls.invalidForm ? [field, field] : [field];
+                  }),
                   decodeFormSubmission: ({ input }) =>
                     controls.beforeDecode({ ...request, input }).pipe(
                       Effect.andThen(() =>

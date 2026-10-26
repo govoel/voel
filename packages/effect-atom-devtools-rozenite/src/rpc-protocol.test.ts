@@ -223,49 +223,53 @@ describe('Rozenite RPC server protocol sessions', () => {
 });
 
 describe('Rozenite RPC client protocol sessions', () => {
+  const checkClientSession = Effect.fnUntraced(function* ({
+    bridge,
+  }: Pick<Parameters<Parameters<typeof it.effect>[1]>[0], 'bridge'>) {
+    const responses = yield* Queue.unbounded<RpcMessage.FromServerEncoded>();
+
+    yield* Effect.scoped(
+      Effect.gen(function* () {
+        const protocol = yield* makeRpcClientProtocol(bridge.client).pipe(
+          Effect.provideService(Random.Random, fixedRandom(1))
+        );
+        yield* protocol
+          .run(0, (response) => Queue.offer(responses, response))
+          .pipe(Effect.forkScoped);
+
+        yield* protocol.send(0, ping);
+
+        bridge.emit(
+          RPC_SERVER_EVENT,
+          RpcBridgeServerMessage.Response({ sessionId: 'stale-session', message: stalePong })
+        );
+
+        bridge.emit(
+          RPC_SERVER_EVENT,
+          RpcBridgeServerMessage.Response({ sessionId: '1:1', message: pong })
+        );
+        expect(yield* Queue.take(responses)).toEqual(pong);
+      })
+    );
+
+    expect(bridge.sent).toEqual([
+      {
+        type: RPC_CLIENT_EVENT,
+        payload: { _tag: 'Start', sessionId: '1:1' },
+      },
+      {
+        type: RPC_CLIENT_EVENT,
+        payload: { _tag: 'Request', sessionId: '1:1', message: ping },
+      },
+      {
+        type: RPC_CLIENT_EVENT,
+        payload: { _tag: 'End', sessionId: '1:1' },
+      },
+    ]);
+  });
+
   it.effect('tags requests and accepts responses only for its session', ({ bridge }) =>
-    Effect.gen(function* () {
-      const responses = yield* Queue.unbounded<RpcMessage.FromServerEncoded>();
-
-      yield* Effect.scoped(
-        Effect.gen(function* () {
-          const protocol = yield* makeRpcClientProtocol(bridge.client).pipe(
-            Effect.provideService(Random.Random, fixedRandom(1))
-          );
-          yield* protocol
-            .run(0, (response) => Queue.offer(responses, response))
-            .pipe(Effect.forkScoped);
-
-          yield* protocol.send(0, ping);
-
-          bridge.emit(
-            RPC_SERVER_EVENT,
-            RpcBridgeServerMessage.Response({ sessionId: 'stale-session', message: stalePong })
-          );
-
-          bridge.emit(
-            RPC_SERVER_EVENT,
-            RpcBridgeServerMessage.Response({ sessionId: '1:1', message: pong })
-          );
-          expect(yield* Queue.take(responses)).toEqual(pong);
-        })
-      );
-
-      expect(bridge.sent).toEqual([
-        {
-          type: RPC_CLIENT_EVENT,
-          payload: { _tag: 'Start', sessionId: '1:1' },
-        },
-        {
-          type: RPC_CLIENT_EVENT,
-          payload: { _tag: 'Request', sessionId: '1:1', message: ping },
-        },
-        {
-          type: RPC_CLIENT_EVENT,
-          payload: { _tag: 'End', sessionId: '1:1' },
-        },
-      ]);
-    })
+    checkClientSession({ bridge })
   );
 });
 

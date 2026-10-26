@@ -6,8 +6,10 @@ import { Api } from '@repo/spec-api';
 import { AdminMiddlewareLayer, AuthMiddlewareLayer } from '#src/domains/auth/http.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
 
-export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(Api, 'library', (handlers) =>
-  Effect.gen(function* () {
+export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(
+  Api,
+  'library',
+  Effect.fnUntraced(function* (handlers) {
     const service = yield* LibraryService;
     return handlers
       .handle('get', ({ params }) => service.get(params))

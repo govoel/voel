@@ -44,8 +44,9 @@ describe('TursoClient pooled transaction recovery', () => {
     return sql;
   });
 
-  it.effect('keeps poisoning and recovery local to the failed physical connection', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'keeps poisoning and recovery local to the failed physical connection',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       const scope = yield* Effect.scope;
       const firstLease = yield* Scope.fork(scope);
@@ -142,11 +143,12 @@ describe('TursoClient pooled transaction recovery', () => {
       ).toHaveLength(0);
       expect(yield* recovered.executeUnprepared('SELECT * FROM parent', [], void 0)).toEqual([]);
       expect(yield* recovered.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('serves healthy reads while another connection is held for COMMIT cleanup', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'serves healthy reads while another connection is held for COMMIT cleanup',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       const scope = yield* Effect.scope;
       const firstLease = yield* Scope.fork(scope);
@@ -208,7 +210,7 @@ describe('TursoClient pooled transaction recovery', () => {
         expect(yield* Fiber.join(waiting)).toBe(first);
         expect(yield* healthy.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
       }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 });
 
@@ -236,8 +238,9 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
     return sql;
   });
 
-  it.effect('rolls back failed COMMIT before ordinary reads and subsequent transactions', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'rolls back failed COMMIT before ordinary reads and subsequent transactions',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       const failed = yield* sql
         .withTransaction(
@@ -301,11 +304,12 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
             child
         `
       ).toEqual([{ id: 2, parent_id: 2 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('rejects a poisoned connection until rollback succeeds without reopening it', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'rejects a poisoned connection until rollback succeeds without reopening it',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       const connection = yield* Effect.scoped(sql.reserve);
       const execute = connection.executeUnprepared;
@@ -388,11 +392,12 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
             parent
         `
       ).toEqual([{ id: 2 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('preserves the typed SQL error after automatic rollback', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'preserves the typed SQL error after automatic rollback',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       yield* sql`
         insert into
@@ -410,11 +415,12 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         _tag: 'Failure',
         failure: { _tag: 'SqlError', reason: { _tag: 'UniqueViolation' } },
       });
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('does not roll back an already-ended transaction after COMMIT fails', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'does not roll back an already-ended transaction after COMMIT fails',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       const connection = yield* Effect.scoped(sql.reserve);
       const execute = connection.executeUnprepared;
@@ -451,11 +457,12 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
             parent
         `
       ).toEqual([{ id: 1 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('releases nested savepoints after both success and rollback', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'releases nested savepoints after both success and rollback',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       const connection = yield* Effect.scoped(sql.reserve);
       const execute = connection.executeUnprepared;
@@ -507,11 +514,12 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
             id
         `
       ).toEqual([{ id: 1 }, { id: 3 }]);
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 
-  it.effect('keeps the connection leased until interrupted cleanup finishes', () =>
-    Effect.gen(function* () {
+  it.effect(
+    'keeps the connection leased until interrupted cleanup finishes',
+    Effect.fnUntraced(function* () {
       const sql = yield* make;
       const connection = yield* Effect.scoped(sql.reserve);
       const execute = connection.executeUnprepared;
@@ -561,6 +569,6 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         yield* Fiber.await(transaction);
         expect(yield* Fiber.join(reader)).toEqual([]);
       }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
-    }).pipe(Effect.provide(TestLayer))
+    }, Effect.provide(TestLayer))
   );
 });
