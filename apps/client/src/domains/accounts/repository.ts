@@ -36,7 +36,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
   {
     make: Effect.gen(function* () {
       const sql = yield* MainDatabase;
-      const services = yield* Effect.context<typeof Account.DecodingServices>();
+      const encryption = yield* Encryption;
       const queries = {
         list: SqlSchema.findAll({
           Request: Schema.Void,
@@ -95,7 +95,9 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         upsert: SqlSchema.findOne({
-          Request: Account.upsert,
+          Request: Account.upsert.pipe(
+            Schema.middlewareEncoding(Effect.provideService(Encryption, encryption))
+          ),
           Result: AccountKey,
           execute: (account) => sql`
             insert into
@@ -164,7 +166,9 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         readAuthStorage: SqlSchema.findOneOption({
           Request: AccountKey,
-          Result: Schema.Struct({ authStorage: Account.fields.authStorage }),
+          Result: Schema.Struct({ authStorage: Account.fields.authStorage }).pipe(
+            Schema.middlewareDecoding(Effect.provideService(Encryption, encryption))
+          ),
           execute: ({ serverUrl, userId }) => sql`
             select
               "authStorage"
@@ -176,7 +180,9 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         writeAuthStorage: SqlSchema.void({
-          Request: Schema.Struct({ key: AccountKey, authStorage: Account.fields.authStorage }),
+          Request: Schema.Struct({ key: AccountKey, authStorage: Account.fields.authStorage }).pipe(
+            Schema.middlewareEncoding(Effect.provideService(Encryption, encryption))
+          ),
           execute: ({ key, authStorage }) => sql`
             update account
             set
@@ -200,7 +206,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         );
         return Option.isNone(row) ? {} : row.value.authStorage;
-      }, Effect.provideContext(services));
+      });
 
       // Mutation invalidations are registered inside the transaction and published
       // only by its outermost commit. Schema and SQL invariant violations are defects.
@@ -269,7 +275,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           },
           Reactivity.mutation(['account']),
           sql.withTransaction,
-          Effect.provideContext(services),
           Effect.catchReasons(
             'SqlError',
             {
@@ -325,7 +330,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             yield* queries.writeAuthStorage({ key, authStorage: { ...previous, [name]: value } });
           },
           sql.withTransaction,
-          Effect.provideContext(services),
           Effect.catchReasons(
             'SqlError',
             {
