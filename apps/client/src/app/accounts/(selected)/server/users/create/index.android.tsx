@@ -1,7 +1,8 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { Option } from 'effect';
 import { Redirect } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useReducer, useRef } from 'react';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
@@ -13,7 +14,13 @@ import { RoleField } from '#src/domains/accounts/components/management/role-fiel
 
 export default function CreateUserScreen() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
-  const [createdUserId, setCreatedUserId] = useState<typeof AuthUser.fields.id.Type | null>(null);
+  const [createdUserId, userCreated] = useReducer(
+    (
+      _current: Option.Option<typeof AuthUser.fields.id.Type>,
+      userId: typeof AuthUser.fields.id.Type
+    ) => Option.some(userId),
+    Option.none()
+  );
   const form = useCreateUserForm({
     onSuccess: async ({ userId }) => {
       const sheet = sheetRef.current;
@@ -21,12 +28,14 @@ export default function CreateUserScreen() {
         return;
       }
       await sheet.hide();
-      setCreatedUserId(userId);
+      userCreated(userId);
     },
   });
-  if (createdUserId !== null) {
+  if (Option.isSome(createdUserId)) {
     return (
-      <Redirect href={{ pathname: '/accounts/server/users/[id]', params: { id: createdUserId } }} />
+      <Redirect
+        href={{ pathname: '/accounts/server/users/[id]', params: { id: createdUserId.value } }}
+      />
     );
   }
   return (

@@ -6,7 +6,6 @@ import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
 
 import {
   activeUserProfileAtom,
@@ -20,6 +19,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Sheet } from '#src/components/sheet';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
@@ -67,7 +67,7 @@ const LoadedProfile = ({
 }) => {
   const account = useSelectedAccount();
   const router = useRouter();
-  const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
+  const [editorSelection, dispatchEditor] = useSheetSelection<'profile' | 'password'>();
 
   return (
     <>
@@ -85,14 +85,14 @@ const LoadedProfile = ({
         <Section>
           <Button
             onPress={() => {
-              setEditor((current) => current ?? 'profile');
+              dispatchEditor({ _tag: 'Open', selection: 'profile' });
             }}>
             <Text>Edit profile</Text>
           </Button>
 
           <Button
             onPress={() => {
-              setEditor((current) => current ?? 'password');
+              dispatchEditor({ _tag: 'Open', selection: 'password' });
             }}>
             <Text>Change password</Text>
           </Button>
@@ -117,23 +117,26 @@ const LoadedProfile = ({
         />
       </ProfileList>
 
-      {editor !== null ? (
-        <Sheet
-          key={editor}
-          onDismissed={() => {
-            setEditor(null);
-          }}>
-          {({ dismiss }) =>
-            Match.value(editor).pipe(
-              Match.when('profile', () => (
-                <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
-              )),
-              Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
-              Match.exhaustive
-            )
-          }
-        </Sheet>
-      ) : null}
+      {Option.match(editorSelection, {
+        onNone: () => null,
+        onSome: (editor) => (
+          <Sheet
+            key={editor}
+            onDismissed={() => {
+              dispatchEditor({ _tag: 'Dismissed' });
+            }}>
+            {({ dismiss }) =>
+              Match.value(editor).pipe(
+                Match.when('profile', () => (
+                  <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
+                )),
+                Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
+                Match.exhaustive
+              )
+            }
+          </Sheet>
+        ),
+      })}
     </>
   );
 };

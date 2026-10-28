@@ -1,11 +1,10 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
-import { Match } from 'effect';
+import { Match, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
 
 import type { AuthAdminUserDetails, AuthUser } from '@repo/auth-api/shared.ts';
 import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
@@ -25,6 +24,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Sheet } from '#src/components/sheet';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
@@ -201,7 +201,7 @@ const LoadedUser = ({
   const router = useRouter();
   const details = userDetails({ user });
 
-  const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
+  const [editorSelection, dispatchEditor] = useSheetSelection<'role' | 'profile' | 'password'>();
   return (
     <>
       <UserList>
@@ -214,21 +214,21 @@ const LoadedUser = ({
             <Section>
               <Button
                 onPress={() => {
-                  setEditor((current) => current ?? 'profile');
+                  dispatchEditor({ _tag: 'Open', selection: 'profile' });
                 }}>
                 <Text>Edit profile</Text>
               </Button>
 
               <Button
                 onPress={() => {
-                  setEditor((current) => current ?? 'role');
+                  dispatchEditor({ _tag: 'Open', selection: 'role' });
                 }}>
                 <Text>Change role</Text>
               </Button>
 
               <Button
                 onPress={() => {
-                  setEditor((current) => current ?? 'password');
+                  dispatchEditor({ _tag: 'Open', selection: 'password' });
                 }}>
                 <Text>Set password</Text>
               </Button>
@@ -271,24 +271,27 @@ const LoadedUser = ({
         )}
       </UserList>
 
-      {editor !== null ? (
-        <Sheet
-          key={editor}
-          onDismissed={() => {
-            setEditor(null);
-          }}>
-          {({ dismiss }) =>
-            Match.value(editor).pipe(
-              Match.when('role', () => <UserRoleForm user={user} onSuccess={dismiss} />),
-              Match.when('profile', () => <UserProfileForm user={user} onSuccess={dismiss} />),
-              Match.when('password', () => (
-                <UserPasswordForm userId={user.id} onSuccess={dismiss} />
-              )),
-              Match.exhaustive
-            )
-          }
-        </Sheet>
-      ) : null}
+      {Option.match(editorSelection, {
+        onNone: () => null,
+        onSome: (editor) => (
+          <Sheet
+            key={editor}
+            onDismissed={() => {
+              dispatchEditor({ _tag: 'Dismissed' });
+            }}>
+            {({ dismiss }) =>
+              Match.value(editor).pipe(
+                Match.when('role', () => <UserRoleForm user={user} onSuccess={dismiss} />),
+                Match.when('profile', () => <UserProfileForm user={user} onSuccess={dismiss} />),
+                Match.when('password', () => (
+                  <UserPasswordForm userId={user.id} onSuccess={dismiss} />
+                )),
+                Match.exhaustive
+              )
+            }
+          </Sheet>
+        ),
+      })}
     </>
   );
 };

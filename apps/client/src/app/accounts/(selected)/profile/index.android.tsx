@@ -8,7 +8,7 @@ import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import {
   activeUserProfileAtom,
@@ -24,6 +24,7 @@ import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Sheet } from '#src/components/sheet';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
@@ -95,7 +96,7 @@ const LoadedProfile = ({
   >;
 }) => {
   const account = useSelectedAccount();
-  const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
+  const [editorSelection, dispatchEditor] = useSheetSelection<'profile' | 'password'>();
   const colors = useMaterialColors();
 
   return (
@@ -114,7 +115,7 @@ const LoadedProfile = ({
             index={0}
             count={2}
             onClick={() => {
-              setEditor((current) => current ?? 'profile');
+              dispatchEditor({ _tag: 'Open', selection: 'profile' });
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Edit profile</Text>
@@ -127,7 +128,7 @@ const LoadedProfile = ({
             index={1}
             count={2}
             onClick={() => {
-              setEditor((current) => current ?? 'password');
+              dispatchEditor({ _tag: 'Open', selection: 'password' });
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Change password</Text>
@@ -159,23 +160,26 @@ const LoadedProfile = ({
         </SegmentedList>
       </ProfileList>
 
-      {editor !== null ? (
-        <Sheet
-          key={editor}
-          onDismissed={() => {
-            setEditor(null);
-          }}>
-          {({ dismiss }) =>
-            Match.value(editor).pipe(
-              Match.when('profile', () => (
-                <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
-              )),
-              Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
-              Match.exhaustive
-            )
-          }
-        </Sheet>
-      ) : null}
+      {Option.match(editorSelection, {
+        onNone: () => null,
+        onSome: (editor) => (
+          <Sheet
+            key={editor}
+            onDismissed={() => {
+              dispatchEditor({ _tag: 'Dismissed' });
+            }}>
+            {({ dismiss }) =>
+              Match.value(editor).pipe(
+                Match.when('profile', () => (
+                  <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
+                )),
+                Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
+                Match.exhaustive
+              )
+            }
+          </Sheet>
+        ),
+      })}
     </>
   );
 };

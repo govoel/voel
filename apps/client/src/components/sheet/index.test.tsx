@@ -1,10 +1,10 @@
 import type { ModalBottomSheet, ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import type { BottomSheet } from '@expo/ui/swift-ui';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect, Layer } from 'effect';
+import { Deferred, Effect, Layer, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
-import { useImperativeHandle, useMemo, useState } from 'react';
+import { useImperativeHandle, useMemo, useReducer } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,6 +16,7 @@ import {
 import type { SheetComponent } from '#src/components/sheet';
 import { Sheet as AndroidSheet } from '#src/components/sheet/index.android.tsx';
 import { Sheet as IosSheet } from '#src/components/sheet/index.ios.tsx';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 
 const native = vi.hoisted(() => ({ hide: vi.fn<() => Promise<void>>() }));
 
@@ -91,7 +92,7 @@ const Editor = ({
   readonly operation: Effect.Effect<void>;
   readonly onSaved: () => void;
 }) => {
-  const [draft, setDraft] = useState('Fresh draft');
+  const [draft, changeDraft] = useReducer((_draft: string, text: string) => text, 'Fresh draft');
   const mutation = useMemo(() => runtime.fn(() => operation), [operation]);
   const form = useAppForm({
     mutation,
@@ -104,7 +105,7 @@ const Editor = ({
   return (
     <form.AppForm>
       <Text>{name}</Text>
-      <TextInput testID="draft" value={draft} onChangeText={setDraft} />
+      <TextInput testID="draft" value={draft} onChangeText={changeDraft} />
       <Pressable onPress={() => void form.handleSubmit()}>
         <Text>Save</Text>
       </Pressable>
@@ -129,33 +130,36 @@ const Editors = ({
   readonly onSaved: () => void;
   readonly onDismissed: () => void;
 }) => {
-  const [editor, setEditor] = useState<'A' | 'B' | null>(null);
+  const [editorSelection, dispatchEditor] = useSheetSelection<'A' | 'B'>();
   return (
     <>
       <Pressable
         onPress={() => {
-          setEditor((current) => current ?? 'A');
+          dispatchEditor({ _tag: 'Open', selection: 'A' });
         }}>
         <Text>Open A</Text>
       </Pressable>
       <Pressable
         onPress={() => {
-          setEditor((current) => current ?? 'B');
+          dispatchEditor({ _tag: 'Open', selection: 'B' });
         }}>
         <Text>Open B</Text>
       </Pressable>
-      {editor !== null ? (
-        <Sheet
-          key={editor}
-          onDismissed={() => {
-            onDismissed();
-            setEditor(null);
-          }}>
-          {({ dismiss }) => (
-            <Editor name={editor} dismiss={dismiss} operation={operation} onSaved={onSaved} />
-          )}
-        </Sheet>
-      ) : null}
+      {Option.match(editorSelection, {
+        onNone: () => null,
+        onSome: (editor) => (
+          <Sheet
+            key={editor}
+            onDismissed={() => {
+              onDismissed();
+              dispatchEditor({ _tag: 'Dismissed' });
+            }}>
+            {({ dismiss }) => (
+              <Editor name={editor} dismiss={dismiss} operation={operation} onSaved={onSaved} />
+            )}
+          </Sheet>
+        ),
+      })}
     </>
   );
 };

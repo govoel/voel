@@ -8,7 +8,7 @@ import { Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useReducer } from 'react';
 
 import {
   accountsWithActiveAccount,
@@ -66,7 +66,10 @@ export default function AccountsScreen() {
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
   const mustPickAccount = accountsSheetIsMustPickAccount(accountsSheet.value);
 
-  const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
+  const [isSwitchAccountPresented, dispatchSwitchAccount] = useReducer(
+    (_presented: boolean, event: 'Open' | 'Dismissed') => event === 'Open',
+    false
+  );
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
@@ -100,7 +103,7 @@ export default function AccountsScreen() {
                       index={0}
                       count={sessionExpired && Option.isSome(activeAccount) ? 2 : 1}
                       onClick={() => {
-                        setIsSwitchAccountPresented(true);
+                        dispatchSwitchAccount('Open');
                       }}>
                       {Option.match(activeAccount, {
                         onNone: () => (
@@ -238,7 +241,7 @@ export default function AccountsScreen() {
               {isSwitchAccountPresented ? (
                 <Sheet
                   onDismissed={() => {
-                    setIsSwitchAccountPresented(false);
+                    dispatchSwitchAccount('Dismissed');
                   }}>
                   {({ dismiss }) => <AccountPicker accounts={accountList} onSelected={dismiss} />}
                 </Sheet>
