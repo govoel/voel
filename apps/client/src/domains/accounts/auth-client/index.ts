@@ -64,17 +64,6 @@ const makeClient = Effect.fnUntraced(function* (options: Parameters<typeof clien
   };
 });
 
-/** Authentication uses in-memory credentials until the account is persisted. */
-export const makeAuthenticationClient = Effect.fnUntraced(function* ({
-  serverUrl,
-}: Pick<AccountKey, 'serverUrl'>) {
-  const temporary = makeMemoryAuthStorage();
-  const { signIn, signUp } = yield* CoreAuthClient.make(
-    clientOptions({ serverUrl, storage: temporary.storage })
-  );
-  return { signIn, signUp, snapshot: temporary.snapshot };
-});
-
 export class AuthClient extends Context.Service<AuthClient>()(
   'voel/domains/accounts/auth-client/AuthClient',
   {
@@ -90,9 +79,14 @@ export class AuthClient extends Context.Service<AuthClient>()(
   public static readonly layer = (key: AccountKey) =>
     this.layerNoDeps(key).pipe(Layer.provide(AccountRepository.layer));
 
-  /** Isolated non-persistent clients for server test fixtures. */
-  public static readonly makeTemporary = ({ serverUrl }: Pick<AccountKey, 'serverUrl'>) =>
-    makeClient({ serverUrl, storage: makeMemoryAuthStorage().storage });
+  /** An isolated in-memory client whose credentials can be persisted after authentication. */
+  public static readonly makeTemporary = Effect.fnUntraced(function* ({
+    serverUrl,
+  }: Pick<AccountKey, 'serverUrl'>) {
+    const temporary = makeMemoryAuthStorage();
+    const client = yield* makeClient({ serverUrl, storage: temporary.storage });
+    return { ...client, snapshot: temporary.snapshot };
+  });
 }
 
 const synchronizeAccountFromSession = Effect.fnUntraced(function* (

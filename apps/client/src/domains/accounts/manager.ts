@@ -1,11 +1,7 @@
 import { Context, Effect, Layer, Redacted, Stream } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 
-import {
-  AuthClientMap,
-  makeAuthenticationClient,
-} from '#src/domains/accounts/auth-client/index.ts';
-import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
+import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountSignInError, AccountSignUpError } from '#src/domains/accounts/errors.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
@@ -40,7 +36,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         Omit<Parameters<AuthClient['Service']['signIn']['username']>[0], 'password'> & {
           readonly password: Redacted.Redacted;
         }) {
-        const client = yield* makeAuthenticationClient({ serverUrl });
+        const client = yield* AuthClient.makeTemporary({ serverUrl });
         const result = yield* client.signIn
           .username({ username, password: Redacted.value(password) })
           .pipe(
@@ -77,7 +73,7 @@ export class AccountManager extends Context.Service<AccountManager>()(
         Omit<Parameters<AuthClient['Service']['signUp']['email']>[0], 'password'> & {
           readonly password: Redacted.Redacted;
         }) {
-        const client = yield* makeAuthenticationClient({ serverUrl });
+        const client = yield* AuthClient.makeTemporary({ serverUrl });
         const result = yield* client.signUp
           .email({ name, email, username, password: Redacted.value(password) })
           .pipe(
