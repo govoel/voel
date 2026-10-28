@@ -18,12 +18,12 @@ import {
   useUserProfileForm,
 } from '#src/app/accounts/(selected)/profile/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
@@ -114,7 +114,7 @@ const LoadedProfile = ({
             index={0}
             count={2}
             onClick={() => {
-              setEditor('profile');
+              setEditor((current) => current ?? 'profile');
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Edit profile</Text>
@@ -127,7 +127,7 @@ const LoadedProfile = ({
             index={1}
             count={2}
             onClick={() => {
-              setEditor('password');
+              setEditor((current) => current ?? 'password');
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Change password</Text>
@@ -159,22 +159,23 @@ const LoadedProfile = ({
         </SegmentedList>
       </ProfileList>
 
-      <ControlledSheet
-        presented={editor !== null}
-        onDismiss={() => {
-          setEditor(null);
-        }}>
-        {({ close }) =>
-          Match.value(editor).pipe(
-            Match.when('profile', () => (
-              <UserProfileEditor profile={{ name, username }} onSuccess={close} />
-            )),
-            Match.when('password', () => <PasswordForm onSuccess={close} />),
-            Match.when(null, () => null),
-            Match.exhaustive
-          )
-        }
-      </ControlledSheet>
+      {editor !== null ? (
+        <Sheet
+          key={editor}
+          onDismissed={() => {
+            setEditor(null);
+          }}>
+          {({ dismiss }) =>
+            Match.value(editor).pipe(
+              Match.when('profile', () => (
+                <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
+              )),
+              Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
+              Match.exhaustive
+            )
+          }
+        </Sheet>
+      ) : null}
     </>
   );
 };

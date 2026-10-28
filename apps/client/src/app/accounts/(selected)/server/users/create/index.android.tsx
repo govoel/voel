@@ -1,7 +1,9 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { useRouter } from 'expo-router';
-import { useRef } from 'react';
+import { Redirect } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+
+import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { useCreateUserForm } from '#src/app/accounts/(selected)/server/users/create/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
@@ -10,14 +12,42 @@ import { Text } from '#src/components/text';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 
 export default function CreateUserScreen() {
-  const router = useRouter();
   const sheetRef = useRef<ModalBottomSheetRef>(null);
+  const [completion, setCompletion] = useState<
+    | { readonly _tag: 'Editing' }
+    | {
+        readonly _tag: 'Dismissing' | 'Redirecting';
+        readonly userId: typeof AuthUser.fields.id.Type;
+      }
+  >({ _tag: 'Editing' });
   const form = useCreateUserForm({
-    onSuccess: async ({ userId }) => {
-      await sheetRef.current?.hide();
-      router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
+    onSuccess: ({ userId }) => {
+      setCompletion({ _tag: 'Dismissing', userId });
     },
   });
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (completion._tag !== 'Dismissing' || sheet === null) {
+      return void 0;
+    }
+    let active = true;
+    void sheet.hide().then(() => {
+      if (active) {
+        setCompletion({ _tag: 'Redirecting', userId: completion.userId });
+      }
+      return void 0;
+    });
+    return () => {
+      active = false;
+    };
+  }, [completion]);
+  if (completion._tag === 'Redirecting') {
+    return (
+      <Redirect
+        href={{ pathname: '/accounts/server/users/[id]', params: { id: completion.userId } }}
+      />
+    );
+  }
   return (
     <AndroidAccountsSheet ref={sheetRef}>
       <form.AppForm>

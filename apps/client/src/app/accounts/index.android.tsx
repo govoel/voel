@@ -16,10 +16,10 @@ import {
   removeAccountFailureMessage,
 } from '#src/app/accounts/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
@@ -235,13 +235,14 @@ export default function AccountsScreen() {
                 ),
               })}
 
-              <ControlledSheet
-                presented={isSwitchAccountPresented}
-                onDismiss={() => {
-                  setIsSwitchAccountPresented(false);
-                }}>
-                {({ close }) => <AccountPicker accounts={accountList} onSelected={close} />}
-              </ControlledSheet>
+              {isSwitchAccountPresented ? (
+                <Sheet
+                  onDismissed={() => {
+                    setIsSwitchAccountPresented(false);
+                  }}>
+                  {({ dismiss }) => <AccountPicker accounts={accountList} onSelected={dismiss} />}
+                </Sheet>
+              ) : null}
             </>
           ),
           onError: () => (

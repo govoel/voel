@@ -15,11 +15,11 @@ import {
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/(selected)/profile/index.ts';
-import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
+import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
@@ -85,14 +85,14 @@ const LoadedProfile = ({
         <Section>
           <Button
             onPress={() => {
-              setEditor('profile');
+              setEditor((current) => current ?? 'profile');
             }}>
             <Text>Edit profile</Text>
           </Button>
 
           <Button
             onPress={() => {
-              setEditor('password');
+              setEditor((current) => current ?? 'password');
             }}>
             <Text>Change password</Text>
           </Button>
@@ -117,22 +117,23 @@ const LoadedProfile = ({
         />
       </ProfileList>
 
-      <ControlledSheet
-        presented={editor !== null}
-        onDismiss={() => {
-          setEditor(null);
-        }}>
-        {({ close }) =>
-          Match.value(editor).pipe(
-            Match.when('profile', () => (
-              <UserProfileEditor profile={{ name, username }} onSuccess={close} />
-            )),
-            Match.when('password', () => <PasswordForm onSuccess={close} />),
-            Match.when(null, () => null),
-            Match.exhaustive
-          )
-        }
-      </ControlledSheet>
+      {editor !== null ? (
+        <Sheet
+          key={editor}
+          onDismissed={() => {
+            setEditor(null);
+          }}>
+          {({ dismiss }) =>
+            Match.value(editor).pipe(
+              Match.when('profile', () => (
+                <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
+              )),
+              Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
+              Match.exhaustive
+            )
+          }
+        </Sheet>
+      ) : null}
     </>
   );
 };
