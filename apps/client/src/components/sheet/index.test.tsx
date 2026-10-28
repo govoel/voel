@@ -87,7 +87,7 @@ const Editor = ({
   onSaved,
 }: {
   readonly name: string;
-  readonly dismiss: () => void;
+  readonly dismiss: () => void | Promise<void>;
   readonly operation: Effect.Effect<void>;
   readonly onSaved: () => void;
 }) => {
@@ -96,9 +96,9 @@ const Editor = ({
   const form = useAppForm({
     mutation,
     onFailure: () => 'Failed',
-    onSuccess: () => {
+    onSuccess: async () => {
       onSaved();
-      dismiss();
+      await dismiss();
     },
   });
   return (
@@ -108,7 +108,10 @@ const Editor = ({
       <Pressable onPress={() => void form.handleSubmit()}>
         <Text>Save</Text>
       </Pressable>
-      <Pressable onPress={dismiss}>
+      <Pressable
+        onPress={() => {
+          void dismiss();
+        }}>
         <Text>Cancel</Text>
       </Pressable>
     </form.AppForm>
@@ -182,6 +185,7 @@ describe.each([
     await fireEvent.press(screen.getByText('Open A'));
     await fireEvent.press(screen.getByText('Save'));
     await fireEvent.press(screen.getByText('Cancel'));
+    await fireEvent.press(screen.getByText('Cancel'));
     expect(screen.getByText('A')).toBeOnTheScreen();
     expect(onDismissed).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText('Open B'));
@@ -241,4 +245,27 @@ describe.each([
     expect(screen.queryByText('A')).toBeNull();
     expect(onDismissed).toHaveBeenCalledOnce();
   });
+});
+
+it('does not report dismissal after the Android presentation unmounts during hide', async () => {
+  const dismissed = await Effect.runPromise(Deferred.make<undefined>());
+  native.hide.mockImplementation(async () => Effect.runPromise(Deferred.await(dismissed)));
+  const onDismissed = vi.fn<() => void>();
+  const view = await render(
+    <AndroidSheet onDismissed={onDismissed}>
+      {({ dismiss }) => (
+        <Pressable onPress={() => void dismiss()}>
+          <Text>Dismiss</Text>
+        </Pressable>
+      )}
+    </AndroidSheet>
+  );
+  await fireEvent.press(screen.getByText('Dismiss'));
+  expect(native.hide).toHaveBeenCalledOnce();
+  await view.rerender(<Text>Another presentation</Text>);
+  await act(async () => {
+    await Effect.runPromise(Deferred.succeed(dismissed, void 0));
+  });
+  expect(screen.getByText('Another presentation')).toBeOnTheScreen();
+  expect(onDismissed).not.toHaveBeenCalled();
 });

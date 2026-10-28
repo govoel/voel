@@ -172,6 +172,9 @@ it('does not navigate when the Android screen leaves during native dismissal', a
   await act(async () => {
     await Effect.runPromise(Deferred.succeed(dismissed, void 0));
   });
+  await waitFor(() => {
+    expect(operation.delivered).toHaveBeenCalledOnce();
+  });
   expect(screen.getByText('Another screen')).toBeOnTheScreen();
   expect(navigation.replace).not.toHaveBeenCalled();
 });

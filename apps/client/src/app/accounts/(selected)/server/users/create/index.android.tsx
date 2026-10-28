@@ -1,7 +1,7 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Redirect } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 
@@ -13,39 +13,20 @@ import { RoleField } from '#src/domains/accounts/components/management/role-fiel
 
 export default function CreateUserScreen() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
-  const [completion, setCompletion] = useState<
-    | { readonly _tag: 'Editing' }
-    | {
-        readonly _tag: 'Dismissing' | 'Redirecting';
-        readonly userId: typeof AuthUser.fields.id.Type;
-      }
-  >({ _tag: 'Editing' });
+  const [createdUserId, setCreatedUserId] = useState<typeof AuthUser.fields.id.Type | null>(null);
   const form = useCreateUserForm({
-    onSuccess: ({ userId }) => {
-      setCompletion({ _tag: 'Dismissing', userId });
+    onSuccess: async ({ userId }) => {
+      const sheet = sheetRef.current;
+      if (sheet === null) {
+        return;
+      }
+      await sheet.hide();
+      setCreatedUserId(userId);
     },
   });
-  useEffect(() => {
-    const sheet = sheetRef.current;
-    if (completion._tag !== 'Dismissing' || sheet === null) {
-      return void 0;
-    }
-    let active = true;
-    void sheet.hide().then(() => {
-      if (active) {
-        setCompletion({ _tag: 'Redirecting', userId: completion.userId });
-      }
-      return void 0;
-    });
-    return () => {
-      active = false;
-    };
-  }, [completion]);
-  if (completion._tag === 'Redirecting') {
+  if (createdUserId !== null) {
     return (
-      <Redirect
-        href={{ pathname: '/accounts/server/users/[id]', params: { id: completion.userId } }}
-      />
+      <Redirect href={{ pathname: '/accounts/server/users/[id]', params: { id: createdUserId } }} />
     );
   }
   return (

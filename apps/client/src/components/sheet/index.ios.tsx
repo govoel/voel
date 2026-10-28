@@ -1,10 +1,15 @@
 import { BottomSheet } from '@expo/ui/swift-ui';
+import { useState } from 'react';
 
 import type { SheetComponent } from '#src/components/sheet';
-import { useSheetPresentation } from '#src/components/sheet/presentation.ts';
+import { useSheetDismissal } from '#src/components/sheet/dismissal.ts';
 
 export const Sheet = (({ children, onDismissed }) => {
-  const { presented, dismiss, handleDismissed } = useSheetPresentation({ onDismissed });
+  const [presented, setPresented] = useState(true);
+  const handleDismissed = useSheetDismissal({ onDismissed });
+  const dismiss = () => {
+    setPresented(false);
+  };
   return (
     <BottomSheet
       isPresented={presented}
