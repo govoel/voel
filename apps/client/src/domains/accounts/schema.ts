@@ -33,7 +33,6 @@ const DbModel = VariantSchema.make({
   defaultVariant: 'select',
 });
 
-/** Flat account persistence model; repository results own their key-aware projection. */
 export class Account extends DbModel.Class<Account>('voel/domains/accounts/schema/Account')({
   serverUrl: DbModel.Field({
     select: ServerUrl,

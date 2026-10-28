@@ -28,12 +28,10 @@ import { MainShell } from '#src/domains/accounts/components/main-shell';
 import { AccountManagementBoundary } from '#src/domains/accounts/components/selected-account-boundary';
 import { Encryption } from '#src/domains/accounts/encryption/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
+import { Account, AccountRepository } from '#src/domains/accounts/repository.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
-
-type AccountResult = typeof AccountRepository.fromRow.Type;
 
 const navigation = vi.hoisted(() => ({ pathname: '/', push: vi.fn(), replace: vi.fn() }));
 vi.mock('expo-router', () => ({
@@ -64,8 +62,8 @@ vi.mock('@expo/ui/swift-ui', async () => {
       data,
       children,
     }: {
-      data: ReadonlyArray<AccountResult>;
-      children: (props: { item: AccountResult }) => ReactNode;
+      data: ReadonlyArray<typeof Account.Type>;
+      children: (props: { item: typeof Account.Type }) => ReactNode;
     }) =>
       Array.map(data, (item) => (
         <native.View key={item.key.userId}>{children({ item })}</native.View>
@@ -131,7 +129,7 @@ const alice = {
   active: Account.fields.active.make(true),
   createdAt: DateTime.makeUnsafe(0),
   updatedAt: DateTime.makeUnsafe(0),
-} satisfies AccountResult;
+} satisfies typeof Account.Type;
 const bob = Struct.assign(alice, {
   key: AccountKey.make({
     serverUrl: AccountKey.fields.serverUrl.make('https://b.example.test'),
@@ -140,7 +138,7 @@ const bob = Struct.assign(alice, {
   username: Account.fields.username.make('bob'),
   name: Account.fields.name.make('Bob'),
   active: Account.fields.active.make(false),
-}) satisfies AccountResult;
+}) satisfies typeof Account.Type;
 
 const fixtures = new Set<Awaited<ReturnType<typeof makeFixture>>>();
 afterEach(async () => {
@@ -159,7 +157,7 @@ afterEach(async () => {
 
 // Substitute the persistence boundary, not atoms/components or selection logic.
 // The repository double publishes account changes just like the SQL repository.
-const makeFixture = async (initial: ReadonlyArray<AccountResult>) => {
+const makeFixture = async (initial: ReadonlyArray<typeof Account.Type>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
     readAuthStorage: () => Effect.succeed({}),
@@ -205,11 +203,11 @@ const makeFixture = async (initial: ReadonlyArray<AccountResult>) => {
   const fixture = {
     runtime,
     registry,
-    select: async (account: AccountResult) =>
+    select: async (account: typeof Account.Type) =>
       runtime.runPromise(
         Effect.flatMap(AccountManager, (manager) => manager.setActiveAccount(account.key))
       ),
-    replace: async (accounts: ReadonlyArray<AccountResult>) =>
+    replace: async (accounts: ReadonlyArray<typeof Account.Type>) =>
       runtime.runPromise(Ref.set(rows, [...accounts]).pipe(Reactivity.mutation(['account']))),
     render: async (element: Parameters<typeof render>[0]) =>
       render(element, {

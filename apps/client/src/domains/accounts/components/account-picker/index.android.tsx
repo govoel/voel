@@ -8,13 +8,13 @@ import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import type { AccountRepository } from '#src/domains/accounts/repository.ts';
+import type { Account } from '#src/domains/accounts/repository.ts';
 
 export const AccountPicker = ({
   accounts,
   onSelected,
 }: {
-  readonly accounts: ReadonlyArray<typeof AccountRepository.fromRow.Type>;
+  readonly accounts: ReadonlyArray<typeof Account.Type>;
   readonly onSelected: () => Promise<void>;
 }) => {
   const [setActiveAccount, selectAccount] = useSetActiveAccount();

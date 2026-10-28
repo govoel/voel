@@ -29,8 +29,8 @@ import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
 import { makeAccountAuthStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { Encryption, EncryptionError } from '#src/domains/accounts/encryption/index.ts';
 import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
+import { Account, AccountRepository } from '#src/domains/accounts/repository.ts';
+import { AccountKey, Account as DbAccount } from '#src/domains/accounts/schema.ts';
 
 const RepositoryDatabaseLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),
@@ -41,11 +41,11 @@ const makeAccount = (id: string) =>
   ({
     serverUrl: AccountKey.fields.serverUrl.make('https://accounts.example.test'),
     userId: AccountKey.fields.userId.make(id),
-    username: Account.fields.username.make(id),
-    name: Account.fields.name.make(id),
-    email: Account.fields.email.make(`${id}@example.test`),
-    role: Account.fields.role.make('user'),
-    profilePicture: Account.fields.profilePicture.make(null),
+    username: DbAccount.fields.username.make(id),
+    name: DbAccount.fields.name.make(id),
+    email: DbAccount.fields.email.make(`${id}@example.test`),
+    role: DbAccount.fields.role.make('user'),
+    profilePicture: DbAccount.fields.profilePicture.make(null),
     authStorage: { voel_cookie: `credential-for-${id}` },
   }) satisfies Parameters<typeof AccountRepository.Service.upsertActive>[0];
 
@@ -124,27 +124,7 @@ describe('AccountRepository', () => {
         expect(account.key).toBeInstanceOf(AccountKey);
         expect(account).not.toHaveProperty('serverUrl');
         expect(account).not.toHaveProperty('userId');
-        const row = yield* Schema.encodeEffect(AccountRepository.fromRow)(account);
-        expect(row).toMatchObject({
-          serverUrl: account.key.serverUrl,
-          userId: account.key.userId,
-          active: account.active === true ? 1 : 0,
-          createdAt: DateTime.toEpochMillis(account.createdAt),
-          updatedAt: DateTime.toEpochMillis(account.updatedAt),
-        });
-        expect(
-          yield* Schema.decodeEffect(Schema.Struct(Struct.omit(Account.fields, ['authStorage'])))(
-            row
-          )
-        ).toMatchObject({
-          serverUrl: account.key.serverUrl,
-          userId: account.key.userId,
-          active: account.active,
-          createdAt: account.createdAt,
-          updatedAt: account.updatedAt,
-        });
-        expect(row).not.toHaveProperty('key');
-        expect(yield* Schema.decodeEffect(AccountRepository.fromRow)(row)).toEqual(account);
+        expect(Schema.is(Account)(account)).toBe(true);
         expect(Option.getOrThrow(yield* repository.findByKey(account.key))).toEqual(account);
       }
       expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);
@@ -156,7 +136,18 @@ describe('AccountRepository', () => {
       `;
       for (const row of rows) {
         expect(row.authStorage).not.toContain('credential');
-        const decoded = yield* Schema.decodeUnknownEffect(Account)(row);
+        const decoded = yield* Schema.decodeUnknownEffect(DbAccount)(row);
+        const key = AccountKey.make(Struct.pick(decoded, ['serverUrl', 'userId']));
+        const summary = Option.getOrThrow(yield* repository.findByKey(key));
+        expect(summary).toEqual({
+          key,
+          ...Struct.omit(decoded, ['serverUrl', 'userId', 'authStorage']),
+        });
+        expect(row).toMatchObject({
+          active: summary.active === true ? 1 : 0,
+          createdAt: DateTime.toEpochMillis(summary.createdAt),
+          updatedAt: DateTime.toEpochMillis(summary.updatedAt),
+        });
         expect(decoded.authStorage).toEqual(
           decoded.userId === first.userId
             ? replacement.authStorage

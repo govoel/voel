@@ -1,9 +1,10 @@
-import { Cause, Effect, Equal, Schema } from 'effect';
+import { Cause, DateTime, Effect, Equal } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
+import { Account, AccountRepository } from '#src/domains/accounts/repository.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -27,23 +28,23 @@ export const accountsAtom = AppRuntime.atom(
     {
       id: PredefinedStateId.make('account-available'),
       label: 'Account available',
-      atom: Atom.make(
-        // Predefined rendering data is decoded like an encoded database row.
-        Schema.decodeEffect(AccountRepository.fromRow)({
-          active: 0,
-          createdAt: 0,
-          updatedAt: 0,
-          email: 'alex@example.com',
-          name: 'Alex Reader',
-          profilePicture: null,
-          role: 'admin',
-          serverUrl: 'https://voel.example.com',
-          userId: 'predefined-user',
-          username: 'alex',
-        }).pipe(
-          Effect.map((account) => [account]),
-          Effect.orDie
-        )
+      atom: Atom.make(() =>
+        AsyncResult.success([
+          Account.make({
+            key: AccountKey.make({
+              serverUrl: AccountKey.fields.serverUrl.make('https://voel.example.com'),
+              userId: AccountKey.fields.userId.make('predefined-user'),
+            }),
+            active: Account.fields.active.make(false),
+            createdAt: DateTime.makeUnsafe(0),
+            updatedAt: DateTime.makeUnsafe(0),
+            email: Account.fields.email.make('alex@example.com'),
+            name: Account.fields.name.make('Alex Reader'),
+            profilePicture: Account.fields.profilePicture.make(null),
+            role: Account.fields.role.make('admin'),
+            username: Account.fields.username.make('alex'),
+          }),
+        ])
       ),
     },
     {

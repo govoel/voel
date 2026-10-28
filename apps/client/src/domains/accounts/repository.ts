@@ -10,26 +10,32 @@ import {
   AccountDatabaseError,
   AccountNotFoundError,
 } from '#src/domains/accounts/errors.ts';
-import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
+import { AccountKey, Account as DbAccount } from '#src/domains/accounts/schema.ts';
 
-/** Reshape encoded SQL columns, then decode the repository's key-aware projection. */
-const accountFromRow = Schema.toEncoded(
-  Schema.Struct(Struct.omit(Account.fields, ['authStorage']))
-).pipe(
-  Schema.decodeTo(
-    Schema.Struct({
-      key: AccountKey,
-      ...Struct.omit(Account.fields, ['serverUrl', 'userId', 'authStorage']),
-    }),
-    {
-      decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
-        key: { serverUrl, userId },
-        ...details,
-      })),
-      encode: SchemaGetter.transform(({ key, ...details }) => ({ ...key, ...details })),
-    }
-  )
-);
+export class Account extends Schema.Struct({
+  key: AccountKey,
+  ...Struct.map(
+    Struct.omit(DbAccount.fields, ['serverUrl', 'userId', 'authStorage']),
+    Schema.toType
+  ),
+}) {}
+
+class AccountRow extends Schema.Struct({
+  ...Struct.omit(DbAccount.fields, ['serverUrl', 'userId', 'authStorage']),
+  ...Struct.map(AccountKey.fields, Schema.toEncoded),
+}).pipe(
+  Schema.decodeTo(Account, {
+    decode: SchemaGetter.transform(({ serverUrl, userId, ...details }) => ({
+      key: { serverUrl, userId },
+      ...details,
+    })),
+    encode: SchemaGetter.transform(({ key, ...details }) => ({
+      serverUrl: key.serverUrl,
+      userId: key.userId,
+      ...details,
+    })),
+  })
+) {}
 
 export class AccountRepository extends Context.Service<AccountRepository>()(
   'voel/domains/accounts/repository/AccountRepository',
@@ -40,7 +46,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
       const queries = {
         list: SqlSchema.findAll({
           Request: Schema.Void,
-          Result: accountFromRow,
+          Result: AccountRow,
           execute: () => sql`
             select
               "serverUrl",
@@ -74,7 +80,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         findByKey: SqlSchema.findOneOption({
           Request: AccountKey,
-          Result: accountFromRow,
+          Result: AccountRow,
           execute: ({ serverUrl, userId }) => sql`
             select
               "serverUrl",
@@ -95,7 +101,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         upsert: SqlSchema.findOne({
-          Request: Account.upsert.pipe(
+          Request: DbAccount.upsert.pipe(
             Schema.middlewareEncoding(Effect.provideService(Encryption, encryption))
           ),
           Result: AccountKey,
@@ -144,7 +150,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         updateProfile: SqlSchema.void({
           Request: Schema.Struct({
             key: AccountKey,
-            profile: Schema.Struct(Struct.omit(Account.update.fields, ['serverUrl', 'userId'])),
+            profile: Schema.Struct(Struct.omit(DbAccount.update.fields, ['serverUrl', 'userId'])),
           }),
           execute: ({ key, profile }) => sql`
             update account
@@ -166,7 +172,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         }),
         readAuthStorage: SqlSchema.findOneOption({
           Request: AccountKey,
-          Result: Schema.Struct({ authStorage: Account.fields.authStorage }).pipe(
+          Result: Schema.Struct({ authStorage: DbAccount.fields.authStorage }).pipe(
             Schema.middlewareDecoding(Effect.provideService(Encryption, encryption))
           ),
           execute: ({ serverUrl, userId }) => sql`
@@ -180,9 +186,10 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         writeAuthStorage: SqlSchema.void({
-          Request: Schema.Struct({ key: AccountKey, authStorage: Account.fields.authStorage }).pipe(
-            Schema.middlewareEncoding(Effect.provideService(Encryption, encryption))
-          ),
+          Request: Schema.Struct({
+            key: AccountKey,
+            authStorage: DbAccount.fields.authStorage,
+          }).pipe(Schema.middlewareEncoding(Effect.provideService(Encryption, encryption))),
           execute: ({ key, authStorage }) => sql`
             update account
             set
@@ -267,7 +274,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Effect.catchTags({ SchemaError: Effect.die })
         ),
         upsertActive: Effect.fnUntraced(
-          function* (account: typeof Account.upsert.Type) {
+          function* (account: typeof DbAccount.upsert.Type) {
             yield* queries.deactivateAll();
             return yield* queries
               .upsert(account)
@@ -344,8 +351,6 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
     }),
   }
 ) {
-  public static readonly fromRow = accountFromRow;
-
   public static readonly layerNoDeps = Layer.effect(this, this.make);
   public static readonly layer = this.layerNoDeps.pipe(
     Layer.provide([MainDatabase.layer, Encryption.layer])
