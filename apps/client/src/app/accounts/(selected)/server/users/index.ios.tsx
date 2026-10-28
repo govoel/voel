@@ -23,15 +23,18 @@ export default function ServerUsersScreen() {
   return (
     <>
       <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="plus"
+          accessibilityLabel="Create user"
+          onPress={() => {
+            router.push('/accounts/server/users/create');
+          }}>
+          Create user
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
       <Host style={{ flex: 1 }}>
         <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
-          <Button
-            onPress={() => {
-              router.push('/accounts/server/users/create');
-            }}>
-            <Text>Create user</Text>
-          </Button>
-
           <Section title="Users">
             {AsyncResult.matchWithError(users, {
               onInitial: () => <ListState kind="loading" />,
