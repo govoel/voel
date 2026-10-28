@@ -4,7 +4,7 @@ import { Atom } from 'effect/reactivity';
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 
 import { serverUserSessionsAtom } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 
 export const serverUserSessionAtom = Atom.family(
   ({
@@ -12,7 +12,7 @@ export const serverUserSessionAtom = Atom.family(
     userId,
     sessionId,
   }: {
-    readonly account: ActiveAccountKey;
+    readonly account: AccountKey;
     readonly userId: typeof AuthUser.fields.id.Type;
     readonly sessionId: typeof AuthDeviceSession.fields.id.Type;
   }) =>

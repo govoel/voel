@@ -36,7 +36,7 @@ export const SelectedAccountBoundary = ({
     onNone: (): ReactNode => fallback,
     onSome: (key) => (
       <SelectedAccountContext.Provider
-        key={JSON.stringify([key.serverUrl, key.userId, key.authStorageId])}
+        key={JSON.stringify([key.serverUrl, key.userId])}
         value={key}>
         {children}
       </SelectedAccountContext.Provider>

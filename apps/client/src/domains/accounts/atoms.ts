@@ -3,8 +3,8 @@ import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, AccountRepository } from '#src/domains/accounts/repository.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -30,19 +30,20 @@ export const accountsAtom = AppRuntime.atom(
       label: 'Account available',
       atom: Atom.make(() =>
         AsyncResult.success([
-          {
+          Account.make({
+            key: AccountKey.make({
+              serverUrl: AccountKey.fields.serverUrl.make('https://voel.example.com'),
+              userId: AccountKey.fields.userId.make('predefined-user'),
+            }),
             active: Account.fields.active.make(false),
-            authStorageId: Account.fields.authStorageId.make('predefined-auth-storage'),
             createdAt: DateTime.makeUnsafe(0),
+            updatedAt: DateTime.makeUnsafe(0),
             email: Account.fields.email.make('alex@example.com'),
             name: Account.fields.name.make('Alex Reader'),
             profilePicture: Account.fields.profilePicture.make(null),
             role: Account.fields.role.make('admin'),
-            serverUrl: Account.fields.serverUrl.make('https://voel.example.com'),
-            updatedAt: DateTime.makeUnsafe(0),
-            userId: Account.fields.userId.make('predefined-user'),
             username: Account.fields.username.make('alex'),
-          },
+          }),
         ])
       ),
     },

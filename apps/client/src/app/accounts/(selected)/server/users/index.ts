@@ -5,12 +5,12 @@ import { AuthUser } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
 
-export const listUsersAtom = Atom.family((account: ActiveAccountKey) =>
+export const listUsersAtom = Atom.family((account: AccountKey) =>
   AppRuntime.pull(
     Effect.fnUntraced(function* () {
       const authClient = yield* AuthClientMap.use((clients) => clients.acquire(account));

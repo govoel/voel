@@ -12,7 +12,7 @@ export default Effect.gen(function* () {
       username text not null,
       name text not null,
       email text not null,
-      "authStorageId" text not null,
+      "authStorage" text not null,
       role text not null check (role in ('admin', 'user', 'under18')),
       "profilePicture" text,
       active integer not null default 0 check (active in (0, 1)),
@@ -20,10 +20,6 @@ export default Effect.gen(function* () {
       "updatedAt" integer not null default (time_to_milli (time_now ())),
       constraint "account_serverUrl_userId_pkey" primary key ("serverUrl", "userId")
     ) strict
-  `;
-
-  yield* sql`
-    create unique index "account_serverUrl_userId_authStorageId_uniqueidx" on account ("serverUrl", "userId", "authStorageId")
   `;
 
   yield* sql`
@@ -39,7 +35,6 @@ export default Effect.gen(function* () {
     username,
     name,
     email,
-    "authStorageId",
     role,
     "profilePicture",
     active on account for each row begin

@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react';
 
-import type { Account } from '#src/domains/accounts/schema.ts';
+import type { Account } from '#src/domains/accounts/repository.ts';
 
 export declare const AccountPicker: ComponentType<{
-  readonly accounts: ReadonlyArray<Account>;
+  readonly accounts: ReadonlyArray<typeof Account.Type>;
   readonly onSelected: () => Promise<void>;
 }>;

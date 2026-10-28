@@ -10,8 +10,7 @@ import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
-import { Account } from '#src/domains/accounts/schema.ts';
+import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
 import { accountAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { withPredefinedStates } from '#src/runtime/atom-devtools.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -22,13 +21,13 @@ class UserProfileUpdateInput extends AuthSignUpInput.mapFields(({ name, username
   username,
 })) {}
 
-export const activeUserProfileAtom = Atom.family((account: ActiveAccountKey) =>
+export const activeUserProfileAtom = Atom.family((account: AccountKey) =>
   accountAtom(account).pipe(
     Atom.map(
       AsyncResult.map(
-        Option.map(({ email, name, role, userId, username }) => ({
+        Option.map(({ key, email, name, role, username }) => ({
           email,
-          id: userId,
+          id: key.userId,
           name,
           role: Account.roleToDisplayString(role),
           username,
@@ -53,7 +52,7 @@ export const activeUserProfileAtom = Atom.family((account: ActiveAccountKey) =>
           AsyncResult.success(
             Option.some({
               email: Account.fields.email.make('reader@example.com'),
-              id: Account.fields.userId.make('predefined-user'),
+              id: AccountKey.fields.userId.make('predefined-user'),
               name: Account.fields.name.make('Alex Reader'),
               role: Account.roleToDisplayString('admin'),
               username: Account.fields.username.make('alex'),
@@ -66,7 +65,7 @@ export const activeUserProfileAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-const updateCurrentUserAtom = Atom.family((account: ActiveAccountKey) =>
+const updateCurrentUserAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -111,7 +110,7 @@ export const useUserProfileForm = ({
   });
 };
 
-const changePasswordAtom = Atom.family((account: ActiveAccountKey) =>
+const changePasswordAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -124,7 +123,7 @@ const changePasswordAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-export const ownSessionsAtom = Atom.family((account: ActiveAccountKey) =>
+export const ownSessionsAtom = Atom.family((account: AccountKey) =>
   AppRuntime.atom(
     Effect.fnUntraced(function* () {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -138,7 +137,7 @@ export const ownSessionsAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-export const revokeOwnSessionAtom = Atom.family((account: ActiveAccountKey) =>
+export const revokeOwnSessionAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -148,7 +147,7 @@ export const revokeOwnSessionAtom = Atom.family((account: ActiveAccountKey) =>
   )
 );
 
-export const signOutEverywhereAtom = Atom.family((account: ActiveAccountKey) =>
+export const signOutEverywhereAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<Schema.Void['Type']>()(
     Effect.fnUntraced(function* () {
       const manager = yield* AccountManager;

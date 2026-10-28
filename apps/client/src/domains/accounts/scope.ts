@@ -2,10 +2,10 @@ import { Atom, Reactivity } from 'effect/reactivity';
 import { createContext, useContext } from 'react';
 
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-export const SelectedAccountContext = createContext<ActiveAccountKey | null>(null);
+export const SelectedAccountContext = createContext<AccountKey | null>(null);
 
 export const useSelectedAccount = () => {
   const account = useContext(SelectedAccountContext);
@@ -15,9 +15,9 @@ export const useSelectedAccount = () => {
   return account;
 };
 
-export const accountAtom = Atom.family((account: ActiveAccountKey) =>
+export const accountAtom = Atom.family((account: AccountKey) =>
   AppRuntime.atom(
-    AccountRepository.use((repository) => repository.getByStorageKey(account)).pipe(
+    AccountRepository.use((repository) => repository.findByKey(account)).pipe(
       Reactivity.stream(['account'])
     )
   )

@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 
 import { AuthError } from '@repo/auth-api/shared.ts';
 
-import { Account } from '#src/domains/accounts/schema.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
 
 /** Recoverable connection unavailability or lock contention, with diagnostic cause. */
 export class AccountDatabaseError extends Schema.TaggedError<
@@ -12,12 +12,19 @@ export class AccountDatabaseError extends Schema.TaggedError<
   cause: Schema.Defect(),
 }) {}
 
+export class AccountCredentialsError extends Schema.TaggedError<
+  AccountCredentialsError,
+  { readonly brand: unique symbol }
+>('voel/domains/accounts/errors/AccountCredentialsError')('AccountCredentialsError', {
+  cause: Schema.Defect(),
+}) {}
+
 export class AccountNotFoundError extends Schema.TaggedError<
   AccountNotFoundError,
   { readonly brand: unique symbol }
 >('voel/domains/accounts/errors/AccountNotFoundError')('AccountNotFoundError', {
-  serverUrl: Account.fields.serverUrl,
-  userId: Account.fields.userId,
+  serverUrl: AccountKey.fields.serverUrl,
+  userId: AccountKey.fields.userId,
 }) {}
 
 export class AccountSignInError extends Schema.TaggedError<

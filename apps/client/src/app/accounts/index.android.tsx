@@ -29,7 +29,6 @@ import {
   accountsSheetIsInvalidSession,
   accountsSheetIsMustPickAccount,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 
 const StackNavigationRow = ({
   index,
@@ -119,7 +118,7 @@ export default function AccountsScreen() {
                             </SegmentedListItem.HeadlineContent>
                             <SegmentedListItem.SupportingContent>
                               <Text variant="caption" color={colors.onSurfaceVariant}>
-                                {account.serverUrl.toString()}
+                                {account.key.serverUrl.toString()}
                               </Text>
                             </SegmentedListItem.SupportingContent>
                           </>
@@ -141,7 +140,7 @@ export default function AccountsScreen() {
                               href={{
                                 pathname: '/sign-in',
                                 params: {
-                                  serverUrl: account.serverUrl.toString(),
+                                  serverUrl: account.key.serverUrl.toString(),
                                   username: account.username,
                                   reauthenticate: 'true',
                                   returnTo: '/accounts',
@@ -180,8 +179,8 @@ export default function AccountsScreen() {
                           href="/accounts/settings"
                         />
                         <MutationConfirmation
-                          key={`${account.serverUrl}-${account.userId}`}
-                          mutation={removeAccountAtom(ActiveAccountKey.make(account))}
+                          key={`${account.key.serverUrl}-${account.key.userId}`}
+                          mutation={removeAccountAtom(account.key)}
                           onSuccess={({ result }) => {
                             if (!result.accountsRemain) {
                               router.dismissTo('/');
@@ -190,7 +189,7 @@ export default function AccountsScreen() {
                           onFailure={removeAccountFailureMessage}
                           title="Remove account from this device?"
                           confirmLabel="Remove"
-                          message={`This will sign you out and remove all data associated with @${account.username} on ${account.serverUrl} from this device.`}
+                          message={`This will sign you out and remove all data associated with @${account.username} on ${account.key.serverUrl} from this device.`}
                           trigger={({ open, busy }) => (
                             <SegmentedListItem index={2} count={3} onClick={open} enabled={!busy}>
                               <SegmentedListItem.HeadlineContent>

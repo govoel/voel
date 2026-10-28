@@ -21,16 +21,15 @@ import { afterEach, expect, it, vi } from 'vitest';
 
 import { activeUserProfileAtom } from '#src/app/accounts/(selected)/profile/index.ts';
 import { deleteServerUserAtom } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
-import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { AuthClientStorage } from '#src/domains/accounts/auth-client/storage.ts';
 import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
 import { MainShell } from '#src/domains/accounts/components/main-shell';
 import { AccountManagementBoundary } from '#src/domains/accounts/components/selected-account-boundary';
-import { AccountManager, UuidGenerator } from '#src/domains/accounts/manager.ts';
-import { AccountRepository } from '#src/domains/accounts/repository.ts';
-import { Account, ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import { Encryption } from '#src/domains/accounts/encryption/index.ts';
+import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { Account, AccountRepository } from '#src/domains/accounts/repository.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -63,10 +62,12 @@ vi.mock('@expo/ui/swift-ui', async () => {
       data,
       children,
     }: {
-      data: ReadonlyArray<Account>;
-      children: (props: { item: Account }) => ReactNode;
+      data: ReadonlyArray<typeof Account.Type>;
+      children: (props: { item: typeof Account.Type }) => ReactNode;
     }) =>
-      Array.map(data, (item) => <native.View key={item.userId}>{children({ item })}</native.View>),
+      Array.map(data, (item) => (
+        <native.View key={item.key.userId}>{children({ item })}</native.View>
+      )),
   });
   return {
     List,
@@ -116,9 +117,10 @@ vi.mock('expo-linking', () => ({ createURL: (path: string) => `voel://${path}` }
 vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove: () => void 0 }) }));
 
 const alice = {
-  serverUrl: Account.fields.serverUrl.make('https://a.example.test'),
-  userId: Account.fields.userId.make('alice'),
-  authStorageId: Account.fields.authStorageId.make('alice-credentials'),
+  key: AccountKey.make({
+    serverUrl: AccountKey.fields.serverUrl.make('https://a.example.test'),
+    userId: AccountKey.fields.userId.make('alice'),
+  }),
   username: Account.fields.username.make('alice'),
   name: Account.fields.name.make('Alice'),
   email: Account.fields.email.make('alice@example.test'),
@@ -127,16 +129,16 @@ const alice = {
   active: Account.fields.active.make(true),
   createdAt: DateTime.makeUnsafe(0),
   updatedAt: DateTime.makeUnsafe(0),
-} satisfies Account;
-const bob = {
-  ...alice,
-  serverUrl: Account.fields.serverUrl.make('https://b.example.test'),
-  userId: Account.fields.userId.make('bob'),
+} satisfies typeof Account.Type;
+const bob = Struct.assign(alice, {
+  key: AccountKey.make({
+    serverUrl: AccountKey.fields.serverUrl.make('https://b.example.test'),
+    userId: AccountKey.fields.userId.make('bob'),
+  }),
   username: Account.fields.username.make('bob'),
   name: Account.fields.name.make('Bob'),
-  authStorageId: Account.fields.authStorageId.make('bob-credentials'),
   active: Account.fields.active.make(false),
-} satisfies Account;
+}) satisfies typeof Account.Type;
 
 const fixtures = new Set<Awaited<ReturnType<typeof makeFixture>>>();
 afterEach(async () => {
@@ -155,22 +157,22 @@ afterEach(async () => {
 
 // Substitute the persistence boundary, not atoms/components or selection logic.
 // The repository double publishes account changes just like the SQL repository.
-const makeFixture = async (initial: ReadonlyArray<Account>) => {
+const makeFixture = async (initial: ReadonlyArray<typeof Account.Type>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {
+    readAuthStorage: () => Effect.succeed({}),
+    writeAuthStorageItem: () => Effect.void,
     list: Ref.get(rows),
     getActiveKey: Ref.get(rows).pipe(
       Effect.map(Array.findFirst((account) => account.active)),
-      Effect.map(Option.map((account) => ActiveAccountKey.make(account)))
+      Effect.map(Option.map((account) => account.key))
     ),
-    getByStorageKey: (key) =>
+    findByKey: (key) =>
       Ref.get(rows).pipe(
         Effect.map(
           Array.findFirst(
             (account) =>
-              account.serverUrl === key.serverUrl &&
-              account.userId === key.userId &&
-              account.authStorageId === key.authStorageId
+              account.key.serverUrl === key.serverUrl && account.key.userId === key.userId
           )
         )
       ),
@@ -180,7 +182,7 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
         Array.map((account) =>
           Struct.assign(account, {
             active: Account.fields.active.make(
-              account.serverUrl === key.serverUrl && account.userId === key.userId
+              account.key.serverUrl === key.serverUrl && account.key.userId === key.userId
             ),
           })
         )
@@ -189,14 +191,7 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const services = AccountManager.layerNoDeps.pipe(
     Layer.provideMerge(AuthClientMap.layerNoDeps),
     Layer.provideMerge(repository),
-    Layer.provideMerge(
-      Layer.mergeAll(
-        Reactivity.layer,
-        CryptoDigest.layerTest,
-        UuidGenerator.layerTest,
-        AuthClientStorage.layerTest(new Map())
-      )
-    )
+    Layer.provideMerge([Reactivity.layer, Encryption.layerTest])
   );
   const runtime = ManagedRuntime.make(services);
   const context = await runtime.runPromise(Effect.context<Layer.Success<typeof services>>());
@@ -208,11 +203,11 @@ const makeFixture = async (initial: ReadonlyArray<Account>) => {
   const fixture = {
     runtime,
     registry,
-    select: async (account: Account) =>
+    select: async (account: typeof Account.Type) =>
       runtime.runPromise(
-        Effect.flatMap(AccountManager, (manager) => manager.setActiveAccount(account))
+        Effect.flatMap(AccountManager, (manager) => manager.setActiveAccount(account.key))
       ),
-    replace: async (accounts: ReadonlyArray<Account>) =>
+    replace: async (accounts: ReadonlyArray<typeof Account.Type>) =>
       runtime.runPromise(Ref.set(rows, [...accounts]).pipe(Reactivity.mutation(['account']))),
     render: async (element: Parameters<typeof render>[0]) =>
       render(element, {
@@ -248,7 +243,7 @@ const AccountContent = () => {
       <Pressable
         role="button"
         onPress={() => {
-          removeUser({ userId: Account.fields.userId.make('missing-user') });
+          removeUser({ userId: AccountKey.fields.userId.make('missing-user') });
         }}>
         <Text>Delete missing user</Text>
       </Pressable>
@@ -290,7 +285,7 @@ it('shows Welcome without saved accounts, then one shared no-account page until 
   expect(screen.queryByText('Fresh draft')).not.toBeOnTheScreen();
   expect(navigation.push).not.toHaveBeenCalled();
   await act(async () =>
-    fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })])
+    fixture.replace([Struct.assign(alice, { active: Account.fields.active.make(false) })])
   );
   expect(await screen.findByText('No active account')).toBeOnTheScreen();
   expect(screen.getAllByText('No active account')).toHaveLength(1);
@@ -312,7 +307,7 @@ it('shows Welcome without saved accounts, then one shared no-account page until 
 
 it('selects a saved account through the modal picker and closes it after scoped content becomes available', async () => {
   const fixture = await makeFixture([
-    Account.make({ ...alice, active: Account.fields.active.make(false) }),
+    Struct.assign(alice, { active: Account.fields.active.make(false) }),
   ]);
   const Picker = () => {
     const [presented, setPresented] = useState(true);
@@ -341,7 +336,7 @@ it('selects a saved account through the modal picker and closes it after scoped 
   expect(screen.queryByText('No active account')).not.toBeOnTheScreen();
 });
 
-it('remounts account content on A → B → A and credential changes, but updates profile metadata without losing drafts', async () => {
+it('remounts account content on A → B → A, but updates profile metadata without losing drafts', async () => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
     Response.json(
       { code: 'FORBIDDEN', message: 'Not allowed' },
@@ -360,7 +355,7 @@ it('remounts account content on A → B → A and credential changes, but update
   expect(await screen.findByText('Failure')).toBeOnTheScreen();
   await act(async () =>
     fixture.replace([
-      Account.make({ ...alice, name: Account.fields.name.make('Alice updated') }),
+      Struct.assign(alice, { name: Account.fields.name.make('Alice updated') }),
       bob,
     ])
   );
@@ -376,17 +371,6 @@ it('remounts account content on A → B → A and credential changes, but update
   expect(await screen.findByText('Alice updated')).toBeOnTheScreen();
   expect(screen.getByText('Initial')).toBeOnTheScreen();
   expect(screen.getByText('Fresh draft')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByText('Fresh draft'));
-  await act(async () =>
-    fixture.replace([
-      Account.make({
-        ...alice,
-        authStorageId: Account.fields.authStorageId.make('new-credentials'),
-      }),
-      bob,
-    ])
-  );
-  expect(await screen.findByText('Fresh draft')).toBeOnTheScreen();
 });
 
 it('returns scoped management routes to /accounts when selection is lost', async () => {
@@ -398,7 +382,7 @@ it('returns scoped management routes to /accounts when selection is lost', async
   );
   expect(await screen.findByText('Alice')).toBeOnTheScreen();
   await act(async () =>
-    fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) })])
+    fixture.replace([Struct.assign(alice, { active: Account.fields.active.make(false) })])
   );
   await waitFor(() => {
     expect(navigation.replace).toHaveBeenCalledWith('/accounts');
@@ -409,14 +393,14 @@ it('returns scoped management routes to /accounts when selection is lost', async
 
 it('automatically presents the mandatory account picker once across account list and route updates', async () => {
   const fixture = await makeFixture([
-    Account.make({ ...alice, active: Account.fields.active.make(false) }),
+    Struct.assign(alice, { active: Account.fields.active.make(false) }),
   ]);
   const view = await fixture.render(<AccountsAutoPresenter />);
   await waitFor(() => {
     expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts', { withAnchor: true });
   });
   await act(async () =>
-    fixture.replace([Account.make({ ...alice, active: Account.fields.active.make(false) }), bob])
+    fixture.replace([Struct.assign(alice, { active: Account.fields.active.make(false) }), bob])
   );
   navigation.pathname = '/movies';
   await view.rerender(<AccountsAutoPresenter />);
@@ -428,7 +412,7 @@ it.each(['/accounts', '/accounts/profile', '/sign-in', '/server-setup'])(
   async (pathname) => {
     navigation.pathname = pathname;
     const fixture = await makeFixture([
-      Account.make({ ...alice, active: Account.fields.active.make(false) }),
+      Struct.assign(alice, { active: Account.fields.active.make(false) }),
     ]);
     const view = await fixture.render(<PresentedMainShell />);
     expect(await screen.findByText('No active account')).toBeOnTheScreen();

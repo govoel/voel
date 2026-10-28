@@ -13,13 +13,13 @@ import { AsyncResult } from 'effect/reactivity';
 import { useSetActiveAccount } from '#src/app/accounts/index.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import type { Account } from '#src/domains/accounts/schema.ts';
+import type { Account } from '#src/domains/accounts/repository.ts';
 
 export const AccountPicker = ({
   accounts,
   onSelected,
 }: {
-  readonly accounts: ReadonlyArray<Account>;
+  readonly accounts: ReadonlyArray<typeof Account.Type>;
   readonly onSelected: () => Promise<void>;
 }) => {
   const [setActiveAccount, selectAccount] = useSetActiveAccount();
@@ -34,17 +34,14 @@ export const AccountPicker = ({
         <List.ForEach
           data={accounts}
           keyExtractor={(account) =>
-            JSON.stringify([account.serverUrl.toString(), account.userId])
+            JSON.stringify([account.key.serverUrl.toString(), account.key.userId])
           }>
           {({ item }) => (
             <Button
               modifiers={[tint('primary'), disabled(AsyncResult.isWaiting(setActiveAccount))]}
               onPress={() => {
                 void selectAccount({
-                  input: {
-                    serverUrl: item.serverUrl,
-                    userId: item.userId,
-                  },
+                  input: item.key,
                   onSuccess: onSelected,
                 });
               }}>
@@ -68,7 +65,7 @@ export const AccountPicker = ({
                   <Text
                     variant="caption"
                     modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
-                    {item.serverUrl.toString()}
+                    {item.key.serverUrl.toString()}
                   </Text>
                 </VStack>
 

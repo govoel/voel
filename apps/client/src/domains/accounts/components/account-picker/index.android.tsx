@@ -8,13 +8,13 @@ import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import type { Account } from '#src/domains/accounts/schema.ts';
+import type { Account } from '#src/domains/accounts/repository.ts';
 
 export const AccountPicker = ({
   accounts,
   onSelected,
 }: {
-  readonly accounts: ReadonlyArray<Account>;
+  readonly accounts: ReadonlyArray<typeof Account.Type>;
   readonly onSelected: () => Promise<void>;
 }) => {
   const [setActiveAccount, selectAccount] = useSetActiveAccount();
@@ -31,7 +31,9 @@ export const AccountPicker = ({
       </Text>
       <LazyColumn.Items
         data={accounts}
-        keyExtractor={(account) => JSON.stringify([account.serverUrl.toString(), account.userId])}>
+        keyExtractor={(account) =>
+          JSON.stringify([account.key.serverUrl.toString(), account.key.userId])
+        }>
         {({ item, index }) => (
           <SegmentedListItem
             index={index}
@@ -41,10 +43,7 @@ export const AccountPicker = ({
             enabled={!AsyncResult.isWaiting(setActiveAccount)}
             onClick={() => {
               void selectAccount({
-                input: {
-                  serverUrl: item.serverUrl,
-                  userId: item.userId,
-                },
+                input: item.key,
                 onSuccess: onSelected,
               });
             }}>
@@ -56,7 +55,7 @@ export const AccountPicker = ({
             </SegmentedListItem.HeadlineContent>
             <SegmentedListItem.SupportingContent>
               <Text variant="caption" color={colors.onSurfaceVariant}>
-                {item.serverUrl.toString()}
+                {item.key.serverUrl.toString()}
               </Text>
             </SegmentedListItem.SupportingContent>
           </SegmentedListItem>

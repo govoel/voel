@@ -30,7 +30,6 @@ import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();
@@ -130,7 +129,7 @@ export default function AccountsScreen() {
                                     modifiers={[
                                       foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
                                     ]}>
-                                    {account.serverUrl.toString()}
+                                    {account.key.serverUrl.toString()}
                                   </Text>
                                 </VStack>
                               </>
@@ -159,7 +158,7 @@ export default function AccountsScreen() {
                               href={{
                                 pathname: '/sign-in',
                                 params: {
-                                  serverUrl: account.serverUrl.toString(),
+                                  serverUrl: account.key.serverUrl.toString(),
                                   username: account.username,
                                   reauthenticate: 'true',
                                   returnTo: '/accounts',
@@ -192,8 +191,8 @@ export default function AccountsScreen() {
                           <StackNavigationRow title="Settings" href="/accounts/settings" />
 
                           <MutationConfirmation
-                            key={`${account.serverUrl}-${account.userId}`}
-                            mutation={removeAccountAtom(ActiveAccountKey.make(account))}
+                            key={`${account.key.serverUrl}-${account.key.userId}`}
+                            mutation={removeAccountAtom(account.key)}
                             onSuccess={({ result }) => {
                               if (!result.accountsRemain) {
                                 router.dismissTo('/');
@@ -202,7 +201,7 @@ export default function AccountsScreen() {
                             onFailure={removeAccountFailureMessage}
                             title="Remove account from this device?"
                             confirmLabel="Remove"
-                            message={`This will sign you out and remove all data associated with @${account.username} on ${account.serverUrl} from this device.`}
+                            message={`This will sign you out and remove all data associated with @${account.username} on ${account.key.serverUrl} from this device.`}
                             trigger={({ open, busy }) => (
                               <Button
                                 label="Remove account from this device"

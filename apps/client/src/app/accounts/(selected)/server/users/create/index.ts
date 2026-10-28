@@ -7,11 +7,11 @@ import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 import { useAppForm } from '#src/components/form';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-const createServerUserAtom = Atom.family((account: ActiveAccountKey) =>
+const createServerUserAtom = Atom.family((account: AccountKey) =>
   AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
     Effect.fnUntraced(function* (input) {
       const client = yield* AuthClientMap.use((clients) => clients.acquire(account));

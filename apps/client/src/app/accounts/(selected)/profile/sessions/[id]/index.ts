@@ -4,14 +4,14 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 
 import { ownSessionsAtom } from '#src/app/accounts/(selected)/profile/index.ts';
-import type { ActiveAccountKey } from '#src/domains/accounts/schema.ts';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 
 export const ownSessionAtom = Atom.family(
   ({
     account,
     id,
   }: {
-    readonly account: ActiveAccountKey;
+    readonly account: AccountKey;
     readonly id: typeof AuthDeviceSession.fields.id.Type;
   }) =>
     ownSessionsAtom(account).pipe(
