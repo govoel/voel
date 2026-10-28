@@ -67,7 +67,9 @@ const LoadedProfile = ({
 }) => {
   const account = useSelectedAccount();
   const router = useRouter();
-  const [editorSelection, dispatchEditor] = useSheetSelection<'profile' | 'password'>();
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<
+    'profile' | 'password'
+  >();
 
   return (
     <>
@@ -85,14 +87,14 @@ const LoadedProfile = ({
         <Section>
           <Button
             onPress={() => {
-              dispatchEditor({ _tag: 'Open', selection: 'profile' });
+              dispatchEditor(EditorEvent.Open({ selection: 'profile' }));
             }}>
             <Text>Edit profile</Text>
           </Button>
 
           <Button
             onPress={() => {
-              dispatchEditor({ _tag: 'Open', selection: 'password' });
+              dispatchEditor(EditorEvent.Open({ selection: 'password' }));
             }}>
             <Text>Change password</Text>
           </Button>
@@ -123,7 +125,7 @@ const LoadedProfile = ({
           <Sheet
             key={editor}
             onDismissed={() => {
-              dispatchEditor({ _tag: 'Dismissed' });
+              dispatchEditor(EditorEvent.Dismissed());
             }}>
             {({ dismiss }) =>
               Match.value(editor).pipe(

@@ -201,7 +201,9 @@ const LoadedUser = ({
   const router = useRouter();
   const details = userDetails({ user });
 
-  const [editorSelection, dispatchEditor] = useSheetSelection<'role' | 'profile' | 'password'>();
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<
+    'role' | 'profile' | 'password'
+  >();
   return (
     <>
       <UserList>
@@ -214,21 +216,21 @@ const LoadedUser = ({
             <Section>
               <Button
                 onPress={() => {
-                  dispatchEditor({ _tag: 'Open', selection: 'profile' });
+                  dispatchEditor(EditorEvent.Open({ selection: 'profile' }));
                 }}>
                 <Text>Edit profile</Text>
               </Button>
 
               <Button
                 onPress={() => {
-                  dispatchEditor({ _tag: 'Open', selection: 'role' });
+                  dispatchEditor(EditorEvent.Open({ selection: 'role' }));
                 }}>
                 <Text>Change role</Text>
               </Button>
 
               <Button
                 onPress={() => {
-                  dispatchEditor({ _tag: 'Open', selection: 'password' });
+                  dispatchEditor(EditorEvent.Open({ selection: 'password' }));
                 }}>
                 <Text>Set password</Text>
               </Button>
@@ -277,7 +279,7 @@ const LoadedUser = ({
           <Sheet
             key={editor}
             onDismissed={() => {
-              dispatchEditor({ _tag: 'Dismissed' });
+              dispatchEditor(EditorEvent.Dismissed());
             }}>
             {({ dismiss }) =>
               Match.value(editor).pipe(

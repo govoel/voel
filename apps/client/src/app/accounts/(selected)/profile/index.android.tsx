@@ -96,7 +96,9 @@ const LoadedProfile = ({
   >;
 }) => {
   const account = useSelectedAccount();
-  const [editorSelection, dispatchEditor] = useSheetSelection<'profile' | 'password'>();
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<
+    'profile' | 'password'
+  >();
   const colors = useMaterialColors();
 
   return (
@@ -115,7 +117,7 @@ const LoadedProfile = ({
             index={0}
             count={2}
             onClick={() => {
-              dispatchEditor({ _tag: 'Open', selection: 'profile' });
+              dispatchEditor(EditorEvent.Open({ selection: 'profile' }));
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Edit profile</Text>
@@ -128,7 +130,7 @@ const LoadedProfile = ({
             index={1}
             count={2}
             onClick={() => {
-              dispatchEditor({ _tag: 'Open', selection: 'password' });
+              dispatchEditor(EditorEvent.Open({ selection: 'password' }));
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Change password</Text>
@@ -166,7 +168,7 @@ const LoadedProfile = ({
           <Sheet
             key={editor}
             onDismissed={() => {
-              dispatchEditor({ _tag: 'Dismissed' });
+              dispatchEditor(EditorEvent.Dismissed());
             }}>
             {({ dismiss }) =>
               Match.value(editor).pipe(

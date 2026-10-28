@@ -230,7 +230,9 @@ const LoadedUser = ({
   const account = useSelectedAccount();
   const router = useRouter();
   const details = userDetails({ user });
-  const [editorSelection, dispatchEditor] = useSheetSelection<'role' | 'profile' | 'password'>();
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<
+    'role' | 'profile' | 'password'
+  >();
   const colors = useMaterialColors();
   return (
     <>
@@ -246,7 +248,7 @@ const LoadedUser = ({
                 index={0}
                 count={4}
                 onClick={() => {
-                  dispatchEditor({ _tag: 'Open', selection: 'profile' });
+                  dispatchEditor(EditorEvent.Open({ selection: 'profile' }));
                 }}>
                 <SegmentedListItem.HeadlineContent>
                   <Text>Edit profile</Text>
@@ -259,7 +261,7 @@ const LoadedUser = ({
                 index={1}
                 count={4}
                 onClick={() => {
-                  dispatchEditor({ _tag: 'Open', selection: 'role' });
+                  dispatchEditor(EditorEvent.Open({ selection: 'role' }));
                 }}>
                 <SegmentedListItem.HeadlineContent>
                   <Text>Change role</Text>
@@ -272,7 +274,7 @@ const LoadedUser = ({
                 index={2}
                 count={4}
                 onClick={() => {
-                  dispatchEditor({ _tag: 'Open', selection: 'password' });
+                  dispatchEditor(EditorEvent.Open({ selection: 'password' }));
                 }}>
                 <SegmentedListItem.HeadlineContent>
                   <Text>Set password</Text>
@@ -334,7 +336,7 @@ const LoadedUser = ({
           <Sheet
             key={editor}
             onDismissed={() => {
-              dispatchEditor({ _tag: 'Dismissed' });
+              dispatchEditor(EditorEvent.Dismissed());
             }}>
             {({ dismiss }) =>
               Match.value(editor).pipe(

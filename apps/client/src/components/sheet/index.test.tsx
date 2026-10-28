@@ -6,7 +6,7 @@ import { Atom } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
 import { useImperativeHandle, useMemo, useReducer } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import {
   createEffectSchemaFormHook,
@@ -130,18 +130,18 @@ const Editors = ({
   readonly onSaved: () => void;
   readonly onDismissed: () => void;
 }) => {
-  const [editorSelection, dispatchEditor] = useSheetSelection<'A' | 'B'>();
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<'A' | 'B'>();
   return (
     <>
       <Pressable
         onPress={() => {
-          dispatchEditor({ _tag: 'Open', selection: 'A' });
+          dispatchEditor(EditorEvent.Open({ selection: 'A' }));
         }}>
         <Text>Open A</Text>
       </Pressable>
       <Pressable
         onPress={() => {
-          dispatchEditor({ _tag: 'Open', selection: 'B' });
+          dispatchEditor(EditorEvent.Open({ selection: 'B' }));
         }}>
         <Text>Open B</Text>
       </Pressable>
@@ -152,7 +152,7 @@ const Editors = ({
             key={editor}
             onDismissed={() => {
               onDismissed();
-              dispatchEditor({ _tag: 'Dismissed' });
+              dispatchEditor(EditorEvent.Dismissed());
             }}>
             {({ dismiss }) => (
               <Editor name={editor} dismiss={dismiss} operation={operation} onSaved={onSaved} />
@@ -166,6 +166,15 @@ const Editors = ({
 
 beforeEach(() => {
   native.hide.mockReset();
+});
+
+it('keeps event constructors and dispatch bound to the supported selections', () => {
+  type Selection = ReturnType<typeof useSheetSelection<'profile' | 'password'>>;
+  expectTypeOf<Parameters<Selection[2]['Open']>[0]['selection']>().toEqualTypeOf<
+    'profile' | 'password'
+  >();
+  expectTypeOf<ReturnType<Selection[2]['Open']>>().toExtend<Parameters<Selection[1]>[0]>();
+  expectTypeOf<ReturnType<Selection[2]['Dismissed']>>().toExtend<Parameters<Selection[1]>[0]>();
 });
 
 describe.each([
