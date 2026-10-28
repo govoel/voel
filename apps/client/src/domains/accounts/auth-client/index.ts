@@ -64,15 +64,15 @@ const makeClient = Effect.fnUntraced(function* (options: Parameters<typeof clien
   };
 });
 
-/** Authentication has no persisted identity or background subscriptions yet. */
+/** Authentication uses in-memory credentials until the account is persisted. */
 export const makeAuthenticationClient = Effect.fnUntraced(function* ({
   serverUrl,
 }: Pick<AccountKey, 'serverUrl'>) {
   const temporary = makeMemoryAuthStorage();
-  const client = yield* CoreAuthClient.makeAuthentication(
+  const { signIn, signUp } = yield* CoreAuthClient.make(
     clientOptions({ serverUrl, storage: temporary.storage })
   );
-  return { ...client, snapshot: temporary.snapshot };
+  return { signIn, signUp, snapshot: temporary.snapshot };
 });
 
 export class AuthClient extends Context.Service<AuthClient>()(
