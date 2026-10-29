@@ -16,7 +16,7 @@ import type { PropsWithChildren } from 'react';
 
 import {
   accountsWithActiveAccount,
-  removeAccountAtom,
+  removeAccount,
   removeAccountFailureMessage,
 } from '#src/app/accounts/index.ts';
 import { ListState } from '#src/components/list-state';
@@ -193,7 +193,7 @@ export default function AccountsScreen() {
 
                           <MutationConfirmation
                             key={`${account.key.serverUrl}-${account.key.userId}`}
-                            mutation={removeAccountAtom(account.key)}
+                            onSubmit={() => removeAccount({ key: account.key })}
                             onSuccess={({ result }) => {
                               if (!result.accountsRemain) {
                                 router.dismissTo('/');

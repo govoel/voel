@@ -1,5 +1,5 @@
 import { DateTime, Effect, Schema } from 'effect';
-import { Atom } from 'effect/reactivity';
+import { Atom, Reactivity } from 'effect/reactivity';
 
 import type {
   AuthAdminRevokeSessionInput,
@@ -45,44 +45,60 @@ export const serverUserAtom = Atom.family(
     )
 );
 
-const setServerUserRoleAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthSetRoleInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.admin.setRole(input);
-    }),
-    { reactivityKeys: ['auth.users'] }
-  )
+const setServerUserRole = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthSetRoleInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.admin.setRole(input);
+  },
+  Reactivity.mutation(['auth.users'])
 );
 
-const updateServerUserAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthAdminUpdateUserInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.admin.updateUser(input);
-    }),
-    { reactivityKeys: ['auth.users'] }
-  )
+const updateServerUser = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthAdminUpdateUserInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.admin.updateUser(input);
+  },
+  Reactivity.mutation(['auth.users'])
 );
 
-const setServerUserPasswordAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthSetUserPasswordInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
-    }),
-    { reactivityKeys: ['auth.sessions'] }
-  )
+const setServerUserPassword = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthSetUserPasswordInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.admin.setUserPassword({ userId: input.userId, newPassword: input.newPassword });
+  },
+  Reactivity.mutation(['auth.sessions'])
 );
 
-export const deleteServerUserAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthUserIdInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.admin.removeUser(input);
-    }),
-    { reactivityKeys: ['auth.users', 'auth.sessions'] }
-  )
+export const deleteServerUser = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthUserIdInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.admin.removeUser(input);
+  },
+  Reactivity.mutation(['auth.users', 'auth.sessions'])
 );
 
 export const serverUserSessionsAtom = Atom.family(
@@ -104,23 +120,31 @@ export const serverUserSessionsAtom = Atom.family(
     )
 );
 
-export const revokeServerUserSessionAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthAdminRevokeSessionInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.admin.revokeUserSession(input);
-    }),
-    { reactivityKeys: ['auth.sessions'] }
-  )
+export const revokeServerUserSession = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthAdminRevokeSessionInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.admin.revokeUserSession(input);
+  },
+  Reactivity.mutation(['auth.sessions'])
 );
-export const revokeServerUserSessionsAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthUserIdInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.admin.revokeUserSessions(input);
-    }),
-    { reactivityKeys: ['auth.sessions'] }
-  )
+export const revokeServerUserSessions = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthUserIdInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.admin.revokeUserSessions(input);
+  },
+  Reactivity.mutation(['auth.sessions'])
 );
 
 class PasswordInput extends AuthSetUserPasswordInput.pipe(
@@ -147,7 +171,7 @@ export const useUserPasswordForm = ({
   const account = useSelectedAccount();
   return useAppForm({
     schema: PasswordInput,
-    mutation: setServerUserPasswordAtom(account),
+    onSubmit: ({ value }) => setServerUserPassword({ account, input: value }),
     defaultValues: { userId, newPassword: '', confirmPassword: '' },
     onFailure: authFailureMessage,
     onSuccess,
@@ -164,7 +188,7 @@ export const useServerUserProfileForm = ({
   const account = useSelectedAccount();
   return useAppForm({
     schema: AuthAdminUpdateUserInput,
-    mutation: updateServerUserAtom(account),
+    onSubmit: ({ value }) => updateServerUser({ account, input: value }),
     defaultValues: {
       userId: user.id,
       name: user.name,
@@ -186,7 +210,7 @@ export const useUserRoleForm = ({
   const account = useSelectedAccount();
   return useAppForm({
     schema: AuthSetRoleInput,
-    mutation: setServerUserRoleAtom(account),
+    onSubmit: ({ value }) => setServerUserRole({ account, input: value }),
     defaultValues: { userId: user.id, role: user.role },
     onFailure: authFailureMessage,
     onSuccess,

@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Atom } from 'effect/reactivity';
+import { Reactivity } from 'effect/reactivity';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
@@ -9,22 +9,25 @@ import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
-import { AppRuntime } from '#src/runtime/index.ts';
 
-const createServerUserAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthCreateUserInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      return yield* client.admin.createUser({
-        name: input.name,
-        username: input.username,
-        email: input.email,
-        password: input.password,
-        role: input.role,
-      });
-    }),
-    { reactivityKeys: ['auth.users'] }
-  )
+const createServerUser = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthCreateUserInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    return yield* client.admin.createUser({
+      name: input.name,
+      username: input.username,
+      email: input.email,
+      password: input.password,
+      role: input.role,
+    });
+  },
+  Reactivity.mutation(['auth.users'])
 );
 
 class CreateUserInput extends AuthCreateUserInput.pipe(
@@ -51,7 +54,7 @@ export const useCreateUserForm = ({
   const account = useSelectedAccount();
   return useAppForm({
     schema: CreateUserInput,
-    mutation: createServerUserAtom(account),
+    onSubmit: ({ value }) => createServerUser({ account, input: value }),
     defaultValues: {
       name: '',
       username: '',

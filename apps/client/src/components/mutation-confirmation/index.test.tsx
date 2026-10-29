@@ -1,6 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Array, Context, Deferred, Effect, Layer, Schema } from 'effect';
-import { Atom } from 'effect/reactivity';
+import { Array, Deferred, Effect, Schema } from 'effect';
 import type { PropsWithChildren } from 'react';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -15,7 +14,10 @@ import type { ConfirmationComponent } from '#src/components/mutation-confirmatio
 vi.mock('@expo/ui', () => ({ Host: ({ children }: PropsWithChildren) => <View>{children}</View> }));
 vi.mock('#src/components/form', async () => {
   const hooks = await import('#src/components/form/hooks.tsx');
+  const { Layer } = await import('effect');
+  const { Atom } = await import('effect/reactivity');
   return hooks.createEffectSchemaFormHook({
+    runtime: Atom.runtime(Layer.empty),
     fieldContext: hooks.fieldContext,
     formContext: hooks.formContext,
     fieldComponents: {},
@@ -50,24 +52,17 @@ class OperationFailure extends Schema.TaggedError<
   OperationFailure,
   { readonly brand: unique symbol }
 >('voel/components/mutation-confirmation/index.test/OperationFailure')('OperationFailure', {}) {}
-class Operation extends Context.Service<Operation>()(
-  'voel/components/mutation-confirmation/index.test/Operation',
-  {
-    make: Effect.succeed({ execute: OperationFailure.make({}).pipe(Effect.asVoid) }),
-  }
-) {}
 
 it('reserves the host until cancellation finishes and opens the next request with fresh state', async () => {
   const execute = vi.fn(() => Effect.void);
   const onSuccess = vi.fn();
-  const runtime = Atom.runtime(Layer.succeed(Operation, { execute: Effect.suspend(execute) }));
-  const remove = runtime.fn(() => Operation.use((service) => service.execute));
+  const remove = () => Effect.suspend(execute);
   await render(
     <MutationConfirmationProvider>
       {Array.map(['Alice', 'Bob'], (name) => (
         <MutationConfirmation
           key={name}
-          mutation={remove}
+          onSubmit={remove}
           title={`Remove ${name}`}
           message="Remove this account"
           onFailure={() => 'Try again'}
@@ -109,8 +104,7 @@ it('reserves the host until cancellation finishes and opens the next request wit
 
 it('survives removal of its initiating subtree and navigates only after native dismissal', async () => {
   const completed = await Effect.runPromise(Deferred.make<undefined>());
-  const runtime = Atom.runtime(Layer.succeed(Operation, { execute: Deferred.await(completed) }));
-  const remove = runtime.fn(() => Operation.use((service) => service.execute));
+  const remove = () => Deferred.await(completed);
   const Screen = () => {
     const [saved, setSaved] = useState(true);
     const [navigated, setNavigated] = useState(false);
@@ -127,7 +121,7 @@ it('survives removal of its initiating subtree and navigates only after native d
         </Pressable>
         {saved ? (
           <MutationConfirmation
-            mutation={remove}
+            onSubmit={remove}
             title="Remove Alice"
             message="Remove this account"
             onFailure={() => 'Try again'}
@@ -167,15 +161,11 @@ it('survives removal of its initiating subtree and navigates only after native d
 
 it('keeps failure feedback and retry available after its trigger disappears', async () => {
   let attempts = 0;
-  const runtime = Atom.runtime(
-    Layer.succeed(Operation, {
-      execute: Effect.suspend(() => {
-        attempts += 1;
-        return attempts === 1 ? OperationFailure.make({}) : Effect.void;
-      }),
-    })
-  );
-  const remove = runtime.fn(() => Operation.use((service) => service.execute));
+  const remove = () =>
+    Effect.suspend(() => {
+      attempts += 1;
+      return attempts === 1 ? OperationFailure.make({}) : Effect.void;
+    });
   const Screen = () => {
     const [triggerVisible, setTriggerVisible] = useState(true);
     return (
@@ -189,7 +179,7 @@ it('keeps failure feedback and retry available after its trigger disappears', as
         </Pressable>
         {triggerVisible ? (
           <MutationConfirmation
-            mutation={remove}
+            onSubmit={remove}
             title="Remove Alice"
             message="Remove this account"
             onFailure={() => 'Could not remove Alice. Try again.'}

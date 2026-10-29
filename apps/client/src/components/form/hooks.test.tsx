@@ -1,6 +1,6 @@
 import { useSelector } from '@tanstack/react-form';
-import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Array, Effect, Layer, Option, Schema } from 'effect';
+import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { Array, Deferred, Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 import { Pressable, Text } from 'react-native';
@@ -31,6 +31,7 @@ class TestSubmitError extends Schema.TaggedError<
 }) {}
 
 const { useAppForm } = createEffectSchemaFormHook({
+  runtime,
   fieldComponents: { EmptyComponent },
   fieldContext,
   formComponents: { EmptyComponent },
@@ -83,28 +84,91 @@ const RetrySubmitButton = () => {
 };
 
 describe('createEffectSchemaFormHook', () => {
-  it('only allows schema-less forms for void-input mutations', () => {
+  it('correlates concurrent forms with their own Effect results', async () => {
+    vi.useRealTimers();
+    const first = await Effect.runPromise(Deferred.make<string>());
+    const second = await Effect.runPromise(Deferred.make<string>());
+    const onFirstSuccess = vi.fn();
+    const onSecondSuccess = vi.fn();
+    const submit = vi.fn(({ value }: { readonly value: TestFormInput }) =>
+      Deferred.await(value.name === 'first' ? first : second)
+    );
+    const TestForm = ({
+      name,
+      onSuccess,
+    }: {
+      readonly name: string;
+      readonly onSuccess: typeof onFirstSuccess;
+    }) => {
+      const form = useAppForm({
+        schema: TestFormInput,
+        defaultValues: { name },
+        onSubmit: submit,
+        onFailure: () => 'Failed',
+        onSuccess,
+      });
+      const submitting = useSelector(form.store, (state) => state.isSubmitting);
+      return (
+        <Pressable disabled={submitting} onPress={() => void form.handleSubmit()}>
+          <Text>{submitting ? `Saving ${name}` : `Save ${name}`}</Text>
+        </Pressable>
+      );
+    };
+    await render(
+      <>
+        <TestForm name="first" onSuccess={onFirstSuccess} />
+        <TestForm name="second" onSuccess={onSecondSuccess} />
+      </>
+    );
+    await fireEvent.press(screen.getByText('Save first'));
+    await fireEvent.press(screen.getByText('Save second'));
+    await waitFor(() => {
+      expect(submit).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(second, 'second result'));
+    });
+    await waitFor(() => {
+      expect(onSecondSuccess).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ value: { name: 'second' }, result: 'second result' })
+      );
+    });
+    expect(onFirstSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText('Saving first')).toBeOnTheScreen();
+
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(first, 'first result'));
+    });
+    await waitFor(() => {
+      expect(onFirstSuccess).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ value: { name: 'first' }, result: 'first result' })
+      );
+    });
+    expect(onSecondSuccess).toHaveBeenCalledOnce();
+  });
+
+  it('only allows schema-less forms for void-input submissions', () => {
     type DataOptions = Parameters<
       typeof useAppForm<TestFormInput, typeof TestFormInput.Encoded, undefined, never>
     >[0];
     type NoInputOptions = Parameters<typeof useAppForm<undefined, undefined, undefined, never>>[0];
-    expectTypeOf<Pick<DataOptions, 'mutation' | 'onFailure'>>().not.toExtend<DataOptions>();
-    expectTypeOf<Pick<NoInputOptions, 'mutation' | 'onFailure'>>().toExtend<NoInputOptions>();
+    expectTypeOf<Pick<DataOptions, 'onSubmit' | 'onFailure'>>().not.toExtend<DataOptions>();
+    expectTypeOf<Pick<NoInputOptions, 'onSubmit' | 'onFailure'>>().toExtend<NoInputOptions>();
   });
 
   it('submits void without validating TanStack values and can retry a failure', async () => {
     const inputs: Array<void> = [];
-    const mutation = runtime.fn((input: undefined) => {
+    const mutation = (input: Schema.Void['Type']) => {
       inputs.push(input);
       return inputs.length === 1
         ? TestSubmitError.make({ message: 'failed' })
         : Effect.succeed('removed');
-    });
+    };
     const onSuccess = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         onFailure: ({ error }) => error.message,
         onSuccess,
       });
@@ -145,14 +209,11 @@ describe('createEffectSchemaFormHook', () => {
   });
 
   it('stores a string mutation failure without invalidating the form', async () => {
-    const mutation = runtime.fn((_value: TestFormInput) =>
-      TestSubmitError.make({ message: 'failed' })
-    );
-
+    const failure = TestSubmitError.make({ message: 'failed' });
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: () => failure,
         schema: TestFormInput,
         onFailure: ({ error }) => error.message,
       });
@@ -188,19 +249,19 @@ describe('createEffectSchemaFormHook', () => {
 
   it('can retry after a failed submission and then submit successfully', async () => {
     let mutationAttempts = 0;
-    const mutation = runtime.fn((_value: TestFormInput) => {
+    const mutation = (_value: TestFormInput) => {
       mutationAttempts += 1;
 
       return mutationAttempts === 1
         ? TestSubmitError.make({ message: 'failed' })
         : Effect.succeed('saved');
-    });
+    };
     const onSuccess = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         schema: TestFormInput,
         onFailure: ({ error }) => error.message,
         onSuccess,
@@ -235,15 +296,12 @@ describe('createEffectSchemaFormHook', () => {
   });
 
   it('passes per-submit metadata to onFailure', async () => {
-    const mutation = runtime.fn((_value: TestFormInput) =>
-      TestSubmitError.make({ message: 'failed' })
-    );
     const onFailure = vi.fn(() => 'failed');
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: () => TestSubmitError.make({ message: 'failed' }),
         onSubmitMeta: { source: 'default' },
         schema: TestFormInput,
         onFailure,
@@ -275,13 +333,13 @@ describe('createEffectSchemaFormHook', () => {
     >('voel/components/form/hooks.test/DecodedFormInput')({
       count: Schema.FiniteFromString,
     }) {}
-    const mutation = runtime.fn((value: DecodedFormInput) => Effect.succeed(value.count * 2));
+    const mutation = (value: DecodedFormInput) => Effect.succeed(value.count * 2);
     const onSuccess = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { count: '4' },
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         schema: DecodedFormInput,
         onFailure: () => 'failed',
         onSuccess,
@@ -310,14 +368,14 @@ describe('createEffectSchemaFormHook', () => {
 
   it('propagates mutation defects without passing them to onFailure', async () => {
     const defect = new Error('mutation defect');
-    const mutation = runtime.fn((_value: TestFormInput) => Effect.die(defect));
+    const mutation = (_value: TestFormInput) => Effect.die(defect);
     const onFailure = vi.fn(() => 'mapped failure');
     const onRejected = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         schema: TestFormInput,
         onFailure,
       });

@@ -111,7 +111,13 @@ const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = 
   );
 };
 
-export const MutationConfirmation = <Input, Encoded, Success, Failure, EncodingServices = never>({
+export const MutationConfirmation = <
+  Input = void,
+  Encoded = void,
+  Success = void,
+  Failure = never,
+  EncodingServices = never,
+>({
   trigger,
   ...props
 }: MutationProps<Input, Encoded, Success, Failure, EncodingServices> & {
@@ -124,7 +130,7 @@ export const MutationConfirmation = <Input, Encoded, Success, Failure, EncodingS
   return trigger({
     busy: presentation.busy,
     open: () => {
-      // Capture the request (including its account-bound atom) when the user opens it.
+      // Capture the request (including its account-bound submission) when the user opens it.
       presentation.present((dismiss) => <PresentedMutation {...props} dismiss={dismiss} />);
     },
   });

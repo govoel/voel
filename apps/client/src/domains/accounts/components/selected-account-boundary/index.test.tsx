@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { RegistryContext, useAtom, useAtomValue } from '@effect/atom-react';
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import {
   Array,
@@ -15,12 +15,12 @@ import {
 } from 'effect';
 import { AsyncResult, AtomRegistry, Reactivity } from 'effect/reactivity';
 import type { PropsWithChildren, ReactNode } from 'react';
-import { Suspense, useState } from 'react';
+import { Suspense, useContext, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { activeUserProfileAtom } from '#src/app/accounts/(selected)/profile/index.ts';
-import { deleteServerUserAtom } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
+import { deleteServerUser } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
@@ -226,8 +226,10 @@ const AccountContent = () => {
   const account = useSelectedAccount();
   const profileQuery = activeUserProfileAtom(account);
   const profile = useAtomValue(profileQuery);
-  const mutationAtom = deleteServerUserAtom(account);
-  const [mutation, removeUser] = useAtom(mutationAtom);
+  const registry = useContext(RegistryContext);
+  const [mutation, setMutation] = useState<
+    AsyncResult.AsyncResult<void, Effect.Error<ReturnType<typeof deleteServerUser>>>
+  >(AsyncResult.initial());
   const [draft, setDraft] = useState('Fresh draft');
   return (
     <>
@@ -242,8 +244,19 @@ const AccountContent = () => {
       <Text>{mutation._tag}</Text>
       <Pressable
         role="button"
-        onPress={() => {
-          removeUser({ userId: AccountKey.fields.userId.make('missing-user') });
+        onPress={async () => {
+          const result = await Effect.runPromiseExit(
+            AtomRegistry.getResult(
+              registry,
+              AppRuntime.atom(
+                deleteServerUser({
+                  account,
+                  input: { userId: AccountKey.fields.userId.make('missing-user') },
+                })
+              )
+            )
+          );
+          setMutation(AsyncResult.fromExit(result));
         }}>
         <Text>Delete missing user</Text>
       </Pressable>

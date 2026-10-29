@@ -2,10 +2,10 @@ import { RegistryContext } from '@effect/atom-react';
 import type { ModalBottomSheet, ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Deferred, Effect, Option } from 'effect';
-import { AtomRegistry } from 'effect/reactivity';
-import type { Href } from 'expo-router';
+import { AtomRegistry, Reactivity } from 'effect/reactivity';
+import type { Redirect as ExpoRedirect } from 'expo-router/build/link/Redirect';
 import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
-import { useEffect, useImperativeHandle } from 'react';
+import { useImperativeHandle } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,22 +15,43 @@ import AndroidCreateUserScreen from '#src/app/accounts/(selected)/server/users/c
 import IosCreateUserScreen from '#src/app/accounts/(selected)/server/users/create/index.ios.tsx';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 const native = vi.hoisted(() => ({ hide: vi.fn<() => Promise<void>>() }));
-const navigation = vi.hoisted(() => ({ replace: vi.fn(), back: vi.fn() }));
+const navigation = vi.hoisted(() => {
+  let focused = true;
+  const listeners = { focus: new Set<() => void>(), blur: new Set<() => void>() };
+  return {
+    replace: vi.fn(),
+    back: vi.fn(),
+    isFocused: () => focused,
+    addListener: (event: keyof typeof listeners, listener: () => void) => {
+      listeners[event].add(listener);
+      return () => {
+        listeners[event].delete(listener);
+      };
+    },
+    setFocused: (value: boolean) => {
+      focused = value;
+      for (const listener of listeners[value ? 'focus' : 'blur']) {
+        listener();
+      }
+    },
+  };
+});
 
 // Keep the screen, validation, mutation and auth client real. Substitute native
 // controls, navigation and credential storage; requests stop at fetch.
 vi.mock('#src/runtime/index.ts', async () => {
   const { Effect: effect, Layer } = await import('effect');
-  const { Atom, Reactivity } = await import('effect/reactivity');
+  const { Atom, Reactivity: reactivity } = await import('effect/reactivity');
   const { AuthClientMap } = await import('#src/domains/accounts/auth-client/index.ts');
   const { AccountRepository } = await import('#src/domains/accounts/repository.ts');
   return {
     AppRuntime: Atom.runtime(
       AuthClientMap.layerNoDeps.pipe(
         Layer.provide([
-          Reactivity.layer,
+          reactivity.layer,
           Layer.mock(AccountRepository, {
             list: effect.succeed([]),
             getActiveKey: effect.succeedNone,
@@ -44,6 +65,7 @@ vi.mock('#src/runtime/index.ts', async () => {
   };
 });
 vi.mock('#src/components/form', async () => {
+  const { AppRuntime: runtime } = await import('#src/runtime/index.ts');
   const { createEffectSchemaFormHook, fieldContext, formContext, useFieldContext, useSubmitState } =
     await import('#src/components/form/hooks.tsx');
   const TextField = ({ label }: { readonly label: string }) => {
@@ -73,6 +95,7 @@ vi.mock('#src/components/form', async () => {
     );
   };
   return createEffectSchemaFormHook({
+    runtime,
     fieldContext,
     formContext,
     fieldComponents: { TextField, SecureField: TextField },
@@ -85,15 +108,16 @@ vi.mock('expo-constants', () => ({
 }));
 vi.mock('expo-linking', () => ({ createURL: (path: string) => `voel://${path}` }));
 vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove: () => void 0 }) }));
-vi.mock('expo-router', () => ({
+// Exercise Expo's real Redirect and focus effect; only the navigation driver is fake.
+vi.mock('expo-router/build/hooks/useRouter', () => ({ useRouter: () => navigation }));
+vi.mock('expo-router/build/useNavigation', () => ({ useNavigation: () => navigation }));
+vi.mock('expo-router/build/link/useLoadedNavigation', () => ({
+  useOptionalNavigation: () => navigation,
+}));
+vi.mock('expo-router', async () => ({
   Stack: { Screen: { Title: ({ children }: PropsWithChildren) => <Text>{children}</Text> } },
   useRouter: () => navigation,
-  Redirect: ({ href }: { readonly href: Href }) => {
-    useEffect(() => {
-      navigation.replace(href);
-    }, [href]);
-    return null;
-  },
+  ...(await vi.importActual<{ Redirect: typeof ExpoRedirect }>('expo-router/build/link/Redirect')),
 }));
 vi.mock('#src/components/form/layout', () => ({
   FormLayout: ({
@@ -149,10 +173,10 @@ const account = AccountKey.make({
   userId: AccountKey.fields.userId.make('admin'),
 });
 const userId = AuthUser.fields.id.make('created-user');
-const createdUserResponse = () =>
+const createdUserResponse = ({ id = userId }: { readonly id?: typeof userId } = {}) =>
   Response.json({
     user: {
-      id: userId,
+      id,
       name: 'Someone Else',
       username: 'someoneElse',
       email: 'someone@else.com',
@@ -176,10 +200,11 @@ const mockCreateUserRequest = ({
   return request;
 };
 const registries = new Set<AtomRegistry.AtomRegistry>();
+const cleanups = new Set<() => void>();
 const renderScreen = async ({ Screen }: { readonly Screen: typeof IosCreateUserScreen }) => {
   const registry = AtomRegistry.make();
   registries.add(registry);
-  return render(<Screen />, {
+  const view = await render(<Screen />, {
     wrapper: ({ children }: PropsWithChildren) => (
       <RegistryContext.Provider value={registry}>
         <SelectedAccountContext.Provider value={account}>
@@ -188,11 +213,12 @@ const renderScreen = async ({ Screen }: { readonly Screen: typeof IosCreateUserS
       </RegistryContext.Provider>
     ),
   });
+  return { ...view, registry };
 };
-const submitUser = async () => {
+const submitUser = async ({ username = 'someoneElse' }: { readonly username?: string } = {}) => {
   await fireEvent.changeText(screen.getByLabelText('Name'), 'Someone Else');
-  await fireEvent.changeText(screen.getByLabelText('Username'), 'someoneElse');
-  await fireEvent.changeText(screen.getByLabelText('Email'), 'someone@else.com');
+  await fireEvent.changeText(screen.getByLabelText('Username'), username);
+  await fireEvent.changeText(screen.getByLabelText('Email'), `${username}@example.test`);
   await fireEvent.changeText(screen.getByLabelText('Password'), 'a-password');
   await fireEvent.changeText(screen.getByLabelText('Confirm password'), 'a-password');
   await waitFor(() => {
@@ -202,11 +228,16 @@ const submitUser = async () => {
 };
 
 beforeEach(() => {
+  navigation.setFocused(true);
   native.hide.mockReset();
   navigation.replace.mockClear();
   navigation.back.mockClear();
 });
 afterEach(() => {
+  for (const cleanup of cleanups) {
+    cleanup();
+  }
+  cleanups.clear();
   for (const registry of registries) {
     registry.dispose();
   }
@@ -218,6 +249,92 @@ describe.each([
   { platform: 'iOS', CreateUserScreen: IosCreateUserScreen },
   { platform: 'Android', CreateUserScreen: AndroidCreateUserScreen },
 ])('$platform create-user completion', ({ platform, CreateUserScreen }) => {
+  it('finishes a departed form independently while a reopened form is saving', async () => {
+    const firstSaved = await Effect.runPromise(Deferred.make<Response>());
+    const secondSaved = await Effect.runPromise(Deferred.make<Response>());
+    const secondUserId = AuthUser.fields.id.make('second-created-user');
+    const request = mockCreateUserRequest({
+      respond: async () => Effect.runPromise(Deferred.await(firstSaved)),
+    });
+    request
+      .mockImplementationOnce(async () => Effect.runPromise(Deferred.await(firstSaved)))
+      .mockImplementationOnce(async () => Effect.runPromise(Deferred.await(secondSaved)));
+    native.hide.mockResolvedValue();
+    const view = await renderScreen({ Screen: CreateUserScreen });
+    const reactivity = await Effect.runPromise(
+      AtomRegistry.getResult(view.registry, AppRuntime.atom(Reactivity.Reactivity))
+    );
+    const invalidated = vi.fn<() => void>();
+    cleanups.add(reactivity.registerUnsafe(['auth.users'], invalidated));
+
+    await submitUser({ username: 'firstUser' });
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledOnce();
+    });
+    await view.rerender(<CreateUserScreen key="reopened" />);
+    await submitUser({ username: 'secondUser' });
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(firstSaved, createdUserResponse()));
+    });
+    await waitFor(() => {
+      expect(invalidated).toHaveBeenCalledOnce();
+    });
+    expect(screen.getByText('Saving')).toBeOnTheScreen();
+    expect(navigation.replace).not.toHaveBeenCalled();
+    expect(native.hide).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await Effect.runPromise(
+        Deferred.succeed(secondSaved, createdUserResponse({ id: secondUserId }))
+      );
+    });
+    await waitFor(() => {
+      expect(navigation.replace).toHaveBeenCalledExactlyOnceWith(
+        { pathname: '/accounts/server/users/[id]', params: { id: secondUserId } },
+        { relativeToDirectory: void 0, withAnchor: void 0 }
+      );
+    });
+    expect(invalidated).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits for focus before navigating from a completed, still-mounted screen', async () => {
+    const saved = await Effect.runPromise(Deferred.make<Response>());
+    const request = mockCreateUserRequest({
+      respond: async () => Effect.runPromise(Deferred.await(saved)),
+    });
+    native.hide.mockResolvedValue();
+    await renderScreen({ Screen: CreateUserScreen });
+    await submitUser();
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledOnce();
+    });
+    await act(() => {
+      navigation.setFocused(false);
+    });
+    expect(screen.getByLabelText('Name')).toBeOnTheScreen();
+
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(saved, createdUserResponse()));
+    });
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).toBeNull();
+    });
+    expect(navigation.replace).not.toHaveBeenCalled();
+    expect(navigation.back).not.toHaveBeenCalled();
+
+    await act(() => {
+      navigation.setFocused(true);
+    });
+    expect(navigation.replace).toHaveBeenCalledExactlyOnceWith(
+      { pathname: '/accounts/server/users/[id]', params: { id: userId } },
+      { relativeToDirectory: void 0, withAnchor: void 0 }
+    );
+  });
+
   it('preserves the next screen when a departed screen receives its response', async () => {
     const saved = await Effect.runPromise(Deferred.make<Response>());
     const request = mockCreateUserRequest({
@@ -254,10 +371,10 @@ describe.each([
       });
     }
     await waitFor(() => {
-      expect(navigation.replace).toHaveBeenCalledExactlyOnceWith({
-        pathname: '/accounts/server/users/[id]',
-        params: { id: userId },
-      });
+      expect(navigation.replace).toHaveBeenCalledExactlyOnceWith(
+        { pathname: '/accounts/server/users/[id]', params: { id: userId } },
+        { relativeToDirectory: void 0, withAnchor: void 0 }
+      );
     });
     expect(screen.queryByLabelText('Name')).toBeNull();
   });

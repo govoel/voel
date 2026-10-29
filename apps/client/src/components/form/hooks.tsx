@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { RegistryContext, useAtomMount, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
@@ -7,9 +7,11 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Array, Cause, Exit, Option, Predicate, Schema } from 'effect';
-import { Atom } from 'effect/reactivity';
-import { useMemo, useRef } from 'react';
+import { Array, Cause, Effect, Exit, Option, Predicate, Schema } from 'effect';
+import type { Scope } from 'effect';
+import { Atom, AtomRegistry } from 'effect/reactivity';
+import type { Reactivity } from 'effect/reactivity';
+import { useContext, useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -85,12 +87,12 @@ type EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> = Omit<
   readonly value: TType;
 };
 
-type EffectSchemaMutationSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta> =
+type EffectSchemaSubmitSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta> =
   EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> & {
     readonly result: TSuccess;
   };
 
-type EffectSchemaMutationFailureProps<TType, TEncoded, TFailure, TSubmitMeta> = Omit<
+type EffectSchemaSubmitFailureProps<TType, TEncoded, TFailure, TSubmitMeta> = Omit<
   EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
   'meta'
 > & {
@@ -104,21 +106,26 @@ type EffectSchemaFormOptions<
   TSuccess,
   TFailure,
   TEncodingServices,
-  TSubmitMeta = never,
+  TSubmitMeta,
+  TServices,
 > = Omit<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
-  readonly mutation: Atom.AtomResultFn<TType, TSuccess, TFailure>;
+  readonly onSubmit: (
+    props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>
+  ) => Effect.Effect<TSuccess, TFailure, TServices>;
   readonly onSuccess?: (
-    props: EffectSchemaMutationSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta>
+    props: EffectSchemaSubmitSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta>
   ) => void | Promise<void>;
   readonly onFailure: (
-    props: EffectSchemaMutationFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
+    props: EffectSchemaSubmitFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
   ) => string;
 } & (
     | { readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices> }
     | {
         readonly schema?: undefined;
-        readonly mutation: [TType] extends [Schema.Void['Type']]
-          ? Atom.AtomResultFn<TType, TSuccess, TFailure>
+        readonly onSubmit: [TType] extends [Schema.Void['Type']]
+          ? (
+              props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>
+            ) => Effect.Effect<TSuccess, TFailure, TServices>
           : never;
         readonly defaultValues?: undefined;
       }
@@ -147,6 +154,7 @@ const withoutFieldValidators = <
 ): FormWithoutFieldValidators<TForm> => form;
 
 export const createEffectSchemaFormHook = <
+  TServices,
   // TanStack's createFormHook preserves each component's actual props through an any-based
   // component map constraint. Keeping that shape here avoids collapsing AppField components
   // to ComponentType<unknown>, which would make <field.TextField /> unusable.
@@ -159,11 +167,13 @@ export const createEffectSchemaFormHook = <
   fieldContext: hookFieldContext,
   formComponents,
   formContext: hookFormContext,
+  runtime,
 }: {
   readonly fieldComponents: TFieldComponents;
   readonly fieldContext: Context<AnyFieldApi>;
   readonly formComponents: TFormComponents;
   readonly formContext: Context<AnyFormApi>;
+  readonly runtime: Atom.AtomRuntime<TServices>;
 }) => {
   const { useAppForm: useTanStackAppForm, ...formHook } = createFormHook({
     fieldComponents,
@@ -173,14 +183,14 @@ export const createEffectSchemaFormHook = <
   });
 
   const useAppForm = <
-    TType,
-    TEncoded,
-    TSuccess,
-    TFailure,
+    TType = void,
+    TEncoded = void,
+    TSuccess = void,
+    TFailure = never,
     TEncodingServices = never,
     TSubmitMeta = never,
   >({
-    mutation,
+    onSubmit,
     onFailure,
     onSuccess,
     schema,
@@ -191,9 +201,11 @@ export const createEffectSchemaFormHook = <
     TSuccess,
     TFailure,
     TEncodingServices,
-    TSubmitMeta
+    TSubmitMeta,
+    TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
   >) => {
-    const runMutation = useAtomSet(mutation, { mode: 'promiseExit' });
+    const registry = useContext(RegistryContext);
+    useAtomMount(runtime);
     const standardSchema = schema === void 0 ? void 0 : Schema.toStandardSchemaV1(schema);
 
     const form = useTanStackAppForm({
@@ -208,8 +220,7 @@ export const createEffectSchemaFormHook = <
       onSubmit: async (submitProps) => {
         setSubmissionError(Option.none());
 
-        // Schema-less forms are restricted to void-input mutations. TanStack's
-        // internal empty object is not mutation input.
+        // Schema-less forms have void input, not TanStack's internal empty object.
         const schemaResult =
           standardSchema === void 0
             ? // TypeScript cannot narrow a generic from the conditional schema option.
@@ -220,18 +231,27 @@ export const createEffectSchemaFormHook = <
           throw new Error('Unexpected invalid data during submit');
         }
 
-        const mutationExit = await runMutation(schemaResult.value);
+        // Each invocation has its own result and pins the runtime until it settles,
+        // even if its form unmounts. No shared mutation slot or React lifetime guard.
+        const submitExit = await Effect.runPromiseExit(
+          AtomRegistry.getResult(
+            registry,
+            runtime.atom(
+              Effect.suspend(() => onSubmit({ ...submitProps, value: schemaResult.value }))
+            )
+          )
+        );
 
-        if (Exit.isSuccess(mutationExit)) {
+        if (Exit.isSuccess(submitExit)) {
           await onSuccess?.({
             ...submitProps,
-            result: mutationExit.value,
+            result: submitExit.value,
             value: schemaResult.value,
           });
           return;
         }
 
-        const error = Exit.findErrorOption(mutationExit);
+        const error = Exit.findErrorOption(submitExit);
         if (Option.isSome(error)) {
           setSubmissionError(
             Option.some(
@@ -245,7 +265,7 @@ export const createEffectSchemaFormHook = <
           return;
         }
 
-        throw Cause.squash(mutationExit.cause);
+        throw Cause.squash(submitExit.cause);
       },
       validators: standardSchema === void 0 ? {} : { onChangeAsync: standardSchema },
     });

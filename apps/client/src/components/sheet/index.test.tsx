@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { Deferred, Effect, Layer, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
-import { useImperativeHandle, useMemo, useReducer } from 'react';
+import { useImperativeHandle, useReducer } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,13 +73,14 @@ vi.mock('@expo/ui/jetpack-compose', () => ({
   },
 }));
 
+const runtime = Atom.runtime(Layer.empty);
 const { useAppForm } = createEffectSchemaFormHook({
+  runtime,
   fieldContext,
   formContext,
   fieldComponents: {},
   formComponents: {},
 });
-const runtime = Atom.runtime(Layer.empty);
 
 const Editor = ({
   name,
@@ -93,9 +94,8 @@ const Editor = ({
   readonly onSaved: () => void;
 }) => {
   const [draft, changeDraft] = useReducer((_draft: string, text: string) => text, 'Fresh draft');
-  const mutation = useMemo(() => runtime.fn(() => operation), [operation]);
   const form = useAppForm({
-    mutation,
+    onSubmit: () => operation,
     onFailure: () => 'Failed',
     onSuccess: async () => {
       onSaved();

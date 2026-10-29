@@ -1,12 +1,10 @@
 import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
-import { Atom } from 'effect/reactivity';
 
 import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { ServerUrl } from '#src/domains/accounts/schema.ts';
-import { AppRuntime } from '#src/runtime/index.ts';
 
 class SetupServerAccountInput extends AuthSignUpInput.pipe(
   Schema.fieldsAssign({
@@ -20,15 +18,11 @@ class SetupServerAccountInput extends AuthSignUpInput.pipe(
   })
 ) {}
 
-const setupServerWithAccountAtom = AppRuntime.fn(
-  (input: Parameters<typeof AccountManager.Service.setupServerWithAccount>[0]) =>
-    AccountManager.pipe(Effect.flatMap((manager) => manager.setupServerWithAccount(input)))
-).pipe(Atom.withLabel('setupServerWithAccountAtom'));
-
 export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Promise<void> }) =>
   useAppForm({
     schema: SetupServerAccountInput,
-    mutation: setupServerWithAccountAtom,
+    onSubmit: ({ value }) =>
+      AccountManager.pipe(Effect.flatMap((manager) => manager.setupServerWithAccount(value))),
     defaultValues: { serverUrl: '', name: '', email: '', username: '', password: '' },
     onFailure: ({ error }) =>
       Match.value(error).pipe(
