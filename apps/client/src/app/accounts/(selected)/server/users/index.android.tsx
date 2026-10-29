@@ -4,9 +4,9 @@ import PersonAdd from '@expo/material-symbols/person_add.xml';
 import { Box, Column, FloatingActionButton, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxSize, onSizeChanged, padding, semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
-import { AsyncResult } from 'effect/reactivity';
+import { AsyncResult, Atom } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 import { listUsersAtom } from '#src/app/accounts/(selected)/server/users/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
@@ -26,7 +26,7 @@ export default function ServerUsersScreen() {
   const [users, loadMoreUsers] = useAtom(query);
   const refresh = useAtomRefresh(query);
   const { onSurfaceVariant } = useMaterialColors();
-  const [createActionHeight, setCreateActionHeight] = useState(56);
+  const [createActionHeight, setCreateActionHeight] = useAtom(useMemo(() => Atom.make(56), []));
 
   return (
     <AndroidAccountsSheet>
