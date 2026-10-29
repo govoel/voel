@@ -1,5 +1,5 @@
 import { Option } from 'effect';
-import { useCallback, useRef } from 'react';
+import { useRef } from 'react';
 import type { ComponentProps } from 'react';
 
 import type { Sheet } from '#src/components/sheet';
@@ -9,7 +9,7 @@ export const useSheetDismissal = ({
 }: Pick<ComponentProps<typeof Sheet>, 'onDismissed'>) => {
   // Completion belongs to this opening, not a later render or presentation.
   const completion = useRef<Option.Option<typeof onDismissed>>(Option.some(onDismissed));
-  return useCallback(() => {
+  return () => {
     const complete = completion.current;
     completion.current = Option.none();
     Option.match(complete, {
@@ -18,5 +18,5 @@ export const useSheetDismissal = ({
         callback();
       },
     });
-  }, []);
+  };
 };

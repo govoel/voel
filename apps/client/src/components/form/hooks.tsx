@@ -194,10 +194,7 @@ export const createEffectSchemaFormHook = <
     TSubmitMeta
   >) => {
     const runMutation = useAtomSet(mutation, { mode: 'promiseExit' });
-    const standardSchema = useMemo(
-      () => (schema === void 0 ? void 0 : Schema.toStandardSchemaV1(schema)),
-      [schema]
-    );
+    const standardSchema = schema === void 0 ? void 0 : Schema.toStandardSchemaV1(schema);
 
     const form = useTanStackAppForm({
       ...props,
