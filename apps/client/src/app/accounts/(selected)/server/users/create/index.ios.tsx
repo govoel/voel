@@ -1,6 +1,10 @@
 import { Host } from '@expo/ui/swift-ui';
 import { buttonStyle, frame } from '@expo/ui/swift-ui/modifiers';
-import { Stack, useRouter } from 'expo-router';
+import { Option } from 'effect';
+import { Redirect, Stack } from 'expo-router';
+import { useReducer } from 'react';
+
+import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { useCreateUserForm } from '#src/app/accounts/(selected)/server/users/create/index.ts';
 import { FormLayout } from '#src/components/form/layout';
@@ -8,12 +12,25 @@ import { Text } from '#src/components/text';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 
 export default function CreateUserScreen() {
-  const router = useRouter();
+  const [createdUserId, userCreated] = useReducer(
+    (
+      _current: Option.Option<typeof AuthUser.fields.id.Type>,
+      userId: typeof AuthUser.fields.id.Type
+    ) => Option.some(userId),
+    Option.none()
+  );
   const form = useCreateUserForm({
     onSuccess: ({ userId }) => {
-      router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
+      userCreated(userId);
     },
   });
+  if (Option.isSome(createdUserId)) {
+    return (
+      <Redirect
+        href={{ pathname: '/accounts/server/users/[id]', params: { id: createdUserId.value } }}
+      />
+    );
+  }
   return (
     <>
       <Stack.Screen.Title>Create User</Stack.Screen.Title>

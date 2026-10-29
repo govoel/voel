@@ -13,16 +13,16 @@ import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
 
 import {
   accountsWithActiveAccount,
   removeAccountAtom,
   removeAccountFailureMessage,
 } from '#src/app/accounts/index.ts';
-import { ControlledSheet } from '#src/components/controlled-sheet';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
+import { Sheet } from '#src/components/sheet';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import { AccountPicker } from '#src/domains/accounts/components/account-picker';
@@ -76,7 +76,8 @@ export default function AccountsScreen() {
   const router = useRouter();
   const accountsSheet = useAtomSuspense(accountsSheetAtom);
   const sessionExpired = accountsSheetIsInvalidSession(accountsSheet.value);
-  const [isSwitchAccountPresented, setIsSwitchAccountPresented] = useState(false);
+  const [switchAccountSelection, dispatchSwitchAccount, SwitchAccountEvent] =
+    useSheetSelection<'account'>();
 
   const accounts = useAtomValue(accountsWithActiveAccount);
   const refreshAccounts = useAtomRefresh(accountsWithActiveAccount);
@@ -107,7 +108,7 @@ export default function AccountsScreen() {
                       <Button
                         modifiers={[tint('primary')]}
                         onPress={() => {
-                          setIsSwitchAccountPresented(true);
+                          dispatchSwitchAccount(SwitchAccountEvent.Open({ selection: 'account' }));
                         }}>
                         <HStack alignment="center" spacing={Spacing.two}>
                           {Option.match(activeAccount, {
@@ -240,13 +241,14 @@ export default function AccountsScreen() {
                   })}
                 </AccountsList>
 
-                <ControlledSheet
-                  presented={isSwitchAccountPresented}
-                  onDismiss={() => {
-                    setIsSwitchAccountPresented(false);
-                  }}>
-                  {({ close }) => <AccountPicker accounts={accountList} onSelected={close} />}
-                </ControlledSheet>
+                {Option.isSome(switchAccountSelection) ? (
+                  <Sheet
+                    onDismissed={() => {
+                      dispatchSwitchAccount(SwitchAccountEvent.Dismissed());
+                    }}>
+                    {({ dismiss }) => <AccountPicker accounts={accountList} onSelected={dismiss} />}
+                  </Sheet>
+                ) : null}
               </>
             ),
             onError: () => (

@@ -1,7 +1,10 @@
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
-import { useRouter } from 'expo-router';
-import { useRef } from 'react';
+import { Option } from 'effect';
+import { Redirect } from 'expo-router';
+import { useReducer, useRef } from 'react';
+
+import type { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { useCreateUserForm } from '#src/app/accounts/(selected)/server/users/create/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
@@ -10,14 +13,31 @@ import { Text } from '#src/components/text';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 
 export default function CreateUserScreen() {
-  const router = useRouter();
   const sheetRef = useRef<ModalBottomSheetRef>(null);
+  const [createdUserId, userCreated] = useReducer(
+    (
+      _current: Option.Option<typeof AuthUser.fields.id.Type>,
+      userId: typeof AuthUser.fields.id.Type
+    ) => Option.some(userId),
+    Option.none()
+  );
   const form = useCreateUserForm({
     onSuccess: async ({ userId }) => {
-      await sheetRef.current?.hide();
-      router.replace({ pathname: '/accounts/server/users/[id]', params: { id: userId } });
+      const sheet = sheetRef.current;
+      if (sheet === null) {
+        return;
+      }
+      await sheet.hide();
+      userCreated(userId);
     },
   });
+  if (Option.isSome(createdUserId)) {
+    return (
+      <Redirect
+        href={{ pathname: '/accounts/server/users/[id]', params: { id: createdUserId.value } }}
+      />
+    );
+  }
   return (
     <AndroidAccountsSheet ref={sheetRef}>
       <form.AppForm>

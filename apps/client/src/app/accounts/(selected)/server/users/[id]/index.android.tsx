@@ -2,12 +2,11 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Column, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Match } from 'effect';
+import { Match, Option } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
 import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
@@ -23,12 +22,13 @@ import {
   userDetails,
 } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Sheet } from '#src/components/sheet';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
@@ -230,7 +230,9 @@ const LoadedUser = ({
   const account = useSelectedAccount();
   const router = useRouter();
   const details = userDetails({ user });
-  const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<
+    'role' | 'profile' | 'password'
+  >();
   const colors = useMaterialColors();
   return (
     <>
@@ -246,7 +248,7 @@ const LoadedUser = ({
                 index={0}
                 count={4}
                 onClick={() => {
-                  setEditor('profile');
+                  dispatchEditor(EditorEvent.Open({ selection: 'profile' }));
                 }}>
                 <SegmentedListItem.HeadlineContent>
                   <Text>Edit profile</Text>
@@ -259,7 +261,7 @@ const LoadedUser = ({
                 index={1}
                 count={4}
                 onClick={() => {
-                  setEditor('role');
+                  dispatchEditor(EditorEvent.Open({ selection: 'role' }));
                 }}>
                 <SegmentedListItem.HeadlineContent>
                   <Text>Change role</Text>
@@ -272,7 +274,7 @@ const LoadedUser = ({
                 index={2}
                 count={4}
                 onClick={() => {
-                  setEditor('password');
+                  dispatchEditor(EditorEvent.Open({ selection: 'password' }));
                 }}>
                 <SegmentedListItem.HeadlineContent>
                   <Text>Set password</Text>
@@ -328,21 +330,27 @@ const LoadedUser = ({
           </Column>
         )}
       </UserList>
-      <ControlledSheet
-        presented={editor !== null}
-        onDismiss={() => {
-          setEditor(null);
-        }}>
-        {({ close }) =>
-          Match.value(editor).pipe(
-            Match.when('role', () => <UserRoleForm user={user} onSuccess={close} />),
-            Match.when('profile', () => <UserProfileForm user={user} onSuccess={close} />),
-            Match.when('password', () => <UserPasswordForm userId={user.id} onSuccess={close} />),
-            Match.when(null, () => null),
-            Match.exhaustive
-          )
-        }
-      </ControlledSheet>
+      {Option.match(editorSelection, {
+        onNone: () => null,
+        onSome: (editor) => (
+          <Sheet
+            key={editor}
+            onDismissed={() => {
+              dispatchEditor(EditorEvent.Dismissed());
+            }}>
+            {({ dismiss }) =>
+              Match.value(editor).pipe(
+                Match.when('role', () => <UserRoleForm user={user} onSuccess={dismiss} />),
+                Match.when('profile', () => <UserProfileForm user={user} onSuccess={dismiss} />),
+                Match.when('password', () => (
+                  <UserPasswordForm userId={user.id} onSuccess={dismiss} />
+                )),
+                Match.exhaustive
+              )
+            }
+          </Sheet>
+        ),
+      })}
     </>
   );
 };

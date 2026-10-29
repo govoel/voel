@@ -8,7 +8,7 @@ import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import {
   activeUserProfileAtom,
@@ -18,12 +18,13 @@ import {
   useUserProfileForm,
 } from '#src/app/accounts/(selected)/profile/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Sheet } from '#src/components/sheet';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
@@ -95,7 +96,9 @@ const LoadedProfile = ({
   >;
 }) => {
   const account = useSelectedAccount();
-  const [editor, setEditor] = useState<'profile' | 'password' | null>(null);
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<
+    'profile' | 'password'
+  >();
   const colors = useMaterialColors();
 
   return (
@@ -114,7 +117,7 @@ const LoadedProfile = ({
             index={0}
             count={2}
             onClick={() => {
-              setEditor('profile');
+              dispatchEditor(EditorEvent.Open({ selection: 'profile' }));
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Edit profile</Text>
@@ -127,7 +130,7 @@ const LoadedProfile = ({
             index={1}
             count={2}
             onClick={() => {
-              setEditor('password');
+              dispatchEditor(EditorEvent.Open({ selection: 'password' }));
             }}>
             <SegmentedListItem.HeadlineContent>
               <Text>Change password</Text>
@@ -159,22 +162,26 @@ const LoadedProfile = ({
         </SegmentedList>
       </ProfileList>
 
-      <ControlledSheet
-        presented={editor !== null}
-        onDismiss={() => {
-          setEditor(null);
-        }}>
-        {({ close }) =>
-          Match.value(editor).pipe(
-            Match.when('profile', () => (
-              <UserProfileEditor profile={{ name, username }} onSuccess={close} />
-            )),
-            Match.when('password', () => <PasswordForm onSuccess={close} />),
-            Match.when(null, () => null),
-            Match.exhaustive
-          )
-        }
-      </ControlledSheet>
+      {Option.match(editorSelection, {
+        onNone: () => null,
+        onSome: (editor) => (
+          <Sheet
+            key={editor}
+            onDismissed={() => {
+              dispatchEditor(EditorEvent.Dismissed());
+            }}>
+            {({ dismiss }) =>
+              Match.value(editor).pipe(
+                Match.when('profile', () => (
+                  <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
+                )),
+                Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
+                Match.exhaustive
+              )
+            }
+          </Sheet>
+        ),
+      })}
     </>
   );
 };

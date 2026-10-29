@@ -1,11 +1,10 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { buttonStyle, disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
-import { Match } from 'effect';
+import { Match, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
 
 import type { AuthAdminUserDetails, AuthUser } from '@repo/auth-api/shared.ts';
 import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
@@ -20,11 +19,12 @@ import {
   useUserRoleForm,
   userDetails,
 } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
-import { ControlledSheet } from '#src/components/controlled-sheet';
 import { DetailRows } from '#src/components/detail-rows';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
+import { Sheet } from '#src/components/sheet';
+import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
@@ -201,7 +201,9 @@ const LoadedUser = ({
   const router = useRouter();
   const details = userDetails({ user });
 
-  const [editor, setEditor] = useState<'role' | 'profile' | 'password' | null>(null);
+  const [editorSelection, dispatchEditor, EditorEvent] = useSheetSelection<
+    'role' | 'profile' | 'password'
+  >();
   return (
     <>
       <UserList>
@@ -214,21 +216,21 @@ const LoadedUser = ({
             <Section>
               <Button
                 onPress={() => {
-                  setEditor('profile');
+                  dispatchEditor(EditorEvent.Open({ selection: 'profile' }));
                 }}>
                 <Text>Edit profile</Text>
               </Button>
 
               <Button
                 onPress={() => {
-                  setEditor('role');
+                  dispatchEditor(EditorEvent.Open({ selection: 'role' }));
                 }}>
                 <Text>Change role</Text>
               </Button>
 
               <Button
                 onPress={() => {
-                  setEditor('password');
+                  dispatchEditor(EditorEvent.Open({ selection: 'password' }));
                 }}>
                 <Text>Set password</Text>
               </Button>
@@ -271,21 +273,27 @@ const LoadedUser = ({
         )}
       </UserList>
 
-      <ControlledSheet
-        presented={editor !== null}
-        onDismiss={() => {
-          setEditor(null);
-        }}>
-        {({ close }) =>
-          Match.value(editor).pipe(
-            Match.when('role', () => <UserRoleForm user={user} onSuccess={close} />),
-            Match.when('profile', () => <UserProfileForm user={user} onSuccess={close} />),
-            Match.when('password', () => <UserPasswordForm userId={user.id} onSuccess={close} />),
-            Match.when(null, () => null),
-            Match.exhaustive
-          )
-        }
-      </ControlledSheet>
+      {Option.match(editorSelection, {
+        onNone: () => null,
+        onSome: (editor) => (
+          <Sheet
+            key={editor}
+            onDismissed={() => {
+              dispatchEditor(EditorEvent.Dismissed());
+            }}>
+            {({ dismiss }) =>
+              Match.value(editor).pipe(
+                Match.when('role', () => <UserRoleForm user={user} onSuccess={dismiss} />),
+                Match.when('profile', () => <UserProfileForm user={user} onSuccess={dismiss} />),
+                Match.when('password', () => (
+                  <UserPasswordForm userId={user.id} onSuccess={dismiss} />
+                )),
+                Match.exhaustive
+              )
+            }
+          </Sheet>
+        ),
+      })}
     </>
   );
 };

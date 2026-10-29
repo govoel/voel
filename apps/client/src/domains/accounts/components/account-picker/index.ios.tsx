@@ -20,7 +20,7 @@ export const AccountPicker = ({
   onSelected,
 }: {
   readonly accounts: ReadonlyArray<typeof Account.Type>;
-  readonly onSelected: () => Promise<void>;
+  readonly onSelected: () => void | Promise<void>;
 }) => {
   const [setActiveAccount, selectAccount] = useSetActiveAccount();
   return (

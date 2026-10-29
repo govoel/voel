@@ -79,7 +79,7 @@ export const useUserProfileForm = ({
   onSuccess,
   profile,
 }: {
-  onSuccess: () => Promise<void>;
+  onSuccess: () => void | Promise<void>;
   profile: typeof UserProfileUpdateInput.Encoded;
 }) => {
   const account = useSelectedAccount();
