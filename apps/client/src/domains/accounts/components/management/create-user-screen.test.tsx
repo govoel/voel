@@ -1,45 +1,90 @@
+import { RegistryContext } from '@effect/atom-react';
 import type { ModalBottomSheet, ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect } from 'effect';
+import { Deferred, Effect, Option } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 import { useEffect, useImperativeHandle } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthUser } from '@repo/auth-api/shared.ts';
 
 import AndroidCreateUserScreen from '#src/app/accounts/(selected)/server/users/create/index.android.tsx';
 import IosCreateUserScreen from '#src/app/accounts/(selected)/server/users/create/index.ios.tsx';
-import type { useCreateUserForm } from '#src/app/accounts/(selected)/server/users/create/index.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
+import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
 
-const operation = vi.hoisted(() => ({
-  submit: vi.fn<() => Promise<{ readonly userId: typeof AuthUser.fields.id.Type }>>(),
-  delivered: vi.fn(),
-}));
 const native = vi.hoisted(() => ({ hide: vi.fn<() => Promise<void>>() }));
 const navigation = vi.hoisted(() => ({ replace: vi.fn(), back: vi.fn() }));
 
-// Only the domain operation and native rendering/navigation boundaries are mocked.
-vi.mock('#src/app/accounts/(selected)/server/users/create/index.ts', () => ({
-  useCreateUserForm: ({ onSuccess }: Parameters<typeof useCreateUserForm>[0]) => ({
-    AppForm: ({ children }: PropsWithChildren) => <View>{children}</View>,
-    AppField: () => null,
-    SubmitButton: ({ children }: PropsWithChildren) => (
+// Keep the screen, validation, mutation and auth client real. Substitute native
+// controls, navigation and credential storage; requests stop at fetch.
+vi.mock('#src/runtime/index.ts', async () => {
+  const { Effect: effect, Layer } = await import('effect');
+  const { Atom, Reactivity } = await import('effect/reactivity');
+  const { AuthClientMap } = await import('#src/domains/accounts/auth-client/index.ts');
+  const { AccountRepository } = await import('#src/domains/accounts/repository.ts');
+  return {
+    AppRuntime: Atom.runtime(
+      AuthClientMap.layerNoDeps.pipe(
+        Layer.provide([
+          Reactivity.layer,
+          Layer.mock(AccountRepository, {
+            list: effect.succeed([]),
+            getActiveKey: effect.succeedNone,
+            readAuthStorage: () => effect.succeed({}),
+            writeAuthStorageItem: () => effect.void,
+            findByKey: () => effect.succeedNone,
+          }),
+        ])
+      )
+    ),
+  };
+});
+vi.mock('#src/components/form', async () => {
+  const { createEffectSchemaFormHook, fieldContext, formContext, useFieldContext, useSubmitState } =
+    await import('#src/components/form/hooks.tsx');
+  const TextField = ({ label }: { readonly label: string }) => {
+    const field = useFieldContext<string>();
+    return (
+      <TextInput
+        accessibilityLabel={label}
+        value={field.state.value}
+        onChangeText={field.handleChange}
+      />
+    );
+  };
+  const SubmitButton = ({ children }: PropsWithChildren) => {
+    const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+    return (
       <Pressable
         role="button"
-        onPress={() => {
-          void operation.submit().then(async (result) => {
-            await onSuccess(result);
-            operation.delivered();
-            return void 0;
-          });
-        }}>
+        disabled={!canSubmit || isSubmitting}
+        onPress={() => void form.handleSubmit()}>
         {children}
+        {isSubmitting ? <Text>Saving</Text> : null}
+        {Option.match(errorMessage, {
+          onNone: () => null,
+          onSome: (message) => <Text>{message}</Text>,
+        })}
       </Pressable>
-    ),
-  }),
+    );
+  };
+  return createEffectSchemaFormHook({
+    fieldContext,
+    formContext,
+    fieldComponents: { TextField, SecureField: TextField },
+    formComponents: { SubmitButton },
+  });
+});
+vi.mock('expo-device', () => ({ deviceName: 'Test phone', modelName: 'Test phone' }));
+vi.mock('expo-constants', () => ({
+  default: { expoConfig: { scheme: 'voel' }, platform: { scheme: 'voel' } },
 }));
+vi.mock('expo-linking', () => ({ createURL: (path: string) => `voel://${path}` }));
+vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove: () => void 0 }) }));
 vi.mock('expo-router', () => ({
   Stack: { Screen: { Title: ({ children }: PropsWithChildren) => <Text>{children}</Text> } },
   useRouter: () => navigation,
@@ -99,51 +144,110 @@ vi.mock('@expo/ui/jetpack-compose', () => ({
   },
 }));
 
+const account = AccountKey.make({
+  serverUrl: AccountKey.fields.serverUrl.make('https://example.test'),
+  userId: AccountKey.fields.userId.make('admin'),
+});
+const userId = AuthUser.fields.id.make('created-user');
+const createdUserResponse = () =>
+  Response.json({
+    user: {
+      id: userId,
+      name: 'Someone Else',
+      username: 'someoneElse',
+      email: 'someone@else.com',
+      role: 'under18',
+      image: null,
+      createdAt: '1970-01-01T00:00:00.000Z',
+      updatedAt: '1970-01-01T00:00:00.000Z',
+    },
+  });
+const mockCreateUserRequest = ({
+  respond,
+}: {
+  readonly respond: () => Response | Promise<Response>;
+}) => {
+  const request = vi.fn(respond);
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
+    new URL(input instanceof Request ? input.url : input).pathname === '/api/auth/admin/create-user'
+      ? request()
+      : Response.json(null)
+  );
+  return request;
+};
+const registries = new Set<AtomRegistry.AtomRegistry>();
+const renderScreen = async ({ Screen }: { readonly Screen: typeof IosCreateUserScreen }) => {
+  const registry = AtomRegistry.make();
+  registries.add(registry);
+  return render(<Screen />, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <RegistryContext.Provider value={registry}>
+        <SelectedAccountContext.Provider value={account}>
+          {children}
+        </SelectedAccountContext.Provider>
+      </RegistryContext.Provider>
+    ),
+  });
+};
+const submitUser = async () => {
+  await fireEvent.changeText(screen.getByLabelText('Name'), 'Someone Else');
+  await fireEvent.changeText(screen.getByLabelText('Username'), 'someoneElse');
+  await fireEvent.changeText(screen.getByLabelText('Email'), 'someone@else.com');
+  await fireEvent.changeText(screen.getByLabelText('Password'), 'a-password');
+  await fireEvent.changeText(screen.getByLabelText('Confirm password'), 'a-password');
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: /Create user/u })).toBeEnabled();
+  });
+  await fireEvent.press(screen.getByRole('button', { name: /Create user/u }));
+};
+
 beforeEach(() => {
-  operation.submit.mockReset();
-  operation.delivered.mockClear();
   native.hide.mockReset();
   navigation.replace.mockClear();
   navigation.back.mockClear();
+});
+afterEach(() => {
+  for (const registry of registries) {
+    registry.dispose();
+  }
+  registries.clear();
+  vi.restoreAllMocks();
 });
 
 describe.each([
   { platform: 'iOS', CreateUserScreen: IosCreateUserScreen },
   { platform: 'Android', CreateUserScreen: AndroidCreateUserScreen },
 ])('$platform create-user completion', ({ platform, CreateUserScreen }) => {
-  it('does not navigate when a departed screen receives its response', async () => {
-    const saved = await Effect.runPromise(
-      Deferred.make<{ readonly userId: typeof AuthUser.fields.id.Type }>()
-    );
-    operation.submit.mockImplementation(async () => Effect.runPromise(Deferred.await(saved)));
-    const view = await render(<CreateUserScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: /Create user/u }));
-    expect(operation.submit).toHaveBeenCalledOnce();
+  it('preserves the next screen when a departed screen receives its response', async () => {
+    const saved = await Effect.runPromise(Deferred.make<Response>());
+    const request = mockCreateUserRequest({
+      respond: async () => Effect.runPromise(Deferred.await(saved)),
+    });
+    const view = await renderScreen({ Screen: CreateUserScreen });
+    await submitUser();
+    await waitFor(() => {
+      expect(request).toHaveBeenCalled();
+    });
     await view.rerender(<Text>Another screen</Text>);
     await act(async () => {
-      await Effect.runPromise(
-        Deferred.succeed(saved, { userId: AuthUser.fields.id.make('created-user') })
-      );
-    });
-    await waitFor(() => {
-      expect(operation.delivered).toHaveBeenCalledOnce();
+      await Effect.runPromise(Deferred.succeed(saved, createdUserResponse()));
     });
     expect(screen.getByText('Another screen')).toBeOnTheScreen();
     expect(navigation.replace).not.toHaveBeenCalled();
-    expect(native.hide).not.toHaveBeenCalled();
+    expect(navigation.back).not.toHaveBeenCalled();
   });
 
-  it('redirects on success, after native dismissal on Android', async () => {
-    const userId = AuthUser.fields.id.make('created-user');
+  it('opens the created user, waiting for native dismissal on Android', async () => {
     const dismissed = await Effect.runPromise(Deferred.make<undefined>());
-    operation.submit.mockResolvedValue({ userId });
+    mockCreateUserRequest({ respond: createdUserResponse });
     native.hide.mockImplementation(async () => Effect.runPromise(Deferred.await(dismissed)));
-    await render(<CreateUserScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: /Create user/u }));
+    await renderScreen({ Screen: CreateUserScreen });
+    await submitUser();
     if (platform === 'Android') {
       await waitFor(() => {
-        expect(native.hide).toHaveBeenCalledOnce();
+        expect(native.hide).toHaveBeenCalled();
       });
+      expect(screen.getByText('Saving')).toBeOnTheScreen();
       expect(navigation.replace).not.toHaveBeenCalled();
       await act(async () => {
         await Effect.runPromise(Deferred.succeed(dismissed, void 0));
@@ -155,26 +259,24 @@ describe.each([
         params: { id: userId },
       });
     });
-    expect(operation.delivered).toHaveBeenCalledOnce();
+    expect(screen.queryByLabelText('Name')).toBeNull();
   });
 });
 
-it('does not navigate when the Android screen leaves during native dismissal', async () => {
+it('preserves the next screen when Android finishes dismissing the departed screen', async () => {
   const dismissed = await Effect.runPromise(Deferred.make<undefined>());
-  operation.submit.mockResolvedValue({ userId: AuthUser.fields.id.make('created-user') });
+  mockCreateUserRequest({ respond: createdUserResponse });
   native.hide.mockImplementation(async () => Effect.runPromise(Deferred.await(dismissed)));
-  const view = await render(<AndroidCreateUserScreen />);
-  await fireEvent.press(screen.getByRole('button', { name: /Create user/u }));
+  const view = await renderScreen({ Screen: AndroidCreateUserScreen });
+  await submitUser();
   await waitFor(() => {
-    expect(native.hide).toHaveBeenCalledOnce();
+    expect(native.hide).toHaveBeenCalled();
   });
   await view.rerender(<Text>Another screen</Text>);
   await act(async () => {
     await Effect.runPromise(Deferred.succeed(dismissed, void 0));
   });
-  await waitFor(() => {
-    expect(operation.delivered).toHaveBeenCalledOnce();
-  });
   expect(screen.getByText('Another screen')).toBeOnTheScreen();
   expect(navigation.replace).not.toHaveBeenCalled();
+  expect(navigation.back).not.toHaveBeenCalled();
 });

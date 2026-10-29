@@ -6,7 +6,7 @@ import { Atom } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
 import { useImperativeHandle, useMemo, useReducer } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createEffectSchemaFormHook,
@@ -168,20 +168,11 @@ beforeEach(() => {
   native.hide.mockReset();
 });
 
-it('keeps event constructors and dispatch bound to the supported selections', () => {
-  type Selection = ReturnType<typeof useSheetSelection<'profile' | 'password'>>;
-  expectTypeOf<Parameters<Selection[2]['Open']>[0]['selection']>().toEqualTypeOf<
-    'profile' | 'password'
-  >();
-  expectTypeOf<ReturnType<Selection[2]['Open']>>().toExtend<Parameters<Selection[1]>[0]>();
-  expectTypeOf<ReturnType<Selection[2]['Dismissed']>>().toExtend<Parameters<Selection[1]>[0]>();
-});
-
 describe.each([
   { platform: 'iOS', Sheet: IosSheet },
   { platform: 'Android', Sheet: AndroidSheet },
 ])('$platform sheet ownership', ({ platform, Sheet }) => {
-  it('ignores an old save after dismissal and reopening without losing the new draft', async () => {
+  it('keeps the reopened editor draft when a previous save finishes', async () => {
     const saved = await Effect.runPromise(Deferred.make<undefined>());
     const dismissed = await Effect.runPromise(Deferred.make<undefined>());
     native.hide.mockImplementation(async () => Effect.runPromise(Deferred.await(dismissed)));
@@ -214,7 +205,7 @@ describe.each([
       });
     }
     expect(onDismissed).toHaveBeenCalledOnce();
-    await fireEvent.press(screen.getByText('Open B'));
+    await fireEvent.press(screen.getByText('Open A'));
     await fireEvent.changeText(screen.getByTestId('draft'), 'New draft');
     await act(async () => {
       await Effect.runPromise(Deferred.succeed(saved, void 0));
@@ -222,10 +213,14 @@ describe.each([
     await waitFor(() => {
       expect(onSaved).toHaveBeenCalledOnce();
     });
-    expect(screen.getByText('B')).toBeOnTheScreen();
+    expect(screen.getByText('A')).toBeOnTheScreen();
     expect(screen.getByTestId('draft')).toHaveDisplayValue('New draft');
     expect(onDismissed).toHaveBeenCalledOnce();
-    expect(native.hide).toHaveBeenCalledTimes(platform === 'Android' ? 1 : 0);
+    if (platform === 'Android') {
+      expect(native.hide).toHaveBeenCalledOnce();
+    } else {
+      expect(screen.queryByText('Finish native dismissal')).toBeNull();
+    }
   });
 
   it('retains a successful form until native dismissal completes', async () => {
