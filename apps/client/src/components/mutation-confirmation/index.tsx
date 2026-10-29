@@ -1,6 +1,6 @@
 import { Host } from '@expo/ui';
 import { Option } from 'effect';
-import { createContext, useContext, useRef, useState } from 'react';
+import { createContext, useContext, useMemo, useRef, useState } from 'react';
 import type { ComponentProps, PropsWithChildren, ReactElement } from 'react';
 
 import { useAppForm } from '#src/components/form';
@@ -20,20 +20,22 @@ const PresentationContext = createContext<{
 /** Native presentations belong to management, not the account subtree a mutation can remove. */
 export const MutationConfirmationProvider = ({ children }: PropsWithChildren) => {
   const [content, setContent] = useState<ReactElement | null>(null);
-  const value = {
-    busy: content !== null,
-    present: (render: (dismiss: () => void) => ReactElement) => {
-      setContent(
-        (current) =>
-          current ??
-          render(() => {
-            setContent(null);
-          })
-      );
-    },
-  };
+  const value = useMemo(
+    () => ({
+      busy: content !== null,
+      present: (render: (dismiss: () => void) => ReactElement) => {
+        setContent(
+          (current) =>
+            current ??
+            render(() => {
+              setContent(null);
+            })
+        );
+      },
+    }),
+    [content]
+  );
   return (
-    // oxlint-disable-next-line react/jsx-no-constructed-context-values -- React Compiler memoizes this value in native builds.
     <PresentationContext.Provider value={value}>
       {children}
       <Host style={{ position: 'absolute', width: 0, height: 0 }}>{content}</Host>
