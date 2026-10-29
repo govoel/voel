@@ -25,7 +25,7 @@ export default function ServerUsersScreen() {
       <Stack.Screen.Title>Manage Users</Stack.Screen.Title>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
-          icon="plus"
+          icon="person.badge.plus"
           accessibilityLabel="Create user"
           onPress={() => {
             router.push('/accounts/server/users/create');

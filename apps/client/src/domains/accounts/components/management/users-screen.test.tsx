@@ -62,7 +62,7 @@ vi.mock('expo-router', () => ({
     ),
   },
 }));
-vi.mock('@expo/material-symbols/add.xml', () => ({ default: 1 }));
+vi.mock('@expo/material-symbols/person_add.xml', () => ({ default: 1 }));
 vi.mock('@expo/material-symbols/chevron_right.xml', () => ({ default: 2 }));
 vi.mock('@expo/ui', () => ({ Icon: () => null }));
 
@@ -119,7 +119,7 @@ vi.mock('@expo/ui/jetpack-compose', () => ({
     },
     { Items }
   ),
-  ExtendedFloatingActionButton: Object.assign(
+  FloatingActionButton: Object.assign(
     ({
       children,
       onClick,
@@ -140,7 +140,7 @@ vi.mock('@expo/ui/jetpack-compose', () => ({
         {children}
       </NativeButton>
     ),
-    { Icon: Container, Text: Container }
+    { Icon: Container }
   ),
 }));
 vi.mock('@expo/ui/jetpack-compose/modifiers', () => ({
@@ -246,8 +246,9 @@ describe.each([
       await fireEvent.press(within(actionContainer).getByRole('button', { name: 'Create user' }));
       expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/accounts/server/users/create');
       if (platform === 'iOS') {
-        expect(screen.getByTestId('toolbar-icon')).toHaveTextContent('plus');
+        expect(screen.getByTestId('toolbar-icon')).toHaveTextContent('person.badge.plus');
       } else {
+        expect(screen.queryByText('Create user')).toBeNull();
         expect(
           within(screen.getByTestId('users-list')).queryByRole('button', { name: 'Create user' })
         ).toBeNull();

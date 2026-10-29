@@ -1,13 +1,7 @@
 import { useAtom, useAtomRefresh } from '@effect/atom-react';
-import Add from '@expo/material-symbols/add.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
-import {
-  Box,
-  Column,
-  ExtendedFloatingActionButton,
-  Icon,
-  LazyColumn,
-} from '@expo/ui/jetpack-compose';
+import PersonAdd from '@expo/material-symbols/person_add.xml';
+import { Box, Column, FloatingActionButton, Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxSize, onSizeChanged, padding, semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
@@ -112,7 +106,7 @@ export default function ServerUsersScreen() {
             ),
           })}
         </LazyColumn>
-        <ExtendedFloatingActionButton
+        <FloatingActionButton
           modifiers={[
             padding(Spacing.three, Spacing.three, Spacing.three, Spacing.three),
             semantics({ contentDescription: 'Create user' }),
@@ -123,13 +117,10 @@ export default function ServerUsersScreen() {
           onClick={() => {
             router.push('/accounts/server/users/create');
           }}>
-          <ExtendedFloatingActionButton.Icon>
-            <Icon source={Add} size={24} />
-          </ExtendedFloatingActionButton.Icon>
-          <ExtendedFloatingActionButton.Text>
-            <Text>Create user</Text>
-          </ExtendedFloatingActionButton.Text>
-        </ExtendedFloatingActionButton>
+          <FloatingActionButton.Icon>
+            <Icon source={PersonAdd} size={24} />
+          </FloatingActionButton.Icon>
+        </FloatingActionButton>
       </Box>
     </AndroidAccountsSheet>
   );
