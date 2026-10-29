@@ -98,7 +98,7 @@
         "@repo/effect-turso-sync-bun": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
-        "portless": "0.15.11",
+        "portless": "0.15.12",
         "typescript": "7.0.2",
         "vitest": "5.0.5",
       },
@@ -1820,7 +1820,7 @@
 
     "pngjs": ["pngjs@3.4.0", "", {}, "sha512-NCrCHhWmnQklfH4MtJMRjZ2a8c80qXeMlQMv2uVp9ISJMTt562SbGd6n2oq0PaPgKm7Z6pL9E2UlLIhC+SHL3w=="],
 
-    "portless": ["portless@0.15.11", "", { "os": [ "linux", "win32", "darwin", ], "bin": { "portless": "dist/cli.js" } }, "sha512-2qjRJ0CG3zPOJ3mUVPdEZjivd7KV/ldiUwhYGI0fdxPVKDjv77GFVmioLQFWoDqNz5paG+4yk+Tibmgtil3Otg=="],
+    "portless": ["portless@0.15.12", "", { "os": [ "linux", "win32", "darwin", ], "bin": { "portless": "dist/cli.js" } }, "sha512-Lbz85zLboOMkvq2unXYfJ/YMpsvFZYQgrwGEbinZErp045y9fLm4obm7E77V2BI2Om0Mh6tX/2w2ftFqRs5kfQ=="],
 
     "postcss": ["postcss@8.5.31", "", { "dependencies": { "nanoid": "^3.3.20", "picocolors": "^1.1.1", "source-map-js": "^1.2.2" } }, "sha512-YUbWYCgErwnMAVkjUnYa+KlMBzGpHwiIt/DE7f0G33AuX2LH9UcTk6KgWxd3zRU+pN3u/C+Xl3EnMLM4Hea7Sg=="],
 
