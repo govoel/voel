@@ -149,107 +149,121 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       admin: {
         revokeUserSession: AuthClientSchema.request({
           Request: AuthAdminRevokeSessionInput,
-          execute: async (command) => coreClient.admin.revokeUserSession(command),
+          execute: async ({ request, signal }) =>
+            coreClient.admin.revokeUserSession(request, { signal }),
           Result: Schema.Void,
         }),
 
         revokeUserSessions: AuthClientSchema.request({
           Request: AuthUserIdInput,
-          execute: async (command) => coreClient.admin.revokeUserSessions(command),
+          execute: async ({ request, signal }) =>
+            coreClient.admin.revokeUserSessions(request, { signal }),
           Result: Schema.Void,
         }),
 
         listUserSessions: AuthClientSchema.request({
           Request: AuthUserIdInput,
-          execute: async (command) => coreClient.admin.listUserSessions(command),
+          execute: async ({ request, signal }) =>
+            coreClient.admin.listUserSessions(request, { signal }),
           Result: AuthUserSessions,
         }),
 
         removeUser: AuthClientSchema.request({
           Request: AuthUserIdInput,
-          execute: async (command) => coreClient.admin.removeUser(command),
+          execute: async ({ request, signal }) => coreClient.admin.removeUser(request, { signal }),
           Result: Schema.Void,
         }),
 
         setUserPassword: AuthClientSchema.request({
           Request: AuthSetUserPasswordInput,
-          execute: async (command) => coreClient.admin.setUserPassword(command),
+          execute: async ({ request, signal }) =>
+            coreClient.admin.setUserPassword(request, { signal }),
           Result: Schema.Void,
         }),
 
         updateUser: AuthClientSchema.request({
           Request: AuthAdminUpdateUserInput,
-          execute: async ({ userId, username, ...data }) => {
-            const current = await coreClient.admin.getUser({ query: { id: userId } });
+          execute: async ({ request: { userId, username, ...data }, signal }) => {
+            const current = await coreClient.admin.getUser({ query: { id: userId } }, { signal });
+            signal.throwIfAborted();
             if (current.error !== null) {
               return current;
             }
             // Better Auth's username hook checks the acting admin rather than the target.
             // Only send a username when it changes, including on retries of the same update.
-            return coreClient.admin.updateUser({
-              userId,
-              data: {
-                ...data,
-                ...(Predicate.hasProperty(current.data, 'username') &&
-                current.data.username === username.toLowerCase()
-                  ? {}
-                  : { username }),
+            return coreClient.admin.updateUser(
+              {
+                userId,
+                data: {
+                  ...data,
+                  ...(Predicate.hasProperty(current.data, 'username') &&
+                  current.data.username === username.toLowerCase()
+                    ? {}
+                    : { username }),
+                },
               },
-            });
+              { signal }
+            );
           },
           Result: AuthAdminUserDetails,
         }),
 
         getUser: AuthClientSchema.request({
           Request: AuthUserIdInput,
-          execute: async ({ userId }) => coreClient.admin.getUser({ query: { id: userId } }),
+          execute: async ({ request: { userId }, signal }) =>
+            coreClient.admin.getUser({ query: { id: userId } }, { signal }),
           Result: AuthAdminUserDetails,
         }),
 
         createUser: AuthClientSchema.request({
           Request: AuthCreateUserInput,
-          execute: async ({ username, ...user }) =>
-            coreClient.admin.createUser({
-              ...user,
-              data: { username },
-            }),
+          execute: async ({ request: { username, ...user }, signal }) =>
+            coreClient.admin.createUser(
+              {
+                ...user,
+                data: { username },
+              },
+              { signal }
+            ),
           Result: AuthAdminUserResponse,
         }),
 
         listUsers: AuthClientSchema.request({
           Request: AuthListUsersInput,
-          execute: async (query) => coreClient.admin.listUsers({ query }),
+          execute: async ({ request: query, signal }) =>
+            coreClient.admin.listUsers({ query }, { signal }),
           Result: AuthUsersPage,
         }),
 
         setRole: AuthClientSchema.request({
           Request: AuthSetRoleInput,
-          execute: async (command) => coreClient.admin.setRole(command),
+          execute: async ({ request, signal }) => coreClient.admin.setRole(request, { signal }),
           Result: AuthAdminUserResponse,
         }),
       },
 
       revokeSession: AuthClientSchema.request({
         Request: AuthRevokeSessionInput,
-        execute: async (command) => coreClient.revokeSession(command),
+        execute: async ({ request, signal }) => coreClient.revokeSession(request, { signal }),
         Result: Schema.Void,
       }),
 
       revokeSessions: AuthClientSchema.request({
         Request: Schema.Void,
-        execute: async () => coreClient.revokeSessions(),
+        execute: async ({ signal }) => coreClient.revokeSessions({ fetchOptions: { signal } }),
         Result: Schema.Void,
       })(),
 
       listSessions: AuthClientSchema.request({
         Request: Schema.Void,
-        execute: async () => coreClient.listSessions(),
+        execute: async ({ signal }) => coreClient.listSessions({ fetchOptions: { signal } }),
         Result: Schema.Array(AuthDeviceSession),
       })(),
 
       readSession: AuthClientSchema.request({
         Request: Schema.Void,
-        execute: async () => coreClient.getSession({ query: { disableCookieCache: true } }),
+        execute: async ({ signal }) =>
+          coreClient.getSession({ query: { disableCookieCache: true } }, { signal }),
         Result: AuthSession,
       })(),
 
@@ -266,34 +280,34 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       signIn: {
         username: AuthClientSchema.request({
           Request: AuthSignInInput,
-          execute: async (command) => coreClient.signIn.username(command),
+          execute: async ({ request, signal }) => coreClient.signIn.username(request, { signal }),
           Result: AuthUserResponse,
         }),
       },
 
       signOut: AuthClientSchema.request({
         Request: Schema.Void,
-        execute: async () => coreClient.signOut(),
+        execute: async ({ signal }) => coreClient.signOut({ fetchOptions: { signal } }),
         Result: Schema.Void,
       })(),
 
       signUp: {
         email: AuthClientSchema.request({
           Request: AuthSignUpInput,
-          execute: async (command) => coreClient.signUp.email(command),
+          execute: async ({ request, signal }) => coreClient.signUp.email(request, { signal }),
           Result: AuthUserResponse,
         }),
       },
 
       changePassword: AuthClientSchema.request({
         Request: AuthChangePasswordInput,
-        execute: async (command) => coreClient.changePassword(command),
+        execute: async ({ request, signal }) => coreClient.changePassword(request, { signal }),
         Result: Schema.Void,
       }),
 
       updateUser: AuthClientSchema.request({
         Request: AuthUpdateUserInput,
-        execute: async (command) => coreClient.updateUser(command),
+        execute: async ({ request, signal }) => coreClient.updateUser(request, { signal }),
         Result: Schema.Void,
       }),
     };

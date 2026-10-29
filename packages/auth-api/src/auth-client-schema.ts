@@ -1,3 +1,4 @@
+import type { BetterAuthClientOptions } from 'better-auth/client';
 import { Effect, Option, Schema } from 'effect';
 
 import {
@@ -8,6 +9,8 @@ import {
   InvalidAuthResponseError,
 } from '#src/shared.ts';
 
+type RequestSignal = NonNullable<NonNullable<BetterAuthClientOptions['fetchOptions']>['signal']>;
+
 /** Build an auth action that encodes domain input and decodes untrusted transport data. */
 export const request = <Request extends Schema.Constraint, Result extends Schema.Constraint>({
   Request,
@@ -16,9 +19,10 @@ export const request = <Request extends Schema.Constraint, Result extends Schema
 }: {
   readonly Request: Request;
   readonly Result: Result;
-  readonly execute: (
-    request: Request['Encoded']
-  ) => Promise<{ readonly data: unknown; readonly error: unknown }>;
+  readonly execute: (options: {
+    readonly request: Request['Encoded'];
+    readonly signal: RequestSignal;
+  }) => Promise<{ readonly data: unknown; readonly error: unknown }>;
 }) => {
   const encode = Schema.encodeEffect(Request, { onExcessProperty: 'error' });
   // oxlint-disable-next-line effecttsgo/prefer-typed-schema-decoder -- Transport data is untrusted, regardless of the result schema's Encoded type.
@@ -30,7 +34,13 @@ export const request = <Request extends Schema.Constraint, Result extends Schema
         Effect.catchTag('SchemaError', () => InvalidAuthInputError.make())
       );
       const result = yield* Effect.tryPromise({
-        try: async () => execute(encoded),
+        try: async (signal) =>
+          execute({
+            request: encoded,
+            // React Native and DOM disagree on AbortSignal.onabort, but Effect uses the runtime's controller.
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-assertion -- Required when checking React Native consumers.
+            signal: signal as RequestSignal,
+          }),
         catch: (cause) => AuthTransportError.make({ cause }),
       });
 

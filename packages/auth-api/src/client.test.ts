@@ -1,7 +1,17 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it, spyOn } from 'bun:test';
 
-import { Array, DateTime, Effect, Option, String as Str, pipe } from 'effect';
+import {
+  Array,
+  DateTime,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Option,
+  String as Str,
+  pipe,
+} from 'effect';
 
 import { AuthClient } from '#src/client.ts';
 import { AuthUser } from '#src/shared.ts';
@@ -58,6 +68,97 @@ const decodedUser = {
 };
 
 describe('auth client integration', () => {
+  for (const { name, path, run } of [
+    {
+      name: 'user creation',
+      path: '/admin/create-user',
+      run: (client) => client.admin.createUser(createUserInput),
+    },
+    {
+      name: 'session listing without a request body',
+      path: '/list-sessions',
+      run: (client) => client.listSessions,
+    },
+    {
+      name: 'the admin profile preflight',
+      path: '/admin/get-user',
+      run: (client) =>
+        client.admin.updateUser({
+          userId,
+          username: 'renamed',
+          name: 'Renamed',
+          email: user.email,
+        }),
+    },
+    {
+      name: 'the admin profile write',
+      path: '/admin/update-user',
+      run: (client) =>
+        client.admin.updateUser({
+          userId,
+          username: 'renamed',
+          name: 'Renamed',
+          email: user.email,
+        }),
+    },
+  ] satisfies ReadonlyArray<{
+    readonly name: string;
+    readonly path: string;
+    readonly run: (
+      client: Pick<AuthClient['Service'], 'admin' | 'listSessions'>
+    ) => Effect.Effect<unknown, unknown>;
+  }>) {
+    it(`forwards interruption to fetch during ${name}`, async () => {
+      await Effect.gen(function* () {
+        const runPromise = Effect.runPromiseWith(yield* Effect.context());
+        const started = yield* Deferred.make<Request>();
+        const requests: Array<Request> = [];
+        const fetch = spyOn(globalThis, 'fetch').mockImplementation(
+          Object.assign(
+            async (input: string | URL | Request, init?: RequestInit) => {
+              const request =
+                input instanceof Request
+                  ? new Request(input, init)
+                  : new Request(String(input), init);
+              requests.push(request);
+              if (new URL(request.url).pathname !== `/api/auth${path}`) {
+                return Response.json(
+                  new URL(request.url).pathname === '/api/auth/admin/get-user' ? user : null
+                );
+              }
+              const pending = runPromise(Effect.never, { signal: request.signal });
+              Deferred.doneUnsafe(started, Effect.succeed(request));
+              return pending;
+            },
+            { preconnect: globalThis.fetch.preconnect }
+          )
+        );
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            fetch.mockRestore();
+          })
+        );
+        const client = yield* AuthClient.make({ baseURL: 'http://auth.test', plugins: [] });
+        const fiber = yield* run(client).pipe(Effect.forkChild);
+        const request = yield* Deferred.await(started);
+        expect(request.signal.aborted).toBe(false);
+        yield* Fiber.interrupt(fiber);
+        const exit = yield* Fiber.await(fiber);
+        expect(request.signal.aborted).toBe(true);
+        expect(Exit.hasInterrupts(exit)).toBe(true);
+        expect(Exit.findErrorOption(exit)).toEqual(Option.none());
+        if (path === '/admin/get-user') {
+          expect(
+            Array.some(
+              requests,
+              (item) => new URL(item.url).pathname === '/api/auth/admin/update-user'
+            )
+          ).toBe(false);
+        }
+      }).pipe(Effect.scoped, Effect.runPromise);
+    });
+  }
+
   it('decodes admin users and pagination, including Better Auth dates', async () => {
     await Effect.gen(function* () {
       const { client, requests } = yield* withResponse({ users: [user], total: 1, limit: 10 });
