@@ -6,7 +6,6 @@ import { fillMaxSize, onSizeChanged, padding, semantics } from '@expo/ui/jetpack
 import { Match } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
 
 import { listUsersAtom } from '#src/app/accounts/(selected)/server/users/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
@@ -26,7 +25,7 @@ export default function ServerUsersScreen() {
   const [users, loadMoreUsers] = useAtom(query);
   const refresh = useAtomRefresh(query);
   const { onSurfaceVariant } = useMaterialColors();
-  const [createActionHeight, setCreateActionHeight] = useAtom(useMemo(() => Atom.make(56), []));
+  const [createActionHeight, setCreateActionHeight] = useAtom(Atom.make(56));
 
   return (
     <AndroidAccountsSheet>
