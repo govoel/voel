@@ -6,8 +6,10 @@ import {
 import { SecureField } from '#src/components/form/secure-field/index.android.tsx';
 import { SubmitButton } from '#src/components/form/submit-button/index.android.tsx';
 import { TextField } from '#src/components/form/text-field/index.android.tsx';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 export const { useAppForm, withForm } = createEffectSchemaFormHook({
+  runtime: AppRuntime,
   fieldContext,
   formContext,
   fieldComponents: { SecureField, TextField },

@@ -16,21 +16,17 @@ export const setActiveAccountAtom = AppRuntime.fn(
     AccountManager.use((manager) => manager.setActiveAccount(input))
 ).pipe(Atom.withLabel('setActiveAccountAtom'));
 
-export const removeAccountAtom = Atom.family((key: AccountKey) =>
-  AppRuntime.fn(
-    Effect.fnUntraced(function* () {
-      const manager = yield* AccountManager;
-      yield* manager.removeAccount(key);
-      const accounts = yield* AccountRepository.use((repository) => repository.list);
-      return { accountsRemain: accounts.length > 0 };
-    })
-  ).pipe(Atom.withLabel('removeAccountAtom'))
-);
+export const removeAccount = Effect.fnUntraced(function* ({ key }: { readonly key: AccountKey }) {
+  const manager = yield* AccountManager;
+  yield* manager.removeAccount(key);
+  const accounts = yield* AccountRepository.use((repository) => repository.list);
+  return { accountsRemain: accounts.length > 0 };
+});
 
 export const removeAccountFailureMessage = ({
   error,
 }: {
-  readonly error: Atom.Failure<ReturnType<typeof removeAccountAtom>>;
+  readonly error: Effect.Error<ReturnType<typeof removeAccount>>;
 }) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({

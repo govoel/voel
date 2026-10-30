@@ -9,7 +9,7 @@ import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 
 import {
-  revokeServerUserSessionAtom,
+  revokeServerUserSession,
   serverUserSessionsAtom,
 } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { serverUserSessionAtom } from '#src/app/accounts/(selected)/server/users/[id]/sessions/[sessionId]/index.ts';
@@ -80,7 +80,7 @@ const SessionContent = ({
                       <Text>Sign out</Text>
                     </Button>
                   )}
-                  mutation={revokeServerUserSessionAtom(account)}
+                  onSubmit={({ value: input }) => revokeServerUserSession({ account, input })}
                   schema={AuthAdminRevokeSessionInput}
                   defaultValues={{ sessionToken: session.token }}
                   title="Sign out"

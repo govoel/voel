@@ -1,5 +1,5 @@
 import { Effect, Match, Option, Schema } from 'effect';
-import { AsyncResult, Atom } from 'effect/reactivity';
+import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import type { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.ts';
@@ -65,14 +65,18 @@ export const activeUserProfileAtom = Atom.family((account: AccountKey) =>
   )
 );
 
-const updateCurrentUserAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof UserProfileUpdateInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      return yield* client.updateUser(input);
-    }),
-    { reactivityKeys: ['auth.users'] }
-  ).pipe(Atom.withLabel('updateCurrentUserAtom'))
+const updateCurrentUser = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof UserProfileUpdateInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    return yield* client.updateUser(input);
+  },
+  Reactivity.mutation(['auth.users'])
 );
 
 export const useUserProfileForm = ({
@@ -85,7 +89,7 @@ export const useUserProfileForm = ({
   const account = useSelectedAccount();
   return useAppForm({
     schema: UserProfileUpdateInput,
-    mutation: updateCurrentUserAtom(account),
+    onSubmit: ({ value }) => updateCurrentUser({ account, input: value }),
     defaultValues: profile,
     onFailure: ({ error }) =>
       Match.value(error).pipe(
@@ -110,17 +114,21 @@ export const useUserProfileForm = ({
   });
 };
 
-const changePasswordAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthChangePasswordInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.changePassword({
-        currentPassword: input.currentPassword,
-        newPassword: input.newPassword,
-      });
-    }),
-    { reactivityKeys: ['auth.sessions'] }
-  )
+const changePassword = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthChangePasswordInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.changePassword({
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword,
+    });
+  },
+  Reactivity.mutation(['auth.sessions'])
 );
 
 export const ownSessionsAtom = Atom.family((account: AccountKey) =>
@@ -137,26 +145,28 @@ export const ownSessionsAtom = Atom.family((account: AccountKey) =>
   )
 );
 
-export const revokeOwnSessionAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<typeof AuthRevokeSessionInput.Type>()(
-    Effect.fnUntraced(function* (input) {
-      const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-      yield* client.revokeSession(input);
-    }),
-    { reactivityKeys: ['auth.sessions'] }
-  )
+export const revokeOwnSession = Effect.fnUntraced(
+  function* ({
+    account,
+    input,
+  }: {
+    readonly account: AccountKey;
+    readonly input: typeof AuthRevokeSessionInput.Type;
+  }) {
+    const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
+    yield* client.revokeSession(input);
+  },
+  Reactivity.mutation(['auth.sessions'])
 );
 
-export const signOutEverywhereAtom = Atom.family((account: AccountKey) =>
-  AppRuntime.fn<Schema.Void['Type']>()(
-    Effect.fnUntraced(function* () {
-      const manager = yield* AccountManager;
-      yield* manager.signOutEverywhere(account);
-      const accounts = yield* AccountRepository.use((repository) => repository.list);
-      return { accountsRemain: accounts.length > 0 };
-    }),
-    { reactivityKeys: ['auth.sessions'] }
-  )
+export const signOutEverywhere = Effect.fnUntraced(
+  function* ({ account }: { readonly account: AccountKey }) {
+    const manager = yield* AccountManager;
+    yield* manager.signOutEverywhere(account);
+    const accounts = yield* AccountRepository.use((repository) => repository.list);
+    return { accountsRemain: accounts.length > 0 };
+  },
+  Reactivity.mutation(['auth.sessions'])
 );
 
 class PasswordFormInput extends AuthChangePasswordInput.pipe(
@@ -178,7 +188,7 @@ export const useChangePasswordForm = ({ onSuccess }: { onSuccess: () => void | P
   return useAppForm({
     schema: PasswordFormInput,
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
-    mutation: changePasswordAtom(account),
+    onSubmit: ({ value }) => changePassword({ account, input: value }),
     onFailure: authFailureMessage,
     onSuccess,
   });

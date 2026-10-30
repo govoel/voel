@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 
 import {
   accountsWithActiveAccount,
-  removeAccountAtom,
+  removeAccount,
   removeAccountFailureMessage,
 } from '#src/app/accounts/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
@@ -181,7 +181,7 @@ export default function AccountsScreen() {
                         />
                         <MutationConfirmation
                           key={`${account.key.serverUrl}-${account.key.userId}`}
-                          mutation={removeAccountAtom(account.key)}
+                          onSubmit={() => removeAccount({ key: account.key })}
                           onSuccess={({ result }) => {
                             if (!result.accountsRemain) {
                               router.dismissTo('/');

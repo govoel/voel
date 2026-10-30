@@ -15,19 +15,16 @@ import {
 import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
 import { vi } from 'vitest';
 
-import {
-  ownSessionsAtom,
-  revokeOwnSessionAtom,
-} from '#src/app/accounts/(selected)/profile/index.ts';
+import { ownSessionsAtom, revokeOwnSession } from '#src/app/accounts/(selected)/profile/index.ts';
 import { ownSessionAtom } from '#src/app/accounts/(selected)/profile/sessions/[id]/index.ts';
 import {
-  deleteServerUserAtom,
+  deleteServerUser,
   serverUserAtom,
   serverUserSessionsAtom,
 } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { serverUserSessionAtom } from '#src/app/accounts/(selected)/server/users/[id]/sessions/[sessionId]/index.ts';
 import { listUsersAtom } from '#src/app/accounts/(selected)/server/users/index.ts';
-import { accountsWithActiveAccount, removeAccountAtom } from '#src/app/accounts/index.ts';
+import { accountsWithActiveAccount, removeAccount } from '#src/app/accounts/index.ts';
 import { MainDatabase } from '#src/database/main/index.ts';
 import { accountsAtom } from '#src/domains/accounts/atoms.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
@@ -154,11 +151,10 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [firstAccount, secondAccount] = yield* signInTestServerUsers(manager, server);
-        const removeSecond = removeAccountAtom(secondAccount.key);
+        const removeSecond = removeAccount({ key: secondAccount.key });
         yield* manager.setActiveAccount(firstAccount.key);
 
-        yield* Atom.set(removeSecond, void 0);
-        expect(yield* Atom.getResult(removeSecond, { suspendOnWaiting: true })).toEqual({
+        expect(yield* removeSecond).toEqual({
           accountsRemain: true,
         });
         const repository = yield* AccountRepository;
@@ -167,9 +163,8 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         );
 
         yield* manager.setActiveAccount(firstAccount.key);
-        const removeFirst = removeAccountAtom(firstAccount.key);
-        yield* Atom.set(removeFirst, void 0);
-        expect(yield* Atom.getResult(removeFirst, { suspendOnWaiting: true })).toEqual({
+        const removeFirst = removeAccount({ key: firstAccount.key });
+        expect(yield* removeFirst).toEqual({
           accountsRemain: false,
         });
       },
@@ -626,8 +621,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const target = Option.getOrThrow(
           Array.findFirst(allUsers.items, (user) => user.username !== testServer.adminUsername)
         );
-        yield* Atom.set(deleteServerUserAtom(key), { userId: target.id });
-        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true });
+        yield* deleteServerUser({ account: key, input: { userId: target.id } });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
         const refreshed = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
@@ -675,8 +669,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const victim = Option.getOrThrow(
           Array.findFirst(page.items, (user) => user.username !== firstServer.adminUsername)
         );
-        yield* Atom.set(deleteServerUserAtom(firstKey), { userId: victim.id });
-        yield* Atom.getResult(deleteServerUserAtom(firstKey), { suspendOnWaiting: true });
+        yield* deleteServerUser({ account: firstKey, input: { userId: victim.id } });
         const secondClient = yield* AuthClientMap.use((clients) => clients.acquire(secondKey));
         expect((yield* secondClient.admin.listUsers({ limit: 20, offset: 0 })).users).toHaveLength(
           3
@@ -766,8 +759,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         ).toMatchObject({ id: target.id, isOtherUser: true });
         const { drainScheduler } = yield* TestScheduler;
 
-        yield* Atom.set(deleteServerUserAtom(key), { userId: target.id });
-        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true });
+        yield* deleteServerUser({ account: key, input: { userId: target.id } });
         yield* drainScheduler;
         expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toMatchObject({
           id: currentUser.id,
@@ -776,12 +768,12 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         const refreshed = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(Array.some(refreshed.items, (user) => user.id === target.id)).toBe(false);
 
-        yield* Atom.set(deleteServerUserAtom(key), {
-          userId: AccountKey.fields.userId.make('missing-user'),
-        });
-        yield* Atom.getResult(deleteServerUserAtom(key), { suspendOnWaiting: true }).pipe(
-          Effect.flip
-        );
+        yield* deleteServerUser({
+          account: key,
+          input: {
+            userId: AccountKey.fields.userId.make('missing-user'),
+          },
+        }).pipe(Effect.flip);
         yield* drainScheduler;
         expect(
           (yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true })).items
@@ -826,8 +818,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           Option.getOrThrow(yield* Atom.getResult(adminDetail, { suspendOnWaiting: true }))
         ).toMatchObject({ id: other.id, isOtherUser: false });
 
-        yield* Atom.set(revokeOwnSessionAtom(key), { token: other.token });
-        yield* Atom.getResult(revokeOwnSessionAtom(key), { suspendOnWaiting: true });
+        yield* revokeOwnSession({ account: key, input: { token: other.token } });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
         const own = yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true });

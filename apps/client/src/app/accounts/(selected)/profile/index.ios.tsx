@@ -10,7 +10,7 @@ import type { PropsWithChildren } from 'react';
 import {
   activeUserProfileAtom,
   ownSessionsAtom,
-  signOutEverywhereAtom,
+  signOutEverywhere,
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/(selected)/profile/index.ts';
@@ -109,7 +109,7 @@ const LoadedProfile = ({
               <Text>Sign out everywhere</Text>
             </Button>
           )}
-          mutation={signOutEverywhereAtom(account)}
+          onSubmit={() => signOutEverywhere({ account })}
           title="Sign out everywhere"
           confirmLabel="Sign out"
           message="Sign out all devices for this account on this server, including this device?"

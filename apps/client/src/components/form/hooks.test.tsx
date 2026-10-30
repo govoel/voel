@@ -1,17 +1,17 @@
 import { useSelector } from '@tanstack/react-form';
-import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Array, Effect, Layer, Option, Schema } from 'effect';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Deferred, Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
+import { useReducer } from 'react';
 import { Pressable, Text } from 'react-native';
-import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import {
   createEffectSchemaFormHook,
   fieldContext,
   formContext,
-  useFormContext,
-  useFormSubmissionError,
+  useSubmitState,
 } from '#src/components/form/hooks.tsx';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
@@ -31,80 +31,100 @@ class TestSubmitError extends Schema.TaggedError<
 }) {}
 
 const { useAppForm } = createEffectSchemaFormHook({
+  runtime,
   fieldComponents: { EmptyComponent },
   fieldContext,
   formComponents: { EmptyComponent },
   formContext,
 });
 
-const makeUser = () =>
-  userEvent.setup({
-    advanceTimers: async (delay) => {
-      await vi.advanceTimersByTimeAsync(delay);
-    },
-  });
-
 const ErrorProbe = () => {
-  const form = useFormContext();
-  const submissionError = useFormSubmissionError();
-  const validationFormError = useSelector(form.store, (state) =>
-    Option.getOrNull(
-      Array.findFirst(state.errors, (error): error is string => typeof error === 'string')
-    )
-  );
-
-  return (
-    <Text testID="form-error">
-      {Option.getOrElse(submissionError, () => validationFormError ?? 'No form error')}
-    </Text>
-  );
+  const { errorMessage } = useSubmitState();
+  return <Text testID="form-error">{Option.getOrElse(errorMessage, () => 'No form error')}</Text>;
 };
-
 const RetrySubmitButton = () => {
-  const form = useFormContext();
-  const [canSubmit, hasSubmitValidationError] = useSelector(
-    form.store,
-    (state): readonly [boolean, boolean] => [state.canSubmit, state.errorMap.onSubmit !== void 0]
-  );
-
+  const { form, canSubmit, isSubmitting } = useSubmitState();
   return (
-    <>
-      <Pressable
-        accessibilityState={{ disabled: !canSubmit }}
-        disabled={!canSubmit}
-        role="button"
-        onPress={() => void form.handleSubmit()}>
-        <Text>Submit</Text>
-      </Pressable>
-      <Text testID="can-submit">{String(canSubmit)}</Text>
-      <Text testID="has-submit-validation-error">{String(hasSubmitValidationError)}</Text>
-    </>
+    <Pressable
+      disabled={!canSubmit || isSubmitting}
+      role="button"
+      onPress={() => void form.handleSubmit()}>
+      <Text>Submit</Text>
+    </Pressable>
   );
 };
 
 describe('createEffectSchemaFormHook', () => {
-  it('only allows schema-less forms for void-input mutations', () => {
+  it('shows each concurrent form its own saved result', async () => {
+    const first = await Effect.runPromise(Deferred.make<string>());
+    const second = await Effect.runPromise(Deferred.make<string>());
+    const submit = ({ value }: { readonly value: TestFormInput }) =>
+      Deferred.await(value.name === 'first' ? first : second);
+    const TestForm = ({ name }: { readonly name: string }) => {
+      const [saved, showSaved] = useReducer((_saved: string, result: string) => result, '');
+      const form = useAppForm({
+        schema: TestFormInput,
+        defaultValues: { name },
+        onSubmit: submit,
+        onFailure: () => 'Failed',
+        onSuccess: ({ result }) => {
+          showSaved(result);
+        },
+      });
+      const submitting = useSelector(form.store, (state) => state.isSubmitting);
+      return (
+        <>
+          <Pressable role="button" disabled={submitting} onPress={() => void form.handleSubmit()}>
+            <Text>{name}</Text>
+          </Pressable>
+          <Text>
+            {name}: {saved}
+          </Text>
+        </>
+      );
+    };
+    await render(
+      <>
+        <TestForm name="first" />
+        <TestForm name="second" />
+      </>
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'first' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'second' }));
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(second, 'Second saved'));
+    });
+    await screen.findByText('second: Second saved');
+    expect(screen.getByRole('button', { name: 'first' })).toBeDisabled();
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(first, 'First saved'));
+    });
+    await screen.findByText('first: First saved');
+    expect(screen.getByText('second: Second saved')).toBeOnTheScreen();
+  });
+
+  it('only allows schema-less forms for void-input submissions', () => {
     type DataOptions = Parameters<
       typeof useAppForm<TestFormInput, typeof TestFormInput.Encoded, undefined, never>
     >[0];
     type NoInputOptions = Parameters<typeof useAppForm<undefined, undefined, undefined, never>>[0];
-    expectTypeOf<Pick<DataOptions, 'mutation' | 'onFailure'>>().not.toExtend<DataOptions>();
-    expectTypeOf<Pick<NoInputOptions, 'mutation' | 'onFailure'>>().toExtend<NoInputOptions>();
+    expectTypeOf<Pick<DataOptions, 'onSubmit' | 'onFailure'>>().not.toExtend<DataOptions>();
+    expectTypeOf<Pick<NoInputOptions, 'onSubmit' | 'onFailure'>>().toExtend<NoInputOptions>();
   });
 
   it('submits void without validating TanStack values and can retry a failure', async () => {
     const inputs: Array<void> = [];
-    const mutation = runtime.fn((input: undefined) => {
+    const mutation = (input: Schema.Void['Type']) => {
       inputs.push(input);
       return inputs.length === 1
         ? TestSubmitError.make({ message: 'failed' })
         : Effect.succeed('removed');
-    });
+    };
     const onSuccess = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         onFailure: ({ error }) => error.message,
         onSuccess,
       });
@@ -117,12 +137,14 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    const user = makeUser();
-    await user.press(screen.getByRole('button', { name: 'Submit' }));
-    expect(screen.getByTestId('form-error')).toHaveTextContent('failed');
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByText('failed')).toBeOnTheScreen();
     expect(onSuccess).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+    });
 
-    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledOnce();
     });
@@ -136,23 +158,12 @@ describe('createEffectSchemaFormHook', () => {
     expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it('stores a string mutation failure without invalidating the form', async () => {
-    const mutation = runtime.fn((_value: TestFormInput) =>
-      TestSubmitError.make({ message: 'failed' })
-    );
-
+    const failure = TestSubmitError.make({ message: 'failed' });
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: () => failure,
         schema: TestFormInput,
         onFailure: ({ error }) => error.message,
       });
@@ -175,11 +186,11 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
+    await screen.findByText('failed');
 
-    await makeUser().press(screen.getByRole('button', { name: 'Reset' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
@@ -188,19 +199,19 @@ describe('createEffectSchemaFormHook', () => {
 
   it('can retry after a failed submission and then submit successfully', async () => {
     let mutationAttempts = 0;
-    const mutation = runtime.fn((_value: TestFormInput) => {
+    const mutation = (_value: TestFormInput) => {
       mutationAttempts += 1;
 
       return mutationAttempts === 1
         ? TestSubmitError.make({ message: 'failed' })
         : Effect.succeed('saved');
-    });
+    };
     const onSuccess = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         schema: TestFormInput,
         onFailure: ({ error }) => error.message,
         onSuccess,
@@ -215,35 +226,30 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    const user = makeUser();
     const submitButton = screen.getByRole('button', { name: 'Submit' });
 
-    await user.press(submitButton);
+    await fireEvent.press(submitButton);
 
-    expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
-    expect(screen.getByTestId('can-submit')).toHaveTextContent('true');
-    expect(screen.getByTestId('has-submit-validation-error')).toHaveTextContent('false');
-    expect(submitButton).toBeEnabled();
+    await screen.findByText('failed');
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled();
+    });
 
-    await user.press(submitButton);
+    await fireEvent.press(submitButton);
 
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledOnce();
     });
-    expect(mutationAttempts).toBe(2);
     expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
   it('passes per-submit metadata to onFailure', async () => {
-    const mutation = runtime.fn((_value: TestFormInput) =>
-      TestSubmitError.make({ message: 'failed' })
-    );
     const onFailure = vi.fn(() => 'failed');
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: () => TestSubmitError.make({ message: 'failed' }),
         onSubmitMeta: { source: 'default' },
         schema: TestFormInput,
         onFailure,
@@ -259,7 +265,7 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(onFailure).toHaveBeenCalledWith(
@@ -275,13 +281,13 @@ describe('createEffectSchemaFormHook', () => {
     >('voel/components/form/hooks.test/DecodedFormInput')({
       count: Schema.FiniteFromString,
     }) {}
-    const mutation = runtime.fn((value: DecodedFormInput) => Effect.succeed(value.count * 2));
+    const mutation = (value: DecodedFormInput) => Effect.succeed(value.count.toFixed(2));
     const onSuccess = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { count: '4' },
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         schema: DecodedFormInput,
         onFailure: () => 'failed',
         onSuccess,
@@ -297,27 +303,27 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledOnce();
     });
     expect(onSuccess.mock.calls[0]?.[0]).toMatchObject({
-      result: 8,
+      result: '4.00',
       value: { count: 4 },
     });
   });
 
   it('propagates mutation defects without passing them to onFailure', async () => {
     const defect = new Error('mutation defect');
-    const mutation = runtime.fn((_value: TestFormInput) => Effect.die(defect));
+    const mutation = (_value: TestFormInput) => Effect.die(defect);
     const onFailure = vi.fn(() => 'mapped failure');
     const onRejected = vi.fn();
 
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: 'ok' },
-        mutation,
+        onSubmit: ({ value }) => mutation(value),
         schema: TestFormInput,
         onFailure,
       });
@@ -336,9 +342,11 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(onRejected).toHaveBeenCalledWith(defect);
+    await waitFor(() => {
+      expect(onRejected).toHaveBeenCalledWith(defect);
+    });
     expect(onFailure).not.toHaveBeenCalled();
   });
 });

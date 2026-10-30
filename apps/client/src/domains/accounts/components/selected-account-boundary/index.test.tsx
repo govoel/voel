@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { RegistryContext, useAtom, useAtomValue } from '@effect/atom-react';
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import {
   Array,
@@ -20,7 +20,9 @@ import { Pressable, Text } from 'react-native';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { activeUserProfileAtom } from '#src/app/accounts/(selected)/profile/index.ts';
-import { deleteServerUserAtom } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
+import { deleteServerUser } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
+import { useAppForm } from '#src/components/form';
+import { useSubmitState } from '#src/components/form/hooks.tsx';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
@@ -50,7 +52,17 @@ vi.mock('#src/components/text', async () => {
   const native = await import('react-native');
   return { Text: native.Text };
 });
-vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
+vi.mock('#src/components/form', async () => {
+  const hooks = await import('#src/components/form/hooks.tsx');
+  const { AppRuntime: runtime } = await import('#src/runtime/index.ts');
+  return hooks.createEffectSchemaFormHook({
+    runtime,
+    fieldContext: hooks.fieldContext,
+    formContext: hooks.formContext,
+    fieldComponents: {},
+    formComponents: {},
+  });
+});
 vi.mock('@expo/ui', () => ({ Icon: () => null }));
 vi.mock('@expo/ui/swift-ui', async () => {
   const native = await import('react-native');
@@ -222,12 +234,30 @@ const makeFixture = async (initial: ReadonlyArray<typeof Account.Type>) => {
   return fixture;
 };
 
+const DeleteUser = () => {
+  const { form, isSubmitting, errorMessage } = useSubmitState();
+  return (
+    <>
+      <Text>{Option.getOrElse(errorMessage, () => 'Ready to delete user')}</Text>
+      <Pressable role="button" disabled={isSubmitting} onPress={() => void form.handleSubmit()}>
+        <Text>Delete missing user</Text>
+      </Pressable>
+    </>
+  );
+};
+
 const AccountContent = () => {
   const account = useSelectedAccount();
   const profileQuery = activeUserProfileAtom(account);
   const profile = useAtomValue(profileQuery);
-  const mutationAtom = deleteServerUserAtom(account);
-  const [mutation, removeUser] = useAtom(mutationAtom);
+  const form = useAppForm({
+    onSubmit: () =>
+      deleteServerUser({
+        account,
+        input: { userId: AccountKey.fields.userId.make('missing-user') },
+      }),
+    onFailure: () => 'Could not delete user',
+  });
   const [draft, setDraft] = useState('Fresh draft');
   return (
     <>
@@ -239,14 +269,9 @@ const AccountContent = () => {
             Option.match(value, { onNone: () => 'Missing profile', onSome: (user) => user.name }),
         })}
       </Text>
-      <Text>{mutation._tag}</Text>
-      <Pressable
-        role="button"
-        onPress={() => {
-          removeUser({ userId: AccountKey.fields.userId.make('missing-user') });
-        }}>
-        <Text>Delete missing user</Text>
-      </Pressable>
+      <form.AppForm>
+        <DeleteUser />
+      </form.AppForm>
       <Pressable
         role="button"
         onPress={() => {
@@ -352,7 +377,7 @@ it('remounts account content on A → B → A, but updates profile metadata with
   expect(await screen.findByText('Alice')).toBeOnTheScreen();
   await fireEvent.press(screen.getByText('Fresh draft'));
   await fireEvent.press(screen.getByText('Delete missing user'));
-  expect(await screen.findByText('Failure')).toBeOnTheScreen();
+  expect(await screen.findByText('Could not delete user')).toBeOnTheScreen();
   await act(async () =>
     fixture.replace([
       Struct.assign(alice, { name: Account.fields.name.make('Alice updated') }),
@@ -361,15 +386,15 @@ it('remounts account content on A → B → A, but updates profile metadata with
   );
   expect(await screen.findByText('Alice updated')).toBeOnTheScreen();
   expect(screen.getByText('Edited draft')).toBeOnTheScreen();
-  expect(screen.getByText('Failure')).toBeOnTheScreen();
+  expect(screen.getByText('Could not delete user')).toBeOnTheScreen();
   await act(async () => fixture.select(bob));
   expect(await screen.findByText('Bob')).toBeOnTheScreen();
-  expect(screen.getByText('Initial')).toBeOnTheScreen();
+  expect(screen.getByText('Ready to delete user')).toBeOnTheScreen();
   expect(screen.getByText('Fresh draft')).toBeOnTheScreen();
   await fireEvent.press(screen.getByText('Fresh draft'));
   await act(async () => fixture.select(alice));
   expect(await screen.findByText('Alice updated')).toBeOnTheScreen();
-  expect(screen.getByText('Initial')).toBeOnTheScreen();
+  expect(screen.getByText('Ready to delete user')).toBeOnTheScreen();
   expect(screen.getByText('Fresh draft')).toBeOnTheScreen();
 });
 

@@ -4,6 +4,7 @@ import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Match, Option } from 'effect';
+import type { Effect } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AsyncResult } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
@@ -13,7 +14,7 @@ import { useRef } from 'react';
 import {
   activeUserProfileAtom,
   ownSessionsAtom,
-  signOutEverywhereAtom,
+  signOutEverywhere,
   useChangePasswordForm,
   useUserProfileForm,
 } from '#src/app/accounts/(selected)/profile/index.ts';
@@ -89,7 +90,7 @@ const LoadedProfile = ({
   profile: { email, name, role, username },
   onSignedOut,
 }: {
-  onSignedOut: (result: Atom.Success<ReturnType<typeof signOutEverywhereAtom>>) => Promise<void>;
+  onSignedOut: (result: Effect.Success<ReturnType<typeof signOutEverywhere>>) => Promise<void>;
   profile: Pick<
     Option.Option.Value<Atom.Success<ReturnType<typeof activeUserProfileAtom>>>,
     'email' | 'name' | 'role' | 'username'
@@ -153,7 +154,7 @@ const LoadedProfile = ({
                 </SegmentedListItem.HeadlineContent>
               </SegmentedListItem>
             )}
-            mutation={signOutEverywhereAtom(account)}
+            onSubmit={() => signOutEverywhere({ account })}
             title="Sign out everywhere"
             confirmLabel="Sign out"
             message="Sign out all devices for this account on this server, including this device?"

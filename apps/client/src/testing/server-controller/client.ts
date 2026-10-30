@@ -49,7 +49,7 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
             Stream.runForEach((line) =>
               Option.match(decodeReady(line), {
                 onNone: () => Effect.void,
-                onSome: ({ url }) => Deferred.succeed(ready, url),
+                onSome: ({ url }) => Deferred.succeed(ready, url).pipe(Effect.asVoid),
               })
             ),
             Effect.catch((error) => Deferred.die(ready, error)),
