@@ -8,7 +8,7 @@ import { AppConfig } from '#src/config.ts';
 import { TursoSyncClientFactoryBunLayer } from '#src/database/factory/bun.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
 import { AuthClient, AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { Encryption } from '#src/domains/accounts/encryption/index.ts';
+import { AccountEncryptionKeyTestLayer } from '#src/domains/accounts/encryption/testing.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
@@ -29,7 +29,7 @@ export const makeClientTestLayers = ({
     Layer.provideMerge(MainDatabaseTestLayer),
     Layer.provideMerge(
       Layer.mergeAll(
-        Encryption.layerTest,
+        AccountEncryptionKeyTestLayer,
         Digest.layerWebCrypto,
         AppConfig.layerTest(config),
         Reactivity.layer,

@@ -1,15 +1,17 @@
 import { Context, Effect, Layer, Option, Schema, SchemaGetter, Struct } from 'effect';
+import { Aead, SecureRandom } from 'effect/crypto';
 import { Reactivity } from 'effect/reactivity';
 import { SqlSchema } from 'effect/sql';
 
 import { MainDatabase } from '#src/database/main/index.ts';
-import { Encryption } from '#src/domains/accounts/encryption/index.ts';
+import { AccountEncryptionKey } from '#src/domains/accounts/encryption/key.ts';
 import {
   AccountCredentialsError,
   AccountDatabaseError,
   AccountNotFoundError,
 } from '#src/domains/accounts/errors.ts';
 import { AccountKey, Account as DbAccount } from '#src/domains/accounts/schema.ts';
+import { ExpoAeadLayer, ExpoSecureRandomLayer } from '#src/runtime/crypto.ts';
 
 export class Account extends Schema.Struct({
   key: AccountKey,
@@ -41,7 +43,10 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
   {
     make: Effect.gen(function* () {
       const sql = yield* MainDatabase;
-      const encryption = yield* Encryption;
+      const crypto = Context.make(AccountEncryptionKey, yield* AccountEncryptionKey).pipe(
+        Context.add(Aead.Aead, yield* Aead.Aead),
+        Context.add(SecureRandom.SecureRandom, yield* SecureRandom.SecureRandom)
+      );
       const queries = {
         list: SqlSchema.findAll({
           Request: Schema.Void,
@@ -100,9 +105,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         upsert: SqlSchema.findOne({
-          Request: DbAccount.upsert.pipe(
-            Schema.middlewareEncoding(Effect.provideService(Encryption, encryption))
-          ),
+          Request: DbAccount.upsert.pipe(Schema.middlewareEncoding(Effect.provideContext(crypto))),
           Result: AccountKey,
           execute: (account) => sql`
             insert into
@@ -172,7 +175,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         readAuthStorage: SqlSchema.findOneOption({
           Request: AccountKey,
           Result: Schema.Struct({ authStorage: DbAccount.fields.authStorage }).pipe(
-            Schema.middlewareDecoding(Effect.provideService(Encryption, encryption))
+            Schema.middlewareDecoding(Effect.provideContext(crypto))
           ),
           execute: ({ serverUrl, userId }) => sql`
             select
@@ -188,7 +191,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           Request: Schema.Struct({
             key: AccountKey,
             authStorage: DbAccount.fields.authStorage,
-          }).pipe(Schema.middlewareEncoding(Effect.provideService(Encryption, encryption))),
+          }).pipe(Schema.middlewareEncoding(Effect.provideContext(crypto))),
           execute: ({ key, authStorage }) => sql`
             update account
             set
@@ -352,6 +355,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);
   public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide([MainDatabase.layer, Encryption.layer])
+    Layer.provide([MainDatabase.layer, AccountEncryptionKey.layer]),
+    Layer.provide([ExpoAeadLayer, ExpoSecureRandomLayer])
   );
 }

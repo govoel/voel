@@ -13,6 +13,7 @@ import {
   Schema,
   Struct,
 } from 'effect';
+import { Aead, CryptoError } from 'effect/crypto';
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, SqlError, Statement } from 'effect/sql';
 
@@ -22,14 +23,14 @@ import { AppConfig } from '#src/config.ts';
 import { MainDatabase } from '#src/database/main/index.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
 import { makeAccountAuthStorage } from '#src/domains/accounts/auth-client/storage.ts';
-import { Encryption, EncryptionError } from '#src/domains/accounts/encryption/index.ts';
+import { AccountEncryptionKeyTestLayer } from '#src/domains/accounts/encryption/testing.ts';
 import { AccountDatabaseError } from '#src/domains/accounts/errors.ts';
 import { Account, AccountRepository } from '#src/domains/accounts/repository.ts';
 import { AccountKey, Account as DbAccount } from '#src/domains/accounts/schema.ts';
 
 const RepositoryDatabaseLayer = AccountRepository.layerNoDeps.pipe(
   Layer.provideMerge(MainDatabaseTestLayer),
-  Layer.provideMerge([Reactivity.layer, Encryption.layerTest])
+  Layer.provideMerge([Reactivity.layer, AccountEncryptionKeyTestLayer])
 );
 const RepositoryTestLayer = RepositoryDatabaseLayer.pipe(Layer.provide(AppConfig.layerTest()));
 const makeAccount = (id: string) =>
@@ -232,10 +233,14 @@ describe('AccountRepository', () => {
       const repository = yield* AccountRepository;
       const first = yield* repository.upsertActive(makeAccount('first'));
       const before = yield* repository.list;
-      const encryption = yield* Encryption;
-      const error = EncryptionError.make({ cause: new Error('Encryption unavailable') });
+      const aead = yield* Aead.Aead;
+      const error = new CryptoError.CryptoError({
+        module: 'Aead',
+        method: 'encrypt',
+        reason: new CryptoError.InvalidArgument({ description: 'Encryption unavailable' }),
+      });
       const failing = yield* AccountRepository.make.pipe(
-        Effect.provideService(Encryption, { ...encryption, encrypt: () => error })
+        Effect.provideService(Aead.Aead, { ...aead, encrypt: () => Effect.fail(error) })
       );
       const reactivity = yield* Reactivity.Reactivity;
       let invalidations = 0;
