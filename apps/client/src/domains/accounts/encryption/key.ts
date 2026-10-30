@@ -9,9 +9,14 @@ export class AccountEncryptionKeyError extends Schema.TaggedError<
 }) {}
 
 const keyName = 'voel.encryption.aes-key';
-const KeyCodec = Schema.Uint8ArrayFromBase64.pipe(
-  Schema.decodeTo(Schema.AeadKeyFromBytes(Aead.aes256Gcm, { allowEncode: true }))
-);
+class KeyCodec extends Schema.Opaque<KeyCodec, { readonly brand: unique symbol }>()(
+  Schema.Uint8ArrayFromBase64.pipe(
+    Schema.decodeTo(Schema.AeadKeyFromBytes(Aead.aes256Gcm, { allowEncode: true }))
+  )
+) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+  public static readonly encodeEffect = Schema.encodeEffect(this);
+}
 
 /** Owns lazy key initialization and its success-only cache for one layer instance. */
 export class AccountEncryptionKey extends Context.Service<AccountEncryptionKey>()(
@@ -42,7 +47,7 @@ export class AccountEncryptionKey extends Context.Service<AccountEncryptionKey>(
             catch: (cause) => AccountEncryptionKeyError.make({ cause }),
           });
           if (stored !== null) {
-            return yield* Schema.decodeEffect(KeyCodec)(stored).pipe(
+            return yield* KeyCodec.decodeEffect(stored).pipe(
               // Schema issues can include their input; never attach stored key material to errors.
               Effect.catchTag('SchemaError', () =>
                 AccountEncryptionKeyError.make({
@@ -56,7 +61,7 @@ export class AccountEncryptionKey extends Context.Service<AccountEncryptionKey>(
             .pipe(
               Effect.catchTag('CryptoError', (cause) => AccountEncryptionKeyError.make({ cause }))
             );
-          const encoded = yield* Schema.encodeEffect(KeyCodec)(key).pipe(
+          const encoded = yield* KeyCodec.encodeEffect(KeyCodec.make(key)).pipe(
             Effect.catchTag('SchemaError', (cause) => AccountEncryptionKeyError.make({ cause }))
           );
           yield* Effect.tryPromise({
