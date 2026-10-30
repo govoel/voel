@@ -151,7 +151,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             if (Array.isReadonlyArrayNonEmpty(roots)) {
               yield* sql`
                 insert into
-                  "libraryRoot" ${sql.insert(roots.map((root) => ({ libraryId: id, root })))}
+                  "libraryRoot" ${sql.insert(Array.map(roots, (root) => ({ libraryId: id, root })))}
                 on conflict ("libraryId", root) do nothing
               `;
             }

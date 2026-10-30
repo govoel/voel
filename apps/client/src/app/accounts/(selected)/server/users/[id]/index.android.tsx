@@ -340,12 +340,11 @@ const LoadedUser = ({
             }}>
             {({ dismiss }) =>
               Match.value(editor).pipe(
-                Match.when('role', () => <UserRoleForm user={user} onSuccess={dismiss} />),
-                Match.when('profile', () => <UserProfileForm user={user} onSuccess={dismiss} />),
-                Match.when('password', () => (
-                  <UserPasswordForm userId={user.id} onSuccess={dismiss} />
-                )),
-                Match.exhaustive
+                Match.literalsExhaustive({
+                  role: () => <UserRoleForm user={user} onSuccess={dismiss} />,
+                  profile: () => <UserProfileForm user={user} onSuccess={dismiss} />,
+                  password: () => <UserPasswordForm userId={user.id} onSuccess={dismiss} />,
+                })
               )
             }
           </Sheet>

@@ -27,23 +27,24 @@ export const AuthLayerNoDeps = Layer.effect(
       logger: {
         log: (level, message, ...args) => {
           Match.value(level).pipe(
-            Match.when('debug', () => {
-              runtime(Effect.logDebug(message, args));
-              return void 0;
-            }),
-            Match.when('info', () => {
-              runtime(Effect.logInfo(message, args));
-              return void 0;
-            }),
-            Match.when('warn', () => {
-              runtime(Effect.logWarning(message, args));
-              return void 0;
-            }),
-            Match.when('error', () => {
-              runtime(Effect.logError(message, args));
-              return void 0;
-            }),
-            Match.exhaustive
+            Match.literalsExhaustive({
+              debug: () => {
+                runtime(Effect.logDebug(message, args));
+                return void 0;
+              },
+              info: () => {
+                runtime(Effect.logInfo(message, args));
+                return void 0;
+              },
+              warn: () => {
+                runtime(Effect.logWarning(message, args));
+                return void 0;
+              },
+              error: () => {
+                runtime(Effect.logError(message, args));
+                return void 0;
+              },
+            })
           );
         },
       },

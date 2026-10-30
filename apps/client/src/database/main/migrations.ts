@@ -1,6 +1,5 @@
 import { Layer, Schema } from 'effect';
-
-import { SqliteMigrator } from '@repo/effect-turso-sync-rn/migrator';
+import { Migrator } from 'effect/sql';
 
 import baseTablesMigration from '#src/database/main/migrations/000001-base-tables.ts';
 
@@ -13,12 +12,14 @@ class DatabaseMigrationError extends Schema.TaggedError<
 }) {}
 
 export const MainDatabaseMigrations = {
-  layer: SqliteMigrator.layer({
-    loader: SqliteMigrator.fromRecord({
-      '000001_base-tables': baseTablesMigration,
-    }),
-  }).pipe(
-    Layer.catchTag('@repo/effect-turso-sync-rn/migrator/MigrationError', (cause) =>
+  layer: Layer.effectDiscard(
+    Migrator.make({})({
+      loader: Migrator.fromRecord({
+        '000001_base-tables': baseTablesMigration,
+      }),
+    })
+  ).pipe(
+    Layer.catchTag('MigrationError', (cause) =>
       Layer.effectDiscard(DatabaseMigrationError.make({ cause, database: 'main' }))
     ),
     Layer.catchTag('SqlError', (cause) =>

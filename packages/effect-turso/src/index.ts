@@ -120,7 +120,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
               }),
             }),
         }),
-        (database) => Effect.ignore(Effect.promise(async () => database.close()))
+        (database) => Effect.promise(async () => database.close())
       ).pipe(
         Effect.catchReason('SqlError', 'UnknownError', (error) =>
           SqlError.SqlError.make({
@@ -241,11 +241,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       const runStream = (sql: string, params: ReadonlyArray<unknown>) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            yield* Effect.acquireRelease(
-              operationSemaphore.take(1),
-              () => operationSemaphore.release(1),
-              { interruptible: true }
-            );
+            yield* Semaphore.takeScoped(operationSemaphore, 1);
             const statement = yield* ScopedCache.get(prepareCache, sql);
             const useSafeIntegers = yield* SqlClient.SafeIntegers;
             statement.safeIntegers(useSafeIntegers);

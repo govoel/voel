@@ -103,22 +103,25 @@ export default function app({ config }: ConfigContext): ExpoConfig {
   return withExpoInlineComposeModules({
     ...config,
     name: Match.value(env.releaseChannel).pipe(
-      Match.when('prod', () => 'Voel'),
-      Match.when('preview', () => 'Voel (Preview)'),
-      Match.when('dev', () => 'Voel (Dev)'),
-      Match.exhaustive
+      Match.literalsExhaustive({
+        prod: () => 'Voel',
+        preview: () => 'Voel (Preview)',
+        dev: () => 'Voel (Dev)',
+      })
     ),
     slug: Match.value(env.releaseChannel).pipe(
-      Match.when('prod', () => 'voel'),
-      Match.when('preview', () => 'voel-preview'),
-      Match.when('dev', () => 'voel-dev'),
-      Match.exhaustive
+      Match.literalsExhaustive({
+        prod: () => 'voel',
+        preview: () => 'voel-preview',
+        dev: () => 'voel-dev',
+      })
     ),
     scheme: Match.value(env.releaseChannel).pipe(
-      Match.when('prod', () => 'voel'),
-      Match.when('preview', () => 'voel-preview'),
-      Match.when('dev', () => 'voel-dev'),
-      Match.exhaustive
+      Match.literalsExhaustive({
+        prod: () => 'voel',
+        preview: () => 'voel-preview',
+        dev: () => 'voel-dev',
+      })
     ),
     version: pkg.version,
     platforms: ['ios', 'android'],
@@ -128,10 +131,11 @@ export default function app({ config }: ConfigContext): ExpoConfig {
     ios: {
       supportsTablet: false,
       bundleIdentifier: Match.value(env.releaseChannel).pipe(
-        Match.when('prod', () => 'app.voel.rn'),
-        Match.when('preview', () => 'app.voel.rn.preview'),
-        Match.when('dev', () => 'app.voel.rn.dev'),
-        Match.exhaustive
+        Match.literalsExhaustive({
+          prod: () => 'app.voel.rn',
+          preview: () => 'app.voel.rn.preview',
+          dev: () => 'app.voel.rn.dev',
+        })
       ),
       icon: './assets/icons/ios-icon.icon',
       infoPlist: {
@@ -140,10 +144,11 @@ export default function app({ config }: ConfigContext): ExpoConfig {
     },
     android: {
       package: Match.value(env.releaseChannel).pipe(
-        Match.when('prod', () => 'app.voel.rn'),
-        Match.when('preview', () => 'app.voel.rn.preview'),
-        Match.when('dev', () => 'app.voel.rn.dev'),
-        Match.exhaustive
+        Match.literalsExhaustive({
+          prod: () => 'app.voel.rn',
+          preview: () => 'app.voel.rn.preview',
+          dev: () => 'app.voel.rn.dev',
+        })
       ),
       adaptiveIcon: {
         foregroundImage: './assets/icons/adaptive-icon.png',

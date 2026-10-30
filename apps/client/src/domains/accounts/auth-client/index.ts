@@ -34,12 +34,13 @@ const userAgent =
   Device.deviceName ??
   Device.modelName ??
   Match.value(Platform.OS).pipe(
-    Match.when('android', () => 'Android'),
-    Match.when('ios', () => 'iOS'),
-    Match.when('macos', () => 'MacOS'),
-    Match.when('web', () => 'Web'),
-    Match.when('windows', () => 'Windows'),
-    Match.exhaustive
+    Match.literalsExhaustive({
+      android: () => 'Android',
+      ios: () => 'iOS',
+      macos: () => 'MacOS',
+      web: () => 'Web',
+      windows: () => 'Windows',
+    })
   );
 
 const clientOptions = ({

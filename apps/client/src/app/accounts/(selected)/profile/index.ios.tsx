@@ -129,11 +129,12 @@ const LoadedProfile = ({
             }}>
             {({ dismiss }) =>
               Match.value(editor).pipe(
-                Match.when('profile', () => (
-                  <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
-                )),
-                Match.when('password', () => <PasswordForm onSuccess={dismiss} />),
-                Match.exhaustive
+                Match.literalsExhaustive({
+                  profile: () => (
+                    <UserProfileEditor profile={{ name, username }} onSuccess={dismiss} />
+                  ),
+                  password: () => <PasswordForm onSuccess={dismiss} />,
+                })
               )
             }
           </Sheet>

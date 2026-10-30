@@ -10,7 +10,7 @@
         "agent-browser": "0.41.0",
         "agent-device": "0.21.35",
         "bun-types": "1.4.4",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
         "eslint-plugin-sql": "3.4.1",
         "eslint-plugin-turbo": "2.11.10",
         "opensrc": "0.7.3",
@@ -26,7 +26,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.7.14",
-        "@effect/atom-react": "4.0.6",
+        "@effect/atom-react": "4.1.0",
         "@expo-google-fonts/google-sans": "0.4.3",
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~58.0.25",
@@ -36,7 +36,7 @@
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.5",
         "better-auth": "1.7.14",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
         "expo": "~58.0.21",
         "expo-build-properties": "~58.0.11",
         "expo-constants": "~58.0.14",
@@ -62,8 +62,8 @@
         "react-native-worklets": "0.13.0",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.6",
-        "@effect/vitest": "4.0.6",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@govoel/plugins": "workspace:*",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@repo/effect-atom-devtools-rozenite": "workspace:*",
@@ -85,16 +85,16 @@
       "name": "@repo/server",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/platform-bun": "4.0.6",
+        "@effect/platform-bun": "4.1.0",
         "@govoel/plugins": "workspace:*",
         "@govoel/turso-database": "0.8.3",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-turso": "workspace:*",
         "@repo/spec-api": "workspace:*",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.6",
+        "@effect/vitest": "4.1.0",
         "@repo/effect-turso-sync-bun": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
@@ -109,7 +109,7 @@
       "dependencies": {
         "@better-auth/expo": "1.7.14",
         "better-auth": "1.7.14",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -121,10 +121,10 @@
       "name": "@repo/effect-atom-devtools-core",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.6",
+        "@effect/vitest": "4.1.0",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
         "typescript": "7.0.2",
@@ -135,15 +135,15 @@
       "name": "@repo/effect-atom-devtools-rozenite",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/atom-react": "4.0.6",
+        "@effect/atom-react": "4.1.0",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@rozenite/agent-shared": "2.5.0",
         "@rozenite/plugin-bridge": "2.5.0",
         "@rozenite/ui": "2.5.0",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.6",
+        "@effect/vitest": "4.1.0",
         "@repo/tsconfig": "workspace:*",
         "@rozenite/vite-plugin": "2.5.0",
         "@types/react": "~19.3.0",
@@ -162,11 +162,11 @@
       "version": "0.0.0",
       "dependencies": {
         "@govoel/turso-database": "0.8.3",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.6",
-        "@effect/vitest": "4.0.6",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
         "typescript": "7.0.2",
@@ -177,7 +177,7 @@
       "name": "@repo/effect-turso-sync",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -192,11 +192,11 @@
         "@repo/effect-turso-sync": "workspace:*",
         "@tursodatabase/database-common": "0.8.3",
         "@tursodatabase/sync": "0.8.3",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.6",
-        "@effect/vitest": "4.0.6",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@repo/effect-turso": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
@@ -210,7 +210,7 @@
       "dependencies": {
         "@repo/effect-turso-sync": "workspace:*",
         "@tursodatabase/sync-react-native": "0.8.3",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -222,15 +222,15 @@
       "name": "@govoel/plugins",
       "version": "0.0.0",
       "devDependencies": {
-        "@effect/vitest": "4.0.6",
+        "@effect/vitest": "4.1.0",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
         "typescript": "7.0.2",
         "vitest": "5.0.5",
       },
       "peerDependencies": {
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
     },
     "packages/spec-api": {
@@ -239,7 +239,7 @@
       "dependencies": {
         "@govoel/plugins": "workspace:*",
         "@repo/auth-api": "workspace:*",
-        "effect": "4.0.6",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -436,9 +436,9 @@
 
     "@clack/prompts": ["@clack/prompts@0.11.0", "", { "dependencies": { "@clack/core": "0.5.0", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.0.6", "", { "peerDependencies": { "effect": "^4.0.6", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-DpbuEdaJl+2/GW4KkrKtRD8YVPT+I29bh/TFE7JCGkB4YNiHWNE5q69EagDeK/QXi4RlSb+iR+rNGkORJ9qB/A=="],
+    "@effect/atom-react": ["@effect/atom-react@4.1.0", "", { "peerDependencies": { "effect": "^4.1.0", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-PeaBDmwqG9BPQfaPHeWCB2NF4NQaFlI6poKxjlBHMrMjKqV+LVBdryhpDNqSZOhqGgT+qnh9gV+19MYjNOQ+bg=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.0.6", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.6" }, "peerDependencies": { "effect": "^4.0.6" } }, "sha512-RAsGcIVcqhV4aBiM07VnMeNWDyewp8WDwTdIUtiklUDBRtddDllYzPsTlsn+0gLdpdz2lGnMEOFzoNaNrcMfSA=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.1.0", "", { "dependencies": { "@effect/platform-node-shared": "^4.1.0" }, "peerDependencies": { "effect": "^4.1.0" } }, "sha512-ZgIV+tV2utcbiopbWSoJuGn3FZuyqhLWIYITFCR8vlwnKicO1q0WgP4BBjDUYUTMRPEU/N1+BcZourAgpiDI/w=="],
 
     "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.0", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.22.0" }, "peerDependencies": { "effect": "^4.1.0" } }, "sha512-uYQfFRoxWLo8fIhiSeBcmz/R1ooOfE3HF3cWHFgxz82tZMk2Wn02BGABcdLmaAch9VpDLbtWnuhSxNyBsGMUFg=="],
 
@@ -458,7 +458,7 @@
 
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.63.0", "", { "os": "win32", "cpu": "x64" }, "sha512-28s5YrwL26/7EUnUOu81IOJGJZLkPf2lPkiSIsd4EnFhimeBqP279bhAoDAEwLW1gv45GKM/49JKduXmdLyT1g=="],
 
-    "@effect/vitest": ["@effect/vitest@4.0.6", "", { "peerDependencies": { "effect": "^4.0.6", "vitest": ">=5.0.0 <6.0.0" } }, "sha512-oKNbtyUHK5+0o730CXwojULEu7f3+c235pYFD4U5T//o+hHrJbYbZU4bRkcv936tPr5IOnmujeyQiC/LuJJjHw=="],
+    "@effect/vitest": ["@effect/vitest@4.1.0", "", { "peerDependencies": { "effect": "^4.1.0", "vitest": ">=5.0.0 <6.0.0" } }, "sha512-+APF69oTYgGj5WCewowk1/udepH74xz4ONyH7d+UfcK0SrF3osiSwsWEyODUpJvWd6MIk5F5PcFJiE4evMuG2A=="],
 
     "@electron-internal/extract-zip": ["@electron-internal/extract-zip@1.0.8", "", {}, "sha512-8iajeLFbzNwM0m3AsQZSZgYREWglAImyGvvFSWU34FgMW8sHlzdwj9QKvv9dgN7jMP591EFUF/sLOC3Jl9YIjQ=="],
 
@@ -1336,7 +1336,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.6", "", {}, "sha512-Tc3mkzuLR6t6P9dhLt0D2GrxYtmU5td4XEJEiXCmILz53IRIfJyHsKZWjTA3xEjiwpNTtXBgI4iqYPxMztBDrw=="],
+    "effect": ["effect@4.1.0", "", {}, "sha512-lGx2MJJyrXA8RZb2UpQ/0Nkb5Utaimby7oD92+18noBxLPE85IFOvptdzau8dvcxAOwfwHo9iqapbKeFzqQM/Q=="],
 
     "ejs": ["ejs@3.1.10", "", { "dependencies": { "jake": "^10.8.5" }, "bin": { "ejs": "bin/cli.js" } }, "sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA=="],
 

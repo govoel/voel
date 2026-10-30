@@ -14,12 +14,7 @@ import {
   Struct,
 } from 'effect';
 import { Reactivity } from 'effect/reactivity';
-// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
-import * as SqlClient from 'effect/sql/SqlClient';
-// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
-import * as SqlError from 'effect/sql/SqlError';
-// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- Keep the SQL barrel out of Metro.
-import * as Statement from 'effect/sql/Statement';
+import { SqlClient, SqlError, Statement } from 'effect/sql';
 
 import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 

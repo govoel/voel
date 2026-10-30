@@ -34,11 +34,9 @@ export class AuthDatabase extends Context.Service<AuthDatabase>()(
           catch: (cause) => DatabaseInitializationError.make({ cause, database: 'auth' }),
         }),
         (db) =>
-          Effect.ignore(
-            Effect.sync(() => {
-              db.close();
-            })
-          )
+          Effect.sync(() => {
+            db.close();
+          })
       );
 
       yield* Effect.try({
