@@ -30,19 +30,18 @@ const mutate = Effect.fnUntraced(function* ({
 }: Pick<Library, 'id'> & { readonly operation: 'rename' | 'settings' | 'delete' }) {
   const service = yield* LibraryService;
   return yield* Match.value(operation).pipe(
-    Match.when('rename', () =>
-      service.rename({ id, name: Library.fields.name.make('Renamed') }).pipe(Effect.asVoid)
-    ),
-    Match.when('settings', () =>
-      service
-        .setStoragePluginSettings({
-          id,
-          input: StoragePluginSettingsInput.make({ root: '/updated' }),
-        })
-        .pipe(Effect.asVoid)
-    ),
-    Match.when('delete', () => service.delete({ id })),
-    Match.exhaustive
+    Match.literalsExhaustive({
+      rename: () =>
+        service.rename({ id, name: Library.fields.name.make('Renamed') }).pipe(Effect.asVoid),
+      settings: () =>
+        service
+          .setStoragePluginSettings({
+            id,
+            input: StoragePluginSettingsInput.make({ root: '/updated' }),
+          })
+          .pipe(Effect.asVoid),
+      delete: () => service.delete({ id }),
+    })
   );
 });
 

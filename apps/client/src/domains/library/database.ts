@@ -1,16 +1,16 @@
 import { Context, Effect, Layer, LayerMap, Option, Schedule, Stream } from 'effect';
+import { Digest } from 'effect/crypto';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
-// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlClient from 'effect/sql/SqlClient';
+import { SqlClient } from 'effect/sql';
 
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
 import { AppConfig } from '#src/config.ts';
 import { TursoSyncClientFactory } from '#src/database/factory/index.ts';
-import { CryptoDigest } from '#src/domains/accounts/auth-client/crypto-digest.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AuthClient } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
+import { ExpoDigestLayer } from '#src/runtime/crypto.ts';
 
 const retrySchedule = Schedule.min([
   Schedule.exponential('1 second'),
@@ -43,12 +43,11 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   readonly filenameSuffix: string;
 }) {
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
-  const digest = yield* CryptoDigest;
-  const filename = yield* digest.sha256({
-    input: yield* AccountKey.encodeIdentity(account).pipe(
-      Effect.catchTags({ SchemaError: Effect.die })
-    ),
-  });
+  const digest = yield* Digest.Digest;
+  const identity = yield* AccountKey.encodeIdentity(account).pipe(
+    Effect.catchTags({ SchemaError: Effect.die })
+  );
+  const filename = yield* digest.digestHex(Digest.sha256, new TextEncoder().encode(identity));
 
   return {
     // A stable, filesystem-safe name for this server/user pair, across logins.
@@ -97,7 +96,7 @@ export class LibraryDatabase extends Context.Service<LibraryDatabase>()(
 
   public static readonly layer = (account: AccountKey) =>
     this.layerNoDeps(account).pipe(
-      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, CryptoDigest.layer])
+      Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, ExpoDigestLayer])
     );
 }
 
@@ -150,6 +149,6 @@ export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
   public static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, CryptoDigest.layer])
+    Layer.provide([AppConfig.layer, AuthClientMap.layer, Reactivity.layer, ExpoDigestLayer])
   );
 }

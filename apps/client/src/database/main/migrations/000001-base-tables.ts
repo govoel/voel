@@ -1,6 +1,5 @@
 import { Effect } from 'effect';
-// oxlint-disable-next-line effect-conventions/no-effect-namespace-import -- The SQL barrel pulls in Migrator, whose dynamic import breaks Metro.
-import * as SqlClient from 'effect/sql/SqlClient';
+import { SqlClient } from 'effect/sql';
 
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;

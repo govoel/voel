@@ -64,7 +64,7 @@ export class TursoSyncClient extends CoreTursoSyncClient {
           }),
         catch: mapConnectionError,
       }),
-      (database) => Effect.ignore(Effect.promise(async () => database.close()))
+      (database) => Effect.promise(async () => database.close())
     );
     yield* sync.withSyncOperation(
       Effect.tryPromise({
@@ -107,11 +107,9 @@ export class TursoSyncClient extends CoreTursoSyncClient {
               }),
           }),
           (statement) =>
-            Effect.ignore(
-              Effect.sync(() => {
-                statement.close();
-              })
-            )
+            Effect.sync(() => {
+              statement.close();
+            })
         ),
     });
 

@@ -39,7 +39,10 @@ export class TestServerControllerClient extends Context.Service<TestServerContro
                 stderr: 'ignore',
               })
             ),
-            (child) => child.kill({ forceKillAfter: '2 seconds' }).pipe(Effect.ignore)
+            (child) =>
+              child
+                .kill({ forceKillAfter: '2 seconds' })
+                .pipe(Effect.ignore({ log: 'Unhandled', message: 'Failed to stop test server' }))
           );
 
           // Continue draining stdout after readiness so server logging cannot block the child.

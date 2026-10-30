@@ -1,6 +1,5 @@
 import { Layer, Schema } from 'effect';
-
-import { SqliteMigrator } from '@repo/effect-turso';
+import { Migrator } from 'effect/sql';
 
 import baseTablesMigration from '#src/domains/library/database/migrations/000001-base-tables.ts';
 
@@ -16,11 +15,13 @@ class DatabaseMigrationError extends Schema.TaggedError<
 ) {}
 
 export const LibraryMigrations = {
-  layer: SqliteMigrator.layer({
-    loader: SqliteMigrator.fromRecord({
-      '000001_base-tables': baseTablesMigration,
-    }),
-  }).pipe(
+  layer: Layer.effectDiscard(
+    Migrator.make({})({
+      loader: Migrator.fromRecord({
+        '000001_base-tables': baseTablesMigration,
+      }),
+    })
+  ).pipe(
     Layer.catchTag('MigrationError', (cause) =>
       Layer.effectDiscard(DatabaseMigrationError.make({ cause, database: 'library' }))
     ),

@@ -17,9 +17,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@better-auth/expo": "1.7.12",
-    "better-auth": "1.7.12",
-    "effect": "4.0.6"
+    "@better-auth/expo": "1.7.14",
+    "better-auth": "1.7.14",
+    "effect": "4.1.0"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
