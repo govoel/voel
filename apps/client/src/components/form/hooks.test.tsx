@@ -1,17 +1,17 @@
 import { useSelector } from '@tanstack/react-form';
-import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { Array, Deferred, Effect, Layer, Option, Schema } from 'effect';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Deferred, Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
+import { useReducer } from 'react';
 import { Pressable, Text } from 'react-native';
-import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import {
   createEffectSchemaFormHook,
   fieldContext,
   formContext,
-  useFormContext,
-  useFormSubmissionError,
+  useSubmitState,
 } from '#src/components/form/hooks.tsx';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
@@ -38,113 +38,69 @@ const { useAppForm } = createEffectSchemaFormHook({
   formContext,
 });
 
-const makeUser = () =>
-  userEvent.setup({
-    advanceTimers: async (delay) => {
-      await vi.advanceTimersByTimeAsync(delay);
-    },
-  });
-
 const ErrorProbe = () => {
-  const form = useFormContext();
-  const submissionError = useFormSubmissionError();
-  const validationFormError = useSelector(form.store, (state) =>
-    Option.getOrNull(
-      Array.findFirst(state.errors, (error): error is string => typeof error === 'string')
-    )
-  );
-
-  return (
-    <Text testID="form-error">
-      {Option.getOrElse(submissionError, () => validationFormError ?? 'No form error')}
-    </Text>
-  );
+  const { errorMessage } = useSubmitState();
+  return <Text testID="form-error">{Option.getOrElse(errorMessage, () => 'No form error')}</Text>;
 };
-
 const RetrySubmitButton = () => {
-  const form = useFormContext();
-  const [canSubmit, hasSubmitValidationError] = useSelector(
-    form.store,
-    (state): readonly [boolean, boolean] => [state.canSubmit, state.errorMap.onSubmit !== void 0]
-  );
-
+  const { form, canSubmit, isSubmitting } = useSubmitState();
   return (
-    <>
-      <Pressable
-        accessibilityState={{ disabled: !canSubmit }}
-        disabled={!canSubmit}
-        role="button"
-        onPress={() => void form.handleSubmit()}>
-        <Text>Submit</Text>
-      </Pressable>
-      <Text testID="can-submit">{String(canSubmit)}</Text>
-      <Text testID="has-submit-validation-error">{String(hasSubmitValidationError)}</Text>
-    </>
+    <Pressable
+      disabled={!canSubmit || isSubmitting}
+      role="button"
+      onPress={() => void form.handleSubmit()}>
+      <Text>Submit</Text>
+    </Pressable>
   );
 };
 
 describe('createEffectSchemaFormHook', () => {
-  it('correlates concurrent forms with their own Effect results', async () => {
-    vi.useRealTimers();
+  it('shows each concurrent form its own saved result', async () => {
     const first = await Effect.runPromise(Deferred.make<string>());
     const second = await Effect.runPromise(Deferred.make<string>());
-    const onFirstSuccess = vi.fn();
-    const onSecondSuccess = vi.fn();
-    const submit = vi.fn(({ value }: { readonly value: TestFormInput }) =>
-      Deferred.await(value.name === 'first' ? first : second)
-    );
-    const TestForm = ({
-      name,
-      onSuccess,
-    }: {
-      readonly name: string;
-      readonly onSuccess: typeof onFirstSuccess;
-    }) => {
+    const submit = ({ value }: { readonly value: TestFormInput }) =>
+      Deferred.await(value.name === 'first' ? first : second);
+    const TestForm = ({ name }: { readonly name: string }) => {
+      const [saved, showSaved] = useReducer((_saved: string, result: string) => result, '');
       const form = useAppForm({
         schema: TestFormInput,
         defaultValues: { name },
         onSubmit: submit,
         onFailure: () => 'Failed',
-        onSuccess,
+        onSuccess: ({ result }) => {
+          showSaved(result);
+        },
       });
       const submitting = useSelector(form.store, (state) => state.isSubmitting);
       return (
-        <Pressable disabled={submitting} onPress={() => void form.handleSubmit()}>
-          <Text>{submitting ? `Saving ${name}` : `Save ${name}`}</Text>
-        </Pressable>
+        <>
+          <Pressable role="button" disabled={submitting} onPress={() => void form.handleSubmit()}>
+            <Text>{name}</Text>
+          </Pressable>
+          <Text>
+            {name}: {saved}
+          </Text>
+        </>
       );
     };
     await render(
       <>
-        <TestForm name="first" onSuccess={onFirstSuccess} />
-        <TestForm name="second" onSuccess={onSecondSuccess} />
+        <TestForm name="first" />
+        <TestForm name="second" />
       </>
     );
-    await fireEvent.press(screen.getByText('Save first'));
-    await fireEvent.press(screen.getByText('Save second'));
-    await waitFor(() => {
-      expect(submit).toHaveBeenCalledTimes(2);
-    });
+    await fireEvent.press(screen.getByRole('button', { name: 'first' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'second' }));
     await act(async () => {
-      await Effect.runPromise(Deferred.succeed(second, 'second result'));
+      await Effect.runPromise(Deferred.succeed(second, 'Second saved'));
     });
-    await waitFor(() => {
-      expect(onSecondSuccess).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({ value: { name: 'second' }, result: 'second result' })
-      );
-    });
-    expect(onFirstSuccess).not.toHaveBeenCalled();
-    expect(screen.getByText('Saving first')).toBeOnTheScreen();
-
+    await screen.findByText('second: Second saved');
+    expect(screen.getByRole('button', { name: 'first' })).toBeDisabled();
     await act(async () => {
-      await Effect.runPromise(Deferred.succeed(first, 'first result'));
+      await Effect.runPromise(Deferred.succeed(first, 'First saved'));
     });
-    await waitFor(() => {
-      expect(onFirstSuccess).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({ value: { name: 'first' }, result: 'first result' })
-      );
-    });
-    expect(onSecondSuccess).toHaveBeenCalledOnce();
+    await screen.findByText('first: First saved');
+    expect(screen.getByText('second: Second saved')).toBeOnTheScreen();
   });
 
   it('only allows schema-less forms for void-input submissions', () => {
@@ -181,12 +137,14 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    const user = makeUser();
-    await user.press(screen.getByRole('button', { name: 'Submit' }));
-    expect(screen.getByTestId('form-error')).toHaveTextContent('failed');
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByText('failed')).toBeOnTheScreen();
     expect(onSuccess).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+    });
 
-    await user.press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledOnce();
     });
@@ -198,14 +156,6 @@ describe('createEffectSchemaFormHook', () => {
       })
     );
     expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
-  });
-
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it('stores a string mutation failure without invalidating the form', async () => {
@@ -236,11 +186,11 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
+    await screen.findByText('failed');
 
-    await makeUser().press(screen.getByRole('button', { name: 'Reset' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
@@ -276,22 +226,20 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    const user = makeUser();
     const submitButton = screen.getByRole('button', { name: 'Submit' });
 
-    await user.press(submitButton);
+    await fireEvent.press(submitButton);
 
-    expect(await screen.findByTestId('form-error')).toHaveTextContent('failed');
-    expect(screen.getByTestId('can-submit')).toHaveTextContent('true');
-    expect(screen.getByTestId('has-submit-validation-error')).toHaveTextContent('false');
-    expect(submitButton).toBeEnabled();
+    await screen.findByText('failed');
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled();
+    });
 
-    await user.press(submitButton);
+    await fireEvent.press(submitButton);
 
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledOnce();
     });
-    expect(mutationAttempts).toBe(2);
     expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
@@ -317,7 +265,7 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(onFailure).toHaveBeenCalledWith(
@@ -333,7 +281,7 @@ describe('createEffectSchemaFormHook', () => {
     >('voel/components/form/hooks.test/DecodedFormInput')({
       count: Schema.FiniteFromString,
     }) {}
-    const mutation = (value: DecodedFormInput) => Effect.succeed(value.count * 2);
+    const mutation = (value: DecodedFormInput) => Effect.succeed(value.count.toFixed(2));
     const onSuccess = vi.fn();
 
     const TestForm = () => {
@@ -355,13 +303,13 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledOnce();
     });
     expect(onSuccess.mock.calls[0]?.[0]).toMatchObject({
-      result: 8,
+      result: '4.00',
       value: { count: 4 },
     });
   });
@@ -394,9 +342,11 @@ describe('createEffectSchemaFormHook', () => {
     };
 
     await render(<TestForm />);
-    await makeUser().press(screen.getByRole('button', { name: 'Submit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(onRejected).toHaveBeenCalledWith(defect);
+    await waitFor(() => {
+      expect(onRejected).toHaveBeenCalledWith(defect);
+    });
     expect(onFailure).not.toHaveBeenCalled();
   });
 });

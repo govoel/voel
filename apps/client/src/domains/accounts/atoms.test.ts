@@ -168,7 +168,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           accountsRemain: false,
         });
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -196,7 +196,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsAtom)).toEqual([]);
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -249,7 +249,7 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           { key: secondAccount.key, active: false },
         ]);
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 });
@@ -261,7 +261,7 @@ describe('accountsSheetAtom', () => {
       function* () {
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Onboarding());
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -289,7 +289,7 @@ describe('accountsSheetAtom', () => {
             )
           );
         },
-        (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
       )
     );
 
@@ -321,7 +321,7 @@ describe('accountsSheetAtom', () => {
             )
           );
         },
-        (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
       )
     );
   });
@@ -379,7 +379,7 @@ describe('accountsSheetAtom', () => {
           yield* drainScheduler;
           expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
         },
-        (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
       )
     );
 
@@ -432,7 +432,7 @@ describe('accountsSheetAtom', () => {
           yield* drainScheduler;
           expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
         },
-        (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
       )
     );
   });
@@ -468,7 +468,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         yield* drainScheduler;
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -518,7 +518,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           )
         ).toEqual(Option.some(AccountsSheet.InvalidSession()));
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -553,7 +553,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
           )
         ).toEqual(Option.some(AccountsSheet.InvalidSession()));
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -576,7 +576,7 @@ it.layer(TestServerControllerClient.layer)('accountsSheetAtom valid sessions', (
         expect(yield* Atom.getResult(accountsSheetAtom)).toEqual(AccountsSheet.Idle());
         expect(yield* authClients.acquire(Option.getOrThrow(yield* manager.state))).toBe(client);
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 });
@@ -631,7 +631,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const remaining = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
         expect(remaining.items).toHaveLength(11);
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -689,7 +689,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           )
         ).toEqual(Option.none());
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 });
@@ -727,7 +727,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         yield* Atom.refresh(detail);
         expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toEqual(Option.none());
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -779,7 +779,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           (yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true })).items
         ).toEqual(refreshed.items);
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 
@@ -844,7 +844,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           )
         ).toEqual(Option.none());
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 });
@@ -882,7 +882,7 @@ it.layer(TestServerControllerClient.layer)('accountAtom', (iit) => {
           name: 'Updated profile',
         });
       },
-      (effect) => Effect.provide(effect, makeAccountsAtomsTestLayer())
+      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
     )
   );
 });
