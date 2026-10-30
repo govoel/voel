@@ -1,7 +1,7 @@
 import { Layer, Schema } from 'effect';
+import { Migrator } from 'effect/sql';
 
 import authTablesMigration from '@repo/auth-api/migrations/000001-auth-tables.ts';
-import { SqliteMigrator } from '@repo/effect-turso';
 
 class DatabaseMigrationError extends Schema.TaggedError<
   DatabaseMigrationError,
@@ -17,11 +17,13 @@ class DatabaseMigrationError extends Schema.TaggedError<
 // Better Auth's runtime reconciliation is not ordered or versioned, so breaking
 // schema changes and data transformations remain application-owned migrations.
 export const AuthMigrations = {
-  layer: SqliteMigrator.layer({
-    loader: SqliteMigrator.fromRecord({
-      '000001_auth-tables': authTablesMigration,
-    }),
-  }).pipe(
+  layer: Layer.effectDiscard(
+    Migrator.make({})({
+      loader: Migrator.fromRecord({
+        '000001_auth-tables': authTablesMigration,
+      }),
+    })
+  ).pipe(
     Layer.catchTag('MigrationError', (cause) =>
       Layer.effectDiscard(DatabaseMigrationError.make({ cause, database: 'auth' }))
     ),

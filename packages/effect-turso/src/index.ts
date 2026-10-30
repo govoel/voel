@@ -18,7 +18,7 @@ import {
 import { HttpServerError, HttpServerResponse } from 'effect/http';
 import type { HttpServerRequest } from 'effect/http';
 import { Reactivity } from 'effect/reactivity';
-import { Migrator, SqlClient, SqlError, Statement } from 'effect/sql';
+import { SqlClient, SqlError, Statement } from 'effect/sql';
 import type { SqlConnection } from 'effect/sql';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
@@ -452,12 +452,4 @@ const uniqueConstraintFromMessage = (message: string) => {
   }
   const constraint = pipe(message, String.slice(index.value + prefix.length), String.trim);
   return constraint.length > 0 ? constraint : 'unknown';
-};
-
-export const SqliteMigrator = {
-  fromGlob: Migrator.fromGlob,
-  fromRecord: Migrator.fromRecord,
-  run: Migrator.make({}),
-  layer: <R>(options: Migrator.MigratorOptions<R>) =>
-    Layer.effectDiscard(SqliteMigrator.run(options)),
 };
