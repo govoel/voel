@@ -50,51 +50,19 @@ export const ExpoSecureRandomLayer = Layer.effect(
 export const ExpoAeadLayer = Layer.effect(
   Aead.Aead,
   Effect.gen(function* () {
-    const core = yield* Aead.Aead;
+    const { generateKey, encrypt, decrypt } = yield* Aead.Aead;
     const crypto = yield* Effect.promise(async () => import('expo-crypto'));
     const keys = new WeakMap<
       Aead.Key,
       Awaited<ReturnType<typeof crypto.AESEncryptionKey.import>>
     >();
-    const run = Effect.fnUntraced(function* ({
+    const getNativeKey = Effect.fnUntraced(function* ({
       method,
       key,
-      data,
-      options,
     }: {
       readonly method: 'encrypt' | 'decrypt';
       readonly key: Aead.Key;
-      readonly data: Uint8Array;
-      readonly options: Parameters<Aead.Aead['Service']['encrypt']>[2];
     }) {
-      if (key.algorithm.implementation !== void 0) {
-        return yield* core[method](key, data, options);
-      }
-      if (options.nonce.length !== key.algorithm.nonceLength) {
-        return yield* new CryptoError.CryptoError({
-          module: 'Aead',
-          method,
-          reason: new CryptoError.InvalidArgument({
-            description: 'AES-GCM nonces must contain exactly 12 bytes',
-          }),
-        });
-      }
-      if (method === 'encrypt' && data.length > 2 ** 36 - 32) {
-        return yield* new CryptoError.CryptoError({
-          module: 'Aead',
-          method,
-          reason: new CryptoError.InvalidArgument({
-            description: 'AES-GCM plaintext cannot exceed 2^36 - 32 bytes',
-          }),
-        });
-      }
-      if (method === 'decrypt' && data.length < 16) {
-        return yield* new CryptoError.CryptoError({
-          module: 'Aead',
-          method,
-          reason: new CryptoError.DecryptionFailed(),
-        });
-      }
       let nativeKey = keys.get(key);
       if (nativeKey === void 0) {
         const bytes = yield* Aead.toBytes(key);
@@ -118,41 +86,93 @@ export const ExpoAeadLayer = Layer.effect(
         });
         keys.set(key, nativeKey);
       }
-      const aesKey = nativeKey;
-      return yield* Effect.tryPromise({
-        try: async () => {
-          if (method === 'encrypt') {
-            const sealed = await crypto.aesEncryptAsync(data, aesKey, {
+      return nativeKey;
+    });
+    return Aead.Aead.of({
+      generateKey,
+      encrypt: Effect.fnUntraced(function* (
+        ...[key, data, options]: Parameters<Aead.Aead['Service']['encrypt']>
+      ) {
+        if (key.algorithm.implementation !== void 0) {
+          return yield* encrypt(key, data, options);
+        }
+        if (options.nonce.length !== key.algorithm.nonceLength) {
+          return yield* new CryptoError.CryptoError({
+            module: 'Aead',
+            method: 'encrypt',
+            reason: new CryptoError.InvalidArgument({
+              description: 'AES-GCM nonces must contain exactly 12 bytes',
+            }),
+          });
+        }
+        if (data.length > 2 ** 36 - 32) {
+          return yield* new CryptoError.CryptoError({
+            module: 'Aead',
+            method: 'encrypt',
+            reason: new CryptoError.InvalidArgument({
+              description: 'AES-GCM plaintext cannot exceed 2^36 - 32 bytes',
+            }),
+          });
+        }
+        const nativeKey = yield* getNativeKey({ method: 'encrypt', key });
+        return yield* Effect.tryPromise({
+          try: async () => {
+            const sealed = await crypto.aesEncryptAsync(data, nativeKey, {
               nonce: { bytes: options.nonce },
               tagLength: 16,
               ...(options.aad !== void 0 ? { additionalData: options.aad } : {}),
             });
             return sealed.ciphertext({ includeTag: true });
-          }
-          return crypto.aesDecryptAsync(
-            crypto.AESSealedData.fromParts(options.nonce, data, 16),
-            aesKey,
-            options.aad !== void 0 ? { additionalData: options.aad } : {}
-          );
-        },
-        catch: (cause) =>
-          new CryptoError.CryptoError({
+          },
+          catch: (cause) =>
+            new CryptoError.CryptoError({
+              module: 'Aead',
+              method: 'encrypt',
+              reason: new CryptoError.InvalidArgument({
+                description: 'Unable to encrypt with AES-GCM',
+                cause,
+              }),
+            }),
+        });
+      }),
+      decrypt: Effect.fnUntraced(function* (
+        ...[key, data, options]: Parameters<Aead.Aead['Service']['decrypt']>
+      ) {
+        if (key.algorithm.implementation !== void 0) {
+          return yield* decrypt(key, data, options);
+        }
+        if (options.nonce.length !== key.algorithm.nonceLength) {
+          return yield* new CryptoError.CryptoError({
             module: 'Aead',
-            method,
-            reason:
-              method === 'decrypt'
-                ? new CryptoError.DecryptionFailed()
-                : new CryptoError.InvalidArgument({
-                    description: 'Unable to encrypt with AES-GCM',
-                    cause,
-                  }),
-          }),
-      });
-    });
-    return Aead.Aead.of({
-      generateKey: core.generateKey,
-      encrypt: (key, data, options) => run({ method: 'encrypt', key, data, options }),
-      decrypt: (key, data, options) => run({ method: 'decrypt', key, data, options }),
+            method: 'decrypt',
+            reason: new CryptoError.InvalidArgument({
+              description: 'AES-GCM nonces must contain exactly 12 bytes',
+            }),
+          });
+        }
+        if (data.length < 16) {
+          return yield* new CryptoError.CryptoError({
+            module: 'Aead',
+            method: 'decrypt',
+            reason: new CryptoError.DecryptionFailed(),
+          });
+        }
+        const nativeKey = yield* getNativeKey({ method: 'decrypt', key });
+        return yield* Effect.tryPromise({
+          try: async () =>
+            crypto.aesDecryptAsync(
+              crypto.AESSealedData.fromParts(options.nonce, data, 16),
+              nativeKey,
+              options.aad !== void 0 ? { additionalData: options.aad } : {}
+            ),
+          catch: () =>
+            new CryptoError.CryptoError({
+              module: 'Aead',
+              method: 'decrypt',
+              reason: new CryptoError.DecryptionFailed(),
+            }),
+        });
+      }),
     });
   })
 ).pipe(Layer.provide(Aead.layerWebCrypto), Layer.provide(ExpoSecureRandomLayer));
