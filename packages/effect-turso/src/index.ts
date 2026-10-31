@@ -4,6 +4,7 @@ import {
   Context,
   Duration,
   Effect,
+  Exit,
   Layer,
   Option,
   Pool,
@@ -45,7 +46,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
    * Explicit transactions take the write lock for their duration, even when
    * they only read.
    */
-  make: Effect.fnUntraced(function* <R = never>(options: {
+  make: Effect.fnUntraced(function* <R2 = never>(options: {
     readonly filename: string;
     readonly readonly?: boolean;
     /**
@@ -73,7 +74,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
      */
     readonly onConnect?: (connection: {
       readonly exec: (sql: string) => Effect.Effect<void, SqlError.SqlError>;
-    }) => Effect.Effect<void, SqlError.SqlError, R>;
+    }) => Effect.Effect<void, SqlError.SqlError, R2>;
 
     readonly spanAttributes?: Record<string, unknown>;
 
@@ -149,49 +150,76 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         });
       }
 
-      const prepareCache = yield* ScopedCache.make({
-        capacity: options.prepareCacheSize ?? 200,
-        timeToLive: options.prepareCacheTTL ?? Duration.minutes(10),
-        lookup: (sql: string) =>
-          Effect.acquireRelease(
-            Effect.tryPromise({
-              try: async () => db.prepare(sql),
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to prepare statement',
-                    operation: 'prepare',
-                  }),
+      const prepare = (sql: string) =>
+        Effect.acquireRelease(
+          Effect.tryPromise({
+            try: async () => db.prepare(sql),
+            catch: (cause) =>
+              SqlError.SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to prepare statement',
+                  operation: 'prepare',
                 }),
-            }),
-            (statement) =>
-              Effect.sync(() => {
-                statement.close();
-              })
-          ),
+              }),
+          }),
+          (statement) =>
+            Effect.sync(() => {
+              statement.close();
+            })
+        );
+
+      const prepareCache = yield* ScopedCache.makeWith({
+        capacity: options.prepareCacheSize ?? 200,
+        timeToLive: (exit) =>
+          Exit.isSuccess(exit) ? (options.prepareCacheTTL ?? Duration.minutes(10)) : Duration.zero,
+        lookup: prepare,
       });
 
+      const withStatement = <A, E, R>({
+        sql,
+        unprepared,
+        execute,
+      }: {
+        sql: string;
+        unprepared: boolean;
+        execute: (statement: Effect.Success<ReturnType<typeof prepare>>) => Effect.Effect<A, E, R>;
+      }) =>
+        unprepared
+          ? Effect.scoped(Effect.flatMap(prepare(sql), execute))
+          : Effect.flatMap(ScopedCache.get(prepareCache, sql), execute);
+
       const operationSemaphore = yield* Semaphore.make(1);
-      const run = (sql: string, params: ReadonlyArray<unknown>) =>
-        Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-          Effect.withFiber((fiber) => {
-            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
-            return Effect.tryPromise({
-              try: async () => {
-                statement.safeIntegers(useSafeIntegers);
-                statement.raw(false);
-                return statement.all(...params);
-              },
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to execute statement',
-                    operation: 'execute',
+      const run = ({
+        sql,
+        params,
+        unprepared = false,
+      }: {
+        sql: string;
+        params: ReadonlyArray<unknown>;
+        unprepared?: boolean;
+      }) =>
+        withStatement({
+          sql,
+          unprepared,
+          execute: (statement) =>
+            Effect.withFiber((fiber) => {
+              const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
+              return Effect.tryPromise({
+                try: async () => {
+                  statement.safeIntegers(useSafeIntegers);
+                  statement.raw(false);
+                  return statement.all(...params);
+                },
+                catch: (cause) =>
+                  SqlError.SqlError.make({
+                    reason: classifyTursoError(cause, {
+                      message: 'Failed to execute statement',
+                      operation: 'execute',
+                    }),
                   }),
-                }),
-            });
-          })
-        ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
+              });
+            }),
+        }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
         Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
@@ -217,26 +245,37 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
           })
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
-      const runValues = (sql: string, params: ReadonlyArray<unknown>) =>
-        Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-          Effect.withFiber((fiber) => {
-            const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
-            return Effect.tryPromise({
-              try: async () => {
-                statement.safeIntegers(useSafeIntegers);
-                statement.raw(true);
-                return statement.all(...params);
-              },
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to execute statement',
-                    operation: 'execute',
+      const runValues = ({
+        sql,
+        params,
+        unprepared = false,
+      }: {
+        sql: string;
+        params: ReadonlyArray<unknown>;
+        unprepared?: boolean;
+      }) =>
+        withStatement({
+          sql,
+          unprepared,
+          execute: (statement) =>
+            Effect.withFiber((fiber) => {
+              const useSafeIntegers = Context.get(fiber.context, SqlClient.SafeIntegers);
+              return Effect.tryPromise({
+                try: async () => {
+                  statement.safeIntegers(useSafeIntegers);
+                  statement.raw(true);
+                  return statement.all(...params);
+                },
+                catch: (cause) =>
+                  SqlError.SqlError.make({
+                    reason: classifyTursoError(cause, {
+                      message: 'Failed to execute statement',
+                      operation: 'execute',
+                    }),
                   }),
-                }),
-            });
-          })
-        ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
+              });
+            }),
+        }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       const runStream = (sql: string, params: ReadonlyArray<unknown>) =>
         Stream.unwrap(
@@ -263,22 +302,22 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       const connection = {
         execute(sql, params, transformRows) {
           return transformRows !== void 0
-            ? Effect.map(run(sql, params), transformRows)
-            : run(sql, params);
+            ? Effect.map(run({ sql, params }), transformRows)
+            : run({ sql, params });
         },
         executeRaw(sql, params) {
           return runRaw(sql, params);
         },
         executeValues(sql, params) {
-          return runValues(sql, params);
+          return runValues({ sql, params });
         },
         executeValuesUnprepared(sql, params) {
-          return runValues(sql, params);
+          return runValues({ sql, params, unprepared: true });
         },
         executeUnprepared(sql, params, transformRows) {
           return transformRows !== void 0
-            ? Effect.map(run(sql, params), transformRows)
-            : run(sql, params);
+            ? Effect.map(run({ sql, params, unprepared: true }), transformRows)
+            : run({ sql, params, unprepared: true });
         },
         executeStream(sql, params, transformRows) {
           return transformRows !== void 0
@@ -291,13 +330,14 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
       } satisfies SqlConnection.Connection;
       // Recovery belongs to each physical connection, not the whole pool.
       const isTransaction = () => db.inTransaction;
-      const { transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
+      const { borrower, transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
         connection: Effect.succeed(connection),
         semaphore: yield* Semaphore.make(1),
         isTransaction,
       });
       return Object.assign(connection, {
         acquire: transactionAcquirer,
+        borrow: borrower,
         onCommitFailure,
         isTransaction,
         handleSyncRequest: (request: SyncRequest) =>
@@ -329,6 +369,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     const client = yield* SqlClient.make({
       driver: 'turso',
       acquirer,
+      borrower: (f) => Pool.use(pool, (item) => item.borrow(f)),
       compiler,
       transactionAcquirer: acquirer,
       beginTransaction: options.readonly === true ? 'BEGIN' : 'BEGIN IMMEDIATE',
