@@ -47,11 +47,11 @@ export class TursoSyncClient extends CoreTursoSyncClient {
    * Creates a scoped, single-connection Turso embedded replica. Supplying a
    * remote URL bootstraps an empty local database during construction.
    */
-  public static readonly make = Effect.fnUntraced(function* <R = never>({
+  public static readonly make = Effect.fnUntraced(function* <R2 = never>({
     authToken,
     onConnect,
     ...options
-  }: TursoSyncClientOptions<R>) {
+  }: TursoSyncClientOptions<R2>) {
     const compiler = Statement.makeCompilerSqlite();
 
     const sync = yield* makeSyncOperations({ authToken });
@@ -116,16 +116,14 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       lookup: prepare,
     });
 
-    const withStatement = <A, E, Services>({
+    const withStatement = <A, E, R>({
       sql,
       unprepared,
       execute,
     }: {
       sql: string;
       unprepared: boolean;
-      execute: (
-        statement: Effect.Success<ReturnType<typeof prepare>>
-      ) => Effect.Effect<A, E, Services>;
+      execute: (statement: Effect.Success<ReturnType<typeof prepare>>) => Effect.Effect<A, E, R>;
     }) =>
       unprepared
         ? Effect.scoped(Effect.flatMap(prepare(sql), execute))

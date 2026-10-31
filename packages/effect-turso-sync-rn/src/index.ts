@@ -43,11 +43,11 @@ const mapConnectionError = (cause: unknown) => {
 
 export class TursoSyncClient extends CoreTursoSyncClient {
   /** Creates a scoped Effect SQL client backed by one serialized React Native Turso connection. */
-  public static readonly make = Effect.fnUntraced(function* <R = never>({
+  public static readonly make = Effect.fnUntraced(function* <R2 = never>({
     authToken,
     onConnect,
     ...options
-  }: TursoSyncClientOptions<R>) {
+  }: TursoSyncClientOptions<R2>) {
     const { Database } = yield* Effect.promise(
       async () => import('@tursodatabase/sync-react-native')
     );
@@ -113,16 +113,14 @@ export class TursoSyncClient extends CoreTursoSyncClient {
         lookup: prepare,
       });
 
-      const withStatement = <A, E, Services>({
+      const withStatement = <A, E, R>({
         sql,
         unprepared,
         execute,
       }: {
         sql: string;
         unprepared: boolean;
-        execute: (
-          statement: Effect.Success<ReturnType<typeof prepare>>
-        ) => Effect.Effect<A, E, Services>;
+        execute: (statement: Effect.Success<ReturnType<typeof prepare>>) => Effect.Effect<A, E, R>;
       }) =>
         unprepared
           ? Effect.scoped(Effect.flatMap(prepare(sql), execute))

@@ -46,7 +46,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
    * Explicit transactions take the write lock for their duration, even when
    * they only read.
    */
-  make: Effect.fnUntraced(function* <R = never>(options: {
+  make: Effect.fnUntraced(function* <R2 = never>(options: {
     readonly filename: string;
     readonly readonly?: boolean;
     /**
@@ -74,7 +74,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
      */
     readonly onConnect?: (connection: {
       readonly exec: (sql: string) => Effect.Effect<void, SqlError.SqlError>;
-    }) => Effect.Effect<void, SqlError.SqlError, R>;
+    }) => Effect.Effect<void, SqlError.SqlError, R2>;
 
     readonly spanAttributes?: Record<string, unknown>;
 
@@ -175,16 +175,14 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         lookup: prepare,
       });
 
-      const withStatement = <A, E, Services>({
+      const withStatement = <A, E, R>({
         sql,
         unprepared,
         execute,
       }: {
         sql: string;
         unprepared: boolean;
-        execute: (
-          statement: Effect.Success<ReturnType<typeof prepare>>
-        ) => Effect.Effect<A, E, Services>;
+        execute: (statement: Effect.Success<ReturnType<typeof prepare>>) => Effect.Effect<A, E, R>;
       }) =>
         unprepared
           ? Effect.scoped(Effect.flatMap(prepare(sql), execute))
