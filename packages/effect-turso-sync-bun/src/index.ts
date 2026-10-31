@@ -4,6 +4,7 @@ import {
   Context,
   Duration,
   Effect,
+  Exit,
   Layer,
   Option,
   Predicate,
@@ -88,50 +89,78 @@ export class TursoSyncClient extends CoreTursoSyncClient {
         }),
     });
 
-    const prepareCache = yield* ScopedCache.make({
-      capacity: 200,
-      timeToLive: Duration.minutes(10),
-      lookup: (sql: string) =>
-        Effect.acquireRelease(
-          Effect.tryPromise({
-            // Turso declares this as `any`; excluding remote writes makes the
-            // database-common promise statement its only implementation.
-            // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-            try: async () => db.prepare(sql) as Promise<StatementPromise>,
-            catch: (cause) =>
-              SqlError.SqlError.make({
-                reason: classifyTursoError(cause, {
-                  message: 'Failed to prepare statement',
-                  operation: 'prepare',
-                }),
+    const prepare = (sql: string) =>
+      Effect.acquireRelease(
+        Effect.tryPromise({
+          // Turso declares this as `any`; excluding remote writes makes the
+          // database-common promise statement its only implementation.
+          // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+          try: async () => db.prepare(sql) as Promise<StatementPromise>,
+          catch: (cause) =>
+            SqlError.SqlError.make({
+              reason: classifyTursoError(cause, {
+                message: 'Failed to prepare statement',
+                operation: 'prepare',
               }),
-          }),
-          (statement) =>
-            Effect.sync(() => {
-              statement.close();
-            })
-        ),
+            }),
+        }),
+        (statement) =>
+          Effect.sync(() => {
+            statement.close();
+          })
+      );
+
+    const prepareCache = yield* ScopedCache.makeWith({
+      capacity: 200,
+      timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.minutes(10) : Duration.zero),
+      lookup: prepare,
     });
+
+    const withStatement = <A, E, Services>({
+      sql,
+      unprepared,
+      execute,
+    }: {
+      sql: string;
+      unprepared: boolean;
+      execute: (
+        statement: Effect.Success<ReturnType<typeof prepare>>
+      ) => Effect.Effect<A, E, Services>;
+    }) =>
+      unprepared
+        ? Effect.scoped(Effect.flatMap(prepare(sql), execute))
+        : Effect.flatMap(ScopedCache.get(prepareCache, sql), execute);
 
     // Statements are cached and mutate their result mode before execution.
     // Serialize access so concurrent uses cannot leak those modes.
     const operationSemaphore = yield* Semaphore.make(1);
-    const run = (sql: string, params: ReadonlyArray<unknown>) =>
-      Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-        Effect.tryPromise({
-          try: async () => {
-            statement.raw(false);
-            return statement.all(...params);
-          },
-          catch: (cause) =>
-            SqlError.SqlError.make({
-              reason: classifyTursoError(cause, {
-                message: 'Failed to execute statement',
-                operation: 'execute',
+    const run = ({
+      sql,
+      params,
+      unprepared = false,
+    }: {
+      sql: string;
+      params: ReadonlyArray<unknown>;
+      unprepared?: boolean;
+    }) =>
+      withStatement({
+        sql,
+        unprepared,
+        execute: (statement) =>
+          Effect.tryPromise({
+            try: async () => {
+              statement.raw(false);
+              return statement.all(...params);
+            },
+            catch: (cause) =>
+              SqlError.SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to execute statement',
+                  operation: 'execute',
+                }),
               }),
-            }),
-        })
-      ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
+          }),
+      }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
     const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
       Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
@@ -153,42 +182,53 @@ export class TursoSyncClient extends CoreTursoSyncClient {
         })
       ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
-    const runValues = (sql: string, params: ReadonlyArray<unknown>) =>
-      Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-        Effect.tryPromise({
-          try: async () => {
-            statement.raw(true);
-            return statement.all(...params);
-          },
-          catch: (cause) =>
-            SqlError.SqlError.make({
-              reason: classifyTursoError(cause, {
-                message: 'Failed to execute statement',
-                operation: 'execute',
+    const runValues = ({
+      sql,
+      params,
+      unprepared = false,
+    }: {
+      sql: string;
+      params: ReadonlyArray<unknown>;
+      unprepared?: boolean;
+    }) =>
+      withStatement({
+        sql,
+        unprepared,
+        execute: (statement) =>
+          Effect.tryPromise({
+            try: async () => {
+              statement.raw(true);
+              return statement.all(...params);
+            },
+            catch: (cause) =>
+              SqlError.SqlError.make({
+                reason: classifyTursoError(cause, {
+                  message: 'Failed to execute statement',
+                  operation: 'execute',
+                }),
               }),
-            }),
-        })
-      ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
+          }),
+      }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
     const connection = {
       execute(sql, params, transformRows) {
         return transformRows !== void 0
-          ? Effect.map(run(sql, params), transformRows)
-          : run(sql, params);
+          ? Effect.map(run({ sql, params }), transformRows)
+          : run({ sql, params });
       },
       executeRaw(sql, params) {
         return runRaw(sql, params);
       },
       executeValues(sql, params) {
-        return runValues(sql, params);
+        return runValues({ sql, params });
       },
       executeValuesUnprepared(sql, params) {
-        return runValues(sql, params);
+        return runValues({ sql, params, unprepared: true });
       },
       executeUnprepared(sql, params, transformRows) {
         return transformRows !== void 0
-          ? Effect.map(run(sql, params), transformRows)
-          : run(sql, params);
+          ? Effect.map(run({ sql, params, unprepared: true }), transformRows)
+          : run({ sql, params, unprepared: true });
       },
       executeStream(_sql, _params) {
         return Stream.die('executeStream not implemented');
