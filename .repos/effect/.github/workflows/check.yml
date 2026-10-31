@@ -130,9 +130,16 @@ jobs:
       matrix:
         include:
           - runtime: Node
+            node: ""
             deno: ""
             bun: ""
             command: pnpm test --max-concurrency=10
+          # Node 25 and older handle upgrade request bodies differently.
+          - runtime: Node 24 (platform-node)
+            node: 24
+            deno: ""
+            bun: ""
+            command: pnpm vitest run --project @effect/platform-node --max-concurrency=10
           - runtime: Deno
             deno: v2.9.6
             bun: ""
@@ -157,6 +164,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup
         with:
+          node-version: ${{ matrix.node }}
           deno-version: ${{ matrix.deno }}
           bun-version: ${{ matrix.bun }}
       - name: Test
@@ -193,6 +201,21 @@ jobs:
           name: deno-pg-lifecycle-${{ github.run_attempt }}
           path: ${{ runner.temp }}/pg-lifecycle
           if-no-files-found: warn
+
+  test-node-minimum:
+    name: Test (Node 22.19.0 minimum)
+    runs-on: namespace-profile-linux-default
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+        with:
+          node-version: 22.19.0
+      - name: Test
+        run: pnpm vitest run --project @effect/platform-node --max-concurrency=10
 
   doctest:
     name: Test (Documentation)

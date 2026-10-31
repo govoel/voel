@@ -32,10 +32,11 @@ import * as Headers from "./Headers.ts"
 import * as HttpBody from "./HttpBody.ts"
 import * as HttpClientRequest from "./HttpClientRequest.ts"
 import * as HttpIncomingMessage from "./HttpIncomingMessage.ts"
-import { hasBody, type HttpMethod } from "./HttpMethod.ts"
+import { hasBody } from "./HttpMethod.ts"
 import { HttpServerError, type RequestError, RequestParseError } from "./HttpServerError.ts"
 import * as bodyInternal from "./internal/httpBody.ts"
 import * as lazyStream from "./internal/lazyStream.ts"
+import * as internalUrlParams from "./internal/urlParams.ts"
 import * as Multipart from "./Multipart.ts"
 import * as UrlParams from "./UrlParams.ts"
 
@@ -77,7 +78,9 @@ export const TypeId = "~effect/http/HttpServerRequest"
  * creating adjusted request views. `upgrade` completes a WebSocket handshake
  * for `Upgrade: websocket`. Platforms that can hand over the connection, such
  * as Node, answer other protocols with `101 Switching Protocols` and expose
- * the raw connection.
+ * the raw connection. `upgradeWith` does the same and adds custom headers to
+ * the `101` response; `upgrade` is `upgradeWith({})`. WebSocket upgrades fail
+ * when custom headers are given.
  *
  * @stability unstable
  * @category models
@@ -88,7 +91,11 @@ export interface HttpServerRequest extends HttpIncomingMessage.HttpIncomingMessa
   readonly source: object
   readonly url: string
   readonly originalUrl: string
-  readonly method: HttpMethod
+  /**
+   * The uppercase request method as received, which may be a method outside
+   * the known `HttpMethod` literals (for example `"PROPFIND"`).
+   */
+  readonly method: string
   readonly cookies: ReadonlyRecord<string, string>
 
   readonly multipart: Effect.Effect<
@@ -99,6 +106,9 @@ export interface HttpServerRequest extends HttpIncomingMessage.HttpIncomingMessa
   readonly multipartStream: Stream.Stream<Multipart.Part, Multipart.MultipartError>
 
   readonly upgrade: Effect.Effect<Socket.Socket, HttpServerError>
+  readonly upgradeWith: (options: {
+    readonly headers?: Headers.Input | undefined
+  }) => Effect.Effect<Socket.Socket, HttpServerError>
 
   /**
    * Address of the directly connected peer. Trusted proxy middleware replaces
@@ -558,8 +568,8 @@ class ServerRequestImpl extends Inspectable.Class implements HttpServerRequest {
       options.protocol ?? this.protocol
     )
   }
-  get method(): HttpMethod {
-    return this.source.method.toUpperCase() as HttpMethod
+  get method(): string {
+    return this.source.method.toUpperCase()
   }
   get originalUrl() {
     return this.source.url
@@ -607,22 +617,7 @@ class ServerRequestImpl extends Inspectable.Class implements HttpServerRequest {
 
   private textEffect: Effect.Effect<string, HttpServerError> | undefined
   get text(): Effect.Effect<string, HttpServerError> {
-    if (this.textEffect) {
-      return this.textEffect
-    }
-    this.textEffect = Effect.runSync(Effect.cached(
-      Effect.tryPromise({
-        try: () => this.source.text(),
-        catch: (cause) =>
-          new HttpServerError({
-            reason: new RequestParseError({
-              request: this,
-              cause
-            })
-          })
-      })
-    ))
-    return this.textEffect
+    return this.textEffect ??= Effect.map(this.arrayBuffer, (buffer) => textDecoder.decode(buffer))
   }
 
   get json(): Effect.Effect<Schema.Json, HttpServerError> {
@@ -640,9 +635,9 @@ class ServerRequestImpl extends Inspectable.Class implements HttpServerRequest {
   }
 
   get urlParamsBody(): Effect.Effect<UrlParams.UrlParams, HttpServerError> {
-    return Effect.flatMap(this.text, (_) =>
+    return Effect.flatMap(this.arrayBuffer, (bytes) =>
       Effect.try({
-        try: () => UrlParams.fromInput(new URLSearchParams(_)),
+        try: () => UrlParams.fromInput(internalUrlParams.fromBody(bytes)),
         catch: (cause) =>
           new HttpServerError({
             reason: new RequestParseError({
@@ -686,22 +681,36 @@ class ServerRequestImpl extends Inspectable.Class implements HttpServerRequest {
     if (this.arrayBufferEffect) {
       return this.arrayBufferEffect
     }
-    this.arrayBufferEffect = Effect.runSync(Effect.cached(
-      Effect.tryPromise({
-        try: () => this.source.arrayBuffer(),
+    this.arrayBufferEffect = Effect.withFiber((fiber) => {
+      const maxBodySize = fiber.getRef(HttpIncomingMessage.MaxBodySize)
+      return Effect.tryPromise({
+        try: (signal) =>
+          maxBodySize === undefined
+            ? this.source.arrayBuffer()
+            : readArrayBufferLimited(this.source, Number(maxBodySize), signal),
         catch: (cause) =>
           new HttpServerError({
             reason: new RequestParseError({
               request: this,
+              reason: cause instanceof BodyTooLargeError ? "BodyTooLarge" : "Parse",
               cause
             })
           })
       })
-    ))
+    }).pipe(
+      Effect.cached,
+      Effect.runSync
+    )
     return this.arrayBufferEffect
   }
 
   get upgrade(): Effect.Effect<Socket.Socket, HttpServerError> {
+    return this.upgradeWith({})
+  }
+
+  upgradeWith(
+    _options: { readonly headers?: Headers.Input | undefined }
+  ): Effect.Effect<Socket.Socket, HttpServerError> {
     return Effect.fail(
       new HttpServerError({
         reason: new RequestParseError({
@@ -773,7 +782,7 @@ class ClientRequestImpl extends Inspectable.Class implements HttpServerRequest {
     )
   }
 
-  get method(): HttpMethod {
+  get method(): string {
     return this.source.method
   }
 
@@ -868,9 +877,9 @@ class ClientRequestImpl extends Inspectable.Class implements HttpServerRequest {
   }
 
   get urlParamsBody(): Effect.Effect<UrlParams.UrlParams, HttpServerError> {
-    return Effect.flatMap(this.text, (_) =>
+    return Effect.flatMap(this.bytes, (bytes) =>
       Effect.try({
-        try: () => UrlParams.fromInput(new URLSearchParams(_)),
+        try: () => UrlParams.fromInput(internalUrlParams.fromBody(bytes)),
         catch: (cause) => requestParseError(this, undefined, cause)
       }))
   }
@@ -916,6 +925,12 @@ class ClientRequestImpl extends Inspectable.Class implements HttpServerRequest {
   }
 
   get upgrade(): Effect.Effect<Socket.Socket, HttpServerError> {
+    return this.upgradeWith({})
+  }
+
+  upgradeWith(
+    _options: { readonly headers?: Headers.Input | undefined }
+  ): Effect.Effect<Socket.Socket, HttpServerError> {
     return Effect.fail(requestParseError(this, "Not an upgradeable ServerRequest"))
   }
 }
@@ -1079,6 +1094,62 @@ const isBodyInit = (u: unknown): u is BodyInit =>
   isReadableStream(u)
 
 const textDecoder = new TextDecoder()
+
+class BodyTooLargeError extends Error {
+  constructor(maxBytes: number) {
+    super(`Request body exceeds ${maxBytes} bytes`)
+  }
+}
+
+const readArrayBufferLimited = async (
+  source: Request,
+  maxBytes: number,
+  signal: AbortSignal
+): Promise<ArrayBuffer> => {
+  const header = source.headers.get("content-length")
+  const contentLength = header !== null && /^\d+$/.test(header) ? Number(header) : undefined
+  if (contentLength !== undefined && contentLength > maxBytes) {
+    throw new BodyTooLargeError(maxBytes)
+  }
+  if (source.body === null) {
+    return new ArrayBuffer(0)
+  }
+  // A constructed request can understate its content-length, so bytes are
+  // counted on every runtime. Cancellation is not awaited, as the source's
+  // cleanup may never settle.
+  const limit = contentLength ?? maxBytes
+  const reader = source.body.getReader()
+  const cancel = () => {
+    reader.cancel().catch(() => {})
+  }
+  signal.addEventListener("abort", cancel, { once: true })
+  const chunks: Array<Uint8Array> = []
+  let bytes = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      bytes += value.byteLength
+      if (bytes > limit) {
+        cancel()
+        throw bytes > maxBytes
+          ? new BodyTooLargeError(maxBytes)
+          : new Error(`Request body is longer than its content-length of ${contentLength}`)
+      }
+      chunks.push(value)
+    }
+  } finally {
+    signal.removeEventListener("abort", cancel)
+    reader.releaseLock()
+  }
+  const buffer = new Uint8Array(bytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    buffer.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return buffer.buffer
+}
 
 /**
  * Attempts to construct an absolute `URL` for a server request safely.

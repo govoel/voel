@@ -20,6 +20,7 @@ import * as Schedule from "../../Schedule.ts"
 import * as Schema from "../../Schema.ts"
 import * as SchemaIssue from "../../SchemaIssue.ts"
 import * as Scope from "../../Scope.ts"
+import type { PersistenceError } from "../ClusterError.ts"
 import { AlreadyProcessingMessage, EntityNotAssignedToRunner, MailboxFull, MalformedMessage } from "../ClusterError.ts"
 import * as ClusterMetrics from "../ClusterMetrics.ts"
 import { isUninterruptibleForServer, Persisted, WithTransaction } from "../ClusterSchema.ts"
@@ -37,6 +38,7 @@ import type { ShardId } from "../ShardId.ts"
 import type { Sharding } from "../Sharding.ts"
 import { ShardingConfig } from "../ShardingConfig.ts"
 import * as Snowflake from "../Snowflake.ts"
+import * as ClusterAbandon from "./clusterAbandon.ts"
 import { CurrentActivationScope } from "./entityActivation.ts"
 import { EntityReaper } from "./entityReaper.ts"
 import { acquireEntity, releaseEntity } from "./interruptors.ts"
@@ -144,6 +146,19 @@ export const make = Effect.fnUntraced(function*<
     readonly disableFatalDefects?: boolean | undefined
     readonly defectRetryPolicy?: Schedule.Schedule<any, unknown, never, never> | undefined
     readonly spanAttributes?: Record<string, string> | undefined
+    /**
+     * Called once a retiring entity stops accepting requests, so callers
+     * waiting on requests it has not started can be released.
+     */
+    readonly abandonUndelivered: (
+      address: EntityAddress,
+      isDelivered: (requestId: Snowflake.Snowflake) => boolean
+    ) => Effect.Effect<void>
+    /**
+     * Whether this runner still owns the shard, checked before storing the
+     * final reply of a persisted request.
+     */
+    readonly isShardOwned: (shardId: ShardId) => Effect.Effect<boolean>
   }
 ) {
   const config = yield* ShardingConfig
@@ -248,6 +263,14 @@ export const make = Effect.fnUntraced(function*<
     // Finalizers run in reverse, so the mailbox series and the resident
     // mailbox are removed only after the drain finalizer below has finished.
     const activeRequests: EntityState["activeRequests"] = new Map()
+    // Drops a request that has left this entity, starting the idle timer when
+    // it was the last one.
+    const removeActiveRequest = (requestId: Snowflake.Snowflake) => {
+      activeRequests.delete(requestId)
+      if (activeRequests.size === 0) {
+        state.lastActiveCheck = clock.currentTimeMillisUnsafe()
+      }
+    }
     let mailboxSeries: Metric.Registration | undefined
     yield* Scope.addFinalizer(
       scope,
@@ -326,27 +349,27 @@ export const make = Effect.fnUntraced(function*<
                   return Effect.void
                 }
 
-                // For durable messages, ignore interrupts during shutdown.
-                // They will be retried when the entity is restarted.
-                // Also, if the request is uninterruptible, we ignore the
-                // interrupt.
                 const persisted = storageEnabled && Context.get(request.message.annotations, Persisted)
-                if (
-                  persisted &&
-                  Exit.hasInterrupts(response.exit) &&
-                  (isShuttingDown || request.terminating || isUninterruptibleForServer(request.message.annotations))
-                ) {
-                  if (!isShuttingDown && !request.terminating) {
+                if (persisted && Exit.isFailure(response.exit) && Cause.hasInterrupts(response.exit.cause)) {
+                  // A durable request interrupted by shutdown, or abandoned
+                  // because this owner can no longer serve it, is left for
+                  // replay instead of being answered.
+                  const abandoned = ClusterAbandon.isCause(response.exit.cause) &&
+                    (!isActive() || !options.sharding.hasShardId(address.shardId))
+                  if (isShuttingDown || request.terminating || abandoned) {
+                    removeActiveRequest(Snowflake.Snowflake(response.requestId))
+                    return options.storage.unregisterReplyHandler(request.message.envelope.requestId)
+                  }
+                  // An uninterruptible request ignores the interrupt and runs again.
+                  if (isUninterruptibleForServer(request.message.annotations)) {
                     request.sentExit = false
                     return server.write(0, requestEnvelope(request), requestWriteOptions(request)).pipe(
                       Effect.setContext(handlerContext),
                       Effect.forkIn(handlerScope)
                     )
                   }
-                  activeRequests.delete(Snowflake.Snowflake(response.requestId))
-                  return options.storage.unregisterReplyHandler(request.message.envelope.requestId)
                 }
-                const save = retryRespond(
+                const write = retryRespond(
                   4,
                   Effect.suspend(() =>
                     request.message.respond(
@@ -358,18 +381,36 @@ export const make = Effect.fnUntraced(function*<
                     )
                   )
                 )
+                // A runner that lost the shard must not decide the stored
+                // result. A rejection is not retried.
+                let fenced = false
+                const save = !persisted ? write : Effect.flatMap(
+                  options.isShardOwned(address.shardId),
+                  (owned): Effect.Effect<void, MalformedMessage | PersistenceError | EntityNotAssignedToRunner> => {
+                    if (owned) return write
+                    fenced = true
+                    return Effect.fail(new EntityNotAssignedToRunner({ address }))
+                  }
+                )
+                // Leave the request for the shard's owner: release the claim
+                // so its next poll sees it, and let local callers re-route.
+                const abandonFenced = Effect.suspend(() => {
+                  removeActiveRequest(Snowflake.Snowflake(response.requestId))
+                  return Effect.logDebug("Abandoning a request whose shard this runner no longer owns").pipe(
+                    Effect.andThen(options.storage.unregisterReplyHandler(request.message.envelope.requestId)),
+                    Effect.andThen(Effect.ignore(options.storage.resetRequests([request.message.envelope.requestId])))
+                  )
+                })
                 const complete = Effect.sync(() => {
                   if (storageEnabled) {
                     processedRequestIds.add(request.message.envelope.requestId)
                   }
-                  activeRequests.delete(Snowflake.Snowflake(response.requestId))
-
-                  // Start the idle timer when the last request completes.
-                  if (activeRequests.size === 0) {
-                    state.lastActiveCheck = clock.currentTimeMillisUnsafe()
-                  }
+                  removeActiveRequest(Snowflake.Snowflake(response.requestId))
                 })
-                const respond = Effect.orDie(Effect.andThen(save, complete))
+                const respond = Effect.andThen(save, complete).pipe(
+                  Effect.catchTag("EntityNotAssignedToRunner", () => abandonFenced),
+                  Effect.orDie
+                )
                 const transaction = request.transaction
                 if (!transaction) return respond
                 const exit = response.exit
@@ -381,8 +422,12 @@ export const make = Effect.fnUntraced(function*<
                 }
 
                 if (Exit.isSuccess(exit)) {
-                  transaction.settle = (outcome) =>
-                    Exit.isSuccess(outcome) ? complete : Effect.flatMap(
+                  transaction.settle = (outcome) => {
+                    if (Exit.isSuccess(outcome)) return complete
+                    // A rejected save failed the transaction, rolling back the
+                    // handler's writes; the request is left for the owner.
+                    if (fenced) return abandonFenced
+                    return Effect.flatMap(
                       hasStoredExit(request.message.envelope.requestId),
                       (committed) => {
                         if (!committed) return restartFrom(outcome.cause)
@@ -393,6 +438,7 @@ export const make = Effect.fnUntraced(function*<
                         )
                       }
                     )
+                  }
                   return Effect.orDie(save)
                 }
                 transaction.settle = (outcome) =>
@@ -539,6 +585,13 @@ export const make = Effect.fnUntraced(function*<
               request.terminating = true
               yield* state.write(0, { _tag: "Interrupt", requestId: requestId as any, interruptors: [] })
             }
+            // A handler this drain waits for may be parked on a request the
+            // retired entity will never start, such as its own queued request.
+            // Release callers before `Eof`, which waits for handler acquisition.
+            yield* options.abandonUndelivered(
+              address,
+              (requestId) => activeRequests.get(requestId)?.delivered === true
+            )
             yield* state.write(0, { _tag: "Eof" })
           }).pipe(
             Effect.andThen(endLatch.await),

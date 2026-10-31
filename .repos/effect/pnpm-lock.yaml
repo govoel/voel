@@ -9,6 +9,7 @@ overrides:
   fake-indexeddb: 6.2.5
 
 patchedDependencies:
+  '@changesets/cli@3.0.3': 2582b979794e5afa0b5a665bf0e818bc8731c818aa50890425172eb69df4d6bd
   '@changesets/get-github-info@1.0.1': 4b2756eb490a2ad802075423f6b08a5f50f12307ec25e117b20a79e12236b625
 
 importers:
@@ -32,7 +33,7 @@ importers:
         version: 1.0.1
       '@changesets/cli':
         specifier: 3.0.3
-        version: 3.0.3
+        version: 3.0.3(patch_hash=2582b979794e5afa0b5a665bf0e818bc8731c818aa50890425172eb69df4d6bd)
       '@effect/ai-docgen':
         specifier: workspace:^
         version: link:packages/tools/ai-docgen
@@ -690,9 +691,15 @@ importers:
       '@op-engineering/op-sqlite':
         specifier: ^18.2.5
         version: 18.2.5(react-native@0.83.0(@babel/core@8.0.7)(@types/react@19.3.0)(react@19.3.1)(supports-color@10.2.2))(react@19.3.1)
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       effect:
         specifier: workspace:^
         version: link:../../effect
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
 
   packages/sql/sqlite-wasm:
     devDependencies:
@@ -891,6 +898,25 @@ importers:
       vitest:
         specifier: ^5.0.5
         version: 5.0.5(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.3)(jsdom@30.0.1)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/tools/eventlog-server:
+    dependencies:
+      '@effect/platform-node':
+        specifier: workspace:^
+        version: link:../../platform/node
+      '@effect/sql-sqlite-node':
+        specifier: workspace:^
+        version: link:../../sql/sqlite-node
+      effect:
+        specifier: workspace:^
+        version: link:../../effect
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.5
+        version: 26.6.5
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
 
   packages/tools/graphql-generator:
     dependencies:
@@ -2552,18 +2578,21 @@ packages:
   '@opentelemetry/sdk-trace-base@2.12.0':
     resolution: {integrity: sha512-JOERgZCxRM06FEJ5kEWxlSRChah6MmXDx3KwCruqEv/iEyLkTokCSemf2y1w8oIHtfrr8EVTpzebq/31vn2Cpg==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 
   '@opentelemetry/sdk-trace-node@2.12.0':
     resolution: {integrity: sha512-9DufH1IlmQMoKAfot5y/FhTP1RnmhLb5K6eKmJO/bvzPjYwPAazoiAUbTZFdPbqxOXN0FEbhZx/e6SB1Og4jmg==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.0.0 <1.10.0'
 
   '@opentelemetry/sdk-trace-web@2.12.0':
     resolution: {integrity: sha512-y0hCzbnBHScmioF0drJOyaPk1sQf2wwbIuy3rWlM0Fcx8mLfPDvFsQ7tJ+zMm8yAqI06rSlFKkL7ZpcrFOqAdQ==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.0.0 <1.10.0'
 
@@ -7342,7 +7371,7 @@ snapshots:
       '@changesets/get-github-info': 1.0.1(patch_hash=4b2756eb490a2ad802075423f6b08a5f50f12307ec25e117b20a79e12236b625)
       '@changesets/types': 7.0.0
 
-  '@changesets/cli@3.0.3':
+  '@changesets/cli@3.0.3(patch_hash=2582b979794e5afa0b5a665bf0e818bc8731c818aa50890425172eb69df4d6bd)':
     dependencies:
       '@changesets/apply-release-plan': 8.1.1
       '@changesets/assemble-release-plan': 7.0.0

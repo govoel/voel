@@ -11,6 +11,7 @@
  * @stability unstable
  * @since 4.0.0
  */
+import type * as Arr from "../Array.ts"
 import { Clock } from "../Clock.ts"
 import * as Context from "../Context.ts"
 import * as Effect from "../Effect.ts"
@@ -278,7 +279,7 @@ export const arrayHelper = (value: ReadonlyArray<unknown | Fragment>): ArrayHelp
  */
 export interface RecordInsertHelper {
   readonly _tag: "RecordInsertHelper"
-  readonly value: ReadonlyArray<Record<string, unknown>>
+  readonly value: Arr.NonEmptyReadonlyArray<Record<string, unknown>>
   /**
    * @internal
    */
@@ -305,7 +306,7 @@ const RecordInsertHelperProto = {
  * @since 4.0.0
  */
 export const recordInsertHelper = (
-  value: ReadonlyArray<Record<string, unknown>>
+  value: Arr.NonEmptyReadonlyArray<Record<string, unknown>>
 ): RecordInsertHelper =>
   Object.assign(Object.create(RecordInsertHelperProto), {
     value,
@@ -322,7 +323,7 @@ export const recordInsertHelper = (
  */
 export interface RecordUpdateHelper {
   readonly _tag: "RecordUpdateHelper"
-  readonly value: ReadonlyArray<Record<string, unknown>>
+  readonly value: Arr.NonEmptyReadonlyArray<Record<string, unknown>>
   readonly alias: string
   /**
    * @internal
@@ -345,7 +346,7 @@ const RecordUpdateHelperProto = {
  * @since 4.0.0
  */
 export const recordUpdateHelper = (
-  value: ReadonlyArray<Record<string, unknown>>,
+  value: Arr.NonEmptyReadonlyArray<Record<string, unknown>>,
   alias: string
 ): RecordUpdateHelper =>
   Object.assign(Object.create(RecordUpdateHelperProto), {
@@ -502,7 +503,7 @@ export interface Constructor {
 
   readonly insert: {
     (
-      value: ReadonlyArray<Record<string, unknown>>
+      value: Arr.NonEmptyReadonlyArray<Record<string, unknown>>
     ): RecordInsertHelper
     (value: Record<string, unknown>): RecordInsertHelper
   }
@@ -519,9 +520,12 @@ export interface Constructor {
    * **Gotchas**
    *
    * Not supported in sqlite.
+   *
+   * The alias is escaped as an identifier and is not passed through name
+   * transforms.
    */
   readonly updateValues: (
-    value: ReadonlyArray<Record<string, unknown>>,
+    value: Arr.NonEmptyReadonlyArray<Record<string, unknown>>,
     alias: string
   ) => RecordUpdateHelper
 
@@ -628,7 +632,7 @@ export const make = (
       in: in_,
       insert(value: any) {
         return recordInsertHelper(
-          Array.isArray(value) ? value : [value]
+          Array.isArray(value) ? value as Arr.NonEmptyArray<Record<string, unknown>> : [value]
         )
       },
       update(value: any, omit: any) {
@@ -822,6 +826,10 @@ export type CompilerOptions<C extends Custom<any, any, any, any> = any> = {
   readonly dialect: Dialect
   readonly placeholder: (index: number, value: unknown) => string
   readonly onIdentifier: (value: string, withoutTransform: boolean) => string
+  /**
+   * Renders `updateValues`. The `alias` is already escaped with
+   * `onIdentifier(alias, true)` and must be inserted as is.
+   */
   readonly onRecordUpdate: (
     placeholders: string,
     alias: string,
@@ -929,6 +937,19 @@ const CompilerProto = {
         }
 
         case "ArrayHelper": {
+          if (segment.value.length === 0) {
+            const inKeyword = emptyInKeyword.exec(sql)
+            if (inKeyword === null || isInLineComment(sql, inKeyword.index)) {
+              sql += "()"
+            } else if (this.dialect === "pg") {
+              // an empty subquery is typed as text in postgres, so compare with an
+              // empty array, which takes the type of the left operand instead
+              sql = sql.slice(0, inKeyword.index) + (inKeyword[1] ? "<> ALL('{}')" : "= ANY('{}')")
+            } else {
+              sql += "(SELECT NULL WHERE 1=0)"
+            }
+            break
+          }
           sql += `(${placeholders(segment.value)})`
           binds.push.apply(binds, segment.value as any)
           break
@@ -1072,7 +1093,7 @@ const CompilerProto = {
           }
           const [s, b] = opts.onRecordUpdate(
             placeholders,
-            segment.alias,
+            opts.onIdentifier(segment.alias, true),
             generateColumns(keys, opts.onIdentifier, withoutTransform),
             values,
             typeof segment.returningIdentifier === "string"
@@ -1206,7 +1227,7 @@ export const defaultTransforms = (
 ) => {
   const transformValue = (value: any) => {
     if (Array.isArray(value)) {
-      if (value.length === 0 || value[0].constructor !== Object) {
+      if (value.length === 0 || value[0]?.constructor !== Object) {
         return value
       }
       return array(value)
@@ -1232,6 +1253,8 @@ export const defaultTransforms = (
       const row = rows[i]
       if (Array.isArray(row)) {
         newRows[i] = transformArrayNested(row) as any
+      } else if (row === null || typeof row !== "object") {
+        newRows[i] = row
       } else {
         const obj: any = {}
         for (const [key, value] of Object.entries(row)) {
@@ -1251,6 +1274,8 @@ export const defaultTransforms = (
       const row = rows[i]
       if (Array.isArray(row)) {
         newRows[i] = transformArray(row) as any
+      } else if (row === null || typeof row !== "object") {
+        newRows[i] = row
       } else {
         const obj: any = {}
         for (const [key, value] of Object.entries(row)) {
@@ -1670,3 +1695,7 @@ function in_(): Fragment | ArrayHelper {
 }
 
 const neverFragment = fragment([literal("1=0")])
+
+const emptyInKeyword = /\b(NOT\s+)?IN\s*$/i
+
+const isInLineComment = (sql: string, index: number) => sql.lastIndexOf("--", index) > sql.lastIndexOf("\n", index)

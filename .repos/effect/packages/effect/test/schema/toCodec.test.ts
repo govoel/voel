@@ -772,6 +772,14 @@ describe("Serializers", () => {
         })
       })
 
+      it("Record(String, UndefinedOr(Number))", async () => {
+        const schema = Schema.Record(Schema.String, Schema.UndefinedOr(Schema.Number))
+        const asserts = new TestSchema.Asserts(Schema.toCodecJson(schema))
+
+        await asserts.encoding().succeed({ a: 1, b: undefined }, { a: 1, b: null })
+        await asserts.decoding().succeed({ a: 1, b: null }, { a: 1, b: undefined })
+      })
+
       it("Record(Symbol, Date)", async () => {
         const schema = Schema.Record(Schema.Symbol, Schema.Date)
         const asserts = new TestSchema.Asserts(Schema.toCodecJson(schema))
@@ -1726,6 +1734,23 @@ describe("Serializers", () => {
   })
 
   describe("toCodecStringTree", () => {
+    it("shares a named reference across required and optional keys when codec derivation rebuilds it", () => {
+      const Value = Schema.Struct({ value: Schema.Unknown }).annotate({ identifier: "Value" })
+      const schema = Schema.Struct({ required: Value, optional: Schema.optionalKey(Value) })
+      const document = Schema.toRepresentation(Schema.toCodecStringTree(schema))
+
+      assert.deepStrictEqual(Object.keys(document.references), ["Value"])
+      assert.deepStrictEqual(document.representation, {
+        _tag: "Objects",
+        propertySignatures: [
+          { name: "required", type: { _tag: "Reference", $ref: "Value" }, isOptional: false, isMutable: false },
+          { name: "optional", type: { _tag: "Reference", $ref: "Value" }, isOptional: true, isMutable: false }
+        ],
+        indexSignatures: [],
+        checks: []
+      })
+    })
+
     it("exposes the source schema", () => {
       const schema = Schema.FiniteFromString
       const serializer = Schema.toCodecStringTree(schema)
