@@ -43,9 +43,10 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
   {
     make: Effect.gen(function* () {
       const sql = yield* MainDatabase;
-      const crypto = Context.make(AccountEncryptionKey, yield* AccountEncryptionKey).pipe(
-        Context.add(Aead.Aead, yield* Aead.Aead),
-        Context.add(SecureRandom.SecureRandom, yield* SecureRandom.SecureRandom)
+      const crypto = yield* Effect.context<
+        AccountEncryptionKey | Aead.Aead | SecureRandom.SecureRandom
+      >().pipe(
+        Effect.map(Context.pick(AccountEncryptionKey, Aead.Aead, SecureRandom.SecureRandom))
       );
       const queries = {
         list: SqlSchema.findAll({
