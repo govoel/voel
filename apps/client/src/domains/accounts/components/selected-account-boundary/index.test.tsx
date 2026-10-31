@@ -28,7 +28,7 @@ import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
 import { MainShell } from '#src/domains/accounts/components/main-shell';
 import { AccountManagementBoundary } from '#src/domains/accounts/components/selected-account-boundary';
-import { Encryption } from '#src/domains/accounts/encryption/index.ts';
+import { AccountEncryptionKeyTestLayer } from '#src/domains/accounts/encryption/testing.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { Account, AccountRepository } from '#src/domains/accounts/repository.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
@@ -203,7 +203,7 @@ const makeFixture = async (initial: ReadonlyArray<typeof Account.Type>) => {
   const services = AccountManager.layerNoDeps.pipe(
     Layer.provideMerge(AuthClientMap.layerNoDeps),
     Layer.provideMerge(repository),
-    Layer.provideMerge([Reactivity.layer, Encryption.layerTest])
+    Layer.provideMerge([Reactivity.layer, AccountEncryptionKeyTestLayer])
   );
   const runtime = ManagedRuntime.make(services);
   const context = await runtime.runPromise(Effect.context<Layer.Success<typeof services>>());
