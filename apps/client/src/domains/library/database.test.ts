@@ -16,16 +16,13 @@ import {
   Scope,
   Stream,
 } from 'effect';
-import { FetchHttpClient, HttpClientRequest } from 'effect/http';
-import { HttpApiClient, HttpApiMiddleware } from 'effect/http-api';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
 import { TestClock } from 'effect/testing';
 
-import { Api } from '@repo/spec-api';
-import { AuthMiddleware } from '@repo/spec-api/domains/auth/http.ts';
 import { Library, MediaType } from '@repo/spec-api/domains/library/schema.ts';
 
+import { ApiClientMap } from '#src/api-client.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { LibraryDatabase, LibraryDatabaseMap } from '#src/domains/library/database.ts';
@@ -61,15 +58,7 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
   });
   const account = Option.getOrThrow(yield* accounts.state);
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
-  const cookie = Option.getOrThrow(yield* authentication.getCookie);
-  const client = yield* HttpApiClient.make(Api, { baseUrl: serverUrl }).pipe(
-    Effect.provide([
-      FetchHttpClient.layer,
-      HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
-        next(HttpClientRequest.setHeader(request, 'cookie', cookie))
-      ),
-    ])
-  );
+  const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
   const createLibrary = Effect.fnUntraced(function* (libraryName: string) {
     const library = yield* client.library.create({
       payload: {

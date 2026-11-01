@@ -2,8 +2,10 @@
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
 import { Digest } from 'effect/crypto';
+import { FetchHttpClient } from 'effect/http';
 import { Reactivity } from 'effect/reactivity';
 
+import { ApiClientMap } from '#src/api-client.ts';
 import { AppConfig } from '#src/config.ts';
 import { TursoSyncClientFactoryBunLayer } from '#src/database/factory/bun.ts';
 import { MainDatabaseTestLayer } from '#src/database/main/testing.ts';
@@ -23,7 +25,11 @@ export const makeClientTestLayers = ({
   readonly config?: Parameters<typeof AppConfig.layerTest>[0];
   readonly accountRepositoryLayer?: typeof AccountRepository.layerNoDeps;
 } = {}) =>
-  Layer.mergeAll(AccountManager.layerNoDeps, LibraryDatabaseMap.layerNoDeps).pipe(
+  Layer.mergeAll(
+    AccountManager.layerNoDeps,
+    ApiClientMap.layerNoDeps,
+    LibraryDatabaseMap.layerNoDeps
+  ).pipe(
     Layer.provideMerge(AuthClientMap.layerNoDeps),
     Layer.provideMerge(accountRepositoryLayer),
     Layer.provideMerge(MainDatabaseTestLayer),
@@ -33,6 +39,7 @@ export const makeClientTestLayers = ({
         Digest.layerWebCrypto,
         AppConfig.layerTest(config),
         Reactivity.layer,
+        FetchHttpClient.layer,
         TursoSyncClientFactoryBunLayer
       )
     )
