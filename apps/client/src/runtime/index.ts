@@ -3,6 +3,7 @@ import { Atom } from 'effect/reactivity';
 
 import { AtomDevToolsLayer } from '@repo/effect-atom-devtools-rozenite';
 
+import { ApiClientMap } from '#src/api-client.ts';
 import { TursoSyncClientFactoryReactNativeLayer } from '#src/database/factory/react-native.ts';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
@@ -13,6 +14,7 @@ const AppRuntimeLayer = Layer.mergeAll(
   AccountManager.layer,
   AccountRepository.layer,
   AuthClientMap.layer,
+  ApiClientMap.layer,
   LibraryDatabaseMap.layer
 ).pipe(Layer.provide(TursoSyncClientFactoryReactNativeLayer), Layer.orDie);
 
