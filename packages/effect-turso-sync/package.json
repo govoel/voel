@@ -14,7 +14,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "4.1.0"
+    "effect": "4.1.1"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
