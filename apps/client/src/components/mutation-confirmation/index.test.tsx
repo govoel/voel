@@ -24,6 +24,7 @@ vi.mock('#src/components/form', async () => {
     formComponents: {},
   });
 });
+// Native adapter contract: the platform reports completion separately from requesting dismissal.
 vi.mock('#src/components/mutation-confirmation/confirmation', () => ({
   Confirmation: (({ state, title }) => (
     <>

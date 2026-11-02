@@ -29,6 +29,7 @@ export default function ServerUsersScreen() {
 
   return (
     <AndroidAccountsSheet>
+      {/* The native sheet consumes system-bar insets for both the list and the FAB. */}
       <Box modifiers={[fillMaxSize()]} contentAlignment="bottomEnd">
         <LazyColumn
           modifiers={[fillMaxSize()]}

@@ -218,6 +218,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         return Option.isNone(row) ? {} : row.value.authStorage;
       });
 
+      // Mutation invalidations are registered inside the transaction and published
+      // only by its outermost commit. Schema and SQL invariant violations are defects.
       return {
         list: queries.list().pipe(
           Effect.catchReasons(
@@ -332,6 +334,8 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
             readonly name: string;
             readonly value: string;
           }) {
+            // Serialize the entire read/decrypt/modify/encrypt/write, including
+            // Better Auth's chunk keys. Never recreate a removed account here.
             const previous = yield* readAuthStorage(key);
             yield* queries.writeAuthStorage({ key, authStorage: { ...previous, [name]: value } });
           },

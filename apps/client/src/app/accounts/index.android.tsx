@@ -96,6 +96,7 @@ export default function AccountsScreen() {
                 ) : (
                   <SegmentedList>
                     <SegmentedListItem
+                      // Native slot discovery needs a fresh row when the slot layout changes.
                       key={Option.isSome(activeAccount) ? 'active-account' : 'pick-account'}
                       index={0}
                       count={sessionExpired && Option.isSome(activeAccount) ? 2 : 1}

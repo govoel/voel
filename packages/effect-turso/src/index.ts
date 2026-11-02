@@ -415,6 +415,8 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         Effect.scoped
       );
 
+      // The native response already exists as one complete Buffer. Exposing it
+      // as a one-chunk stream avoids Web Response copying the entire buffer.
       return HttpServerResponse.stream(Stream.succeed(response.body), {
         status: response.status,
         contentType: response.contentType,
@@ -433,6 +435,16 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     ).pipe(Layer.provide(Reactivity.layer));
 }
 
+/**
+ * Classifies a `@govoel/turso-database` failure into a `SqlErrorReason`.
+ *
+ * The current binding surfaces SQLite result codes only inside error message
+ * strings (e.g. `"step failed: UNIQUE constraint failed: t.name"`; verified
+ * against 0.8.0-pre.7, where every failure carries `code:
+ * "GenericFailure"`), so the classification is message-based. Causes that
+ * carry structured codes are delegated to `classifySqliteError`, keeping the
+ * driver compatible with future binding versions that expose proper codes.
+ */
 const classifyTursoError = (cause: unknown, options: { message?: string; operation?: string }) => {
   const props = {
     cause,

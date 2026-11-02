@@ -26,6 +26,7 @@ const activeAccountKeyAtom = AppRuntime.atom(
   Atom.withLabel('activeAccountKeyAtom')
 );
 
+// Only descendants remount; root and management navigation stay mounted.
 export const SelectedAccountBoundary = ({
   children,
   fallback,
@@ -49,6 +50,8 @@ export const AccountManagementBoundary = ({ children }: PropsWithChildren) => (
   </SelectedAccountBoundary>
 );
 
+// Groups without a layout are hoisted into the management Stack. Scope only
+// their screen content so native headers/back history and the modal stay mounted.
 export const accountManagementScreenLayout = (({ route, children }) =>
   pipe(route.name, String.startsWith('(selected)/')) ? (
     <AccountManagementBoundary>{children}</AccountManagementBoundary>

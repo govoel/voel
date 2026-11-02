@@ -50,6 +50,8 @@ import {
 
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
 
+// Route atom callbacks and service fibers through one drainable dispatcher.
+// Draining runs queued work; it does not wait for SQL, network requests, or timers.
 class TestScheduler extends Context.Service<TestScheduler>()(
   'voel/domains/accounts/atoms.test/TestScheduler',
   {

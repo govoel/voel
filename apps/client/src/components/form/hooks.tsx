@@ -231,6 +231,8 @@ export const createEffectSchemaFormHook = <
           throw new Error('Unexpected invalid data during submit');
         }
 
+        // Each invocation has its own result and pins the runtime until it settles,
+        // even if its form unmounts. No shared mutation slot or React lifetime guard.
         const submitExit = await Effect.runPromiseExit(
           AtomRegistry.getResult(
             registry,
@@ -293,6 +295,7 @@ export const useTextFieldState = () => {
     isSubmitting,
     errorMessage: field.state.meta.isTouched ? Array.head(field.state.meta.errors) : Option.none(),
     onFocusChange: (focused: boolean) => {
+      // Native controls can emit an initial unfocused event. Only real blur marks a field touched.
       if (focused) {
         hasFocused.current = true;
       } else if (hasFocused.current) {

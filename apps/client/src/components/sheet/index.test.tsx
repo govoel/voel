@@ -244,6 +244,7 @@ describe.each([
       await waitFor(() => {
         expect(native.hide).toHaveBeenCalledOnce();
       });
+      // A swipe/back completion can race with programmatic hide completion.
       await fireEvent.press(screen.getByText('Swipe away'));
       await act(async () => {
         await Effect.runPromise(Deferred.succeed(dismissed, void 0));

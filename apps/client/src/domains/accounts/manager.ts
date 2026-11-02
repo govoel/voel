@@ -53,6 +53,9 @@ export class AccountManager extends Context.Service<AccountManager>()(
           profilePicture: result.user.image,
           authStorage: client.snapshot(),
         });
+        // A stable account key may already have a cached, signed-out client.
+        // Refresh it from the newly committed credentials; failed network refreshes
+        // do not undo a successful login or its local transaction.
         yield* clients.acquire(key).pipe(
           Effect.flatMap((current) => current.refreshSession(void 0)),
           Effect.ignore

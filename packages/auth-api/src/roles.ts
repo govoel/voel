@@ -3,6 +3,7 @@ import { Array } from 'effect';
 
 import type { AuthUser } from '#src/shared.ts';
 
+// Also prevents ban fields from being written through generic admin user endpoints.
 const adminRole = defaultAc.newRole({
   ...adminAc.statements,
   user: Array.filter(adminAc.statements.user, (action) => action !== 'ban'),

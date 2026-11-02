@@ -51,6 +51,8 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   return {
     path: `${filenameSuffix}-${filename}.db`,
     url: new URL('/api/sync/library', account.serverUrl).toString(),
+    // Turso asks for credentials before every request, allowing Better Auth
+    // to rotate or invalidate a session without rebuilding the replica.
     authToken: authToken(authentication),
     bootstrapIfEmpty: true,
     longPollTimeoutMs: 30_000,
