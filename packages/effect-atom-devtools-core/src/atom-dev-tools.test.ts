@@ -1,4 +1,3 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { describe, expect, it } from '@effect/vitest';
 import { Array, Effect, Fiber, Latch, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';

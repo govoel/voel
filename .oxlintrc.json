@@ -116,6 +116,13 @@
   "jsPlugins": ["eslint-plugin-turbo", "./.oxlint/index.mts"],
   "overrides": [
     {
+      // Tests are Effect application boundaries.
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "effecttsgo/strict-effect-provide": "off"
+      }
+    },
+    {
       // Rozenite emits this runtime with tsc; relative imports must work in dist too.
       "files": ["packages/effect-atom-devtools-rozenite/src/react-native/**/*.ts"],
       "rules": {
