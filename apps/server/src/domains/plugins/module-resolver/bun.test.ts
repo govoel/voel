@@ -1,4 +1,3 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { BunFileSystem } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Effect, FileSystem, Schema } from 'effect';

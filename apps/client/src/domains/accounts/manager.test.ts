@@ -1,4 +1,3 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it } from '@effect/vitest';
 import { Array, Effect, Exit, Fiber, Layer, Option, Redacted, Scope, Stream } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';

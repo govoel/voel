@@ -1,4 +1,3 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it } from '@effect/vitest';
 import { Library } from '@govoel/plugins/library';
 import type { StoragePluginModule } from '@govoel/plugins/storage';

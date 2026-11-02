@@ -1,5 +1,4 @@
 import { BunPath } from '@effect/platform-bun';
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it, vi } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/http';

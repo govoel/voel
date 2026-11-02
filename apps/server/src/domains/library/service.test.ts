@@ -280,7 +280,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
         ).toEqual(Option.some({ prefix: boundary === 'commit' ? '/updated' : '/initial' }));
       }).pipe(
         Effect.ensuring(release.open),
-        // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this test boundary owns the service and retirement lifetime
         Effect.provide(
           LibraryService.layerNoDeps.pipe(
             Layer.provideMerge(LibraryRepository.layerNoDeps),

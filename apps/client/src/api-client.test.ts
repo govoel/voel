@@ -1,4 +1,3 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { expect, it } from '@effect/vitest';
 import { Effect, Option } from 'effect';
 
