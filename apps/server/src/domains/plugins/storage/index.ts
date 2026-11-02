@@ -1,5 +1,4 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { Library as PluginLibrary } from '@govoel/plugins/library';
 import type { StoragePluginModule } from '@govoel/plugins/storage';
 import {
   StorageMediaFileLocation,
@@ -30,10 +29,14 @@ import { FetchHttpClient, HttpClient } from 'effect/http';
 
 import type { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
-import { StoragePluginId, StoragePluginLoadError } from '@repo/spec-api/domains/plugins/storage.ts';
+import { StoragePluginLoadError } from '@repo/spec-api/domains/plugins/storage.ts';
 
 import { PluginModuleMap } from '#src/domains/plugins/index.ts';
 import local from '#src/domains/plugins/storage/local/index.ts';
+import type {
+  StoragePluginKey,
+  StoragePluginSettingsKey,
+} from '#src/domains/plugins/storage/schema.ts';
 
 const pickInvocationContext = Context.pick(
   References.CurrentLogLevel,
@@ -152,21 +155,6 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
   );
 }
 
-class StoragePluginSettingsKey extends Schema.Class<
-  StoragePluginSettingsKey,
-  { readonly brand: unique symbol }
->('@repo/server/domains/plugins/storage/StoragePluginSettingsKey')({
-  storagePlugin: StoragePluginId,
-  library: PluginLibrary,
-}) {}
-
-class StoragePluginKey extends Schema.Class<StoragePluginKey, { readonly brand: unique symbol }>(
-  '@repo/server/domains/plugins/storage/StoragePluginKey'
-)({
-  ...StoragePluginSettingsKey.fields,
-  settings: StoragePluginSettingsPersisted,
-}) {}
-
 export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginSettingsMap',
   {
@@ -214,16 +202,12 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        acquire: (request: Parameters<typeof StoragePluginSettingsKey.make>[0]) =>
-          map
-            .contextEffect(StoragePluginSettingsKey.make(request))
-            .pipe(Effect.map(Context.get(StoragePluginSettings))),
+        acquire: (request: StoragePluginSettingsKey) =>
+          map.contextEffect(request).pipe(Effect.map(Context.get(StoragePluginSettings))),
       }))
     ),
   }
 ) {
-  public static readonly Key = StoragePluginSettingsKey;
-
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));
@@ -280,16 +264,12 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        acquire: (request: Parameters<typeof StoragePluginKey.make>[0]) =>
-          map
-            .contextEffect(StoragePluginKey.make(request))
-            .pipe(Effect.map(Context.get(StoragePlugin))),
+        acquire: (request: StoragePluginKey) =>
+          map.contextEffect(request).pipe(Effect.map(Context.get(StoragePlugin))),
       }))
     ),
   }
 ) {
-  public static readonly Key = StoragePluginKey;
-
   public static readonly layerNoDeps = Layer.effect(this, this.make);
 
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));

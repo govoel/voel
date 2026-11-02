@@ -21,31 +21,26 @@ export class LibraryService extends Context.Service<LibraryService>()(
       const stores = yield* StoragePluginMap;
       const retirementScope = yield* Effect.scope;
 
+      const details = ({
+        settingsKey,
+        storageKey,
+        roots,
+      }: Effect.Success<ReturnType<typeof repository.getById>>) => ({
+        ...settingsKey.library,
+        storagePlugin: settingsKey.storagePlugin,
+        storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
+        roots,
+      });
+
       const health = Effect.fnUntraced(function* (
         row: Effect.Success<ReturnType<typeof repository.getById>>
       ) {
         const [cached, failures] = yield* Effect.partition(
           [
-            editors
-              .contextEffectOption(
-                StoragePluginSettingsMap.Key.make({
-                  storagePlugin: row.storagePlugin,
-                  library: row,
-                })
-              )
-              .pipe(Effect.map(Option.isSome)),
-            Option.match(row.storagePluginSettings, {
+            editors.contextEffectOption(row.settingsKey).pipe(Effect.map(Option.isSome)),
+            Option.match(row.storageKey, {
               onNone: () => Effect.succeed(false),
-              onSome: (settings) =>
-                stores
-                  .contextEffectOption(
-                    StoragePluginMap.Key.make({
-                      storagePlugin: row.storagePlugin,
-                      library: row,
-                      settings,
-                    })
-                  )
-                  .pipe(Effect.map(Option.isSome)),
+              onSome: (key) => stores.contextEffectOption(key).pipe(Effect.map(Option.isSome)),
             }),
           ],
           (check) => Unify.unify(check),
@@ -77,7 +72,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
       return {
         get: Effect.fnUntraced(function* (request: Pick<Library, 'id'>) {
           const row = yield* repository.getById(request);
-          return { ...row, storagePluginHealth: yield* health(row) };
+          return { ...details(row), storagePluginHealth: yield* health(row) };
         }),
         list: Effect.fnUntraced(function* (request: Parameters<typeof repository.list>[0]) {
           const rows = yield* repository.list({ cursor: request.cursor, limit: request.limit + 1 });
@@ -85,7 +80,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             rows.slice(0, request.limit),
             (row) =>
               health(row).pipe(
-                Effect.map(({ status }) => ({ ...row, storagePluginStatus: status }))
+                Effect.map(({ status }) => ({ ...details(row), storagePluginStatus: status }))
               ),
             { concurrency: 'unbounded' }
           );
@@ -106,17 +101,19 @@ export class LibraryService extends Context.Service<LibraryService>()(
           ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire({ storagePlugin: row.storagePlugin, library: row });
-          return yield* editor.getForm({ current: row.storagePluginSettings });
+          const editor = yield* editors.acquire(row.settingsKey);
+          return yield* editor.getForm({
+            current: Option.map(row.storageKey, ({ settings }) => settings),
+          });
         }, Effect.scoped),
         setStoragePluginSettings: Effect.fnUntraced(function* ({
           id,
           input,
         }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire({ storagePlugin: row.storagePlugin, library: row });
+          const editor = yield* editors.acquire(row.settingsKey);
           const settings = yield* editor.decodeFormSubmission({
-            current: row.storagePluginSettings,
+            current: Option.map(row.storageKey, (key) => key.settings),
             input,
           });
           return yield* repository.setSettings({ id, settings }).pipe(
@@ -131,14 +128,10 @@ export class LibraryService extends Context.Service<LibraryService>()(
             roots,
           }: Pick<Library, 'id'> & { readonly roots: ReadonlyArray<{ readonly root: string }> }) {
             const row = yield* repository.getById({ id });
-            if (Option.isNone(row.storagePluginSettings)) {
+            if (Option.isNone(row.storageKey)) {
               return yield* LibraryUnconfiguredError.make({ id });
             }
-            const storage = yield* stores.acquire({
-              storagePlugin: row.storagePlugin,
-              library: row,
-              settings: row.storagePluginSettings.value,
-            });
+            const storage = yield* stores.acquire(row.storageKey.value);
             const decoded = yield* Effect.validate(
               roots,
               ({ root }) =>
