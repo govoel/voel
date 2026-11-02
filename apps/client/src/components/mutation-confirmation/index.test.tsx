@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { expect, expectTypeOf, it, vi } from 'vitest';
 
-import { NoFormInput } from '#src/components/form/hooks.tsx';
 import {
   MutationConfirmation,
   MutationConfirmationProvider,
@@ -56,9 +55,11 @@ class OperationFailure extends Schema.TaggedError<
 
 it('reserves the host until cancellation finishes and opens the next request with fresh state', async () => {
   type ConfirmationProps = Parameters<
-    typeof MutationConfirmation<typeof NoFormInput.Type, typeof NoFormInput.Encoded>
+    typeof MutationConfirmation<Schema.Void['Type'], Record<string, never>>
   >[0];
-  expectTypeOf<Omit<ConfirmationProps, 'schema'>>().not.toExtend<ConfirmationProps>();
+  expectTypeOf<
+    Pick<ConfirmationProps, 'onSubmit' | 'onFailure' | 'title' | 'message' | 'trigger'>
+  >().toExtend<ConfirmationProps>();
   const execute = vi.fn(() => Effect.void);
   const onSuccess = vi.fn();
   const remove = () => Effect.suspend(execute);
@@ -66,7 +67,6 @@ it('reserves the host until cancellation finishes and opens the next request wit
     <MutationConfirmationProvider>
       {Array.map(['Alice', 'Bob'], (name) => (
         <MutationConfirmation
-          schema={NoFormInput}
           key={name}
           onSubmit={remove}
           title={`Remove ${name}`}
@@ -128,7 +128,6 @@ it('survives removal of its initiating subtree and navigates only after native d
         </Pressable>
         {saved ? (
           <MutationConfirmation
-            schema={NoFormInput}
             onSubmit={remove}
             title="Remove Alice"
             message="Remove this account"
@@ -187,7 +186,6 @@ it('keeps failure feedback and retry available after its trigger disappears', as
         </Pressable>
         {triggerVisible ? (
           <MutationConfirmation
-            schema={NoFormInput}
             onSubmit={remove}
             title="Remove Alice"
             message="Remove this account"

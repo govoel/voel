@@ -111,8 +111,8 @@ const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = 
 };
 
 export const MutationConfirmation = <
-  Input,
-  Encoded,
+  Input = void,
+  Encoded = Record<string, never>,
   Success = void,
   Failure = never,
   EncodingServices = never,

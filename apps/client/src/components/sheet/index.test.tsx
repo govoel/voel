@@ -9,7 +9,6 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  NoFormInput,
   createEffectSchemaFormHook,
   fieldContext,
   formContext,
@@ -96,7 +95,6 @@ const Editor = ({
 }) => {
   const [draft, changeDraft] = useReducer((_draft: string, text: string) => text, 'Fresh draft');
   const form = useAppForm({
-    schema: NoFormInput,
     onSubmit: () => operation,
     onFailure: () => 'Failed',
     onSuccess: async () => {

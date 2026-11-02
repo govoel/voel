@@ -15,7 +15,6 @@ import {
   removeAccountFailureMessage,
 } from '#src/app/accounts/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { NoFormInput } from '#src/components/form';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
@@ -181,7 +180,6 @@ export default function AccountsScreen() {
                           href="/accounts/settings"
                         />
                         <MutationConfirmation
-                          schema={NoFormInput}
                           key={`${account.key.serverUrl}-${account.key.userId}`}
                           onSubmit={() => removeAccount({ key: account.key })}
                           onSuccess={({ result }) => {

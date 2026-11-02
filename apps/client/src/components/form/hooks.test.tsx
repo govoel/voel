@@ -8,7 +8,6 @@ import { Pressable, Text } from 'react-native';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import {
-  NoFormInput,
   createEffectSchemaFormHook,
   fieldContext,
   formContext,
@@ -104,19 +103,27 @@ describe('createEffectSchemaFormHook', () => {
     expect(screen.getByText('second: Second saved')).toBeOnTheScreen();
   });
 
-  it('requires a schema for data and no-input submissions', () => {
+  it('requires a schema for data submissions and forbids defaults without one', () => {
     type DataOptions = Parameters<
       typeof useAppForm<TestFormInput, typeof TestFormInput.Encoded>
     >[0];
     type NoInputOptions = Parameters<
-      typeof useAppForm<typeof NoFormInput.Type, typeof NoFormInput.Encoded>
+      typeof useAppForm<Schema.Void['Type'], Record<string, never>>
     >[0];
     expectTypeOf<Omit<DataOptions, 'schema'>>().not.toExtend<DataOptions>();
-    expectTypeOf<Omit<NoInputOptions, 'schema'>>().not.toExtend<NoInputOptions>();
+    expectTypeOf<Pick<NoInputOptions, 'onSubmit' | 'onFailure'>>().toExtend<NoInputOptions>();
+    expectTypeOf<
+      Pick<NoInputOptions, 'onSubmit' | 'onFailure'> & {
+        readonly defaultValues: Record<string, never>;
+      }
+    >().not.toExtend<NoInputOptions>();
+    type NeverInputOptions = Parameters<typeof useAppForm<never, Record<string, never>>>[0];
+    expectTypeOf<
+      Pick<NeverInputOptions, 'onSubmit' | 'onFailure'>
+    >().not.toExtend<NeverInputOptions>();
   });
 
-  it('decodes empty TanStack values to void and can retry a failure', async () => {
-    expect(await Effect.runPromise(Schema.encodeEffect(NoFormInput)(void 0))).toEqual({});
+  it('submits void without a schema and can retry a failure', async () => {
     const inputs: Array<void> = [];
     const mutation = (input: Schema.Void['Type']) => {
       inputs.push(input);
@@ -128,10 +135,21 @@ describe('createEffectSchemaFormHook', () => {
 
     const TestForm = () => {
       const form = useAppForm({
-        schema: NoFormInput,
-        onSubmit: ({ value }) => mutation(value),
-        onFailure: ({ error }) => error.message,
-        onSuccess,
+        onSubmit: ({ value }) => {
+          expectTypeOf(value).toEqualTypeOf<Schema.Void['Type']>();
+          return mutation(value);
+        },
+        onFailure: ({ error, value }) => {
+          expectTypeOf(error).toEqualTypeOf<TestSubmitError>();
+          expectTypeOf(value).toEqualTypeOf<Schema.Void['Type']>();
+          expect(value).toBe(void 0);
+          return error.message;
+        },
+        onSuccess: (props) => {
+          expectTypeOf(props.value).toEqualTypeOf<Schema.Void['Type']>();
+          expectTypeOf(props.result).toEqualTypeOf<string>();
+          onSuccess(props);
+        },
       });
       return (
         <form.AppForm>
@@ -292,7 +310,11 @@ describe('createEffectSchemaFormHook', () => {
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { count: '4' },
-        onSubmit: ({ value }) => mutation(value),
+        onSubmit: ({ value }) => {
+          expectTypeOf(value).toEqualTypeOf<DecodedFormInput>();
+          expect(value).toBeInstanceOf(DecodedFormInput);
+          return mutation(value);
+        },
         schema: DecodedFormInput,
         onFailure: () => 'failed',
         onSuccess,
