@@ -3,7 +3,6 @@ import { Option } from 'effect';
 
 import { staticMemberName, unwrapExpression } from './shared/ast.mts';
 
-/** Define generator callbacks directly instead of wrapping Effect.gen in an arrow. */
 export const preferFnUntracedRule = defineRule({
   meta: {
     type: 'suggestion',

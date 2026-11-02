@@ -176,7 +176,6 @@ describe('internal atoms', () => {
   });
 });
 
-// Compile-time checks for predefined-state atom compatibility.
 const withPredefinedStates = makeWithPredefinedStates({ enabled: true });
 const writableNumber = Atom.make(1);
 const writableWithStringInput = Atom.writable(

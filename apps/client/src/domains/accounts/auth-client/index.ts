@@ -49,7 +49,6 @@ const clientOptions = ({
 }: Pick<AccountKey, 'serverUrl'> & { readonly storage: ExpoClientStorage }) => ({
   baseURL: serverUrl,
   fetchOptions: { headers: { 'User-Agent': userAgent } },
-  // Storage is already scoped to an account row; no additional namespace ID.
   plugins: [expoClient({ storage, storagePrefix: 'voel', cookiePrefix: 'auth' })],
   sessionOptions: { refetchInterval: Duration.toSeconds(Duration.minutes(5)) },
 });
@@ -80,7 +79,6 @@ export class AuthClient extends Context.Service<AuthClient>()(
   public static readonly layer = (key: AccountKey) =>
     this.layerNoDeps(key).pipe(Layer.provide(AccountRepository.layer));
 
-  /** An isolated in-memory client whose credentials can be persisted after authentication. */
   public static readonly makeTemporary = Effect.fnUntraced(function* ({
     serverUrl,
   }: Pick<AccountKey, 'serverUrl'>) {

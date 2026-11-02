@@ -7,7 +7,6 @@ import {
   ModuleResolver,
 } from '#src/domains/plugins/module-resolver/index.ts';
 
-/** Bun's module resolution, including package exports, exposed through the shared service. */
 export const BunModuleResolverLayer = Layer.succeed(ModuleResolver, {
   resolve: ({ specifier, directory }) =>
     Effect.try({

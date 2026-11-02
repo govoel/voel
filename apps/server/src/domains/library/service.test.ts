@@ -16,7 +16,6 @@ import { LibraryService } from '#src/domains/library/service.ts';
 import { TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
 import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
 
-// No HTTP handlers, middleware, or auth database participate in this workflow.
 const testLayer = LibraryService.layerNoDeps.pipe(
   Layer.provideMerge([LibraryRepository.layerNoDeps, pluginLayer]),
   Layer.provideMerge(LibraryDatabase.layerNoDeps),
@@ -66,8 +65,6 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
   yield* repository.setSettings({ ...library, settings });
   const row = yield* repository.getById(library);
-  // Include an older snapshot: retirement must remove every identity for the ID,
-  // not just the entry matching the row being changed.
   for (const snapshot of [row, { ...row, name: Library.fields.name.make(`${name} stale`) }]) {
     yield* Effect.scoped(
       Effect.all([
@@ -92,7 +89,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
       expect(target.keys.stores).toHaveLength(2);
 
       const change = mutate({ ...target.library, operation });
-      // A successful service savepoint does not own the final outcome.
       yield* sql
         .withTransaction(change.pipe(Effect.andThen(Effect.fail('outer rollback'))))
         .pipe(Effect.flip);
@@ -102,8 +98,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
 
       yield* sql.withTransaction(
         Effect.gen(function* () {
-          // Discard callbacks from a rolled-back intermediate savepoint, even
-          // when the surrounding transaction subsequently commits.
           yield* sql
             .withTransaction(change.pipe(Effect.andThen(Effect.fail('savepoint rollback'))))
             .pipe(Effect.flip);
@@ -155,8 +149,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const entered = yield* Latch.make();
       const release = yield* Latch.make();
 
-      // Inject the commit boundary while retaining real Turso connections and queries.
-      // Both the service and repository must capture this client, not the suite's client.
       const databaseLayer = Layer.effect(
         LibraryDatabase,
         SqlClient.make({
@@ -241,7 +233,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
       expect(before.storagePluginSettings).toEqual(Option.some({ prefix: '/configured' }));
       expect(Array.map(before.roots, ({ root }) => root)).toEqual(['/one', '/two']);
 
-      // HTTP rejects the empty string before the service can validate it.
       const error = yield* service
         .setRoots({ ...library, roots: [{ root: '/replacement' }, { root: '' }] })
         .pipe(Effect.flip);
@@ -250,7 +241,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
         _tag: 'LibraryInvalidRootError',
         roots: [{ root: '', message: 'Expected a value with a length of at least 1' }],
       });
-      // Preserve root IDs and settings without coupling the check to cached health.
       const after = yield* service.get(library);
       expect({ settings: after.storagePluginSettings, roots: after.roots }).toEqual({
         settings: Option.some({ prefix: '/configured' }),

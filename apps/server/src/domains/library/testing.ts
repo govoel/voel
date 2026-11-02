@@ -36,8 +36,6 @@ class Persisted extends Schema.Struct({ prefix: Schema.NonEmptyString }) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }
 
-// Share one dispatcher so tests can drain runnable work from every handler/cache fiber.
-// Draining does not wait for promises, timers, or deliberately blocked finalizers.
 export class TestScheduler extends Context.Service<TestScheduler>()(
   '@repo/server/domains/library/testing/TestScheduler',
   {
@@ -156,7 +154,6 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                       placeholder: '',
                       initialValue: settings.prefix,
                     };
-                    // A malformed descriptor returned by an otherwise valid module must be host-rejected.
                     return controls.invalidForm ? [field, field] : [field];
                   }),
                   decodeFormSubmission: ({ input }) =>
@@ -177,7 +174,6 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                         )
                       ),
                       Effect.map(({ root }) => {
-                        // Model a plugin returning JSON invalidated after branding.
                         if (controls.invalidPersisted) {
                           const value = { prefix: root.trim(), version: 1 };
                           const settings = StoragePluginSettingsPersisted.make(value);

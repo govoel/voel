@@ -20,7 +20,6 @@ export interface SegmentedListItemColors {
 export type SegmentedListItemProps = PrimitiveBaseProps & {
   index: number;
   count: number;
-  /** Whether the item is enabled for user interaction. */
   enabled?: boolean;
   selected?: boolean;
   tonalElevation?: number;

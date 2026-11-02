@@ -24,7 +24,6 @@ const uniqueSymbolProperties = (type: ESTree.TSType) =>
       )
     : [];
 
-/** Make Schema.Class constructors explicitly nominal and point structural schemas elsewhere. */
 export const schemaClassBrandRule = defineRule({
   meta: {
     type: 'problem',

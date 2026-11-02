@@ -3,7 +3,6 @@ import { Option } from 'effect';
 
 import { analyzeSuperclass } from './shared/ast.mts';
 
-/** Keep Context.Service construction in its options object so its service type remains inferred. */
 export const noContextServiceClassMakeRule = defineRule({
   meta: {
     type: 'problem',

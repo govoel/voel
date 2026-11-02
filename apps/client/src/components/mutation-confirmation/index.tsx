@@ -101,7 +101,6 @@ const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = 
           setPresented(false);
         }}
         onDismissed={() => {
-          // Native adapters can report completion more than once. Consume it once.
           const complete = completeDismissal.current;
           completeDismissal.current = null;
           complete?.();
@@ -130,7 +129,6 @@ export const MutationConfirmation = <
   return trigger({
     busy: presentation.busy,
     open: () => {
-      // Capture the request (including its account-bound submission) when the user opens it.
       presentation.present((dismiss) => <PresentedMutation {...props} dismiss={dismiss} />);
     },
   });

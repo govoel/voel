@@ -6,7 +6,6 @@ import {
   AccountEncryptionKeyError,
 } from '#src/domains/accounts/encryption/key.ts';
 
-/** Upstream crypto with one lazily generated, layer-local key and no persistence. */
 export const AccountEncryptionKeyTestLayer = Layer.effect(
   AccountEncryptionKey,
   Aead.Aead.use((aead) =>

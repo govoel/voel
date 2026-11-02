@@ -48,7 +48,6 @@ import {
   signInTestServerUsers,
 } from '#src/testing/utils.ts';
 
-// The atoms share modules with form hooks; native form widgets are not used here.
 vi.mock('#src/components/form', () => ({ useAppForm: vi.fn() }));
 
 // Route atom callbacks and service fibers through one drainable dispatcher.
@@ -133,7 +132,6 @@ const waitForSessionRequest = Effect.fnUntraced(function* (authClient: AuthClien
   );
 });
 
-// A reused client can still hold its pre-sign-in result before Better Auth starts refetching.
 const waitForAuthenticatedSession = (authClient: AuthClient['Service']) =>
   authClient.sessionChanges.pipe(
     Stream.filter(
@@ -228,7 +226,6 @@ it.layer(TestServerControllerClient.layer)('accountsAtom', (iit) => {
           },
         ]);
 
-        // Bypass invalidation: Retry must reach the repository through the mapped atom.
         yield* AccountRepository.use((repository) => repository.setActive(firstAccount.key));
         yield* Atom.refresh(accountsWithActiveAccount);
         const refreshed = Option.getOrThrow(
@@ -616,8 +613,6 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           })
         ).toMatchObject({ done: true, items: allUsers.items });
 
-        // Invalidation must restart pagination, not append
-        // refreshed rows to the already accumulated pages.
         const target = Option.getOrThrow(
           Array.findFirst(allUsers.items, (user) => user.username !== testServer.adminUsername)
         );
@@ -665,7 +660,6 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
           [...secondServer.usernames].sort()
         );
 
-        // A captured key still targets A while B is selected.
         const victim = Option.getOrThrow(
           Array.findFirst(page.items, (user) => user.username !== firstServer.adminUsername)
         );
@@ -722,7 +716,6 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
           isOtherUser: false,
         });
 
-        // Call the client directly so no mutation atom invalidates the query for us.
         yield* client.admin.revokeUserSession({ sessionToken: other.token });
         yield* Atom.refresh(detail);
         expect(yield* Atom.getResult(detail, { suspendOnWaiting: true })).toEqual(Option.none());

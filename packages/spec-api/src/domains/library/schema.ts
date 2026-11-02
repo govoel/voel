@@ -457,7 +457,6 @@ export class LibraryInvalidRootError extends Schema.TaggedError<
 >('@repo/spec-api/domains/library/schema/LibraryInvalidRootError')('LibraryInvalidRootError', {
   roots: Schema.NonEmptyArray(
     Schema.Struct({
-      // Rejected submissions are raw strings, not validated storage locations.
       root: Schema.String,
       message: StorageLocationValidationError.fields.message,
     })

@@ -35,7 +35,6 @@ import { StoragePluginId, StoragePluginLoadError } from '@repo/spec-api/domains/
 import { PluginModuleMap } from '#src/domains/plugins/index.ts';
 import local from '#src/domains/plugins/storage/local/index.ts';
 
-/** Only invocation-local diagnostics may cross from a caller into a plugin. */
 const pickInvocationContext = Context.pick(
   References.CurrentLogLevel,
   References.CurrentLogAnnotations,
@@ -58,7 +57,6 @@ class StoragePluginModuleExport extends Schema.Struct({
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }
 
-/** Resolve built-in storage or validate a shared npm module's storage export. */
 export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginModuleMap',
   {
@@ -90,7 +88,6 @@ export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleM
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(PluginModuleMap.layer));
 }
 
-/** Capture the resolver and permitted host context before requests populate either map. */
 export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>()(
   '@repo/server/domains/plugins/storage/StoragePluginBuilder',
   {
@@ -129,7 +126,6 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
           module: StoragePluginModule
         ) => Layer.Layer<ROut, E, FileSystem.FileSystem | Path.Path | HttpClient.HttpClient>;
       }) {
-        // The cached layer owns the lifetime, but even finalizers run without host services.
         const pluginScope = yield* Effect.acquireRelease(Scope.make(), (scope, exit) =>
           Scope.close(scope, exit).pipe(Effect.setContext(isolatedContext))
         );
@@ -156,7 +152,6 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
   );
 }
 
-/** Canonical identities shared by acquisition, cached health, and retirement. */
 class StoragePluginSettingsKey extends Schema.Class<
   StoragePluginSettingsKey,
   { readonly brand: unique symbol }
@@ -172,7 +167,6 @@ class StoragePluginKey extends Schema.Class<StoragePluginKey, { readonly brand: 
   settings: StoragePluginSettingsPersisted,
 }) {}
 
-/** Editors for persisted libraries are keyed by their plugin-visible library context. */
 export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginSettingsMap',
   {
@@ -188,7 +182,6 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
             });
 
             const settings = Context.get(context, StoragePluginSettings);
-            // Malformed successful outputs violate the contract, rather than rejecting input.
             return StoragePluginSettings.of({
               getForm: (input) =>
                 invoke(() =>
@@ -221,7 +214,6 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        /** Acquire an editor in the caller's scope using its canonical identity. */
         acquire: (request: Parameters<typeof StoragePluginSettingsKey.make>[0]) =>
           map
             .contextEffect(StoragePluginSettingsKey.make(request))
@@ -237,7 +229,6 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));
 }
 
-/** Storage instances are keyed by their plugin-visible library context, plugin, and settings. */
 export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginMap',
   {
@@ -257,7 +248,6 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
             });
 
             const storage = Context.get(context, StoragePlugin);
-            // Invalid outputs violate the plugin contract, rather than rejecting user input.
             return StoragePlugin.of({
               decodeRootLocation: (input) =>
                 invoke(() =>
@@ -290,7 +280,6 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        /** Acquire storage in the caller's scope using its canonical identity. */
         acquire: (request: Parameters<typeof StoragePluginKey.make>[0]) =>
           map
             .contextEffect(StoragePluginKey.make(request))

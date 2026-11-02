@@ -285,7 +285,6 @@ export const createEffectSchemaFormHook = <
   return { ...formHook, useAppForm };
 };
 
-/** Share form binding while leaving native value synchronization in each platform component. */
 export const useTextFieldState = () => {
   const field = useFieldContext<string>();
   const form = useFormContext();

@@ -23,7 +23,6 @@ export const SessionList = (({ sessions, currentId, onSelect }) => {
         <SegmentedListItem
           index={index}
           count={sessions.length}
-          // Match Material's SegmentedGap without inheriting page-level section spacing.
           modifiers={[padding(0, 0, 0, index < sessions.length - 1 ? Spacing.half : 0)]}
           onClick={() => {
             onSelect(item);

@@ -14,8 +14,6 @@ class DatabaseMigrationError extends Schema.TaggedError<
   }
 ) {}
 
-// Better Auth's runtime reconciliation is not ordered or versioned, so breaking
-// schema changes and data transformations remain application-owned migrations.
 export const AuthMigrations = {
   layer: Layer.effectDiscard(
     Migrator.make({})({

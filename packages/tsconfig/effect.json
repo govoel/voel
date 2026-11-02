@@ -5,7 +5,6 @@
     "plugins": [
       {
         "name": "@effect/language-service",
-        // These existing integrations remain unstable in Effect v4 stable.
         "allowedUnstableApis": [
           "@effect/atom-react",
           "@effect/platform-bun",

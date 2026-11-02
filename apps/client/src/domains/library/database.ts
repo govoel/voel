@@ -27,7 +27,6 @@ const authToken = Effect.fnUntraced(function* (authClient: AuthClient['Service']
     Stream.runHead,
     Effect.flatMap(
       Option.match({
-        // An ended session stream cannot supply credentials; cancel this request.
         onNone: () => Effect.interrupt,
         onSome: Effect.succeed,
       })
@@ -50,7 +49,6 @@ const makeLibraryDatabaseOptions = Effect.fnUntraced(function* ({
   const filename = yield* digest.digestHex(Digest.sha256, new TextEncoder().encode(identity));
 
   return {
-    // A stable, filesystem-safe name for this server/user pair, across logins.
     path: `${filenameSuffix}-${filename}.db`,
     url: new URL('/api/sync/library', account.serverUrl).toString(),
     // Turso asks for credentials before every request, allowing Better Auth
@@ -139,7 +137,6 @@ export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        /** Acquire one replica per canonical account identity in the caller's scope. */
         acquire: (account: AccountKey) =>
           map.contextEffect(account).pipe(Effect.map(Context.get(LibraryDatabase))),
       }))

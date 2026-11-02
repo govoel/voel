@@ -83,7 +83,6 @@ describe('Bun Turso Sync transactions', () => {
         `
       ).toEqual([]);
 
-      // Valid deferred ownership succeeds, including child-first provisioning.
       yield* sql.withTransaction(
         sql`
           insert into
@@ -244,7 +243,6 @@ describe('Bun Turso Sync transactions', () => {
         .withTransaction(connection.executeUnprepared('ROLLBACK', [], void 0))
         .pipe(Effect.exit);
       expect(Exit.isFailure(failed)).toBe(true);
-      // One explicit rollback, not another failed cleanup and extra error.
       expect(Array.filter(controls, (statement) => statement === 'ROLLBACK')).toHaveLength(1);
       yield* sql`
         insert into

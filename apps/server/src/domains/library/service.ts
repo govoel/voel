@@ -48,7 +48,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
                   .pipe(Effect.map(Option.isSome)),
             }),
           ],
-          // Unify the checks' distinct error types before partitioning.
           (check) => Unify.unify(check),
           { concurrency: 'unbounded' }
         );
@@ -119,8 +118,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
         }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
           const row = yield* repository.getById({ id });
           const editor = yield* editors.acquire({ storagePlugin: row.storagePlugin, library: row });
-          // Decode before opening the persistence transaction. It owns registration
-          // and launches retirement after the outermost commit, even during cancellation.
           const settings = yield* editor.decodeFormSubmission({
             current: row.storagePluginSettings,
             input,
@@ -131,8 +128,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
             Effect.catchTags({ SqlError: Effect.die })
           );
         }, Effect.scoped),
-        // The outer transaction holds the write lock from loading the snapshot through decoding.
-        // The repository's replacement transaction is a nested savepoint, not a second unit of work.
         setRoots: Effect.fnUntraced(
           function* ({
             id,

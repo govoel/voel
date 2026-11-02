@@ -1,4 +1,3 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- test utilities construct isolated clients */
 import { Array, Effect, Layer, Option, Predicate, Random, Redacted } from 'effect';
 import type { Types } from 'effect';
 import { Digest } from 'effect/crypto';
@@ -121,7 +120,6 @@ export const signInTestServerUsers = Effect.fnUntraced(function* <const UserCoun
 ) {
   const accountRepository = yield* AccountRepository;
   const accounts = yield* Effect.forEach(
-    // oxlint-disable-next-line unicorn/no-array-method-this-argument -- seems like a false positive
     usernames,
     Effect.fnUntraced(function* (username) {
       yield* manager.signInAccount({ serverUrl, username, password });

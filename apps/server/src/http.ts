@@ -9,5 +9,4 @@ export const ApiRoutesLayerNoDeps = HttpApiBuilder.layer(Api).pipe(
   Layer.provide(LibraryHandlersLayerNoDeps)
 );
 
-// The application service shares maps across acquisition, cached health, and retirement.
 export const ApiRoutesLayer = HttpApiBuilder.layer(Api).pipe(Layer.provide(LibraryHandlersLayer));

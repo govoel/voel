@@ -52,7 +52,6 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
               catch: () => PluginLoadError.make({ message: 'Failed to install or load plugin' }),
             });
           },
-          // Failed attempts close and detach immediately; successful installs live with the map.
           (effect) =>
             Effect.acquireUseRelease(
               Scope.fork(scope),
@@ -60,7 +59,6 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
               (attemptScope, exit) =>
                 Exit.isFailure(exit) ? Scope.close(attemptScope, exit) : Effect.void
             ),
-          // Translate loader-boundary failures without exposing installation or import details.
           Effect.catchTags({
             PlatformError: () =>
               PluginLoadError.make({ message: 'Failed to install or load plugin' }),

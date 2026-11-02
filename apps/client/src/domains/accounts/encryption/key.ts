@@ -10,7 +10,6 @@ export class AccountEncryptionKeyError extends Schema.TaggedError<
 
 const keyName = 'voel.encryption.aes-key';
 
-/** Owns lazy key initialization and its success-only cache for one layer instance. */
 export class AccountEncryptionKey extends Context.Service<AccountEncryptionKey>()(
   'voel/domains/accounts/encryption/key/AccountEncryptionKey',
   {
@@ -22,7 +21,6 @@ export class AccountEncryptionKey extends Context.Service<AccountEncryptionKey>(
       const cached = yield* loadKey.pipe(
         Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero))
       );
-      // Complete persistence before releasing even a cancelled caller. Failed loads retry.
       return { get: Effect.uninterruptible(cached) };
     }),
   }

@@ -47,7 +47,6 @@ const evaluateString = (
   });
 };
 
-/** Enforce identifiers derived from a class or brand's package and source location. */
 export const deterministicIdentifiersRule = defineRule({
   meta: {
     type: 'problem',

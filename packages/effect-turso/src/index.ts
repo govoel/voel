@@ -328,7 +328,6 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
             : runStream(sql, params);
         },
       } satisfies SqlConnection.Connection;
-      // Recovery belongs to each physical connection, not the whole pool.
       const isTransaction = () => db.inTransaction;
       const { borrower, transactionAcquirer, onCommitFailure } = SqlClient.makeSqliteAcquirers({
         connection: Effect.succeed(connection),
@@ -357,8 +356,6 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     });
     const acquirer = Effect.tap(Pool.get(pool), (item) => item.acquire);
 
-    // Make connection failures visible while constructing the client instead
-    // of deferring them until its first statement.
     yield* Effect.scoped(acquirer);
 
     const spanAttributes: ReadonlyArray<readonly [string, unknown]> = [
@@ -402,7 +399,6 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         body: new Uint8Array(yield* request.arrayBuffer),
       };
       const response = yield* Pool.get(pool).pipe(
-        // Sync must also recover a poisoned connection before native reuse.
         Effect.flatMap((item) =>
           item.acquire.pipe(Effect.andThen(item.handleSyncRequest(nativeRequest)))
         ),

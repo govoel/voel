@@ -15,7 +15,6 @@ export class AccountManager extends Context.Service<AccountManager>()(
       const state = repository.getActiveKey;
       const changes = state.pipe(Reactivity.stream(['account']), Stream.changes);
       const removeAccount = Effect.fnUntraced(function* (key: AccountKey) {
-        // Local removal must also work when server revocation is unavailable.
         yield* clients.acquire(key).pipe(
           Effect.flatMap((client) => client.signOut),
           Effect.ignore,

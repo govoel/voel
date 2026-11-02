@@ -11,7 +11,6 @@ import {
 
 type RequestSignal = NonNullable<NonNullable<BetterAuthClientOptions['fetchOptions']>['signal']>;
 
-/** Build an auth action that encodes domain input and decodes untrusted transport data. */
 export const request = <Request extends Schema.Constraint, Result extends Schema.Constraint>({
   Request,
   Result,

@@ -4,7 +4,6 @@ import { String, pipe } from 'effect';
 const isEffectModule = (moduleName: string) =>
   moduleName === 'effect' || pipe(moduleName, String.startsWith('effect/'));
 
-/** Keep Effect imports on its public named-export barrels. */
 export const noEffectNamespaceImportRule = defineRule({
   meta: {
     type: 'problem',
