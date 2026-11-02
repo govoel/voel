@@ -268,7 +268,6 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     return Object.assign(client, { config: options, pull });
   });
 
-  /** Provides one configured client as both Turso Sync and generic SQL services. */
   public static readonly layerNoDeps = <R = never>(config: TursoSyncClientOptions<R>) =>
     Layer.effectContext(
       Effect.map(this.make(config), (client) =>

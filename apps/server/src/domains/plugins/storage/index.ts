@@ -167,7 +167,6 @@ class StoragePluginKey extends Schema.Class<StoragePluginKey, { readonly brand: 
   settings: StoragePluginSettingsPersisted,
 }) {}
 
-/** Editors for persisted libraries are keyed by their plugin-visible library context. */
 export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginSettingsMap',
   {
@@ -215,7 +214,6 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        /** Acquire an editor in the caller's scope using its canonical identity. */
         acquire: (request: Parameters<typeof StoragePluginSettingsKey.make>[0]) =>
           map
             .contextEffect(StoragePluginSettingsKey.make(request))
@@ -231,7 +229,6 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));
 }
 
-/** Storage instances are keyed by their plugin-visible library context, plugin, and settings. */
 export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginMap',
   {
@@ -283,7 +280,6 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        /** Acquire storage in the caller's scope using its canonical identity. */
         acquire: (request: Parameters<typeof StoragePluginKey.make>[0]) =>
           map
             .contextEffect(StoragePluginKey.make(request))

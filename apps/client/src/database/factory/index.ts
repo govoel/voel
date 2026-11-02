@@ -5,7 +5,6 @@ import type { SqlError } from 'effect/sql';
 
 import type { TursoSyncClient, TursoSyncClientOptions } from '@repo/effect-turso-sync';
 
-/** Acquires platform-specific Turso clients inside the requesting layer's scope. */
 export class TursoSyncClientFactory extends Context.Service<
   TursoSyncClientFactory,
   // oxlint-disable-next-line effect-conventions/no-context-service-second-type-argument -- Platform-specific files provide the shared service shape.

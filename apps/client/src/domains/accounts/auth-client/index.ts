@@ -79,7 +79,6 @@ export class AuthClient extends Context.Service<AuthClient>()(
   public static readonly layer = (key: AccountKey) =>
     this.layerNoDeps(key).pipe(Layer.provide(AccountRepository.layer));
 
-  /** An isolated in-memory client whose credentials can be persisted after authentication. */
   public static readonly makeTemporary = Effect.fnUntraced(function* ({
     serverUrl,
   }: Pick<AccountKey, 'serverUrl'>) {

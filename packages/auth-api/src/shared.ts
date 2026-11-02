@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
 
-/** A structured API error returned by Better Auth. */
 export class BetterAuthApiError extends Schema.Error<
   BetterAuthApiError,
   { readonly brand: unique symbol }
@@ -15,7 +14,6 @@ export class BetterAuthApiError extends Schema.Error<
   public static readonly decodeUnknownOption = Schema.decodeUnknownOption(this);
 }
 
-/** The Better Auth client could not complete a request. */
 export class AuthTransportError extends Schema.TaggedError<
   AuthTransportError,
   { readonly brand: unique symbol }
@@ -23,13 +21,11 @@ export class AuthTransportError extends Schema.TaggedError<
   cause: Schema.Defect(),
 }) {}
 
-/** Better Auth returned an empty or malformed response. */
 export class InvalidAuthResponseError extends Schema.TaggedError<
   InvalidAuthResponseError,
   { readonly brand: unique symbol }
 >('@repo/auth-api/shared/InvalidAuthResponseError')('InvalidAuthResponseError', {}) {}
 
-/** A command did not satisfy the application's authentication contract. */
 export class InvalidAuthInputError extends Schema.TaggedError<
   InvalidAuthInputError,
   { readonly brand: unique symbol }

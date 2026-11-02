@@ -8,7 +8,6 @@ import { AuthMiddleware, UnauthorizedError } from '@repo/spec-api/domains/auth/h
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
 
-/** The shared API contract, authenticated as one specific account. */
 export class ApiClient extends Context.Service<ApiClient>()('voel/api-client/ApiClient', {
   make: Effect.fnUntraced(function* (account: AccountKey) {
     const authentication = yield* AuthClientMap.use((clients) => clients.acquire(account));
@@ -50,7 +49,6 @@ export class ApiClient extends Context.Service<ApiClient>()('voel/api-client/Api
     this.layerNoDeps(account).pipe(Layer.provide([AuthClientMap.layer, FetchHttpClient.layer]));
 }
 
-/** Lazily shares a client and its authentication scope per server/user identity. */
 export class ApiClientMap extends Context.Service<ApiClientMap>()('voel/api-client/ApiClientMap', {
   make: LayerMap.make((account: AccountKey) => ApiClient.layerNoDeps(account), {
     idleTimeToLive: '5 minutes',

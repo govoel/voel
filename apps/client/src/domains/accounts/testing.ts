@@ -9,7 +9,6 @@ class AccountFixture extends Schema.Struct({
   active: Schema.BooleanFromBit,
 }) {}
 
-/** Seed a row directly, including inactive accounts that application writes never create. */
 export const insertAccountFixture = Effect.fnUntraced(function* (
   account: Omit<typeof AccountFixture.Type, 'authStorage'>
 ) {

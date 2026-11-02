@@ -137,7 +137,6 @@ export class LibraryDatabaseMap extends Context.Service<LibraryDatabaseMap>()(
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        /** Acquire one replica per canonical account identity in the caller's scope. */
         acquire: (account: AccountKey) =>
           map.contextEffect(account).pipe(Effect.map(Context.get(LibraryDatabase))),
       }))

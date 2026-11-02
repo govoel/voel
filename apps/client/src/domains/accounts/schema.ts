@@ -21,7 +21,6 @@ export const ServerUrl = Schema.String.check(
 
 const AuthStorage = Encrypted.Json(Schema.Record(Schema.String, Schema.String));
 
-/** A persisted account identity, decoded as part of repository query results. */
 export class AccountKey extends Schema.Class<AccountKey, { readonly brand: unique symbol }>(
   'voel/domains/accounts/schema/AccountKey'
 )({ serverUrl: ServerUrl, userId: AuthUser.fields.id }) {
