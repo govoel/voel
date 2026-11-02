@@ -43,13 +43,8 @@ const InternalAtomTypeId: unique symbol = Symbol.for(
   '@repo/effect-atom-devtools-core/predefined-states/InternalAtom'
 );
 
-const copyWithMetadata = <T extends AnyAtom, M extends object>(atom: T, metadata: M): T & M => {
-  // Atom metadata combinators use the same shallow-copy strategy. Object.create
-  // cannot retain its generic prototype type without an assertion.
-  // oxlint-disable-next-line typescript/no-unsafe-argument, typescript/no-unsafe-type-assertion
-  const copy = Object.create(Object.getPrototypeOf(atom)) as T;
-  return Object.assign(copy, atom, metadata);
-};
+const copyWithMetadata = <T extends AnyAtom, M extends object>(atom: T, metadata: M) =>
+  Object.assign(Atom.setLazy(atom, atom.lazy), metadata);
 
 export const markInternalAtom = <T extends AnyAtom>(
   atom: T
@@ -98,17 +93,10 @@ function withPredefinedStates<A, T extends Atom.Atom<A>>(
         activeState: Option.none(),
       }));
     },
-    // Registry nodes are keyed by their atom, so a node found with this key
-    // has the active state atom's value type.
     getActiveStateId: (registry) =>
-      Option.fromNullishOr(
-        registry.getNodes().get(activeStateAtom) as
-          | AtomRegistry.Node<Atom.Type<typeof activeStateAtom>>
-          | undefined
-      ).pipe(
-        Option.flatMap((node) => node.value().activeState),
-        Option.map((state) => state.id)
-      ),
+      registry.getNodes().has(activeStateAtom)
+        ? registry.get(activeStateAtom).activeState.pipe(Option.map((state) => state.id))
+        : Option.none(),
     readActiveStateId: (get) =>
       get(activeStateAtom).activeState.pipe(Option.map((state) => state.id)),
     refresh: (registry) => {

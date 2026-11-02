@@ -15,6 +15,7 @@ import {
   useUserProfileForm,
 } from '#src/app/accounts/(selected)/profile/index.ts';
 import { DetailRows } from '#src/components/detail-rows';
+import { NoFormInput } from '#src/components/form';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
@@ -103,6 +104,7 @@ const LoadedProfile = ({
         <OwnSessions />
 
         <MutationConfirmation
+          schema={NoFormInput}
           onFailure={authFailureMessage}
           trigger={({ open, busy }) => (
             <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>

@@ -58,10 +58,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         }) satisfies typeof StoragePluginHealth.Type;
       }, Effect.scoped);
 
-      // afterCommit only launches retirement: waiting here could deadlock against a
-      // plugin editor still held by the request. Retirement belongs to the service lifetime.
-      // Invalidating releases the cache's reference, not scopes held by in-flight operations.
-      const retire = Effect.fnUntraced(
+      const launchRetirement = Effect.fnUntraced(
         function* ({ id }: Pick<Library, 'id'>) {
           for (const key of yield* RcMap.keys(editors.rcMap)) {
             if (key.library.id === id) {
@@ -103,7 +100,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         create: repository.create,
         rename: (request: Parameters<typeof repository.rename>[0]) =>
           repository.rename(request).pipe(
-            Effect.tap(() => sql.afterCommit(retire({ id: request.id }))),
+            Effect.tap(() => sql.afterCommit(launchRetirement({ id: request.id }))),
             sql.withTransaction,
             Effect.catchTags({ SqlError: Effect.die })
           ),
@@ -123,7 +120,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             input,
           });
           return yield* repository.setSettings({ id, settings }).pipe(
-            Effect.tap(() => sql.afterCommit(retire({ id }))),
+            Effect.tap(() => sql.afterCommit(launchRetirement({ id }))),
             sql.withTransaction,
             Effect.catchTags({ SqlError: Effect.die })
           );
@@ -162,7 +159,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ),
         delete: (request: Pick<Library, 'id'>) =>
           repository.deleteById(request).pipe(
-            Effect.tap(() => sql.afterCommit(retire(request))),
+            Effect.tap(() => sql.afterCommit(launchRetirement(request))),
             sql.withTransaction,
             Effect.catchTags({ SqlError: Effect.die })
           ),

@@ -1,3 +1,5 @@
+/// <reference types="bun-types" />
+
 import { withRozenite } from '@rozenite/metro';
 import { Effect } from 'effect';
 import { getDefaultConfig } from 'expo/metro-config';
@@ -7,7 +9,6 @@ import { Env } from './env.mts';
 // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this config module is an application entry point
 const env = Effect.runSync(Effect.service(Env).pipe(Effect.provide(Env.layer)));
 
-// oxlint-disable-next-line typescript/no-unsafe-argument
 const config = withRozenite(getDefaultConfig(import.meta.dirname), {
   enabled: env.rozeniteEnabled,
   include: ['@repo/effect-atom-devtools-rozenite'],

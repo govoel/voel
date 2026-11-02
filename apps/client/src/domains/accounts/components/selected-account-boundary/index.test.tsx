@@ -21,7 +21,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { activeUserProfileAtom } from '#src/app/accounts/(selected)/profile/index.ts';
 import { deleteServerUser } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
 import { useAppForm } from '#src/components/form';
-import { useSubmitState } from '#src/components/form/hooks.tsx';
+import { NoFormInput, useSubmitState } from '#src/components/form/hooks.tsx';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
 import { AccountPicker } from '#src/domains/accounts/components/account-picker';
 import { AccountsAutoPresenter } from '#src/domains/accounts/components/auto-presenter';
@@ -247,6 +247,7 @@ const AccountContent = () => {
   const profileQuery = activeUserProfileAtom(account);
   const profile = useAtomValue(profileQuery);
   const form = useAppForm({
+    schema: NoFormInput,
     onSubmit: () =>
       deleteServerUser({
         account,

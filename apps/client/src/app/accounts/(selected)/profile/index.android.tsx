@@ -20,6 +20,7 @@ import {
 } from '#src/app/accounts/(selected)/profile/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { DetailRows } from '#src/components/detail-rows';
+import { NoFormInput } from '#src/components/form';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
@@ -146,6 +147,7 @@ const LoadedProfile = ({
 
         <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
           <MutationConfirmation
+            schema={NoFormInput}
             onFailure={authFailureMessage}
             trigger={({ open, busy }) => (
               <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>

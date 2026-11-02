@@ -33,7 +33,7 @@ import {
   InvalidAuthResponseError,
 } from '#src/shared.ts';
 
-const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>({
+export const createAuthClient = <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>({
   baseURL,
   fetchOptions,
   plugins,
@@ -65,19 +65,15 @@ export class BetterAuthClientInitializationError extends Schema.TaggedError<
 type CoreAuthClient = ReturnType<typeof createAuthClient<[]>>;
 
 export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/client/AuthClient', {
-  make: Effect.fnUntraced(function* <const Plugins extends ReadonlyArray<BetterAuthClientPlugin>>(
-    config: Parameters<typeof createAuthClient<Plugins>>[0]
-  ) {
+  make: Effect.fnUntraced(function* <Client extends CoreAuthClient>({
+    createClient,
+  }: {
+    readonly createClient: () => Client;
+  }) {
     const client = yield* Effect.try({
-      try: () => createAuthClient<Plugins>(config),
+      try: createClient,
       catch: (error) => BetterAuthClientInitializationError.make({ error }),
     });
-
-    // Built-in plugins are appended after caller plugins, so their actions
-    // always win at runtime even though Better Auth cannot prove that for an
-    // unresolved generic plugin tuple.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const coreClient = client as typeof client & CoreAuthClient;
 
     const sessionState = yield* SubscriptionRef.make<
       AsyncResult.AsyncResult<Option.Option<typeof AuthSession.Type>, AuthError>
@@ -150,48 +146,47 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
         revokeUserSession: AuthClientSchema.request({
           Request: AuthAdminRevokeSessionInput,
           execute: async ({ request, signal }) =>
-            coreClient.admin.revokeUserSession(request, { signal }),
+            client.admin.revokeUserSession(request, { signal }),
           Result: Schema.Void,
         }),
 
         revokeUserSessions: AuthClientSchema.request({
           Request: AuthUserIdInput,
           execute: async ({ request, signal }) =>
-            coreClient.admin.revokeUserSessions(request, { signal }),
+            client.admin.revokeUserSessions(request, { signal }),
           Result: Schema.Void,
         }),
 
         listUserSessions: AuthClientSchema.request({
           Request: AuthUserIdInput,
           execute: async ({ request, signal }) =>
-            coreClient.admin.listUserSessions(request, { signal }),
+            client.admin.listUserSessions(request, { signal }),
           Result: AuthUserSessions,
         }),
 
         removeUser: AuthClientSchema.request({
           Request: AuthUserIdInput,
-          execute: async ({ request, signal }) => coreClient.admin.removeUser(request, { signal }),
+          execute: async ({ request, signal }) => client.admin.removeUser(request, { signal }),
           Result: Schema.Void,
         }),
 
         setUserPassword: AuthClientSchema.request({
           Request: AuthSetUserPasswordInput,
-          execute: async ({ request, signal }) =>
-            coreClient.admin.setUserPassword(request, { signal }),
+          execute: async ({ request, signal }) => client.admin.setUserPassword(request, { signal }),
           Result: Schema.Void,
         }),
 
         updateUser: AuthClientSchema.request({
           Request: AuthAdminUpdateUserInput,
           execute: async ({ request: { userId, username, ...data }, signal }) => {
-            const current = await coreClient.admin.getUser({ query: { id: userId } }, { signal });
+            const current = await client.admin.getUser({ query: { id: userId } }, { signal });
             signal.throwIfAborted();
             if (current.error !== null) {
               return current;
             }
             // Better Auth's username hook checks the acting admin rather than the target.
             // Only send a username when it changes, including on retries of the same update.
-            return coreClient.admin.updateUser(
+            return client.admin.updateUser(
               {
                 userId,
                 data: {
@@ -211,14 +206,14 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
         getUser: AuthClientSchema.request({
           Request: AuthUserIdInput,
           execute: async ({ request: { userId }, signal }) =>
-            coreClient.admin.getUser({ query: { id: userId } }, { signal }),
+            client.admin.getUser({ query: { id: userId } }, { signal }),
           Result: AuthAdminUserDetails,
         }),
 
         createUser: AuthClientSchema.request({
           Request: AuthCreateUserInput,
           execute: async ({ request: { username, ...user }, signal }) =>
-            coreClient.admin.createUser(
+            client.admin.createUser(
               {
                 ...user,
                 data: { username },
@@ -231,39 +226,39 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
         listUsers: AuthClientSchema.request({
           Request: AuthListUsersInput,
           execute: async ({ request: query, signal }) =>
-            coreClient.admin.listUsers({ query }, { signal }),
+            client.admin.listUsers({ query }, { signal }),
           Result: AuthUsersPage,
         }),
 
         setRole: AuthClientSchema.request({
           Request: AuthSetRoleInput,
-          execute: async ({ request, signal }) => coreClient.admin.setRole(request, { signal }),
+          execute: async ({ request, signal }) => client.admin.setRole(request, { signal }),
           Result: AuthAdminUserResponse,
         }),
       },
 
       revokeSession: AuthClientSchema.request({
         Request: AuthRevokeSessionInput,
-        execute: async ({ request, signal }) => coreClient.revokeSession(request, { signal }),
+        execute: async ({ request, signal }) => client.revokeSession(request, { signal }),
         Result: Schema.Void,
       }),
 
       revokeSessions: AuthClientSchema.request({
         Request: Schema.Void,
-        execute: async ({ signal }) => coreClient.revokeSessions({ fetchOptions: { signal } }),
+        execute: async ({ signal }) => client.revokeSessions({ fetchOptions: { signal } }),
         Result: Schema.Void,
       })(),
 
       listSessions: AuthClientSchema.request({
         Request: Schema.Void,
-        execute: async ({ signal }) => coreClient.listSessions({ fetchOptions: { signal } }),
+        execute: async ({ signal }) => client.listSessions({ fetchOptions: { signal } }),
         Result: Schema.Array(AuthDeviceSession),
       })(),
 
       readSession: AuthClientSchema.request({
         Request: Schema.Void,
         execute: async ({ signal }) =>
-          coreClient.getSession({ query: { disableCookieCache: true } }, { signal }),
+          client.getSession({ query: { disableCookieCache: true } }, { signal }),
         Result: AuthSession,
       })(),
 
@@ -280,34 +275,34 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
       signIn: {
         username: AuthClientSchema.request({
           Request: AuthSignInInput,
-          execute: async ({ request, signal }) => coreClient.signIn.username(request, { signal }),
+          execute: async ({ request, signal }) => client.signIn.username(request, { signal }),
           Result: AuthUserResponse,
         }),
       },
 
       signOut: AuthClientSchema.request({
         Request: Schema.Void,
-        execute: async ({ signal }) => coreClient.signOut({ fetchOptions: { signal } }),
+        execute: async ({ signal }) => client.signOut({ fetchOptions: { signal } }),
         Result: Schema.Void,
       })(),
 
       signUp: {
         email: AuthClientSchema.request({
           Request: AuthSignUpInput,
-          execute: async ({ request, signal }) => coreClient.signUp.email(request, { signal }),
+          execute: async ({ request, signal }) => client.signUp.email(request, { signal }),
           Result: AuthUserResponse,
         }),
       },
 
       changePassword: AuthClientSchema.request({
         Request: AuthChangePasswordInput,
-        execute: async ({ request, signal }) => coreClient.changePassword(request, { signal }),
+        execute: async ({ request, signal }) => client.changePassword(request, { signal }),
         Result: Schema.Void,
       }),
 
       updateUser: AuthClientSchema.request({
         Request: AuthUpdateUserInput,
-        execute: async ({ request, signal }) => coreClient.updateUser(request, { signal }),
+        execute: async ({ request, signal }) => client.updateUser(request, { signal }),
         Result: Schema.Void,
       }),
     };

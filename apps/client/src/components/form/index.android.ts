@@ -8,6 +8,8 @@ import { SubmitButton } from '#src/components/form/submit-button/index.android.t
 import { TextField } from '#src/components/form/text-field/index.android.tsx';
 import { AppRuntime } from '#src/runtime/index.ts';
 
+export { NoFormInput } from '#src/components/form/hooks.tsx';
+
 export const { useAppForm, withForm } = createEffectSchemaFormHook({
   runtime: AppRuntime,
   fieldContext,

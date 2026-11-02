@@ -1,4 +1,3 @@
-import type { BindParams } from '@tursodatabase/sync-react-native';
 import {
   Context,
   Duration,
@@ -20,6 +19,8 @@ import type { SqlConnection } from 'effect/sql';
 import { TursoSyncClient as CoreTursoSyncClient, TursoSyncError } from '@repo/effect-turso-sync';
 import type { TursoSyncClientOptions } from '@repo/effect-turso-sync';
 import { makeSyncOperations } from '@repo/effect-turso-sync/operations';
+
+import { decodeBindParams } from '#src/parameters.ts';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
@@ -139,14 +140,28 @@ export class TursoSyncClient extends CoreTursoSyncClient {
           sql,
           unprepared,
           execute: (statement) =>
-            // SqlSchema and SqlModel encode domain values into driver values before execution.
-            // Raw queries are intentionally validated by Turso instead of normalized here.
             // Pass one array because Turso treats a single object argument as named parameters;
             // spreading could therefore misclassify one positional ArrayBuffer.
+            Effect.flatMap(decodeBindParams(params), (bindParams) =>
+              Effect.tryPromise({
+                try: async () => statement.all(bindParams),
+                catch: (cause) =>
+                  SqlError.SqlError.make({
+                    reason: classifyTursoError(cause, {
+                      message: 'Failed to execute statement',
+                      operation: 'execute',
+                    }),
+                  }),
+              })
+            ),
+        }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
+
+      const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
+        Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
+          Effect.flatMap(decodeBindParams(params), (bindParams) =>
             Effect.tryPromise({
               try: async () =>
-                // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-                statement.all([...params] as BindParams),
+                statement.columnCount() > 0 ? statement.all(bindParams) : statement.run(bindParams),
               catch: (cause) =>
                 SqlError.SqlError.make({
                   reason: classifyTursoError(cause, {
@@ -154,27 +169,8 @@ export class TursoSyncClient extends CoreTursoSyncClient {
                     operation: 'execute',
                   }),
                 }),
-            }),
-        }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
-
-      const runRaw = (sql: string, params: ReadonlyArray<unknown>) =>
-        Effect.flatMap(ScopedCache.get(prepareCache, sql), (statement) =>
-          Effect.tryPromise({
-            try: async () => {
-              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-              const bindParams = [...params] as BindParams;
-              return statement.columnCount() > 0
-                ? statement.all(bindParams)
-                : statement.run(bindParams);
-            },
-            catch: (cause) =>
-              SqlError.SqlError.make({
-                reason: classifyTursoError(cause, {
-                  message: 'Failed to execute statement',
-                  operation: 'execute',
-                }),
-              }),
-          })
+            })
+          )
         ).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       const runValues = ({
@@ -190,18 +186,18 @@ export class TursoSyncClient extends CoreTursoSyncClient {
           sql,
           unprepared,
           execute: (statement) =>
-            Effect.tryPromise({
-              try: async () =>
-                // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-                statement.allValues([...params] as BindParams),
-              catch: (cause) =>
-                SqlError.SqlError.make({
-                  reason: classifyTursoError(cause, {
-                    message: 'Failed to execute statement',
-                    operation: 'execute',
+            Effect.flatMap(decodeBindParams(params), (bindParams) =>
+              Effect.tryPromise({
+                try: async () => statement.allValues(bindParams),
+                catch: (cause) =>
+                  SqlError.SqlError.make({
+                    reason: classifyTursoError(cause, {
+                      message: 'Failed to execute statement',
+                      operation: 'execute',
+                    }),
                   }),
-                }),
-            }),
+              })
+            ),
         }).pipe(Effect.uninterruptible, Semaphore.withPermit(operationSemaphore));
 
       return {

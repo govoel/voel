@@ -8,6 +8,7 @@ import { Pressable, Text } from 'react-native';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import {
+  NoFormInput,
   createEffectSchemaFormHook,
   fieldContext,
   formContext,
@@ -103,16 +104,19 @@ describe('createEffectSchemaFormHook', () => {
     expect(screen.getByText('second: Second saved')).toBeOnTheScreen();
   });
 
-  it('only allows schema-less forms for void-input submissions', () => {
+  it('requires a schema for data and no-input submissions', () => {
     type DataOptions = Parameters<
-      typeof useAppForm<TestFormInput, typeof TestFormInput.Encoded, undefined, never>
+      typeof useAppForm<TestFormInput, typeof TestFormInput.Encoded>
     >[0];
-    type NoInputOptions = Parameters<typeof useAppForm<undefined, undefined, undefined, never>>[0];
-    expectTypeOf<Pick<DataOptions, 'onSubmit' | 'onFailure'>>().not.toExtend<DataOptions>();
-    expectTypeOf<Pick<NoInputOptions, 'onSubmit' | 'onFailure'>>().toExtend<NoInputOptions>();
+    type NoInputOptions = Parameters<
+      typeof useAppForm<typeof NoFormInput.Type, typeof NoFormInput.Encoded>
+    >[0];
+    expectTypeOf<Omit<DataOptions, 'schema'>>().not.toExtend<DataOptions>();
+    expectTypeOf<Omit<NoInputOptions, 'schema'>>().not.toExtend<NoInputOptions>();
   });
 
-  it('submits void without validating TanStack values and can retry a failure', async () => {
+  it('decodes empty TanStack values to void and can retry a failure', async () => {
+    expect(await Effect.runPromise(Schema.encodeEffect(NoFormInput)(void 0))).toEqual({});
     const inputs: Array<void> = [];
     const mutation = (input: Schema.Void['Type']) => {
       inputs.push(input);
@@ -124,6 +128,7 @@ describe('createEffectSchemaFormHook', () => {
 
     const TestForm = () => {
       const form = useAppForm({
+        schema: NoFormInput,
         onSubmit: ({ value }) => mutation(value),
         onFailure: ({ error }) => error.message,
         onSuccess,

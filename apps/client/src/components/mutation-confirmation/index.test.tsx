@@ -3,8 +3,9 @@ import { Array, Deferred, Effect, Schema } from 'effect';
 import type { PropsWithChildren } from 'react';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { expect, it, vi } from 'vitest';
+import { expect, expectTypeOf, it, vi } from 'vitest';
 
+import { NoFormInput } from '#src/components/form/hooks.tsx';
 import {
   MutationConfirmation,
   MutationConfirmationProvider,
@@ -54,6 +55,10 @@ class OperationFailure extends Schema.TaggedError<
 >('voel/components/mutation-confirmation/index.test/OperationFailure')('OperationFailure', {}) {}
 
 it('reserves the host until cancellation finishes and opens the next request with fresh state', async () => {
+  type ConfirmationProps = Parameters<
+    typeof MutationConfirmation<typeof NoFormInput.Type, typeof NoFormInput.Encoded>
+  >[0];
+  expectTypeOf<Omit<ConfirmationProps, 'schema'>>().not.toExtend<ConfirmationProps>();
   const execute = vi.fn(() => Effect.void);
   const onSuccess = vi.fn();
   const remove = () => Effect.suspend(execute);
@@ -61,6 +66,7 @@ it('reserves the host until cancellation finishes and opens the next request wit
     <MutationConfirmationProvider>
       {Array.map(['Alice', 'Bob'], (name) => (
         <MutationConfirmation
+          schema={NoFormInput}
           key={name}
           onSubmit={remove}
           title={`Remove ${name}`}
@@ -99,6 +105,7 @@ it('reserves the host until cancellation finishes and opens the next request wit
   expect(onSuccess).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByText('Finish native dismissal'));
   expect(onSuccess).toHaveBeenCalledOnce();
+  expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ value: void 0 }));
   expect(screen.queryByText('Remove Bob')).toBeNull();
 });
 
@@ -121,6 +128,7 @@ it('survives removal of its initiating subtree and navigates only after native d
         </Pressable>
         {saved ? (
           <MutationConfirmation
+            schema={NoFormInput}
             onSubmit={remove}
             title="Remove Alice"
             message="Remove this account"
@@ -179,6 +187,7 @@ it('keeps failure feedback and retry available after its trigger disappears', as
         </Pressable>
         {triggerVisible ? (
           <MutationConfirmation
+            schema={NoFormInput}
             onSubmit={remove}
             title="Remove Alice"
             message="Remove this account"

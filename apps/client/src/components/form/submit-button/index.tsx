@@ -7,10 +7,7 @@ export type SubmitButtonComponent = ComponentType<{
   disabled?: boolean;
   platformProps?:
     | {
-        ios: Omit<SwiftButtonProps, 'children'> & {
-          /** Useful when using fitToContents with BottomSheet and you don't want the loading animation messing up when a form-level error appears. */
-          disableAnimation?: boolean;
-        };
+        ios: Omit<SwiftButtonProps, 'children'>;
       }
     | {
         android: Omit<ComposeButtonProps, 'children' | 'enabled'> & {
