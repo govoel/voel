@@ -38,7 +38,6 @@ it.layer(TestServerControllerClient.layer)('API client', (iit) => {
             .pipe(Effect.flip)
         ).toBeInstanceOf(ForbiddenError);
 
-        // The selected account is the regular user, but the admin client stays authenticated.
         yield* adminClient.library.create({ payload: createInput('First server') });
         const otherServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [otherAdmin] = yield* signInTestServerUsers(manager, otherServer);

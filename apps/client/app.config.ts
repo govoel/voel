@@ -173,7 +173,6 @@ export default function app({ config }: ConfigContext): ExpoConfig {
       expoStatusBar(),
       expoBuildProperties({
         android: { usesCleartextTraffic: true },
-        // ios: { useFrameworks: 'static' },
       }),
       expoFont({
         android: {

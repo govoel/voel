@@ -4,7 +4,6 @@ import { HttpRouter, HttpServer } from 'effect/http';
 
 import { AllRoutesLayer } from '#src/index.ts';
 
-// Report the child's own address only after the application handler and dependencies are ready.
 const TestServerLayer = HttpRouter.serve(AllRoutesLayer).pipe(
   Layer.provideMerge(BunHttpServer.layer({ hostname: '127.0.0.1', port: 0 })),
   Layer.tap((context) =>

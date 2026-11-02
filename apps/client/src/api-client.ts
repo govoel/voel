@@ -16,7 +16,6 @@ export class ApiClient extends Context.Service<ApiClient>()('voel/api-client/Api
       HttpApiMiddleware.layerClient(
         AuthMiddleware,
         Effect.fnUntraced(function* ({ next, request }) {
-          // Read at execution time: the same client survives sign-out and reauthentication.
           const cookie = yield* authentication.getCookie.pipe(
             Effect.catchTag('AuthClientGetCookieError', (cause) =>
               Effect.fail(
@@ -34,7 +33,6 @@ export class ApiClient extends Context.Service<ApiClient>()('voel/api-client/Api
             return yield* UnauthorizedError.make();
           }
           return yield* next(HttpClientRequest.setHeader(request, 'cookie', cookie.value)).pipe(
-            // Never fall back to another account's ambient cookie jar.
             Effect.provideService(FetchHttpClient.RequestInit, { credentials: 'omit' })
           );
         })

@@ -141,7 +141,6 @@ it.describe('auth customizations', () => {
   );
 });
 
-// Use the actual client and server with a per-client bearer token, like separate devices.
 const authenticatedClient = (token: string) =>
   AuthClient.make({
     baseURL: 'http://test/',

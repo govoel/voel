@@ -55,7 +55,6 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     const compiler = Statement.makeCompilerSqlite();
 
     const sync = yield* makeSyncOperations({ authToken });
-    // Own the handle before bootstrapping, so failed/cancelled connects close it too.
     const db = yield* Effect.acquireRelease(
       Effect.try({
         try: () =>
@@ -233,9 +232,6 @@ export class TursoSyncClient extends CoreTursoSyncClient {
       },
     } satisfies SqlConnection.Connection;
 
-    // A single physical connection backs both ordinary statements and
-    // transactions. Leasing it prevents other statements from entering a
-    // transaction's BEGIN..COMMIT window. Sync uses independent ownership.
     const { acquirer, borrower, transactionAcquirer, onCommitFailure, isTransaction } =
       SqlClient.makeSqliteAcquirers({
         connection: Effect.succeed(connection),
@@ -282,7 +278,6 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     this.layerNoDeps(config).pipe(Layer.provide(Reactivity.layer));
 }
 
-/** Classifies a native Turso failure into Effect's SQLite error model. */
 const classifyTursoError = (cause: unknown, options: { message?: string; operation?: string }) => {
   const props = {
     cause,

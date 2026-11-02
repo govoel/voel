@@ -49,7 +49,6 @@ const clientOptions = ({
 }: Pick<AccountKey, 'serverUrl'> & { readonly storage: ExpoClientStorage }) => ({
   baseURL: serverUrl,
   fetchOptions: { headers: { 'User-Agent': userAgent } },
-  // Storage is already scoped to an account row; no additional namespace ID.
   plugins: [expoClient({ storage, storagePrefix: 'voel', cookiePrefix: 'auth' })],
   sessionOptions: { refetchInterval: Duration.toSeconds(Duration.minutes(5)) },
 });

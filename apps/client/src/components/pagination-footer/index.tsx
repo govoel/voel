@@ -22,7 +22,6 @@ export const usePaginationFooter = ({
     if (!visible || waiting || page.done || requestedPage.current === page) {
       return;
     }
-    // Native visibility events can repeat before the atom publishes its waiting state.
     requestedPage.current = page;
     onLoadMore();
   }, [visible, waiting, page, onLoadMore]);

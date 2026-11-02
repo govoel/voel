@@ -29,7 +29,6 @@ import { LibraryDatabase, LibraryDatabaseMap } from '#src/domains/library/databa
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
 import { makeClientTestLayers, makeServerUrl, makeUsername } from '#src/testing/utils.ts';
 
-// Each test owns real main and replica files, closed before their directory is removed.
 const ClientTestLayer = Layer.unwrap(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -43,7 +42,6 @@ const ClientTestLayer = Layer.unwrap(
   })
 ).pipe(Layer.provideMerge(BunFileSystem.layer));
 
-// Seed and mutate the catalog through authenticated HTTP requests on the real server.
 const setupLibrary = Effect.fnUntraced(function* (name: string) {
   const serverScope = yield* Scope.fork(yield* Effect.scope);
   const serverUrl = yield* makeServerUrl.pipe(Scope.provide(serverScope));
@@ -215,7 +213,6 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         expect(retained).toBe(idle);
 
         yield* TestClock.adjust('5 minutes');
-        // The source cannot rescue a lost replica by bootstrapping it again.
         yield* first.stopServer;
         const reopened = yield* databases.acquire(first.account);
         expect(reopened).not.toBe(idle);

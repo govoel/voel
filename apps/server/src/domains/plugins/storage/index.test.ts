@@ -154,7 +154,6 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       const second = { ...request, library: { ...request.library, roots: ['/second'] } };
       const stores = yield* StoragePluginMap;
       const editors = yield* StoragePluginSettingsMap;
-      // Captured maps need only the caller's scope, not request-local map services.
       const caller = Context.make(Scope.Scope, yield* Effect.scope);
       const firstStorage = yield* stores.acquire(first).pipe(Effect.setContext(caller));
       const firstSettings = yield* editors.acquire(first).pipe(Effect.setContext(caller));
@@ -282,7 +281,6 @@ it.effect(
                 return Effect.succeed([field, field]);
               },
               decodeFormSubmission: () => {
-                // A plugin can invalidate a branded value by mutating its backing object.
                 const value = { value: 0 };
                 const settings = StoragePluginSettingsPersisted.make(value);
                 value.value = Number.NaN;
@@ -318,7 +316,6 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
         storage: {
           layer: () =>
             Layer.succeed(StoragePlugin, {
-              // Model decoders that normalize but neglect to validate their outputs.
               decodeRootLocation: ({ location }) =>
                 Effect.succeed(
                   StorageRootLocation.make(String.trim(location), { disableChecks: true })
@@ -435,7 +432,6 @@ it.effect(
       },
     };
     const inspect = () => {
-      // Inspect synchronous plugin code too, not just the Effects it returns.
       const context = Fiber.getCurrent()?.context ?? Context.empty();
       expect(Context.getOption(context, PrivateService)).toEqual(Option.none());
       expect(Context.getOption(context, StoragePluginModuleMap)).toEqual(Option.none());
@@ -462,7 +458,6 @@ it.effect(
           });
           inspect();
           return Layer.fromBuild(() => {
-            // Custom layer builders must also run lazily inside the isolated context.
             inspect();
             return Effect.sync(() => {
               inspect();
@@ -762,7 +757,6 @@ it.effect.each(['storage', 'settings'] as const)(
     yield* started.await;
     expect(released).toEqual([]);
 
-    // The cache owns construction; shutting down its scope must cancel the lookup.
     yield* Scope.close(owner, Exit.void).pipe(
       Effect.provideService(PrivateService, 'shutdown-private'),
       Effect.annotateLogs({ request: 'shutdown' })
@@ -807,7 +801,6 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
       const settings = yield* editors.acquire(request);
       yield* Effect.gen(function* () {
         const before = yield* Effect.context();
-        // Calling the method itself must not throw; its returned Effect owns the defect.
         const operation = settings.getForm({ current: Option.none() });
         const exit = yield* Effect.exit(operation);
         expect(exit).toEqual(outcome === 'typed failure' ? Exit.fail(error) : Exit.die(defect));
@@ -899,7 +892,6 @@ it.effect.each(['successful', 'failed'] as const)(
         }
         expect(acquisitions).toBe(2);
       }).pipe(Effect.scoped, Effect.annotateLogs({ request: 'acquisition' }));
-      // Successful entries must survive the caller's scope until the cache is closed.
       expect(released).toHaveLength(outcome === 'successful' ? 0 : 6);
     }).pipe(
       Effect.provide(makeMaps(module)),

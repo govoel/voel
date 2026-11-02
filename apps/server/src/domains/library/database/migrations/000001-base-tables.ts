@@ -49,7 +49,6 @@ const createUniqueIndex = Effect.fnUntraced(function* ({
   `;
 });
 
-/** Uses an after trigger so updating the same row cannot invalidate its indexes mid-update. */
 const createUpdatedAtTrigger = Effect.fnUntraced(function* ({
   sql,
   table,

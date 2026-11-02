@@ -168,8 +168,6 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
       };
 
-      // Only domain failures leave the repository; malformed rows/requests and
-      // unexpected database outcomes are defects, not recoverable caller errors.
       return {
         getById: (request: Parameters<typeof queries.getById>[0]) =>
           queries.getById(request).pipe(

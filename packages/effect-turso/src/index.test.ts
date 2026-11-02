@@ -642,9 +642,6 @@ describe('TursoClient', () => {
       if (!Exit.isFailure(exit)) {
         return;
       }
-      // `BEGIN IMMEDIATE` cannot take the write lock, so it fails before a
-      // transaction exists. The failure has to stay a typed, retryable
-      // `SqlError` instead of being replaced by a rollback defect.
       expect(
         Cause.hasDies(exit.cause),
         `expected a typed failure but the cause contains a defect:\n${Cause.pretty(exit.cause)}`

@@ -7,7 +7,6 @@ import { AtomCatalogPane } from '#src/ui/components/atom-catalog.tsx';
 import { AtomDetailsPane } from '#src/ui/components/atom-details.tsx';
 import { AtomDevToolsPanelHeader } from '#src/ui/components/panel-header.tsx';
 
-// Rozenite panels import the shared UI stylesheet from their browser entry point.
 // oxlint-disable-next-line import/no-unassigned-import
 import './styles.css';
 

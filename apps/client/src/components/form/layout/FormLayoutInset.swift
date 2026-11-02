@@ -49,7 +49,6 @@ struct FormLayoutInsetView: ExpoSwiftUI.View {
               pageBackground
                 .ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .top) {
-                  // Extend into the list without changing the footer's reserved height.
                   LinearGradient(
                     colors: [pageBackground.opacity(0), pageBackground],
                     startPoint: .top,

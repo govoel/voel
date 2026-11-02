@@ -23,8 +23,6 @@ export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession')
 
 export const accountsSheetAtom = AppRuntime.atom(
   Effect.fnUntraced(function* (get) {
-    // Read account presence and selection from one snapshot so sign-in cannot
-    // temporarily look like saved accounts without an active account.
     const accounts = yield* get.result(accountsAtom);
     const activeAccount = Array.findFirst(accounts, (account) => account.active);
     if (Option.isNone(activeAccount)) {

@@ -17,7 +17,6 @@ const isSchemaStructCall = (expression: ESTree.Expression): boolean => {
   return callee.type === 'MemberExpression' && isSchemaStructCall(callee.object);
 };
 
-/** Give named structural schemas a class namespace for their static helpers. */
 export const noSchemaStructAssignmentRule = defineRule({
   meta: {
     type: 'problem',

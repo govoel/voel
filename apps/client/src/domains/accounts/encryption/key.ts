@@ -22,7 +22,6 @@ export class AccountEncryptionKey extends Context.Service<AccountEncryptionKey>(
       const cached = yield* loadKey.pipe(
         Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero))
       );
-      // Complete persistence before releasing even a cancelled caller. Failed loads retry.
       return { get: Effect.uninterruptible(cached) };
     }),
   }

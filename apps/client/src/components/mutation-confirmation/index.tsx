@@ -17,7 +17,6 @@ const PresentationContext = createContext<{
   readonly present: (render: (dismiss: () => void) => ReactElement) => void;
 } | null>(null);
 
-/** Native presentations belong to management, not the account subtree a mutation can remove. */
 export const MutationConfirmationProvider = ({ children }: PropsWithChildren) => {
   const [content, setContent] = useState<ReactElement | null>(null);
   const value = useMemo(
@@ -84,7 +83,6 @@ const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = 
   const form = useAppForm({
     ...props,
     onSuccess: (result) => {
-      // Navigation may remove the host too. Wait until native dismissal completes.
       completeDismissal.current = () => {
         dismiss();
         void props.onSuccess?.(result);
@@ -101,7 +99,6 @@ const PresentedMutation = <Input, Encoded, Success, Failure, EncodingServices = 
           setPresented(false);
         }}
         onDismissed={() => {
-          // Native adapters can report completion more than once. Consume it once.
           const complete = completeDismissal.current;
           completeDismissal.current = null;
           complete?.();
@@ -130,7 +127,6 @@ export const MutationConfirmation = <
   return trigger({
     busy: presentation.busy,
     open: () => {
-      // Capture the request (including its account-bound submission) when the user opens it.
       presentation.present((dismiss) => <PresentedMutation {...props} dismiss={dismiss} />);
     },
   });

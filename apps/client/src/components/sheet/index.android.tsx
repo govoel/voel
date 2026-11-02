@@ -18,7 +18,6 @@ export const Sheet = (({ children, onDismissed }) => {
     const pending = Option.getOrElse(dismissal.current, async () => presentation.hide());
     dismissal.current = Option.some(pending);
     await pending;
-    // This opening may have unmounted while its native animation was running.
     if (sheet.current === presentation) {
       handleDismissed();
     }

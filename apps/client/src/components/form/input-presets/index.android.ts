@@ -12,7 +12,6 @@ export const textInputPresets = {
   url: { keyboardType: 'uri', capitalization: 'none', autoCorrectEnabled: false },
 } satisfies Record<TextInputPurpose, NonNullable<TextFieldProps['keyboardOptions']>>;
 
-// Compose uses the password keyboard for both purposes; iOS distinguishes autofill content types.
 export const passwordInputPresets = {
   currentPassword: { keyboardType: 'password', capitalization: 'none', autoCorrectEnabled: false },
   newPassword: { keyboardType: 'password', capitalization: 'none', autoCorrectEnabled: false },

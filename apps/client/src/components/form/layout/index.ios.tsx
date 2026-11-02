@@ -16,7 +16,6 @@ const FormLayoutSlot = requireNativeView<
   PropsWithChildren<{ readonly name: 'content' | 'footer' }>
 >('FormLayoutInset', 'FormLayoutSlotView');
 
-/** Let SwiftUI manage the footer's safe area and native scroll-edge appearance. */
 export const FormLayout = (({ title, children, footer }) => (
   <NativeFormLayoutInset>
     <FormLayoutSlot name="content">

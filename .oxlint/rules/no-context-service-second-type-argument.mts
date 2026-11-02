@@ -3,7 +3,6 @@ import { Option } from 'effect';
 
 import { staticMemberName } from './shared/ast.mts';
 
-/** Require Context.Service shapes to be inferred from their make option. */
 export const noContextServiceSecondTypeArgumentRule = defineRule({
   meta: {
     type: 'problem',

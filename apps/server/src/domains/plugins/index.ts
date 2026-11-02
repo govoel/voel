@@ -8,11 +8,6 @@ import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 import { BunModuleResolverLayer } from '#src/domains/plugins/module-resolver/bun.ts';
 import { ModuleResolver } from '#src/domains/plugins/module-resolver/index.ts';
 
-/**
- * Cache raw npm module namespaces independently of their export contracts.
- * Installations live until this service closes so modules can load files lazily.
- * Compiled hosts need --compile-autoload-package-json for installed dependencies' exports.
- */
 export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
   '@repo/server/domains/plugins/PluginModuleMap',
   {
@@ -22,7 +17,6 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
       const resolver = yield* ModuleResolver;
       const scope = yield* Scope.Scope;
 
-      // The cache must not capture host services and expose them during module import.
       const modules = yield* Cache.makeWith(
         Effect.fnUntraced(
           function* (plugin: typeof NpmPluginId.Type) {
@@ -52,7 +46,6 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
               catch: () => PluginLoadError.make({ message: 'Failed to install or load plugin' }),
             });
           },
-          // Failed attempts close and detach immediately; successful installs live with the map.
           (effect) =>
             Effect.acquireUseRelease(
               Scope.fork(scope),
@@ -60,7 +53,6 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
               (attemptScope, exit) =>
                 Exit.isFailure(exit) ? Scope.close(attemptScope, exit) : Effect.void
             ),
-          // Translate loader-boundary failures without exposing installation or import details.
           Effect.catchTags({
             PlatformError: () =>
               PluginLoadError.make({ message: 'Failed to install or load plugin' }),

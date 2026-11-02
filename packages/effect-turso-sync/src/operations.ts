@@ -2,7 +2,6 @@ import { Effect, Exit, Fiber, Scope, Semaphore } from 'effect';
 
 import type { TursoSyncClientOptions } from '#src/index.ts';
 
-/** Shared by the platform adapters: serialize sync, but never lease the SQL connection. */
 export const makeSyncOperations = Effect.fnUntraced(function* <R>({
   authToken,
 }: {
@@ -10,7 +9,6 @@ export const makeSyncOperations = Effect.fnUntraced(function* <R>({
 }) {
   const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
   const semaphore = yield* Semaphore.make(1);
-  // Credentials are only available during an owned connect/pull operation.
   let signal = yield* Effect.scoped(Effect.abortSignal);
 
   const withSyncOperation = <A, E, Services>(operation: Effect.Effect<A, E, Services>) =>

@@ -7,7 +7,6 @@ import type { Sheet } from '#src/components/sheet';
 export const useSheetDismissal = ({
   onDismissed,
 }: Pick<ComponentProps<typeof Sheet>, 'onDismissed'>) => {
-  // Completion belongs to this opening, not a later render or presentation.
   const completion = useRef<Option.Option<typeof onDismissed>>(Option.some(onDismissed));
   return () => {
     const complete = completion.current;

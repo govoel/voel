@@ -89,9 +89,6 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
         }),
       });
 
-      // Each protocol instance backs exactly one AtomDevToolsRpcClient, so every transport
-      // response belongs to its sole active RPC client. Avoid maintaining the general
-      // request-to-client routing map used by multiplexed protocols.
       yield* Queue.take(incomingMessages).pipe(
         Effect.flatMap(handleIncomingMessage),
         Effect.forever,

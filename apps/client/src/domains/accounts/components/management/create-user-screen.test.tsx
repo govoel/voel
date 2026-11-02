@@ -20,8 +20,6 @@ import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
 const native = vi.hoisted(() => ({ hide: vi.fn<() => Promise<void>>() }));
 const navigation = vi.hoisted(() => ({ replace: vi.fn(), back: vi.fn() }));
 
-// Keep the screen, validation, mutation and auth client real. Substitute native
-// controls, navigation and credential storage; requests stop at fetch.
 vi.mock('#src/runtime/index.ts', async () => {
   const { Effect: effect, Layer } = await import('effect');
   const { Atom, Reactivity: reactivity } = await import('effect/reactivity');

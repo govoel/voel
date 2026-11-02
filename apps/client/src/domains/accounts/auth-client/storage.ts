@@ -34,7 +34,6 @@ export const makeAccountAuthStorage = Effect.fnUntraced(function* (key: AccountK
       repository.readAuthStorage(key).pipe(Effect.map((entries) => entries[name] ?? null)),
     {
       capacity: 8,
-      // Cache missing entries too, but retry transient storage failures.
       timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
     }
   );

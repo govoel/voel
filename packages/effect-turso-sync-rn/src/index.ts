@@ -55,7 +55,6 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     const sync = yield* makeSyncOperations({ authToken });
 
     const makeConnection = Effect.gen(function* () {
-      // Own the handle before bootstrapping, so failed/cancelled connects close it too.
       const db = yield* Effect.acquireRelease(
         Effect.try({
           try: () =>

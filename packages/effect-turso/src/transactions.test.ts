@@ -80,7 +80,6 @@ describe('TursoClient pooled transaction recovery', () => {
         })
       );
 
-      // Keep the second connection reserved so the transaction must acquire the first.
       yield* Scope.close(firstLease, Exit.void);
       const failed = yield* sql
         .withTransaction(
@@ -117,8 +116,6 @@ describe('TursoClient pooled transaction recovery', () => {
         Array.filter(firstSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
       ).toHaveLength(2);
 
-      // The failed acquisition still owns its pool lease until its supplied scope closes.
-      // Release only the second connection, forcing a fresh acquisition of the healthy one.
       yield* Scope.close(secondLease, Exit.void);
       const healthyLease = yield* Scope.fork(scope);
       const healthy = yield* Scope.provide(sql.reserve, healthyLease);
@@ -195,7 +192,6 @@ describe('TursoClient pooled transaction recovery', () => {
         expect(yield* healthy.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
         expect(transaction.pollUnsafe()).toBe(void 0);
 
-        // Both pool slots are now occupied. The next reservation must wait for cleanup.
         const waiting = yield* Effect.scoped(sql.reserve).pipe(
           Effect.forkChild({ startImmediately: true })
         );
@@ -280,7 +276,6 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         `
       ).toEqual([]);
 
-      // Valid deferred ownership succeeds, including child-first provisioning.
       yield* sql.withTransaction(
         sql`
           insert into
@@ -441,7 +436,6 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         .withTransaction(connection.executeUnprepared('ROLLBACK', [], void 0))
         .pipe(Effect.exit);
       expect(Exit.isFailure(failed)).toBe(true);
-      // One explicit rollback, not another failed cleanup and extra error.
       expect(Array.filter(controls, (statement) => statement === 'ROLLBACK')).toHaveLength(1);
       yield* sql`
         insert into

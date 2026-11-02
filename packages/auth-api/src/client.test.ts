@@ -27,7 +27,6 @@ const user = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-// Exercise the actual Better Auth client, including its response/date parsing.
 const withResponse = Effect.fnUntraced(function* (response: unknown) {
   const requests: Array<Request> = [];
   const fetch = spyOn(globalThis, 'fetch').mockImplementation(
@@ -215,7 +214,6 @@ describe('auth client integration', () => {
   it('rejects role changes through profile updates before sending them', async () => {
     await Effect.gen(function* () {
       const { client, requests } = yield* withResponse({});
-      // Structural typing must not let unknown fields escape through the adapter.
       const input = { name: 'Reader', role: 'admin' };
       const updateError = yield* client.updateUser(input).pipe(Effect.flip);
       expect(updateError.reason._tag).toBe('InvalidAuthInputError');

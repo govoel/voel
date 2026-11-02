@@ -8,7 +8,6 @@ export const useCompleteAccountEntry = ({
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   return async () => {
-    // A dismissed form may finish authenticating, but no longer owns navigation.
     if (!navigation.isFocused()) {
       return;
     }

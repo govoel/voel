@@ -51,7 +51,6 @@ const testDependenciesLayer = Layer.mergeAll(
   Layer.provideMerge(BunHttpServer.layerHttpServices)
 );
 
-// Build handlers once so background retirement lives for the suite, not client creation.
 const testLayer = LibraryHandlersLayerNoDeps.pipe(
   Layer.provideMerge(LibraryService.layerNoDeps.pipe(Layer.provideMerge(testDependenciesLayer))),
   Layer.provideMerge(TestScheduler.layer)
@@ -194,7 +193,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
       });
-      // Persisted settings alone do not imply that storage is healthy.
       yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
@@ -259,7 +257,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         'unhealthy'
       );
 
-      // Leave old entries cached, as can happen while retirement is still in progress.
       yield* repository.setSettings({
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
@@ -627,7 +624,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         )
       );
 
-      // Closing this caller scope must not interrupt or await retirement.
       const response = yield* Effect.scoped(
         client.library.update({
           params: library,
@@ -690,7 +686,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         .setRoots({ params: library, payload: { roots: [{ root: '/pending' }] } })
         .pipe(Effect.forkChild);
       yield* started.await;
-      // A separate connection proves the write lock prevents context changes during decoding.
       expect(
         yield* contender`
           update library
@@ -761,7 +756,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         })
         .pipe(Effect.forkChild);
       yield* settingsStarted.await;
-      // Renaming while decoding is blocked must not overwrite settings or hold a write lock.
       yield* client.library.update({
         params: library,
         payload: { name: Library.fields.name.make('Final name') },
@@ -1015,7 +1009,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   );
 });
 
-// Use Effect's request/response adapters; only this client talks to the in-memory web handler.
 const makeWireTransport = Effect.fnUntraced(function* (
   user: Option.Option<Parameters<typeof makeAuthedClient>[0]>
 ) {
@@ -1116,7 +1109,6 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
           Option.none()
         );
       },
-      // A live deadline makes a missing abort fail instead of waiting on the test clock.
       (effect) => TestClock.withLive(effect.pipe(Effect.timeout('3 seconds')))
     )
   );
@@ -1183,7 +1175,6 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         message,
       });
       expect(body).not.toContain('submitted-settings-secret');
-      // Also prove the API schema decodes the wire error into the declared client error.
       const error = yield* method === 'GET'
         ? client.library.getStoragePluginSettingsForm({ params: library }).pipe(Effect.flip)
         : client.library
@@ -1231,7 +1222,6 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
             )
       );
       expect(response.status).toBe(500);
-      // Defects must not expose schema diagnostics or submitted values over HTTP.
       expect(yield* response.text).toBe('');
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some(original)

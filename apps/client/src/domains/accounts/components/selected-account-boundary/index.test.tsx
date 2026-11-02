@@ -1,4 +1,3 @@
-/* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import {
@@ -44,7 +43,6 @@ vi.mock('expo-router', () => ({
     return null;
   },
 }));
-// Native rendering adapters only; the shell, picker, welcome, scope and queries are real.
 vi.mock('#src/components/screen-host', () => ({
   ScreenHost: ({ children }: { children: (inset: number) => ReactNode }): ReactNode => children(0),
 }));
@@ -167,8 +165,6 @@ afterEach(async () => {
   navigation.replace.mockClear();
 });
 
-// Substitute the persistence boundary, not atoms/components or selection logic.
-// The repository double publishes account changes just like the SQL repository.
 const makeFixture = async (initial: ReadonlyArray<typeof Account.Type>) => {
   const rows = Ref.makeUnsafe([...initial]);
   const repository = Layer.mock(AccountRepository, {

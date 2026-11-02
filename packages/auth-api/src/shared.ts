@@ -97,7 +97,6 @@ export class AuthSession extends Schema.Struct({
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
 }
 
-/** Admin operations return the same user domain as authentication. */
 export class AuthAdminUserResponse extends Schema.Struct({ user: AuthUser }) {}
 
 export class AuthUsersPage extends Schema.Struct({
@@ -107,8 +106,6 @@ export class AuthUsersPage extends Schema.Struct({
   offset: Schema.optional(Schema.Natural),
 }) {}
 
-// Commands accept editable text, not persisted user values. Identities and roles
-// retain their domain schemas; Better Auth's extensible field bags stay internal.
 const UsernameInput = Schema.toEncoded(AuthUser.fields.username).check(
   Schema.isNonEmpty({ message: 'Username is required' })
 );

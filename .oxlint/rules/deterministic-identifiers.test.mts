@@ -2,7 +2,6 @@ import { RuleTester } from 'oxlint/plugins-dev';
 
 import { deterministicIdentifiersRule } from './deterministic-identifiers.mts';
 
-// The rule only needs this path to be beneath a workspace package; the source file need not exist.
 const filename = `${import.meta.dirname}/../../packages/effect-turso/src/domain/models.ts`;
 
 new RuleTester().run('deterministic-identifiers', deterministicIdentifiersRule, {
