@@ -3,11 +3,12 @@ import { createFormHook, createFormHookContexts, useSelector } from '@tanstack/r
 import type {
   AnyFieldApi,
   AnyFormApi,
+  AppFieldExtendedReactFormApi,
   FormOptions,
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Array, Cause, Effect, Exit, Option, Predicate, Schema } from 'effect';
+import { Array, Cause, Effect, Exit, Option, Predicate, Schema, Struct } from 'effect';
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
@@ -65,11 +66,11 @@ export const {
   };
 } = tanStackFormHookContexts;
 
-type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOptions<
+type EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta = never> = FormOptions<
   TEncoded,
   undefined,
   undefined,
-  StandardSchemaV1<TEncoded, TType>,
+  StandardSchemaV1<TEncoded, unknown> | undefined,
   undefined,
   undefined,
   undefined,
@@ -81,7 +82,7 @@ type EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta = never> = FormOpt
 >;
 
 type EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> = Omit<
-  Parameters<NonNullable<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>['onSubmit']>>[0],
+  Parameters<NonNullable<EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>['onSubmit']>>[0],
   'value'
 > & {
   readonly value: TType;
@@ -100,15 +101,14 @@ type EffectSchemaSubmitFailureProps<TType, TEncoded, TFailure, TSubmitMeta> = Om
   readonly meta?: TSubmitMeta;
 };
 
-type EffectSchemaFormOptions<
+interface EffectSchemaSubmissionOptions<
   TType,
   TEncoded,
   TSuccess,
   TFailure,
-  TEncodingServices,
   TSubmitMeta,
   TServices,
-> = Omit<EffectSchemaBaseFormOptions<TType, TEncoded, TSubmitMeta>, 'onSubmit' | 'validators'> & {
+> {
   readonly onSubmit: (
     props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>
   ) => Effect.Effect<TSuccess, TFailure, TServices>;
@@ -118,17 +118,70 @@ type EffectSchemaFormOptions<
   readonly onFailure: (
     props: EffectSchemaSubmitFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
   ) => string;
-} & (
-    | { readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices> }
+}
+
+type EffectSchemaFormOptions<
+  TType,
+  TEncoded,
+  TSuccess,
+  TFailure,
+  TEncodingServices,
+  TSubmitMeta,
+  TServices,
+> = Omit<
+  EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>,
+  'onSubmit' | 'validators' | 'defaultValues'
+> &
+  EffectSchemaSubmissionOptions<TType, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices> &
+  (
     | {
-        readonly schema?: undefined;
-        readonly onSubmit: [TType] extends [Schema.Void['Type']]
-          ? (
-              props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>
-            ) => Effect.Effect<TSuccess, TFailure, TServices>
-          : never;
-        readonly defaultValues?: undefined;
+        readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
+        readonly defaultValues?: TEncoded;
       }
+    | {
+        readonly schema?: never;
+        readonly defaultValues?: never;
+        readonly onSubmit: [Schema.Void['Type']] extends [TType]
+          ? EffectSchemaSubmissionOptions<
+              TType,
+              TEncoded,
+              TSuccess,
+              TFailure,
+              TSubmitMeta,
+              TServices
+            >['onSubmit']
+          : never;
+      }
+  );
+
+type EffectSchemaInternalFormOptions<
+  TType,
+  TEncoded,
+  TSuccess,
+  TFailure,
+  TEncodingServices,
+  TSubmitMeta,
+  TServices,
+> = Omit<
+  EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>,
+  'onSubmit' | 'validators' | 'defaultValues'
+> &
+  (
+    | ({
+        readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
+        readonly defaultValues?: TEncoded;
+      } & EffectSchemaSubmissionOptions<
+        TType,
+        TEncoded,
+        TSuccess,
+        TFailure,
+        TSubmitMeta,
+        TServices
+      >)
+    | ({
+        readonly schema?: never;
+        readonly defaultValues?: never;
+      } & EffectSchemaSubmissionOptions<void, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices>)
   );
 
 // TanStack exposes AppField as a component whose props are inferred through any-based
@@ -182,31 +235,57 @@ export const createEffectSchemaFormHook = <
     formContext: hookFormContext,
   });
 
-  const useAppForm = <
+  function useAppForm<
     TType = void,
-    TEncoded = void,
+    TEncoded = Record<string, never>,
     TSuccess = void,
     TFailure = never,
     TEncodingServices = never,
     TSubmitMeta = never,
-  >({
-    onSubmit,
-    onFailure,
-    onSuccess,
-    schema,
-    ...props
-  }: EffectSchemaFormOptions<
-    TType,
-    TEncoded,
-    TSuccess,
-    TFailure,
-    TEncodingServices,
-    TSubmitMeta,
-    TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
-  >) => {
+  >(
+    options: EffectSchemaFormOptions<
+      TType,
+      TEncoded,
+      TSuccess,
+      TFailure,
+      TEncodingServices,
+      TSubmitMeta,
+      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+    >
+  ): FormWithoutFieldValidators<
+    AppFieldExtendedReactFormApi<
+      TEncoded,
+      undefined,
+      undefined,
+      StandardSchemaV1<TEncoded, unknown> | undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      TSubmitMeta,
+      TFieldComponents,
+      TFormComponents
+    >
+  >;
+  function useAppForm<TType, TEncoded, TSuccess, TFailure, TEncodingServices, TSubmitMeta>(
+    options: EffectSchemaInternalFormOptions<
+      TType,
+      TEncoded,
+      TSuccess,
+      TFailure,
+      TEncodingServices,
+      TSubmitMeta,
+      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+    >
+  ) {
+    const props = Struct.omit(options, ['schema', 'onSubmit', 'onFailure', 'onSuccess']);
     const registry = useContext(RegistryContext);
     useAtomMount(runtime);
-    const standardSchema = schema === void 0 ? void 0 : Schema.toStandardSchemaV1(schema);
+    const standardSchema =
+      options.schema === void 0 ? void 0 : Schema.toStandardSchemaV1(options.schema);
 
     const form = useTanStackAppForm({
       ...props,
@@ -220,54 +299,66 @@ export const createEffectSchemaFormHook = <
       onSubmit: async (submitProps) => {
         setSubmissionError(Option.none());
 
-        // Schema-less forms have void input, not TanStack's internal empty object.
-        const schemaResult =
-          standardSchema === void 0
-            ? // TypeScript cannot narrow a generic from the conditional schema option.
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-              { value: void 0 as TType }
-            : await standardSchema['~standard'].validate(submitProps.value);
-        if (schemaResult.issues !== void 0) {
-          throw new Error('Unexpected invalid data during submit');
-        }
-
-        // Each invocation has its own result and pins the runtime until it settles,
-        // even if its form unmounts. No shared mutation slot or React lifetime guard.
-        const submitExit = await Effect.runPromiseExit(
-          AtomRegistry.getResult(
-            registry,
-            runtime.atom(
-              Effect.suspend(() => onSubmit({ ...submitProps, value: schemaResult.value }))
-            )
-          )
-        );
-
-        if (Exit.isSuccess(submitExit)) {
-          await onSuccess?.({
-            ...submitProps,
-            result: submitExit.value,
-            value: schemaResult.value,
-          });
-          return;
-        }
-
-        const error = Exit.findErrorOption(submitExit);
-        if (Option.isSome(error)) {
-          setSubmissionError(
-            Option.some(
-              onFailure({
-                ...submitProps,
-                error: error.value,
-                value: schemaResult.value,
-              })
+        const submitDecoded = async <Value,>({
+          callbacks,
+          value,
+        }: {
+          readonly callbacks: EffectSchemaSubmissionOptions<
+            Value,
+            TEncoded,
+            TSuccess,
+            TFailure,
+            TSubmitMeta,
+            TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+          >;
+          readonly value: Value;
+        }) => {
+          const submitExit = await Effect.runPromiseExit(
+            AtomRegistry.getResult(
+              registry,
+              runtime.atom(Effect.suspend(() => callbacks.onSubmit({ ...submitProps, value })))
             )
           );
-          return;
-        }
 
-        throw Cause.squash(submitExit.cause);
+          if (Exit.isSuccess(submitExit)) {
+            await callbacks.onSuccess?.({
+              ...submitProps,
+              result: submitExit.value,
+              value,
+            });
+            return;
+          }
+
+          const error = Exit.findErrorOption(submitExit);
+          if (Option.isSome(error)) {
+            setSubmissionError(
+              Option.some(
+                callbacks.onFailure({
+                  ...submitProps,
+                  error: error.value,
+                  value,
+                })
+              )
+            );
+            return;
+          }
+
+          throw Cause.squash(submitExit.cause);
+        };
+
+        if (options.schema === void 0) {
+          await submitDecoded({ callbacks: options, value: void 0 });
+        } else {
+          const result = await Schema.toStandardSchemaV1(options.schema)['~standard'].validate(
+            submitProps.value
+          );
+          if (result.issues !== void 0) {
+            throw new Error('Unexpected invalid data during submit');
+          }
+          await submitDecoded({ callbacks: options, value: result.value });
+        }
       },
-      validators: standardSchema === void 0 ? {} : { onChangeAsync: standardSchema },
+      validators: { onChangeAsync: standardSchema },
     });
     const setSubmissionError = useAtomSet(formSubmissionError(form));
     const reset = useMemo(() => {
@@ -280,7 +371,7 @@ export const createEffectSchemaFormHook = <
     }, [form, setSubmissionError]);
 
     return withoutFieldValidators(Object.assign(form, { reset }));
-  };
+  }
 
   return { ...formHook, useAppForm };
 };

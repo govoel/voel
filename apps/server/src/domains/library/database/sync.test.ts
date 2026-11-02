@@ -5,7 +5,7 @@ import { Effect, FileSystem, Layer } from 'effect';
 import { HttpBody, HttpClient, HttpRouter, HttpServer } from 'effect/http';
 import { Reactivity } from 'effect/reactivity';
 
-import { AuthClient } from '@repo/auth-api/client.ts';
+import { AuthClient, createAuthClient } from '@repo/auth-api/client.ts';
 import { TursoSyncClient } from '@repo/effect-turso-sync-bun';
 
 import { ApiConfig } from '#src/config.ts';
@@ -38,7 +38,9 @@ it.effect(
       const unauthorized = yield* HttpClient.post('/api/sync/library/pull-updates');
       expect(unauthorized.status).toBe(401);
 
-      const auth = yield* AuthClient.make({ baseURL, plugins: [] });
+      const auth = yield* AuthClient.make({
+        createClient: () => createAuthClient({ baseURL, plugins: [] }),
+      });
       const { token } = yield* auth.signUp.email({
         name: 'Sync User',
         username: 'syncuser',

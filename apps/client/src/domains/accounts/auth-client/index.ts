@@ -16,7 +16,7 @@ import { AsyncResult, Reactivity } from 'effect/reactivity';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
-import { AuthClient as CoreAuthClient } from '@repo/auth-api/client.ts';
+import { AuthClient as CoreAuthClient, createAuthClient } from '@repo/auth-api/client.ts';
 
 import {
   makeAccountAuthStorage,
@@ -43,18 +43,19 @@ const userAgent =
     })
   );
 
-const clientOptions = ({
+const makeClient = Effect.fnUntraced(function* ({
   serverUrl,
   storage,
-}: Pick<AccountKey, 'serverUrl'> & { readonly storage: ExpoClientStorage }) => ({
-  baseURL: serverUrl,
-  fetchOptions: { headers: { 'User-Agent': userAgent } },
-  plugins: [expoClient({ storage, storagePrefix: 'voel', cookiePrefix: 'auth' })],
-  sessionOptions: { refetchInterval: Duration.toSeconds(Duration.minutes(5)) },
-});
-
-const makeClient = Effect.fnUntraced(function* (options: Parameters<typeof clientOptions>[0]) {
-  const { rawClient, ...client } = yield* CoreAuthClient.make(clientOptions(options));
+}: Pick<AccountKey, 'serverUrl'> & { readonly storage: ExpoClientStorage }) {
+  const { rawClient, ...client } = yield* CoreAuthClient.make({
+    createClient: () =>
+      createAuthClient({
+        baseURL: serverUrl,
+        fetchOptions: { headers: { 'User-Agent': userAgent } },
+        plugins: [expoClient({ storage, storagePrefix: 'voel', cookiePrefix: 'auth' })],
+        sessionOptions: { refetchInterval: Duration.toSeconds(Duration.minutes(5)) },
+      }),
+  });
   return {
     ...client,
     getCookie: Effect.tryPromise({

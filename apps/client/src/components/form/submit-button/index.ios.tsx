@@ -55,9 +55,7 @@ export const SubmitButton = (({
           spacing={Spacing.one}
           modifiers={[
             ...('ios' in containerModifiers ? containerModifiers.ios : []),
-            ...('ios' in platformProps && platformProps.ios.disableAnimation === true
-              ? []
-              : [animation(Animation.default, isSubmitting)]),
+            animation(Animation.default, isSubmitting),
           ]}>
           {isSubmitting ? <ProgressView modifiers={[hiddenModifier(!isSubmitting)]} /> : null}
 

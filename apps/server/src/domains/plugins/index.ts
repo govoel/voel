@@ -22,7 +22,6 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
       const resolver = yield* ModuleResolver;
       const scope = yield* Scope.Scope;
 
-      // The cache must not capture host services and expose them during module import.
       const modules = yield* Cache.makeWith(
         Effect.fnUntraced(
           function* (plugin: typeof NpmPluginId.Type) {

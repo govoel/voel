@@ -5,7 +5,7 @@ import { Effect, Layer } from 'effect';
 import { FetchHttpClient, HttpClient, HttpRouter } from 'effect/http';
 import { Reactivity } from 'effect/reactivity';
 
-import { AuthClient } from '@repo/auth-api/client.ts';
+import { AuthClient, createAuthClient } from '@repo/auth-api/client.ts';
 import { AuthUser } from '@repo/auth-api/shared.ts';
 
 import { ApiConfig } from '#src/config.ts';
@@ -36,7 +36,9 @@ it.describe('auth customizations', () => {
     'should not allow sign up when username is missing',
     Effect.fnUntraced(
       function* () {
-        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+        const auth = yield* AuthClient.make({
+          createClient: () => createAuthClient({ baseURL: 'http://test/', plugins: [] }),
+        });
 
         const response = yield* Effect.promise(async () =>
           auth.rawClient.signUp.email({
@@ -81,7 +83,9 @@ it.describe('auth customizations', () => {
     'should set role as admin for the first user',
     Effect.fnUntraced(
       function* () {
-        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+        const auth = yield* AuthClient.make({
+          createClient: () => createAuthClient({ baseURL: 'http://test/', plugins: [] }),
+        });
 
         const response = yield* auth.signUp.email({
           name: 'Test User',
@@ -111,7 +115,9 @@ it.describe('auth customizations', () => {
     'should not allow sign up when one user exists',
     Effect.fnUntraced(
       function* () {
-        const auth = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+        const auth = yield* AuthClient.make({
+          createClient: () => createAuthClient({ baseURL: 'http://test/', plugins: [] }),
+        });
 
         const response = yield* auth.signUp.email({
           name: 'Test User',
@@ -143,29 +149,34 @@ it.describe('auth customizations', () => {
 
 const authenticatedClient = (token: string) =>
   AuthClient.make({
-    baseURL: 'http://test/',
-    plugins: [
-      {
-        id: 'test-device',
-        fetchPlugins: [
+    createClient: () =>
+      createAuthClient({
+        baseURL: 'http://test/',
+        plugins: [
           {
             id: 'test-device',
-            name: 'Test device',
-            hooks: {
-              onRequest: (context) => {
-                const headers = new Headers(context.headers);
-                headers.set('authorization', `Bearer ${token}`);
-                return { ...context, headers };
+            fetchPlugins: [
+              {
+                id: 'test-device',
+                name: 'Test device',
+                hooks: {
+                  onRequest: (context) => {
+                    const headers = new Headers(context.headers);
+                    headers.set('authorization', `Bearer ${token}`);
+                    return { ...context, headers };
+                  },
+                },
               },
-            },
+            ],
           },
-        ],
-      },
-    ],
+        ] satisfies Parameters<typeof createAuthClient>[0]['plugins'],
+      }),
   });
 
 const setupAdmin = Effect.fnUntraced(function* () {
-  const guest = yield* AuthClient.make({ baseURL: 'http://test/', plugins: [] });
+  const guest = yield* AuthClient.make({
+    createClient: () => createAuthClient({ baseURL: 'http://test/', plugins: [] }),
+  });
   const { token, user } = yield* guest.signUp.email({
     name: 'Admin',
     username: 'admin',

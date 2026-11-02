@@ -353,10 +353,21 @@ describe('accountsSheetAtom', () => {
               throw new Error('Expected the get-session request to have an AbortSignal.');
             }
 
-            return runPromise(Effect.never, {
-              // @ts-expect-error - React Native's AbortSignal type omits DOM-only members.
-              signal,
-            });
+            return runPromise(
+              Effect.callback<Response>((resume) => {
+                const onAbort = () => {
+                  resume(Effect.interrupt);
+                };
+                if (signal.aborted) {
+                  onAbort();
+                } else {
+                  signal.addEventListener('abort', onAbort, { once: true });
+                }
+                return Effect.sync(() => {
+                  signal.removeEventListener('abort', onAbort);
+                });
+              })
+            );
           });
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => {
