@@ -436,14 +436,9 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
 }
 
 /**
- * Classifies a `@govoel/turso-database` failure into a `SqlErrorReason`.
- *
- * The current binding surfaces SQLite result codes only inside error message
- * strings (e.g. `"step failed: UNIQUE constraint failed: t.name"`; verified
- * against 0.8.0-pre.7, where every failure carries `code:
- * "GenericFailure"`), so the classification is message-based. Causes that
- * carry structured codes are delegated to `classifySqliteError`, keeping the
- * driver compatible with future binding versions that expose proper codes.
+ * The 0.8.3 binding reports UNIQUE and syntax errors with code "GenericFailure".
+ * Their SQLite messages need classification here; unmatched messages fall back
+ * to Effect's structured-code classifier.
  */
 const classifyTursoError = (cause: unknown, options: { message?: string; operation?: string }) => {
   const props = {

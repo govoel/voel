@@ -1,6 +1,7 @@
 import { Layer } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
+// The type import includes the lazy implementation in Rozenite's TypeScript emit graph.
 import type * as Development from './src/react-native/layer.ts';
 
 declare const __DEV__: boolean;
