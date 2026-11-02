@@ -15,7 +15,7 @@
   "dependencies": {
     "@repo/effect-turso-sync": "workspace:*",
     "@tursodatabase/sync-react-native": "0.8.3",
-    "effect": "4.1.0"
+    "effect": "4.1.1"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
