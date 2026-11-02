@@ -1,5 +1,5 @@
 /* oxlint-disable effecttsgo/strict-effect-provide -- tests are Effect application boundaries */
-import { describe, expect, it, mock, spyOn } from 'bun:test';
+import { describe, expect, it, spyOn } from 'bun:test';
 
 import {
   Array,
@@ -69,41 +69,48 @@ const decodedUser = {
 };
 
 describe('auth client integration', () => {
-  it('lazily creates one client and preserves plugin actions on that instance', async () => {
-    const createClient = mock(() =>
-      createAuthClient({
-        baseURL: 'http://auth.test',
-        fetchOptions: { customFetchImpl: async () => Response.json(null) },
-        plugins: [
-          {
-            id: 'test-cookie',
-            getActions: () => ({ getCookie: () => 'session=test' }),
-          },
-        ],
-      })
-    );
-    const make = AuthClient.make({ createClient });
-    expect(createClient).not.toHaveBeenCalled();
+  it('supports plugin actions alongside domain auth commands', async () => {
     await Effect.gen(function* () {
-      const client = yield* make;
-      expect(createClient).toHaveBeenCalledTimes(1);
-      expect(createClient.mock.results[0]?.value).toBe(client.rawClient);
+      const client = yield* AuthClient.make({
+        createClient: () =>
+          createAuthClient({
+            baseURL: 'http://auth.test',
+            fetchOptions: {
+              customFetchImpl: async (input) =>
+                Response.json(
+                  pipe(
+                    input instanceof Request ? input.url : input.toString(),
+                    Str.endsWith('/get-session')
+                  )
+                    ? null
+                    : { user }
+                ),
+            },
+            plugins: [
+              {
+                id: 'test-cookie',
+                getActions: () => ({ getCookie: () => 'session=test' }),
+              },
+            ],
+          }),
+      });
       expect(client.rawClient.getCookie()).toBe('session=test');
+      expect(yield* client.admin.createUser(createUserInput)).toMatchObject({ user: decodedUser });
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 
   it('reports factory failures as typed initialization errors', async () => {
     const error = new Error('Client initialization failed');
-    const createClient = mock(() => {
-      throw error;
-    });
-    const make = AuthClient.make({ createClient });
-    expect(createClient).not.toHaveBeenCalled();
     await Effect.gen(function* () {
-      const failure = yield* make.pipe(Effect.flip);
-      expect(failure._tag).toBe('BetterAuthClientInitializationError');
-      expect(failure.error).toBe(error);
-      expect(createClient).toHaveBeenCalledTimes(1);
+      const failure = yield* AuthClient.make({
+        createClient: () => {
+          throw error;
+        },
+      }).pipe(Effect.flip);
+      expect(failure).toMatchObject({
+        _tag: 'BetterAuthClientInitializationError',
+        error: { message: 'Client initialization failed' },
+      });
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 

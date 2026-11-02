@@ -1,4 +1,4 @@
-import { StatementPromise } from '@tursodatabase/database-common';
+import type { StatementPromise } from '@tursodatabase/database-common';
 import { Database } from '@tursodatabase/sync';
 import {
   Context,
@@ -8,7 +8,6 @@ import {
   Layer,
   Option,
   Predicate,
-  Schema,
   ScopedCache,
   Semaphore,
   Stream,
@@ -25,16 +24,6 @@ import { makeSyncOperations } from '@repo/effect-turso-sync/operations';
 
 const ATTR_DB_SYSTEM_NAME = 'db.system.name';
 const MAX_BUSY_TIMEOUT = 2_147_483_647;
-
-const decodeStatement = Schema.decodeUnknownEffect(Schema.instanceOf(StatementPromise));
-
-const prepareError = (cause: unknown) =>
-  SqlError.SqlError.make({
-    reason: classifyTursoError(cause, {
-      message: 'Failed to prepare statement',
-      operation: 'prepare',
-    }),
-  });
 
 const mapConnectionError = (cause: unknown) => {
   const reason = classifyTursoError(cause, {
@@ -102,12 +91,18 @@ export class TursoSyncClient extends CoreTursoSyncClient {
     const prepare = (sql: string) =>
       Effect.acquireRelease(
         Effect.tryPromise({
-          try: async () => {
-            const statement: unknown = await db.prepare(sql);
-            return statement;
-          },
-          catch: prepareError,
-        }).pipe(Effect.flatMap(decodeStatement), Effect.catchTag('SchemaError', prepareError)),
+          // Turso declares this as `any`; excluding remote writes makes the
+          // database-common promise statement its only implementation.
+          // oxlint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+          try: async () => db.prepare(sql) as Promise<StatementPromise>,
+          catch: (cause) =>
+            SqlError.SqlError.make({
+              reason: classifyTursoError(cause, {
+                message: 'Failed to prepare statement',
+                operation: 'prepare',
+              }),
+            }),
+        }),
         (statement) =>
           Effect.sync(() => {
             statement.close();

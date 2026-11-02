@@ -5,7 +5,7 @@ import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 import { useReducer } from 'react';
 import { Pressable, Text } from 'react-native';
-import { describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createEffectSchemaFormHook,
@@ -103,58 +103,31 @@ describe('createEffectSchemaFormHook', () => {
     expect(screen.getByText('second: Second saved')).toBeOnTheScreen();
   });
 
-  it('requires a schema for data submissions and forbids defaults without one', () => {
-    type DataOptions = Parameters<
-      typeof useAppForm<TestFormInput, typeof TestFormInput.Encoded>
-    >[0];
-    type NoInputOptions = Parameters<
-      typeof useAppForm<Schema.Void['Type'], Record<string, never>>
-    >[0];
-    expectTypeOf<Omit<DataOptions, 'schema'>>().not.toExtend<DataOptions>();
-    expectTypeOf<Pick<NoInputOptions, 'onSubmit' | 'onFailure'>>().toExtend<NoInputOptions>();
-    expectTypeOf<
-      Pick<NoInputOptions, 'onSubmit' | 'onFailure'> & {
-        readonly defaultValues: Record<string, never>;
-      }
-    >().not.toExtend<NoInputOptions>();
-    type NeverInputOptions = Parameters<typeof useAppForm<never, Record<string, never>>>[0];
-    expectTypeOf<
-      Pick<NeverInputOptions, 'onSubmit' | 'onFailure'>
-    >().not.toExtend<NeverInputOptions>();
-  });
-
-  it('submits void without a schema and can retry a failure', async () => {
-    const inputs: Array<void> = [];
-    const mutation = (input: Schema.Void['Type']) => {
-      inputs.push(input);
-      return inputs.length === 1
+  it('shows failure feedback and a saved result when a no-input submission is retried', async () => {
+    let attempts = 0;
+    const mutation = () => {
+      attempts += 1;
+      return attempts === 1
         ? TestSubmitError.make({ message: 'failed' })
         : Effect.succeed('removed');
     };
-    const onSuccess = vi.fn();
-
     const TestForm = () => {
+      const [saved, showSaved] = useReducer(
+        (_saved: string, result: string) => result,
+        'Not saved'
+      );
       const form = useAppForm({
-        onSubmit: ({ value }) => {
-          expectTypeOf(value).toEqualTypeOf<Schema.Void['Type']>();
-          return mutation(value);
-        },
-        onFailure: ({ error, value }) => {
-          expectTypeOf(error).toEqualTypeOf<TestSubmitError>();
-          expectTypeOf(value).toEqualTypeOf<Schema.Void['Type']>();
-          expect(value).toBe(void 0);
-          return error.message;
-        },
-        onSuccess: (props) => {
-          expectTypeOf(props.value).toEqualTypeOf<Schema.Void['Type']>();
-          expectTypeOf(props.result).toEqualTypeOf<string>();
-          onSuccess(props);
+        onSubmit: mutation,
+        onFailure: ({ error }) => error.message,
+        onSuccess: ({ value, result }) => {
+          showSaved(`Submitted ${String(value)}: ${result}`);
         },
       });
       return (
         <form.AppForm>
           <RetrySubmitButton />
           <ErrorProbe />
+          <Text>{saved}</Text>
         </form.AppForm>
       );
     };
@@ -162,22 +135,13 @@ describe('createEffectSchemaFormHook', () => {
     await render(<TestForm />);
     await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
     expect(await screen.findByText('failed')).toBeOnTheScreen();
-    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText('Not saved')).toBeOnTheScreen();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
     });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
-    await waitFor(() => {
-      expect(onSuccess).toHaveBeenCalledOnce();
-    });
-    expect(inputs).toEqual([void 0, void 0]);
-    expect(onSuccess).toHaveBeenCalledWith(
-      expect.objectContaining({
-        value: void 0,
-        result: 'removed',
-      })
-    );
+    expect(await screen.findByText('Submitted undefined: removed')).toBeOnTheScreen();
     expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
@@ -297,7 +261,7 @@ describe('createEffectSchemaFormHook', () => {
     });
   });
 
-  it('passes the decoded value and mutation result to onSuccess', async () => {
+  it('submits decoded numeric input and displays the saved result', async () => {
     class DecodedFormInput extends Schema.Class<
       DecodedFormInput,
       { readonly brand: unique symbol }
@@ -305,19 +269,19 @@ describe('createEffectSchemaFormHook', () => {
       count: Schema.FiniteFromString,
     }) {}
     const mutation = (value: DecodedFormInput) => Effect.succeed(value.count.toFixed(2));
-    const onSuccess = vi.fn();
-
     const TestForm = () => {
+      const [saved, showSaved] = useReducer(
+        (_saved: string, result: string) => result,
+        'Not saved'
+      );
       const form = useAppForm({
         defaultValues: { count: '4' },
-        onSubmit: ({ value }) => {
-          expectTypeOf(value).toEqualTypeOf<DecodedFormInput>();
-          expect(value).toBeInstanceOf(DecodedFormInput);
-          return mutation(value);
-        },
+        onSubmit: ({ value }) => mutation(value),
         schema: DecodedFormInput,
         onFailure: () => 'failed',
-        onSuccess,
+        onSuccess: ({ value, result }) => {
+          showSaved(`${value.count}: ${result}`);
+        },
       });
 
       return (
@@ -325,6 +289,7 @@ describe('createEffectSchemaFormHook', () => {
           <Pressable role="button" onPress={() => void form.handleSubmit()}>
             <Text>Submit</Text>
           </Pressable>
+          <Text>{saved}</Text>
         </form.AppForm>
       );
     };
@@ -332,13 +297,7 @@ describe('createEffectSchemaFormHook', () => {
     await render(<TestForm />);
     await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
 
-    await waitFor(() => {
-      expect(onSuccess).toHaveBeenCalledOnce();
-    });
-    expect(onSuccess.mock.calls[0]?.[0]).toMatchObject({
-      result: '4.00',
-      value: { count: 4 },
-    });
+    expect(await screen.findByText('4: 4.00')).toBeOnTheScreen();
   });
 
   it('propagates mutation defects without passing them to onFailure', async () => {

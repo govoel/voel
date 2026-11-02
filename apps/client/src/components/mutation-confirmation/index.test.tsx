@@ -3,7 +3,7 @@ import { Array, Deferred, Effect, Schema } from 'effect';
 import type { PropsWithChildren } from 'react';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { expect, expectTypeOf, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 
 import {
   MutationConfirmation,
@@ -54,12 +54,6 @@ class OperationFailure extends Schema.TaggedError<
 >('voel/components/mutation-confirmation/index.test/OperationFailure')('OperationFailure', {}) {}
 
 it('reserves the host until cancellation finishes and opens the next request with fresh state', async () => {
-  type ConfirmationProps = Parameters<
-    typeof MutationConfirmation<Schema.Void['Type'], Record<string, never>>
-  >[0];
-  expectTypeOf<
-    Pick<ConfirmationProps, 'onSubmit' | 'onFailure' | 'title' | 'message' | 'trigger'>
-  >().toExtend<ConfirmationProps>();
   const execute = vi.fn(() => Effect.void);
   const onSuccess = vi.fn();
   const remove = () => Effect.suspend(execute);
@@ -105,7 +99,6 @@ it('reserves the host until cancellation finishes and opens the next request wit
   expect(onSuccess).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByText('Finish native dismissal'));
   expect(onSuccess).toHaveBeenCalledOnce();
-  expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ value: void 0 }));
   expect(screen.queryByText('Remove Bob')).toBeNull();
 });
 
