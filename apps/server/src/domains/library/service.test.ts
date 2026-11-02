@@ -15,6 +15,7 @@ import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
 import { TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
 import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
+import { StoragePluginKey, StoragePluginSettingsKey } from '#src/domains/plugins/storage/schema.ts';
 
 const testLayer = LibraryService.layerNoDeps.pipe(
   Layer.provideMerge([LibraryRepository.layerNoDeps, pluginLayer]),
@@ -65,11 +66,25 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
   yield* repository.setSettings({ ...library, settings });
   const row = yield* repository.getById(library);
-  for (const snapshot of [row, { ...row, name: Library.fields.name.make(`${name} stale`) }]) {
+  for (const snapshot of [
+    row.settingsKey.library,
+    { ...row.settingsKey.library, name: Library.fields.name.make(`${name} stale`) },
+  ]) {
     yield* Effect.scoped(
       Effect.all([
-        editors.acquire({ storagePlugin: row.storagePlugin, library: snapshot }),
-        stores.acquire({ storagePlugin: row.storagePlugin, library: snapshot, settings }),
+        editors.acquire(
+          StoragePluginSettingsKey.make({
+            storagePlugin: row.settingsKey.storagePlugin,
+            library: snapshot,
+          })
+        ),
+        stores.acquire(
+          StoragePluginKey.make({
+            storagePlugin: row.settingsKey.storagePlugin,
+            library: snapshot,
+            settings,
+          })
+        ),
       ])
     );
   }
@@ -77,6 +92,63 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
 });
 
 it.layer(testLayer)('library service without transport', (iit) => {
+  iit.effect(
+    'uses repository-decoded identities for acquisition, cache inspection, and invalidation',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const service = yield* LibraryService;
+      const editors = yield* StoragePluginSettingsMap;
+      const stores = yield* StoragePluginMap;
+      const library = yield* repository.create({
+        name: Library.fields.name.make('Decoded plugin identities'),
+        type: Library.fields.type.make('movie'),
+        storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+      });
+      const unconfigured = yield* repository.getById(library);
+      assert.instanceOf(unconfigured.settingsKey, StoragePluginSettingsKey);
+      expect(Option.isNone(unconfigured.storageKey)).toBe(true);
+      expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
+
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({ prefix: '/decoded' }),
+      });
+      const configured = yield* repository.getById(library);
+      const listed = Option.getOrThrow(
+        Array.findFirst(
+          yield* repository.list({ cursor: Option.none(), limit: 100 }),
+          (row) => row.settingsKey.library.id === library.id
+        )
+      );
+      const storageKey = Option.getOrThrow(configured.storageKey);
+      const listedStorageKey = Option.getOrThrow(listed.storageKey);
+      assert.instanceOf(storageKey, StoragePluginKey);
+      assert.instanceOf(listedStorageKey, StoragePluginKey);
+      assert.instanceOf(listed.settingsKey, StoragePluginSettingsKey);
+      expect(configured.settingsKey.library).toEqual({
+        ...library,
+        name: 'Decoded plugin identities',
+        type: 'movie',
+      });
+
+      const editor = yield* editors.acquire(unconfigured.settingsKey);
+      expect(yield* editors.acquire(listed.settingsKey)).toBe(editor);
+      const storage = yield* stores.acquire(storageKey);
+      expect(yield* stores.acquire(listedStorageKey)).toBe(storage);
+      expect(Option.isSome(yield* editors.contextEffectOption(configured.settingsKey))).toBe(true);
+      expect(Option.isSome(yield* stores.contextEffectOption(listedStorageKey))).toBe(true);
+      expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'healthy' });
+
+      yield* editors.invalidate(listed.settingsKey);
+      yield* stores.invalidate(listedStorageKey);
+      expect(Option.isNone(yield* editors.contextEffectOption(unconfigured.settingsKey))).toBe(
+        true
+      );
+      expect(Option.isNone(yield* stores.contextEffectOption(storageKey))).toBe(true);
+      expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
+    }, Effect.scoped)
+  );
+
   iit.effect.each(['rename', 'settings', 'delete'] as const)(
     '%s retires only its library after the outer commit, never on rollback or savepoint release',
     Effect.fnUntraced(function* (operation) {
@@ -130,8 +202,10 @@ it.layer(testLayer)('library service without transport', (iit) => {
         Match.orElse(
           Effect.fnUntraced(function* () {
             const row = yield* repository.getById(target.library);
-            expect(row.name).toBe(operation === 'rename' ? 'Renamed' : target.row.name);
-            expect(row.storagePluginSettings).toEqual(
+            expect(row.settingsKey.library.name).toBe(
+              operation === 'rename' ? 'Renamed' : target.row.settingsKey.library.name
+            );
+            expect(Option.map(row.storageKey, ({ settings }) => settings)).toEqual(
               Option.some({ prefix: operation === 'settings' ? '/updated' : '/initial' })
             );
           })
@@ -198,9 +272,12 @@ it.layer(testLayer)('library service without transport', (iit) => {
         expect(yield* cacheKeys(target.library)).toEqual(
           boundary === 'commit' ? { editors: [], stores: [] } : target.keys
         );
-        expect((yield* repository.getById(target.library)).storagePluginSettings).toEqual(
-          Option.some({ prefix: boundary === 'commit' ? '/updated' : '/initial' })
-        );
+        expect(
+          Option.map(
+            (yield* repository.getById(target.library)).storageKey,
+            ({ settings }) => settings
+          )
+        ).toEqual(Option.some({ prefix: boundary === 'commit' ? '/updated' : '/initial' }));
       }).pipe(
         Effect.ensuring(release.open),
         // oxlint-disable-next-line effecttsgo/strict-effect-provide -- this test boundary owns the service and retirement lifetime
