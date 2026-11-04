@@ -10,6 +10,7 @@ import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/librar
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
+import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 export class LibraryService extends Context.Service<LibraryService>()(
   '@repo/server/domains/library/service/LibraryService',
@@ -69,6 +70,26 @@ export class LibraryService extends Context.Service<LibraryService>()(
         (effect) => effect.pipe(Effect.forkIn(retirementScope), Effect.asVoid)
       );
 
+      const decodeRoots = Effect.fnUntraced(function* ({
+        storage,
+        roots,
+      }: {
+        readonly storage: Effect.Success<ReturnType<typeof stores.acquire>>;
+        readonly roots: ReadonlyArray<{ readonly root: string }>;
+      }) {
+        const decoded = yield* Effect.validate(
+          roots,
+          ({ root }) =>
+            storage.decodeRootLocation({ location: root }).pipe(
+              Effect.catchTags({
+                StorageLocationValidationError: ({ message }) => Effect.fail({ root, message }),
+              })
+            ),
+          { concurrency: 'unbounded' }
+        ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
+        return Array.dedupe(decoded);
+      });
+
       return {
         get: Effect.fnUntraced(function* (request: Pick<Library, 'id'>) {
           const row = yield* repository.getById(request);
@@ -92,7 +113,53 @@ export class LibraryService extends Context.Service<LibraryService>()(
                 : Option.none(),
           };
         }),
-        create: repository.create,
+        getDraftStoragePluginSettingsForm: Effect.fnUntraced(function* (
+          request: Parameters<typeof repository.create>[0]
+        ) {
+          const editor = yield* editors.acquire({
+            storagePlugin: request.storagePlugin,
+            library: { _tag: 'Draft', name: request.name, type: request.type },
+          });
+          return yield* editor.getForm({ current: Option.none() });
+        }, Effect.scoped),
+        create: Effect.fnUntraced(
+          function* (
+            request: Parameters<typeof repository.create>[0] & {
+              readonly storagePluginSettings: StoragePluginSettingsInput;
+              readonly roots: ReadonlyArray<{ readonly root: string }>;
+            }
+          ) {
+            const editor = yield* editors.acquire({
+              storagePlugin: request.storagePlugin,
+              library: { _tag: 'Draft', name: request.name, type: request.type },
+            });
+            const settings = yield* editor.decodeFormSubmission({
+              current: Option.none(),
+              input: request.storagePluginSettings,
+            });
+            const result = yield* repository.create({
+              name: request.name,
+              type: request.type,
+              storagePlugin: request.storagePlugin,
+            });
+            const storage = yield* stores.acquireScoped(
+              StoragePluginKey.make({
+                storagePlugin: request.storagePlugin,
+                library: { id: result.id, name: request.name, type: request.type },
+                settings,
+              })
+            );
+            const roots = yield* decodeRoots({ storage, roots: request.roots });
+            yield* repository
+              .setSettings({ id: result.id, settings })
+              .pipe(Effect.catchTags({ LibraryNotFoundError: Effect.die }));
+            yield* repository.setRoots({ id: result.id, roots });
+            return result;
+          },
+          sql.withTransaction,
+          Effect.catchTags({ SqlError: Effect.die }),
+          Effect.scoped
+        ),
         rename: (request: Parameters<typeof repository.rename>[0]) =>
           repository.rename(request).pipe(
             Effect.tap(() => sql.afterCommit(launchRetirement({ id: request.id }))),
@@ -101,27 +168,47 @@ export class LibraryService extends Context.Service<LibraryService>()(
           ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.settingsKey);
+          const editor = yield* editors.acquire({
+            storagePlugin: row.settingsKey.storagePlugin,
+            library: { _tag: 'Existing', ...row.settingsKey.library },
+          });
           return yield* editor.getForm({
             current: Option.map(row.storageKey, ({ settings }) => settings),
           });
         }, Effect.scoped),
-        setStoragePluginSettings: Effect.fnUntraced(function* ({
-          id,
-          input,
-        }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
-          const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.settingsKey);
-          const settings = yield* editor.decodeFormSubmission({
-            current: Option.map(row.storageKey, (key) => key.settings),
+        setStoragePluginSettings: Effect.fnUntraced(
+          function* ({
+            id,
             input,
-          });
-          return yield* repository.setSettings({ id, settings }).pipe(
-            Effect.tap(() => sql.afterCommit(launchRetirement({ id }))),
-            sql.withTransaction,
-            Effect.catchTags({ SqlError: Effect.die })
-          );
-        }, Effect.scoped),
+          }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
+            const row = yield* repository.getById({ id });
+            const editor = yield* editors.acquire({
+              storagePlugin: row.settingsKey.storagePlugin,
+              library: { _tag: 'Existing', ...row.settingsKey.library },
+            });
+            const settings = yield* editor.decodeFormSubmission({
+              current: Option.map(row.storageKey, (key) => key.settings),
+              input,
+            });
+            return yield* Effect.gen(function* () {
+              const current = yield* repository.getById({ id });
+              const storage = yield* stores.acquireScoped(
+                StoragePluginKey.make({
+                  storagePlugin: current.settingsKey.storagePlugin,
+                  library: current.settingsKey.library,
+                  settings,
+                })
+              );
+              const roots = yield* decodeRoots({ storage, roots: current.roots });
+              yield* repository.setRoots({ id, roots });
+              return yield* repository
+                .setSettings({ id, settings })
+                .pipe(Effect.tap(() => sql.afterCommit(launchRetirement({ id }))));
+            }).pipe(sql.withTransaction);
+          },
+          Effect.catchTags({ SqlError: Effect.die }),
+          Effect.scoped
+        ),
         setRoots: Effect.fnUntraced(
           function* ({
             id,
@@ -132,17 +219,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
               return yield* LibraryUnconfiguredError.make({ id });
             }
             const storage = yield* stores.acquire(row.storageKey.value);
-            const decoded = yield* Effect.validate(
-              roots,
-              ({ root }) =>
-                storage.decodeRootLocation({ location: root }).pipe(
-                  Effect.catchTags({
-                    StorageLocationValidationError: ({ message }) => Effect.fail({ root, message }),
-                  })
-                ),
-              { concurrency: 'unbounded' }
-            ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
-            const unique = Array.dedupe(decoded);
+            const unique = yield* decodeRoots({ storage, roots });
             yield* repository.setRoots({ id, roots: unique });
             return { id, roots: Array.map(unique, (root) => ({ root })) };
           },

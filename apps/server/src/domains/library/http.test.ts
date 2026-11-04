@@ -1,6 +1,7 @@
 import { BunHttpServer } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import {
+  StorageLocationValidationError,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
@@ -67,6 +68,10 @@ const createInput = (
   name: Library.fields.name.make(name),
   type: Library.fields.type.make('movie'),
   storagePlugin: Library.fields.storagePlugin.make(plugin),
+  storagePluginSettings: StoragePluginSettingsInput.make(
+    plugin === 'builtin:local' ? {} : { root: '/initial' }
+  ),
+  roots: [],
 });
 const makeClient = Effect.gen(function* () {
   const auth = yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' });
@@ -140,9 +145,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository.make;
-      const library = yield* client.library.create({
-        payload: createInput('Failed health', 'npm:missing'),
-      });
+      const library = yield* repository.create(createInput('Failed health', 'npm:missing'));
       yield* repository.setSettings({
         ...library,
         settings: StoragePluginSettingsPersisted.make({}),
@@ -170,7 +173,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const { drainScheduler } = yield* TestScheduler;
-      const library = yield* client.library.create({ payload: createInput('Health', 'npm:test') });
+      const repository = yield* LibraryRepository;
+      const library = yield* repository.create(createInput('Health', 'npm:test'));
       const listItem = Effect.gen(function* () {
         return Option.getOrThrow(
           Array.findFirst(
@@ -189,9 +193,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         expect(listItem2).toMatchObject({ storagePluginStatus: 'unknown' });
       }
 
-      yield* client.library.setStoragePluginSettings({
-        params: library,
-        payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
       yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
@@ -335,7 +339,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const sql = yield* LibraryDatabase;
-      const library = yield* client.library.create({ payload: createInput('Local') });
+      const repository = yield* LibraryRepository;
+      const library = yield* repository.create(createInput('Local'));
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.none()
       );
@@ -424,9 +429,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'defers plugin loading and rejects name conflicts without resurrecting rows',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const missing = yield* client.library.create({
-        payload: createInput('Missing plugin', 'npm:missing'),
-      });
+      const repository = yield* LibraryRepository;
+      const missing = yield* repository.create(createInput('Missing plugin', 'npm:missing'));
       const resultValue = yield* client.library.get({ params: missing });
       expect(resultValue).toMatchObject({
         storagePlugin: 'npm:missing',
@@ -484,7 +488,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
-      const library = yield* client.library.create({ payload: createInput('Remote', 'npm:test') });
+      const repository = yield* LibraryRepository;
+      const library = yield* repository.create(createInput('Remote', 'npm:test'));
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const getStoragePluginSettingsFormResult =
           yield* client.library.getStoragePluginSettingsForm({ params: library });
@@ -506,13 +511,21 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         Option.none()
       );
       yield* client.library.getStoragePluginSettingsForm({ params: library });
-      yield* client.library.setStoragePluginSettings({
-        params: library,
-        payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
-      });
+      expect(
+        yield* client.library
+          .setStoragePluginSettings({
+            params: library,
+            payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
+          })
+          .pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.some({ prefix: 'unavailable' })
+        Option.none()
       );
+      yield* repository.setSettings({
+        ...library,
+        settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
+      });
       const setRootsError = yield* client.library
         .setRoots({ params: library, payload: { roots: [] } })
         .pipe(Effect.flip);
@@ -563,9 +576,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(getStoragePluginSettingsFormResult4).toMatchObject([
         { label: 'Renamed', initialValue: '/remote' },
       ]);
-      const second = yield* client.library.create({
-        payload: createInput('Second remote', 'npm:test'),
-      });
+      const second = yield* repository.create(createInput('Second remote', 'npm:test'));
       const getStoragePluginSettingsFormResult5 =
         yield* client.library.getStoragePluginSettingsForm({ params: second });
       expect(getStoragePluginSettingsFormResult5).toEqual([
@@ -758,6 +769,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const settingsStarted = yield* Latch.make();
       const settingsRelease = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
+        request.library._tag === 'Existing' &&
         request.library.id === library.id &&
         Input.is(request.input) &&
         request.input.root === '/pending-settings'
@@ -799,6 +811,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const started = yield* Latch.make();
       const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
+        request.library._tag === 'Existing' &&
         request.library.id === library.id &&
         Input.is(request.input) &&
         request.input.root === '/slow'
@@ -850,7 +863,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const started = yield* Latch.make();
       const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
-        request.library.id === library.id
+        request.library._tag === 'Existing' && request.library.id === library.id
           ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
       const pending = yield* client.library
@@ -1053,6 +1066,84 @@ const makeWireTransport = Effect.fnUntraced(function* (
 });
 
 it.layer(wireTestLayer)('library HTTP transport', (iit) => {
+  iit.effect(
+    'serves draft forms and creates settings and roots atomically over HTTP',
+    Effect.fnUntraced(function* () {
+      const { client } = yield* makeWireTransport(
+        Option.some({ username: 'wire_draft', role: 'admin' })
+      );
+      const input = createInput('Draft HTTP', 'npm:test');
+      expect(
+        yield* client.library.getDraftStoragePluginSettingsForm({ payload: input })
+      ).toMatchObject([{ label: 'Draft HTTP', initialValue: '' }]);
+      for (const payload of [
+        { ...input, storagePluginSettings: StoragePluginSettingsInput.make({ root: 123 }) },
+        { ...input, roots: [{ root: 'relative' }] },
+      ]) {
+        expect(yield* client.library.create({ payload }).pipe(Effect.flip)).toMatchObject({
+          _tag:
+            payload.roots.length > 0
+              ? 'LibraryInvalidRootError'
+              : 'StoragePluginInvalidSettingsError',
+        });
+        expect(
+          Array.some(
+            (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items,
+            (row) => row.name === input.name
+          )
+        ).toBe(false);
+      }
+      const created = yield* client.library.create({
+        payload: { ...input, roots: [{ root: '/one' }] },
+      });
+      expect(yield* client.library.get({ params: created })).toMatchObject({
+        storagePluginSettings: Option.some({ prefix: '/initial' }),
+        roots: [{ root: '/one' }],
+      });
+      yield* client.library.delete({ params: created });
+    })
+  );
+
+  iit.effect(
+    'rolls back settings updates when existing roots fail validation',
+    Effect.fnUntraced(function* () {
+      const { client } = yield* makeWireTransport(
+        Option.some({ username: 'wire_update_rollback', role: 'admin' })
+      );
+      const fixture = yield* PluginFixture;
+      const library = yield* client.library.create({
+        payload: { ...createInput('Update rollback', 'npm:test'), roots: [{ root: '/one' }] },
+      });
+      const before = yield* client.library.get({ params: library });
+      const previous = fixture.controls.beforeRootDecode;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          fixture.controls.beforeRootDecode = previous;
+        })
+      );
+      fixture.controls.beforeRootDecode = (request) =>
+        Schema.is(Schema.Struct({ prefix: Schema.Literal('/reject') }))(request.settings)
+          ? Effect.fail(
+              StorageLocationValidationError.make({ message: 'Rejected by new settings' })
+            )
+          : Effect.void;
+      expect(
+        yield* client.library
+          .setStoragePluginSettings({
+            params: library,
+            payload: { input: StoragePluginSettingsInput.make({ root: '/reject' }) },
+          })
+          .pipe(Effect.flip)
+      ).toMatchObject({ _tag: 'LibraryInvalidRootError' });
+      const after = yield* client.library.get({ params: library });
+      expect({ settings: after.storagePluginSettings, roots: after.roots }).toEqual({
+        settings: before.storagePluginSettings,
+        roots: before.roots,
+      });
+      yield* client.library.delete({ params: library });
+    })
+  );
+
   iit.effect.each(['client interruption', 'request abort'] as const)(
     'interrupts and finalizes blocked settings decoding on %s',
     Effect.fnUntraced(
@@ -1082,7 +1173,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
           )
         );
         fixture.controls.beforeDecode = (request) =>
-          request.library.id === library.id
+          request.library._tag === 'Existing' && request.library.id === library.id
             ? Effect.acquireUseRelease(
                 Effect.void,
                 () =>
@@ -1124,7 +1215,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         yield* finalized.await;
         expect(release.isOpen()).toBe(false);
         expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-          Option.none()
+          Option.some({ prefix: '/initial' })
         );
       },
       (effect) => TestClock.withLive(effect.pipe(Effect.timeout('3 seconds')))
@@ -1264,7 +1355,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const json = yield* get.json;
       expect(json).toMatchObject({
         ...library,
-        storagePluginSettings: { _tag: 'None' },
+        storagePluginSettings: { _tag: 'Some', value: {} },
         storagePluginHealth: { status: 'unknown' },
       });
       yield* client.library.setStoragePluginSettings({
