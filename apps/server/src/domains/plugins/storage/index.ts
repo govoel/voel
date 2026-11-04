@@ -1,10 +1,12 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import type { StoragePluginModule, StoragePluginSettingsLibrary } from '@govoel/plugins/storage';
+import type { StoragePluginModule } from '@govoel/plugins/storage';
 import {
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginSettings,
+  StoragePluginSettingsContext,
   StoragePluginSettingsForm,
+  StoragePluginSettingsLibrary,
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
@@ -201,7 +203,7 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
             StoragePluginSettings,
             makeEditor({
               storagePlugin: request.storagePlugin,
-              library: { _tag: 'Existing', ...request.library },
+              library: StoragePluginSettingsContext.Existing(request.library),
             })
           ),
         { idleTimeToLive: '5 minutes' }
@@ -212,20 +214,16 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
           readonly storagePlugin: Library['storagePlugin'];
           readonly library: typeof StoragePluginSettingsLibrary.Type;
         }) =>
-          request.library._tag === 'Draft'
+          StoragePluginSettingsLibrary.guards.Draft(request.library)
             ? makeEditor(request)
-            : map
-                .contextEffect(
-                  StoragePluginSettingsKey.make({
-                    storagePlugin: request.storagePlugin,
-                    library: {
-                      id: request.library.id,
-                      name: request.library.name,
-                      type: request.library.type,
-                    },
-                  })
-                )
-                .pipe(Effect.map(Context.get(StoragePluginSettings))),
+            : Schema.decodeEffect(StoragePluginSettingsKey)({
+                storagePlugin: request.storagePlugin,
+                library: request.library,
+              }).pipe(
+                Effect.catchTag('SchemaError', Effect.die),
+                Effect.flatMap((key) => map.contextEffect(key)),
+                Effect.map(Context.get(StoragePluginSettings))
+              ),
       };
     }),
   }

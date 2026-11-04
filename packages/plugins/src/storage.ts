@@ -1,13 +1,16 @@
-import { Array, Context, Schema } from 'effect';
+import { Array, Context, Data, Schema } from 'effect';
 import type { Effect, FileSystem, Layer, Option, Path } from 'effect';
 import type { HttpClient } from 'effect/http';
 
 import { Library } from '#src/library.ts';
 
-export const StoragePluginSettingsLibrary = Schema.Union([
-  Schema.TaggedStruct('Draft', { name: Library.fields.name, type: Library.fields.type }),
-  Schema.TaggedStruct('Existing', Library.fields),
-]);
+export const StoragePluginSettingsLibrary = Schema.TaggedUnion({
+  Draft: { name: Library.fields.name, type: Library.fields.type },
+  Existing: Library.fields,
+});
+
+export const StoragePluginSettingsContext =
+  Data.taggedEnum<typeof StoragePluginSettingsLibrary.Type>();
 
 /**
  * Ordered UI fields with unique, flat names. An empty array means no settings.

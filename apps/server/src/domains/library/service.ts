@@ -1,3 +1,4 @@
+import { StoragePluginSettingsContext } from '@govoel/plugins/storage';
 import type { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
@@ -10,7 +11,6 @@ import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/librar
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
-import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 export class LibraryService extends Context.Service<LibraryService>()(
   '@repo/server/domains/library/service/LibraryService',
@@ -118,7 +118,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ) {
           const editor = yield* editors.acquire({
             storagePlugin: request.storagePlugin,
-            library: { _tag: 'Draft', name: request.name, type: request.type },
+            library: StoragePluginSettingsContext.Draft({ name: request.name, type: request.type }),
           });
           return yield* editor.getForm({ current: Option.none() });
         }, Effect.scoped),
@@ -131,7 +131,10 @@ export class LibraryService extends Context.Service<LibraryService>()(
           ) {
             const editor = yield* editors.acquire({
               storagePlugin: request.storagePlugin,
-              library: { _tag: 'Draft', name: request.name, type: request.type },
+              library: StoragePluginSettingsContext.Draft({
+                name: request.name,
+                type: request.type,
+              }),
             });
             const settings = yield* editor.decodeFormSubmission({
               current: Option.none(),
@@ -142,17 +145,17 @@ export class LibraryService extends Context.Service<LibraryService>()(
               type: request.type,
               storagePlugin: request.storagePlugin,
             });
-            const storage = yield* stores.acquireScoped(
-              StoragePluginKey.make({
-                storagePlugin: request.storagePlugin,
-                library: { id: result.id, name: request.name, type: request.type },
-                settings,
-              })
-            );
-            const roots = yield* decodeRoots({ storage, roots: request.roots });
             yield* repository
               .setSettings({ id: result.id, settings })
               .pipe(Effect.catchTags({ LibraryNotFoundError: Effect.die }));
+            const configured = yield* repository
+              .getById(result)
+              .pipe(Effect.catchTags({ LibraryNotFoundError: Effect.die }));
+            const storage = yield* Option.match(configured.storageKey, {
+              onNone: () => Effect.die('Created library has no storage configuration'),
+              onSome: stores.acquireScoped,
+            });
+            const roots = yield* decodeRoots({ storage, roots: request.roots });
             yield* repository.setRoots({ id: result.id, roots });
             return result;
           },
@@ -170,7 +173,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           const row = yield* repository.getById({ id });
           const editor = yield* editors.acquire({
             storagePlugin: row.settingsKey.storagePlugin,
-            library: { _tag: 'Existing', ...row.settingsKey.library },
+            library: StoragePluginSettingsContext.Existing(row.settingsKey.library),
           });
           return yield* editor.getForm({
             current: Option.map(row.storageKey, ({ settings }) => settings),
@@ -184,26 +187,23 @@ export class LibraryService extends Context.Service<LibraryService>()(
             const row = yield* repository.getById({ id });
             const editor = yield* editors.acquire({
               storagePlugin: row.settingsKey.storagePlugin,
-              library: { _tag: 'Existing', ...row.settingsKey.library },
+              library: StoragePluginSettingsContext.Existing(row.settingsKey.library),
             });
             const settings = yield* editor.decodeFormSubmission({
               current: Option.map(row.storageKey, (key) => key.settings),
               input,
             });
             return yield* Effect.gen(function* () {
-              const current = yield* repository.getById({ id });
-              const storage = yield* stores.acquireScoped(
-                StoragePluginKey.make({
-                  storagePlugin: current.settingsKey.storagePlugin,
-                  library: current.settingsKey.library,
-                  settings,
-                })
-              );
+              const result = yield* repository.setSettings({ id, settings });
+              const current = yield* repository.getById(result);
+              const storage = yield* Option.match(current.storageKey, {
+                onNone: () => Effect.die('Updated library has no storage configuration'),
+                onSome: stores.acquireScoped,
+              });
               const roots = yield* decodeRoots({ storage, roots: current.roots });
               yield* repository.setRoots({ id, roots });
-              return yield* repository
-                .setSettings({ id, settings })
-                .pipe(Effect.tap(() => sql.afterCommit(launchRetirement({ id }))));
+              yield* sql.afterCommit(launchRetirement({ id }));
+              return result;
             }).pipe(sql.withTransaction);
           },
           Effect.catchTags({ SqlError: Effect.die }),
