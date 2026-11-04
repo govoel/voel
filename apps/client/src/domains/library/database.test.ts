@@ -65,6 +65,8 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
         name: Library.fields.name.make(libraryName),
         type: MediaType.fields.type.make('audiobook'),
         storagePlugin: Library.json.fields.storagePlugin.make('builtin:local'),
+        storagePluginSettings: StoragePluginSettingsInput.make({}),
+        roots: [],
       },
     });
     return yield* client.library.setStoragePluginSettings({

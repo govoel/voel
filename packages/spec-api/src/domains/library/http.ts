@@ -63,9 +63,20 @@ export const LibraryApi = HttpApiGroup.make('library')
         name: Library.jsonCreate.fields.name,
         type: Library.jsonCreate.fields.type,
         storagePlugin: Library.jsonCreate.fields.storagePlugin,
+        storagePluginSettings: StoragePluginSettingsInput,
+        roots: Schema.Array(Schema.Struct({ root: LibraryRoot.jsonUpsert.fields.root })),
       }),
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+      error: [
+        LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+        LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
+        StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
+        PluginLoadError.pipe(HttpApiSchema.status(500)),
+        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+      ],
     }),
 
     HttpApiEndpoint.patch('update', '/api/libraries/:id', {
@@ -77,6 +88,25 @@ export const LibraryApi = HttpApiGroup.make('library')
         LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
       ],
     }),
+
+    HttpApiEndpoint.post(
+      'getDraftStoragePluginSettingsForm',
+      '/api/libraries/plugins/storage/settings-form',
+      {
+        payload: Schema.Struct({
+          name: Library.jsonCreate.fields.name,
+          type: Library.jsonCreate.fields.type,
+          storagePlugin: Library.jsonCreate.fields.storagePlugin,
+        }),
+        success: StoragePluginSettingsForm,
+        error: [
+          StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+          StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+          PluginLoadError.pipe(HttpApiSchema.status(500)),
+          StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+        ],
+      }
+    ),
 
     HttpApiEndpoint.get(
       'getStoragePluginSettingsForm',
@@ -103,6 +133,8 @@ export const LibraryApi = HttpApiGroup.make('library')
         StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
         StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
         StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+        LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
+        StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
         PluginLoadError.pipe(HttpApiSchema.status(500)),
         StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
       ],

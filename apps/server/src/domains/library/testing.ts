@@ -70,7 +70,7 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
           _request: Parameters<StoragePluginModule['storage']['layer']>[0] & {
             readonly location: string;
           }
-        ): Effect.Effect<void> => Effect.void,
+        ): Effect.Effect<void, StorageLocationValidationError> => Effect.void,
         onFinalize: (
           _request: Parameters<StoragePluginModule['storage']['layer']>[0]
         ): Effect.Effect<void> => Effect.void,

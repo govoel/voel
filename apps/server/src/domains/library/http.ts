@@ -16,6 +16,9 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(
       .handle('list', ({ query }) => service.list(query))
       .handle('create', ({ payload }) => service.create(payload))
       .handle('update', ({ params, payload }) => service.rename({ ...params, ...payload }))
+      .handle('getDraftStoragePluginSettingsForm', ({ payload }) =>
+        service.getDraftStoragePluginSettingsForm(payload)
+      )
       .handle('getStoragePluginSettingsForm', ({ params }) =>
         service.getStoragePluginSettingsForm(params)
       )
