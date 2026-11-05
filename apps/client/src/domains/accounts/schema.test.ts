@@ -13,7 +13,8 @@ describe('ServerUrl', () => {
   ])(
     'validates %s without changing account/storage identity',
     Effect.fnUntraced(function* (value) {
-      expect(yield* Schema.decodeEffect(ServerUrl)(value)).toBe(value);
+      const decodedLocation = yield* Schema.decodeEffect(ServerUrl)(value);
+      expect(decodedLocation).toBe(value);
     })
   );
 

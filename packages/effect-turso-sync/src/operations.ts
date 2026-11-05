@@ -7,7 +7,8 @@ export const makeSyncOperations = Effect.fnUntraced(function* <R>({
 }: {
   authToken: TursoSyncClientOptions<R>['authToken'];
 }) {
-  const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
+  const services = yield* Effect.context<R>();
+  const runPromise = Effect.runPromiseWith(services);
   const semaphore = yield* Semaphore.make(1);
   let signal = yield* Effect.scoped(Effect.abortSignal);
 

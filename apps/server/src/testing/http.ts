@@ -31,7 +31,7 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
   }
 
   const { test } = context;
-  const savedUser = yield* Effect.tryPromise(async () =>
+  const savedUser = yield* Effect.promise(async () =>
     test.saveUser(
       test.createUser({
         role: user.role,
@@ -40,19 +40,17 @@ export const makeAuthedClient = Effect.fnUntraced(function* (user: {
         name: user.name ?? `Test User: ${user.username}`,
       })
     )
-  ).pipe(Effect.orDie);
+  );
 
   yield* Effect.sync(() => {
     database.prepare('update "user" set "role" = ? where "id" = ?').run([user.role, savedUser.id]);
   });
 
-  yield* Effect.addFinalizer(() =>
-    Effect.tryPromise(async () => test.deleteUser(savedUser.id)).pipe(Effect.orDie)
-  );
+  yield* Effect.addFinalizer(() => Effect.promise(async () => test.deleteUser(savedUser.id)));
 
-  const headers = yield* Effect.tryPromise(async () =>
+  const headers = yield* Effect.promise(async () =>
     test.getAuthHeaders({ userId: savedUser.id })
-  ).pipe(Effect.orDie, Effect.map(EffectHeaders.fromInput));
+  ).pipe(Effect.map(EffectHeaders.fromInput));
 
   return {
     headers,

@@ -48,9 +48,11 @@ const mutate = Effect.fnUntraced(function* ({
 const cacheKeys = Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
   const editors = yield* StoragePluginSettingsMap;
   const stores = yield* StoragePluginMap;
+  const editorKeys = yield* RcMap.keys(editors.rcMap);
+  const storeKeys = yield* RcMap.keys(stores.rcMap);
   return {
-    editors: Array.filter(yield* RcMap.keys(editors.rcMap), (key) => key.library.id === id),
-    stores: Array.filter(yield* RcMap.keys(stores.rcMap), (key) => key.library.id === id),
+    editors: Array.filter(editorKeys, (key) => key.library.id === id),
+    stores: Array.filter(storeKeys, (key) => key.library.id === id),
   };
 });
 
@@ -114,11 +116,9 @@ it.layer(testLayer)('library service without transport', (iit) => {
         settings: StoragePluginSettingsPersisted.make({ prefix: '/decoded' }),
       });
       const configured = yield* repository.getById(library);
+      const listResult = yield* repository.list({ cursor: Option.none(), limit: 100 });
       const listed = Option.getOrThrow(
-        Array.findFirst(
-          yield* repository.list({ cursor: Option.none(), limit: 100 }),
-          (row) => row.settingsKey.library.id === library.id
-        )
+        Array.findFirst(listResult, (row) => row.settingsKey.library.id === library.id)
       );
       const storageKey = Option.getOrThrow(configured.storageKey);
       const listedStorageKey = Option.getOrThrow(listed.storageKey);
@@ -132,19 +132,25 @@ it.layer(testLayer)('library service without transport', (iit) => {
       });
 
       const editor = yield* editors.acquire(unconfigured.settingsKey);
-      expect(yield* editors.acquire(listed.settingsKey)).toBe(editor);
+      const acquireResult = yield* editors.acquire(listed.settingsKey);
+      expect(acquireResult).toBe(editor);
       const storage = yield* stores.acquire(storageKey);
-      expect(yield* stores.acquire(listedStorageKey)).toBe(storage);
-      expect(Option.isSome(yield* editors.contextEffectOption(configured.settingsKey))).toBe(true);
-      expect(Option.isSome(yield* stores.contextEffectOption(listedStorageKey))).toBe(true);
+      const acquireResult2 = yield* stores.acquire(listedStorageKey);
+      expect(acquireResult2).toBe(storage);
+      const contextEffectOptionResult = yield* editors.contextEffectOption(configured.settingsKey);
+      expect(Option.isSome(contextEffectOptionResult)).toBe(true);
+      const contextEffectOptionResult2 = yield* stores.contextEffectOption(listedStorageKey);
+      expect(Option.isSome(contextEffectOptionResult2)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'healthy' });
 
       yield* editors.invalidate(listed.settingsKey);
       yield* stores.invalidate(listedStorageKey);
-      expect(Option.isNone(yield* editors.contextEffectOption(unconfigured.settingsKey))).toBe(
-        true
+      const contextEffectOptionResult3 = yield* editors.contextEffectOption(
+        unconfigured.settingsKey
       );
-      expect(Option.isNone(yield* stores.contextEffectOption(storageKey))).toBe(true);
+      expect(Option.isNone(contextEffectOptionResult3)).toBe(true);
+      const contextEffectOptionResult4 = yield* stores.contextEffectOption(storageKey);
+      expect(Option.isNone(contextEffectOptionResult4)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
     }, Effect.scoped)
   );
@@ -165,8 +171,10 @@ it.layer(testLayer)('library service without transport', (iit) => {
         .withTransaction(change.pipe(Effect.andThen(Effect.fail('outer rollback'))))
         .pipe(Effect.flip);
       yield* drainScheduler;
-      expect(yield* repository.getById(target.library)).toEqual(target.row);
-      expect(yield* cacheKeys(target.library)).toEqual(target.keys);
+      const getByIdResult = yield* repository.getById(target.library);
+      expect(getByIdResult).toEqual(target.row);
+      const cacheKeysResult = yield* cacheKeys(target.library);
+      expect(cacheKeysResult).toEqual(target.keys);
 
       yield* sql.withTransaction(
         Effect.gen(function* () {
@@ -174,23 +182,29 @@ it.layer(testLayer)('library service without transport', (iit) => {
             .withTransaction(change.pipe(Effect.andThen(Effect.fail('savepoint rollback'))))
             .pipe(Effect.flip);
           yield* drainScheduler;
-          expect(yield* cacheKeys(target.library)).toEqual(target.keys);
+          const cacheKeysResult2 = yield* cacheKeys(target.library);
+          expect(cacheKeysResult2).toEqual(target.keys);
         })
       );
       yield* drainScheduler;
-      expect(yield* repository.getById(target.library)).toEqual(target.row);
-      expect(yield* cacheKeys(target.library)).toEqual(target.keys);
+      const getByIdResult2 = yield* repository.getById(target.library);
+      expect(getByIdResult2).toEqual(target.row);
+      const cacheKeysResult3 = yield* cacheKeys(target.library);
+      expect(cacheKeysResult3).toEqual(target.keys);
 
       yield* sql.withTransaction(
         Effect.gen(function* () {
           yield* change;
           yield* drainScheduler;
-          expect(yield* cacheKeys(target.library)).toEqual(target.keys);
+          const cacheKeysResult4 = yield* cacheKeys(target.library);
+          expect(cacheKeysResult4).toEqual(target.keys);
         })
       );
       yield* drainScheduler;
-      expect(yield* cacheKeys(target.library)).toEqual({ editors: [], stores: [] });
-      expect(yield* cacheKeys(unrelated.library)).toEqual(unrelated.keys);
+      const cacheKeysResult5 = yield* cacheKeys(target.library);
+      expect(cacheKeysResult5).toEqual({ editors: [], stores: [] });
+      const cacheKeysResult6 = yield* cacheKeys(unrelated.library);
+      expect(cacheKeysResult6).toEqual(unrelated.keys);
       yield* Match.value(operation).pipe(
         Match.when(
           'delete',
@@ -267,9 +281,11 @@ it.layer(testLayer)('library service without transport', (iit) => {
         yield* drainScheduler;
         yield* release.open;
         yield* Fiber.join(interrupting);
-        expect(Exit.hasInterrupts(yield* Fiber.await(request))).toBe(true);
+        const requestExit = yield* Fiber.await(request);
+        expect(Exit.hasInterrupts(requestExit)).toBe(true);
         yield* drainScheduler;
-        expect(yield* cacheKeys(target.library)).toEqual(
+        const cacheKeysResult = yield* cacheKeys(target.library);
+        expect(cacheKeysResult).toEqual(
           boundary === 'commit' ? { editors: [], stores: [] } : target.keys
         );
         expect(

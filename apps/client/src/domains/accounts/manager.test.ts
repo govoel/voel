@@ -34,8 +34,10 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
           password: Redacted.make('test-password-12345'),
         });
         expect(key).toBeInstanceOf(AccountKey);
-        expect(yield* manager.state).toEqual(Option.some(key));
-        expect(Option.getOrThrow(yield* repository.findByKey(key))).toMatchObject({
+        const state = yield* manager.state;
+        expect(state).toEqual(Option.some(key));
+        const findByKeyResult = yield* repository.findByKey(key);
+        expect(Option.getOrThrow(findByKeyResult)).toMatchObject({
           key,
           username,
           name: 'First Admin',
@@ -54,7 +56,8 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         yield* Effect.gen(function* () {
           const clients = yield* AuthClientMap;
           const client = yield* clients.acquire(key);
-          expect(yield* client.getCookie).toMatchObject({ _tag: 'Some' });
+          const getCookie = yield* client.getCookie;
+          expect(getCookie).toMatchObject({ _tag: 'Some' });
           expect((yield* client.readSession).user.id).toEqual(key.userId);
         }).pipe(Effect.provide(Layer.fresh(AuthClientMap.layerNoDeps)));
       },
@@ -79,7 +82,8 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
           username: server.adminUsername,
           password: server.password,
         });
-        expect(yield* clients.acquire(key)).toBe(shared);
+        const acquireResult = yield* clients.acquire(key);
+        expect(acquireResult).toBe(shared);
         const current = yield* shared.sessionChanges.pipe(
           Stream.filter(
             (state) =>
@@ -92,8 +96,10 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         );
         expect(Option.isSome(current)).toBe(true);
         expect(key).toEqual(account.key);
-        expect(yield* repository.list).toHaveLength(1);
-        expect(yield* manager.state).toEqual(Option.some(key));
+        const list = yield* repository.list;
+        expect(list).toHaveLength(1);
+        const state2 = yield* manager.state;
+        expect(state2).toEqual(Option.some(key));
         expect((yield* repository.readAuthStorage(key))['voel_cookie']).not.toBe(
           before['voel_cookie']
         );
@@ -120,8 +126,10 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
           })
           .pipe(Effect.flip);
         expect(error).toMatchObject({ _tag: 'AccountSignInError' });
-        expect(yield* repository.list).toEqual(before);
-        expect(yield* repository.readAuthStorage(account.key)).toEqual(credentials);
+        const list = yield* repository.list;
+        expect(list).toEqual(before);
+        const readAuthStorageResult = yield* repository.readAuthStorage(account.key);
+        expect(readAuthStorageResult).toEqual(credentials);
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -157,15 +165,19 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
           })
           .pipe(Effect.exit);
         expect(exit._tag).toBe('Failure');
-        expect(yield* manager.state).toEqual(Option.some(existing.key));
-        expect(yield* repository.list).toEqual(before);
+        const state = yield* manager.state;
+        expect(state).toEqual(Option.some(existing.key));
+        const list = yield* repository.list;
+        expect(list).toEqual(before);
         yield* sql`
           drop trigger reject_new_account
         `;
         const recovered = yield* manager.signInAccount({ serverUrl, username, password });
         expect(recovered).toBeInstanceOf(AccountKey);
-        expect(yield* repository.list).toHaveLength(2);
-        expect(Option.getOrThrow(yield* repository.findByKey(recovered))).toMatchObject({
+        const list2 = yield* repository.list;
+        expect(list2).toHaveLength(2);
+        const findByKeyResult = yield* repository.findByKey(recovered);
+        expect(Option.getOrThrow(findByKeyResult)).toMatchObject({
           username,
           role: 'admin',
           active: true,
@@ -185,7 +197,8 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [first, second] = yield* signInTestServerUsers(manager, server);
         yield* manager.setActiveAccount(first.key);
-        expect(yield* manager.state).toEqual(Option.some(first.key));
+        const state2 = yield* manager.state;
+        expect(state2).toEqual(Option.some(first.key));
         const client = yield* clients.acquire(first.key);
         yield* client.sessionChanges.pipe(
           Stream.filter(
@@ -203,13 +216,16 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         );
         yield* client.updateUser({ name: 'Updated Admin' });
         yield* Fiber.join(changed);
-        expect(yield* manager.state).toEqual(Option.some(first.key));
-        expect(Option.getOrThrow(yield* repository.findByKey(first.key))).toMatchObject({
+        const state3 = yield* manager.state;
+        expect(state3).toEqual(Option.some(first.key));
+        const findByKeyResult = yield* repository.findByKey(first.key);
+        expect(Option.getOrThrow(findByKeyResult)).toMatchObject({
           key: first.key,
           name: 'Updated Admin',
         });
         yield* manager.setActiveAccount(second.key);
-        expect(yield* manager.state).toEqual(Option.some(second.key));
+        const state4 = yield* manager.state;
+        expect(state4).toEqual(Option.some(second.key));
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -221,16 +237,20 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
       function* () {
         const manager = yield* AccountManager;
         const repository = yield* AccountRepository;
-        const serverScope = yield* Scope.fork(yield* Effect.scope);
+        const scope = yield* Effect.scope;
+        const serverScope = yield* Scope.fork(scope);
         const server = yield* setupTestServerWithUsers({ userCount: 2 }).pipe(
           Scope.provide(serverScope)
         );
         const [first, second] = yield* signInTestServerUsers(manager, server);
         yield* Scope.close(serverScope, Exit.void);
         yield* manager.removeAccount(first.key);
-        expect(yield* repository.findByKey(first.key)).toEqual(Option.none());
-        expect(yield* repository.readAuthStorage(first.key)).toEqual({});
-        expect(yield* manager.state).toEqual(Option.some(second.key));
+        const findByKeyResult = yield* repository.findByKey(first.key);
+        expect(findByKeyResult).toEqual(Option.none());
+        const readAuthStorageResult = yield* repository.readAuthStorage(first.key);
+        expect(readAuthStorageResult).toEqual({});
+        const state = yield* manager.state;
+        expect(state).toEqual(Option.some(second.key));
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -245,8 +265,10 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
         const server = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, server);
         yield* manager.signOutEverywhere(account.key);
-        expect(yield* repository.list).toEqual([]);
-        expect(yield* manager.state).toEqual(Option.none());
+        const list = yield* repository.list;
+        expect(list).toEqual([]);
+        const state = yield* manager.state;
+        expect(state).toEqual(Option.none());
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )
@@ -258,21 +280,27 @@ it.layer(TestServerControllerClient.layer)('AccountManager', (iit) => {
       function* () {
         const manager = yield* AccountManager;
         const repository = yield* AccountRepository;
-        const serverScope = yield* Scope.fork(yield* Effect.scope);
+        const scope = yield* Effect.scope;
+        const serverScope = yield* Scope.fork(scope);
         const server = yield* setupTestServerWithUsers({ userCount: 1 }).pipe(
           Scope.provide(serverScope)
         );
         const [account] = yield* signInTestServerUsers(manager, server);
         const credentials = yield* repository.readAuthStorage(account.key);
         yield* Scope.close(serverScope, Exit.void);
-        expect(yield* manager.signOutEverywhere(account.key).pipe(Effect.flip)).toMatchObject({
+        const signOutEverywhereError = yield* manager
+          .signOutEverywhere(account.key)
+          .pipe(Effect.flip);
+        expect(signOutEverywhereError).toMatchObject({
           _tag: 'AuthError',
         });
-        expect(Option.getOrThrow(yield* repository.findByKey(account.key))).toMatchObject({
+        const findByKeyResult = yield* repository.findByKey(account.key);
+        expect(Option.getOrThrow(findByKeyResult)).toMatchObject({
           key: account.key,
           active: true,
         });
-        expect(yield* repository.readAuthStorage(account.key)).toEqual(credentials);
+        const readAuthStorageResult = yield* repository.readAuthStorage(account.key);
+        expect(readAuthStorageResult).toEqual(credentials);
       },
       (effect) => effect.pipe(Effect.provide(makeClientTestLayers()))
     )

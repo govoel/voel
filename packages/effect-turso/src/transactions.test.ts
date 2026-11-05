@@ -119,7 +119,12 @@ describe('TursoClient pooled transaction recovery', () => {
       const healthyLease = yield* Scope.fork(scope);
       const healthy = yield* Scope.provide(sql.reserve, healthyLease);
       expect(healthy).toBe(second);
-      expect(yield* healthy.executeUnprepared('SELECT * FROM parent', [], void 0)).toEqual([]);
+      const executeUnpreparedResult = yield* healthy.executeUnprepared(
+        'SELECT * FROM parent',
+        [],
+        void 0
+      );
+      expect(executeUnpreparedResult).toEqual([]);
       expect(
         Array.filter(secondSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
       ).toHaveLength(0);
@@ -137,8 +142,18 @@ describe('TursoClient pooled transaction recovery', () => {
       expect(
         Array.filter(secondSpy.mock.calls, ([statement]) => statement === 'ROLLBACK')
       ).toHaveLength(0);
-      expect(yield* recovered.executeUnprepared('SELECT * FROM parent', [], void 0)).toEqual([]);
-      expect(yield* recovered.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
+      const executeUnpreparedResult2 = yield* recovered.executeUnprepared(
+        'SELECT * FROM parent',
+        [],
+        void 0
+      );
+      expect(executeUnpreparedResult2).toEqual([]);
+      const executeUnpreparedResult3 = yield* recovered.executeUnprepared(
+        'SELECT * FROM child',
+        [],
+        void 0
+      );
+      expect(executeUnpreparedResult3).toEqual([]);
     }, Effect.provide(TestLayer))
   );
 
@@ -188,7 +203,12 @@ describe('TursoClient pooled transaction recovery', () => {
         const healthyLease = yield* Scope.fork(scope);
         const healthy = yield* Scope.provide(sql.reserve, healthyLease);
         expect(healthy).toBe(second);
-        expect(yield* healthy.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
+        const executeUnpreparedResult = yield* healthy.executeUnprepared(
+          'SELECT * FROM child',
+          [],
+          void 0
+        );
+        expect(executeUnpreparedResult).toEqual([]);
         expect(transaction.pollUnsafe()).toBe(void 0);
 
         const waiting = yield* Effect.scoped(sql.reserve).pipe(
@@ -202,8 +222,14 @@ describe('TursoClient pooled transaction recovery', () => {
         if (Exit.isFailure(failed)) {
           expect(String.toLowerCase(Cause.pretty(failed.cause))).toContain('foreign key');
         }
-        expect(yield* Fiber.join(waiting)).toBe(first);
-        expect(yield* healthy.executeUnprepared('SELECT * FROM child', [], void 0)).toEqual([]);
+        const waitingValue = yield* Fiber.join(waiting);
+        expect(waitingValue).toBe(first);
+        const executeUnpreparedResult2 = yield* healthy.executeUnprepared(
+          'SELECT * FROM child',
+          [],
+          void 0
+        );
+        expect(executeUnpreparedResult2).toEqual([]);
       }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
     }, Effect.provide(TestLayer))
   );
@@ -258,22 +284,20 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         _tag: 'Failure',
         failure: { _tag: 'SqlError', reason: { _tag: 'ConstraintError' } },
       });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([]);
-      expect(
-        yield* sql`
+        `;
+      expect(rows).toEqual([]);
+      const rows2 = yield* sql`
           select
             *
           from
             child
-        `
-      ).toEqual([]);
+        `;
+      expect(rows2).toEqual([]);
 
       yield* sql.withTransaction(
         sql`
@@ -290,14 +314,13 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
           `)
         )
       );
-      expect(
-        yield* sql`
+      const rows3 = yield* sql`
           select
             *
           from
             child
-        `
-      ).toEqual([{ id: 2, parent_id: 2 }]);
+        `;
+      expect(rows3).toEqual([{ id: 2, parent_id: 2 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -364,28 +387,26 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         _tag: 'Failure',
         failure: { _tag: 'SqlError', reason: { _tag: 'ConnectionError' } },
       });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([]);
+        `;
+      expect(rows).toEqual([]);
       yield* sql`
         insert into
           parent
         values
           (2)
       `.pipe(sql.withTransaction);
-      expect(
-        yield* sql`
+      const rows2 = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([{ id: 2 }]);
+        `;
+      expect(rows2).toEqual([{ id: 2 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -442,14 +463,13 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         values
           (1)
       `.pipe(sql.withTransaction);
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([{ id: 1 }]);
+        `;
+      expect(rows).toEqual([{ id: 1 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -497,16 +517,15 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         })
       );
       expect(releases).toHaveLength(2);
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
           order by
             id
-        `
-      ).toEqual([{ id: 1 }, { id: 3 }]);
+        `;
+      expect(rows).toEqual([{ id: 1 }, { id: 3 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -560,7 +579,8 @@ describe.each(['file-backed', 'in-memory'] as const)('TursoClient transactions (
         expect(reader.pollUnsafe()).toBe(void 0);
         yield* Deferred.succeed(release, true);
         yield* Fiber.await(transaction);
-        expect(yield* Fiber.join(reader)).toEqual([]);
+        const readerValue = yield* Fiber.join(reader);
+        expect(readerValue).toEqual([]);
       }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
     }, Effect.provide(TestLayer))
   );

@@ -65,22 +65,20 @@ describe('Bun Turso Sync transactions', () => {
         _tag: 'Failure',
         failure: { _tag: 'SqlError', reason: { _tag: 'ConstraintError' } },
       });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([]);
-      expect(
-        yield* sql`
+        `;
+      expect(rows).toEqual([]);
+      const rows2 = yield* sql`
           select
             *
           from
             child
-        `
-      ).toEqual([]);
+        `;
+      expect(rows2).toEqual([]);
 
       yield* sql.withTransaction(
         sql`
@@ -97,14 +95,13 @@ describe('Bun Turso Sync transactions', () => {
           `)
         )
       );
-      expect(
-        yield* sql`
+      const rows3 = yield* sql`
           select
             *
           from
             child
-        `
-      ).toEqual([{ id: 2, parent_id: 2 }]);
+        `;
+      expect(rows3).toEqual([{ id: 2, parent_id: 2 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -171,28 +168,26 @@ describe('Bun Turso Sync transactions', () => {
         _tag: 'Failure',
         failure: { _tag: 'SqlError', reason: { _tag: 'ConnectionError' } },
       });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([]);
+        `;
+      expect(rows).toEqual([]);
       yield* sql`
         insert into
           parent
         values
           (2)
       `.pipe(sql.withTransaction);
-      expect(
-        yield* sql`
+      const rows2 = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([{ id: 2 }]);
+        `;
+      expect(rows2).toEqual([{ id: 2 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -249,14 +244,13 @@ describe('Bun Turso Sync transactions', () => {
         values
           (1)
       `.pipe(sql.withTransaction);
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
-        `
-      ).toEqual([{ id: 1 }]);
+        `;
+      expect(rows).toEqual([{ id: 1 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -304,16 +298,15 @@ describe('Bun Turso Sync transactions', () => {
         })
       );
       expect(releases).toHaveLength(2);
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             parent
           order by
             id
-        `
-      ).toEqual([{ id: 1 }, { id: 3 }]);
+        `;
+      expect(rows).toEqual([{ id: 1 }, { id: 3 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -367,7 +360,8 @@ describe('Bun Turso Sync transactions', () => {
         expect(reader.pollUnsafe()).toBe(void 0);
         yield* Deferred.succeed(release, true);
         yield* Fiber.await(transaction);
-        expect(yield* Fiber.join(reader)).toEqual([]);
+        const readerValue = yield* Fiber.join(reader);
+        expect(readerValue).toEqual([]);
       }).pipe(Effect.ensuring(Deferred.succeed(release, true)));
     }, Effect.provide(TestLayer))
   );

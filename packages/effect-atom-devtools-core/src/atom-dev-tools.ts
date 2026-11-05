@@ -1,4 +1,5 @@
 import {
+  Array,
   Cause,
   Context,
   Effect,
@@ -149,7 +150,7 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsId
     const publishCatalogSnapshot = () => {
       PubSub.publishUnsafe(
         catalogPubSub,
-        [...trackedNodesById.values()].map(({ node }) => makeAtomSummary(node))
+        Array.map([...trackedNodesById.values()], ({ node }) => makeAtomSummary(node))
       );
     };
 
@@ -266,12 +267,14 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsId
         lazy: atom.lazy,
         idleTTL: atom.idleTTL,
         subscriberCount: node.listeners.size,
-        dependencies: [...node.parents]
-          .filter((parent) => !isInternalAtom(parent.atom))
-          .map(makeAtomLink),
-        dependents: [...node.children]
-          .filter((child) => !isInternalAtom(child.atom))
-          .map(makeAtomLink),
+        dependencies: Array.map(
+          Array.filter([...node.parents], (parent) => !isInternalAtom(parent.atom)),
+          makeAtomLink
+        ),
+        dependents: Array.map(
+          Array.filter([...node.children], (child) => !isInternalAtom(child.atom)),
+          makeAtomLink
+        ),
         predefinedStates: hasPredefinedStates(atom) ? atom[PredefinedStatesTypeId].getStates() : [],
         activePredefinedStateId: hasPredefinedStates(atom)
           ? atom[PredefinedStatesTypeId].getActiveStateId(registry)
@@ -329,11 +332,14 @@ export class AtomDevTools extends Context.Service<AtomDevTools>()(AtomDevToolsId
         if (!hasPredefinedStates(atom)) {
           return yield* PredefinedStateNotFound.make({ atomId: targetId, stateId });
         }
-        const state = atom[PredefinedStatesTypeId].getStates().find(({ id }) => id === stateId);
-        if (state === void 0) {
+        const state = Array.findFirst(
+          atom[PredefinedStatesTypeId].getStates(),
+          ({ id }) => id === stateId
+        );
+        if (Option.isNone(state)) {
           return yield* PredefinedStateNotFound.make({ atomId: targetId, stateId });
         }
-        atom[PredefinedStatesTypeId].activate(registry, state);
+        atom[PredefinedStatesTypeId].activate(registry, state.value);
         publishCatalogSnapshot();
         return void 0;
       }),

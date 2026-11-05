@@ -20,7 +20,7 @@ export class StoragePluginSettingsForm extends Schema.Array(
   })
 ).check(
   Schema.makeFilter(
-    (fields) => Array.dedupe(fields.map(({ name }) => name)).length === fields.length,
+    (fields) => Array.dedupe(Array.map(fields, ({ name }) => name)).length === fields.length,
     { message: 'Settings field names must be unique' }
   )
 ) {

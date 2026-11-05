@@ -76,12 +76,15 @@ describe('AccountRepository', () => {
                 expect(error).toBeInstanceOf(AccountDatabaseError);
                 expect(error).toMatchObject({ cause: { reason: { _tag: 'LockTimeoutError' } } });
               }
-              expect(yield* repository.list).toEqual(before);
-              expect(yield* repository.readAuthStorage(first)).toEqual(credentials);
+              const list = yield* repository.list;
+              expect(list).toEqual(before);
+              const readAuthStorageResult = yield* repository.readAuthStorage(first);
+              expect(readAuthStorageResult).toEqual(credentials);
             })
           );
           yield* repository.setActive(second);
-          expect(yield* repository.getActiveKey).toEqual(Option.some(second));
+          const activeKey = yield* repository.getActiveKey;
+          expect(activeKey).toEqual(Option.some(second));
         }).pipe(
           Effect.provide(
             RepositoryDatabaseLayer.pipe(
@@ -105,7 +108,8 @@ describe('AccountRepository', () => {
         ...makeAccount('first'),
         authStorage: { voel_cookie: 'replacement-credential' },
       };
-      expect(yield* repository.upsertActive(replacement)).toEqual(first);
+      const upsertActiveResult = yield* repository.upsertActive(replacement);
+      expect(upsertActiveResult).toEqual(first);
       expect(first).toBeInstanceOf(AccountKey);
       expect(Record.keys(first).sort()).toEqual(['serverUrl', 'userId']);
       const accounts = yield* repository.list;
@@ -120,9 +124,11 @@ describe('AccountRepository', () => {
         expect(account).not.toHaveProperty('serverUrl');
         expect(account).not.toHaveProperty('userId');
         expect(Schema.is(Account)(account)).toBe(true);
-        expect(Option.getOrThrow(yield* repository.findByKey(account.key))).toEqual(account);
+        const findByKeyResult = yield* repository.findByKey(account.key);
+        expect(Option.getOrThrow(findByKeyResult)).toEqual(account);
       }
-      expect(yield* repository.readAuthStorage(first)).toEqual(replacement.authStorage);
+      const readAuthStorageResult = yield* repository.readAuthStorage(first);
+      expect(readAuthStorageResult).toEqual(replacement.authStorage);
       const rows = yield* sql<{ authStorage: string }>`
         select
           *
@@ -133,7 +139,8 @@ describe('AccountRepository', () => {
         expect(row.authStorage).not.toContain('credential');
         const decoded = yield* Schema.decodeUnknownEffect(DbAccount)(row);
         const key = AccountKey.make(Struct.pick(decoded, ['serverUrl', 'userId']));
-        const summary = Option.getOrThrow(yield* repository.findByKey(key));
+        const findByKeyResult2 = yield* repository.findByKey(key);
+        const summary = Option.getOrThrow(findByKeyResult2);
         expect(summary).toEqual({
           key,
           ...Struct.omit(decoded, ['serverUrl', 'userId', 'authStorage']),
@@ -151,7 +158,8 @@ describe('AccountRepository', () => {
       }
       yield* repository.setActive(second);
       yield* repository.setActive(second);
-      expect(yield* repository.getActiveKey).toEqual(Option.some(second));
+      const activeKey = yield* repository.getActiveKey;
+      expect(activeKey).toEqual(Option.some(second));
     }, Effect.provide(RepositoryTestLayer))
   );
 
@@ -197,7 +205,8 @@ describe('AccountRepository', () => {
         )
         .pipe(Effect.flip);
       expect(invalidations.count).toBe(3);
-      expect(yield* repository.list).toEqual(before);
+      const list = yield* repository.list;
+      expect(list).toEqual(before);
     }, Effect.provide(RepositoryTestLayer))
   );
 
@@ -221,8 +230,10 @@ describe('AccountRepository', () => {
         .pipe(Effect.exit);
       expect(Exit.hasFails(exit)).toBe(false);
       expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SqlError' });
-      expect(yield* repository.list).toEqual(before);
-      expect(yield* repository.readAuthStorage(first)).toEqual(credentials);
+      const list = yield* repository.list;
+      expect(list).toEqual(before);
+      const readAuthStorageResult = yield* repository.readAuthStorage(first);
+      expect(readAuthStorageResult).toEqual(credentials);
     }, Effect.provide(RepositoryTestLayer))
   );
 
@@ -251,19 +262,24 @@ describe('AccountRepository', () => {
         ),
         (remove) => Effect.sync(remove)
       );
-      expect(yield* failing.upsertActive(makeAccount('second')).pipe(Effect.flip)).toMatchObject({
+      const upsertActiveError = yield* failing
+        .upsertActive(makeAccount('second'))
+        .pipe(Effect.flip);
+      expect(upsertActiveError).toMatchObject({
         _tag: 'AccountCredentialsError',
       });
-      expect(
-        yield* failing
-          .writeAuthStorageItem({ key: first, name: 'voel_cookie', value: 'replacement' })
-          .pipe(Effect.flip)
-      ).toMatchObject({
+      const writeAuthStorageItemError = yield* failing
+        .writeAuthStorageItem({ key: first, name: 'voel_cookie', value: 'replacement' })
+        .pipe(Effect.flip);
+      expect(writeAuthStorageItemError).toMatchObject({
         _tag: 'AccountCredentialsError',
       });
-      expect(yield* repository.list).toEqual(before);
-      expect(yield* repository.getActiveKey).toEqual(Option.some(first));
-      expect(yield* repository.readAuthStorage(first)).toEqual(makeAccount('first').authStorage);
+      const list = yield* repository.list;
+      expect(list).toEqual(before);
+      const activeKey = yield* repository.getActiveKey;
+      expect(activeKey).toEqual(Option.some(first));
+      const readAuthStorageResult = yield* repository.readAuthStorage(first);
+      expect(readAuthStorageResult).toEqual(makeAccount('first').authStorage);
       expect(invalidations).toBe(0);
     }, Effect.provide(RepositoryTestLayer))
   );
@@ -281,18 +297,24 @@ describe('AccountRepository', () => {
           storage.setItemAsync('voel_cookie.0.0', 'a chunk'),
         ])
       );
-      expect(yield* repository.readAuthStorage(key)).toEqual({
+      const readAuthStorageResult = yield* repository.readAuthStorage(key);
+      expect(readAuthStorageResult).toEqual({
         voel_cookie: 'rotated-cookie',
         voel_session_data: 'cached-session',
         'voel_cookie.0.0': 'a chunk',
       });
       yield* repository.remove(key);
-      expect(yield* repository.getActiveKey).toEqual(Option.none());
-      expect(yield* repository.findByKey(key)).toEqual(Option.none());
-      expect(yield* Effect.promise(async () => storage.getItemAsync('voel_cookie'))).toBeNull();
+      const activeKey = yield* repository.getActiveKey;
+      expect(activeKey).toEqual(Option.none());
+      const findByKeyResult = yield* repository.findByKey(key);
+      expect(findByKeyResult).toEqual(Option.none());
+      const result = yield* Effect.promise(async () => storage.getItemAsync('voel_cookie'));
+      expect(result).toBeNull();
       yield* Effect.promise(async () => storage.setItemAsync('voel_cookie', 'late callback'));
-      expect(yield* repository.list).toEqual([]);
-      expect(yield* repository.setActive(key).pipe(Effect.flip)).toMatchObject({
+      const list = yield* repository.list;
+      expect(list).toEqual([]);
+      const setActiveError = yield* repository.setActive(key).pipe(Effect.flip);
+      expect(setActiveError).toMatchObject({
         _tag: 'AccountNotFoundError',
       });
     }, Effect.provide(RepositoryTestLayer))
@@ -312,11 +334,14 @@ describe('AccountRepository', () => {
         where
           "userId" = ${key.userId}
       `;
-      expect(yield* repository.readAuthStorage(key).pipe(Effect.flip)).toMatchObject({
+      const readAuthStorageError = yield* repository.readAuthStorage(key).pipe(Effect.flip);
+      expect(readAuthStorageError).toMatchObject({
         _tag: 'AccountCredentialsError',
       });
-      expect(yield* repository.list).toEqual(before);
-      expect(Option.getOrThrow(yield* repository.findByKey(key))).toEqual(before[0]);
+      const list = yield* repository.list;
+      expect(list).toEqual(before);
+      const findByKeyResult = yield* repository.findByKey(key);
+      expect(Option.getOrThrow(findByKeyResult)).toEqual(before[0]);
     }, Effect.provide(RepositoryTestLayer))
   );
 

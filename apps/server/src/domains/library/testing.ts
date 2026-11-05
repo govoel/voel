@@ -12,7 +12,7 @@ import {
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Context, Effect, Layer, Option, Scheduler, Schema } from 'effect';
+import { Context, Effect, Layer, Option, Scheduler, Schema, String } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
@@ -114,7 +114,7 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                 return StoragePlugin.of({
                   decodeRootLocation: ({ location }) =>
                     controls.beforeRootDecode({ ...request, location }).pipe(
-                      Effect.andThen(decodeRoot(location.trim())),
+                      Effect.andThen(decodeRoot(String.trim(location))),
                       Effect.catchTags({
                         SchemaError: (error) =>
                           StorageLocationValidationError.make({ message: error.message }),
@@ -175,12 +175,12 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                       ),
                       Effect.map(({ root }) => {
                         if (controls.invalidPersisted) {
-                          const value = { prefix: root.trim(), version: 1 };
+                          const value = { prefix: String.trim(root), version: 1 };
                           const settings = StoragePluginSettingsPersisted.make(value);
                           value.version = Number.NaN;
                           return settings;
                         }
-                        return StoragePluginSettingsPersisted.make({ prefix: root.trim() });
+                        return StoragePluginSettingsPersisted.make({ prefix: String.trim(root) });
                       })
                     ),
                 })

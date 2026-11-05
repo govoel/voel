@@ -59,14 +59,13 @@ it.effect(
         authToken: Effect.succeed(token),
         longPollTimeoutMs: 10,
       });
-      expect(
-        yield* replica`
+      const rows = yield* replica`
         select
           name
         from
           library
-      `
-      ).toEqual([{ name: 'Audiobooks' }]);
+      `;
+      expect(rows).toEqual([{ name: 'Audiobooks' }]);
 
       yield* source`
         insert into
@@ -74,17 +73,17 @@ it.effect(
         values
           ('movie', 'Movies', 'builtin:local')
       `;
-      expect(yield* replica.pull).toBe(true);
-      expect(
-        yield* replica`
+      const pull = yield* replica.pull;
+      expect(pull).toBe(true);
+      const rows2 = yield* replica`
         select
           name
         from
           library
         order by
           name
-      `
-      ).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
+      `;
+      expect(rows2).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
 
       const options = yield* HttpClient.options('/api/sync/library/pull-updates', { headers });
       expect(options.status).toBe(204);
@@ -96,16 +95,15 @@ it.effect(
         }),
       });
       expect(pipeline.status).toBe(404);
-      expect(
-        yield* source`
+      const rows3 = yield* source`
         select
           name
         from
           library
         order by
           name
-      `
-      ).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
+      `;
+      expect(rows3).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
 
       const unknownOptions = yield* HttpClient.options('/api/sync/library/future-sync-route', {
         headers,
@@ -126,17 +124,16 @@ it.effect(
         insert into "libraryFileMap" ("libraryId", "mediaFileId", "matchFailureReason", "customOrder")
         select l.id, f.id, 'unmatched', 0 from library l cross join "mediaFile" f
       `;
-      expect(yield* replica.pull).toBe(true);
-      expect(
-        yield* replica`
+      const pull2 = yield* replica.pull;
+      expect(pull2).toBe(true);
+      const rows4 = yield* replica`
         select
           root
         from
           "libraryRoot"
-      `
-      ).toEqual([{ root: '/audiobooks' }]);
-      expect(
-        yield* replica`
+      `;
+      expect(rows4).toEqual([{ root: '/audiobooks' }]);
+      const rows5 = yield* replica`
         select
           l.name, f.location, m."matchFailureReason", m."customOrder"
         from
@@ -144,8 +141,8 @@ it.effect(
           left join library l on l.id = m."libraryId"
           left join "mediaFile" f on f.id = m."mediaFileId"
         order by l.name
-      `
-      ).toEqual([
+      `;
+      expect(rows5).toEqual([
         {
           name: 'Audiobooks',
           location: '/shared-book',
@@ -165,25 +162,23 @@ it.effect(
         where
           name = 'Audiobooks'
       `;
-      expect(yield* replica.pull).toBe(true);
-      expect(
-        yield* replica`
+      const pull3 = yield* replica.pull;
+      expect(pull3).toBe(true);
+      const rows6 = yield* replica`
         select
           name
         from
           library
-      `
-      ).toEqual([{ name: 'Movies' }]);
-      expect(
-        yield* replica`
+      `;
+      expect(rows6).toEqual([{ name: 'Movies' }]);
+      const rows7 = yield* replica`
         select
           id
         from
           "libraryRoot"
-      `
-      ).toEqual([]);
-      expect(
-        yield* replica`
+      `;
+      expect(rows7).toEqual([]);
+      const rows8 = yield* replica`
         select
           l.name, f.location, m."matchFailureReason", m."customOrder"
         from
@@ -191,8 +186,8 @@ it.effect(
           left join library l on l.id = m."libraryId"
           left join "mediaFile" f on f.id = m."mediaFileId"
         order by l.name
-      `
-      ).toEqual([
+      `;
+      expect(rows8).toEqual([
         {
           name: 'Movies',
           location: '/shared-book',
@@ -200,14 +195,13 @@ it.effect(
           customOrder: 0,
         },
       ]);
-      expect(
-        yield* replica`
+      const rows9 = yield* replica`
         select
           location
         from
           "mediaFile"
-      `
-      ).toEqual([{ location: '/shared-book' }]);
+      `;
+      expect(rows9).toEqual([{ location: '/shared-book' }]);
     },
     (effect) => effect.pipe(Effect.provide(TestServerLayer))
   )

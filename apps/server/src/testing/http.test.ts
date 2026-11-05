@@ -220,7 +220,8 @@ it.layer(testLayer)('groups utils headers', (iit) => {
           storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
         },
       });
-      expect(yield* client.library.get({ params: library })).toMatchObject({
+      const resultValue = yield* client.library.get({ params: library });
+      expect(resultValue).toMatchObject({
         name: 'Authenticated library',
         type: 'movie',
         storagePlugin: 'builtin:local',

@@ -147,14 +147,14 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         ...library,
         settings: StoragePluginSettingsPersisted.make({}),
       });
-      expect(
-        yield* client.library.getStoragePluginSettingsForm({ params: library }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'PluginLoadError' });
-      expect(
-        yield* client.library
-          .setRoots({ params: library, payload: { roots: [] } })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'PluginLoadError' });
+      const getStoragePluginSettingsFormError = yield* client.library
+        .getStoragePluginSettingsForm({ params: library })
+        .pipe(Effect.flip);
+      expect(getStoragePluginSettingsFormError).toMatchObject({ _tag: 'PluginLoadError' });
+      const setRootsError = yield* client.library
+        .setRoots({ params: library, payload: { roots: [] } })
+        .pipe(Effect.flip);
+      expect(setRootsError).toMatchObject({ _tag: 'PluginLoadError' });
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toMatchObject({
         status: 'unhealthy',
         errors: [
@@ -185,7 +185,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
           status: 'unknown',
         });
-        expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
+        const listItem2 = yield* listItem;
+        expect(listItem2).toMatchObject({ storagePluginStatus: 'unknown' });
       }
 
       yield* client.library.setStoragePluginSettings({
@@ -200,7 +201,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'healthy',
       });
-      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
+      const listItem3 = yield* listItem;
+      expect(listItem3).toMatchObject({ storagePluginStatus: 'healthy' });
 
       yield* client.library.setRoots({ params: library, payload: { roots: [] } }).pipe(Effect.flip);
       for (let index = 0; index < 2; index += 1) {
@@ -225,7 +227,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'healthy',
       });
-      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'healthy' });
+      const listItem4 = yield* listItem;
+      expect(listItem4).toMatchObject({ storagePluginStatus: 'healthy' });
 
       yield* client.library.update({
         params: library,
@@ -235,7 +238,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
         status: 'unknown',
       });
-      expect(yield* listItem).toMatchObject({ storagePluginStatus: 'unknown' });
+      const listItem5 = yield* listItem;
+      expect(listItem5).toMatchObject({ storagePluginStatus: 'unknown' });
     })
   );
 
@@ -335,28 +339,29 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.none()
       );
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             "storagePluginSettings"
           from
             library
           where
             id = ${library.id}
-        `
-      ).toEqual([{ storagePluginSettings: null }]);
+        `;
+      expect(rows).toEqual([{ storagePluginSettings: null }]);
       expect(
         Array.some(
           (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items,
           ({ id }) => id === library.id
         )
       ).toBe(true);
-      expect(
-        yield* client.library
-          .setRoots({ params: library, payload: { roots: [] } })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryUnconfiguredError' });
-      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toEqual([]);
+      const setRootsError = yield* client.library
+        .setRoots({ params: library, payload: { roots: [] } })
+        .pipe(Effect.flip);
+      expect(setRootsError).toMatchObject({ _tag: 'LibraryUnconfiguredError' });
+      const getStoragePluginSettingsFormResult = yield* client.library.getStoragePluginSettingsForm(
+        { params: library }
+      );
+      expect(getStoragePluginSettingsFormResult).toEqual([]);
       yield* client.library.setStoragePluginSettings({
         params: library,
         payload: { input: StoragePluginSettingsInput.make({}) },
@@ -364,21 +369,19 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({})
       );
-      expect(
-        yield* sql`
+      const rows2 = yield* sql`
           select
             "storagePluginSettings"
           from
             library
           where
             id = ${library.id}
-        `
-      ).toEqual([{ storagePluginSettings: '{}' }]);
-      expect(
-        yield* client.library
-          .setRoots({ params: library, payload: { roots: [{ root: 'relative' }] } })
-          .pipe(Effect.flip)
-      ).toMatchObject({
+        `;
+      expect(rows2).toEqual([{ storagePluginSettings: '{}' }]);
+      const setRootsError2 = yield* client.library
+        .setRoots({ params: library, payload: { roots: [{ root: 'relative' }] } })
+        .pipe(Effect.flip);
+      expect(setRootsError2).toMatchObject({
         _tag: 'LibraryInvalidRootError',
         roots: [{ root: 'relative', message: 'Library root locations must be absolute paths' }],
       });
@@ -398,14 +401,13 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { roots: [{ root: '/original' }] },
       });
-      expect(
-        yield* client.library
-          .setRoots({
-            params: library,
-            payload: { roots: [{ root: 'relative' }, { root: '/valid' }, { root: '/nul\0' }] },
-          })
-          .pipe(Effect.flip)
-      ).toMatchObject({
+      const setRootsError = yield* client.library
+        .setRoots({
+          params: library,
+          payload: { roots: [{ root: 'relative' }, { root: '/valid' }, { root: '/nul\0' }] },
+        })
+        .pipe(Effect.flip);
+      expect(setRootsError).toMatchObject({
         _tag: 'LibraryInvalidRootError',
         roots: [
           { root: 'relative', message: 'Library root locations must be absolute paths' },
@@ -425,14 +427,16 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const missing = yield* client.library.create({
         payload: createInput('Missing plugin', 'npm:missing'),
       });
-      expect(yield* client.library.get({ params: missing })).toMatchObject({
+      const resultValue = yield* client.library.get({ params: missing });
+      expect(resultValue).toMatchObject({
         storagePlugin: 'npm:missing',
         storagePluginSettings: Option.none(),
         storagePluginHealth: { status: 'unknown' },
       });
-      expect(
-        yield* client.library.getStoragePluginSettingsForm({ params: missing }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'PluginLoadError' });
+      const getStoragePluginSettingsFormError = yield* client.library
+        .getStoragePluginSettingsForm({ params: missing })
+        .pipe(Effect.flip);
+      expect(getStoragePluginSettingsFormError).toMatchObject({ _tag: 'PluginLoadError' });
       expect((yield* client.library.get({ params: missing })).storagePluginHealth).toMatchObject({
         status: 'unhealthy',
         errors: [{ _tag: 'PluginLoadError', message: 'Plugin unavailable' }],
@@ -446,19 +450,19 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         )
       ).toMatchObject({ storagePluginStatus: 'unhealthy' });
       const original = yield* client.library.create({ payload: createInput('Unique') });
-      expect(
-        yield* client.library.create({ payload: createInput('Unique') }).pipe(Effect.flip)
-      ).toMatchObject({
+      const createError = yield* client.library
+        .create({ payload: createInput('Unique') })
+        .pipe(Effect.flip);
+      expect(createError).toMatchObject({
         _tag: 'LibraryNameConflictError',
         name: '@repo/spec-api/domains/library/schema/LibraryNameConflictError',
         libraryName: 'Unique',
       });
       const other = yield* client.library.create({ payload: createInput('Other') });
-      expect(
-        yield* client.library
-          .update({ params: other, payload: { name: Library.fields.name.make('Unique') } })
-          .pipe(Effect.flip)
-      ).toMatchObject({
+      const updateError = yield* client.library
+        .update({ params: other, payload: { name: Library.fields.name.make('Unique') } })
+        .pipe(Effect.flip);
+      expect(updateError).toMatchObject({
         _tag: 'LibraryNameConflictError',
         name: '@repo/spec-api/domains/library/schema/LibraryNameConflictError',
         libraryName: 'Unique',
@@ -466,11 +470,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: other })).name).toBe('Other');
       yield* client.library.delete({ params: original });
       yield* client.library.delete({ params: original });
-      expect(
-        yield* client.library
-          .update({ params: original, payload: { name: Library.fields.name.make('Gone') } })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryNotFoundError', id: original.id });
+      const updateError2 = yield* client.library
+        .update({ params: original, payload: { name: Library.fields.name.make('Gone') } })
+        .pipe(Effect.flip);
+      expect(updateError2).toMatchObject({ _tag: 'LibraryNotFoundError', id: original.id });
       const recreated = yield* client.library.create({ payload: createInput('Unique') });
       expect(recreated.id).not.toBe(original.id);
     })
@@ -483,7 +486,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const fixture = yield* PluginFixture;
       const library = yield* client.library.create({ payload: createInput('Remote', 'npm:test') });
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toEqual([
+        const getStoragePluginSettingsFormResult =
+          yield* client.library.getStoragePluginSettingsForm({ params: library });
+        expect(getStoragePluginSettingsFormResult).toEqual([
           { _tag: 'TextField', name: 'root', label: 'Remote', placeholder: '', initialValue: '' },
         ]);
       }
@@ -508,14 +513,15 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: 'unavailable' })
       );
-      expect(
-        yield* client.library
-          .setRoots({ params: library, payload: { roots: [] } })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
-      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
-        [{ initialValue: 'unavailable', label: 'Remote' }]
-      );
+      const setRootsError = yield* client.library
+        .setRoots({ params: library, payload: { roots: [] } })
+        .pipe(Effect.flip);
+      expect(setRootsError).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+      const getStoragePluginSettingsFormResult2 =
+        yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect(getStoragePluginSettingsFormResult2).toMatchObject([
+        { initialValue: 'unavailable', label: 'Remote' },
+      ]);
       yield* client.library.setStoragePluginSettings({
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: ' /remote ' }) },
@@ -523,9 +529,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some({ prefix: '/remote' })
       );
-      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
-        [{ initialValue: '/remote', label: 'Remote' }]
-      );
+      const getStoragePluginSettingsFormResult3 =
+        yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect(getStoragePluginSettingsFormResult3).toMatchObject([
+        { initialValue: '/remote', label: 'Remote' },
+      ]);
       yield* client.library.setRoots({
         params: library,
         payload: { roots: [{ root: ' /one ' }, { root: '/one' }] },
@@ -542,22 +550,25 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         payload: { name: Library.fields.name.make('Rejected') },
       });
       expect((yield* client.library.get({ params: library })).name).toBe('Rejected');
-      expect(
-        yield* client.library
-          .setRoots({ params: library, payload: { roots: [] } })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+      const setRootsError2 = yield* client.library
+        .setRoots({ params: library, payload: { roots: [] } })
+        .pipe(Effect.flip);
+      expect(setRootsError2).toMatchObject({ _tag: 'StoragePluginConstructionError' });
       yield* client.library.update({
         params: library,
         payload: { name: Library.fields.name.make('Renamed') },
       });
-      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
-        [{ label: 'Renamed', initialValue: '/remote' }]
-      );
+      const getStoragePluginSettingsFormResult4 =
+        yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect(getStoragePluginSettingsFormResult4).toMatchObject([
+        { label: 'Renamed', initialValue: '/remote' },
+      ]);
       const second = yield* client.library.create({
         payload: createInput('Second remote', 'npm:test'),
       });
-      expect(yield* client.library.getStoragePluginSettingsForm({ params: second })).toEqual([
+      const getStoragePluginSettingsFormResult5 =
+        yield* client.library.getStoragePluginSettingsForm({ params: second });
+      expect(getStoragePluginSettingsFormResult5).toEqual([
         {
           _tag: 'TextField',
           name: 'root',
@@ -634,9 +645,12 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(started.isOpen()).toBe(true);
       expect(finished.isOpen()).toBe(false);
       expect((yield* client.library.get({ params: library })).name).toBe('Background renamed');
-      expect(yield* client.library.getStoragePluginSettingsForm({ params: library })).toMatchObject(
-        [{ label: 'Background renamed', initialValue: '/background' }]
+      const getStoragePluginSettingsFormResult = yield* client.library.getStoragePluginSettingsForm(
+        { params: library }
       );
+      expect(getStoragePluginSettingsFormResult).toMatchObject([
+        { label: 'Background renamed', initialValue: '/background' },
+      ]);
       expect(
         Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
       ).toEqual(['/one']);
@@ -685,31 +699,31 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         .setRoots({ params: library, payload: { roots: [{ root: '/pending' }] } })
         .pipe(Effect.forkChild);
       yield* started.await;
-      expect(
-        yield* contender`
+      const rowsError = yield* contender`
           update library
           set
             name = 'Renamed root context'
           where
             id = ${library.id}
-        `.pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
-      expect(
-        yield* contender`
+        `.pipe(Effect.flip);
+      expect(rowsError).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
+      const rowsError2 = yield* contender`
           update library
           set
             "storagePluginSettings" = '{"prefix":"/updated"}'
           where
             id = ${library.id}
-        `.pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
-      expect(yield* client.library.get({ params: library })).toMatchObject({
+        `.pipe(Effect.flip);
+      expect(rowsError2).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
+      const resultValue = yield* client.library.get({ params: library });
+      expect(resultValue).toMatchObject({
         name: 'Locked root context',
         storagePluginSettings: Option.some({ prefix: '/initial' }),
         roots: [{ root: '/original' }],
       });
       yield* release.open;
-      expect(yield* Fiber.join(pending)).toEqual({ ...library, roots: [{ root: '/pending' }] });
+      const pendingValue = yield* Fiber.join(pending);
+      expect(pendingValue).toEqual({ ...library, roots: [{ root: '/pending' }] });
       expect(
         Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
       ).toEqual(['/pending']);
@@ -721,7 +735,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: '/updated' }) },
       });
-      expect(yield* client.library.get({ params: library })).toMatchObject({
+      const resultValue2 = yield* client.library.get({ params: library });
+      expect(resultValue2).toMatchObject({
         name: 'Renamed root context',
         storagePluginSettings: Option.some({ prefix: '/updated' }),
       });
@@ -764,7 +779,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       );
       yield* settingsRelease.open;
       yield* Fiber.join(settings);
-      expect(yield* client.library.get({ params: library })).toMatchObject({
+      const resultValue = yield* client.library.get({ params: library });
+      expect(resultValue).toMatchObject({
         name: 'Final name',
         storagePluginSettings: Option.some({ prefix: '/pending-settings' }),
       });
@@ -850,8 +866,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         Array.filter([...fixture.activeStorage], ({ library: row }) => row.id === library.id)
       ).toEqual([]);
       yield* release.open;
-      expect(yield* Fiber.join(pending)).toMatchObject({ _tag: 'LibraryNotFoundError' });
-      expect(yield* client.library.get({ params: library }).pipe(Effect.flip)).toMatchObject({
+      const pendingValue = yield* Fiber.join(pending);
+      expect(pendingValue).toMatchObject({ _tag: 'LibraryNotFoundError' });
+      const resultValueError = yield* client.library.get({ params: library }).pipe(Effect.flip);
+      expect(resultValueError).toMatchObject({
         _tag: 'LibraryNotFoundError',
       });
       fixture.controls.onFinalize = () => Effect.void;
@@ -897,18 +915,16 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         where
           location = '/shared'
       `;
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             root
           from
             "libraryRoot"
           where
             "libraryId" = ${library.id}
-        `
-      ).toEqual([{ root: '/delete' }]);
-      expect(
-        yield* sql`
+        `;
+      expect(rows).toEqual([{ root: '/delete' }]);
+      const rows2 = yield* sql`
           select
             "matchFailureReason",
             "customOrder"
@@ -916,40 +932,38 @@ it.layer(testLayer)('library lifecycle', (iit) => {
             "libraryFileMap"
           where
             "libraryId" = ${library.id}
-        `
-      ).toEqual([{ matchFailureReason: 'unmatched', customOrder: 0 }]);
+        `;
+      expect(rows2).toEqual([{ matchFailureReason: 'unmatched', customOrder: 0 }]);
       yield* client.library.delete({ params: library });
-      expect(
-        yield* sql`
+      const rows3 = yield* sql`
           select
             id
           from
             "libraryRoot"
           where
             "libraryId" = ${library.id}
-        `
-      ).toEqual([]);
-      expect(
-        yield* sql`
+        `;
+      expect(rows3).toEqual([]);
+      const rows4 = yield* sql`
           select
             id
           from
             "libraryFileMap"
           where
             "libraryId" = ${library.id}
-        `
-      ).toEqual([]);
-      expect(
-        yield* sql`
+        `;
+      expect(rows4).toEqual([]);
+      const rows5 = yield* sql`
           select
             location
           from
             "mediaFile"
           where
             location = '/shared'
-        `
-      ).toEqual([{ location: '/shared' }]);
-      expect(yield* client.library.get({ params: library }).pipe(Effect.flip)).toMatchObject({
+        `;
+      expect(rows5).toEqual([{ location: '/shared' }]);
+      const resultValueError = yield* client.library.get({ params: library }).pipe(Effect.flip);
+      expect(resultValueError).toMatchObject({
         _tag: 'LibraryNotFoundError',
       });
     })
@@ -985,12 +999,14 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
         )
       );
-      expect(
-        yield* client.library.create({ payload: createInput('Unauthorized') }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'UnauthorizedError' });
-      expect(
-        yield* client.library.list({ query: { cursor: Option.none(), limit: 1 } }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'UnauthorizedError' });
+      const createError = yield* client.library
+        .create({ payload: createInput('Unauthorized') })
+        .pipe(Effect.flip);
+      expect(createError).toMatchObject({ _tag: 'UnauthorizedError' });
+      const listError = yield* client.library
+        .list({ query: { cursor: Option.none(), limit: 1 } })
+        .pipe(Effect.flip);
+      expect(listError).toMatchObject({ _tag: 'UnauthorizedError' });
     })
   );
   iit.effect.each(['user', 'under18'] as const)(
@@ -998,12 +1014,14 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* (role) {
       const auth = yield* makeAuthedClient({ username: role, role });
       const client = yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
-      expect(
-        yield* client.library.create({ payload: createInput('Forbidden') }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'ForbiddenError' });
-      expect(
-        yield* client.library.list({ query: { cursor: Option.none(), limit: 1 } }).pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'ForbiddenError' });
+      const createError = yield* client.library
+        .create({ payload: createInput('Forbidden') })
+        .pipe(Effect.flip);
+      expect(createError).toMatchObject({ _tag: 'ForbiddenError' });
+      const listError = yield* client.library
+        .list({ query: { cursor: Option.none(), limit: 1 } })
+        .pipe(Effect.flip);
+      expect(listError).toMatchObject({ _tag: 'ForbiddenError' });
     })
   );
 });
@@ -1014,7 +1032,8 @@ const makeWireTransport = Effect.fnUntraced(function* (
   const headers = Option.isSome(user)
     ? (yield* makeAuthedClient(user.value)).headers
     : Headers.empty;
-  const handler = HttpEffect.toWebHandler(yield* HttpRouter.toHttpEffect(Layer.empty));
+  const toHttpEffectResult = yield* HttpRouter.toHttpEffect(Layer.empty);
+  const handler = HttpEffect.toWebHandler(toHttpEffectResult);
   const http = HttpClient.make((request, _url, signal) =>
     HttpClientRequest.toWeb(request, { signal }).pipe(
       Effect.flatMap((webRequest) => Effect.promise(async () => handler(webRequest))),
@@ -1169,7 +1188,10 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       );
       expect(response.status).toBe(status);
       const body = yield* response.text;
-      expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(body)).toEqual({
+      const decodedLocation = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+        body
+      );
+      expect(decodedLocation).toEqual({
         _tag: tag,
         message,
       });
@@ -1221,7 +1243,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
             )
       );
       expect(response.status).toBe(500);
-      expect(yield* response.text).toBe('');
+      const text = yield* response.text;
+      expect(text).toBe('');
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.some(original)
       );
@@ -1237,7 +1260,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const library = yield* client.library.create({ payload: createInput('HTTP library') });
       const get = yield* client.library.get({ params: library, responseMode: 'response-only' });
       expect(get.headers['content-type']).toContain('application/json');
-      expect(yield* get.json).toMatchObject({
+      const json = yield* get.json;
+      expect(json).toMatchObject({
         ...library,
         storagePluginSettings: { _tag: 'None' },
         storagePluginHealth: { status: 'unknown' },
@@ -1250,7 +1274,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         query: { cursor: Option.none(), limit: 1 },
         responseMode: 'response-only',
       });
-      expect(yield* list.json).toMatchObject({
+      const json2 = yield* list.json;
+      expect(json2).toMatchObject({
         items: [{ ...library, storagePluginSettings: { _tag: 'Some', value: {} } }],
         nextCursor: { _tag: 'None' },
       });
@@ -1260,7 +1285,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
           responseMode: 'response-only',
         });
         expect(deleted.status).toBe(204);
-        expect(yield* deleted.text).toBe('');
+        const text = yield* deleted.text;
+        expect(text).toBe('');
       }
       const missing = yield* client.library.get({ params: library }).pipe(Effect.flip);
       expect(missing).toMatchObject({ _tag: 'LibraryNotFoundError', ...library });
@@ -1297,7 +1323,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const { http } = yield* makeWireTransport(user);
       const response = yield* http.get('http://localhost/api/libraries?limit=1');
       expect(response.status).toBe(status);
-      expect(yield* response.json).toEqual({ _tag: tag });
+      const json = yield* response.json;
+      expect(json).toEqual({ _tag: tag });
     })
   );
 });

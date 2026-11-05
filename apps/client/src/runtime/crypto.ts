@@ -20,9 +20,10 @@ export const ExpoDigestLayer = Layer.effect(
           'SHA-512': () => crypto.CryptoDigestAlgorithm.SHA512,
         })
       );
-      return new Uint8Array(
-        yield* Effect.promise(async () => crypto.digest(nativeAlgorithm, new Uint8Array(data)))
+      const digestBuffer = yield* Effect.promise(async () =>
+        crypto.digest(nativeAlgorithm, new Uint8Array(data))
       );
+      return new Uint8Array(digestBuffer);
     });
     return {
       digest,

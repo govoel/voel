@@ -1,7 +1,7 @@
 import { getRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import { Effect, Layer, Option, Stream } from 'effect';
 import { Atom, AtomRpc } from 'effect/reactivity';
-import { RpcClient } from 'effect/rpc';
+import { RpcClient, RpcClientError } from 'effect/rpc';
 
 import type { AtomId } from '@repo/effect-atom-devtools-core/atom-dev-tools';
 import { AtomDevToolsRpc } from '@repo/effect-atom-devtools-core/rpc';
@@ -14,9 +14,17 @@ const RozeniteRpcClientProtocolLayer = Layer.effect(
   RpcClient.Protocol,
   Effect.gen(function* () {
     const bridgeClient = yield* Effect.acquireRelease(
-      Effect.tryPromise(async () =>
-        getRozeniteDevToolsClient<RpcBridgeEventMap>(EFFECT_ATOM_DEVTOOLS_PLUGIN_ID)
-      ),
+      Effect.tryPromise({
+        try: async () =>
+          getRozeniteDevToolsClient<RpcBridgeEventMap>(EFFECT_ATOM_DEVTOOLS_PLUGIN_ID),
+        catch: (cause) =>
+          RpcClientError.RpcClientError.make({
+            reason: RpcClientError.RpcClientDefect.make({
+              message: 'Failed to connect to the Rozenite bridge',
+              cause,
+            }),
+          }),
+      }),
       (client) =>
         Effect.sync(() => {
           client.close();

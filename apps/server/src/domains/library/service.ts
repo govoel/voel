@@ -48,7 +48,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         );
 
         return Array.match(failures, {
-          onEmpty: () => ({ status: cached.some(Boolean) ? 'healthy' : 'unknown' }) as const,
+          onEmpty: () => ({ status: Array.some(cached, Boolean) ? 'healthy' : 'unknown' }) as const,
           onNonEmpty: (errors) => ({ status: 'unhealthy', errors }) as const,
         }) satisfies typeof StoragePluginHealth.Type;
       }, Effect.scoped);
@@ -144,7 +144,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
             const unique = Array.dedupe(decoded);
             yield* repository.setRoots({ id, roots: unique });
-            return { id, roots: unique.map((root) => ({ root })) };
+            return { id, roots: Array.map(unique, (root) => ({ root })) };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),

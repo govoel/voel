@@ -9,6 +9,7 @@ import {
   Option,
   Pool,
   Predicate,
+  Record,
   Schema,
   ScopedCache,
   Semaphore,
@@ -359,7 +360,7 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
     yield* Effect.scoped(acquirer);
 
     const spanAttributes: ReadonlyArray<readonly [string, unknown]> = [
-      ...Object.entries(options.spanAttributes ?? {}),
+      ...Record.toEntries(options.spanAttributes ?? {}),
       [ATTR_DB_SYSTEM_NAME, 'turso'],
     ];
 
@@ -393,10 +394,11 @@ export class TursoClient extends Context.Service<TursoClient>()('@repo/effect-tu
         });
       }
 
+      const body = yield* request.arrayBuffer;
       const nativeRequest = {
         method: request.method,
         path: request.url,
-        body: new Uint8Array(yield* request.arrayBuffer),
+        body: new Uint8Array(body),
       };
       const response = yield* Pool.get(pool).pipe(
         Effect.flatMap((item) =>

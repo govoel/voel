@@ -73,12 +73,14 @@ it.effect(
         }
         expect(directories).toHaveLength(1);
         for (const directory of directories) {
-          expect(yield* fs.exists(directory)).toBe(true);
+          const existsResult = yield* fs.exists(directory);
+          expect(existsResult).toBe(true);
         }
       }).pipe(Effect.provide(PluginModuleMap.layerNoDeps.pipe(Layer.provide(spawnerLayer))));
 
       for (const directory of directories) {
-        expect(yield* fs.exists(directory)).toBe(false);
+        const existsResult2 = yield* fs.exists(directory);
+        expect(existsResult2).toBe(false);
       }
     },
     Effect.provide([BunFileSystem.layer, BunModuleResolverLayer])
@@ -94,7 +96,8 @@ it.effect(
         Effect.provide(
           Layer.mock(ChildProcessSpawner.ChildProcessSpawner, {
             exitCode: Effect.fnUntraced(function* () {
-              expect(yield* Effect.serviceOption(PrivateService)).toEqual(Option.none());
+              const serviceOptionResult = yield* Effect.serviceOption(PrivateService);
+              expect(serviceOptionResult).toEqual(Option.none());
               return ChildProcessSpawner.ExitCode(1);
             }),
           })
@@ -156,11 +159,14 @@ it.effect(
           Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
         );
         for (const directory of directories) {
-          expect(yield* fs.exists(directory)).toBe(false);
+          const existsResult = yield* fs.exists(directory);
+          expect(existsResult).toBe(false);
         }
       }
-      expect(yield* modules.get(NpmPluginId.make('npm:fixture'))).toMatchObject({ ready: true });
-      expect(yield* fs.exists(directories.at(-1) ?? '')).toBe(true);
+      const makeResultValue = yield* modules.get(NpmPluginId.make('npm:fixture'));
+      expect(makeResultValue).toMatchObject({ ready: true });
+      const existsResult2 = yield* fs.exists(directories.at(-1) ?? '');
+      expect(existsResult2).toBe(true);
     },
     Effect.scoped,
     Effect.provide([BunFileSystem.layer, BunModuleResolverLayer])
@@ -185,7 +191,8 @@ it.effect(
               specifier: 'plugin/index',
               directory: directories.at(-1),
             });
-            expect(yield* Effect.serviceOption(PrivateService)).toEqual(Option.none());
+            const serviceOptionResult = yield* Effect.serviceOption(PrivateService);
+            expect(serviceOptionResult).toEqual(Option.none());
             if (resolutions === 1) {
               return yield* ModuleResolutionError.make({
                 ...request,
@@ -216,15 +223,18 @@ it.effect(
       );
 
       const plugin = NpmPluginId.make('npm:fixture');
-      expect(yield* modules.get(plugin).pipe(Effect.exit)).toEqual(
+      const pluginValueExit = yield* modules.get(plugin).pipe(Effect.exit);
+      expect(pluginValueExit).toEqual(
         Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
       );
       for (const directory of directories) {
-        expect(yield* fs.exists(directory)).toBe(false);
+        const existsResult = yield* fs.exists(directory);
+        expect(existsResult).toBe(false);
       }
       const module = yield* modules.get(plugin);
       expect(module).toMatchObject({ ready: true });
-      expect(yield* modules.get(plugin)).toMatchObject({ ready: true });
+      const pluginValue = yield* modules.get(plugin);
+      expect(pluginValue).toMatchObject({ ready: true });
       expect(directories).toHaveLength(2);
     },
     Effect.scoped,
@@ -277,15 +287,18 @@ it.effect.each(['resolution', 'import'] as const)(
           Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
         );
         for (const directory of directories) {
-          expect(yield* fs.exists(directory)).toBe(false);
+          const existsResult = yield* fs.exists(directory);
+          expect(existsResult).toBe(false);
         }
       }
       const module = yield* modules.get(plugin);
       expect(module).toMatchObject({ ready: true });
-      expect(yield* modules.get(plugin)).toMatchObject({ ready: true });
+      const pluginValue = yield* modules.get(plugin);
+      expect(pluginValue).toMatchObject({ ready: true });
       expect(directories).toHaveLength(3);
       for (const [index, directory] of directories.entries()) {
-        expect(yield* fs.exists(directory)).toBe(index === 2);
+        const existsResult2 = yield* fs.exists(directory);
+        expect(existsResult2).toBe(index === 2);
       }
     },
     Effect.scoped,

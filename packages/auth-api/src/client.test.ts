@@ -94,7 +94,8 @@ describe('auth client integration', () => {
           }),
       });
       expect(client.rawClient.getCookie()).toBe('session=test');
-      expect(yield* client.admin.createUser(createUserInput)).toMatchObject({ user: decodedUser });
+      const createUserResult = yield* client.admin.createUser(createUserInput);
+      expect(createUserResult).toMatchObject({ user: decodedUser });
     }).pipe(Effect.scoped, Effect.runPromise);
   });
 
@@ -155,7 +156,8 @@ describe('auth client integration', () => {
   }>) {
     it(`forwards interruption to fetch during ${name}`, async () => {
       await Effect.gen(function* () {
-        const runPromise = Effect.runPromiseWith(yield* Effect.context());
+        const services = yield* Effect.context();
+        const runPromise = Effect.runPromiseWith(services);
         const started = yield* Deferred.make<Request>();
         const requests: Array<Request> = [];
         const fetch = spyOn(globalThis, 'fetch').mockImplementation(
@@ -245,14 +247,16 @@ describe('auth client integration', () => {
       const roleRequest = Option.getOrThrow(
         Array.findFirst(requests, (request) => pipe(request.url, Str.endsWith('/admin/set-role')))
       );
-      expect(yield* Effect.promise(async () => createRequest.json())).toEqual({
+      const createRequestBody = yield* Effect.promise(async () => createRequest.json());
+      expect(createRequestBody).toEqual({
         name: 'Reader',
         email: 'reader@example.com',
         password: 'password',
         role: 'user',
         data: { username: 'reader' },
       });
-      expect(yield* Effect.promise(async () => roleRequest.json())).toEqual({
+      const roleRequestBody = yield* Effect.promise(async () => roleRequest.json());
+      expect(roleRequestBody).toEqual({
         userId,
         role: 'under18',
       });
