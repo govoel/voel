@@ -267,7 +267,11 @@ export const make = Effect.gen(function*() {
         id: activityPrimaryKey(options.activity.name, options.attempt)
       })
       if (Option.isNone(requestId)) return
-      yield* sharding.reset(requestId.value)
+      // Reset only the Suspended reply this runner saw. If another runner has
+      // stored a newer reply, storage skips the reset and the caller reads it.
+      const reply = yield* replyForRequestId(requestId.value)
+      if (Option.isNone(reply) || !isSuspendedReply(reply.value)) return
+      yield* sharding.reset(requestId.value, { expectedReplyId: Snowflake.Snowflake(reply.value.id) })
     },
     Effect.retry({
       times: 3,
@@ -344,7 +348,7 @@ export const make = Effect.gen(function*() {
     }
     const reply = yield* replyForRequestId(requestId.value)
     if (Option.isNone(reply)) return
-    yield* sharding.reset(requestId.value)
+    yield* sharding.reset(requestId.value, { expectedReplyId: Snowflake.Snowflake(reply.value.id) })
   }, Effect.scoped)
 
   // Subscribe to the run's next reply before reading storage, so a reply
@@ -865,7 +869,7 @@ export const make = Effect.gen(function*() {
         }
         const workflow = workflows.get(workflowName)
         if (workflow) {
-          return yield* Effect.orDie(sendDiscard({
+          return yield* retryPersistence(sendDiscard({
             rpc: DeferredRpc,
             address: entityAddressFor({
               workflow,
@@ -879,7 +883,7 @@ export const make = Effect.gen(function*() {
           }))
         }
         const client = yield* RcMap.get(clientsPartial, workflowName)
-        return yield* Effect.orDie(
+        return yield* retryPersistence(
           client(executionId).deferred({
             name: deferredName,
             exit
@@ -890,27 +894,24 @@ export const make = Effect.gen(function*() {
     ),
 
     scheduleClock(workflow, options) {
-      return DateTime.now.pipe(
-        Effect.flatMap((now) =>
-          sendDiscard({
-            rpc: ClockRpc,
-            address: entityAddressFor({
-              workflow,
-              entityType: ClockEntity.type,
-              executionId: options.executionId
-            }),
-            payload: {
-              name: options.clock.name,
-              workflowName: workflow._tag,
-              wakeUp: DateTime.mapEpochMillis(
-                DateTime.addDuration(now, options.clock.duration),
-                Math.ceil
-              )
-            }
-          })
-        ),
-        Effect.orDie
-      )
+      // Compute the deadline once, so a retried save keeps the original wake-up.
+      return Effect.flatMap(DateTime.now, (now) =>
+        retryPersistence(sendDiscard({
+          rpc: ClockRpc,
+          address: entityAddressFor({
+            workflow,
+            entityType: ClockEntity.type,
+            executionId: options.executionId
+          }),
+          payload: {
+            name: options.clock.name,
+            workflowName: workflow._tag,
+            wakeUp: DateTime.mapEpochMillis(
+              DateTime.addDuration(now, options.clock.duration),
+              Math.ceil
+            )
+          }
+        })))
     }
   })
 
@@ -922,9 +923,9 @@ const retryPolicy = Schedule.min([
   Schedule.spaced("1 minute")
 ])
 
-// A transient storage failure must not become the workflow result. Requests
-// are saved under a primary key, so a retry after a lost acknowledgement is
-// deduplicated instead of running the activity again.
+// A transient storage failure must not become the workflow result. Activity,
+// clock and deferred requests are saved under a primary key, so a retry after
+// a lost acknowledgement is deduplicated instead of stored twice.
 const retryPersistence = <A, E extends { readonly _tag: string }, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.retry({ schedule: retryPolicy, while: (e) => e._tag === "PersistenceError" }),
