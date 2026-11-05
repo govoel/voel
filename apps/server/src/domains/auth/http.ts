@@ -19,7 +19,8 @@ export const AuthLayerNoDeps = Layer.effect(
     const config = yield* ApiConfig;
     const database = yield* AuthDatabase;
 
-    const runtime = Effect.runSyncWith(yield* Effect.context());
+    const services = yield* Effect.context();
+    const runtime = Effect.runSyncWith(services);
 
     return yield* AuthServerClient.make({
       secret: Redacted.value(config.auth.secret),

@@ -45,14 +45,13 @@ describe('TursoClient', () => {
         values
           (1)
       `;
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             *
           from
             test
-        `
-      ).toEqual([{ id: 1 }]);
+        `;
+      expect(rows).toEqual([{ id: 1 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -128,23 +127,21 @@ describe('TursoClient', () => {
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
-      const first = yield* RunInfo.decodeUnknownEffect(
-        yield* sql`
+      const raw = yield* sql`
           insert into
             test (name)
           values
             ('hello')
-        `.raw
-      );
+        `.raw;
+      const first = yield* RunInfo.decodeUnknownEffect(raw);
       expect(first.changes).toBe(1);
-      const second = yield* RunInfo.decodeUnknownEffect(
-        yield* sql`
+      const raw2 = yield* sql`
           insert into
             test (name)
           values
             ('world')
-        `.raw.pipe(sql.withTransaction)
-      );
+        `.raw.pipe(sql.withTransaction);
+      const second = yield* RunInfo.decodeUnknownEffect(raw2);
       expect(second.changes).toBe(1);
       expect(second.lastInsertRowid).toBe(first.lastInsertRowid + 1);
       const rows = yield* sql`
@@ -254,14 +251,13 @@ describe('TursoClient', () => {
           id
       `.stream.pipe(Stream.take(1), Stream.runCollect);
       expect(first).toEqual([{ id: 1, rowName: 'first' }]);
-      expect(
-        yield* sql`
+      const rows2 = yield* sql`
           select
             count(*) as count
           from
             test
-        `
-      ).toEqual([{ count: 2 }]);
+        `;
+      expect(rows2).toEqual([{ count: 2 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -472,14 +468,13 @@ describe('TursoClient', () => {
         .pipe(Effect.forkChild);
 
       yield* Deferred.await(transactionStarted);
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             count(*) as count
           from
             test
-        `.pipe(Effect.timeout(Duration.seconds(1)))
-      ).toEqual([{ count: 0 }]);
+        `.pipe(Effect.timeout(Duration.seconds(1)));
+      expect(rows).toEqual([{ count: 0 }]);
 
       yield* Deferred.succeed(releaseTransaction, true);
       yield* Fiber.join(transaction);
@@ -513,11 +508,10 @@ describe('TursoClient', () => {
         .pipe(Effect.forkChild);
 
       yield* Deferred.await(transactionStarted);
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           pragma foreign_keys
-        `
-      ).toEqual([{ foreign_keys: 1 }]);
+        `;
+      expect(rows).toEqual([{ foreign_keys: 1 }]);
       expect(connections).toBe(2);
 
       yield* Deferred.succeed(releaseTransaction, true);
@@ -662,11 +656,10 @@ describe('TursoClient', () => {
     Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           pragma busy_timeout
-        `
-      ).toEqual([{ busy_timeout: 5000 }]);
+        `;
+      expect(rows).toEqual([{ busy_timeout: 5000 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -675,11 +668,10 @@ describe('TursoClient', () => {
     Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoClient.make({ filename: `${dir}/test.db` });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           pragma journal_mode
-        `
-      ).toEqual([{ journal_mode: 'wal' }]);
+        `;
+      expect(rows).toEqual([{ journal_mode: 'wal' }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -703,7 +695,8 @@ describe('TursoClient', () => {
       const optionsResponse = HttpServerResponse.toWeb(options);
       expect(optionsResponse.status).toBe(204);
       expect(optionsResponse.headers.get('content-type')).toBe('text/plain');
-      expect(yield* Effect.promise(async () => optionsResponse.text())).toBe('');
+      const result = yield* Effect.promise(async () => optionsResponse.text());
+      expect(result).toBe('');
 
       const missing = yield* sql.syncHandler(
         HttpServerRequest.fromWeb(new Request('http://localhost/missing', { method: 'POST' }))
@@ -711,7 +704,8 @@ describe('TursoClient', () => {
       const missingResponse = HttpServerResponse.toWeb(missing);
       expect(missingResponse.status).toBe(404);
       expect(missingResponse.headers.get('content-type')).toBe('text/plain');
-      expect(yield* Effect.promise(async () => missingResponse.text())).toBe('Not Found');
+      const result2 = yield* Effect.promise(async () => missingResponse.text());
+      expect(result2).toBe('Not Found');
 
       const pipeline = yield* sql.syncHandler(
         HttpServerRequest.fromWeb(
@@ -722,14 +716,13 @@ describe('TursoClient', () => {
         )
       );
       expect(pipeline.status).toBe(200);
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           select
             value
           from
             synced
-        `
-      ).toEqual([{ value: 'yes' }]);
+        `;
+      expect(rows).toEqual([{ value: 'yes' }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -815,22 +808,20 @@ describe('TursoClient', () => {
       yield* Effect.scoped(
         Effect.gen(function* () {
           const readonlyClient = yield* TursoClient.make({ filename, readonly: true });
-          expect(
-            yield* readonlyClient`
+          const rows = yield* readonlyClient`
             select
               *
             from
               test
-          `
-          ).toEqual([{ id: 1, name: 'hello' }]);
-          expect(
-            yield* readonlyClient.withTransaction(readonlyClient`
+          `;
+          expect(rows).toEqual([{ id: 1, name: 'hello' }]);
+          const withTransactionResult = yield* readonlyClient.withTransaction(readonlyClient`
             select
               *
             from
               test
-          `)
-          ).toEqual([{ id: 1, name: 'hello' }]);
+          `);
+          expect(withTransactionResult).toEqual([{ id: 1, name: 'hello' }]);
           const error = yield* Effect.flip(readonlyClient`
             insert into
               test (name)
@@ -859,14 +850,13 @@ describe('TursoClient', () => {
           values
             (1)
         `;
-        expect(
-          yield* generic`
+        const rows = yield* generic`
           select
             *
           from
             test
-        `
-        ).toEqual([{ id: 1 }]);
+        `;
+        expect(rows).toEqual([{ id: 1 }]);
       }).pipe(
         Effect.provide(
           TursoClient.layer({

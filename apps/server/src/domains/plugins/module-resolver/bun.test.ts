@@ -16,22 +16,20 @@ it.effect(
         const directory = yield* fs.makeTempDirectoryScoped();
         const packageDirectory = `${directory}/node_modules/fixture`;
         yield* fs.makeDirectory(packageDirectory, { recursive: true });
-        yield* fs.writeFileString(
-          `${packageDirectory}/package.json`,
-          yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))({
-            name: 'fixture',
-            exports: { './entry': `./${entry}` },
-          })
-        );
+        const manifest = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))({
+          name: 'fixture',
+          exports: { './entry': `./${entry}` },
+        });
+        yield* fs.writeFileString(`${packageDirectory}/package.json`, manifest);
         yield* fs.writeFileString(
           `${packageDirectory}/${entry}`,
           'throw new Error("Resolution must not evaluate this module");'
         );
 
         const resolved = yield* resolver.resolve({ specifier: 'fixture/entry', directory });
-        expect(yield* fs.realPath(resolved)).toBe(
-          yield* fs.realPath(`${packageDirectory}/${entry}`)
-        );
+        const realPathResult = yield* fs.realPath(resolved);
+        const expectedPath = yield* fs.realPath(`${packageDirectory}/${entry}`);
+        expect(realPathResult).toBe(expectedPath);
       }
     },
     Effect.scoped,

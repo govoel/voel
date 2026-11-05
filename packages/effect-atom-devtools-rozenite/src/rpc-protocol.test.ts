@@ -130,7 +130,8 @@ describe('Rozenite RPC server protocol sessions', () => {
             RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: ping })
           );
 
-          expect(yield* Queue.take(requests)).toEqual({ clientId: 0, message: ping });
+          const takeResult = yield* Queue.take(requests);
+          expect(takeResult).toEqual({ clientId: 0, message: ping });
           expect([...(yield* protocol.clientIds)]).toEqual([0]);
 
           bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-a' }));
@@ -139,12 +140,15 @@ describe('Rozenite RPC server protocol sessions', () => {
             RpcBridgeClientMessage.Request({ sessionId: 'session-a', message: ping })
           );
 
-          expect(yield* Queue.take(requests)).toEqual({ clientId: 0, message: ping });
-          expect(yield* Queue.size(protocol.disconnects)).toBe(0);
+          const takeResult2 = yield* Queue.take(requests);
+          expect(takeResult2).toEqual({ clientId: 0, message: ping });
+          const sizeResult = yield* Queue.size(protocol.disconnects);
+          expect(sizeResult).toBe(0);
 
           bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-b' }));
 
-          expect(yield* Queue.take(protocol.disconnects)).toBe(0);
+          const takeResult3 = yield* Queue.take(protocol.disconnects);
+          expect(takeResult3).toBe(0);
           expect([...(yield* protocol.clientIds)]).toEqual([1]);
 
           bridge.emit(
@@ -177,7 +181,8 @@ describe('Rozenite RPC server protocol sessions', () => {
 
         bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-a' }));
         bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-b' }));
-        expect(yield* Queue.take(protocol.disconnects)).toBe(0);
+        const takeResult = yield* Queue.take(protocol.disconnects);
+        expect(takeResult).toBe(0);
 
         yield* protocol.send(0, pong);
         yield* protocol.send(1, pong);
@@ -198,11 +203,13 @@ describe('Rozenite RPC server protocol sessions', () => {
           RPC_CLIENT_EVENT,
           RpcBridgeClientMessage.Request({ sessionId: 'session-b', message: ping })
         );
-        expect(yield* Queue.take(requestClientIds)).toBe(1);
+        const takeResult2 = yield* Queue.take(requestClientIds);
+        expect(takeResult2).toBe(1);
         expect([...(yield* protocol.clientIds)]).toEqual([1]);
 
         bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.End({ sessionId: 'session-b' }));
-        expect(yield* Queue.take(protocol.disconnects)).toBe(1);
+        const takeResult3 = yield* Queue.take(protocol.disconnects);
+        expect(takeResult3).toBe(1);
         expect([...(yield* protocol.clientIds)]).toEqual([]);
 
         bridge.emit(RPC_CLIENT_EVENT, RpcBridgeClientMessage.Start({ sessionId: 'session-c' }));
@@ -210,7 +217,8 @@ describe('Rozenite RPC server protocol sessions', () => {
           RPC_CLIENT_EVENT,
           RpcBridgeClientMessage.Request({ sessionId: 'session-c', message: ping })
         );
-        expect(yield* Queue.take(requestClientIds)).toBe(2);
+        const takeResult4 = yield* Queue.take(requestClientIds);
+        expect(takeResult4).toBe(2);
 
         yield* protocol.end(2);
         yield* protocol.send(2, pong);
@@ -247,7 +255,8 @@ describe('Rozenite RPC client protocol sessions', () => {
           RPC_SERVER_EVENT,
           RpcBridgeServerMessage.Response({ sessionId: '1:1', message: pong })
         );
-        expect(yield* Queue.take(responses)).toEqual(pong);
+        const takeResult = yield* Queue.take(responses);
+        expect(takeResult).toEqual(pong);
       })
     );
 
@@ -325,7 +334,8 @@ describe('Rozenite RPC session reload integration', () => {
             Effect.forkScoped
           );
 
-          expect(yield* Queue.take(firstValues)).toBe('event-1');
+          const takeResult = yield* Queue.take(firstValues);
+          expect(takeResult).toBe('event-1');
 
           const secondProtocol = yield* makeRpcClientProtocol(bridge.client).pipe(
             Effect.provideService(Random.Random, fixedRandom(2))
@@ -334,13 +344,13 @@ describe('Rozenite RPC session reload integration', () => {
             generateRequestId: () => RpcMessage.RequestId('0'),
           }).pipe(Effect.provideService(RpcClient.Protocol, secondProtocol));
 
-          expect(
-            yield* secondClient
-              .Events()
-              .pipe(Stream.runHead, Effect.map(Option.getOrThrow), Effect.timeout('1 second'))
-          ).toBe('event-2');
+          const eventsResult = yield* secondClient
+            .Events()
+            .pipe(Stream.runHead, Effect.map(Option.getOrThrow), Effect.timeout('1 second'));
+          expect(eventsResult).toBe('event-2');
           yield* Deferred.await(firstHandlerFinalized).pipe(Effect.timeout('1 second'));
-          expect(yield* Ref.get(handlerCount)).toBe(2);
+          const handlerCountValue = yield* Ref.get(handlerCount);
+          expect(handlerCountValue).toBe(2);
         })
       )
   );
@@ -398,7 +408,8 @@ describe('Rozenite RPC session reload integration', () => {
           Effect.forkScoped
         );
 
-        expect(yield* Queue.take(values)).toBe('event-1');
+        const takeResult = yield* Queue.take(values);
+        expect(takeResult).toBe('event-1');
 
         bridge.mute(RPC_SERVER_EVENT);
         yield* Scope.close(firstServerScope, Exit.void);
@@ -408,8 +419,10 @@ describe('Rozenite RPC session reload integration', () => {
         const secondServerScope = yield* Scope.fork(parentScope);
         yield* startServer(secondServerScope, 2);
 
-        expect(yield* Queue.take(values).pipe(Effect.timeout('1 second'))).toBe('event-2');
-        expect(yield* Ref.get(handlerCount)).toBe(2);
+        const takeResult2 = yield* Queue.take(values).pipe(Effect.timeout('1 second'));
+        expect(takeResult2).toBe('event-2');
+        const handlerCountValue = yield* Ref.get(handlerCount);
+        expect(handlerCountValue).toBe(2);
       })
     )
   );

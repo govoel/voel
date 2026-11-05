@@ -77,24 +77,21 @@ describe('TursoSyncClient', () => {
         }),
       });
 
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           pragma foreign_keys
-        `
-      ).toEqual([{ foreign_keys: 1 }]);
-      expect(
-        yield* sql`
+        `;
+      expect(rows).toEqual([{ foreign_keys: 1 }]);
+      const rows2 = yield* sql`
           pragma busy_timeout
-        `
-      ).toEqual([{ busy_timeout: 10_000 }]);
-      expect(
-        yield* sql`
+        `;
+      expect(rows2).toEqual([{ busy_timeout: 10_000 }]);
+      const rows3 = yield* sql`
           select
             *
           from
             initialized
-        `
-      ).toEqual([{ value: 'ready' }]);
+        `;
+      expect(rows3).toEqual([{ value: 'ready' }]);
       expect(calls).toBe(1);
     }, Effect.provide(TestLayer))
   );
@@ -180,23 +177,21 @@ describe('TursoSyncClient', () => {
       yield* sql`
         create table test (id integer primary key autoincrement, name text)
       `;
-      const first = yield* RunInfo.decodeUnknownEffect(
-        yield* sql`
+      const raw = yield* sql`
           insert into
             test (name)
           values
             ('hello')
-        `.raw
-      );
+        `.raw;
+      const first = yield* RunInfo.decodeUnknownEffect(raw);
       expect(first.changes).toBe(1);
-      const second = yield* RunInfo.decodeUnknownEffect(
-        yield* sql`
+      const raw2 = yield* sql`
           insert into
             test (name)
           values
             ('world')
-        `.raw.pipe(sql.withTransaction)
-      );
+        `.raw.pipe(sql.withTransaction);
+      const second = yield* RunInfo.decodeUnknownEffect(raw2);
       expect(second.changes).toBe(1);
       expect(second.lastInsertRowid).toBe(first.lastInsertRowid + 1);
       const rows = yield* sql`
@@ -372,14 +367,13 @@ describe('TursoSyncClient', () => {
           values
             ('after timeout')
         `;
-      expect(
-        yield* sql`
+      const rows = yield* sql`
             select
               name
             from
               test
-          `
-      ).toEqual([{ name: 'after timeout' }]);
+          `;
+      expect(rows).toEqual([{ name: 'after timeout' }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -598,11 +592,10 @@ describe('TursoSyncClient', () => {
     Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           pragma busy_timeout
-        `
-      ).toEqual([{ busy_timeout: 5000 }]);
+        `;
+      expect(rows).toEqual([{ busy_timeout: 5000 }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -611,11 +604,10 @@ describe('TursoSyncClient', () => {
     Effect.fnUntraced(function* () {
       const dir = yield* makeTempDir;
       const sql = yield* TursoSyncClient.make({ path: `${dir}/local.db` });
-      expect(
-        yield* sql`
+      const rows = yield* sql`
           pragma journal_mode
-        `
-      ).toEqual([{ journal_mode: 'wal' }]);
+        `;
+      expect(rows).toEqual([{ journal_mode: 'wal' }]);
     }, Effect.provide(TestLayer))
   );
 
@@ -648,14 +640,13 @@ describe('TursoSyncClient', () => {
         }),
       });
 
-      expect(
-        yield* replica`
+      const rows = yield* replica`
           select
             *
           from
             synced
-        `
-      ).toEqual([{ id: 1, value: 'bootstrapped' }]);
+        `;
+      expect(rows).toEqual([{ id: 1, value: 'bootstrapped' }]);
 
       yield* source`
         insert into
@@ -663,21 +654,22 @@ describe('TursoSyncClient', () => {
         values
           (2, 'pulled')
       `;
-      expect(yield* replica.pull).toBe(true);
-      expect(
-        yield* replica`
+      const pull = yield* replica.pull;
+      expect(pull).toBe(true);
+      const rows2 = yield* replica`
           select
             *
           from
             synced
           order by
             id
-        `
-      ).toEqual([
+        `;
+      expect(rows2).toEqual([
         { id: 1, value: 'bootstrapped' },
         { id: 2, value: 'pulled' },
       ]);
-      expect(yield* replica.pull).toBe(false);
+      const pull2 = yield* replica.pull;
+      expect(pull2).toBe(false);
       expect(authorizationHeaders.length).toBeGreaterThan(0);
       expect(Array.every(authorizationHeaders, (header) => header === 'Bearer test-token')).toBe(
         true
@@ -716,14 +708,13 @@ describe('TursoSyncClient', () => {
       expect(error).toBeInstanceOf(TursoSyncError);
       expect(error.operation).toBe('pull');
       expect(SqlError.isSqlError(error)).toBe(false);
-      expect(
-        yield* replica`
+      const rows = yield* replica`
           select
             *
           from
             synced
-        `
-      ).toEqual([]);
+        `;
+      expect(rows).toEqual([]);
     }, Effect.provide(TestLayer))
   );
 
@@ -764,25 +755,24 @@ describe('TursoSyncClient', () => {
       const pull = yield* replica.pull.pipe(Effect.forkChild);
       yield* Deferred.await(waiting);
 
-      expect(
-        yield* replica`
+      const rows = yield* replica`
         select
           *
         from
           synced
-      `
-      ).toEqual([]);
+      `;
+      expect(rows).toEqual([]);
       expect(headers).toHaveLength(requestsBeforePull);
       yield* Deferred.succeed(token, 'rotated-token');
-      expect(yield* Fiber.join(pull)).toBe(true);
-      expect(
-        yield* replica`
+      const pullValue = yield* Fiber.join(pull);
+      expect(pullValue).toBe(true);
+      const rows2 = yield* replica`
         select
           *
         from
           synced
-      `
-      ).toEqual([{ id: 1 }]);
+      `;
+      expect(rows2).toEqual([{ id: 1 }]);
       expect(headers.slice(requestsBeforePull)).not.toHaveLength(0);
       expect(
         Array.every(
@@ -836,20 +826,21 @@ describe('TursoSyncClient', () => {
       suspendToken = false;
       const second = yield* replica.pull.pipe(Effect.forkChild({ startImmediately: true }));
 
-      expect(
-        yield* replica`
+      const rows = yield* replica`
         select
           *
         from
           synced
-      `
-      ).toEqual([]);
+      `;
+      expect(rows).toEqual([]);
       expect(tokenCalls).toBe(callsBeforeSecondPull);
       expect(interruption.pollUnsafe()).toBe(void 0);
       yield* Deferred.succeed(allowCleanup, true);
       yield* Fiber.join(interruption);
-      expect(Exit.hasInterrupts(yield* Fiber.await(first))).toBe(true);
-      expect(yield* Fiber.join(second)).toBe(false);
+      const firstExit = yield* Fiber.await(first);
+      expect(Exit.hasInterrupts(firstExit)).toBe(true);
+      const secondValue = yield* Fiber.join(second);
+      expect(secondValue).toBe(false);
       expect(tokenCalls).toBeGreaterThan(callsBeforeSecondPull);
     }, Effect.provide(TestLayer))
   );
@@ -879,21 +870,22 @@ describe('TursoSyncClient', () => {
       }).pipe(Effect.scoped, Effect.forkChild);
       yield* Deferred.await(waiting);
       yield* Fiber.interrupt(bootstrap);
-      expect(yield* Deferred.isDone(cleanedUp)).toBe(true);
-      expect(Exit.hasInterrupts(yield* Fiber.await(bootstrap))).toBe(true);
+      const isDoneResult = yield* Deferred.isDone(cleanedUp);
+      expect(isDoneResult).toBe(true);
+      const bootstrapExit = yield* Fiber.await(bootstrap);
+      expect(Exit.hasInterrupts(bootstrapExit)).toBe(true);
 
       const replica = yield* TursoSyncClient.make({
         ...options,
         authToken: Effect.succeed('token'),
       });
-      expect(
-        yield* replica`
+      const rows = yield* replica`
         select
           *
         from
           synced
-      `
-      ).toEqual([]);
+      `;
+      expect(rows).toEqual([]);
     }, Effect.provide(TestLayer))
   );
 
@@ -913,14 +905,13 @@ describe('TursoSyncClient', () => {
           values
             (1)
         `;
-        expect(
-          yield* generic`
+        const rows = yield* generic`
           select
             *
           from
             test
-        `
-        ).toEqual([{ id: 1 }]);
+        `;
+        expect(rows).toEqual([{ id: 1 }]);
       }).pipe(Effect.provide(TursoSyncClient.layer({ path: `${dir}/local.db` })));
     }, Effect.provide(BunFileSystem.layer))
   );

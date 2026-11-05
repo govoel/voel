@@ -14,6 +14,7 @@ import {
   Redacted,
   Scope,
   Stream,
+  pipe,
 } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
@@ -42,7 +43,8 @@ const ClientTestLayer = Layer.unwrap(
 ).pipe(Layer.provideMerge(BunFileSystem.layer));
 
 const setupLibrary = Effect.fnUntraced(function* (name: string) {
-  const serverScope = yield* Scope.fork(yield* Effect.scope);
+  const scope = yield* Effect.scope;
+  const serverScope = yield* Scope.fork(scope);
   const serverUrl = yield* makeServerUrl.pipe(Scope.provide(serverScope));
   const username = yield* makeUsername('library.sync');
   const accounts = yield* AccountManager;
@@ -53,7 +55,8 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
     username,
     password: Redacted.make('password'),
   });
-  const account = Option.getOrThrow(yield* accounts.state);
+  const state = yield* accounts.state;
+  const account = Option.getOrThrow(state);
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
   const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
   const createLibrary = Effect.fnUntraced(function* (libraryName: string) {
@@ -102,16 +105,16 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
 
         const checkReplica = Effect.gen(function* () {
           const database = yield* LibraryDatabase.make(account);
-          expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
-          expect(
-            yield* database`
+          const libraryNamesResult = yield* libraryNames(database);
+          expect(libraryNamesResult).toEqual([{ name: 'Audiobooks' }]);
+          const rows = yield* database`
               select
                 "storagePlugin",
                 "storagePluginSettings"
               from
                 library
-            `
-          ).toEqual([{ storagePlugin: 'builtin:local', storagePluginSettings: '{}' }]);
+            `;
+          expect(rows).toEqual([{ storagePlugin: 'builtin:local', storagePluginSettings: '{}' }]);
 
           for (const statement of [
             database`
@@ -133,17 +136,17 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
             const error = yield* statement.pipe(Effect.flip);
             expect(SqlError.isSqlError(error)).toBe(true);
           }
-          expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
-          expect(
-            yield* database`
+          const libraryNamesResult2 = yield* libraryNames(database);
+          expect(libraryNamesResult2).toEqual([{ name: 'Audiobooks' }]);
+          const rows2 = yield* database`
             select
               name
             from
               sqlite_schema
             where
               name = 'local_only'
-          `
-          ).toEqual([]);
+          `;
+          expect(rows2).toEqual([]);
         }).pipe(Effect.scoped);
 
         yield* checkReplica;
@@ -171,12 +174,16 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         yield* createLibrary('Movies');
         yield* TestClock.adjust('1 second');
 
-        expect(
-          Option.getOrThrow(
-            yield* Fiber.join(changes).pipe(Effect.timeout('10 seconds'), TestClock.withLive)
-          )
-        ).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
-        expect(yield* database`pragma query_only`).toEqual([{ query_only: 1 }]);
+        const changesValue = yield* Fiber.join(changes).pipe(
+          Effect.timeout('10 seconds'),
+          TestClock.withLive
+        );
+        expect(Option.getOrThrow(changesValue)).toEqual([
+          { name: 'Audiobooks' },
+          { name: 'Movies' },
+        ]);
+        const rows2 = yield* database`pragma query_only`;
+        expect(rows2).toEqual([{ query_only: 1 }]);
       },
       (effect) => effect.pipe(Effect.provide(ClientTestLayer))
     )
@@ -193,16 +200,19 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         const idle = yield* Effect.gen(function* () {
           const firstDatabase = yield* databases.acquire(first.account);
           const reused = yield* databases.acquire(first.account);
-          expect(Option.isSome(yield* databases.contextEffectOption(first.account))).toBe(true);
+          const contextEffectOptionResult = yield* databases.contextEffectOption(first.account);
+          expect(Option.isSome(contextEffectOptionResult)).toBe(true);
           const secondDatabase = yield* databases.acquire(second.account);
           expect(reused).toBe(firstDatabase);
           expect(secondDatabase).not.toBe(firstDatabase);
-          expect(yield* libraryNames(firstDatabase)).toEqual([{ name: 'First server' }]);
-          expect(yield* libraryNames(secondDatabase)).toEqual([{ name: 'Second server' }]);
+          const libraryNamesResult = yield* libraryNames(firstDatabase);
+          expect(libraryNamesResult).toEqual([{ name: 'First server' }]);
+          const libraryNamesResult2 = yield* libraryNames(secondDatabase);
+          expect(libraryNamesResult2).toEqual([{ name: 'Second server' }]);
           return firstDatabase;
         }).pipe(
           Effect.updateContext((context: Context.Context<Scope.Scope>) =>
-            Context.omit(LibraryDatabaseMap)(context)
+            pipe(context, Context.omit(LibraryDatabaseMap))
           ),
           Effect.scoped
         );
@@ -215,7 +225,8 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         yield* first.stopServer;
         const reopened = yield* databases.acquire(first.account);
         expect(reopened).not.toBe(idle);
-        expect(yield* libraryNames(reopened)).toEqual([{ name: 'First server' }]);
+        const libraryNamesResult3 = yield* libraryNames(reopened);
+        expect(libraryNamesResult3).toEqual([{ name: 'First server' }]);
       },
       (effect) => effect.pipe(Effect.provide(ClientTestLayer))
     )
@@ -228,7 +239,8 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         const { account, createLibrary, authentication, reauthenticate } =
           yield* setupLibrary('Audiobooks');
         const database = yield* LibraryDatabase.make(account);
-        expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
+        const libraryNamesResult = yield* libraryNames(database);
+        expect(libraryNamesResult).toEqual([{ name: 'Audiobooks' }]);
         yield* createLibrary('Movies');
         yield* AccountManager.use((accounts) => accounts.removeAccount(account));
         const signedOut = yield* authentication.sessionChanges.pipe(
@@ -242,12 +254,16 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
         expect(Option.isSome(signedOut)).toBe(true);
 
         const pull = yield* database.pull.pipe(Effect.forkScoped({ startImmediately: true }));
-        expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }]);
+        const libraryNamesResult2 = yield* libraryNames(database);
+        expect(libraryNamesResult2).toEqual([{ name: 'Audiobooks' }]);
         yield* reauthenticate;
-        expect(yield* Fiber.join(pull).pipe(Effect.timeout('10 seconds'), TestClock.withLive)).toBe(
-          true
+        const pullValue = yield* Fiber.join(pull).pipe(
+          Effect.timeout('10 seconds'),
+          TestClock.withLive
         );
-        expect(yield* libraryNames(database)).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
+        expect(pullValue).toBe(true);
+        const libraryNamesResult3 = yield* libraryNames(database);
+        expect(libraryNamesResult3).toEqual([{ name: 'Audiobooks' }, { name: 'Movies' }]);
       },
       (effect) => effect.pipe(Effect.provide(ClientTestLayer))
     )

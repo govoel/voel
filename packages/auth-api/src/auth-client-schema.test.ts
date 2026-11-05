@@ -29,7 +29,8 @@ describe('AuthClientSchema.request', () => {
 
   it('aborts the request on interruption without turning it into a transport failure', async () => {
     await Effect.gen(function* () {
-      const runPromise = Effect.runPromiseWith(yield* Effect.context());
+      const services = yield* Effect.context();
+      const runPromise = Effect.runPromiseWith(services);
       const started = yield* Deferred.make<AbortSignal>();
       const request = AuthClientSchema.request({
         Request: Schema.Void,

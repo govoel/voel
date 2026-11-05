@@ -308,7 +308,8 @@ describe('AtomDevTools', () => {
       registry,
       Effect.gen(function* () {
         const service = yield* AtomDevTools;
-        const atomId = firstAtomId(yield* firstCatalog(service));
+        const firstCatalogResult = yield* firstCatalog(service);
+        const atomId = firstAtomId(firstCatalogResult);
         const firstReady = yield* Latch.make();
         const secondReady = yield* Latch.make();
         const collect = (ready: Latch.Latch) =>
@@ -347,7 +348,8 @@ describe('AtomDevTools', () => {
       registry,
       Effect.gen(function* () {
         const service = yield* AtomDevTools;
-        const atomId = firstAtomId(yield* firstCatalog(service));
+        const firstCatalogResult = yield* firstCatalog(service);
+        const atomId = firstAtomId(firstCatalogResult);
         const firstReady = yield* Latch.make();
         const secondReady = yield* Latch.make();
         const collect = (ready: Latch.Latch) =>
@@ -446,7 +448,8 @@ describe('AtomDevTools', () => {
       registry,
       Effect.gen(function* () {
         const service = yield* AtomDevTools;
-        const atomId = firstAtomId(yield* firstCatalog(service));
+        const firstCatalogResult = yield* firstCatalog(service);
+        const atomId = firstAtomId(firstCatalogResult);
         const oldNode = Option.getOrThrow(Option.fromNullishOr(registry.getNodes().get(atom)));
         const initialObserved = yield* Latch.make();
         const failureFiber = yield* service.watch(atomId).pipe(

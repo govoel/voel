@@ -7,17 +7,15 @@ import path from 'node:path';
 
 import { Array, Option, Schema, String, pipe } from 'effect';
 
-const decodePackageManifest = Schema.decodeUnknownOption(
-  Schema.Struct({ name: Schema.NonEmptyString })
+const decodePackageManifest = Schema.decodeOption(
+  Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString }))
 );
-const parseJson = Option.liftThrowable((source: string): unknown => JSON.parse(source));
 const readTextFile = Option.liftThrowable((filePath: string) => readFileSync(filePath, 'utf8'));
 
 const packageCache = new Map<string, { name: string; root: string }>();
 
 const readPackageName = (filePath: string) =>
   readTextFile(filePath).pipe(
-    Option.flatMap(parseJson),
     Option.flatMap(decodePackageManifest),
     Option.map((manifest) => manifest.name)
   );

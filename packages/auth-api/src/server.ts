@@ -134,7 +134,7 @@ export class AuthServerClient extends Context.Service<AuthServerClient>()(
       });
 
       return {
-        $context: Effect.tryPromise(async () => client.$context).pipe(Effect.orDie),
+        $context: Effect.promise(async () => client.$context),
         handler: client.handler,
 
         api: {

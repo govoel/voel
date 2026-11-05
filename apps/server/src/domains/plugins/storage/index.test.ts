@@ -161,7 +161,8 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       const secondSettingsKey = StoragePluginSettingsKey.make(second);
       const stores = yield* StoragePluginMap;
       const editors = yield* StoragePluginSettingsMap;
-      const caller = Context.make(Scope.Scope, yield* Effect.scope);
+      const scope = yield* Effect.scope;
+      const caller = Context.make(Scope.Scope, scope);
       const firstStorage = yield* stores.acquire(firstStorageKey).pipe(Effect.setContext(caller));
       const firstSettings = yield* editors
         .acquire(firstSettingsKey)
@@ -192,7 +193,10 @@ it.effect(
         module.storage.layer(request).pipe(Layer.provide(platformLayer))
       );
       const storage = Context.get(context, StoragePlugin);
-      expect(yield* storage.decodeRootLocation({ location: '/books/../audio' })).toBe('/audio');
+      const decodeRootLocationResult = yield* storage.decodeRootLocation({
+        location: '/books/../audio',
+      });
+      expect(decodeRootLocationResult).toBe('/audio');
     },
     Effect.scoped,
     Effect.provide(StoragePluginModuleMap.layerNoDeps),
@@ -212,9 +216,10 @@ it.effect(
         module.storage.layer(request).pipe(Layer.provide(platformLayer))
       );
       const storage = Context.get(context, StoragePlugin);
-      expect(yield* storage.decodeMediaFileLocation({ location: '/audio/./book.mp3' })).toBe(
-        '/audio/book.mp3'
-      );
+      const decodeMediaFileLocationResult = yield* storage.decodeMediaFileLocation({
+        location: '/audio/./book.mp3',
+      });
+      expect(decodeMediaFileLocationResult).toBe('/audio/book.mp3');
     },
     Effect.scoped,
     Effect.provide(StoragePluginModuleMap.layerNoDeps),
@@ -310,7 +315,8 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
     function* (method) {
       const stores = yield* StoragePluginMap;
       const storage = yield* stores.acquire(storageRequest);
-      expect(yield* storage[method]({ location: ' /library ' })).toBe('/library');
+      const decodedLocation = yield* storage[method]({ location: ' /library ' });
+      expect(decodedLocation).toBe('/library');
       const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
         location: ' ',
       });
@@ -358,7 +364,8 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
       ]) {
         const decoded = yield* storage[method]({ location });
         expect(decoded).toBe(canonical);
-        expect(yield* storage[method]({ location: canonical })).toBe(canonical);
+        const decodedLocation = yield* storage[method]({ location: canonical });
+        expect(decodedLocation).toBe(canonical);
       }
     },
     Effect.scoped,
@@ -378,14 +385,18 @@ it.effect.each([
       const decode: (
         input: Parameters<typeof storage.decodeRootLocation>[0]
       ) => Effect.Effect<string, StorageLocationValidationError> = storage[method];
-      expect(yield* decode({ location: '/library' })).toBe('/library');
-      expect(yield* decode({ location: 'relative' }).pipe(Effect.flip)).toEqual(
+      const decodeResult = yield* decode({ location: '/library' });
+      expect(decodeResult).toBe('/library');
+      const decodeError = yield* decode({ location: 'relative' }).pipe(Effect.flip);
+      expect(decodeError).toEqual(
         StorageLocationValidationError.make({ message: `${label} must be absolute paths` })
       );
-      expect(yield* decode({ location: '/nul\0' }).pipe(Effect.flip)).toEqual(
+      const decodeError2 = yield* decode({ location: '/nul\0' }).pipe(Effect.flip);
+      expect(decodeError2).toEqual(
         StorageLocationValidationError.make({ message: `${label} must not contain NUL characters` })
       );
-      expect(yield* decode({ location: '' }).pipe(Effect.flip)).toMatchObject({
+      const decodeError3 = yield* decode({ location: '' }).pipe(Effect.flip);
+      expect(decodeError3).toMatchObject({
         _tag: 'StorageLocationValidationError',
         message: 'Expected a value with a length of at least 1',
       });
@@ -405,7 +416,8 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
       const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
         location: '/outside',
       });
-      expect(yield* Effect.flip(result)).toMatchObject({
+      const resultError = yield* Effect.flip(result);
+      expect(resultError).toMatchObject({
         _tag: 'StorageLocationValidationError',
         message: 'Location is outside storage',
       });
@@ -524,18 +536,24 @@ it.effect(
     } satisfies StoragePluginModule;
 
     yield* Effect.gen(function* () {
-      expect(yield* PrivateService).toBe('host-private');
+      const privateService = yield* PrivateService;
+      expect(privateService).toBe('host-private');
       const stores = yield* StoragePluginMap;
       const storage = yield* stores.acquire(storageRequest);
       const editors = yield* StoragePluginSettingsMap;
       const settings = yield* editors.acquire(settingsRequest);
 
       yield* Effect.gen(function* () {
-        expect(yield* PrivateService).toBe('caller-private');
-        expect(yield* storage.decodeRootLocation(inputs.root)).toBe('/library');
-        expect(yield* storage.decodeMediaFileLocation(inputs.file)).toBe('/library/file');
-        expect(yield* settings.getForm(inputs.form)).toEqual([]);
-        expect(yield* settings.decodeFormSubmission(inputs.submission)).toEqual({
+        const privateService2 = yield* PrivateService;
+        expect(privateService2).toBe('caller-private');
+        const decodeRootLocationResult = yield* storage.decodeRootLocation(inputs.root);
+        expect(decodeRootLocationResult).toBe('/library');
+        const decodeMediaFileLocationResult = yield* storage.decodeMediaFileLocation(inputs.file);
+        expect(decodeMediaFileLocationResult).toBe('/library/file');
+        const getFormResult = yield* settings.getForm(inputs.form);
+        expect(getFormResult).toEqual([]);
+        const decodeFormSubmissionResult = yield* settings.decodeFormSubmission(inputs.submission);
+        expect(decodeFormSubmissionResult).toEqual({
           directory: '/library',
         });
       }).pipe(Effect.provideService(PrivateService, 'caller-private'));
@@ -599,7 +617,8 @@ it.effect(
           Effect.provideService(References.CurrentLogLevel, 'Debug')
         );
       yield* storage.decodeRootLocation({ location: '/unannotated' });
-      expect(yield* snapshotMetadata).toEqual(caller);
+      const snapshotMetadata2 = yield* snapshotMetadata;
+      expect(snapshotMetadata2).toEqual(caller);
     }).pipe(
       Effect.provide(
         makeMaps(module).pipe(
@@ -644,13 +663,15 @@ it.effect(
             StoragePluginSettings,
             StoragePluginSettings.of({
               getForm: Effect.fnUntraced(function* () {
-                observed.push(yield* snapshotContext);
+                const snapshotContext2 = yield* snapshotContext;
+                observed.push(snapshotContext2);
                 arrivals += 1;
                 if (arrivals === 2) {
                   yield* bothEntered.open;
                 }
                 yield* resume.await;
-                observed.push(yield* snapshotContext);
+                const snapshotContext3 = yield* snapshotContext;
+                observed.push(snapshotContext3);
                 return [];
               }),
               decodeFormSubmission: () => Effect.succeed(request.settings),
@@ -680,7 +701,8 @@ it.effect(
         }) {
           const before = yield* snapshotContext;
           yield* settings.getForm({ current: Option.none() });
-          expect(yield* snapshotContext).toEqual(before);
+          const snapshotContext4 = yield* snapshotContext;
+          expect(snapshotContext4).toEqual(before);
         },
         (effect, { metadata, privateValue }) =>
           effect.pipe(
@@ -734,7 +756,8 @@ it.effect.each(['storage', 'settings'] as const)(
     });
     const construction = Effect.gen(function* () {
       yield* Effect.acquireRelease(Effect.void, () => release('acquireRelease'));
-      yield* Scope.addFinalizer(yield* Effect.scope, release('scopeFinalizer'));
+      const scope2 = yield* Effect.scope;
+      yield* Scope.addFinalizer(scope2, release('scopeFinalizer'));
       yield* started.open;
       return yield* Effect.never;
     });
@@ -772,7 +795,8 @@ it.effect.each(['storage', 'settings'] as const)(
       Effect.provideService(PrivateService, 'shutdown-private'),
       Effect.annotateLogs({ request: 'shutdown' })
     );
-    expect(Exit.hasInterrupts(yield* Fiber.await(pending))).toBe(true);
+    const pendingExit = yield* Fiber.await(pending);
+    expect(Exit.hasInterrupts(pendingExit)).toBe(true);
     expect(released).toHaveLength(2);
     expect(released).toEqual(
       expect.arrayContaining([
@@ -815,8 +839,10 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
         const operation = settings.getForm({ current: Option.none() });
         const exit = yield* Effect.exit(operation);
         expect(exit).toEqual(outcome === 'typed failure' ? Exit.fail(error) : Exit.die(defect));
-        expect(yield* Effect.context()).toBe(before);
-        expect(yield* PrivateService).toBe('caller-private');
+        const services = yield* Effect.context();
+        expect(services).toBe(before);
+        const privateService = yield* PrivateService;
+        expect(privateService).toBe('caller-private');
       }).pipe(
         Effect.provideService(PrivateService, 'caller-private'),
         Effect.annotateLogs({ request: 'caller' }),
@@ -837,7 +863,8 @@ it.effect.each(['successful', 'failed'] as const)(
     const defaults = yield* snapshotMetadata.pipe(Effect.setContext(Context.empty()));
     const released: Array<string> = [];
     const release = Effect.fnUntraced(function* (kind: string) {
-      expect(yield* snapshotContext).toEqual({
+      const snapshotContext2 = yield* snapshotContext;
+      expect(snapshotContext2).toEqual({
         metadata: defaults,
         services: noPrivateServices,
       });
@@ -852,7 +879,8 @@ it.effect.each(['successful', 'failed'] as const)(
           () => release('acquireRelease')
         );
         yield* Effect.addFinalizer(() => release('addFinalizer'));
-        yield* Scope.addFinalizer(yield* Effect.scope, release('scopeFinalizer'));
+        const scope = yield* Effect.scope;
+        yield* Scope.addFinalizer(scope, release('scopeFinalizer'));
       })
     );
     const storageError = StoragePluginConstructionError.make({ message: 'storage failed' });
@@ -885,17 +913,19 @@ it.effect.each(['successful', 'failed'] as const)(
           expect(settings).toEqual(Exit.fail(settingsError));
           expect(released).toHaveLength(6);
         } else {
-          const plugin = Context.get(yield* storage, StoragePlugin);
-          const editor = Context.get(yield* settings, StoragePluginSettings);
-          expect(yield* plugin.decodeRootLocation({ location: '/constructed' })).toBe(
-            '/constructed'
-          );
-          expect(
-            yield* editor.decodeFormSubmission({
-              current: Option.none(),
-              input: StoragePluginSettingsInput.make({}),
-            })
-          ).toEqual({ directory: '/library' });
+          const storage2 = yield* storage;
+          const plugin = Context.get(storage2, StoragePlugin);
+          const settings2 = yield* settings;
+          const editor = Context.get(settings2, StoragePluginSettings);
+          const decodeRootLocationResult = yield* plugin.decodeRootLocation({
+            location: '/constructed',
+          });
+          expect(decodeRootLocationResult).toBe('/constructed');
+          const decodeFormSubmissionResult = yield* editor.decodeFormSubmission({
+            current: Option.none(),
+            input: StoragePluginSettingsInput.make({}),
+          });
+          expect(decodeFormSubmissionResult).toEqual({ directory: '/library' });
         }
         expect(acquisitions).toBe(2);
       }).pipe(Effect.scoped, Effect.annotateLogs({ request: 'acquisition' }));

@@ -31,11 +31,10 @@ it.layer(TestServerControllerClient.layer)('API client', (iit) => {
         const [admin, user] = yield* signInTestServerUsers(manager, server);
         const adminClient = yield* clients.acquire(admin.key);
         const userClient = yield* clients.acquire(user.key);
-        expect(
-          yield* userClient.library
-            .list({ query: { limit: 100, cursor: Option.none() } })
-            .pipe(Effect.flip)
-        ).toBeInstanceOf(ForbiddenError);
+        const listError = yield* userClient.library
+          .list({ query: { limit: 100, cursor: Option.none() } })
+          .pipe(Effect.flip);
+        expect(listError).toBeInstanceOf(ForbiddenError);
 
         yield* adminClient.library.create({ payload: createInput('First server') });
         const otherServer = yield* setupTestServerWithUsers({ userCount: 1 });
@@ -67,7 +66,8 @@ it.layer(TestServerControllerClient.layer)('API client', (iit) => {
         expect((yield* request).items).toMatchObject([{ name: 'Movies' }]);
 
         yield* authentication.signOut;
-        expect(yield* request.pipe(Effect.flip)).toBeInstanceOf(UnauthorizedError);
+        const requestError = yield* request.pipe(Effect.flip);
+        expect(requestError).toBeInstanceOf(UnauthorizedError);
         yield* manager.signInAccount({
           serverUrl: server.serverUrl,
           username: server.adminUsername,

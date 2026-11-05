@@ -6,6 +6,7 @@ import { Redirect } from 'expo-router';
 import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
@@ -36,7 +37,7 @@ export const SelectedAccountBoundary = ({
     onNone: (): ReactNode => fallback,
     onSome: (key) => (
       <SelectedAccountContext.Provider
-        key={JSON.stringify([key.serverUrl, key.userId])}
+        key={Effect.runSync(AccountKey.encodeIdentity(key))}
         value={key}>
         {children}
       </SelectedAccountContext.Provider>

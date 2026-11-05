@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Schema } from 'effect';
+import { Effect, Schema, pipe } from 'effect';
 
 import { ServerUrl } from '#src/domains/accounts/schema.ts';
 
@@ -13,7 +13,8 @@ describe('ServerUrl', () => {
   ])(
     'validates %s without changing account/storage identity',
     Effect.fnUntraced(function* (value) {
-      expect(yield* Schema.decodeEffect(ServerUrl)(value)).toBe(value);
+      const decodedLocation = yield* pipe(value, Schema.decodeEffect(ServerUrl));
+      expect(decodedLocation).toBe(value);
     })
   );
 

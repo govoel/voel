@@ -1,4 +1,4 @@
-import { Array, Effect } from 'effect';
+import { Array, Effect, pipe } from 'effect';
 import { SqlClient } from 'effect/sql';
 
 const createIndex = Effect.fnUntraced(function* ({
@@ -60,16 +60,14 @@ const createUpdatedAtTrigger = Effect.fnUntraced(function* ({
   readonly columns: ReadonlyArray<string>;
 }) {
   const triggerName = `${table}_updatedAt_trigger`;
-  const updateColumns = sql.join(
-    ', ',
-    false
-  )(
+  const updateColumns = pipe(
     Array.map(
       columns,
       (column) => sql`
         ${sql(column)}
       `
-    )
+    ),
+    sql.join(', ', false)
   );
 
   yield* sql`

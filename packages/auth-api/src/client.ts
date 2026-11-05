@@ -1,7 +1,17 @@
 import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/client';
 import { adminClient, inferAdditionalFields, usernameClient } from 'better-auth/client/plugins';
-import { Context, Effect, Option, Predicate, Queue, Schema, Stream, SubscriptionRef } from 'effect';
+import {
+  Context,
+  Effect,
+  Option,
+  Predicate,
+  Queue,
+  Schema,
+  Stream,
+  String,
+  SubscriptionRef,
+} from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 
 import * as AuthClientSchema from '#src/auth-client-schema.ts';
@@ -192,7 +202,7 @@ export class AuthClient extends Context.Service<AuthClient>()('@repo/auth-api/cl
                 data: {
                   ...data,
                   ...(Predicate.hasProperty(current.data, 'username') &&
-                  current.data.username === username.toLowerCase()
+                  current.data.username === String.toLowerCase(username)
                     ? {}
                     : { username }),
                 },
