@@ -24,15 +24,15 @@
     "test": "bun --bun run vitest --passWithNoTests"
   },
   "dependencies": {
-    "@effect/atom-react": "4.1.1",
+    "@effect/atom-react": "4.1.2",
     "@repo/effect-atom-devtools-core": "workspace:*",
     "@rozenite/agent-shared": "2.5.0",
     "@rozenite/plugin-bridge": "2.5.0",
     "@rozenite/ui": "2.5.0",
-    "effect": "4.1.1"
+    "effect": "4.1.2"
   },
   "devDependencies": {
-    "@effect/vitest": "4.1.1",
+    "@effect/vitest": "4.1.2",
     "@repo/tsconfig": "workspace:*",
     "@rozenite/vite-plugin": "2.5.0",
     "@types/react": "~19.3.0",
@@ -43,6 +43,6 @@
     "rozenite": "2.5.0",
     "typescript": "~6.0.3",
     "vite": "7.3.7",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }

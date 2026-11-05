@@ -303,6 +303,20 @@ describe("Iterable", () => {
     deepStrictEqual(toArray(as), [5, 4, 3, 2, 1])
   })
 
+  it("unfold stays done after completion", () => {
+    let calls = 0
+    const as = Iter.unfold(0, (n) => {
+      calls++
+      return calls === 2 ? Option.none() : Option.some([n, n + 1])
+    })
+    const iterator = as[Symbol.iterator]()
+    deepStrictEqual(iterator.next(), { done: false, value: 0 })
+    deepStrictEqual(iterator.next(), { done: true, value: undefined })
+    deepStrictEqual(iterator.next(), { done: true, value: undefined })
+    strictEqual(calls, 2)
+    deepStrictEqual(as[Symbol.iterator]().next(), { done: false, value: 0 })
+  })
+
   it("map", () => {
     deepStrictEqual(
       pipe([1, 2, 3], Iter.map((n) => n * 2), toArray),
@@ -369,6 +383,38 @@ describe("Iterable", () => {
       pipe([1, 2, 4], Iter.filterMapWhile((n, i) => n === i + 1 ? Result.succeed(n + i) : Result.failVoid), toArray),
       [1, 3]
     )
+  })
+
+  it("filterMapWhile stays done after completion", () => {
+    let pulls = 0
+    const source = {
+      [Symbol.iterator]() {
+        const iterator = [1, 2, 3][Symbol.iterator]()
+        return {
+          next() {
+            pulls++
+            return iterator.next()
+          }
+        }
+      }
+    }
+
+    const failed = Iter.filterMapWhile(source, (n) => n % 2 === 1 ? Result.succeed(n) : Result.failVoid)[
+      Symbol.iterator
+    ]()
+    deepStrictEqual(failed.next(), { done: false, value: 1 })
+    deepStrictEqual(failed.next(), { done: true, value: undefined })
+    deepStrictEqual(failed.next(), { done: true, value: undefined })
+    strictEqual(pulls, 2)
+
+    pulls = 0
+    const exhausted = Iter.filterMapWhile(source, Result.succeed)[Symbol.iterator]()
+    for (const value of [1, 2, 3]) {
+      deepStrictEqual(exhausted.next(), { done: false, value })
+    }
+    deepStrictEqual(exhausted.next(), { done: true, value: undefined })
+    deepStrictEqual(exhausted.next(), { done: true, value: undefined })
+    strictEqual(pulls, 4)
   })
 
   it("getFailures", () => {
