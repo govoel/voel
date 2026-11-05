@@ -50,7 +50,8 @@ it.layer(TestServerControllerClient.layer)('listLibrariesAtom', (iit) => {
         const query = listLibrariesAtom(account.key);
         const registry = yield* AtomRegistry.AtomRegistry;
         yield* Atom.mount(query);
-        expect(yield* Atom.getResult(query, { suspendOnWaiting: true })).toEqual({
+        const empty = yield* Atom.getResult(query, { suspendOnWaiting: true });
+        expect(empty).toEqual({
           items: [],
           done: true,
         });
@@ -125,16 +126,19 @@ it.layer(TestServerControllerClient.layer)('listLibrariesAtom', (iit) => {
           values: {},
           roots: [newRootRow('/media/books/../audiobooks'), newRootRow('/media/audiobooks')],
         });
-        expect(yield* client.library.get({ params: created })).toMatchObject({
+        const library = yield* client.library.get({ params: created });
+        expect(library).toMatchObject({
           name: definition.name,
           storagePluginSettings: Option.some({}),
           roots: [{ root: '/media/audiobooks' }],
         });
-        expect(
-          yield* createLibrary({ account: account.key, definition, values: {}, roots: [] }).pipe(
-            Effect.flip
-          )
-        ).toMatchObject({ _tag: 'LibraryNameConflictError' });
+        const createError = yield* createLibrary({
+          account: account.key,
+          definition,
+          values: {},
+          roots: [],
+        }).pipe(Effect.flip);
+        expect(createError).toMatchObject({ _tag: 'LibraryNameConflictError' });
       },
       (effect) =>
         effect.pipe(

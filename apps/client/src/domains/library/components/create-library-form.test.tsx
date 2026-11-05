@@ -1,6 +1,6 @@
 import { RegistryContext } from '@effect/atom-react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Array, String as EffectString, Option } from 'effect';
+import { Array, Effect, String as EffectString, Option, Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { PropsWithChildren } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -12,7 +12,7 @@ import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
 import { newRootRow } from '#src/domains/library/management.ts';
 
 vi.mock('#src/runtime/index.ts', async () => {
-  const { Effect, Layer } = await import('effect');
+  const { Effect: MockEffect, Layer, Schema: MockSchema } = await import('effect');
   const { Atom, Reactivity } = await import('effect/reactivity');
   const { FetchHttpClient } = await import('effect/http');
   const { ApiClientMap } = await import('#src/api-client.ts');
@@ -27,16 +27,17 @@ vi.mock('#src/runtime/index.ts', async () => {
           AuthClientMap.layerNoDeps.pipe(
             Layer.provide(
               Layer.mock(AccountRepository, {
-                list: Effect.succeed([]),
-                getActiveKey: Effect.succeedNone,
+                list: MockEffect.succeed([]),
+                getActiveKey: MockEffect.succeedNone,
                 readAuthStorage: () =>
-                  Effect.succeed({
-                    voel_cookie: JSON.stringify({
-                      'auth.session_token': { value: 'test', expires: null },
-                    }),
-                  }),
-                writeAuthStorageItem: () => Effect.void,
-                findByKey: () => Effect.succeedNone,
+                  MockSchema.encodeEffect(MockSchema.fromJsonString(MockSchema.Unknown))({
+                    'auth.session_token': { value: 'test', expires: null },
+                  }).pipe(
+                    MockEffect.orDie,
+                    MockEffect.map((cookie) => ({ voel_cookie: cookie }))
+                  ),
+                writeAuthStorageItem: () => MockEffect.void,
+                findByKey: () => MockEffect.succeedNone,
               })
             )
           ),
@@ -185,9 +186,15 @@ it('retains values across sections, reloads changed draft metadata, and only cre
     if (input instanceof Request) {
       body = await input.json();
     } else if (init?.body instanceof Uint8Array) {
-      body = JSON.parse(new TextDecoder().decode(init.body));
+      body = await Effect.runPromise(
+        Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+          new TextDecoder().decode(init.body)
+        )
+      );
     } else if (typeof init?.body === 'string') {
-      body = JSON.parse(init.body);
+      body = await Effect.runPromise(
+        Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(init.body)
+      );
     }
     if (path === '/api/auth/get-session') {
       return Response.json(null);
