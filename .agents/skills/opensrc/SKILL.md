@@ -44,13 +44,3 @@ bun opensrc path zod --cwd /path/to/project
 For repos, use `@ref` or `#ref` to pin a branch, tag, or commit.
 
 If you get an error like "Error: error decoding response body", try the repo instead of package name or git clone the repo directly.
-
-### Verify release sources
-
-Do not assume the cache directory name proves which revision was fetched. If a
-package uses nonstandard tags (for example `effect@4.1.2`), verify the release tag
-with `git ls-remote --tags` and compare the fetched source with that tag. If
-opensrc returns newer source even for an explicit revision, use a Git checkout or
-GitHub archive of the verified tag commit instead. Compare published package
-sources too when necessary; publishing may apply formatting, but unreleased APIs
-must not be treated as available in the installed version.
