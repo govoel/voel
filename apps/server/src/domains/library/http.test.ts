@@ -5,7 +5,7 @@ import {
   StoragePluginSettingsPersisted,
   StorageRootLocation,
 } from '@govoel/plugins/storage';
-import { Array, Effect, Exit, Fiber, Latch, Layer, Option, Schema } from 'effect';
+import { Array, Effect, Exit, Fiber, Latch, Layer, Option, Schema, pipe } from 'effect';
 import {
   Headers,
   HttpClient,
@@ -1188,8 +1188,9 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       );
       expect(response.status).toBe(status);
       const body = yield* response.text;
-      const decodedLocation = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
-        body
+      const decodedLocation = yield* pipe(
+        body,
+        Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))
       );
       expect(decodedLocation).toEqual({
         _tag: tag,

@@ -14,6 +14,7 @@ import {
   Redacted,
   Scope,
   Stream,
+  pipe,
 } from 'effect';
 import { AsyncResult, Reactivity } from 'effect/reactivity';
 import { SqlError } from 'effect/sql';
@@ -211,7 +212,7 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
           return firstDatabase;
         }).pipe(
           Effect.updateContext((context: Context.Context<Scope.Scope>) =>
-            Context.omit(LibraryDatabaseMap)(context)
+            pipe(context, Context.omit(LibraryDatabaseMap))
           ),
           Effect.scoped
         );
