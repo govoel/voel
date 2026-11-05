@@ -74,12 +74,10 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   ]) {
     yield* Effect.scoped(
       Effect.all([
-        editors.acquire(
-          StoragePluginSettingsKey.make({
-            storagePlugin: row.settingsKey.storagePlugin,
-            library: snapshot,
-          })
-        ),
+        editors.acquire({
+          storagePlugin: row.settingsKey.storagePlugin,
+          library: { _tag: 'Existing', ...snapshot },
+        }),
         stores.acquire(
           StoragePluginKey.make({
             storagePlugin: row.settingsKey.storagePlugin,
@@ -131,8 +129,14 @@ it.layer(testLayer)('library service without transport', (iit) => {
         type: 'movie',
       });
 
-      const editor = yield* editors.acquire(unconfigured.settingsKey);
-      const acquireResult = yield* editors.acquire(listed.settingsKey);
+      const editor = yield* editors.acquire({
+        storagePlugin: unconfigured.settingsKey.storagePlugin,
+        library: { _tag: 'Existing', ...unconfigured.settingsKey.library },
+      });
+      const acquireResult = yield* editors.acquire({
+        storagePlugin: listed.settingsKey.storagePlugin,
+        library: { _tag: 'Existing', ...listed.settingsKey.library },
+      });
       expect(acquireResult).toBe(editor);
       const storage = yield* stores.acquire(storageKey);
       const acquireResult2 = yield* stores.acquire(listedStorageKey);
@@ -315,6 +319,8 @@ it.layer(testLayer)('library service without transport', (iit) => {
         name: Library.fields.name.make('Direct root validation'),
         type: Library.fields.type.make('movie'),
         storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: '/configured' }),
+        roots: [],
       });
       yield* service.setStoragePluginSettings({
         ...library,

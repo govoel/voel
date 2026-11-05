@@ -145,7 +145,9 @@ it.effect('acquires canonical plugin services until the caller releases its scop
         return storageLayer.pipe(Layer.tap(() => Effect.addFinalizer(onRelease)));
       },
       layerSettings: ({ library }) => {
-        builtLibraries.push(library);
+        if (library._tag === 'Existing') {
+          builtLibraries.push(library);
+        }
         return settingsLayer.pipe(Layer.tap(() => Effect.addFinalizer(onRelease)));
       },
     },
@@ -165,13 +167,19 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       const caller = Context.make(Scope.Scope, scope);
       const firstStorage = yield* stores.acquire(firstStorageKey).pipe(Effect.setContext(caller));
       const firstSettings = yield* editors
-        .acquire(firstSettingsKey)
+        .acquire({
+          storagePlugin: firstSettingsKey.storagePlugin,
+          library: { _tag: 'Existing', ...firstSettingsKey.library },
+        })
         .pipe(Effect.setContext(caller));
       const secondStorage = yield* stores.acquire(secondStorageKey).pipe(Effect.setContext(caller));
       const secondSettings = yield* editors
-        .acquire(secondSettingsKey)
+        .acquire({
+          storagePlugin: secondSettingsKey.storagePlugin,
+          library: { _tag: 'Existing', ...secondSettingsKey.library },
+        })
         .pipe(Effect.setContext(caller));
-      expect(builtLibraries).toEqual([request.library, request.library]);
+      expect(builtLibraries).toEqual([request.library, { _tag: 'Existing', ...request.library }]);
       expect(firstStorage).toBe(secondStorage);
       expect(firstSettings).toBe(secondSettings);
 
@@ -180,6 +188,82 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       expect(released).toBe(0);
     }).pipe(Effect.scoped);
     expect(released).toBe(2);
+  }).pipe(Effect.provide(makeMaps(module)));
+});
+
+it.effect('keeps draft editors request scoped and separate from existing cache entries', () => {
+  const seen: Array<Parameters<StoragePluginModule['storage']['layerSettings']>[0]['library']> = [];
+  let released = 0;
+  const module = {
+    storage: {
+      layer: () => storageLayer,
+      layerSettings: ({ library }) => {
+        seen.push(library);
+        return Layer.succeed(
+          StoragePluginSettings,
+          StoragePluginSettings.of({
+            decodeFormSubmission: () => Effect.succeed(request.settings),
+            getForm: () =>
+              Effect.succeed([
+                {
+                  _tag: 'TextField',
+                  name: StoragePluginSettingsForm.value.fields.name.make('directory'),
+                  label: library.name,
+                  placeholder: '',
+                  initialValue: '',
+                },
+              ]),
+          })
+        ).pipe(
+          Layer.tap(() =>
+            Effect.addFinalizer(() =>
+              Effect.sync(() => {
+                released += 1;
+              })
+            )
+          )
+        );
+      },
+    },
+  } satisfies StoragePluginModule;
+  return Effect.gen(function* () {
+    const editors = yield* StoragePluginSettingsMap;
+    const existing = {
+      storagePlugin: request.storagePlugin,
+      library: { _tag: 'Existing' as const, ...request.library },
+    };
+    const draft = {
+      storagePlugin: request.storagePlugin,
+      library: { _tag: 'Draft' as const, name: request.library.name, type: request.library.type },
+    };
+    yield* Effect.scoped(
+      Effect.gen(function* () {
+        const cached = yield* editors.acquire(existing);
+        const first = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const editor = yield* editors.acquire(draft);
+            return yield* editor.getForm({ current: Option.none() });
+          })
+        );
+        const secondDraft = {
+          ...draft,
+          library: { ...draft.library, name: Library.fields.name.make('Other draft') },
+        };
+        const second = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const editor = yield* editors.acquire(secondDraft);
+            return yield* editor.getForm({ current: Option.none() });
+          })
+        );
+        expect(first[0]?.label).toBe('Movies');
+        expect(second[0]?.label).toBe('Other draft');
+        const existingEditor = yield* editors.acquire(existing);
+        expect(existingEditor).toBe(cached);
+        expect(seen).toEqual([existing.library, draft.library, secondDraft.library]);
+        expect(Array.every(Array.drop(seen, 1), (library) => !('id' in library))).toBe(true);
+        expect(released).toBe(2);
+      })
+    );
   }).pipe(Effect.provide(makeMaps(module)));
 });
 
@@ -260,7 +344,10 @@ it.effect(
   Effect.fnUntraced(
     function* () {
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(settingsRequest);
+      const settings = yield* editors.acquire({
+        storagePlugin: settingsRequest.storagePlugin,
+        library: { _tag: 'Existing', ...settingsRequest.library },
+      });
       const formExit = yield* settings.getForm({ current: Option.none() }).pipe(Effect.exit);
       expect(Exit.hasDies(formExit)).toBe(true);
       expect(Exit.findDefect(formExit)).toMatchObject({
@@ -505,7 +592,9 @@ it.effect(
           });
         },
         layerSettings: (configuration) => {
-          expect(configuration).toEqual({ library: { id: 1, type: 'movie', name: 'Movies' } });
+          expect(configuration).toEqual({
+            library: { _tag: 'Existing', id: 1, type: 'movie', name: 'Movies' },
+          });
           inspect();
           return Layer.fromBuild(() => {
             inspect();
@@ -541,7 +630,10 @@ it.effect(
       const stores = yield* StoragePluginMap;
       const storage = yield* stores.acquire(storageRequest);
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(settingsRequest);
+      const settings = yield* editors.acquire({
+        storagePlugin: settingsRequest.storagePlugin,
+        library: { _tag: 'Existing', ...settingsRequest.library },
+      });
 
       yield* Effect.gen(function* () {
         const privateService2 = yield* PrivateService;
@@ -693,7 +785,10 @@ it.effect(
 
     yield* Effect.gen(function* () {
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(settingsRequest);
+      const settings = yield* editors.acquire({
+        storagePlugin: settingsRequest.storagePlugin,
+        library: { _tag: 'Existing', ...settingsRequest.library },
+      });
       const invoke = Effect.fnUntraced(
         function* (_input: {
           readonly metadata: Effect.Success<typeof snapshotMetadata>;
@@ -833,7 +928,10 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
 
     yield* Effect.gen(function* () {
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(settingsRequest);
+      const settings = yield* editors.acquire({
+        storagePlugin: settingsRequest.storagePlugin,
+        library: { _tag: 'Existing', ...settingsRequest.library },
+      });
       yield* Effect.gen(function* () {
         const before = yield* Effect.context();
         const operation = settings.getForm({ current: Option.none() });
