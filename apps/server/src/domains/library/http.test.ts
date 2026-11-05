@@ -511,14 +511,15 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         Option.none()
       );
       yield* client.library.getStoragePluginSettingsForm({ params: library });
-      expect(
-        yield* client.library
-          .setStoragePluginSettings({
-            params: library,
-            payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
-          })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+      const setStoragePluginSettingsError = yield* client.library
+        .setStoragePluginSettings({
+          params: library,
+          payload: { input: StoragePluginSettingsInput.make({ root: 'unavailable' }) },
+        })
+        .pipe(Effect.flip);
+      expect(setStoragePluginSettingsError).toMatchObject({
+        _tag: 'StoragePluginConstructionError',
+      });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         Option.none()
       );
@@ -1073,14 +1074,14 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         Option.some({ username: 'wire_draft', role: 'admin' })
       );
       const input = createInput('Draft HTTP', 'npm:test');
-      expect(
-        yield* client.library.getDraftStoragePluginSettingsForm({ payload: input })
-      ).toMatchObject([{ label: 'Draft HTTP', initialValue: '' }]);
+      const draftForm = yield* client.library.getDraftStoragePluginSettingsForm({ payload: input });
+      expect(draftForm).toMatchObject([{ label: 'Draft HTTP', initialValue: '' }]);
       for (const payload of [
         { ...input, storagePluginSettings: StoragePluginSettingsInput.make({ root: 123 }) },
         { ...input, roots: [{ root: 'relative' }] },
       ]) {
-        expect(yield* client.library.create({ payload }).pipe(Effect.flip)).toMatchObject({
+        const createError = yield* client.library.create({ payload }).pipe(Effect.flip);
+        expect(createError).toMatchObject({
           _tag:
             payload.roots.length > 0
               ? 'LibraryInvalidRootError'
@@ -1096,7 +1097,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const created = yield* client.library.create({
         payload: { ...input, roots: [{ root: '/one' }] },
       });
-      expect(yield* client.library.get({ params: created })).toMatchObject({
+      const library = yield* client.library.get({ params: created });
+      expect(library).toMatchObject({
         storagePluginSettings: Option.some({ prefix: '/initial' }),
         roots: [{ root: '/one' }],
       });
@@ -1127,14 +1129,13 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
               StorageLocationValidationError.make({ message: 'Rejected by new settings' })
             )
           : Effect.void;
-      expect(
-        yield* client.library
-          .setStoragePluginSettings({
-            params: library,
-            payload: { input: StoragePluginSettingsInput.make({ root: '/reject' }) },
-          })
-          .pipe(Effect.flip)
-      ).toMatchObject({ _tag: 'LibraryInvalidRootError' });
+      const setStoragePluginSettingsError = yield* client.library
+        .setStoragePluginSettings({
+          params: library,
+          payload: { input: StoragePluginSettingsInput.make({ root: '/reject' }) },
+        })
+        .pipe(Effect.flip);
+      expect(setStoragePluginSettingsError).toMatchObject({ _tag: 'LibraryInvalidRootError' });
       const after = yield* client.library.get({ params: library });
       expect({ settings: after.storagePluginSettings, roots: after.roots }).toEqual({
         settings: before.storagePluginSettings,

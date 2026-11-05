@@ -257,7 +257,8 @@ it.effect('keeps draft editors request scoped and separate from existing cache e
         );
         expect(first[0]?.label).toBe('Movies');
         expect(second[0]?.label).toBe('Other draft');
-        expect(yield* editors.acquire(existing)).toBe(cached);
+        const existingEditor = yield* editors.acquire(existing);
+        expect(existingEditor).toBe(cached);
         expect(seen).toEqual([existing.library, draft.library, secondDraft.library]);
         expect(Array.every(Array.drop(seen, 1), (library) => !('id' in library))).toBe(true);
         expect(released).toBe(2);
