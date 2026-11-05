@@ -5,7 +5,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "check-types": "expo customize tsconfig.json && tsc --noEmit",
-    "test": "vitest run --config vitest.rn.config.ts src/components src/domains/accounts/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts --exclude 'src/domains/accounts/components/**' src/api-client.test.ts src/domains/accounts src/domains/library src/runtime/swr.test.ts",
+    "test": "vitest run --config vitest.rn.config.ts src/components src/domains/accounts/components src/domains/library/components && bun --bun run vitest run --config vitest.rn-mocks.config.ts --exclude 'src/domains/accounts/components/**' --exclude 'src/domains/library/components/**' src/api-client.test.ts src/domains/accounts src/domains/library src/runtime/swr.test.ts",
     "start": "RELEASE_CHANNEL=dev expo start",
     "android:dev": "RELEASE_CHANNEL=dev expo run:android",
     "android:preview": "RELEASE_CHANNEL=preview expo run:android --variant release",
@@ -20,6 +20,7 @@
     "@expo-google-fonts/google-sans": "0.4.4",
     "@expo/material-symbols": "0.1.1",
     "@expo/ui": "~58.0.27",
+    "@govoel/plugins": "workspace:*",
     "@repo/auth-api": "workspace:*",
     "@repo/effect-turso-sync": "workspace:*",
     "@repo/effect-turso-sync-rn": "workspace:*",
@@ -54,7 +55,6 @@
   "devDependencies": {
     "@effect/platform-bun": "4.1.2",
     "@effect/vitest": "4.1.2",
-    "@govoel/plugins": "workspace:*",
     "@repo/effect-atom-devtools-core": "workspace:*",
     "@repo/effect-atom-devtools-rozenite": "workspace:*",
     "@repo/effect-turso-sync-bun": "workspace:*",
