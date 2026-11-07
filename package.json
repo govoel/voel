@@ -17,8 +17,8 @@
     "prepare": "effect-tsgo patch --no-typescript --oxlint"
   },
   "devDependencies": {
-    "@effect/tsgo": "0.67.3",
-    "@oxlint/plugins": "1.91.0",
+    "@effect/tsgo": "0.67.5",
+    "@oxlint/plugins": "1.92.0",
     "agent-browser": "0.41.2",
     "agent-device": "0.21.36",
     "bun-types": "1.4.4",
@@ -26,9 +26,9 @@
     "eslint-plugin-sql": "3.4.1",
     "eslint-plugin-turbo": "2.11.10",
     "opensrc": "0.7.3",
-    "oxfmt": "0.76.0",
-    "oxlint": "1.91.0",
-    "oxlint-tsgolint": "7.0.2005",
+    "oxfmt": "0.77.0",
+    "oxlint": "1.92.0",
+    "oxlint-tsgolint": "7.0.2006",
     "turbo": "2.11.10",
     "typescript": "7.0.2"
   },
