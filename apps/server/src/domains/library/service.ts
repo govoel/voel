@@ -1,4 +1,4 @@
-import { StoragePluginSettingsLibrary } from '@govoel/plugins/storage';
+import { StoragePluginSettings, StoragePluginSettingsLibrary } from '@govoel/plugins/storage';
 import type { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
@@ -10,7 +10,12 @@ import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/librar
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
-import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
+import {
+  StoragePluginBuilder,
+  StoragePluginMap,
+  StoragePluginSettingsLayerNoDeps,
+  StoragePluginSettingsMap,
+} from '#src/domains/plugins/storage/index.ts';
 
 export class LibraryService extends Context.Service<LibraryService>()(
   '@repo/server/domains/library/service/LibraryService',
@@ -18,9 +23,20 @@ export class LibraryService extends Context.Service<LibraryService>()(
     make: Effect.gen(function* () {
       const sql = yield* LibraryDatabase;
       const repository = yield* LibraryRepository;
+      const buildPlugin = yield* StoragePluginBuilder;
       const editors = yield* StoragePluginSettingsMap;
       const stores = yield* StoragePluginMap;
       const retirementScope = yield* Effect.scope;
+
+      const draftSettingsLayer = ({
+        storagePlugin,
+        name,
+        type,
+      }: Parameters<typeof repository.create>[0]) =>
+        StoragePluginSettingsLayerNoDeps({
+          storagePlugin,
+          library: StoragePluginSettingsLibrary.Draft({ name, type }),
+        }).pipe(Layer.provide(Layer.succeed(StoragePluginBuilder, buildPlugin)));
 
       const details = ({
         settingsKey,
@@ -116,10 +132,9 @@ export class LibraryService extends Context.Service<LibraryService>()(
         getDraftStoragePluginSettingsForm: Effect.fnUntraced(function* (
           request: Parameters<typeof repository.create>[0]
         ) {
-          const editor = yield* editors.acquire({
-            storagePlugin: request.storagePlugin,
-            library: StoragePluginSettingsLibrary.Draft({ name: request.name, type: request.type }),
-          });
+          const editor = yield* Layer.build(draftSettingsLayer(request)).pipe(
+            Effect.map(Context.get(StoragePluginSettings))
+          );
           return yield* editor.getForm({ current: Option.none() });
         }, Effect.scoped),
         create: Effect.fnUntraced(
@@ -129,13 +144,9 @@ export class LibraryService extends Context.Service<LibraryService>()(
               readonly roots: ReadonlyArray<{ readonly root: string }>;
             }
           ) {
-            const editor = yield* editors.acquire({
-              storagePlugin: request.storagePlugin,
-              library: StoragePluginSettingsLibrary.Draft({
-                name: request.name,
-                type: request.type,
-              }),
-            });
+            const editor = yield* Layer.build(draftSettingsLayer(request)).pipe(
+              Effect.map(Context.get(StoragePluginSettings))
+            );
             const settings = yield* editor.decodeFormSubmission({
               current: Option.none(),
               input: request.storagePluginSettings,
@@ -171,10 +182,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire({
-            storagePlugin: row.settingsKey.storagePlugin,
-            library: StoragePluginSettingsLibrary.Existing(row.settingsKey.library),
-          });
+          const editor = yield* editors.acquire(row.settingsKey);
           return yield* editor.getForm({
             current: Option.map(row.storageKey, ({ settings }) => settings),
           });
@@ -185,10 +193,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             input,
           }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
             const row = yield* repository.getById({ id });
-            const editor = yield* editors.acquire({
-              storagePlugin: row.settingsKey.storagePlugin,
-              library: StoragePluginSettingsLibrary.Existing(row.settingsKey.library),
-            });
+            const editor = yield* editors.acquire(row.settingsKey);
             const settings = yield* editor.decodeFormSubmission({
               current: Option.map(row.storageKey, (key) => key.settings),
               input,
@@ -243,6 +248,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
     Layer.provide([
       LibraryDatabase.layer,
       LibraryRepository.layer,
+      StoragePluginBuilder.layer,
       StoragePluginSettingsMap.layer,
       StoragePluginMap.layer,
     ])

@@ -74,10 +74,12 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   ]) {
     yield* Effect.scoped(
       Effect.all([
-        editors.acquire({
-          storagePlugin: row.settingsKey.storagePlugin,
-          library: { _tag: 'Existing', ...snapshot },
-        }),
+        editors.acquire(
+          StoragePluginSettingsKey.make({
+            storagePlugin: row.settingsKey.storagePlugin,
+            library: snapshot,
+          })
+        ),
         stores.acquire(
           StoragePluginKey.make({
             storagePlugin: row.settingsKey.storagePlugin,
@@ -129,14 +131,8 @@ it.layer(testLayer)('library service without transport', (iit) => {
         type: 'movie',
       });
 
-      const editor = yield* editors.acquire({
-        storagePlugin: unconfigured.settingsKey.storagePlugin,
-        library: { _tag: 'Existing', ...unconfigured.settingsKey.library },
-      });
-      const acquireResult = yield* editors.acquire({
-        storagePlugin: listed.settingsKey.storagePlugin,
-        library: { _tag: 'Existing', ...listed.settingsKey.library },
-      });
+      const editor = yield* editors.acquire(unconfigured.settingsKey);
+      const acquireResult = yield* editors.acquire(listed.settingsKey);
       expect(acquireResult).toBe(editor);
       const storage = yield* stores.acquire(storageKey);
       const acquireResult2 = yield* stores.acquire(listedStorageKey);
