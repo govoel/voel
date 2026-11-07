@@ -43,6 +43,4 @@ bun opensrc path zod --cwd /path/to/project
 
 For repos, use `@ref` or `#ref` to pin a branch, tag, or commit.
 
-Verify release sources against the repository's exact release tag before using them as evidence. A versioned cache path and matching `package.json` version do not guarantee that opensrc fetched that tag; it can return newer source. If tag resolution fails or the source differs, clone the exact release tag into a temporary directory and use that checkout instead. Effect uses tags such as `effect@4.1.2`; `.repos/effect` must match that tag, not a newer branch snapshot.
-
 If you get an error like "Error: error decoding response body", try the repo instead of package name or git clone the repo directly.
