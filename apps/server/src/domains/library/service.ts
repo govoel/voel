@@ -1,4 +1,4 @@
-import { StoragePluginSettingsContext } from '@govoel/plugins/storage';
+import { StoragePluginSettingsLibrary } from '@govoel/plugins/storage';
 import type { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
@@ -118,7 +118,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ) {
           const editor = yield* editors.acquire({
             storagePlugin: request.storagePlugin,
-            library: StoragePluginSettingsContext.Draft({ name: request.name, type: request.type }),
+            library: StoragePluginSettingsLibrary.Draft({ name: request.name, type: request.type }),
           });
           return yield* editor.getForm({ current: Option.none() });
         }, Effect.scoped),
@@ -131,7 +131,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           ) {
             const editor = yield* editors.acquire({
               storagePlugin: request.storagePlugin,
-              library: StoragePluginSettingsContext.Draft({
+              library: StoragePluginSettingsLibrary.Draft({
                 name: request.name,
                 type: request.type,
               }),
@@ -173,7 +173,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           const row = yield* repository.getById({ id });
           const editor = yield* editors.acquire({
             storagePlugin: row.settingsKey.storagePlugin,
-            library: StoragePluginSettingsContext.Existing(row.settingsKey.library),
+            library: StoragePluginSettingsLibrary.Existing(row.settingsKey.library),
           });
           return yield* editor.getForm({
             current: Option.map(row.storageKey, ({ settings }) => settings),
@@ -187,7 +187,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             const row = yield* repository.getById({ id });
             const editor = yield* editors.acquire({
               storagePlugin: row.settingsKey.storagePlugin,
-              library: StoragePluginSettingsContext.Existing(row.settingsKey.library),
+              library: StoragePluginSettingsLibrary.Existing(row.settingsKey.library),
             });
             const settings = yield* editor.decodeFormSubmission({
               current: Option.map(row.storageKey, (key) => key.settings),

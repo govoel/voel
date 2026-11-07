@@ -4,7 +4,6 @@ import {
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginSettings,
-  StoragePluginSettingsContext,
   StoragePluginSettingsForm,
   StoragePluginSettingsLibrary,
   StoragePluginSettingsPersisted,
@@ -162,7 +161,7 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
       const buildPlugin = yield* StoragePluginBuilder;
       const makeEditor = Effect.fnUntraced(function* (request: {
         readonly storagePlugin: Library['storagePlugin'];
-        readonly library: typeof StoragePluginSettingsLibrary.Type;
+        readonly library: StoragePluginSettingsLibrary;
       }) {
         const { context, invoke } = yield* buildPlugin({
           storagePlugin: request.storagePlugin,
@@ -203,7 +202,7 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
             StoragePluginSettings,
             makeEditor({
               storagePlugin: request.storagePlugin,
-              library: StoragePluginSettingsContext.Existing(request.library),
+              library: StoragePluginSettingsLibrary.Existing(request.library),
             })
           ),
         { idleTimeToLive: '5 minutes' }
@@ -212,9 +211,9 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
         ...map,
         acquire: (request: {
           readonly storagePlugin: Library['storagePlugin'];
-          readonly library: typeof StoragePluginSettingsLibrary.Type;
+          readonly library: StoragePluginSettingsLibrary;
         }) =>
-          StoragePluginSettingsLibrary.guards.Draft(request.library)
+          StoragePluginSettingsLibrary.$is('Draft')(request.library)
             ? makeEditor(request)
             : Schema.decodeEffect(StoragePluginSettingsKey)({
                 storagePlugin: request.storagePlugin,

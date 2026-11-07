@@ -2,15 +2,14 @@ import { Array, Context, Data, Schema } from 'effect';
 import type { Effect, FileSystem, Layer, Option, Path } from 'effect';
 import type { HttpClient } from 'effect/http';
 
-import { Library } from '#src/library.ts';
+import type { Library } from '#src/library.ts';
 
-export const StoragePluginSettingsLibrary = Schema.TaggedUnion({
-  Draft: { name: Library.fields.name, type: Library.fields.type },
-  Existing: Library.fields,
-});
+export type StoragePluginSettingsLibrary = Data.TaggedEnum<{
+  Draft: Pick<typeof Library.Type, 'name' | 'type'>;
+  Existing: typeof Library.Type;
+}>;
 
-export const StoragePluginSettingsContext =
-  Data.taggedEnum<typeof StoragePluginSettingsLibrary.Type>();
+export const StoragePluginSettingsLibrary = Data.taggedEnum<StoragePluginSettingsLibrary>();
 
 /**
  * Ordered UI fields with unique, flat names. An empty array means no settings.
@@ -203,7 +202,7 @@ export interface StoragePluginModule {
      * Must not require configured storage or valid credentials. Drafts have no id.
      */
     readonly layerSettings: (request: {
-      readonly library: typeof StoragePluginSettingsLibrary.Type;
+      readonly library: StoragePluginSettingsLibrary;
     }) => Layer.Layer<
       StoragePluginSettings,
       StoragePluginSettingsConstructionError,
