@@ -1,5 +1,5 @@
 import { StoragePluginSettingsPersisted } from '@govoel/plugins/storage';
-import { Array, Context, Effect, Layer, Option, Schema } from 'effect';
+import { Array, Context, Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { SqlSchema } from 'effect/sql';
 
 import {
@@ -10,6 +10,7 @@ import {
 } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
+import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 class LibraryWrite extends Schema.Struct({
   ...Library.jsonCreate.fields,
@@ -18,15 +19,52 @@ class LibraryWrite extends Schema.Struct({
 }) {}
 
 class LibraryRow extends Schema.Struct({
-  id: Library.fields.id,
-  type: Library.fields.type,
-  name: Library.fields.name,
-  storagePluginId: Library.fields.storagePluginId,
-  storagePluginSettings: Library.fields.storagePluginSettings,
+  id: Schema.toEncoded(Library.fields.id),
+  type: Schema.toEncoded(Library.fields.type),
+  name: Schema.toEncoded(Library.fields.name),
+  storagePluginId: Schema.toEncoded(Library.fields.storagePluginId),
+  storagePluginSettings: Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted)),
   roots: Schema.fromJsonString(
-    Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root }))
+    Schema.toEncoded(
+      Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root }))
+    )
   ),
-}) {}
+}).pipe(
+  Schema.decodeTo(
+    Schema.Struct({
+      id: Library.fields.id,
+      type: Library.fields.type,
+      name: Library.fields.name,
+      storageKey: StoragePluginKey,
+      roots: Schema.Array(
+        Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })
+      ),
+    }),
+    {
+      decode: SchemaGetter.transform(
+        ({ id, type, name, storagePluginId, storagePluginSettings, roots }) => ({
+          id,
+          type,
+          name,
+          storageKey: {
+            library: { id, type, name },
+            storagePluginId,
+            settings: storagePluginSettings,
+          },
+          roots,
+        })
+      ),
+      encode: SchemaGetter.transform(({ id, type, name, storageKey, roots }) => ({
+        id,
+        type,
+        name,
+        storagePluginId: storageKey.storagePluginId,
+        storagePluginSettings: storageKey.settings,
+        roots,
+      })),
+    }
+  )
+) {}
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
   '@repo/server/domains/library/repository/LibraryRepository',
