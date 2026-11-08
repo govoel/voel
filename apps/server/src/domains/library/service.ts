@@ -29,6 +29,13 @@ export class LibraryService extends Context.Service<LibraryService>()(
         roots,
       });
 
+      const writeRequest = (row: Effect.Success<ReturnType<typeof repository.getById>>) => ({
+        ...row.storageKey.library,
+        storagePluginId: row.storageKey.storagePluginId,
+        storagePluginSettings: row.storageKey.settings,
+        roots: Array.map(row.roots, ({ root }) => root),
+      });
+
       const health = Effect.fnUntraced(function* (
         row: Effect.Success<ReturnType<typeof repository.getById>>
       ) {
@@ -125,30 +132,37 @@ export class LibraryService extends Context.Service<LibraryService>()(
               current: Option.none(),
               input: request.storagePluginSettings,
             });
-            const result = yield* repository.create({
+            const created = yield* repository.create({
               name: request.name,
               type: request.type,
               storagePluginId: request.storagePluginId,
               storagePluginSettings: settings,
+              roots: [],
             });
-            const configured = yield* repository
-              .getById(result)
-              .pipe(Effect.catchTags({ LibraryNotFoundError: Effect.die }));
-            const storage = yield* stores.acquire(configured.storageKey);
+            const storage = yield* stores.acquire(created.storageKey);
             const roots = yield* decodeRoots({ storage, roots: request.roots });
-            yield* repository.setRoots({ id: result.id, roots });
-            return result;
+            const configured = yield* repository.update({ ...writeRequest(created), roots }).pipe(
+              Effect.catchTags({
+                LibraryNotFoundError: Effect.die,
+                LibraryNameConflictError: Effect.die,
+              })
+            );
+            return { id: configured.storageKey.library.id };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),
           Effect.scoped
         ),
-        rename: (request: Parameters<typeof repository.rename>[0]) =>
-          repository.rename(request).pipe(
-            Effect.tap(() => sql.afterCommit(launchStorageRetirement({ id: request.id }))),
-            sql.withTransaction,
-            Effect.catchTags({ SqlError: Effect.die })
-          ),
+        rename: Effect.fnUntraced(
+          function* ({ id, name }: Pick<Library, 'id' | 'name'>) {
+            const row = yield* repository.getById({ id });
+            const updated = yield* repository.update({ ...writeRequest(row), name });
+            yield* sql.afterCommit(launchStorageRetirement({ id }));
+            return { id: updated.storageKey.library.id };
+          },
+          sql.withTransaction,
+          Effect.catchTags({ SqlError: Effect.die })
+        ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
           const editor = yield* editors.acquire(row.storageKey.storagePluginId);
@@ -179,9 +193,15 @@ export class LibraryService extends Context.Service<LibraryService>()(
                 })
               );
               const roots = yield* decodeRoots({ storage, roots: current.roots });
-              const result = yield* repository.replaceStorage({ id, settings, roots });
+              const updated = yield* repository
+                .update({
+                  ...writeRequest(current),
+                  storagePluginSettings: settings,
+                  roots,
+                })
+                .pipe(Effect.catchTags({ LibraryNameConflictError: Effect.die }));
               yield* sql.afterCommit(launchStorageRetirement({ id }));
-              return result;
+              return { id: updated.storageKey.library.id };
             }).pipe(sql.withTransaction);
           },
           Effect.catchTags({ SqlError: Effect.die }),
@@ -195,8 +215,13 @@ export class LibraryService extends Context.Service<LibraryService>()(
             const row = yield* repository.getById({ id });
             const storage = yield* stores.acquire(row.storageKey);
             const unique = yield* decodeRoots({ storage, roots });
-            yield* repository.setRoots({ id, roots: unique });
-            return { id, roots: Array.map(unique, (root) => ({ root })) };
+            const updated = yield* repository
+              .update({ ...writeRequest(row), roots: unique })
+              .pipe(Effect.catchTags({ LibraryNameConflictError: Effect.die }));
+            return {
+              id: updated.storageKey.library.id,
+              roots: Array.map(updated.roots, ({ root }) => ({ root })),
+            };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),

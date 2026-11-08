@@ -56,13 +56,15 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   const editors = yield* StoragePluginSettingsMap;
   const stores = yield* StoragePluginMap;
   const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
-  const library = yield* repository.create({
+  const created = yield* repository.create({
     name: Library.fields.name.make(name),
     type: Library.fields.type.make('movie'),
     storagePluginId: Library.fields.storagePluginId.make('npm:test'),
     storagePluginSettings: settings,
+    roots: [],
   });
-  const row = yield* repository.getById(library);
+  const library = { id: created.storageKey.library.id };
+  const row = created;
   const editor = yield* editors.acquire(row.storageKey.storagePluginId).pipe(Effect.scoped);
   for (const snapshot of [
     row.storageKey.library,
@@ -148,14 +150,16 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const editors = yield* StoragePluginSettingsMap;
       const stores = yield* StoragePluginMap;
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
-      const library = yield* repository.create({
+      const created = yield* repository.create({
         name: Library.fields.name.make('Decoded plugin identities'),
         type: Library.fields.type.make('movie'),
         storagePluginId: Library.fields.storagePluginId.make('npm:test'),
         storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/decoded' }),
+        roots: [],
       });
+      const library = { id: created.storageKey.library.id };
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
-      const configured = yield* repository.getById(library);
+      const configured = created;
       const listResult = yield* repository.list({ cursor: Option.none(), limit: 100 });
       const listed = Option.getOrThrow(
         Array.findFirst(listResult, (row) => row.storageKey.library.id === library.id)

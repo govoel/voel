@@ -4,7 +4,6 @@ import {
   StorageLocationValidationError,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
-  StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Array, Effect, Exit, Fiber, Latch, Layer, Option, Schema, pipe } from 'effect';
 import {
@@ -94,11 +93,12 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository.make;
-      const library = yield* repository.create(createRecord('Failed health', 'npm:missing'));
-      yield* repository.replaceStorage({
-        roots: [],
+      const libraryRecord = yield* repository.create(createRecord('Failed health', 'npm:missing'));
+      const library = { id: libraryRecord.storageKey.library.id };
+      yield* repository.update({
+        ...createRecord('Failed health', 'npm:missing'),
         ...library,
-        settings: StoragePluginSettingsPersisted.make({}),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({}),
       });
       const getStoragePluginSettingsFormError = yield* client.library
         .getStoragePluginSettingsForm({ params: library })
@@ -126,7 +126,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const repository = yield* LibraryRepository;
       const editors = yield* StoragePluginSettingsMap;
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
-      const library = yield* repository.create(createRecord('Health', 'npm:test'));
+      const libraryRecord = yield* repository.create(createRecord('Health', 'npm:test'));
+      const library = { id: libraryRecord.storageKey.library.id };
       const listItem = Effect.gen(function* () {
         return Option.getOrThrow(
           Array.findFirst(
@@ -145,10 +146,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         expect(listItem2).toMatchObject({ storagePluginStatus: 'unknown' });
       }
 
-      yield* repository.replaceStorage({
-        roots: [],
+      yield* repository.update({
+        ...createRecord('Health', 'npm:test'),
         ...library,
-        settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
       yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
@@ -210,20 +211,20 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         payload: createInput('Stale health', 'npm:test'),
       });
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
-      yield* repository.replaceStorage({
-        roots: [],
+      yield* repository.update({
+        ...createRecord('Stale health', 'npm:test'),
         ...library,
-        settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
       yield* client.library.setRoots({ params: library, payload: { roots: [] } }).pipe(Effect.flip);
       expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
         'unhealthy'
       );
 
-      yield* repository.replaceStorage({
-        roots: [],
+      yield* repository.update({
+        ...createRecord('Stale health', 'npm:test'),
         ...library,
-        settings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
       });
       expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
         'unknown'
@@ -232,7 +233,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
         'healthy'
       );
-      yield* repository.rename({
+      yield* repository.update({
+        ...createRecord('Stale health', 'npm:test'),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
         ...library,
         name: Library.fields.name.make('New health context'),
       });
@@ -247,47 +250,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           )
         )
       ).toMatchObject({ storagePluginStatus: 'healthy' });
-    })
-  );
-
-  iit.effect(
-    'rolls back root removal when standalone replacement fails to insert',
-    Effect.fnUntraced(function* () {
-      const repository = yield* LibraryRepository.make;
-      const sql = yield* LibraryDatabase;
-      const library = yield* repository.create(createRecord('Atomic roots'));
-      yield* repository.setRoots({
-        ...library,
-        roots: [StorageRootLocation.make('/original')],
-      });
-      const original = (yield* repository.getById(library)).roots;
-      expect(Array.map(original, ({ root }) => root)).toEqual(['/original']);
-      yield* Effect.acquireRelease(
-        sql`
-          create trigger "rejectRootReplacement" before insert on "libraryRoot" when new.root = '/rejected-root-replacement' begin
-          select
-            raise (abort, 'Root insertion rejected');
-
-          end;
-        `,
-        () =>
-          sql`
-            drop trigger "rejectRootReplacement"
-          `.pipe(Effect.orDie)
-      );
-
-      const exit = yield* repository
-        .setRoots({
-          ...library,
-          roots: [StorageRootLocation.make('/rejected-root-replacement')],
-        })
-        .pipe(Effect.exit);
-      expect(Exit.hasFails(exit)).toBe(false);
-      expect(Exit.findDefect(exit)).toMatchObject({
-        _tag: 'Success',
-        success: { _tag: 'SqlError' },
-      });
-      expect((yield* repository.getById(library)).roots).toEqual(original);
     })
   );
 
@@ -359,7 +321,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const repository = yield* LibraryRepository;
       const editors = yield* StoragePluginSettingsMap;
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:missing'));
-      const missing = yield* repository.create(createRecord('Missing plugin', 'npm:missing'));
+      const missingRecord = yield* repository.create(createRecord('Missing plugin', 'npm:missing'));
+      const missing = { id: missingRecord.storageKey.library.id };
       const resultValue = yield* client.library.get({ params: missing });
       expect(resultValue).toMatchObject({
         storagePluginId: 'npm:missing',
@@ -418,7 +381,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
       const repository = yield* LibraryRepository;
-      const library = yield* repository.create(createRecord('Remote', 'npm:test'));
+      const libraryRecord = yield* repository.create(createRecord('Remote', 'npm:test'));
+      const library = { id: libraryRecord.storageKey.library.id };
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const getStoragePluginSettingsFormResult =
           yield* client.library.getStoragePluginSettingsForm({ params: library });
@@ -458,10 +422,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
         prefix: '/initial',
       });
-      yield* repository.replaceStorage({
-        roots: [],
+      yield* repository.update({
+        ...createRecord('Remote', 'npm:test'),
         ...library,
-        settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
       const setRootsError = yield* client.library
         .setRoots({ params: library, payload: { roots: [] } })
@@ -513,7 +477,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(getStoragePluginSettingsFormResult4).toMatchObject([
         { label: 'Renamed', initialValue: '/remote' },
       ]);
-      const second = yield* repository.create(createRecord('Second remote', 'npm:test'));
+      const secondRecord = yield* repository.create(createRecord('Second remote', 'npm:test'));
+      const second = { id: secondRecord.storageKey.library.id };
       const getStoragePluginSettingsFormResult5 =
         yield* client.library.getStoragePluginSettingsForm({ params: second });
       expect(getStoragePluginSettingsFormResult5).toEqual([
@@ -923,7 +888,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository;
       const marker = yield* client.library.create({ payload: createInput('Page marker') });
-      const first = yield* repository.create(createRecord('Page first'));
+      const firstRecord = yield* repository.create(createRecord('Page first'));
+      const first = { id: firstRecord.storageKey.library.id };
       yield* repository.create(createRecord('Page second'));
       const page = yield* client.library.list({
         query: { cursor: Option.some(marker.id), limit: 1 },
@@ -1192,7 +1158,11 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const original = StoragePluginSettingsPersisted.make(
         scenario === 'invalid current settings' ? {} : { prefix: '/original' }
       );
-      yield* repository.replaceStorage({ roots: [], ...library, settings: original });
+      yield* repository.update({
+        ...createRecord(`HTTP settings ${scenario}`, 'npm:test'),
+        ...library,
+        storagePluginSettings: original,
+      });
       const { settingsError } = fixture.controls;
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
@@ -1251,7 +1221,11 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
       );
       const original = StoragePluginSettingsPersisted.make({ prefix: '/original' });
-      yield* repository.replaceStorage({ roots: [], ...library, settings: original });
+      yield* repository.update({
+        ...createRecord(`HTTP settings ${scenario}`, 'npm:test'),
+        ...library,
+        storagePluginSettings: original,
+      });
       const { invalidForm, invalidPersisted } = fixture.controls;
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {

@@ -18,14 +18,17 @@ const testLayer = LibraryRepository.layerNoDeps.pipe(
 const createInput = ({
   name,
   settings,
+  roots,
 }: {
   readonly name: string;
   readonly settings: typeof StoragePluginSettingsPersisted.Type;
+  readonly roots: Parameters<typeof LibraryRepository.Service.create>[0]['roots'];
 }) => ({
   name: Library.fields.name.make(name),
   type: Library.fields.type.make('movie'),
   storagePluginId: Library.fields.storagePluginId.make('builtin:local'),
   storagePluginSettings: settings,
+  roots,
 });
 
 it.layer(testLayer)('library repository', (iit) => {
@@ -34,13 +37,14 @@ it.layer(testLayer)('library repository', (iit) => {
     Effect.fnUntraced(function* () {
       const repository = yield* LibraryRepository;
       const sql = yield* LibraryDatabase;
-      const library = yield* repository.create(
+      const original = yield* repository.create(
         createInput({
           name: 'JSON null settings',
           settings: StoragePluginSettingsPersisted.make(null),
+          roots: [],
         })
       );
-      const original = yield* repository.getById(library);
+      const library = { id: original.storageKey.library.id };
       assert.instanceOf(original.storageKey, StoragePluginKey);
       expect(original.storageKey.settings).toBe(null);
       const listed = yield* repository.list({ cursor: Option.none(), limit: 100 });
@@ -103,54 +107,79 @@ it.layer(testLayer)('library repository', (iit) => {
   );
 
   iit.effect(
-    'replaces roots idempotently, retains surviving IDs, and isolates other libraries',
+    'creates and updates complete aggregates, returning persisted identities and stable root IDs',
     Effect.fnUntraced(function* () {
       const repository = yield* LibraryRepository;
-      const settings = StoragePluginSettingsPersisted.make({});
-      const library = yield* repository.create(createInput({ name: 'Stable roots', settings }));
-      const other = yield* repository.create(createInput({ name: 'Isolated roots', settings }));
+      const settings = StoragePluginSettingsPersisted.make({ prefix: '/original' });
       const retained = StorageRootLocation.make('/retained');
-      const added = StorageRootLocation.make('/added');
-      yield* repository.setRoots({
-        ...library,
-        roots: [retained, StorageRootLocation.make('/removed')],
+      const initial = createInput({
+        name: 'Original aggregate',
+        settings,
+        roots: [retained, StorageRootLocation.make('/removed'), retained],
       });
-      yield* repository.setRoots({ ...other, roots: [retained] });
-      const original = (yield* repository.getById(library)).roots;
-      const isolated = (yield* repository.getById(other)).roots;
-      expect(Array.map(isolated, ({ root }) => root)).toEqual(['/retained']);
-      yield* repository.setRoots({ ...library, roots: [retained, added, retained] });
-      const replaced = (yield* repository.getById(library)).roots;
-      expect(Array.map(replaced, ({ root }) => root)).toEqual([retained, added]);
-      expect(replaced[0]).toEqual(original[0]);
-      yield* repository.setRoots({ ...library, roots: [added, retained] });
-      expect((yield* repository.getById(library)).roots).toEqual(replaced);
-      yield* repository.setRoots({ ...library, roots: [] });
-      yield* repository.setRoots({ ...library, roots: [] });
-      expect((yield* repository.getById(library)).roots).toEqual([]);
-      expect((yield* repository.getById(other)).roots).toEqual(isolated);
+      const created = yield* repository.create(initial);
+      const library = { id: created.storageKey.library.id };
+      assert.instanceOf(created.storageKey, StoragePluginKey);
+      expect(created.storageKey).toMatchObject({
+        library: { ...library, name: initial.name, type: initial.type },
+        storagePluginId: initial.storagePluginId,
+        settings,
+      });
+      expect(Array.map(created.roots, ({ root }) => root)).toEqual(['/retained', '/removed']);
+      const stored = yield* repository.getById(library);
+      expect(created).toEqual(stored);
+      const other = yield* repository.create(
+        createInput({ name: 'Other aggregate', settings, roots: [retained] })
+      );
+      const request = {
+        ...initial,
+        ...library,
+        name: Library.fields.name.make('Updated aggregate'),
+        type: Library.fields.type.make('audiobook'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:updated'),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
+        roots: [retained, StorageRootLocation.make('/added'), retained],
+      };
+      const updated = yield* repository.update(request);
+      assert.instanceOf(updated.storageKey, StoragePluginKey);
+      expect(updated.storageKey).toMatchObject({
+        library: { ...library, name: request.name, type: request.type },
+        storagePluginId: request.storagePluginId,
+        settings: request.storagePluginSettings,
+      });
+      expect(Array.map(updated.roots, ({ root }) => root)).toEqual(['/retained', '/added']);
+      expect(updated.roots[0]).toEqual(created.roots[0]);
+      const persisted = yield* repository.getById(library);
+      expect(updated).toEqual(persisted);
+      const repeated = yield* repository.update({
+        ...request,
+        roots: Array.reverse(request.roots),
+      });
+      expect(repeated).toEqual(updated);
+      const unchanged = yield* repository.getById({ id: other.storageKey.library.id });
+      expect(unchanged).toEqual(other);
+      const cleared = yield* repository.update({ ...request, roots: [] });
+      const clearedAgain = yield* repository.update({ ...request, roots: [] });
+      expect(cleared.roots).toEqual([]);
+      expect(clearedAgain).toEqual(cleared);
     })
   );
 
-  iit.effect(
-    'replaces settings and roots atomically and idempotently without changing other libraries',
-    Effect.fnUntraced(function* () {
+  iit.effect.each(['create', 'update'] as const)(
+    '%s rolls back the entire aggregate when root insertion fails',
+    Effect.fnUntraced(function* (operation) {
       const repository = yield* LibraryRepository;
       const sql = yield* LibraryDatabase;
-      const settings = StoragePluginSettingsPersisted.make({ prefix: '/original' });
-      const library = yield* repository.create(createInput({ name: 'Atomic storage', settings }));
-      const other = yield* repository.create(createInput({ name: 'Other storage', settings }));
-      const retained = StorageRootLocation.make('/retained');
-      yield* repository.setRoots({
-        ...library,
-        roots: [retained, StorageRootLocation.make('/removed')],
+      const initial = createInput({
+        name: `Atomic ${operation}`,
+        settings: StoragePluginSettingsPersisted.make({ prefix: '/original' }),
+        roots: [StorageRootLocation.make('/original')],
       });
-      yield* repository.setRoots({ ...other, roots: [retained] });
-      const original = yield* repository.getById(library);
-      const unrelated = yield* repository.getById(other);
+      const original = yield* repository.create(initial);
+      const library = { id: original.storageKey.library.id };
       yield* Effect.acquireRelease(
         sql`
-          create trigger "rejectStorageRoots" before insert on "libraryRoot" when new.root = '/rejected' begin
+          create trigger "rejectAggregateRoots" before insert on "libraryRoot" when new.root = '/rejected' begin
           select
             raise (abort, 'Root insertion rejected');
 
@@ -158,46 +187,74 @@ it.layer(testLayer)('library repository', (iit) => {
         `,
         () =>
           sql`
-            drop trigger "rejectStorageRoots"
+            drop trigger "rejectAggregateRoots"
           `.pipe(Effect.orDie)
       );
-      const replacement = StoragePluginSettingsPersisted.make({ prefix: '/replacement' });
-      const exit = yield* repository
-        .replaceStorage({
-          ...library,
-          settings: replacement,
-          roots: [StorageRootLocation.make('/rejected')],
-        })
-        .pipe(Effect.exit);
+      const request = {
+        ...initial,
+        name: Library.fields.name.make(`Failed ${operation}`),
+        type: Library.fields.type.make('show'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:replacement'),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/replacement' }),
+        roots: [StorageRootLocation.make('/rejected')],
+      };
+      const exit = yield* (
+        operation === 'create'
+          ? repository.create(request)
+          : repository.update({ ...request, ...library })
+      ).pipe(Effect.exit);
       expect(Exit.findDefect(exit)).toMatchObject({
         _tag: 'Success',
         success: { _tag: 'SqlError' },
       });
       const rolledBack = yield* repository.getById(library);
       expect(rolledBack).toEqual(original);
+      const rows = yield* repository.list({ cursor: Option.none(), limit: 100 });
+      expect(Array.some(rows, ({ storageKey }) => storageKey.library.name === request.name)).toBe(
+        false
+      );
+    })
+  );
 
-      const request = {
-        ...library,
-        settings: replacement,
-        roots: [retained, StorageRootLocation.make('/added'), retained],
-      };
-      yield* repository.replaceStorage(request);
-      const replaced = yield* repository.getById(library);
-      expect(replaced.storageKey.settings).toEqual(replacement);
-      expect(Array.map(replaced.roots, ({ root }) => root)).toEqual(['/retained', '/added']);
-      expect(replaced.roots[0]).toEqual(original.roots[0]);
-      yield* repository.replaceStorage(request);
-      const repeated = yield* repository.getById(library);
-      const unchanged = yield* repository.getById(other);
-      expect(repeated).toEqual(replaced);
-      expect(unchanged).toEqual(unrelated);
-
-      yield* repository.deleteById(library);
-      const missing = yield* repository.replaceStorage(request).pipe(Effect.flip);
-      expect(missing).toMatchObject({
-        _tag: 'LibraryNotFoundError',
-        ...library,
+  iit.effect(
+    'rejects conflicting names and never resurrects a deleted aggregate',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const request = createInput({
+        name: 'Unique aggregate',
+        settings: StoragePluginSettingsPersisted.make({}),
+        roots: [],
       });
+      const created = yield* repository.create(request);
+      const duplicate = yield* repository.create(request).pipe(Effect.flip);
+      expect(duplicate).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        libraryName: request.name,
+      });
+      const other = yield* repository.create({
+        ...request,
+        name: Library.fields.name.make('Other name'),
+      });
+      const conflicting = {
+        ...request,
+        id: other.storageKey.library.id,
+        roots: [StorageRootLocation.make('/conflicting')],
+      };
+      const conflict = yield* repository.update(conflicting).pipe(Effect.flip);
+      expect(conflict).toMatchObject({
+        _tag: 'LibraryNameConflictError',
+        libraryName: request.name,
+      });
+      const unchanged = yield* repository.getById({ id: other.storageKey.library.id });
+      expect(unchanged).toEqual(other);
+      const library = { id: created.storageKey.library.id };
+      yield* repository.deleteById(library);
+      const missing = yield* repository
+        .update({ ...request, ...library, roots: [StorageRootLocation.make('/missing')] })
+        .pipe(Effect.flip);
+      expect(missing).toMatchObject({ _tag: 'LibraryNotFoundError', ...library });
+      const absent = yield* repository.getById(library).pipe(Effect.flip);
+      expect(absent).toMatchObject({ _tag: 'LibraryNotFoundError', ...library });
     })
   );
 });

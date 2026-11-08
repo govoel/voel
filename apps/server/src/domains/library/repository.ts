@@ -17,17 +17,39 @@ class LibraryRecord extends Schema.Struct({
   roots: Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })),
 }) {}
 
-class LibraryRoots extends Schema.Struct({
-  id: Library.fields.id,
+class LibraryWrite extends Schema.Struct({
+  ...Library.jsonCreate.fields,
+  storagePluginSettings: StoragePluginSettingsPersisted.fromJsonString,
   roots: Schema.Array(LibraryRoot.fields.root),
 }) {}
 
-class LibraryRow extends Schema.Struct({
+const libraryColumns = {
   id: Schema.toEncoded(Library.fields.id),
   type: Schema.toEncoded(Library.fields.type),
   name: Schema.toEncoded(Library.fields.name),
   storagePluginId: Schema.toEncoded(Library.fields.storagePluginId),
   storagePluginSettings: Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted)),
+};
+
+class StorageRow extends Schema.Struct(libraryColumns).pipe(
+  Schema.decodeTo(StoragePluginKey, {
+    decode: SchemaGetter.transform(
+      ({ id, type, name, storagePluginId, storagePluginSettings }) => ({
+        library: { id, type, name },
+        storagePluginId,
+        settings: storagePluginSettings,
+      })
+    ),
+    encode: SchemaGetter.transform(({ library, storagePluginId, settings }) => ({
+      ...library,
+      storagePluginId,
+      storagePluginSettings: settings,
+    })),
+  })
+) {}
+
+class LibraryRow extends Schema.Struct({
+  ...libraryColumns,
   roots: Schema.fromJsonString(Schema.toEncoded(LibraryRecord.fields.roots)),
 }).pipe(
   Schema.decodeTo(LibraryRecord, {
@@ -82,24 +104,36 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         ) as roots
       `;
 
-      const replaceRoots = Effect.fnUntraced(function* ({
-        id,
-        roots,
-      }: typeof LibraryRoots.Encoded) {
-        yield* sql`
-              delete from "libraryRoot"
-              where
-                "libraryId" = ${id}
-                and not ${sql.in('root', roots)}
-            `;
-        if (Array.isReadonlyArrayNonEmpty(roots)) {
+      const replaceRoots = SqlSchema.findAll({
+        Request: Schema.Struct({ id: Library.fields.id, roots: LibraryWrite.fields.roots }),
+        Result: LibraryRecord.fields.roots.value,
+        execute: Effect.fnUntraced(function* ({ id, roots }) {
           yield* sql`
-                insert into
-                  "libraryRoot" ${sql.insert(Array.map(roots, (root) => ({ libraryId: id, root })))}
-                on conflict ("libraryId", root) do nothing
-              `;
-        }
-      }, sql.withTransaction);
+            delete from "libraryRoot"
+            where
+              "libraryId" = ${id}
+              and not ${sql.in('root', roots)}
+          `;
+          if (Array.isReadonlyArrayNonEmpty(roots)) {
+            yield* sql`
+              insert into
+                "libraryRoot" ${sql.insert(Array.map(roots, (root) => ({ libraryId: id, root })))}
+              on conflict ("libraryId", root) do nothing
+            `;
+          }
+          return yield* sql`
+            select
+              id,
+              root
+            from
+              "libraryRoot"
+            where
+              "libraryId" = ${id}
+            order by
+              id
+          `;
+        }),
+      });
 
       const queries = {
         getById: SqlSchema.findOne({
@@ -140,60 +174,37 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
 
         create: SqlSchema.findOne({
-          Request: Schema.Struct({
-            name: Library.jsonCreate.fields.name,
-            type: Library.jsonCreate.fields.type,
-            storagePluginId: Library.jsonCreate.fields.storagePluginId,
-            storagePluginSettings: StoragePluginSettingsPersisted.fromJsonString,
-          }),
-          Result: Schema.Struct({ id: Library.fields.id }),
-          execute: (request) => sql`
+          Request: LibraryWrite,
+          Result: StorageRow,
+          execute: ({ roots: _roots, ...library }) => sql`
             insert into
-              library ${sql.insert(request)}
+              library ${sql.insert(library)}
             returning
-              id
+              id,
+              type,
+              name,
+              "storagePluginId",
+              "storagePluginSettings"
           `,
         }),
 
-        rename: SqlSchema.findOne({
-          Request: Schema.Struct({ id: Library.fields.id, name: Library.fields.name }),
-          Result: Schema.Struct({ id: Library.fields.id }),
-          execute: ({ id, name }) =>
-            sql`
-              update library
-              set
-                name = ${name}
-              where
-                id = ${id}
-              returning
-                id
-            `,
+        update: SqlSchema.findOne({
+          Request: Schema.Struct({ id: Library.fields.id, ...LibraryWrite.fields }),
+          Result: StorageRow,
+          execute: ({ id, roots: _roots, ...library }) => sql`
+            update library
+            set
+              ${sql.update(library)}
+            where
+              id = ${id}
+            returning
+              id,
+              type,
+              name,
+              "storagePluginId",
+              "storagePluginSettings"
+          `,
         }),
-
-        replaceStorage: SqlSchema.findOne({
-          Request: Schema.Struct({
-            ...LibraryRoots.fields,
-            settings: StoragePluginSettingsPersisted.fromJsonString,
-          }),
-          Result: Schema.Struct({ id: Library.fields.id }),
-          execute: Effect.fnUntraced(function* ({ id, settings, roots }) {
-            const result = yield* sql`
-              update library
-              set
-                "storagePluginSettings" = ${settings}
-              where
-                id = ${id}
-              returning
-                id
-            `;
-            if (Array.isReadonlyArrayNonEmpty(result)) {
-              yield* replaceRoots({ id, roots });
-            }
-            return result;
-          }, sql.withTransaction),
-        }),
-
-        setRoots: SqlSchema.void({ Request: LibraryRoots, execute: replaceRoots }),
 
         deleteById: SqlSchema.void({
           Request: Schema.Struct({ id: Library.fields.id }),
@@ -216,38 +227,44 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           ),
         list: (request: Parameters<typeof queries.list>[0]) =>
           queries.list(request).pipe(Effect.orDie),
-        create: (request: Parameters<typeof queries.create>[0]) =>
-          queries.create(request).pipe(
-            Effect.catchReason('SqlError', 'UniqueViolation', () =>
-              LibraryNameConflictError.make({ libraryName: request.name })
-            ),
-            Effect.catchTags({
-              SchemaError: Effect.die,
-              SqlError: Effect.die,
-              NoSuchElementError: Effect.die,
-            })
-          ),
-        rename: (request: Parameters<typeof queries.rename>[0]) =>
-          queries.rename(request).pipe(
-            Effect.catchReason('SqlError', 'UniqueViolation', () =>
-              LibraryNameConflictError.make({ libraryName: request.name })
-            ),
-            Effect.catchTags({
-              NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
-              SchemaError: Effect.die,
-              SqlError: Effect.die,
-            })
-          ),
-        replaceStorage: (request: Parameters<typeof queries.replaceStorage>[0]) =>
-          queries.replaceStorage(request).pipe(
-            Effect.catchTags({
-              NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
-              SchemaError: Effect.die,
-              SqlError: Effect.die,
-            })
-          ),
-        setRoots: (request: Parameters<typeof queries.setRoots>[0]) =>
-          queries.setRoots(request).pipe(Effect.orDie),
+        create: Effect.fnUntraced(
+          function* (request: Parameters<typeof queries.create>[0]) {
+            const storageKey = yield* queries.create(request);
+            const roots = yield* replaceRoots({ id: storageKey.library.id, roots: request.roots });
+            return { storageKey, roots };
+          },
+          sql.withTransaction,
+          (effect, request) =>
+            effect.pipe(
+              Effect.catchReason('SqlError', 'UniqueViolation', () =>
+                LibraryNameConflictError.make({ libraryName: request.name })
+              ),
+              Effect.catchTags({
+                SchemaError: Effect.die,
+                SqlError: Effect.die,
+                NoSuchElementError: Effect.die,
+              })
+            )
+        ),
+        update: Effect.fnUntraced(
+          function* (request: Parameters<typeof queries.update>[0]) {
+            const storageKey = yield* queries.update(request);
+            const roots = yield* replaceRoots({ id: storageKey.library.id, roots: request.roots });
+            return { storageKey, roots };
+          },
+          sql.withTransaction,
+          (effect, request) =>
+            effect.pipe(
+              Effect.catchReason('SqlError', 'UniqueViolation', () =>
+                LibraryNameConflictError.make({ libraryName: request.name })
+              ),
+              Effect.catchTags({
+                NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
+                SchemaError: Effect.die,
+                SqlError: Effect.die,
+              })
+            )
+        ),
         deleteById: (request: Parameters<typeof queries.deleteById>[0]) =>
           queries.deleteById(request).pipe(Effect.orDie),
       };
