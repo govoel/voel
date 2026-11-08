@@ -96,7 +96,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const editors = yield* StoragePluginSettingsMap;
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:missing'));
       const record = yield* repository.create(createRecord('Missing plugin', 'npm:missing'));
-      const library = { id: record.storageKey.library.id };
+      const library = { id: record.id };
       const initial = yield* client.library.get({ params: library });
       expect(initial.storagePluginHealth).toEqual({ status: 'unknown' });
       const formError = yield* client.library
@@ -386,7 +386,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const repository = yield* LibraryRepository;
       const marker = yield* client.library.create({ payload: createInput('Page marker') });
       const firstRecord = yield* repository.create(createRecord('Page first'));
-      const first = { id: firstRecord.storageKey.library.id };
+      const first = { id: firstRecord.id };
       yield* repository.create(createRecord('Page second'));
       const page = yield* client.library.list({
         query: { cursor: Option.some(marker.id), limit: 1 },

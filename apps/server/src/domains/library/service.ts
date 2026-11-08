@@ -9,6 +9,19 @@ import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
 import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
+const toStorageKey = ({
+  id,
+  type,
+  name,
+  storagePluginId,
+  storagePluginSettings,
+}: Pick<Library, 'id' | 'type' | 'name' | 'storagePluginId' | 'storagePluginSettings'>) =>
+  StoragePluginKey.make({
+    library: { id, type, name },
+    storagePluginId,
+    settings: storagePluginSettings,
+  });
+
 export class LibraryService extends Context.Service<LibraryService>()(
   '@repo/server/domains/library/service/LibraryService',
   {
@@ -19,25 +32,13 @@ export class LibraryService extends Context.Service<LibraryService>()(
       const stores = yield* StoragePluginMap;
       const retirementScope = yield* Effect.scope;
 
-      const details = ({
-        storageKey,
-        roots,
-      }: Effect.Success<ReturnType<typeof repository.getById>>) => ({
-        ...storageKey.library,
-        storagePluginId: storageKey.storagePluginId,
-        storagePluginSettings: storageKey.settings,
-        roots,
-      });
-
       const health = Effect.fnUntraced(function* (
         row: Effect.Success<ReturnType<typeof repository.getById>>
       ) {
         const [cached, failures] = yield* Effect.partition(
           [
-            editors
-              .contextEffectOption(row.storageKey.storagePluginId)
-              .pipe(Effect.map(Option.isSome)),
-            stores.contextEffectOption(row.storageKey).pipe(Effect.map(Option.isSome)),
+            editors.contextEffectOption(row.storagePluginId).pipe(Effect.map(Option.isSome)),
+            stores.contextEffectOption(toStorageKey(row)).pipe(Effect.map(Option.isSome)),
           ],
           (check) => Unify.unify(check),
           { concurrency: 'unbounded' }
@@ -83,7 +84,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
       return {
         get: Effect.fnUntraced(function* (request: Pick<Library, 'id'>) {
           const row = yield* repository.getById(request);
-          return { ...details(row), storagePluginHealth: yield* health(row) };
+          return { ...row, storagePluginHealth: yield* health(row) };
         }),
         list: Effect.fnUntraced(function* (request: Parameters<typeof repository.list>[0]) {
           const rows = yield* repository.list({ cursor: request.cursor, limit: request.limit + 1 });
@@ -91,7 +92,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             rows.slice(0, request.limit),
             (row) =>
               health(row).pipe(
-                Effect.map(({ status }) => ({ ...details(row), storagePluginStatus: status }))
+                Effect.map(({ status }) => ({ ...row, storagePluginStatus: status }))
               ),
             { concurrency: 'unbounded' }
           );
@@ -127,12 +128,12 @@ export class LibraryService extends Context.Service<LibraryService>()(
               storagePluginSettings: settings,
               roots: [],
             });
-            const storage = yield* stores.acquire(created.storageKey);
+            const storage = yield* stores.acquire(toStorageKey(created));
             const roots = yield* decodeRoots({ storage, roots: request.roots });
             const configured = yield* repository
               .update({
                 ...request,
-                id: created.storageKey.library.id,
+                id: created.id,
                 storagePluginSettings: settings,
                 roots,
               })
@@ -142,7 +143,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
                   LibraryNameConflictError: Effect.die,
                 })
               );
-            return { id: configured.storageKey.library.id };
+            return { id: configured.id };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),
@@ -150,10 +151,10 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.storageKey.storagePluginId);
+          const editor = yield* editors.acquire(row.storagePluginId);
           return yield* editor.getForm({
-            library: row.storageKey.library,
-            current: Option.some(row.storageKey.settings),
+            library: { type: row.type, name: row.name },
+            current: Option.some(row.storagePluginSettings),
           });
         }, Effect.scoped),
         update: Effect.fnUntraced(
@@ -163,17 +164,13 @@ export class LibraryService extends Context.Service<LibraryService>()(
             const settings = yield* editor.decodeFormSubmission({
               library: { name: request.name, type: request.type },
               current:
-                row.storageKey.storagePluginId === request.storagePluginId
-                  ? Option.some(row.storageKey.settings)
+                row.storagePluginId === request.storagePluginId
+                  ? Option.some(row.storagePluginSettings)
                   : Option.none(),
               input: request.storagePluginSettings,
             });
             const storage = yield* stores.acquire(
-              StoragePluginKey.make({
-                library: { id: request.id, name: request.name, type: request.type },
-                storagePluginId: request.storagePluginId,
-                settings,
-              })
+              toStorageKey({ ...request, storagePluginSettings: settings })
             );
             const roots = yield* decodeRoots({ storage, roots: request.roots });
             const updated = yield* repository.update({
@@ -182,7 +179,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
               roots,
             });
             yield* sql.afterCommit(launchStorageRetirement({ id: request.id }));
-            return { id: updated.storageKey.library.id };
+            return { id: updated.id };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),
