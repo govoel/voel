@@ -80,7 +80,7 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
     ),
   }
 ) {
-  public static readonly layer = () => Layer.effect(StoragePluginSettings, this.make);
+  public static readonly layer = Layer.effect(StoragePluginSettings, this.make);
 }
 
 export default {

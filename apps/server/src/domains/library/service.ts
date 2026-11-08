@@ -1,4 +1,4 @@
-import { StoragePluginSettings, StoragePluginSettingsLibrary } from '@govoel/plugins/storage';
+import { StoragePlugin } from '@govoel/plugins/storage';
 import type { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
@@ -12,8 +12,8 @@ import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import {
   StoragePluginBuilder,
+  StoragePluginLayerNoDeps,
   StoragePluginMap,
-  StoragePluginSettingsLayerNoDeps,
   StoragePluginSettingsMap,
 } from '#src/domains/plugins/storage/index.ts';
 
@@ -24,27 +24,19 @@ export class LibraryService extends Context.Service<LibraryService>()(
       const sql = yield* LibraryDatabase;
       const repository = yield* LibraryRepository;
       const buildPlugin = yield* StoragePluginBuilder;
+      const pluginBuilderLayer = Layer.succeed(StoragePluginBuilder, buildPlugin);
       const editors = yield* StoragePluginSettingsMap;
       const stores = yield* StoragePluginMap;
       const retirementScope = yield* Effect.scope;
 
-      const draftSettingsLayer = ({
-        storagePlugin,
-        name,
-        type,
-      }: Parameters<typeof repository.create>[0]) =>
-        StoragePluginSettingsLayerNoDeps({
-          storagePlugin,
-          library: StoragePluginSettingsLibrary.Draft({ name, type }),
-        }).pipe(Layer.provide(Layer.succeed(StoragePluginBuilder, buildPlugin)));
-
       const details = ({
-        settingsKey,
+        library,
+        storagePlugin,
         storageKey,
         roots,
       }: Effect.Success<ReturnType<typeof repository.getById>>) => ({
-        ...settingsKey.library,
-        storagePlugin: settingsKey.storagePlugin,
+        ...library,
+        storagePlugin,
         storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
         roots,
       });
@@ -54,7 +46,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
       ) {
         const [cached, failures] = yield* Effect.partition(
           [
-            editors.contextEffectOption(row.settingsKey).pipe(Effect.map(Option.isSome)),
+            editors.contextEffectOption(row.storagePlugin).pipe(Effect.map(Option.isSome)),
             Option.match(row.storageKey, {
               onNone: () => Effect.succeed(false),
               onSome: (key) => stores.contextEffectOption(key).pipe(Effect.map(Option.isSome)),
@@ -70,13 +62,8 @@ export class LibraryService extends Context.Service<LibraryService>()(
         }) satisfies typeof StoragePluginHealth.Type;
       }, Effect.scoped);
 
-      const launchRetirement = Effect.fnUntraced(
+      const launchStorageRetirement = Effect.fnUntraced(
         function* ({ id }: Pick<Library, 'id'>) {
-          for (const key of yield* RcMap.keys(editors.rcMap)) {
-            if (key.library.id === id) {
-              yield* editors.invalidate(key);
-            }
-          }
           for (const key of yield* RcMap.keys(stores.rcMap)) {
             if (key.library.id === id) {
               yield* stores.invalidate(key);
@@ -90,7 +77,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         storage,
         roots,
       }: {
-        readonly storage: Effect.Success<ReturnType<typeof stores.acquire>>;
+        readonly storage: typeof StoragePlugin.Service;
         readonly roots: ReadonlyArray<{ readonly root: string }>;
       }) {
         const decoded = yield* Effect.validate(
@@ -132,10 +119,11 @@ export class LibraryService extends Context.Service<LibraryService>()(
         getDraftStoragePluginSettingsForm: Effect.fnUntraced(function* (
           request: Parameters<typeof repository.create>[0]
         ) {
-          const editor = yield* Layer.build(draftSettingsLayer(request)).pipe(
-            Effect.map(Context.get(StoragePluginSettings))
-          );
-          return yield* editor.getForm({ current: Option.none() });
+          const editor = yield* editors.acquire(request.storagePlugin);
+          return yield* editor.getForm({
+            library: { name: request.name, type: request.type },
+            current: Option.none(),
+          });
         }, Effect.scoped),
         create: Effect.fnUntraced(
           function* (
@@ -144,17 +132,16 @@ export class LibraryService extends Context.Service<LibraryService>()(
               readonly roots: ReadonlyArray<{ readonly root: string }>;
             }
           ) {
-            const editor = yield* Layer.build(draftSettingsLayer(request)).pipe(
-              Effect.map(Context.get(StoragePluginSettings))
-            );
-            const settings = yield* editor.decodeFormSubmission({
-              current: Option.none(),
-              input: request.storagePluginSettings,
-            });
             const result = yield* repository.create({
               name: request.name,
               type: request.type,
               storagePlugin: request.storagePlugin,
+            });
+            const editor = yield* editors.acquire(request.storagePlugin);
+            const settings = yield* editor.decodeFormSubmission({
+              library: { name: request.name, type: request.type },
+              current: Option.none(),
+              input: request.storagePluginSettings,
             });
             yield* repository
               .setSettings({ id: result.id, settings })
@@ -164,7 +151,10 @@ export class LibraryService extends Context.Service<LibraryService>()(
               .pipe(Effect.catchTags({ LibraryNotFoundError: Effect.die }));
             const storage = yield* Option.match(configured.storageKey, {
               onNone: () => Effect.die('Created library has no storage configuration'),
-              onSome: stores.acquireScoped,
+              onSome: (key) =>
+                Layer.build(
+                  StoragePluginLayerNoDeps(key).pipe(Layer.provide(pluginBuilderLayer))
+                ).pipe(Effect.map(Context.get(StoragePlugin))),
             });
             const roots = yield* decodeRoots({ storage, roots: request.roots });
             yield* repository.setRoots({ id: result.id, roots });
@@ -176,14 +166,15 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ),
         rename: (request: Parameters<typeof repository.rename>[0]) =>
           repository.rename(request).pipe(
-            Effect.tap(() => sql.afterCommit(launchRetirement({ id: request.id }))),
+            Effect.tap(() => sql.afterCommit(launchStorageRetirement({ id: request.id }))),
             sql.withTransaction,
             Effect.catchTags({ SqlError: Effect.die })
           ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.settingsKey);
+          const editor = yield* editors.acquire(row.storagePlugin);
           return yield* editor.getForm({
+            library: row.library,
             current: Option.map(row.storageKey, ({ settings }) => settings),
           });
         }, Effect.scoped),
@@ -193,8 +184,9 @@ export class LibraryService extends Context.Service<LibraryService>()(
             input,
           }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
             const row = yield* repository.getById({ id });
-            const editor = yield* editors.acquire(row.settingsKey);
+            const editor = yield* editors.acquire(row.storagePlugin);
             const settings = yield* editor.decodeFormSubmission({
+              library: row.library,
               current: Option.map(row.storageKey, (key) => key.settings),
               input,
             });
@@ -203,11 +195,14 @@ export class LibraryService extends Context.Service<LibraryService>()(
               const current = yield* repository.getById(result);
               const storage = yield* Option.match(current.storageKey, {
                 onNone: () => Effect.die('Updated library has no storage configuration'),
-                onSome: stores.acquireScoped,
+                onSome: (key) =>
+                  Layer.build(
+                    StoragePluginLayerNoDeps(key).pipe(Layer.provide(pluginBuilderLayer))
+                  ).pipe(Effect.map(Context.get(StoragePlugin))),
               });
               const roots = yield* decodeRoots({ storage, roots: current.roots });
               yield* repository.setRoots({ id, roots });
-              yield* sql.afterCommit(launchRetirement({ id }));
+              yield* sql.afterCommit(launchStorageRetirement({ id }));
               return result;
             }).pipe(sql.withTransaction);
           },
@@ -234,7 +229,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ),
         delete: (request: Pick<Library, 'id'>) =>
           repository.deleteById(request).pipe(
-            Effect.tap(() => sql.afterCommit(launchRetirement(request))),
+            Effect.tap(() => sql.afterCommit(launchStorageRetirement(request))),
             sql.withTransaction,
             Effect.catchTags({ SqlError: Effect.die })
           ),

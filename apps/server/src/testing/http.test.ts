@@ -228,7 +228,7 @@ it.layer(testLayer)('groups utils headers', (iit) => {
         name: 'Authenticated library',
         type: 'movie',
         storagePlugin: 'builtin:local',
-        storagePluginHealth: { status: 'unknown' },
+        storagePluginHealth: { status: 'healthy' },
       });
     })
   );

@@ -10,10 +10,11 @@ import {
 } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
-import { StoragePluginKey, StoragePluginSettingsKey } from '#src/domains/plugins/storage/schema.ts';
+import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 class LibraryRecord extends Schema.Struct({
-  settingsKey: StoragePluginSettingsKey,
+  library: StoragePluginKey.fields.library,
+  storagePlugin: StoragePluginKey.fields.storagePlugin,
   storageKey: Schema.Option(StoragePluginKey),
   roots: Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })),
 }) {}
@@ -31,20 +32,22 @@ class LibraryRow extends Schema.Struct({
   Schema.decodeTo(LibraryRecord, {
     decode: SchemaGetter.transform(
       ({ id, type, name, storagePlugin, storagePluginSettings, roots }) => {
-        const settingsKey = { storagePlugin, library: { id, type, name } };
+        const library = { id, type, name };
         return {
-          settingsKey,
+          library,
+          storagePlugin,
           storageKey: Option.map(storagePluginSettings, (settings) => ({
-            ...settingsKey,
+            library,
+            storagePlugin,
             settings,
           })),
           roots,
         };
       }
     ),
-    encode: SchemaGetter.transform(({ settingsKey, storageKey, roots }) => ({
-      ...settingsKey.library,
-      storagePlugin: settingsKey.storagePlugin,
+    encode: SchemaGetter.transform(({ library, storagePlugin, storageKey, roots }) => ({
+      ...library,
+      storagePlugin,
       storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
       roots,
     })),

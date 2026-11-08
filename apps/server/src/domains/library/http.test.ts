@@ -36,6 +36,7 @@ import { LibraryHandlersLayerNoDeps } from '#src/domains/library/http.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
 import { Input, PluginFixture, TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
+import { StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
 import { ApiRoutesLayerNoDeps } from '#src/http.ts';
 import { makeAuthedClient } from '#src/testing/http.ts';
 
@@ -169,11 +170,13 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   );
 
   iit.effect(
-    'reads only cached plugin health, reports failures, and forgets retired instances',
+    'reads cached plugin health and retires only library-specific storage',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const { drainScheduler } = yield* TestScheduler;
       const repository = yield* LibraryRepository;
+      const editors = yield* StoragePluginSettingsMap;
+      yield* editors.invalidate(Library.fields.storagePlugin.make('npm:test'));
       const library = yield* repository.create(createInput('Health', 'npm:test'));
       const listItem = Effect.gen(function* () {
         return Option.getOrThrow(
@@ -225,7 +228,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       });
       yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
-        status: 'unknown',
+        status: 'healthy',
       });
       yield* client.library.setRoots({ params: library, payload: { roots: [] } });
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
@@ -240,21 +243,23 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       });
       yield* drainScheduler;
       expect((yield* client.library.get({ params: library })).storagePluginHealth).toEqual({
-        status: 'unknown',
+        status: 'healthy',
       });
       const listItem5 = yield* listItem;
-      expect(listItem5).toMatchObject({ storagePluginStatus: 'unknown' });
+      expect(listItem5).toMatchObject({ storagePluginStatus: 'healthy' });
     })
   );
 
   iit.effect(
-    'excludes cached health for obsolete settings and library context',
+    'excludes obsolete storage failures without discarding plugin-wide editor health',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository.make;
+      const editors = yield* StoragePluginSettingsMap;
       const library = yield* client.library.create({
         payload: createInput('Stale health', 'npm:test'),
       });
+      yield* editors.invalidate(Library.fields.storagePlugin.make('npm:test'));
       yield* repository.setSettings({
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
@@ -280,7 +285,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         name: Library.fields.name.make('New health context'),
       });
       expect((yield* client.library.get({ params: library })).storagePluginHealth.status).toBe(
-        'unknown'
+        'healthy'
       );
       expect(
         Option.getOrThrow(
@@ -289,7 +294,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
             ({ id }) => id === library.id
           )
         )
-      ).toMatchObject({ storagePluginStatus: 'unknown' });
+      ).toMatchObject({ storagePluginStatus: 'healthy' });
     })
   );
 
@@ -430,6 +435,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository;
+      const editors = yield* StoragePluginSettingsMap;
+      yield* editors.invalidate(Library.fields.storagePlugin.make('npm:missing'));
       const missing = yield* repository.create(createInput('Missing plugin', 'npm:missing'));
       const resultValue = yield* client.library.get({ params: missing });
       expect(resultValue).toMatchObject({
@@ -770,8 +777,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const settingsStarted = yield* Latch.make();
       const settingsRelease = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
-        request.library._tag === 'Existing' &&
-        request.library.id === library.id &&
+        request.library.name === 'Concurrent metadata' &&
         Input.is(request.input) &&
         request.input.root === '/pending-settings'
           ? settingsStarted.open.pipe(Effect.andThen(settingsRelease.await))
@@ -812,8 +818,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const started = yield* Latch.make();
       const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
-        request.library._tag === 'Existing' &&
-        request.library.id === library.id &&
+        request.library.name === 'Concurrent settings' &&
         Input.is(request.input) &&
         request.input.root === '/slow'
           ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
@@ -864,7 +869,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const started = yield* Latch.make();
       const release = yield* Latch.make();
       fixture.controls.beforeDecode = (request) =>
-        request.library._tag === 'Existing' && request.library.id === library.id
+        request.library.name === 'Delete pending settings'
           ? started.open.pipe(Effect.andThen(release.await), Effect.asVoid)
           : Effect.void;
       const pending = yield* client.library
@@ -987,20 +992,21 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     'paginates admin listings including libraries awaiting setup',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
+      const repository = yield* LibraryRepository;
       const marker = yield* client.library.create({ payload: createInput('Page marker') });
-      const first = yield* client.library.create({ payload: createInput('Page first') });
-      yield* client.library.create({ payload: createInput('Page second') });
+      const first = yield* repository.create(createInput('Page first'));
+      yield* repository.create(createInput('Page second'));
       const page = yield* client.library.list({
         query: { cursor: Option.some(marker.id), limit: 1 },
       });
       expect(
         Array.map(page.items, ({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
-      ).toEqual([{ name: 'Page first', storagePluginStatus: 'unknown' }]);
+      ).toEqual([{ name: 'Page first', storagePluginStatus: 'healthy' }]);
       expect(page.nextCursor).toEqual(Option.some(first.id));
       const last = yield* client.library.list({ query: { cursor: page.nextCursor, limit: 10 } });
       expect(
         Array.map(last.items, ({ name, storagePluginStatus }) => ({ name, storagePluginStatus }))
-      ).toEqual([{ name: 'Page second', storagePluginStatus: 'unknown' }]);
+      ).toEqual([{ name: 'Page second', storagePluginStatus: 'healthy' }]);
       expect(last.nextCursor).toEqual(Option.none());
     })
   );
@@ -1174,7 +1180,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
           )
         );
         fixture.controls.beforeDecode = (request) =>
-          request.library._tag === 'Existing' && request.library.id === library.id
+          request.library.name === `HTTP ${scenario}`
             ? Effect.acquireUseRelease(
                 Effect.void,
                 () =>
@@ -1357,7 +1363,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       expect(json).toMatchObject({
         ...library,
         storagePluginSettings: { _tag: 'Some', value: {} },
-        storagePluginHealth: { status: 'unknown' },
+        storagePluginHealth: { status: 'healthy' },
       });
       yield* client.library.setStoragePluginSettings({
         params: library,

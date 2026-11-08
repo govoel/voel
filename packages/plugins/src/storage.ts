@@ -1,15 +1,8 @@
-import { Array, Context, Data, Schema } from 'effect';
+import { Array, Context, Schema } from 'effect';
 import type { Effect, FileSystem, Layer, Option, Path } from 'effect';
 import type { HttpClient } from 'effect/http';
 
 import type { Library } from '#src/library.ts';
-
-export type StoragePluginSettingsLibrary = Data.TaggedEnum<{
-  Draft: Pick<typeof Library.Type, 'name' | 'type'>;
-  Existing: typeof Library.Type;
-}>;
-
-export const StoragePluginSettingsLibrary = Data.taggedEnum<StoragePluginSettingsLibrary>();
 
 /**
  * Ordered UI fields with unique, flat names. An empty array means no settings.
@@ -147,6 +140,9 @@ export class StoragePlugin extends Context.Service<
 >()('@govoel/plugins/storage/StoragePlugin') {}
 
 /**
+ * One instance is shared across libraries and concurrent invocations. Keep
+ * library-specific state in method inputs rather than on the shared service.
+ *
  * Neither method writes settings. `current` is server-loaded JSON for this plugin:
  * None means setup; Some means a persisted value (which must be decoded by the plugin).
  * Plugins translate schema failures into client-safe errors; malformed successful outputs
@@ -161,6 +157,7 @@ export class StoragePluginSettings extends Context.Service<
      * Invalid current settings and operational failures use StoragePluginSettingsError.
      */
     readonly getForm: (request: {
+      readonly library: Pick<typeof Library.Type, 'name' | 'type'>;
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
     }) => Effect.Effect<typeof StoragePluginSettingsForm.Type, StoragePluginSettingsError>;
 
@@ -171,6 +168,7 @@ export class StoragePluginSettings extends Context.Service<
      * settings and operational failures use StoragePluginSettingsError.
      */
     readonly decodeFormSubmission: (request: {
+      readonly library: Pick<typeof Library.Type, 'name' | 'type'>;
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
       readonly input: StoragePluginSettingsInput;
     }) => Effect.Effect<
@@ -199,11 +197,10 @@ export interface StoragePluginModule {
     >;
 
     /**
-     * Must not require configured storage or valid credentials. Drafts have no id.
+     * Plugin-wide settings editor. Library metadata and settings are method inputs.
+     * Must not require configured storage or valid credentials.
      */
-    readonly layerSettings: (request: {
-      readonly library: StoragePluginSettingsLibrary;
-    }) => Layer.Layer<
+    readonly layerSettings: Layer.Layer<
       StoragePluginSettings,
       StoragePluginSettingsConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
