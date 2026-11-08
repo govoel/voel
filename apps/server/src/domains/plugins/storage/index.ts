@@ -216,64 +216,61 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
   public static readonly layer = this.layerNoDeps.pipe(Layer.provide(StoragePluginBuilder.layer));
 }
 
-export const StoragePluginLayerNoDeps = (request: StoragePluginKey) =>
-  Layer.effect(
-    StoragePlugin,
-    Effect.gen(function* () {
-      const buildPlugin = yield* StoragePluginBuilder;
-      const { context, invoke } = yield* buildPlugin({
-        storagePluginId: request.storagePluginId,
-        makeLayer: (module) =>
-          module.storage.layer({
-            library: request.library,
-            settings: request.settings,
-          }),
-      });
-
-      const storage = Context.get(context, StoragePlugin);
-      return StoragePlugin.of({
-        decodeRootLocation: (input) =>
-          invoke(() =>
-            storage
-              .decodeRootLocation(input)
-              .pipe(
-                Effect.flatMap((result) =>
-                  StorageRootLocation.decodeEffect(result).pipe(
-                    Effect.catchTags({ SchemaError: Effect.die })
-                  )
-                )
-              )
-          ),
-        decodeMediaFileLocation: (input) =>
-          invoke(() =>
-            storage
-              .decodeMediaFileLocation(input)
-              .pipe(
-                Effect.flatMap((result) =>
-                  StorageMediaFileLocation.decodeEffect(result).pipe(
-                    Effect.catchTags({ SchemaError: Effect.die })
-                  )
-                )
-              )
-          ),
-      });
-    })
-  );
-
-export const StoragePluginLayer = (request: Parameters<typeof StoragePluginLayerNoDeps>[0]) =>
-  StoragePluginLayerNoDeps(request).pipe(Layer.provide(StoragePluginBuilder.layer));
-
 export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginMap',
   {
-    make: Effect.gen(function* () {
-      const map = yield* LayerMap.make(StoragePluginLayerNoDeps, { idleTimeToLive: '5 minutes' });
-      return {
+    make: LayerMap.make(
+      (request: StoragePluginKey) =>
+        Layer.effect(
+          StoragePlugin,
+          Effect.gen(function* () {
+            const buildPlugin = yield* StoragePluginBuilder;
+            const { context, invoke } = yield* buildPlugin({
+              storagePluginId: request.storagePluginId,
+              makeLayer: (module) =>
+                module.storage.layer({
+                  library: request.library,
+                  settings: request.settings,
+                }),
+            });
+
+            const storage = Context.get(context, StoragePlugin);
+            return StoragePlugin.of({
+              decodeRootLocation: (input) =>
+                invoke(() =>
+                  storage
+                    .decodeRootLocation(input)
+                    .pipe(
+                      Effect.flatMap((result) =>
+                        StorageRootLocation.decodeEffect(result).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
+                    )
+                ),
+              decodeMediaFileLocation: (input) =>
+                invoke(() =>
+                  storage
+                    .decodeMediaFileLocation(input)
+                    .pipe(
+                      Effect.flatMap((result) =>
+                        StorageMediaFileLocation.decodeEffect(result).pipe(
+                          Effect.catchTags({ SchemaError: Effect.die })
+                        )
+                      )
+                    )
+                ),
+            });
+          })
+        ),
+      { idleTimeToLive: '5 minutes' }
+    ).pipe(
+      Effect.map((map) => ({
         ...map,
         acquire: (request: StoragePluginKey) =>
           map.contextEffect(request).pipe(Effect.map(Context.get(StoragePlugin))),
-      };
-    }),
+      }))
+    ),
   }
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);

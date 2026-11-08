@@ -40,8 +40,6 @@ import { StoragePluginId } from '@repo/spec-api/domains/plugins/storage.ts';
 import { PluginModuleMap } from '#src/domains/plugins/index.ts';
 import {
   StoragePluginBuilder,
-  StoragePluginLayer,
-  StoragePluginLayerNoDeps,
   StoragePluginMap,
   StoragePluginModuleMap,
   StoragePluginSettingsMap,
@@ -121,7 +119,7 @@ const platformLayer = Layer.mergeAll(
 
 const makeMaps = (module: StoragePluginModule) =>
   Layer.mergeAll(StoragePluginMap.layerNoDeps, StoragePluginSettingsMap.layerNoDeps).pipe(
-    Layer.provideMerge(StoragePluginBuilder.layerNoDeps),
+    Layer.provide(StoragePluginBuilder.layerNoDeps),
     Layer.provide([
       platformLayer,
       Layer.succeed(StoragePluginModuleMap, {
@@ -175,48 +173,6 @@ it.effect('acquires canonical plugin services until the caller releases its scop
     }).pipe(Effect.scoped);
     expect(released).toBe(2);
   }).pipe(Effect.provide(makeMaps(module)));
-});
-
-it.effect('keeps standalone storage request scoped and separate from cached instances', () => {
-  let released = 0;
-  const module = {
-    storage: {
-      layer: () =>
-        storageLayer.pipe(
-          Layer.tap(() =>
-            Effect.addFinalizer(() =>
-              Effect.sync(() => {
-                released += 1;
-              })
-            )
-          )
-        ),
-      layerSettings: settingsLayer,
-    },
-  } satisfies StoragePluginModule;
-
-  return Effect.gen(function* () {
-    const stores = yield* StoragePluginMap;
-    const cached = yield* stores.acquire(storageRequest);
-    const layer = StoragePluginLayerNoDeps(storageRequest);
-    const failure = StorageLocationValidationError.make({ message: 'Rejected root' });
-    for (const outcome of ['success', 'failure'] as const) {
-      const exit = yield* Effect.gen(function* () {
-        const context = yield* Layer.build(layer);
-        const storage = Context.get(context, StoragePlugin);
-        expect(storage).not.toBe(cached);
-        const root = yield* storage.decodeRootLocation({ location: '/library' });
-        expect(root).toBe('/library');
-        return yield* outcome === 'failure' ? failure : Effect.void;
-      }).pipe(Effect.scoped, Effect.exit);
-      expect(exit).toEqual(outcome === 'success' ? Exit.void : Exit.fail(failure));
-      expect(released).toBe(outcome === 'success' ? 1 : 2);
-    }
-    const reacquired = yield* stores.acquire(storageRequest);
-    expect(reacquired).toBe(cached);
-    const keys = yield* RcMap.keys(stores.rcMap);
-    expect(Array.fromIterable(keys)).toEqual([storageRequest]);
-  }).pipe(Effect.scoped, Effect.provide(makeMaps(module)));
 });
 
 it.effect('shares a settings editor per plugin while keeping library inputs per invocation', () => {
@@ -286,8 +242,8 @@ it.effect(
       const modules = yield* StoragePluginModuleMap;
       const module = yield* modules.get(StoragePluginId.make('builtin:local'));
       expect(module).toBe(local);
-      const context = yield* Layer.build(StoragePluginLayer(storageRequest));
-      const storage = Context.get(context, StoragePlugin);
+      const stores = yield* StoragePluginMap;
+      const storage = yield* stores.acquire(storageRequest);
       const decodeRootLocationResult = yield* storage.decodeRootLocation({
         location: '/books/../audio',
       });
@@ -300,7 +256,7 @@ it.effect(
       expect(form).toEqual([]);
     },
     Effect.scoped,
-    Effect.provide(StoragePluginModuleMap.layerNoDeps),
+    Effect.provide([StoragePluginMap.layer, StoragePluginModuleMap.layerNoDeps]),
     Effect.provideService(PluginModuleMap, {
       get: () => Effect.die('Unexpected npm module lookup'),
     })

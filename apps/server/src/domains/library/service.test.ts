@@ -113,8 +113,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/initial' }),
         roots: [{ root: '/one' }],
       });
-      const keys = yield* cacheKeys(library);
-      expect(keys).toEqual([]);
       const name = Library.fields.name.make('Renamed settings metadata');
       yield* service.rename({ ...library, name });
       const form = yield* service.getStoragePluginSettingsForm(library);
@@ -217,6 +215,17 @@ it.layer(testLayer)('library service without transport', (iit) => {
       expect(target.keys).toHaveLength(2);
       expect(target.editor).toBe(unrelated.editor);
 
+      const retainedKeys =
+        operation === 'settings'
+          ? [
+              ...target.keys,
+              StoragePluginKey.make({
+                storagePluginId: target.row.storagePluginId,
+                library: target.row.library,
+                settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
+              }),
+            ]
+          : target.keys;
       const change = mutate({ ...target.library, operation });
       yield* sql
         .withTransaction(change.pipe(Effect.andThen(Effect.fail('outer rollback'))))
@@ -225,7 +234,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const getByIdResult = yield* repository.getById(target.library);
       expect(getByIdResult).toEqual(target.row);
       const cacheKeysResult = yield* cacheKeys(target.library);
-      expect(cacheKeysResult).toEqual(target.keys);
+      expect(cacheKeysResult).toEqual(retainedKeys);
 
       yield* sql.withTransaction(
         Effect.gen(function* () {
@@ -234,21 +243,21 @@ it.layer(testLayer)('library service without transport', (iit) => {
             .pipe(Effect.flip);
           yield* drainScheduler;
           const cacheKeysResult2 = yield* cacheKeys(target.library);
-          expect(cacheKeysResult2).toEqual(target.keys);
+          expect(cacheKeysResult2).toEqual(retainedKeys);
         })
       );
       yield* drainScheduler;
       const getByIdResult2 = yield* repository.getById(target.library);
       expect(getByIdResult2).toEqual(target.row);
       const cacheKeysResult3 = yield* cacheKeys(target.library);
-      expect(cacheKeysResult3).toEqual(target.keys);
+      expect(cacheKeysResult3).toEqual(retainedKeys);
 
       yield* sql.withTransaction(
         Effect.gen(function* () {
           yield* change;
           yield* drainScheduler;
           const cacheKeysResult4 = yield* cacheKeys(target.library);
-          expect(cacheKeysResult4).toEqual(target.keys);
+          expect(cacheKeysResult4).toEqual(retainedKeys);
         })
       );
       yield* drainScheduler;
@@ -342,7 +351,18 @@ it.layer(testLayer)('library service without transport', (iit) => {
         expect(Exit.hasInterrupts(requestExit)).toBe(true);
         yield* drainScheduler;
         const cacheKeysResult = yield* cacheKeys(target.library);
-        expect(cacheKeysResult).toEqual(boundary === 'commit' ? [] : target.keys);
+        expect(cacheKeysResult).toEqual(
+          boundary === 'commit'
+            ? []
+            : [
+                ...target.keys,
+                StoragePluginKey.make({
+                  storagePluginId: target.row.storagePluginId,
+                  library: target.row.library,
+                  settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
+                }),
+              ]
+        );
         expect(
           Option.map(
             (yield* repository.getById(target.library)).storageKey,

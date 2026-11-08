@@ -1,4 +1,3 @@
-import { StoragePlugin } from '@govoel/plugins/storage';
 import type { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
@@ -10,12 +9,7 @@ import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/librar
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
-import {
-  StoragePluginBuilder,
-  StoragePluginLayerNoDeps,
-  StoragePluginMap,
-  StoragePluginSettingsMap,
-} from '#src/domains/plugins/storage/index.ts';
+import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
 
 export class LibraryService extends Context.Service<LibraryService>()(
   '@repo/server/domains/library/service/LibraryService',
@@ -23,8 +17,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
     make: Effect.gen(function* () {
       const sql = yield* LibraryDatabase;
       const repository = yield* LibraryRepository;
-      const buildPlugin = yield* StoragePluginBuilder;
-      const pluginBuilderLayer = Layer.succeed(StoragePluginBuilder, buildPlugin);
       const editors = yield* StoragePluginSettingsMap;
       const stores = yield* StoragePluginMap;
       const retirementScope = yield* Effect.scope;
@@ -77,7 +69,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         storage,
         roots,
       }: {
-        readonly storage: typeof StoragePlugin.Service;
+        readonly storage: Effect.Success<ReturnType<typeof stores.acquire>>;
         readonly roots: ReadonlyArray<{ readonly root: string }>;
       }) {
         const decoded = yield* Effect.validate(
@@ -151,10 +143,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
               .pipe(Effect.catchTags({ LibraryNotFoundError: Effect.die }));
             const storage = yield* Option.match(configured.storageKey, {
               onNone: () => Effect.die('Created library has no storage configuration'),
-              onSome: (key) =>
-                Layer.build(
-                  StoragePluginLayerNoDeps(key).pipe(Layer.provide(pluginBuilderLayer))
-                ).pipe(Effect.map(Context.get(StoragePlugin))),
+              onSome: stores.acquire,
             });
             const roots = yield* decodeRoots({ storage, roots: request.roots });
             yield* repository.setRoots({ id: result.id, roots });
@@ -195,10 +184,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
               const current = yield* repository.getById(result);
               const storage = yield* Option.match(current.storageKey, {
                 onNone: () => Effect.die('Updated library has no storage configuration'),
-                onSome: (key) =>
-                  Layer.build(
-                    StoragePluginLayerNoDeps(key).pipe(Layer.provide(pluginBuilderLayer))
-                  ).pipe(Effect.map(Context.get(StoragePlugin))),
+                onSome: stores.acquire,
               });
               const roots = yield* decodeRoots({ storage, roots: current.roots });
               yield* repository.setRoots({ id, roots });
@@ -243,7 +229,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
     Layer.provide([
       LibraryDatabase.layer,
       LibraryRepository.layer,
-      StoragePluginBuilder.layer,
       StoragePluginSettingsMap.layer,
       StoragePluginMap.layer,
     ])
