@@ -1,6 +1,6 @@
-import type { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
+import type { LibraryInput } from '@repo/spec-api/domains/library/http.ts';
 import { LibraryInvalidRootError } from '@repo/spec-api/domains/library/schema.ts';
 import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 
@@ -27,13 +27,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
         storagePluginId: storageKey.storagePluginId,
         storagePluginSettings: storageKey.settings,
         roots,
-      });
-
-      const writeRequest = (row: Effect.Success<ReturnType<typeof repository.getById>>) => ({
-        ...row.storageKey.library,
-        storagePluginId: row.storageKey.storagePluginId,
-        storagePluginSettings: row.storageKey.settings,
-        roots: Array.map(row.roots, ({ root }) => root),
       });
 
       const health = Effect.fnUntraced(function* (
@@ -120,12 +113,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           });
         }, Effect.scoped),
         create: Effect.fnUntraced(
-          function* (
-            request: Pick<Library, 'name' | 'type' | 'storagePluginId'> & {
-              readonly storagePluginSettings: StoragePluginSettingsInput;
-              readonly roots: ReadonlyArray<{ readonly root: string }>;
-            }
-          ) {
+          function* (request: typeof LibraryInput.Type) {
             const editor = yield* editors.acquire(request.storagePluginId);
             const settings = yield* editor.decodeFormSubmission({
               library: { name: request.name, type: request.type },
@@ -141,27 +129,24 @@ export class LibraryService extends Context.Service<LibraryService>()(
             });
             const storage = yield* stores.acquire(created.storageKey);
             const roots = yield* decodeRoots({ storage, roots: request.roots });
-            const configured = yield* repository.update({ ...writeRequest(created), roots }).pipe(
-              Effect.catchTags({
-                LibraryNotFoundError: Effect.die,
-                LibraryNameConflictError: Effect.die,
+            const configured = yield* repository
+              .update({
+                ...request,
+                id: created.storageKey.library.id,
+                storagePluginSettings: settings,
+                roots,
               })
-            );
+              .pipe(
+                Effect.catchTags({
+                  LibraryNotFoundError: Effect.die,
+                  LibraryNameConflictError: Effect.die,
+                })
+              );
             return { id: configured.storageKey.library.id };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),
           Effect.scoped
-        ),
-        rename: Effect.fnUntraced(
-          function* ({ id, name }: Pick<Library, 'id' | 'name'>) {
-            const row = yield* repository.getById({ id });
-            const updated = yield* repository.update({ ...writeRequest(row), name });
-            yield* sql.afterCommit(launchStorageRetirement({ id }));
-            return { id: updated.storageKey.library.id };
-          },
-          sql.withTransaction,
-          Effect.catchTags({ SqlError: Effect.die })
         ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
@@ -171,57 +156,33 @@ export class LibraryService extends Context.Service<LibraryService>()(
             current: Option.some(row.storageKey.settings),
           });
         }, Effect.scoped),
-        setStoragePluginSettings: Effect.fnUntraced(
-          function* ({
-            id,
-            input,
-          }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
-            const row = yield* repository.getById({ id });
-            const editor = yield* editors.acquire(row.storageKey.storagePluginId);
+        update: Effect.fnUntraced(
+          function* (request: typeof LibraryInput.Type & Pick<Library, 'id'>) {
+            const row = yield* repository.getById({ id: request.id });
+            const editor = yield* editors.acquire(request.storagePluginId);
             const settings = yield* editor.decodeFormSubmission({
-              library: row.storageKey.library,
-              current: Option.some(row.storageKey.settings),
-              input,
+              library: { name: request.name, type: request.type },
+              current:
+                row.storageKey.storagePluginId === request.storagePluginId
+                  ? Option.some(row.storageKey.settings)
+                  : Option.none(),
+              input: request.storagePluginSettings,
             });
-            return yield* Effect.gen(function* () {
-              const current = yield* repository.getById({ id });
-              const storage = yield* stores.acquire(
-                StoragePluginKey.make({
-                  library: current.storageKey.library,
-                  storagePluginId: current.storageKey.storagePluginId,
-                  settings,
-                })
-              );
-              const roots = yield* decodeRoots({ storage, roots: current.roots });
-              const updated = yield* repository
-                .update({
-                  ...writeRequest(current),
-                  storagePluginSettings: settings,
-                  roots,
-                })
-                .pipe(Effect.catchTags({ LibraryNameConflictError: Effect.die }));
-              yield* sql.afterCommit(launchStorageRetirement({ id }));
-              return { id: updated.storageKey.library.id };
-            }).pipe(sql.withTransaction);
-          },
-          Effect.catchTags({ SqlError: Effect.die }),
-          Effect.scoped
-        ),
-        setRoots: Effect.fnUntraced(
-          function* ({
-            id,
-            roots,
-          }: Pick<Library, 'id'> & { readonly roots: ReadonlyArray<{ readonly root: string }> }) {
-            const row = yield* repository.getById({ id });
-            const storage = yield* stores.acquire(row.storageKey);
-            const unique = yield* decodeRoots({ storage, roots });
-            const updated = yield* repository
-              .update({ ...writeRequest(row), roots: unique })
-              .pipe(Effect.catchTags({ LibraryNameConflictError: Effect.die }));
-            return {
-              id: updated.storageKey.library.id,
-              roots: Array.map(updated.roots, ({ root }) => ({ root })),
-            };
+            const storage = yield* stores.acquire(
+              StoragePluginKey.make({
+                library: { id: request.id, name: request.name, type: request.type },
+                storagePluginId: request.storagePluginId,
+                settings,
+              })
+            );
+            const roots = yield* decodeRoots({ storage, roots: request.roots });
+            const updated = yield* repository.update({
+              ...request,
+              storagePluginSettings: settings,
+              roots,
+            });
+            yield* sql.afterCommit(launchStorageRetirement({ id: request.id }));
+            return { id: updated.storageKey.library.id };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),

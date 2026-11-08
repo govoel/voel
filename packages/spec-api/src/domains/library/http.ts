@@ -33,6 +33,25 @@ class LibraryResponse extends Schema.Struct({
   ),
 }) {}
 
+export class LibraryInput extends Schema.Struct({
+  name: Library.jsonCreate.fields.name,
+  type: Library.jsonCreate.fields.type,
+  storagePluginId: Library.jsonCreate.fields.storagePluginId,
+  storagePluginSettings: StoragePluginSettingsInput,
+  roots: Schema.Array(Schema.Struct({ root: LibraryRoot.jsonUpsert.fields.root })),
+}) {}
+
+const writeErrors = [
+  LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+  StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+  StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+  StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+  LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
+  StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
+  PluginLoadError.pipe(HttpApiSchema.status(500)),
+  StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+];
+
 export const LibraryApi = HttpApiGroup.make('library')
   .add(
     HttpApiEndpoint.get('list', '/api/libraries', {
@@ -58,34 +77,16 @@ export const LibraryApi = HttpApiGroup.make('library')
     }),
 
     HttpApiEndpoint.post('create', '/api/libraries', {
-      payload: Schema.Struct({
-        name: Library.jsonCreate.fields.name,
-        type: Library.jsonCreate.fields.type,
-        storagePluginId: Library.jsonCreate.fields.storagePluginId,
-        storagePluginSettings: StoragePluginSettingsInput,
-        roots: Schema.Array(Schema.Struct({ root: LibraryRoot.jsonUpsert.fields.root })),
-      }),
+      payload: LibraryInput,
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: [
-        LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
-        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
-        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-        LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
-        StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
-        PluginLoadError.pipe(HttpApiSchema.status(500)),
-        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
-      ],
+      error: writeErrors,
     }),
 
-    HttpApiEndpoint.patch('update', '/api/libraries/:id', {
+    HttpApiEndpoint.put('update', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: Schema.Struct({ name: Library.jsonUpdate.fields.name }),
+      payload: LibraryInput,
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
-      ],
+      error: [LibraryNotFoundError.pipe(HttpApiSchema.status(404)), ...writeErrors],
     }),
 
     HttpApiEndpoint.post(
@@ -122,40 +123,6 @@ export const LibraryApi = HttpApiGroup.make('library')
         ],
       }
     ),
-
-    HttpApiEndpoint.put('setStoragePluginSettings', '/api/libraries/:id/plugins/storage/settings', {
-      params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: Schema.Struct({ input: StoragePluginSettingsInput }),
-      success: Schema.Struct({ id: Library.json.fields.id }),
-      error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
-        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-        LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
-        StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
-        PluginLoadError.pipe(HttpApiSchema.status(500)),
-        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
-      ],
-    }),
-
-    HttpApiEndpoint.put('setRoots', '/api/libraries/:id/roots', {
-      params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: Schema.Struct({
-        roots: Schema.Array(Schema.Struct({ root: LibraryRoot.jsonUpsert.fields.root })),
-      }),
-      success: Schema.Struct({
-        id: Library.json.fields.id,
-        roots: Schema.Array(Schema.Struct({ root: LibraryRoot.json.fields.root })),
-      }),
-      error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
-        StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
-        PluginLoadError.pipe(HttpApiSchema.status(500)),
-        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
-      ],
-    }),
 
     HttpApiEndpoint.delete('delete', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),

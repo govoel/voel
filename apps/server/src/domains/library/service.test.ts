@@ -27,17 +27,19 @@ const testLayer = LibraryService.layerNoDeps.pipe(
 const mutate = Effect.fnUntraced(function* ({
   id,
   operation,
-}: Pick<Library, 'id'> & { readonly operation: 'rename' | 'settings' | 'delete' }) {
+}: Pick<Library, 'id'> & { readonly operation: 'update' | 'delete' }) {
   const service = yield* LibraryService;
   return yield* Match.value(operation).pipe(
     Match.literalsExhaustive({
-      rename: () =>
-        service.rename({ id, name: Library.fields.name.make('Renamed') }).pipe(Effect.asVoid),
-      settings: () =>
+      update: () =>
         service
-          .setStoragePluginSettings({
+          .update({
             id,
-            input: StoragePluginSettingsInput.make({ root: '/updated' }),
+            name: Library.fields.name.make(`Updated ${id}`),
+            type: Library.fields.type.make('movie'),
+            storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+            storagePluginSettings: StoragePluginSettingsInput.make({ root: '/updated' }),
+            roots: [{ root: '/updated-root' }],
           })
           .pipe(Effect.asVoid),
       delete: () => service.delete({ id }),
@@ -116,13 +118,15 @@ it.layer(testLayer)('library service without transport', (iit) => {
         roots: [{ root: '/one' }],
       });
       const name = Library.fields.name.make('Renamed settings metadata');
-      yield* service.rename({ ...library, name });
-      const form = yield* service.getStoragePluginSettingsForm(library);
-      expect(form).toMatchObject([{ label: name, initialValue: '/initial' }]);
-      yield* service.setStoragePluginSettings({
+      yield* service.update({
+        ...request,
         ...library,
-        input: StoragePluginSettingsInput.make({ root: '/updated' }),
+        name,
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: '/updated' }),
+        roots: [{ root: '/one' }],
       });
+      const form = yield* service.getStoragePluginSettingsForm(library);
+      expect(form).toMatchObject([{ label: name, initialValue: '/updated' }]);
       expect(submissions).toEqual([
         {
           library: { name: request.name, type: request.type },
@@ -200,7 +204,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
     }, Effect.scoped)
   );
 
-  iit.effect.each(['rename', 'settings', 'delete'] as const)(
+  iit.effect.each(['update', 'delete'] as const)(
     '%s retires only its library after the outer commit, never on rollback or savepoint release',
     Effect.fnUntraced(function* (operation) {
       const sql = yield* LibraryDatabase;
@@ -212,12 +216,15 @@ it.layer(testLayer)('library service without transport', (iit) => {
       expect(target.editor).toBe(unrelated.editor);
 
       const retainedKeys =
-        operation === 'settings'
+        operation === 'update'
           ? [
               ...target.keys,
               StoragePluginKey.make({
                 storagePluginId: target.row.storageKey.storagePluginId,
-                library: target.row.storageKey.library,
+                library: {
+                  ...target.row.storageKey.library,
+                  name: Library.fields.name.make(`Updated ${target.library.id}`),
+                },
                 settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
               }),
             ]
@@ -279,11 +286,9 @@ it.layer(testLayer)('library service without transport', (iit) => {
           'settings',
           Effect.fnUntraced(function* () {
             const row = yield* repository.getById(target.library);
-            expect(row.storageKey.library.name).toBe(
-              operation === 'rename' ? 'Renamed' : target.row.storageKey.library.name
-            );
+            expect(row.storageKey.library.name).toBe(`Updated ${target.library.id}`);
             expect(row.storageKey.settings).toEqual({
-              prefix: operation === 'settings' ? '/updated' : '/initial',
+              prefix: '/updated',
             });
           })
         ),
@@ -293,7 +298,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
   );
 
   iit.effect.each(['body', 'commit'] as const)(
-    'settings retirement follows the commit outcome when interrupted during the transaction %s',
+    'update retirement follows the commit outcome when interrupted during the transaction %s',
     Effect.fnUntraced(function* (boundary) {
       const backing = yield* LibraryDatabase;
       const { drainScheduler } = yield* TestScheduler;
@@ -331,7 +336,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
         const request = yield* sql
           .withTransaction(
             Effect.gen(function* () {
-              yield* mutate({ ...target.library, operation: 'settings' });
+              yield* mutate({ ...target.library, operation: 'update' });
               if (boundary === 'body') {
                 yield* entered.open;
                 return yield* Effect.never;
@@ -356,7 +361,10 @@ it.layer(testLayer)('library service without transport', (iit) => {
                 ...target.keys,
                 StoragePluginKey.make({
                   storagePluginId: target.row.storageKey.storagePluginId,
-                  library: target.row.storageKey.library,
+                  library: {
+                    ...target.row.storageKey.library,
+                    name: Library.fields.name.make(`Updated ${target.library.id}`),
+                  },
                   settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
                 }),
               ]
@@ -381,24 +389,26 @@ it.layer(testLayer)('library service without transport', (iit) => {
     'reports a raw empty root as a typed validation error without changing configured roots',
     Effect.fnUntraced(function* () {
       const service = yield* LibraryService;
-      const library = yield* service.create({
+      const input = {
         name: Library.fields.name.make('Direct root validation'),
         type: Library.fields.type.make('movie'),
         storagePluginId: Library.fields.storagePluginId.make('npm:test'),
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/configured' }),
-        roots: [],
-      });
-      yield* service.setStoragePluginSettings({
-        ...library,
-        input: StoragePluginSettingsInput.make({ root: '/configured' }),
-      });
-      yield* service.setRoots({ ...library, roots: [{ root: '/one' }, { root: '/two' }] });
+        roots: [{ root: '/one' }, { root: '/two' }],
+      };
+      const library = yield* service.create(input);
       const before = yield* service.get(library);
       expect(before.storagePluginSettings).toEqual({ prefix: '/configured' });
       expect(Array.map(before.roots, ({ root }) => root)).toEqual(['/one', '/two']);
 
       const error = yield* service
-        .setRoots({ ...library, roots: [{ root: '/replacement' }, { root: '' }] })
+        .update({
+          ...input,
+          ...library,
+          name: Library.fields.name.make('Rejected update'),
+          storagePluginSettings: StoragePluginSettingsInput.make({ root: '/replacement' }),
+          roots: [{ root: '/replacement' }, { root: '' }],
+        })
         .pipe(Effect.flip);
       assert.instanceOf(error, LibraryInvalidRootError);
       expect({ _tag: error._tag, roots: error.roots }).toEqual({
@@ -406,9 +416,66 @@ it.layer(testLayer)('library service without transport', (iit) => {
         roots: [{ root: '', message: 'Expected a value with a length of at least 1' }],
       });
       const after = yield* service.get(library);
-      expect({ settings: after.storagePluginSettings, roots: after.roots }).toEqual({
-        settings: { prefix: '/configured' },
-        roots: before.roots,
+      expect(after).toEqual(before);
+    })
+  );
+  iit.effect(
+    'passes submitted metadata and only the selected plugin current settings to its editor',
+    Effect.fnUntraced(function* () {
+      const service = yield* LibraryService;
+      const fixture = yield* PluginFixture;
+      const library = yield* service.create({
+        name: Library.fields.name.make('Local'),
+        type: Library.fields.type.make('movie'),
+        storagePluginId: Library.fields.storagePluginId.make('builtin:local'),
+        storagePluginSettings: StoragePluginSettingsInput.make({}),
+        roots: [],
+      });
+      const submissions: Array<Parameters<typeof fixture.controls.beforeDecode>[0]> = [];
+      const { beforeDecode } = fixture.controls;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          fixture.controls.beforeDecode = beforeDecode;
+        })
+      );
+      fixture.controls.beforeDecode = (request) =>
+        Effect.sync(() => {
+          submissions.push(request);
+        });
+      const input = {
+        ...library,
+        name: Library.fields.name.make('Remote'),
+        type: Library.fields.type.make('audiobook'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: '/remote' }),
+        roots: [{ root: ' /root ' }, { root: '/root' }],
+      };
+      yield* service.update(input);
+      yield* service.update({
+        ...input,
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: '/changed' }),
+      });
+      yield* service.update({
+        ...input,
+        storagePluginId: Library.fields.storagePluginId.make('npm:other'),
+      });
+      expect(
+        Array.map(submissions, ({ library: metadata, current }) => ({ library: metadata, current }))
+      ).toEqual([
+        { library: { name: 'Remote', type: 'audiobook' }, current: Option.none() },
+        {
+          library: { name: 'Remote', type: 'audiobook' },
+          current: Option.some({ prefix: '/remote' }),
+        },
+        { library: { name: 'Remote', type: 'audiobook' }, current: Option.none() },
+      ]);
+      const updated = yield* service.get(library);
+      expect(updated).toMatchObject({
+        name: 'Remote',
+        type: 'audiobook',
+        storagePluginId: 'npm:other',
+        storagePluginSettings: { prefix: '/remote' },
+        roots: [{ root: '/root' }],
       });
     })
   );

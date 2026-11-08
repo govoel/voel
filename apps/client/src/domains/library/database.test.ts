@@ -59,8 +59,8 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
   const account = Option.getOrThrow(state);
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
   const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-  const createLibrary = Effect.fnUntraced(function* (libraryName: string) {
-    const library = yield* client.library.create({
+  const createLibrary = (libraryName: string) =>
+    client.library.create({
       payload: {
         name: Library.fields.name.make(libraryName),
         type: MediaType.fields.type.make('audiobook'),
@@ -69,11 +69,6 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
         roots: [],
       },
     });
-    return yield* client.library.setStoragePluginSettings({
-      params: library,
-      payload: { input: StoragePluginSettingsInput.make({}) },
-    });
-  });
   yield* createLibrary(name);
   return {
     createLibrary,
