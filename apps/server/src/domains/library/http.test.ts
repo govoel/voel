@@ -1,7 +1,6 @@
 import { BunHttpServer } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import {
-  StorageLocationValidationError,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
@@ -69,16 +68,15 @@ const createInput = (
   type: Library.fields.type.make('movie'),
   storagePluginId: Library.fields.storagePluginId.make(pluginId),
   storagePluginSettings: StoragePluginSettingsInput.make(
-    pluginId === 'builtin:local' ? {} : { root: '/initial' }
+    pluginId === 'builtin:local' ? { roots: [] } : { root: '/initial' }
   ),
-  roots: [],
 });
 const createRecord = (...args: Parameters<typeof createInput>) => {
   const request = createInput(...args);
   return {
     ...request,
     storagePluginSettings: StoragePluginSettingsPersisted.make(
-      request.storagePluginId === 'builtin:local' ? {} : { prefix: '/initial' }
+      request.storagePluginId === 'builtin:local' ? { roots: [] } : { prefix: '/initial' }
     ),
   };
 };
@@ -88,6 +86,44 @@ const makeClient = Effect.gen(function* () {
 });
 
 it.layer(testLayer)('library lifecycle', (iit) => {
+  iit.effect(
+    'round-trips local directory lists through the settings editor and persisted settings',
+    Effect.fnUntraced(function* () {
+      const client = yield* makeClient;
+      const input = {
+        ...createInput('Local directories'),
+        storagePluginSettings: StoragePluginSettingsInput.make({
+          roots: ['/books/../audio', '/audio/./', '/movies'],
+        }),
+      };
+      const draft = yield* client.library.getDraftStoragePluginSettingsForm({ payload: input });
+      expect(draft).toMatchObject([{ _tag: 'TextListField', name: 'roots', initialValue: [] }]);
+      const library = yield* client.library.create({ payload: input });
+      const created = yield* client.library.get({ params: library });
+      expect(created.storagePluginSettings).toEqual({ roots: ['/audio', '/movies'] });
+      const form = yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect(form).toMatchObject([
+        { _tag: 'TextListField', name: 'roots', initialValue: ['/audio', '/movies'] },
+      ]);
+      yield* client.library.update({ params: library, payload: input });
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
+        created.storagePluginSettings
+      );
+      yield* client.library.update({
+        params: library,
+        payload: {
+          ...input,
+          storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
+        },
+      });
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
+        roots: [],
+      });
+      const clearedForm = yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect(clearedForm).toEqual(draft);
+    })
+  );
+
   iit.effect(
     'reports cached plugin health without carrying failed proposed configurations into persisted health',
     Effect.fnUntraced(function* () {
@@ -128,7 +164,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   );
 
   iit.effect(
-    'holds the aggregate write lock through settings and root validation and publishes only the complete replacement',
+    'holds the write lock through settings validation and publishes only the complete replacement',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
@@ -137,24 +173,17 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         filename: config.db.libraryFilename,
         busyTimeout: 0,
       });
-      const input = {
-        ...createInput('Locked aggregate', 'npm:test'),
-        roots: [{ root: '/original' }],
-      };
+      const input = createInput('Locked aggregate', 'npm:test');
       const library = yield* client.library.create({ payload: input });
       const before = yield* client.library.get({ params: library });
       const settingsStarted = yield* Latch.make();
       const settingsRelease = yield* Latch.make();
-      const rootsStarted = yield* Latch.make();
-      const rootsRelease = yield* Latch.make();
-      const { beforeDecode, beforeRootDecode } = fixture.controls;
+      const { beforeDecode } = fixture.controls;
       yield* Effect.addFinalizer(() =>
         settingsRelease.open.pipe(
-          Effect.andThen(rootsRelease.open),
           Effect.andThen(
             Effect.sync(() => {
               fixture.controls.beforeDecode = beforeDecode;
-              fixture.controls.beforeRootDecode = beforeRootDecode;
             })
           )
         )
@@ -163,35 +192,27 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         metadata.name === 'Replacement aggregate'
           ? settingsStarted.open.pipe(Effect.andThen(settingsRelease.await))
           : Effect.void;
-      fixture.controls.beforeRootDecode = ({ location }) =>
-        location === '/replacement'
-          ? rootsStarted.open.pipe(Effect.andThen(rootsRelease.await))
-          : Effect.void;
       const payload = {
         ...input,
         name: Library.fields.name.make('Replacement aggregate'),
         type: Library.fields.type.make('show'),
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/replacement' }),
-        roots: [{ root: '/replacement' }],
       };
       const pending = yield* client.library
         .update({ params: library, payload })
         .pipe(Effect.forkChild);
-      for (const phase of [settingsStarted, rootsStarted]) {
-        yield* phase.await;
-        const error = yield* contender`
-           update library
-           set
-             name = 'Contender'
-           where
-             id = ${library.id}
-         `.pipe(Effect.flip);
-        expect(error).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
-        const current = yield* client.library.get({ params: library });
-        expect(current).toEqual(before);
-        yield* settingsRelease.open;
-      }
-      yield* rootsRelease.open;
+      yield* settingsStarted.await;
+      const error = yield* contender`
+         update library
+         set
+           name = 'Contender'
+         where
+           id = ${library.id}
+       `.pipe(Effect.flip);
+      expect(error).toMatchObject({ _tag: 'SqlError', reason: { _tag: 'LockTimeoutError' } });
+      const current = yield* client.library.get({ params: library });
+      expect(current).toEqual(before);
+      yield* settingsRelease.open;
       const updated = yield* Fiber.join(pending);
       expect(updated).toEqual(library);
       const after = yield* client.library.get({ params: library });
@@ -199,7 +220,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         name: payload.name,
         type: payload.type,
         storagePluginSettings: { prefix: '/replacement' },
-        roots: [{ root: '/replacement' }],
       });
     })
   );
@@ -213,7 +233,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const payload = {
         ...createInput('Background retirement', 'npm:test'),
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/background' }),
-        roots: [{ root: '/one' }],
       };
       const library = yield* client.library.create({ payload });
 
@@ -255,19 +274,19 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(getStoragePluginSettingsFormResult).toMatchObject([
         { label: 'Background renamed', initialValue: '/background' },
       ]);
-      expect(
-        Array.map((yield* client.library.get({ params: library })).roots, ({ root }) => root)
-      ).toEqual(['/one']);
       yield* release.open;
       yield* finished.await;
     })
   );
 
   iit.effect(
-    'reports every rejected root without persisting any proposed field',
+    'rejects invalid local directories without persisting any proposed field',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
-      const input = { ...createInput('Root validation'), roots: [{ root: '/original' }] };
+      const input = {
+        ...createInput('Directory validation'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/original'] }),
+      };
       const library = yield* client.library.create({ payload: input });
       const before = yield* client.library.get({ params: library });
       const error = yield* client.library
@@ -277,16 +296,14 @@ it.layer(testLayer)('library lifecycle', (iit) => {
             ...input,
             name: Library.fields.name.make('Invalid root update'),
             type: Library.fields.type.make('show'),
-            roots: [{ root: 'relative' }, { root: '/valid' }, { root: '/nul\0' }],
+            storagePluginSettings: StoragePluginSettingsInput.make({
+              roots: ['relative', '/valid', '/nul\0'],
+            }),
           },
         })
         .pipe(Effect.flip);
       expect(error).toMatchObject({
-        _tag: 'LibraryInvalidRootError',
-        roots: [
-          { root: 'relative', message: 'Library root locations must be absolute paths' },
-          { root: '/nul\0', message: 'Library root locations must not contain NUL characters' },
-        ],
+        _tag: 'StoragePluginInvalidSettingsError',
       });
       const after = yield* client.library.get({ params: library });
       expect(after).toEqual(before);
@@ -294,12 +311,12 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   );
 
   iit.effect(
-    'hard deletion cascades roots and mappings but preserves shared media',
+    'hard deletion cascades mappings but preserves shared media',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const sql = yield* LibraryDatabase;
       const library = yield* client.library.create({
-        payload: { ...createInput('Delete cascade'), roots: [{ root: '/delete' }] },
+        payload: { ...createInput('Delete cascade') },
       });
       yield* sql`
         insert into
@@ -325,15 +342,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         where
           location = '/shared'
       `;
-      const rows = yield* sql`
-          select
-            root
-          from
-            "libraryRoot"
-          where
-            "libraryId" = ${library.id}
-        `;
-      expect(rows).toEqual([{ root: '/delete' }]);
+
       const rows2 = yield* sql`
           select
             "matchFailureReason",
@@ -345,15 +354,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         `;
       expect(rows2).toEqual([{ matchFailureReason: 'unmatched', customOrder: 0 }]);
       yield* client.library.delete({ params: library });
-      const rows3 = yield* sql`
-          select
-            id
-          from
-            "libraryRoot"
-          where
-            "libraryId" = ${library.id}
-        `;
-      expect(rows3).toEqual([]);
+
       const rows4 = yield* sql`
           select
             id
@@ -466,7 +467,7 @@ const makeWireTransport = Effect.fnUntraced(function* (
 
 it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   iit.effect(
-    'serves draft forms and creates settings and roots atomically over HTTP',
+    'serves draft forms and validates settings before creation over HTTP',
     Effect.fnUntraced(function* () {
       const { client } = yield* makeWireTransport(
         Option.some({ username: 'wire_draft', role: 'admin' })
@@ -476,14 +477,11 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       expect(draftForm).toMatchObject([{ label: 'Draft HTTP', initialValue: '' }]);
       for (const payload of [
         { ...input, storagePluginSettings: StoragePluginSettingsInput.make({ root: 123 }) },
-        { ...input, roots: [{ root: 'relative' }] },
+        { ...input, storagePluginSettings: StoragePluginSettingsInput.make({}) },
       ]) {
         const createError = yield* client.library.create({ payload }).pipe(Effect.flip);
         expect(createError).toMatchObject({
-          _tag:
-            payload.roots.length > 0
-              ? 'LibraryInvalidRootError'
-              : 'StoragePluginInvalidSettingsError',
+          _tag: 'StoragePluginInvalidSettingsError',
         });
         expect(
           Array.some(
@@ -493,12 +491,11 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         ).toBe(false);
       }
       const created = yield* client.library.create({
-        payload: { ...input, roots: [{ root: '/one' }] },
+        payload: { ...input },
       });
       const library = yield* client.library.get({ params: created });
       expect(library).toMatchObject({
         storagePluginSettings: { prefix: '/initial' },
-        roots: [{ root: '/one' }],
       });
       yield* client.library.delete({ params: created });
     })
@@ -510,7 +507,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const { client, http } = yield* makeWireTransport(
         Option.some({ username: 'wire_replace', role: 'admin' })
       );
-      const initial = { ...createInput('Original HTTP aggregate'), roots: [{ root: '/old' }] };
+      const initial = { ...createInput('Original HTTP aggregate') };
       const library = yield* client.library.create({ payload: initial });
       const before = yield* client.library.get({ params: library });
       const partial = yield* http.execute(
@@ -525,7 +522,6 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         ...createInput('Replaced HTTP aggregate', 'npm:test'),
         type: Library.fields.type.make('audiobook'),
         storagePluginSettings: StoragePluginSettingsInput.make({ root: ' /settings ' }),
-        roots: [{ root: ' /new ' }, { root: '/new' }],
       };
       const response = yield* http.execute(
         HttpClientRequest.put(`http://localhost/api/libraries/${library.id}`).pipe(
@@ -542,18 +538,17 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         type: payload.type,
         storagePluginId: payload.storagePluginId,
         storagePluginSettings: { prefix: '/settings' },
-        roots: [{ root: '/new' }],
       });
       yield* client.library.update({ params: library, payload });
       const repeated = yield* client.library.get({ params: library });
-      expect(repeated.roots).toEqual(replaced.roots);
+      expect(repeated).toEqual(replaced);
       yield* Effect.acquireRelease(
         client.library.create({ payload: createInput('Reserved HTTP name') }),
         (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
       );
       const conflict = yield* http.execute(
         HttpClientRequest.put(`http://localhost/api/libraries/${library.id}`).pipe(
-          HttpClientRequest.bodyJsonUnsafe({ ...payload, name: 'Reserved HTTP name', roots: [] })
+          HttpClientRequest.bodyJsonUnsafe({ ...payload, name: 'Reserved HTTP name' })
         )
       );
       expect(conflict.status).toBe(409);
@@ -566,47 +561,6 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         )
       );
       expect(missing.status).toBe(404);
-    })
-  );
-
-  iit.effect(
-    'leaves the entire aggregate unchanged when roots fail under submitted settings',
-    Effect.fnUntraced(function* () {
-      const { client } = yield* makeWireTransport(
-        Option.some({ username: 'wire_update_rollback', role: 'admin' })
-      );
-      const fixture = yield* PluginFixture;
-      const library = yield* client.library.create({
-        payload: { ...createInput('Update rollback', 'npm:test'), roots: [{ root: '/one' }] },
-      });
-      const before = yield* client.library.get({ params: library });
-      const previous = fixture.controls.beforeRootDecode;
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          fixture.controls.beforeRootDecode = previous;
-        })
-      );
-      fixture.controls.beforeRootDecode = (request) =>
-        Schema.is(Schema.Struct({ prefix: Schema.Literal('/reject') }))(request.settings)
-          ? Effect.fail(
-              StorageLocationValidationError.make({ message: 'Rejected by new settings' })
-            )
-          : Effect.void;
-      const updateError = yield* client.library
-        .update({
-          params: library,
-          payload: {
-            ...createInput('Rejected aggregate', 'npm:test'),
-            type: Library.fields.type.make('show'),
-            storagePluginSettings: StoragePluginSettingsInput.make({ root: '/reject' }),
-            roots: [{ root: '/replacement' }],
-          },
-        })
-        .pipe(Effect.flip);
-      expect(updateError).toMatchObject({ _tag: 'LibraryInvalidRootError' });
-      const after = yield* client.library.get({ params: library });
-      expect(after).toEqual(before);
-      yield* client.library.delete({ params: library });
     })
   );
 
@@ -654,7 +608,6 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
           ...createInput(`HTTP ${scenario}`, 'npm:test'),
           type: Library.fields.type.make('show'),
           storagePluginSettings: StoragePluginSettingsInput.make({ root: '/cancelled' }),
-          roots: [{ root: '/cancelled' }],
         };
         // oxlint-disable-next-line effecttsgo/abort-controller-in-effect -- model a caller-owned signal independent of Effect interruption
         const controller = new AbortController();
@@ -844,7 +797,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const json = yield* get.json;
       expect(json).toMatchObject({
         ...library,
-        storagePluginSettings: {},
+        storagePluginSettings: { roots: [] },
         storagePluginHealth: { status: 'healthy' },
       });
       const list = yield* client.library.list({

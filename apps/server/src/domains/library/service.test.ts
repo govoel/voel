@@ -7,7 +7,7 @@ import { Array, Effect, Exit, Fiber, Latch, Layer, Match, Option, RcMap } from '
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, Statement } from 'effect/sql';
 
-import { Library, LibraryInvalidRootError } from '@repo/spec-api/domains/library/schema.ts';
+import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { ApiConfig } from '#src/config.ts';
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
@@ -39,7 +39,6 @@ const mutate = Effect.fnUntraced(function* ({
             type: Library.fields.type.make('movie'),
             storagePluginId: Library.fields.storagePluginId.make('npm:test'),
             storagePluginSettings: StoragePluginSettingsInput.make({ root: '/updated' }),
-            roots: [{ root: '/updated-root' }],
           })
           .pipe(Effect.asVoid),
       delete: () => service.delete({ id }),
@@ -63,7 +62,6 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
     type: Library.fields.type.make('movie'),
     storagePluginId: Library.fields.storagePluginId.make('npm:test'),
     storagePluginSettings: settings,
-    roots: [],
   });
   const library = { id: created.id };
   const row = created;
@@ -116,7 +114,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const library = yield* service.create({
         ...request,
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/initial' }),
-        roots: [{ root: '/one' }],
       });
       const name = Library.fields.name.make('Renamed settings metadata');
       yield* service.update({
@@ -124,7 +121,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
         ...library,
         name,
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/updated' }),
-        roots: [{ root: '/one' }],
       });
       const form = yield* service.getStoragePluginSettingsForm(library);
       expect(form).toMatchObject([{ label: name, initialValue: '/updated' }]);
@@ -160,7 +156,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
         type: Library.fields.type.make('movie'),
         storagePluginId: Library.fields.storagePluginId.make('npm:test'),
         storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/decoded' }),
-        roots: [],
       });
       const library = { id: created.id };
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
@@ -387,40 +382,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
   );
 
   iit.effect(
-    'reports a raw empty root as a typed validation error without changing configured roots',
-    Effect.fnUntraced(function* () {
-      const service = yield* LibraryService;
-      const input = {
-        name: Library.fields.name.make('Direct root validation'),
-        type: Library.fields.type.make('movie'),
-        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
-        storagePluginSettings: StoragePluginSettingsInput.make({ root: '/configured' }),
-        roots: [{ root: '/one' }, { root: '/two' }],
-      };
-      const library = yield* service.create(input);
-      const before = yield* service.get(library);
-      expect(before.storagePluginSettings).toEqual({ prefix: '/configured' });
-      expect(Array.map(before.roots, ({ root }) => root)).toEqual(['/one', '/two']);
-
-      const error = yield* service
-        .update({
-          ...input,
-          ...library,
-          name: Library.fields.name.make('Rejected update'),
-          storagePluginSettings: StoragePluginSettingsInput.make({ root: '/replacement' }),
-          roots: [{ root: '/replacement' }, { root: '' }],
-        })
-        .pipe(Effect.flip);
-      assert.instanceOf(error, LibraryInvalidRootError);
-      expect({ _tag: error._tag, roots: error.roots }).toEqual({
-        _tag: 'LibraryInvalidRootError',
-        roots: [{ root: '', message: 'Expected a value with a length of at least 1' }],
-      });
-      const after = yield* service.get(library);
-      expect(after).toEqual(before);
-    })
-  );
-  iit.effect(
     'passes submitted metadata and only the selected plugin current settings to its editor',
     Effect.fnUntraced(function* () {
       const service = yield* LibraryService;
@@ -429,8 +390,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
         name: Library.fields.name.make('Local'),
         type: Library.fields.type.make('movie'),
         storagePluginId: Library.fields.storagePluginId.make('builtin:local'),
-        storagePluginSettings: StoragePluginSettingsInput.make({}),
-        roots: [],
+        storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
       });
       const submissions: Array<Parameters<typeof fixture.controls.beforeDecode>[0]> = [];
       const { beforeDecode } = fixture.controls;
@@ -449,7 +409,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
         type: Library.fields.type.make('audiobook'),
         storagePluginId: Library.fields.storagePluginId.make('npm:test'),
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/remote' }),
-        roots: [{ root: ' /root ' }, { root: '/root' }],
       };
       yield* service.update(input);
       yield* service.update({
@@ -476,7 +435,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
         type: 'audiobook',
         storagePluginId: 'npm:other',
         storagePluginSettings: { prefix: '/remote' },
-        roots: [{ root: '/root' }],
       });
     })
   );

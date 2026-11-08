@@ -300,31 +300,6 @@ export default Effect.gen(function* () {
   });
 
   yield* sql`
-    create table "libraryRoot" (
-      "id" integer not null primary key autoincrement,
-      "libraryId" integer not null references "library" ("id") on delete cascade on update cascade,
-      "root" text not null check (length("root") > 0),
-      "createdAt" integer default (time_to_milli (time_now ())) not null,
-      "updatedAt" integer default (time_to_milli (time_now ())) not null
-    ) strict
-  `;
-
-  yield* createUniqueIndex({
-    sql,
-    table: 'libraryRoot',
-    columns: ['libraryId', 'root'],
-  });
-
-  yield* createIndex({ sql, table: 'libraryRoot', columns: ['libraryId'] });
-  yield* createIndex({ sql, table: 'libraryRoot', columns: ['updatedAt'] });
-
-  yield* createUpdatedAtTrigger({
-    sql,
-    table: 'libraryRoot',
-    columns: ['id', 'libraryId', 'root'],
-  });
-
-  yield* sql`
     create table "mediaFile" (
       "id" integer not null primary key autoincrement,
       "location" text not null unique check (length("location") > 0),

@@ -1,7 +1,6 @@
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
 import type { LibraryInput } from '@repo/spec-api/domains/library/http.ts';
-import { LibraryInvalidRootError } from '@repo/spec-api/domains/library/schema.ts';
 import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
@@ -59,26 +58,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
         (effect) => effect.pipe(Effect.forkIn(retirementScope), Effect.asVoid)
       );
 
-      const decodeRoots = Effect.fnUntraced(function* ({
-        storage,
-        roots,
-      }: {
-        readonly storage: Effect.Success<ReturnType<typeof stores.acquire>>;
-        readonly roots: ReadonlyArray<{ readonly root: string }>;
-      }) {
-        const decoded = yield* Effect.validate(
-          roots,
-          ({ root }) =>
-            storage.decodeRootLocation({ location: root }).pipe(
-              Effect.catchTags({
-                StorageLocationValidationError: ({ message }) => Effect.fail({ root, message }),
-              })
-            ),
-          { concurrency: 'unbounded' }
-        ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
-        return Array.dedupe(decoded);
-      });
-
       return {
         get: Effect.fnUntraced(function* (request: Pick<Library, 'id'>) {
           const row = yield* repository.getById(request);
@@ -124,24 +103,9 @@ export class LibraryService extends Context.Service<LibraryService>()(
               type: request.type,
               storagePluginId: request.storagePluginId,
               storagePluginSettings: settings,
-              roots: [],
             });
-            const storage = yield* stores.acquire(created.storageKey);
-            const roots = yield* decodeRoots({ storage, roots: request.roots });
-            const configured = yield* repository
-              .update({
-                ...request,
-                id: created.id,
-                storagePluginSettings: settings,
-                roots,
-              })
-              .pipe(
-                Effect.catchTags({
-                  LibraryNotFoundError: Effect.die,
-                  LibraryNameConflictError: Effect.die,
-                })
-              );
-            return { id: configured.id };
+            yield* stores.acquire(created.storageKey);
+            return { id: created.id };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),
@@ -167,18 +131,16 @@ export class LibraryService extends Context.Service<LibraryService>()(
                   : Option.none(),
               input: request.storagePluginSettings,
             });
-            const storage = yield* stores.acquire(
+            yield* stores.acquire(
               StoragePluginKey.make({
                 library: { id: request.id, type: request.type, name: request.name },
                 storagePluginId: request.storagePluginId,
                 settings,
               })
             );
-            const roots = yield* decodeRoots({ storage, roots: request.roots });
             const updated = yield* repository.update({
               ...request,
               storagePluginSettings: settings,
-              roots,
             });
             yield* sql.afterCommit(launchStorageRetirement({ id: request.id }));
             return { id: updated.id };

@@ -9,10 +9,10 @@ import {
   StoragePluginSettings,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
+  StoragePluginSettingsFieldName,
   StoragePluginSettingsForm,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
-  StorageRootLocation,
 } from '@govoel/plugins/storage';
 import {
   Array,
@@ -66,7 +66,6 @@ const storageRequest = StoragePluginKey.make(request);
 const libraryMetadata = { name: request.library.name, type: request.library.type };
 
 const storageLayer = Layer.succeed(StoragePlugin, {
-  decodeRootLocation: ({ location }) => Effect.succeed(StorageRootLocation.make(location)),
   decodeMediaFileLocation: ({ location }) =>
     Effect.succeed(StorageMediaFileLocation.make(location)),
 });
@@ -76,7 +75,7 @@ const settingsLayer = Layer.succeed(StoragePluginSettings, {
     Effect.succeed([
       {
         _tag: 'TextField',
-        name: StoragePluginSettingsForm.value.fields.name.make('directory'),
+        name: StoragePluginSettingsFieldName.make('directory'),
         label: 'Directory',
         placeholder: '',
         initialValue: '/library',
@@ -147,8 +146,8 @@ it.effect('acquires canonical plugin services until the caller releases its scop
 
   return Effect.gen(function* () {
     yield* Effect.gen(function* () {
-      const first = { ...request, library: { ...request.library, roots: ['/first'] } };
-      const second = { ...request, library: { ...request.library, roots: ['/second'] } };
+      const first = { ...request, library: { ...request.library, ignored: 'first' } };
+      const second = { ...request, library: { ...request.library, ignored: 'second' } };
       const firstStorageKey = StoragePluginKey.make(first);
       const secondStorageKey = StoragePluginKey.make(second);
       const stores = yield* StoragePluginMap;
@@ -189,7 +188,7 @@ it.effect('shares a settings editor per plugin while keeping library inputs per 
               Effect.succeed([
                 {
                   _tag: 'TextField',
-                  name: StoragePluginSettingsForm.value.fields.name.make('directory'),
+                  name: StoragePluginSettingsFieldName.make('directory'),
                   label: library.name,
                   placeholder: '',
                   initialValue: Option.isSome(current) ? '/configured' : '',
@@ -243,17 +242,22 @@ it.effect(
       const module = yield* modules.get(StoragePluginId.make('builtin:local'));
       expect(module).toBe(local);
       const stores = yield* StoragePluginMap;
-      const storage = yield* stores.acquire(storageRequest);
-      const decodeRootLocationResult = yield* storage.decodeRootLocation({
+      const storage = yield* stores.acquire(
+        StoragePluginKey.make({
+          ...request,
+          settings: StoragePluginSettingsPersisted.make({ roots: [] }),
+        })
+      );
+      const decodeMediaFileLocationResult = yield* storage.decodeMediaFileLocation({
         location: '/books/../audio',
       });
-      expect(decodeRootLocationResult).toBe('/audio');
+      expect(decodeMediaFileLocationResult).toBe('/audio');
       const form = yield* Effect.gen(function* () {
         const editors = yield* StoragePluginSettingsMap;
         const settings = yield* editors.acquire(request.storagePluginId);
         return yield* settings.getForm({ library: libraryMetadata, current: Option.none() });
       }).pipe(Effect.provide(StoragePluginSettingsMap.layer));
-      expect(form).toEqual([]);
+      expect(form).toMatchObject([{ _tag: 'TextListField', name: 'roots', initialValue: [] }]);
     },
     Effect.scoped,
     Effect.provide([StoragePluginMap.layer, StoragePluginModuleMap.layerNoDeps]),
@@ -270,7 +274,9 @@ it.effect(
       const modules = yield* StoragePluginModuleMap;
       const module = yield* modules.get(StoragePluginId.make('npm:fixture'));
       const context = yield* Layer.build(
-        module.storage.layer(request).pipe(Layer.provide(platformLayer))
+        module.storage
+          .layer({ ...request, settings: StoragePluginSettingsPersisted.make({ roots: [] }) })
+          .pipe(Layer.provide(platformLayer))
       );
       const storage = Context.get(context, StoragePlugin);
       const decodeMediaFileLocationResult = yield* storage.decodeMediaFileLocation({
@@ -349,12 +355,21 @@ it.effect(
             getForm: () => {
               const field = StoragePluginSettingsForm.value.make({
                 _tag: 'TextField',
-                name: StoragePluginSettingsForm.value.fields.name.make('directory'),
+                name: StoragePluginSettingsFieldName.make('directory'),
                 label: 'Directory',
                 placeholder: '',
                 initialValue: '',
               });
-              return Effect.succeed([field, field]);
+              return Effect.succeed([
+                field,
+                {
+                  _tag: 'TextListField',
+                  name: field.name,
+                  label: 'Directories',
+                  placeholder: '',
+                  initialValue: [],
+                },
+              ]);
             },
             decodeFormSubmission: () => {
               const value = { value: 0 };
@@ -369,17 +384,18 @@ it.effect(
   )
 );
 
-it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
-  'validates %s outputs while preserving plugin normalization',
+it.effect(
+  'validates file location outputs while preserving plugin normalization',
   Effect.fnUntraced(
-    function* (method) {
+    function* () {
       const stores = yield* StoragePluginMap;
       const storage = yield* stores.acquire(storageRequest);
-      const decodedLocation = yield* storage[method]({ location: ' /library ' });
+      const decodedLocation = yield* storage.decodeMediaFileLocation({ location: ' /library ' });
       expect(decodedLocation).toBe('/library');
-      const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
-        location: ' ',
-      });
+      const result: Effect.Effect<string, StorageLocationValidationError> =
+        storage.decodeMediaFileLocation({
+          location: ' ',
+        });
       const exit = yield* Effect.exit(result);
       expect(Exit.hasDies(exit)).toBe(true);
       expect(Exit.findDefect(exit)).toMatchObject({
@@ -393,10 +409,6 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
         storage: {
           layer: () =>
             Layer.succeed(StoragePlugin, {
-              decodeRootLocation: ({ location }) =>
-                Effect.succeed(
-                  StorageRootLocation.make(String.trim(location), { disableChecks: true })
-                ),
               decodeMediaFileLocation: ({ location }) =>
                 Effect.succeed(
                   StorageMediaFileLocation.make(String.trim(location), { disableChecks: true })
@@ -409,12 +421,17 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
   )
 );
 
-it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
-  'canonicalizes local paths with %s',
+it.effect(
+  'canonicalizes local file paths',
   Effect.fnUntraced(
-    function* (method) {
+    function* () {
       const stores = yield* StoragePluginMap;
-      const storage = yield* stores.acquire(storageRequest);
+      const storage = yield* stores.acquire(
+        StoragePluginKey.make({
+          ...request,
+          settings: StoragePluginSettingsPersisted.make({ roots: [] }),
+        })
+      );
       for (const { location, canonical } of [
         { location: '/books/../audio', canonical: '/audio' },
         { location: '/audio/./', canonical: '/audio' },
@@ -422,9 +439,9 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
         { location: '/books/../audio/./track.mp3', canonical: '/audio/track.mp3' },
         { location: '/audio/..', canonical: '/' },
       ]) {
-        const decoded = yield* storage[method]({ location });
+        const decoded = yield* storage.decodeMediaFileLocation({ location });
         expect(decoded).toBe(canonical);
-        const decodedLocation = yield* storage[method]({ location: canonical });
+        const decodedLocation = yield* storage.decodeMediaFileLocation({ location: canonical });
         expect(decodedLocation).toBe(canonical);
       }
     },
@@ -433,27 +450,31 @@ it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
   )
 );
 
-it.effect.each([
-  { method: 'decodeRootLocation', label: 'Library root locations' },
-  { method: 'decodeMediaFileLocation', label: 'Library file locations' },
-] as const)(
-  'returns client-safe validation messages from local $method',
+it.effect(
+  'returns client-safe validation messages from local file decoding',
   Effect.fnUntraced(
-    function* ({ method, label }) {
+    function* () {
       const stores = yield* StoragePluginMap;
-      const storage = yield* stores.acquire(storageRequest);
-      const decode: (
-        input: Parameters<typeof storage.decodeRootLocation>[0]
-      ) => Effect.Effect<string, StorageLocationValidationError> = storage[method];
+      const storage = yield* stores.acquire(
+        StoragePluginKey.make({
+          ...request,
+          settings: StoragePluginSettingsPersisted.make({ roots: [] }),
+        })
+      );
+      const decode = storage.decodeMediaFileLocation;
       const decodeResult = yield* decode({ location: '/library' });
       expect(decodeResult).toBe('/library');
       const decodeError = yield* decode({ location: 'relative' }).pipe(Effect.flip);
       expect(decodeError).toEqual(
-        StorageLocationValidationError.make({ message: `${label} must be absolute paths` })
+        StorageLocationValidationError.make({
+          message: 'Library file locations must be absolute paths',
+        })
       );
       const decodeError2 = yield* decode({ location: '/nul\0' }).pipe(Effect.flip);
       expect(decodeError2).toEqual(
-        StorageLocationValidationError.make({ message: `${label} must not contain NUL characters` })
+        StorageLocationValidationError.make({
+          message: 'Library file locations must not contain NUL characters',
+        })
       );
       const decodeError3 = yield* decode({ location: '' }).pipe(Effect.flip);
       expect(decodeError3).toMatchObject({
@@ -466,38 +487,35 @@ it.effect.each([
   )
 );
 
-it.effect.each(['decodeRootLocation', 'decodeMediaFileLocation'] as const)(
-  'preserves plugin validation failures from %s',
-  (method) => {
-    const error = StorageLocationValidationError.make({ message: 'Location is outside storage' });
-    return Effect.gen(function* () {
-      const stores = yield* StoragePluginMap;
-      const storage = yield* stores.acquire(storageRequest);
-      const result: Effect.Effect<string, StorageLocationValidationError> = storage[method]({
+it.effect('preserves plugin file validation failures', () => {
+  const error = StorageLocationValidationError.make({ message: 'Location is outside storage' });
+  return Effect.gen(function* () {
+    const stores = yield* StoragePluginMap;
+    const storage = yield* stores.acquire(storageRequest);
+    const result: Effect.Effect<string, StorageLocationValidationError> =
+      storage.decodeMediaFileLocation({
         location: '/outside',
       });
-      const resultError = yield* Effect.flip(result);
-      expect(resultError).toMatchObject({
-        _tag: 'StorageLocationValidationError',
-        message: 'Location is outside storage',
-      });
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(
-        makeMaps({
-          storage: {
-            layer: () =>
-              Layer.succeed(StoragePlugin, {
-                decodeRootLocation: () => error,
-                decodeMediaFileLocation: () => error,
-              }),
-            layerSettings: settingsLayer,
-          },
-        })
-      )
-    );
-  }
-);
+    const resultError = yield* Effect.flip(result);
+    expect(resultError).toMatchObject({
+      _tag: 'StorageLocationValidationError',
+      message: 'Location is outside storage',
+    });
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      makeMaps({
+        storage: {
+          layer: () =>
+            Layer.succeed(StoragePlugin, {
+              decodeMediaFileLocation: () => error,
+            }),
+          layerSettings: settingsLayer,
+        },
+      })
+    )
+  );
+});
 
 it.effect(
   'isolates the plugin lifecycle and forwards factory and method inputs',
@@ -506,7 +524,6 @@ it.effect(
     const provider = ConfigProvider.fromUnknown({ TOKEN: 'server-only' });
     const current = Option.some(StoragePluginSettingsPersisted.make({ directory: '/previous' }));
     const inputs = {
-      root: { location: '/library' },
       file: { location: '/library/file' },
       form: { library: request.library, current },
       submission: {
@@ -548,11 +565,6 @@ it.effect(
               return Context.make(
                 StoragePlugin,
                 StoragePlugin.of({
-                  decodeRootLocation: (input) => {
-                    expect(input).toEqual({ location: '/library' });
-                    inspect();
-                    return execute({ value: StorageRootLocation.make(input.location) });
-                  },
                   decodeMediaFileLocation: (input) => {
                     expect(input).toEqual({ location: '/library/file' });
                     inspect();
@@ -607,8 +619,6 @@ it.effect(
       yield* Effect.gen(function* () {
         const privateService2 = yield* PrivateService;
         expect(privateService2).toBe('caller-private');
-        const decodeRootLocationResult = yield* storage.decodeRootLocation(inputs.root);
-        expect(decodeRootLocationResult).toBe('/library');
         const decodeMediaFileLocationResult = yield* storage.decodeMediaFileLocation(inputs.file);
         expect(decodeMediaFileLocationResult).toBe('/library/file');
         const getFormResult = yield* settings.getForm(inputs.form);
@@ -647,10 +657,8 @@ it.effect(
             observe.pipe(
               Effect.as(
                 StoragePlugin.of({
-                  decodeRootLocation: ({ location }) =>
-                    observe.pipe(Effect.as(StorageRootLocation.make(location))),
                   decodeMediaFileLocation: ({ location }) =>
-                    Effect.succeed(StorageMediaFileLocation.make(location)),
+                    observe.pipe(Effect.as(StorageMediaFileLocation.make(location))),
                 })
               )
             )
@@ -663,7 +671,7 @@ it.effect(
       const storage = yield* Effect.gen(function* () {
         const stores = yield* StoragePluginMap;
         const value = yield* stores.acquire(storageRequest);
-        yield* value.decodeRootLocation({ location: '/first' });
+        yield* value.decodeMediaFileLocation({ location: '/first' });
         return value;
       }).pipe(
         Effect.annotateLogs({ request: 'first' }),
@@ -671,13 +679,13 @@ it.effect(
         Effect.provideService(References.CurrentLogLevel, 'Warn')
       );
       yield* storage
-        .decodeRootLocation({ location: '/second' })
+        .decodeMediaFileLocation({ location: '/second' })
         .pipe(
           Effect.annotateLogs({ request: 'second' }),
           Effect.provideService(References.CurrentLogSpans, [['second', 2]]),
           Effect.provideService(References.CurrentLogLevel, 'Debug')
         );
-      yield* storage.decodeRootLocation({ location: '/unannotated' });
+      yield* storage.decodeMediaFileLocation({ location: '/unannotated' });
       const snapshotMetadata2 = yield* snapshotMetadata;
       expect(snapshotMetadata2).toEqual(caller);
     }).pipe(
@@ -735,7 +743,7 @@ it.effect(
               return [
                 StoragePluginSettingsForm.value.make({
                   _tag: 'TextField',
-                  name: StoragePluginSettingsForm.value.fields.name.make('directory'),
+                  name: StoragePluginSettingsFieldName.make('directory'),
                   label: library.name,
                   placeholder: '',
                   initialValue: '',
@@ -989,10 +997,10 @@ it.effect.each(['successful', 'failed'] as const)(
           const plugin = Context.get(storage2, StoragePlugin);
           const settings2 = yield* settings;
           const editor = Context.get(settings2, StoragePluginSettings);
-          const decodeRootLocationResult = yield* plugin.decodeRootLocation({
+          const decodeMediaFileLocationResult = yield* plugin.decodeMediaFileLocation({
             location: '/constructed',
           });
-          expect(decodeRootLocationResult).toBe('/constructed');
+          expect(decodeMediaFileLocationResult).toBe('/constructed');
           const decodeFormSubmissionResult = yield* editor.decodeFormSubmission({
             library: libraryMetadata,
             current: Option.none(),

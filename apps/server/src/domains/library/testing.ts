@@ -1,16 +1,14 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import type { StoragePluginModule } from '@govoel/plugins/storage';
 import {
-  StorageLocationValidationError,
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginConstructionError,
   StoragePluginInvalidSettingsError,
   StoragePluginSettings,
   StoragePluginSettingsError,
-  StoragePluginSettingsForm,
+  StoragePluginSettingsFieldName,
   StoragePluginSettingsPersisted,
-  StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Context, Effect, Layer, Option, Scheduler, Schema, String } from 'effect';
 import { FetchHttpClient } from 'effect/http';
@@ -66,11 +64,6 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
     make: Effect.sync(() => {
       const activeStorage = new Set<Parameters<StoragePluginModule['storage']['layer']>[0]>();
       const controls = {
-        beforeRootDecode: (
-          _request: Parameters<StoragePluginModule['storage']['layer']>[0] & {
-            readonly location: string;
-          }
-        ): Effect.Effect<void, StorageLocationValidationError> => Effect.void,
         onFinalize: (
           _request: Parameters<StoragePluginModule['storage']['layer']>[0]
         ): Effect.Effect<void> => Effect.void,
@@ -106,18 +99,7 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                   });
                 }
                 activeStorage.add(request);
-                const decodeRoot = Schema.decodeEffect(
-                  StorageRootLocation.check(Schema.isStartingWith('/'))
-                );
                 return StoragePlugin.of({
-                  decodeRootLocation: ({ location }) =>
-                    controls.beforeRootDecode({ ...request, location }).pipe(
-                      Effect.andThen(decodeRoot(String.trim(location))),
-                      Effect.catchTags({
-                        SchemaError: (error) =>
-                          StorageLocationValidationError.make({ message: error.message }),
-                      })
-                    ),
                   decodeMediaFileLocation: ({ location }) =>
                     Effect.succeed(StorageMediaFileLocation.make(location)),
                 });
@@ -146,7 +128,7 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                     : { prefix: '' };
                   const field = {
                     _tag: 'TextField' as const,
-                    name: StoragePluginSettingsForm.value.fields.name.make('root'),
+                    name: StoragePluginSettingsFieldName.make('root'),
                     label: library.name,
                     placeholder: '',
                     initialValue: settings.prefix,

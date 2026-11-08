@@ -219,8 +219,7 @@ it.layer(testLayer)('groups utils headers', (iit) => {
           name: Library.fields.name.make('Authenticated library'),
           type: Library.fields.type.make('movie'),
           storagePluginId: Library.fields.storagePluginId.make('builtin:local'),
-          storagePluginSettings: StoragePluginSettingsInput.make({}),
-          roots: [],
+          storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
         },
       });
       const resultValue = yield* client.library.get({ params: library });

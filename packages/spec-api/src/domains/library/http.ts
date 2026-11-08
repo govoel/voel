@@ -12,10 +12,8 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from 'effect/http-api';
 import { AdminMiddleware, AuthMiddleware } from '#src/domains/auth/http.ts';
 import {
   Library,
-  LibraryInvalidRootError,
   LibraryNameConflictError,
   LibraryNotFoundError,
-  LibraryRoot,
   StoragePluginHealth,
   StoragePluginStatus,
 } from '#src/domains/library/schema.ts';
@@ -28,9 +26,6 @@ class LibraryResponse extends Schema.Struct({
   name: Library.json.fields.name,
   storagePluginId: Library.json.fields.storagePluginId,
   storagePluginSettings: Library.json.fields.storagePluginSettings,
-  roots: Schema.Array(
-    Schema.Struct({ id: LibraryRoot.json.fields.id, root: LibraryRoot.json.fields.root })
-  ),
 }) {}
 
 export class LibraryInput extends Schema.Struct({
@@ -38,7 +33,6 @@ export class LibraryInput extends Schema.Struct({
   type: Library.jsonCreate.fields.type,
   storagePluginId: Library.jsonCreate.fields.storagePluginId,
   storagePluginSettings: StoragePluginSettingsInput,
-  roots: Schema.Array(Schema.Struct({ root: LibraryRoot.jsonUpsert.fields.root })),
 }) {}
 
 const writeErrors = [
@@ -46,7 +40,6 @@ const writeErrors = [
   StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
   StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
   StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-  LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
   StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
   PluginLoadError.pipe(HttpApiSchema.status(500)),
   StoragePluginLoadError.pipe(HttpApiSchema.status(500)),

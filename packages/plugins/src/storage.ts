@@ -4,20 +4,31 @@ import type { HttpClient } from 'effect/http';
 
 import type { Library } from '#src/library.ts';
 
+export class StoragePluginSettingsFieldName extends Schema.String.check(
+  Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/u)
+).pipe(Schema.brand('@govoel/plugins/storage/StoragePluginSettingsFieldName')) {}
+
 /**
  * Ordered UI fields with unique, flat names. An empty array means no settings.
+ * TextField submits a string; TextListField submits an array of strings.
  * Descriptors carry no semantic validation rules and must contain no secrets.
  */
 export class StoragePluginSettingsForm extends Schema.Array(
-  Schema.TaggedStruct('TextField', {
-    name: Schema.String.check(Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/u)).pipe(
-      Schema.brand('@govoel/plugins/storage/StoragePluginSettingsFieldName')
-    ),
-    label: Schema.NonEmptyString,
-    placeholder: Schema.String,
-    purpose: Schema.optionalKey(Schema.Literals(['name', 'username', 'email', 'url'])),
-    initialValue: Schema.String,
-  })
+  Schema.Union([
+    Schema.TaggedStruct('TextField', {
+      name: StoragePluginSettingsFieldName,
+      label: Schema.NonEmptyString,
+      placeholder: Schema.String,
+      purpose: Schema.optionalKey(Schema.Literals(['name', 'username', 'email', 'url'])),
+      initialValue: Schema.String,
+    }),
+    Schema.TaggedStruct('TextListField', {
+      name: StoragePluginSettingsFieldName,
+      label: Schema.NonEmptyString,
+      placeholder: Schema.String,
+      initialValue: Schema.Array(Schema.String),
+    }),
+  ])
 ).check(
   Schema.makeFilter(
     (fields) => Array.dedupe(Array.map(fields, ({ name }) => name)).length === fields.length,
@@ -46,15 +57,6 @@ export class StoragePluginSettingsPersisted extends Schema.Json.pipe(
   public static readonly decodeEffect = Schema.decodeEffect(this);
 
   public static readonly fromJsonString = Schema.fromJsonString(this);
-}
-
-/**
- * Non-empty library root, interpreted by the configured plugin.
- */
-export class StorageRootLocation extends Schema.NonEmptyString.pipe(
-  Schema.brand('@govoel/plugins/storage/StorageRootLocation')
-) {
-  public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
 /**
@@ -123,13 +125,6 @@ export class StoragePlugin extends Context.Service<
   StoragePlugin,
   // oxlint-disable-next-line effect-conventions/no-context-service-second-type-argument -- plugins implement this contract
   {
-    /**
-     * Complete, idempotent decoder: validate, optionally transform, then brand.
-     */
-    readonly decodeRootLocation: (request: {
-      readonly location: string;
-    }) => Effect.Effect<typeof StorageRootLocation.Type, StorageLocationValidationError>;
-
     /**
      * Complete, idempotent decoder: validate, optionally transform, then brand.
      */

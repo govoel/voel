@@ -1,11 +1,9 @@
 import { Library as PluginLibrary, MediaType as PluginMediaType } from '@govoel/plugins/library';
 import {
-  StorageLocationValidationError,
   StorageMediaFileLocation,
   StoragePluginConstructionError,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsPersisted,
-  StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
 import { Model, VariantSchema } from 'effect/schema';
@@ -342,28 +340,6 @@ export class Library extends Timestamped.extend<Library>(
   }),
 }) {}
 
-export class LibraryRoot extends Timestamped.extend<LibraryRoot>(
-  '@repo/spec-api/domains/library/schema/LibraryRoot'
-)({
-  id: DbModel.Field({
-    select: Schema.Natural.pipe(
-      Schema.brand('@repo/spec-api/domains/library/schema/LibraryRoot/id')
-    ),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/domains/library/schema/LibraryRoot/id')),
-  }),
-  libraryId: DbModel.Field({
-    select: Library.fields.id,
-    upsert: Library.fields.id,
-    json: Library.fields.id,
-  }),
-  root: DbModel.Field({
-    select: StorageRootLocation,
-    upsert: StorageRootLocation,
-    json: StorageRootLocation,
-    jsonUpsert: Schema.NonEmptyString,
-  }),
-}) {}
-
 export class MediaFile extends SoftDeletable.extend<MediaFile>(
   '@repo/spec-api/domains/library/schema/MediaFile'
 )({
@@ -444,18 +420,6 @@ export class LibraryNameConflictError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/domains/library/schema/LibraryNameConflictError')('LibraryNameConflictError', {
   libraryName: Library.fields.name,
-}) {}
-
-export class LibraryInvalidRootError extends Schema.TaggedError<
-  LibraryInvalidRootError,
-  { readonly brand: unique symbol }
->('@repo/spec-api/domains/library/schema/LibraryInvalidRootError')('LibraryInvalidRootError', {
-  roots: Schema.NonEmptyArray(
-    Schema.Struct({
-      root: Schema.String,
-      message: StorageLocationValidationError.fields.message,
-    })
-  ),
 }) {}
 
 /** Cached construction state of storage and its settings editor, not a live health probe. */

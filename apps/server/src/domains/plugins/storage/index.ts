@@ -6,7 +6,6 @@ import {
   StoragePluginSettings,
   StoragePluginSettingsForm,
   StoragePluginSettingsPersisted,
-  StorageRootLocation,
 } from '@govoel/plugins/storage';
 import {
   Clock,
@@ -236,18 +235,6 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
 
             const storage = Context.get(context, StoragePlugin);
             return StoragePlugin.of({
-              decodeRootLocation: (input) =>
-                invoke(() =>
-                  storage
-                    .decodeRootLocation(input)
-                    .pipe(
-                      Effect.flatMap((result) =>
-                        StorageRootLocation.decodeEffect(result).pipe(
-                          Effect.catchTags({ SchemaError: Effect.die })
-                        )
-                      )
-                    )
-                ),
               decodeMediaFileLocation: (input) =>
                 invoke(() =>
                   storage

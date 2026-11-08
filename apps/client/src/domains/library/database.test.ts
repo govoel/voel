@@ -65,8 +65,7 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
         name: Library.fields.name.make(libraryName),
         type: MediaType.fields.type.make('audiobook'),
         storagePluginId: Library.json.fields.storagePluginId.make('builtin:local'),
-        storagePluginSettings: StoragePluginSettingsInput.make({}),
-        roots: [],
+        storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
       },
     });
   yield* createLibrary(name);
@@ -111,7 +110,9 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
               from
                 library
             `;
-          expect(rows).toEqual([{ storagePluginId: 'builtin:local', storagePluginSettings: '{}' }]);
+          expect(rows).toEqual([
+            { storagePluginId: 'builtin:local', storagePluginSettings: '{"roots":[]}' },
+          ]);
 
           for (const statement of [
             database`

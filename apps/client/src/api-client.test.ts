@@ -19,8 +19,7 @@ const createInput = (name: string) => ({
   name: Library.jsonCreate.fields.name.make(name),
   type: Library.jsonCreate.fields.type.make('movie'),
   storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
-  storagePluginSettings: StoragePluginSettingsInput.make({}),
-  roots: [],
+  storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
 });
 
 it.layer(TestServerControllerClient.layer)('API client', (iit) => {
