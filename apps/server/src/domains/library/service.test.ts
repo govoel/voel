@@ -55,23 +55,23 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   const repository = yield* LibraryRepository;
   const editors = yield* StoragePluginSettingsMap;
   const stores = yield* StoragePluginMap;
+  const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
   const library = yield* repository.create({
     name: Library.fields.name.make(name),
     type: Library.fields.type.make('movie'),
     storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+    storagePluginSettings: settings,
   });
-  const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
-  yield* repository.setSettings({ ...library, settings });
   const row = yield* repository.getById(library);
-  const editor = yield* editors.acquire(row.storagePluginId).pipe(Effect.scoped);
+  const editor = yield* editors.acquire(row.storageKey.storagePluginId).pipe(Effect.scoped);
   for (const snapshot of [
-    row.library,
-    { ...row.library, name: Library.fields.name.make(`${name} stale`) },
+    row.storageKey.library,
+    { ...row.storageKey.library, name: Library.fields.name.make(`${name} stale`) },
   ]) {
     yield* stores
       .acquire(
         StoragePluginKey.make({
-          storagePluginId: row.storagePluginId,
+          storagePluginId: row.storageKey.storagePluginId,
           library: snapshot,
           settings,
         })
@@ -136,9 +136,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const reused = yield* editors.acquire(request.storagePluginId).pipe(Effect.scoped);
       expect(reused).toBe(editor);
       const row = yield* repository.getById(library);
-      expect(Option.map(row.storageKey, ({ settings }) => settings)).toEqual(
-        Option.some({ prefix: '/updated' })
-      );
+      expect(row.storageKey.settings).toEqual({ prefix: '/updated' });
     })
   );
 
@@ -154,48 +152,42 @@ it.layer(testLayer)('library service without transport', (iit) => {
         name: Library.fields.name.make('Decoded plugin identities'),
         type: Library.fields.type.make('movie'),
         storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/decoded' }),
       });
-      const unconfigured = yield* repository.getById(library);
-      expect(Option.isNone(unconfigured.storageKey)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
-
-      yield* repository.setSettings({
-        ...library,
-        settings: StoragePluginSettingsPersisted.make({ prefix: '/decoded' }),
-      });
       const configured = yield* repository.getById(library);
       const listResult = yield* repository.list({ cursor: Option.none(), limit: 100 });
       const listed = Option.getOrThrow(
-        Array.findFirst(listResult, (row) => row.library.id === library.id)
+        Array.findFirst(listResult, (row) => row.storageKey.library.id === library.id)
       );
-      const storageKey = Option.getOrThrow(configured.storageKey);
-      const listedStorageKey = Option.getOrThrow(listed.storageKey);
+      const { storageKey } = configured;
+      const { storageKey: listedStorageKey } = listed;
       assert.instanceOf(storageKey, StoragePluginKey);
       assert.instanceOf(listedStorageKey, StoragePluginKey);
-      expect(configured.library).toEqual({
+      expect(configured.storageKey.library).toEqual({
         ...library,
         name: 'Decoded plugin identities',
         type: 'movie',
       });
 
-      const editor = yield* editors.acquire(unconfigured.storagePluginId);
-      const acquireResult = yield* editors.acquire(listed.storagePluginId);
+      const editor = yield* editors.acquire(configured.storageKey.storagePluginId);
+      const acquireResult = yield* editors.acquire(listed.storageKey.storagePluginId);
       expect(acquireResult).toBe(editor);
       const storage = yield* stores.acquire(storageKey);
       const acquireResult2 = yield* stores.acquire(listedStorageKey);
       expect(acquireResult2).toBe(storage);
       const contextEffectOptionResult = yield* editors.contextEffectOption(
-        configured.storagePluginId
+        configured.storageKey.storagePluginId
       );
       expect(Option.isSome(contextEffectOptionResult)).toBe(true);
       const contextEffectOptionResult2 = yield* stores.contextEffectOption(listedStorageKey);
       expect(Option.isSome(contextEffectOptionResult2)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'healthy' });
 
-      yield* editors.invalidate(listed.storagePluginId);
+      yield* editors.invalidate(listed.storageKey.storagePluginId);
       yield* stores.invalidate(listedStorageKey);
       const contextEffectOptionResult3 = yield* editors.contextEffectOption(
-        unconfigured.storagePluginId
+        configured.storageKey.storagePluginId
       );
       expect(Option.isNone(contextEffectOptionResult3)).toBe(true);
       const contextEffectOptionResult4 = yield* stores.contextEffectOption(storageKey);
@@ -220,8 +212,8 @@ it.layer(testLayer)('library service without transport', (iit) => {
           ? [
               ...target.keys,
               StoragePluginKey.make({
-                storagePluginId: target.row.storagePluginId,
-                library: target.row.library,
+                storagePluginId: target.row.storageKey.storagePluginId,
+                library: target.row.storageKey.library,
                 settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
               }),
             ]
@@ -264,7 +256,9 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const cacheKeysResult5 = yield* cacheKeys(target.library);
       expect(cacheKeysResult5).toEqual([]);
       const editors = yield* StoragePluginSettingsMap;
-      const editor = yield* editors.acquire(target.row.storagePluginId).pipe(Effect.scoped);
+      const editor = yield* editors
+        .acquire(target.row.storageKey.storagePluginId)
+        .pipe(Effect.scoped);
       expect(editor).toBe(target.editor);
       const cacheKeysResult6 = yield* cacheKeys(unrelated.library);
       expect(cacheKeysResult6).toEqual(unrelated.keys);
@@ -281,12 +275,12 @@ it.layer(testLayer)('library service without transport', (iit) => {
           'settings',
           Effect.fnUntraced(function* () {
             const row = yield* repository.getById(target.library);
-            expect(row.library.name).toBe(
-              operation === 'rename' ? 'Renamed' : target.row.library.name
+            expect(row.storageKey.library.name).toBe(
+              operation === 'rename' ? 'Renamed' : target.row.storageKey.library.name
             );
-            expect(Option.map(row.storageKey, ({ settings }) => settings)).toEqual(
-              Option.some({ prefix: operation === 'settings' ? '/updated' : '/initial' })
-            );
+            expect(row.storageKey.settings).toEqual({
+              prefix: operation === 'settings' ? '/updated' : '/initial',
+            });
           })
         ),
         Match.exhaustive
@@ -357,18 +351,15 @@ it.layer(testLayer)('library service without transport', (iit) => {
             : [
                 ...target.keys,
                 StoragePluginKey.make({
-                  storagePluginId: target.row.storagePluginId,
-                  library: target.row.library,
+                  storagePluginId: target.row.storageKey.storagePluginId,
+                  library: target.row.storageKey.library,
                   settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
                 }),
               ]
         );
-        expect(
-          Option.map(
-            (yield* repository.getById(target.library)).storageKey,
-            ({ settings }) => settings
-          )
-        ).toEqual(Option.some({ prefix: boundary === 'commit' ? '/updated' : '/initial' }));
+        expect((yield* repository.getById(target.library)).storageKey.settings).toEqual({
+          prefix: boundary === 'commit' ? '/updated' : '/initial',
+        });
       }).pipe(
         Effect.ensuring(release.open),
         Effect.provide(
@@ -399,7 +390,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       });
       yield* service.setRoots({ ...library, roots: [{ root: '/one' }, { root: '/two' }] });
       const before = yield* service.get(library);
-      expect(before.storagePluginSettings).toEqual(Option.some({ prefix: '/configured' }));
+      expect(before.storagePluginSettings).toEqual({ prefix: '/configured' });
       expect(Array.map(before.roots, ({ root }) => root)).toEqual(['/one', '/two']);
 
       const error = yield* service
@@ -412,7 +403,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       });
       const after = yield* service.get(library);
       expect({ settings: after.storagePluginSettings, roots: after.roots }).toEqual({
-        settings: Option.some({ prefix: '/configured' }),
+        settings: { prefix: '/configured' },
         roots: before.roots,
       });
     })

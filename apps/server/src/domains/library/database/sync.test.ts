@@ -49,9 +49,14 @@ it.effect(
       const headers = { authorization: `Bearer ${token}` };
       yield* source`
         insert into
-          library (type, name, "storagePluginId")
+          library (
+            type,
+            name,
+            "storagePluginId",
+            "storagePluginSettings"
+          )
         values
-          ('audiobook', 'Audiobooks', 'builtin:local')
+          ('audiobook', 'Audiobooks', 'builtin:local', '{}')
       `;
       const replica = yield* TursoSyncClient.make({
         path: `${directory}/replica.db`,
@@ -69,9 +74,14 @@ it.effect(
 
       yield* source`
         insert into
-          library (type, name, "storagePluginId")
+          library (
+            type,
+            name,
+            "storagePluginId",
+            "storagePluginSettings"
+          )
         values
-          ('movie', 'Movies', 'builtin:local')
+          ('movie', 'Movies', 'builtin:local', '{}')
       `;
       const pull = yield* replica.pull;
       expect(pull).toBe(true);

@@ -335,8 +335,10 @@ export class Library extends Timestamped.extend<Library>(
     jsonCreate: StoragePluginId,
   }),
   storagePluginSettings: DbModel.Field({
-    select: Schema.OptionFromNullOr(StoragePluginSettingsPersisted.fromJsonString),
-    json: Schema.Option(StoragePluginSettingsPersisted),
+    select: StoragePluginSettingsPersisted.fromJsonString,
+    create: StoragePluginSettingsPersisted.fromJsonString,
+    json: StoragePluginSettingsPersisted,
+    jsonCreate: StoragePluginSettingsPersisted,
   }),
 }) {}
 
@@ -442,13 +444,6 @@ export class LibraryNameConflictError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/domains/library/schema/LibraryNameConflictError')('LibraryNameConflictError', {
   libraryName: Library.fields.name,
-}) {}
-
-export class LibraryUnconfiguredError extends Schema.TaggedError<
-  LibraryUnconfiguredError,
-  { readonly brand: unique symbol }
->('@repo/spec-api/domains/library/schema/LibraryUnconfiguredError')('LibraryUnconfiguredError', {
-  id: Library.fields.id,
 }) {}
 
 export class LibraryInvalidRootError extends Schema.TaggedError<

@@ -16,7 +16,6 @@ import {
   LibraryNameConflictError,
   LibraryNotFoundError,
   LibraryRoot,
-  LibraryUnconfiguredError,
   StoragePluginHealth,
   StoragePluginStatus,
 } from '#src/domains/library/schema.ts';
@@ -151,7 +150,6 @@ export const LibraryApi = HttpApiGroup.make('library')
       }),
       error: [
         LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        LibraryUnconfiguredError.pipe(HttpApiSchema.status(409)),
         LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
         StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
         PluginLoadError.pipe(HttpApiSchema.status(500)),

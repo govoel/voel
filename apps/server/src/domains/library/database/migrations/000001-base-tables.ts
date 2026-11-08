@@ -285,7 +285,7 @@ export default Effect.gen(function* () {
       "type" text not null references "mediaType" ("type") on delete restrict on update cascade,
       "name" text not null unique,
       "storagePluginId" text not null,
-      "storagePluginSettings" text,
+      "storagePluginSettings" text not null check (json_valid("storagePluginSettings")),
       "createdAt" integer default (time_to_milli (time_now ())) not null,
       "updatedAt" integer default (time_to_milli (time_now ())) not null
     ) strict

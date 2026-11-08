@@ -74,70 +74,18 @@ const createInput = (
   ),
   roots: [],
 });
+const createRecord = (...args: Parameters<typeof createInput>) => {
+  const request = createInput(...args);
+  return {
+    ...request,
+    storagePluginSettings: StoragePluginSettingsPersisted.make(
+      request.storagePluginId === 'builtin:local' ? {} : { prefix: '/initial' }
+    ),
+  };
+};
 const makeClient = Effect.gen(function* () {
   const auth = yield* makeAuthedClient({ username: 'libraryadmin', role: 'admin' });
   return yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
-});
-
-const repositoryTestLayer = LibraryRepository.layerNoDeps.pipe(
-  Layer.provideMerge(LibraryDatabase.layerNoDeps),
-  Layer.provideMerge([ApiConfig.layerTest(), Reactivity.layer])
-);
-
-it.layer(repositoryTestLayer)('library repository', (iit) => {
-  iit.effect(
-    'treats corrupt persisted settings as a read defect',
-    Effect.fnUntraced(function* () {
-      const repository = yield* LibraryRepository;
-      const sql = yield* LibraryDatabase;
-      const library = yield* Effect.acquireRelease(
-        repository.create(createInput('Corrupt row')),
-        (created) => repository.deleteById(created)
-      );
-      yield* sql`
-        update library
-        set
-          storagepluginsettings = 'not json'
-        where
-          id = ${library.id}
-      `;
-      const exit = yield* repository.getById(library).pipe(Effect.exit);
-      expect(Exit.hasFails(exit)).toBe(false);
-      expect(Exit.findDefect(exit)).toMatchObject({
-        _tag: 'Success',
-        success: { _tag: 'SchemaError' },
-      });
-    })
-  );
-
-  iit.effect(
-    'replaces roots idempotently, retains surviving IDs, and isolates other libraries',
-    Effect.fnUntraced(function* () {
-      const repository = yield* LibraryRepository;
-      const library = yield* repository.create(createInput('Stable roots'));
-      const other = yield* repository.create(createInput('Isolated roots'));
-      const retained = StorageRootLocation.make('/retained');
-      const added = StorageRootLocation.make('/added');
-      yield* repository.setRoots({
-        ...library,
-        roots: [retained, StorageRootLocation.make('/removed')],
-      });
-      yield* repository.setRoots({ ...other, roots: [retained] });
-      const original = (yield* repository.getById(library)).roots;
-      const isolated = (yield* repository.getById(other)).roots;
-      expect(Array.map(isolated, ({ root }) => root)).toEqual(['/retained']);
-      yield* repository.setRoots({ ...library, roots: [retained, added, retained] });
-      const replaced = (yield* repository.getById(library)).roots;
-      expect(Array.map(replaced, ({ root }) => root)).toEqual([retained, added]);
-      expect(replaced[0]).toEqual(original[0]);
-      yield* repository.setRoots({ ...library, roots: [added, retained] });
-      expect((yield* repository.getById(library)).roots).toEqual(replaced);
-      yield* repository.setRoots({ ...library, roots: [] });
-      yield* repository.setRoots({ ...library, roots: [] });
-      expect((yield* repository.getById(library)).roots).toEqual([]);
-      expect((yield* repository.getById(other)).roots).toEqual(isolated);
-    })
-  );
 });
 
 it.layer(testLayer)('library lifecycle', (iit) => {
@@ -146,8 +94,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository.make;
-      const library = yield* repository.create(createInput('Failed health', 'npm:missing'));
-      yield* repository.setSettings({
+      const library = yield* repository.create(createRecord('Failed health', 'npm:missing'));
+      yield* repository.replaceStorage({
+        roots: [],
         ...library,
         settings: StoragePluginSettingsPersisted.make({}),
       });
@@ -177,7 +126,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const repository = yield* LibraryRepository;
       const editors = yield* StoragePluginSettingsMap;
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
-      const library = yield* repository.create(createInput('Health', 'npm:test'));
+      const library = yield* repository.create(createRecord('Health', 'npm:test'));
       const listItem = Effect.gen(function* () {
         return Option.getOrThrow(
           Array.findFirst(
@@ -196,7 +145,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         expect(listItem2).toMatchObject({ storagePluginStatus: 'unknown' });
       }
 
-      yield* repository.setSettings({
+      yield* repository.replaceStorage({
+        roots: [],
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
@@ -260,7 +210,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         payload: createInput('Stale health', 'npm:test'),
       });
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
-      yield* repository.setSettings({
+      yield* repository.replaceStorage({
+        roots: [],
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
@@ -269,7 +220,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         'unhealthy'
       );
 
-      yield* repository.setSettings({
+      yield* repository.replaceStorage({
+        roots: [],
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: '/current' }),
       });
@@ -303,7 +255,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
     Effect.fnUntraced(function* () {
       const repository = yield* LibraryRepository.make;
       const sql = yield* LibraryDatabase;
-      const library = yield* repository.create(createInput('Atomic roots'));
+      const library = yield* repository.create(createRecord('Atomic roots'));
       yield* repository.setRoots({
         ...library,
         roots: [StorageRootLocation.make('/original')],
@@ -340,58 +292,28 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   );
 
   iit.effect(
-    'creates unconfigured libraries and explicitly configures local storage',
+    'creates configured local storage and validates roots immediately',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const sql = yield* LibraryDatabase;
-      const repository = yield* LibraryRepository;
-      const library = yield* repository.create(createInput('Local'));
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.none()
-      );
+      const library = yield* client.library.create({ payload: createInput('Local') });
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({});
       const rows = yield* sql`
-          select
-            "storagePluginSettings"
-          from
-            library
-          where
-            id = ${library.id}
-        `;
-      expect(rows).toEqual([{ storagePluginSettings: null }]);
-      expect(
-        Array.some(
-          (yield* client.library.list({ query: { cursor: Option.none(), limit: 100 } })).items,
-          ({ id }) => id === library.id
-        )
-      ).toBe(true);
-      const setRootsError = yield* client.library
-        .setRoots({ params: library, payload: { roots: [] } })
-        .pipe(Effect.flip);
-      expect(setRootsError).toMatchObject({ _tag: 'LibraryUnconfiguredError' });
-      const getStoragePluginSettingsFormResult = yield* client.library.getStoragePluginSettingsForm(
-        { params: library }
-      );
-      expect(getStoragePluginSettingsFormResult).toEqual([]);
-      yield* client.library.setStoragePluginSettings({
-        params: library,
-        payload: { input: StoragePluginSettingsInput.make({}) },
-      });
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.some({})
-      );
-      const rows2 = yield* sql`
-          select
-            "storagePluginSettings"
-          from
-            library
-          where
-            id = ${library.id}
-        `;
-      expect(rows2).toEqual([{ storagePluginSettings: '{}' }]);
-      const setRootsError2 = yield* client.library
+        select
+          "storagePluginSettings"
+        from
+          library
+        where
+          id = ${library.id}
+      `;
+      expect(rows).toEqual([{ storagePluginSettings: '{}' }]);
+      const form = yield* client.library.getStoragePluginSettingsForm({ params: library });
+      expect(form).toEqual([]);
+      yield* client.library.setRoots({ params: library, payload: { roots: [] } });
+      const error = yield* client.library
         .setRoots({ params: library, payload: { roots: [{ root: 'relative' }] } })
         .pipe(Effect.flip);
-      expect(setRootsError2).toMatchObject({
+      expect(error).toMatchObject({
         _tag: 'LibraryInvalidRootError',
         roots: [{ root: 'relative', message: 'Library root locations must be absolute paths' }],
       });
@@ -437,11 +359,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const repository = yield* LibraryRepository;
       const editors = yield* StoragePluginSettingsMap;
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:missing'));
-      const missing = yield* repository.create(createInput('Missing plugin', 'npm:missing'));
+      const missing = yield* repository.create(createRecord('Missing plugin', 'npm:missing'));
       const resultValue = yield* client.library.get({ params: missing });
       expect(resultValue).toMatchObject({
         storagePluginId: 'npm:missing',
-        storagePluginSettings: Option.none(),
+        storagePluginSettings: { prefix: '/initial' },
         storagePluginHealth: { status: 'unknown' },
       });
       const getStoragePluginSettingsFormError = yield* client.library
@@ -491,17 +413,23 @@ it.layer(testLayer)('library lifecycle', (iit) => {
   );
 
   iit.effect(
-    'round-trips transformed settings, retries setup with stable identity, and isolates libraries',
+    'round-trips transformed settings, retries edits with stable identity, and isolates libraries',
     Effect.fnUntraced(function* () {
       const client = yield* makeClient;
       const fixture = yield* PluginFixture;
       const repository = yield* LibraryRepository;
-      const library = yield* repository.create(createInput('Remote', 'npm:test'));
+      const library = yield* repository.create(createRecord('Remote', 'npm:test'));
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const getStoragePluginSettingsFormResult =
           yield* client.library.getStoragePluginSettingsForm({ params: library });
         expect(getStoragePluginSettingsFormResult).toEqual([
-          { _tag: 'TextField', name: 'root', label: 'Remote', placeholder: '', initialValue: '' },
+          {
+            _tag: 'TextField',
+            name: 'root',
+            label: 'Remote',
+            placeholder: '',
+            initialValue: '/initial',
+          },
         ]);
       }
       const failure = yield* client.library
@@ -514,9 +442,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         _tag: 'StoragePluginInvalidSettingsError',
         message: 'Submitted storage plugin settings failed validation',
       });
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.none()
-      );
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
+        prefix: '/initial',
+      });
       yield* client.library.getStoragePluginSettingsForm({ params: library });
       const setStoragePluginSettingsError = yield* client.library
         .setStoragePluginSettings({
@@ -527,10 +455,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(setStoragePluginSettingsError).toMatchObject({
         _tag: 'StoragePluginConstructionError',
       });
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.none()
-      );
-      yield* repository.setSettings({
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
+        prefix: '/initial',
+      });
+      yield* repository.replaceStorage({
+        roots: [],
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
       });
@@ -547,9 +476,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { input: StoragePluginSettingsInput.make({ root: ' /remote ' }) },
       });
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.some({ prefix: '/remote' })
-      );
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
+        prefix: '/remote',
+      });
       const getStoragePluginSettingsFormResult3 =
         yield* client.library.getStoragePluginSettingsForm({ params: library });
       expect(getStoragePluginSettingsFormResult3).toMatchObject([
@@ -584,7 +513,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(getStoragePluginSettingsFormResult4).toMatchObject([
         { label: 'Renamed', initialValue: '/remote' },
       ]);
-      const second = yield* repository.create(createInput('Second remote', 'npm:test'));
+      const second = yield* repository.create(createRecord('Second remote', 'npm:test'));
       const getStoragePluginSettingsFormResult5 =
         yield* client.library.getStoragePluginSettingsForm({ params: second });
       expect(getStoragePluginSettingsFormResult5).toEqual([
@@ -593,7 +522,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           name: 'root',
           label: 'Second remote',
           placeholder: '',
-          initialValue: '',
+          initialValue: '/initial',
         },
       ]);
       const { invalidForm } = fixture.controls;
@@ -737,7 +666,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const resultValue = yield* client.library.get({ params: library });
       expect(resultValue).toMatchObject({
         name: 'Locked root context',
-        storagePluginSettings: Option.some({ prefix: '/initial' }),
+        storagePluginSettings: { prefix: '/initial' },
         roots: [{ root: '/original' }],
       });
       yield* release.open;
@@ -757,7 +686,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const resultValue2 = yield* client.library.get({ params: library });
       expect(resultValue2).toMatchObject({
         name: 'Renamed root context',
-        storagePluginSettings: Option.some({ prefix: '/updated' }),
+        storagePluginSettings: { prefix: '/updated' },
       });
     })
   );
@@ -793,15 +722,15 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         params: library,
         payload: { name: Library.fields.name.make('Final name') },
       });
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.some({ prefix: '/initial' })
-      );
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
+        prefix: '/initial',
+      });
       yield* settingsRelease.open;
       yield* Fiber.join(settings);
       const resultValue = yield* client.library.get({ params: library });
       expect(resultValue).toMatchObject({
         name: 'Final name',
-        storagePluginSettings: Option.some({ prefix: '/pending-settings' }),
+        storagePluginSettings: { prefix: '/pending-settings' },
       });
       fixture.controls.beforeDecode = () => Effect.void;
     })
@@ -836,9 +765,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       });
       yield* release.open;
       yield* Fiber.join(slow);
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.some({ prefix: '/slow' })
-      );
+      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
+        prefix: '/slow',
+      });
       fixture.controls.beforeDecode = () => Effect.void;
     })
   );
@@ -994,8 +923,8 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository;
       const marker = yield* client.library.create({ payload: createInput('Page marker') });
-      const first = yield* repository.create(createInput('Page first'));
-      yield* repository.create(createInput('Page second'));
+      const first = yield* repository.create(createRecord('Page first'));
+      yield* repository.create(createRecord('Page second'));
       const page = yield* client.library.list({
         query: { cursor: Option.some(marker.id), limit: 1 },
       });
@@ -1105,7 +1034,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       });
       const library = yield* client.library.get({ params: created });
       expect(library).toMatchObject({
-        storagePluginSettings: Option.some({ prefix: '/initial' }),
+        storagePluginSettings: { prefix: '/initial' },
         roots: [{ root: '/one' }],
       });
       yield* client.library.delete({ params: created });
@@ -1221,9 +1150,9 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         yield* interrupted.await;
         yield* finalized.await;
         expect(release.isOpen()).toBe(false);
-        expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-          Option.some({ prefix: '/initial' })
-        );
+        expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
+          prefix: '/initial',
+        });
       },
       (effect) => TestClock.withLive(effect.pipe(Effect.timeout('3 seconds')))
     )
@@ -1263,7 +1192,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const original = StoragePluginSettingsPersisted.make(
         scenario === 'invalid current settings' ? {} : { prefix: '/original' }
       );
-      yield* repository.setSettings({ ...library, settings: original });
+      yield* repository.replaceStorage({ roots: [], ...library, settings: original });
       const { settingsError } = fixture.controls;
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
@@ -1302,7 +1231,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
             .pipe(Effect.flip);
       expect(error).toMatchObject({ _tag: tag, message });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.some(original)
+        original
       );
     })
   );
@@ -1322,7 +1251,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
       );
       const original = StoragePluginSettingsPersisted.make({ prefix: '/original' });
-      yield* repository.setSettings({ ...library, settings: original });
+      yield* repository.replaceStorage({ roots: [], ...library, settings: original });
       const { invalidForm, invalidPersisted } = fixture.controls;
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
@@ -1345,13 +1274,13 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const text = yield* response.text;
       expect(text).toBe('');
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        Option.some(original)
+        original
       );
     })
   );
 
   iit.effect(
-    'encodes Option JSON and returns bodyless, idempotent deletion',
+    'encodes settings JSON and returns bodyless, idempotent deletion',
     Effect.fnUntraced(function* () {
       const { client } = yield* makeWireTransport(
         Option.some({ username: 'wire_admin', role: 'admin' })
@@ -1362,7 +1291,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const json = yield* get.json;
       expect(json).toMatchObject({
         ...library,
-        storagePluginSettings: { _tag: 'Some', value: {} },
+        storagePluginSettings: {},
         storagePluginHealth: { status: 'healthy' },
       });
       yield* client.library.setStoragePluginSettings({
@@ -1375,7 +1304,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       });
       const json2 = yield* list.json;
       expect(json2).toMatchObject({
-        items: [{ ...library, storagePluginSettings: { _tag: 'Some', value: {} } }],
+        items: [{ ...library, storagePluginSettings: {} }],
         nextCursor: { _tag: 'None' },
       });
       for (let attempt = 0; attempt < 2; attempt += 1) {

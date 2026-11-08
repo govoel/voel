@@ -13,10 +13,13 @@ import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 class LibraryRecord extends Schema.Struct({
-  library: StoragePluginKey.fields.library,
-  storagePluginId: StoragePluginKey.fields.storagePluginId,
-  storageKey: Schema.Option(StoragePluginKey),
+  storageKey: StoragePluginKey,
   roots: Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })),
+}) {}
+
+class LibraryRoots extends Schema.Struct({
+  id: Library.fields.id,
+  roots: Schema.Array(LibraryRoot.fields.root),
 }) {}
 
 class LibraryRow extends Schema.Struct({
@@ -24,31 +27,24 @@ class LibraryRow extends Schema.Struct({
   type: Schema.toEncoded(Library.fields.type),
   name: Schema.toEncoded(Library.fields.name),
   storagePluginId: Schema.toEncoded(Library.fields.storagePluginId),
-  storagePluginSettings: Schema.OptionFromNullOr(
-    Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted))
-  ),
+  storagePluginSettings: Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted)),
   roots: Schema.fromJsonString(Schema.toEncoded(LibraryRecord.fields.roots)),
 }).pipe(
   Schema.decodeTo(LibraryRecord, {
     decode: SchemaGetter.transform(
-      ({ id, type, name, storagePluginId, storagePluginSettings, roots }) => {
-        const library = { id, type, name };
-        return {
-          library,
+      ({ id, type, name, storagePluginId, storagePluginSettings, roots }) => ({
+        storageKey: {
+          library: { id, type, name },
           storagePluginId,
-          storageKey: Option.map(storagePluginSettings, (settings) => ({
-            library,
-            storagePluginId,
-            settings,
-          })),
-          roots,
-        };
-      }
+          settings: storagePluginSettings,
+        },
+        roots,
+      })
     ),
-    encode: SchemaGetter.transform(({ library, storagePluginId, storageKey, roots }) => ({
-      ...library,
-      storagePluginId,
-      storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
+    encode: SchemaGetter.transform(({ storageKey, roots }) => ({
+      ...storageKey.library,
+      storagePluginId: storageKey.storagePluginId,
+      storagePluginSettings: storageKey.settings,
       roots,
     })),
   })
@@ -85,6 +81,25 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           '[]'
         ) as roots
       `;
+
+      const replaceRoots = Effect.fnUntraced(function* ({
+        id,
+        roots,
+      }: typeof LibraryRoots.Encoded) {
+        yield* sql`
+              delete from "libraryRoot"
+              where
+                "libraryId" = ${id}
+                and not ${sql.in('root', roots)}
+            `;
+        if (Array.isReadonlyArrayNonEmpty(roots)) {
+          yield* sql`
+                insert into
+                  "libraryRoot" ${sql.insert(Array.map(roots, (root) => ({ libraryId: id, root })))}
+                on conflict ("libraryId", root) do nothing
+              `;
+        }
+      }, sql.withTransaction);
 
       const queries = {
         getById: SqlSchema.findOne({
@@ -128,7 +143,8 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           Request: Schema.Struct({
             name: Library.jsonCreate.fields.name,
             type: Library.jsonCreate.fields.type,
-            storagePlugin: Library.jsonCreate.fields.storagePlugin,
+            storagePluginId: Library.jsonCreate.fields.storagePluginId,
+            storagePluginSettings: StoragePluginSettingsPersisted.fromJsonString,
           }),
           Result: Schema.Struct({ id: Library.fields.id }),
           execute: (request) => sql`
@@ -154,14 +170,14 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             `,
         }),
 
-        setSettings: SqlSchema.findOne({
+        replaceStorage: SqlSchema.findOne({
           Request: Schema.Struct({
-            id: Library.fields.id,
+            ...LibraryRoots.fields,
             settings: StoragePluginSettingsPersisted.fromJsonString,
           }),
           Result: Schema.Struct({ id: Library.fields.id }),
-          execute: ({ id, settings }) =>
-            sql`
+          execute: Effect.fnUntraced(function* ({ id, settings, roots }) {
+            const result = yield* sql`
               update library
               set
                 "storagePluginSettings" = ${settings}
@@ -169,30 +185,15 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
                 id = ${id}
               returning
                 id
-            `,
-        }),
-
-        setRoots: SqlSchema.void({
-          Request: Schema.Struct({
-            id: Library.fields.id,
-            roots: Schema.Array(LibraryRoot.fields.root),
-          }),
-          execute: Effect.fnUntraced(function* ({ id, roots }) {
-            yield* sql`
-              delete from "libraryRoot"
-              where
-                "libraryId" = ${id}
-                and not ${sql.in('root', roots)}
             `;
-            if (Array.isReadonlyArrayNonEmpty(roots)) {
-              yield* sql`
-                insert into
-                  "libraryRoot" ${sql.insert(Array.map(roots, (root) => ({ libraryId: id, root })))}
-                on conflict ("libraryId", root) do nothing
-              `;
+            if (Array.isReadonlyArrayNonEmpty(result)) {
+              yield* replaceRoots({ id, roots });
             }
+            return result;
           }, sql.withTransaction),
         }),
+
+        setRoots: SqlSchema.void({ Request: LibraryRoots, execute: replaceRoots }),
 
         deleteById: SqlSchema.void({
           Request: Schema.Struct({ id: Library.fields.id }),
@@ -237,8 +238,8 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               SqlError: Effect.die,
             })
           ),
-        setSettings: (request: Parameters<typeof queries.setSettings>[0]) =>
-          queries.setSettings(request).pipe(
+        replaceStorage: (request: Parameters<typeof queries.replaceStorage>[0]) =>
+          queries.replaceStorage(request).pipe(
             Effect.catchTags({
               NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
               SchemaError: Effect.die,
