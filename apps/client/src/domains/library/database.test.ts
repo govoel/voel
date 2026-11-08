@@ -111,12 +111,12 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
           expect(libraryNamesResult).toEqual([{ name: 'Audiobooks' }]);
           const rows = yield* database`
               select
-                "storagePlugin",
+                "storagePluginId",
                 "storagePluginSettings"
               from
                 library
             `;
-          expect(rows).toEqual([{ storagePlugin: 'builtin:local', storagePluginSettings: '{}' }]);
+          expect(rows).toEqual([{ storagePluginId: 'builtin:local', storagePluginSettings: '{}' }]);
 
           for (const statement of [
             database`

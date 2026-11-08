@@ -23,7 +23,7 @@ class LibraryRow extends Schema.Struct({
   id: Schema.toEncoded(Library.fields.id),
   type: Schema.toEncoded(Library.fields.type),
   name: Schema.toEncoded(Library.fields.name),
-  storagePlugin: Schema.toEncoded(Library.fields.storagePlugin),
+  storagePluginId: Schema.toEncoded(Library.fields.storagePlugin),
   storagePluginSettings: Schema.OptionFromNullOr(
     Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted))
   ),
@@ -31,14 +31,14 @@ class LibraryRow extends Schema.Struct({
 }).pipe(
   Schema.decodeTo(LibraryRecord, {
     decode: SchemaGetter.transform(
-      ({ id, type, name, storagePlugin, storagePluginSettings, roots }) => {
+      ({ id, type, name, storagePluginId, storagePluginSettings, roots }) => {
         const library = { id, type, name };
         return {
           library,
-          storagePlugin,
+          storagePlugin: storagePluginId,
           storageKey: Option.map(storagePluginSettings, (settings) => ({
             library,
-            storagePlugin,
+            storagePlugin: storagePluginId,
             settings,
           })),
           roots,
@@ -47,7 +47,7 @@ class LibraryRow extends Schema.Struct({
     ),
     encode: SchemaGetter.transform(({ library, storagePlugin, storageKey, roots }) => ({
       ...library,
-      storagePlugin,
+      storagePluginId: storagePlugin,
       storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
       roots,
     })),
@@ -63,7 +63,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         l.id,
         l.type,
         l.name,
-        l."storagePlugin",
+        l."storagePluginId",
         l."storagePluginSettings",
         coalesce(
           (
@@ -131,9 +131,9 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             storagePlugin: Library.jsonCreate.fields.storagePlugin,
           }),
           Result: Schema.Struct({ id: Library.fields.id }),
-          execute: (request) => sql`
+          execute: ({ storagePlugin, ...request }) => sql`
             insert into
-              library ${sql.insert(request)}
+              library ${sql.insert({ ...request, storagePluginId: storagePlugin })}
             returning
               id
           `,

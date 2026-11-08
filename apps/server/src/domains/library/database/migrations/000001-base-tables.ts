@@ -284,7 +284,7 @@ export default Effect.gen(function* () {
       "id" integer not null primary key autoincrement,
       "type" text not null references "mediaType" ("type") on delete restrict on update cascade,
       "name" text not null unique,
-      "storagePlugin" text not null,
+      "storagePluginId" text not null,
       "storagePluginSettings" text,
       "createdAt" integer default (time_to_milli (time_now ())) not null,
       "updatedAt" integer default (time_to_milli (time_now ())) not null
@@ -296,7 +296,7 @@ export default Effect.gen(function* () {
   yield* createUpdatedAtTrigger({
     sql,
     table: 'library',
-    columns: ['id', 'type', 'name', 'storagePlugin', 'storagePluginSettings'],
+    columns: ['id', 'type', 'name', 'storagePluginId', 'storagePluginSettings'],
   });
 
   yield* sql`

@@ -49,7 +49,7 @@ it.effect(
       const headers = { authorization: `Bearer ${token}` };
       yield* source`
         insert into
-          library (type, name, "storagePlugin")
+          library (type, name, "storagePluginId")
         values
           ('audiobook', 'Audiobooks', 'builtin:local')
       `;
@@ -69,7 +69,7 @@ it.effect(
 
       yield* source`
         insert into
-          library (type, name, "storagePlugin")
+          library (type, name, "storagePluginId")
         values
           ('movie', 'Movies', 'builtin:local')
       `;
