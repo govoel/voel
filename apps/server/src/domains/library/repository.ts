@@ -12,11 +12,6 @@ import {
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
-class LibraryRecord extends Schema.Struct({
-  storageKey: StoragePluginKey,
-  roots: Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })),
-}) {}
-
 class LibraryWrite extends Schema.Struct({
   ...Library.jsonCreate.fields,
   storagePluginSettings: StoragePluginSettingsPersisted.fromJsonString,
@@ -29,26 +24,38 @@ class LibraryRow extends Schema.Struct({
   name: Schema.toEncoded(Library.fields.name),
   storagePluginId: Schema.toEncoded(Library.fields.storagePluginId),
   storagePluginSettings: Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted)),
-  roots: Schema.fromJsonString(Schema.toEncoded(LibraryRecord.fields.roots)),
+  roots: Schema.fromJsonString(
+    Schema.toEncoded(
+      Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root }))
+    )
+  ),
 }).pipe(
-  Schema.decodeTo(LibraryRecord, {
-    decode: SchemaGetter.transform(
-      ({ id, type, name, storagePluginId, storagePluginSettings, roots }) => ({
-        storageKey: {
-          library: { id, type, name },
-          storagePluginId,
-          settings: storagePluginSettings,
-        },
+  Schema.decodeTo(
+    Schema.Struct({
+      storageKey: StoragePluginKey,
+      roots: Schema.Array(
+        Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })
+      ),
+    }),
+    {
+      decode: SchemaGetter.transform(
+        ({ id, type, name, storagePluginId, storagePluginSettings, roots }) => ({
+          storageKey: {
+            library: { id, type, name },
+            storagePluginId,
+            settings: storagePluginSettings,
+          },
+          roots,
+        })
+      ),
+      encode: SchemaGetter.transform(({ storageKey, roots }) => ({
+        ...storageKey.library,
+        storagePluginId: storageKey.storagePluginId,
+        storagePluginSettings: storageKey.settings,
         roots,
-      })
-    ),
-    encode: SchemaGetter.transform(({ storageKey, roots }) => ({
-      ...storageKey.library,
-      storagePluginId: storageKey.storagePluginId,
-      storagePluginSettings: storageKey.settings,
-      roots,
-    })),
-  })
+      })),
+    }
+  )
 ) {}
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
