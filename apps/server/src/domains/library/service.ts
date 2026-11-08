@@ -31,12 +31,12 @@ export class LibraryService extends Context.Service<LibraryService>()(
 
       const details = ({
         library,
-        storagePlugin,
+        storagePluginId,
         storageKey,
         roots,
       }: Effect.Success<ReturnType<typeof repository.getById>>) => ({
         ...library,
-        storagePlugin,
+        storagePluginId,
         storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
         roots,
       });
@@ -46,7 +46,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
       ) {
         const [cached, failures] = yield* Effect.partition(
           [
-            editors.contextEffectOption(row.storagePlugin).pipe(Effect.map(Option.isSome)),
+            editors.contextEffectOption(row.storagePluginId).pipe(Effect.map(Option.isSome)),
             Option.match(row.storageKey, {
               onNone: () => Effect.succeed(false),
               onSome: (key) => stores.contextEffectOption(key).pipe(Effect.map(Option.isSome)),
@@ -119,7 +119,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         getDraftStoragePluginSettingsForm: Effect.fnUntraced(function* (
           request: Parameters<typeof repository.create>[0]
         ) {
-          const editor = yield* editors.acquire(request.storagePlugin);
+          const editor = yield* editors.acquire(request.storagePluginId);
           return yield* editor.getForm({
             library: { name: request.name, type: request.type },
             current: Option.none(),
@@ -135,9 +135,9 @@ export class LibraryService extends Context.Service<LibraryService>()(
             const result = yield* repository.create({
               name: request.name,
               type: request.type,
-              storagePlugin: request.storagePlugin,
+              storagePluginId: request.storagePluginId,
             });
-            const editor = yield* editors.acquire(request.storagePlugin);
+            const editor = yield* editors.acquire(request.storagePluginId);
             const settings = yield* editor.decodeFormSubmission({
               library: { name: request.name, type: request.type },
               current: Option.none(),
@@ -172,7 +172,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.storagePlugin);
+          const editor = yield* editors.acquire(row.storagePluginId);
           return yield* editor.getForm({
             library: row.library,
             current: Option.map(row.storageKey, ({ settings }) => settings),
@@ -184,7 +184,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             input,
           }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
             const row = yield* repository.getById({ id });
-            const editor = yield* editors.acquire(row.storagePlugin);
+            const editor = yield* editors.acquire(row.storagePluginId);
             const settings = yield* editor.decodeFormSubmission({
               library: row.library,
               current: Option.map(row.storageKey, (key) => key.settings),

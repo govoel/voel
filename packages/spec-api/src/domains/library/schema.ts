@@ -328,7 +328,7 @@ export class Library extends Timestamped.extend<Library>(
     jsonCreate: PluginLibrary.fields.name,
     jsonUpdate: PluginLibrary.fields.name,
   }),
-  storagePlugin: DbModel.Field({
+  storagePluginId: DbModel.Field({
     select: StoragePluginId,
     create: StoragePluginId,
     json: StoragePluginId,

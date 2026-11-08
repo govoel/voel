@@ -63,11 +63,11 @@ export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleM
       const modules = yield* PluginModuleMap;
 
       return {
-        get: (plugin: Library['storagePlugin']) =>
-          Match.value(plugin).pipe(
+        get: (pluginId: Library['storagePluginId']) =>
+          Match.value(pluginId).pipe(
             Match.when('builtin:local', () => Effect.succeed<StoragePluginModule>(local)),
-            Match.when(NpmPluginId.is, (npmPlugin) =>
-              modules.get(npmPlugin).pipe(
+            Match.when(NpmPluginId.is, (npmPluginId) =>
+              modules.get(npmPluginId).pipe(
                 Effect.flatMap(StoragePluginModuleExport.decodeUnknownEffect),
                 Effect.map((module) => module.default),
                 Effect.catchTags({
@@ -117,10 +117,10 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
         );
 
       return Effect.fnUntraced(function* <ROut, E>({
-        storagePlugin,
+        storagePluginId,
         makeLayer,
       }: {
-        readonly storagePlugin: Library['storagePlugin'];
+        readonly storagePluginId: Library['storagePluginId'];
         readonly makeLayer: (
           module: StoragePluginModule
         ) => Layer.Layer<ROut, E, FileSystem.FileSystem | Path.Path | HttpClient.HttpClient>;
@@ -130,7 +130,7 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
         );
 
         const context = yield* Layer.buildWithScope(
-          plugins.get(storagePlugin).pipe(Effect.map(makeLayer), Layer.unwrap),
+          plugins.get(storagePluginId).pipe(Effect.map(makeLayer), Layer.unwrap),
           pluginScope
         ).pipe(Effect.setContext(isolatedContext));
 
@@ -157,12 +157,12 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
     make: Effect.gen(function* () {
       const buildPlugin = yield* StoragePluginBuilder;
       const map = yield* LayerMap.make(
-        (storagePlugin: Library['storagePlugin']) =>
+        (storagePluginId: Library['storagePluginId']) =>
           Layer.effect(
             StoragePluginSettings,
             Effect.gen(function* () {
               const { context, invoke } = yield* buildPlugin({
-                storagePlugin,
+                storagePluginId,
                 makeLayer: (module) => module.storage.layerSettings,
               });
               const settings = Context.get(context, StoragePluginSettings);
@@ -205,8 +205,8 @@ export class StoragePluginSettingsMap extends Context.Service<StoragePluginSetti
       );
       return {
         ...map,
-        acquire: (storagePlugin: Library['storagePlugin']) =>
-          map.contextEffect(storagePlugin).pipe(Effect.map(Context.get(StoragePluginSettings))),
+        acquire: (storagePluginId: Library['storagePluginId']) =>
+          map.contextEffect(storagePluginId).pipe(Effect.map(Context.get(StoragePluginSettings))),
       };
     }),
   }
@@ -222,7 +222,7 @@ export const StoragePluginLayerNoDeps = (request: StoragePluginKey) =>
     Effect.gen(function* () {
       const buildPlugin = yield* StoragePluginBuilder;
       const { context, invoke } = yield* buildPlugin({
-        storagePlugin: request.storagePlugin,
+        storagePluginId: request.storagePluginId,
         makeLayer: (module) =>
           module.storage.layer({
             library: request.library,

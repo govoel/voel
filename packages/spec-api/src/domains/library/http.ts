@@ -27,7 +27,7 @@ class LibraryResponse extends Schema.Struct({
   id: Library.json.fields.id,
   type: Library.json.fields.type,
   name: Library.json.fields.name,
-  storagePlugin: Library.json.fields.storagePlugin,
+  storagePluginId: Library.json.fields.storagePluginId,
   storagePluginSettings: Library.json.fields.storagePluginSettings,
   roots: Schema.Array(
     Schema.Struct({ id: LibraryRoot.json.fields.id, root: LibraryRoot.json.fields.root })
@@ -62,7 +62,7 @@ export const LibraryApi = HttpApiGroup.make('library')
       payload: Schema.Struct({
         name: Library.jsonCreate.fields.name,
         type: Library.jsonCreate.fields.type,
-        storagePlugin: Library.jsonCreate.fields.storagePlugin,
+        storagePluginId: Library.jsonCreate.fields.storagePluginId,
         storagePluginSettings: StoragePluginSettingsInput,
         roots: Schema.Array(Schema.Struct({ root: LibraryRoot.jsonUpsert.fields.root })),
       }),
@@ -96,7 +96,7 @@ export const LibraryApi = HttpApiGroup.make('library')
         payload: Schema.Struct({
           name: Library.jsonCreate.fields.name,
           type: Library.jsonCreate.fields.type,
-          storagePlugin: Library.jsonCreate.fields.storagePlugin,
+          storagePluginId: Library.jsonCreate.fields.storagePluginId,
         }),
         success: StoragePluginSettingsForm,
         error: [

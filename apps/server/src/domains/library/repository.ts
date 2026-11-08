@@ -14,7 +14,7 @@ import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 class LibraryRecord extends Schema.Struct({
   library: StoragePluginKey.fields.library,
-  storagePlugin: StoragePluginKey.fields.storagePlugin,
+  storagePluginId: StoragePluginKey.fields.storagePluginId,
   storageKey: Schema.Option(StoragePluginKey),
   roots: Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })),
 }) {}
@@ -23,7 +23,7 @@ class LibraryRow extends Schema.Struct({
   id: Schema.toEncoded(Library.fields.id),
   type: Schema.toEncoded(Library.fields.type),
   name: Schema.toEncoded(Library.fields.name),
-  storagePluginId: Schema.toEncoded(Library.fields.storagePlugin),
+  storagePluginId: Schema.toEncoded(Library.fields.storagePluginId),
   storagePluginSettings: Schema.OptionFromNullOr(
     Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted))
   ),
@@ -35,19 +35,19 @@ class LibraryRow extends Schema.Struct({
         const library = { id, type, name };
         return {
           library,
-          storagePlugin: storagePluginId,
+          storagePluginId,
           storageKey: Option.map(storagePluginSettings, (settings) => ({
             library,
-            storagePlugin: storagePluginId,
+            storagePluginId,
             settings,
           })),
           roots,
         };
       }
     ),
-    encode: SchemaGetter.transform(({ library, storagePlugin, storageKey, roots }) => ({
+    encode: SchemaGetter.transform(({ library, storagePluginId, storageKey, roots }) => ({
       ...library,
-      storagePluginId: storagePlugin,
+      storagePluginId,
       storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
       roots,
     })),
@@ -131,9 +131,9 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             storagePlugin: Library.jsonCreate.fields.storagePlugin,
           }),
           Result: Schema.Struct({ id: Library.fields.id }),
-          execute: ({ storagePlugin, ...request }) => sql`
+          execute: (request) => sql`
             insert into
-              library ${sql.insert({ ...request, storagePluginId: storagePlugin })}
+              library ${sql.insert(request)}
             returning
               id
           `,

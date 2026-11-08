@@ -204,8 +204,8 @@ export const pluginLayer = Layer.mergeAll(
       Effect.gen(function* () {
         const fixture = yield* PluginFixture;
         return {
-          get: (plugin) =>
-            plugin === Library.fields.storagePlugin.make('npm:missing')
+          get: (pluginId) =>
+            pluginId === Library.fields.storagePluginId.make('npm:missing')
               ? PluginLoadError.make({ message: 'Plugin unavailable' })
               : Effect.succeed({ default: fixture.module }),
         };

@@ -64,13 +64,13 @@ const wireTestLayer = ApiRoutesLayerNoDeps.pipe(
 
 const createInput = (
   name: string,
-  plugin: 'builtin:local' | `npm:${string}` = 'builtin:local'
+  pluginId: 'builtin:local' | `npm:${string}` = 'builtin:local'
 ) => ({
   name: Library.fields.name.make(name),
   type: Library.fields.type.make('movie'),
-  storagePlugin: Library.fields.storagePlugin.make(plugin),
+  storagePluginId: Library.fields.storagePluginId.make(pluginId),
   storagePluginSettings: StoragePluginSettingsInput.make(
-    plugin === 'builtin:local' ? {} : { root: '/initial' }
+    pluginId === 'builtin:local' ? {} : { root: '/initial' }
   ),
   roots: [],
 });
@@ -176,7 +176,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const { drainScheduler } = yield* TestScheduler;
       const repository = yield* LibraryRepository;
       const editors = yield* StoragePluginSettingsMap;
-      yield* editors.invalidate(Library.fields.storagePlugin.make('npm:test'));
+      yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
       const library = yield* repository.create(createInput('Health', 'npm:test'));
       const listItem = Effect.gen(function* () {
         return Option.getOrThrow(
@@ -259,7 +259,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const library = yield* client.library.create({
         payload: createInput('Stale health', 'npm:test'),
       });
-      yield* editors.invalidate(Library.fields.storagePlugin.make('npm:test'));
+      yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
       yield* repository.setSettings({
         ...library,
         settings: StoragePluginSettingsPersisted.make({ prefix: 'unavailable' }),
@@ -436,11 +436,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository;
       const editors = yield* StoragePluginSettingsMap;
-      yield* editors.invalidate(Library.fields.storagePlugin.make('npm:missing'));
+      yield* editors.invalidate(Library.fields.storagePluginId.make('npm:missing'));
       const missing = yield* repository.create(createInput('Missing plugin', 'npm:missing'));
       const resultValue = yield* client.library.get({ params: missing });
       expect(resultValue).toMatchObject({
-        storagePlugin: 'npm:missing',
+        storagePluginId: 'npm:missing',
         storagePluginSettings: Option.none(),
         storagePluginHealth: { status: 'unknown' },
       });

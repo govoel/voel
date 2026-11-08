@@ -218,7 +218,7 @@ it.layer(testLayer)('groups utils headers', (iit) => {
         payload: {
           name: Library.fields.name.make('Authenticated library'),
           type: Library.fields.type.make('movie'),
-          storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+          storagePluginId: Library.fields.storagePluginId.make('builtin:local'),
           storagePluginSettings: StoragePluginSettingsInput.make({}),
           roots: [],
         },
@@ -227,7 +227,7 @@ it.layer(testLayer)('groups utils headers', (iit) => {
       expect(resultValue).toMatchObject({
         name: 'Authenticated library',
         type: 'movie',
-        storagePlugin: 'builtin:local',
+        storagePluginId: 'builtin:local',
         storagePluginHealth: { status: 'healthy' },
       });
     })

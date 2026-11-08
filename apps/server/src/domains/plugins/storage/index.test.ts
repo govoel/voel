@@ -60,7 +60,7 @@ const request = {
     type: Library.fields.type.make('movie'),
     name: Library.fields.name.make('Movies'),
   }),
-  storagePlugin: StoragePluginId.make('builtin:local'),
+  storagePluginId: StoragePluginId.make('builtin:local'),
   settings: StoragePluginSettingsPersisted.make({ directory: '/library' }),
 };
 
@@ -159,18 +159,18 @@ it.effect('acquires canonical plugin services until the caller releases its scop
       const caller = Context.make(Scope.Scope, scope);
       const firstStorage = yield* stores.acquire(firstStorageKey).pipe(Effect.setContext(caller));
       const firstSettings = yield* editors
-        .acquire(request.storagePlugin)
+        .acquire(request.storagePluginId)
         .pipe(Effect.setContext(caller));
       const secondStorage = yield* stores.acquire(secondStorageKey).pipe(Effect.setContext(caller));
       const secondSettings = yield* editors
-        .acquire(request.storagePlugin)
+        .acquire(request.storagePluginId)
         .pipe(Effect.setContext(caller));
       expect(builtLibraries).toEqual([request.library]);
       expect(firstStorage).toBe(secondStorage);
       expect(firstSettings).toBe(secondSettings);
 
       yield* stores.invalidate(secondStorageKey);
-      yield* editors.invalidate(request.storagePlugin);
+      yield* editors.invalidate(request.storagePluginId);
       expect(released).toBe(0);
     }).pipe(Effect.scoped);
     expect(released).toBe(2);
@@ -248,8 +248,8 @@ it.effect('shares a settings editor per plugin while keeping library inputs per 
   } satisfies StoragePluginModule;
   return Effect.gen(function* () {
     const editors = yield* StoragePluginSettingsMap;
-    const first = yield* editors.acquire(request.storagePlugin);
-    const second = yield* editors.acquire(request.storagePlugin);
+    const first = yield* editors.acquire(request.storagePluginId);
+    const second = yield* editors.acquire(request.storagePluginId);
     expect(second).toBe(first);
     const otherLibrary = { ...libraryMetadata, name: Library.fields.name.make('Other library') };
     const forms = yield* Effect.all(
@@ -270,12 +270,12 @@ it.effect('shares a settings editor per plugin while keeping library inputs per 
     });
     expect(settings).toEqual({ name: 'Other library', input: { directory: '/other' } });
     expect(built).toBe(1);
-    const otherPlugin = StoragePluginId.make('npm:other');
-    const third = yield* editors.acquire(otherPlugin);
+    const otherPluginId = StoragePluginId.make('npm:other');
+    const third = yield* editors.acquire(otherPluginId);
     expect(third).not.toBe(first);
     expect(built).toBe(2);
     const keys = yield* RcMap.keys(editors.rcMap);
-    expect(Array.fromIterable(keys)).toEqual([request.storagePlugin, otherPlugin]);
+    expect(Array.fromIterable(keys)).toEqual([request.storagePluginId, otherPluginId]);
   }).pipe(Effect.scoped, Effect.provide(makeMaps(module)));
 });
 
@@ -294,7 +294,7 @@ it.effect(
       expect(decodeRootLocationResult).toBe('/audio');
       const form = yield* Effect.gen(function* () {
         const editors = yield* StoragePluginSettingsMap;
-        const settings = yield* editors.acquire(request.storagePlugin);
+        const settings = yield* editors.acquire(request.storagePluginId);
         return yield* settings.getForm({ library: libraryMetadata, current: Option.none() });
       }).pipe(Effect.provide(StoragePluginSettingsMap.layer));
       expect(form).toEqual([]);
@@ -325,8 +325,8 @@ it.effect(
     Effect.scoped,
     Effect.provide(StoragePluginModuleMap.layerNoDeps),
     Effect.provideService(PluginModuleMap, {
-      get: (plugin) => {
-        expect(plugin).toBe('npm:fixture');
+      get: (pluginId) => {
+        expect(pluginId).toBe('npm:fixture');
         return Effect.succeed({ default: local, unrelated: 'preserved in shared cache' });
       },
     })
@@ -362,7 +362,7 @@ it.effect(
   Effect.fnUntraced(
     function* () {
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(request.storagePlugin);
+      const settings = yield* editors.acquire(request.storagePluginId);
       const formExit = yield* settings
         .getForm({ library: libraryMetadata, current: Option.none() })
         .pipe(Effect.exit);
@@ -646,7 +646,7 @@ it.effect(
       const stores = yield* StoragePluginMap;
       const storage = yield* stores.acquire(storageRequest);
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(request.storagePlugin);
+      const settings = yield* editors.acquire(request.storagePluginId);
 
       yield* Effect.gen(function* () {
         const privateService2 = yield* PrivateService;
@@ -805,7 +805,7 @@ it.effect(
 
     yield* Effect.gen(function* () {
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(request.storagePlugin);
+      const settings = yield* editors.acquire(request.storagePluginId);
       const invoke = Effect.fnUntraced(
         function* ({
           privateValue,
@@ -862,7 +862,7 @@ it.effect(
 
 it.effect.each(['storage', 'settings'] as const)(
   'isolates cleanup when the map shuts down during %s construction',
-  Effect.fnUntraced(function* (plugin) {
+  Effect.fnUntraced(function* (component) {
     const started = yield* Latch.make();
     const defaults = yield* snapshotMetadata.pipe(Effect.setContext(Context.empty()));
     const released: Array<{
@@ -895,9 +895,9 @@ it.effect.each(['storage', 'settings'] as const)(
     const pending = yield* Effect.gen(function* () {
       const stores = yield* StoragePluginMap;
       const editors = yield* StoragePluginSettingsMap;
-      yield* plugin === 'storage'
+      yield* component === 'storage'
         ? stores.contextEffect(storageRequest)
-        : editors.contextEffect(request.storagePlugin);
+        : editors.contextEffect(request.storagePluginId);
       expect.unreachable('Construction must remain pending until map shutdown');
     }).pipe(
       Effect.scoped,
@@ -950,7 +950,7 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
 
     yield* Effect.gen(function* () {
       const editors = yield* StoragePluginSettingsMap;
-      const settings = yield* editors.acquire(request.storagePlugin);
+      const settings = yield* editors.acquire(request.storagePluginId);
       yield* Effect.gen(function* () {
         const before = yield* Effect.context();
         const operation = settings.getForm({ library: libraryMetadata, current: Option.none() });
@@ -1023,7 +1023,7 @@ it.effect.each(['successful', 'failed'] as const)(
         const stores = yield* StoragePluginMap;
         const editors = yield* StoragePluginSettingsMap;
         const storage = yield* stores.contextEffect(storageRequest).pipe(Effect.exit);
-        const settings = yield* editors.contextEffect(request.storagePlugin).pipe(Effect.exit);
+        const settings = yield* editors.contextEffect(request.storagePluginId).pipe(Effect.exit);
         if (outcome === 'failed') {
           expect(storage).toEqual(Exit.fail(storageError));
           expect(settings).toEqual(Exit.fail(settingsError));

@@ -8,7 +8,7 @@ export class StoragePluginKey extends Schema.Class<
   StoragePluginKey,
   { readonly brand: unique symbol }
 >('@repo/server/domains/plugins/storage/schema/StoragePluginKey')({
-  storagePlugin: StoragePluginId,
+  storagePluginId: StoragePluginId,
   library: Library,
   settings: StoragePluginSettingsPersisted,
 }) {}

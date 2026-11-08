@@ -58,12 +58,12 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   const library = yield* repository.create({
     name: Library.fields.name.make(name),
     type: Library.fields.type.make('movie'),
-    storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+    storagePluginId: Library.fields.storagePluginId.make('npm:test'),
   });
   const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
   yield* repository.setSettings({ ...library, settings });
   const row = yield* repository.getById(library);
-  const editor = yield* editors.acquire(row.storagePlugin).pipe(Effect.scoped);
+  const editor = yield* editors.acquire(row.storagePluginId).pipe(Effect.scoped);
   for (const snapshot of [
     row.library,
     { ...row.library, name: Library.fields.name.make(`${name} stale`) },
@@ -71,7 +71,7 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
     yield* stores
       .acquire(
         StoragePluginKey.make({
-          storagePlugin: row.storagePlugin,
+          storagePluginId: row.storagePluginId,
           library: snapshot,
           settings,
         })
@@ -103,11 +103,11 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const request = {
         name: Library.fields.name.make('Shared settings metadata'),
         type: Library.fields.type.make('movie'),
-        storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
       };
       const preview = yield* service.getDraftStoragePluginSettingsForm(request);
       expect(preview).toMatchObject([{ label: request.name, initialValue: '' }]);
-      const editor = yield* editors.acquire(request.storagePlugin).pipe(Effect.scoped);
+      const editor = yield* editors.acquire(request.storagePluginId).pipe(Effect.scoped);
       const library = yield* service.create({
         ...request,
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/initial' }),
@@ -135,7 +135,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
           input: { root: '/updated' },
         },
       ]);
-      const reused = yield* editors.acquire(request.storagePlugin).pipe(Effect.scoped);
+      const reused = yield* editors.acquire(request.storagePluginId).pipe(Effect.scoped);
       expect(reused).toBe(editor);
       const row = yield* repository.getById(library);
       expect(Option.map(row.storageKey, ({ settings }) => settings)).toEqual(
@@ -151,11 +151,11 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const service = yield* LibraryService;
       const editors = yield* StoragePluginSettingsMap;
       const stores = yield* StoragePluginMap;
-      yield* editors.invalidate(Library.fields.storagePlugin.make('npm:test'));
+      yield* editors.invalidate(Library.fields.storagePluginId.make('npm:test'));
       const library = yield* repository.create({
         name: Library.fields.name.make('Decoded plugin identities'),
         type: Library.fields.type.make('movie'),
-        storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
       });
       const unconfigured = yield* repository.getById(library);
       expect(Option.isNone(unconfigured.storageKey)).toBe(true);
@@ -180,24 +180,24 @@ it.layer(testLayer)('library service without transport', (iit) => {
         type: 'movie',
       });
 
-      const editor = yield* editors.acquire(unconfigured.storagePlugin);
-      const acquireResult = yield* editors.acquire(listed.storagePlugin);
+      const editor = yield* editors.acquire(unconfigured.storagePluginId);
+      const acquireResult = yield* editors.acquire(listed.storagePluginId);
       expect(acquireResult).toBe(editor);
       const storage = yield* stores.acquire(storageKey);
       const acquireResult2 = yield* stores.acquire(listedStorageKey);
       expect(acquireResult2).toBe(storage);
       const contextEffectOptionResult = yield* editors.contextEffectOption(
-        configured.storagePlugin
+        configured.storagePluginId
       );
       expect(Option.isSome(contextEffectOptionResult)).toBe(true);
       const contextEffectOptionResult2 = yield* stores.contextEffectOption(listedStorageKey);
       expect(Option.isSome(contextEffectOptionResult2)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'healthy' });
 
-      yield* editors.invalidate(listed.storagePlugin);
+      yield* editors.invalidate(listed.storagePluginId);
       yield* stores.invalidate(listedStorageKey);
       const contextEffectOptionResult3 = yield* editors.contextEffectOption(
-        unconfigured.storagePlugin
+        unconfigured.storagePluginId
       );
       expect(Option.isNone(contextEffectOptionResult3)).toBe(true);
       const contextEffectOptionResult4 = yield* stores.contextEffectOption(storageKey);
@@ -255,7 +255,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const cacheKeysResult5 = yield* cacheKeys(target.library);
       expect(cacheKeysResult5).toEqual([]);
       const editors = yield* StoragePluginSettingsMap;
-      const editor = yield* editors.acquire(target.row.storagePlugin).pipe(Effect.scoped);
+      const editor = yield* editors.acquire(target.row.storagePluginId).pipe(Effect.scoped);
       expect(editor).toBe(target.editor);
       const cacheKeysResult6 = yield* cacheKeys(unrelated.library);
       expect(cacheKeysResult6).toEqual(unrelated.keys);
@@ -369,7 +369,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const library = yield* service.create({
         name: Library.fields.name.make('Direct root validation'),
         type: Library.fields.type.make('movie'),
-        storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/configured' }),
         roots: [],
       });

@@ -18,7 +18,7 @@ import {
 const createInput = (name: string) => ({
   name: Library.jsonCreate.fields.name.make(name),
   type: Library.jsonCreate.fields.type.make('movie'),
-  storagePlugin: Library.jsonCreate.fields.storagePlugin.make('builtin:local'),
+  storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
   storagePluginSettings: StoragePluginSettingsInput.make({}),
   roots: [],
 });
