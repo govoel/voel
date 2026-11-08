@@ -75,6 +75,7 @@ const settingsLayer = Layer.succeed(StoragePluginSettings, {
     Effect.succeed([
       {
         _tag: 'TextField',
+        purpose: 'text',
         name: StoragePluginSettingsFieldName.make('directory'),
         label: 'Directory',
         placeholder: '',
@@ -188,6 +189,7 @@ it.effect('shares a settings editor per plugin while keeping library inputs per 
               Effect.succeed([
                 {
                   _tag: 'TextField',
+                  purpose: 'text',
                   name: StoragePluginSettingsFieldName.make('directory'),
                   label: library.name,
                   placeholder: '',
@@ -355,6 +357,7 @@ it.effect(
             getForm: () => {
               const field = StoragePluginSettingsForm.value.make({
                 _tag: 'TextField',
+                purpose: 'text',
                 name: StoragePluginSettingsFieldName.make('directory'),
                 label: 'Directory',
                 placeholder: '',
@@ -364,6 +367,7 @@ it.effect(
                 field,
                 {
                   _tag: 'TextListField',
+                  purpose: 'text',
                   name: field.name,
                   label: 'Directories',
                   placeholder: '',
@@ -743,6 +747,7 @@ it.effect(
               return [
                 StoragePluginSettingsForm.value.make({
                   _tag: 'TextField',
+                  purpose: 'text',
                   name: StoragePluginSettingsFieldName.make('directory'),
                   label: library.name,
                   placeholder: '',

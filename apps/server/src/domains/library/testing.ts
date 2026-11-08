@@ -128,6 +128,7 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                     : { prefix: '' };
                   const field = {
                     _tag: 'TextField' as const,
+                    purpose: 'text' as const,
                     name: StoragePluginSettingsFieldName.make('root'),
                     label: library.name,
                     placeholder: '',

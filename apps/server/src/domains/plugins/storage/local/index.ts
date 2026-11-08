@@ -111,6 +111,7 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
           return StoragePluginSettingsForm.make([
             {
               _tag: 'TextListField',
+              purpose: 'text',
               name: StoragePluginSettingsFieldName.make('roots'),
               label: 'Directories',
               placeholder: '/path/to/media',

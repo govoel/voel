@@ -8,9 +8,12 @@ export class StoragePluginSettingsFieldName extends Schema.String.check(
   Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/u)
 ).pipe(Schema.brand('@govoel/plugins/storage/StoragePluginSettingsFieldName')) {}
 
+const textInputPurpose = Schema.Literals(['text', 'name', 'username', 'email', 'url']);
+
 /**
  * Ordered UI fields with unique, flat names. An empty array means no settings.
  * TextField submits a string; TextListField submits an array of strings.
+ * Purpose is required and applies to each input.
  * Descriptors carry no semantic validation rules and must contain no secrets.
  */
 export class StoragePluginSettingsForm extends Schema.Array(
@@ -19,13 +22,14 @@ export class StoragePluginSettingsForm extends Schema.Array(
       name: StoragePluginSettingsFieldName,
       label: Schema.NonEmptyString,
       placeholder: Schema.String,
-      purpose: Schema.optionalKey(Schema.Literals(['name', 'username', 'email', 'url'])),
+      purpose: textInputPurpose,
       initialValue: Schema.String,
     }),
     Schema.TaggedStruct('TextListField', {
       name: StoragePluginSettingsFieldName,
       label: Schema.NonEmptyString,
       placeholder: Schema.String,
+      purpose: textInputPurpose,
       initialValue: Schema.Array(Schema.String),
     }),
   ])
