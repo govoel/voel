@@ -23,33 +23,12 @@ class LibraryWrite extends Schema.Struct({
   roots: Schema.Array(LibraryRoot.fields.root),
 }) {}
 
-const libraryColumns = {
+class LibraryRow extends Schema.Struct({
   id: Schema.toEncoded(Library.fields.id),
   type: Schema.toEncoded(Library.fields.type),
   name: Schema.toEncoded(Library.fields.name),
   storagePluginId: Schema.toEncoded(Library.fields.storagePluginId),
   storagePluginSettings: Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted)),
-};
-
-class StorageRow extends Schema.Struct(libraryColumns).pipe(
-  Schema.decodeTo(StoragePluginKey, {
-    decode: SchemaGetter.transform(
-      ({ id, type, name, storagePluginId, storagePluginSettings }) => ({
-        library: { id, type, name },
-        storagePluginId,
-        settings: storagePluginSettings,
-      })
-    ),
-    encode: SchemaGetter.transform(({ library, storagePluginId, settings }) => ({
-      ...library,
-      storagePluginId,
-      storagePluginSettings: settings,
-    })),
-  })
-) {}
-
-class LibraryRow extends Schema.Struct({
-  ...libraryColumns,
   roots: Schema.fromJsonString(Schema.toEncoded(LibraryRecord.fields.roots)),
 }).pipe(
   Schema.decodeTo(LibraryRecord, {
@@ -104,9 +83,8 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         ) as roots
       `;
 
-      const replaceRoots = SqlSchema.findAll({
+      const replaceRoots = SqlSchema.void({
         Request: Schema.Struct({ id: Library.fields.id, roots: LibraryWrite.fields.roots }),
-        Result: LibraryRecord.fields.roots.value,
         execute: Effect.fnUntraced(function* ({ id, roots }) {
           yield* sql`
             delete from "libraryRoot"
@@ -121,17 +99,6 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               on conflict ("libraryId", root) do nothing
             `;
           }
-          return yield* sql`
-            select
-              id,
-              root
-            from
-              "libraryRoot"
-            where
-              "libraryId" = ${id}
-            order by
-              id
-          `;
         }),
       });
 
@@ -175,22 +142,18 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
 
         create: SqlSchema.findOne({
           Request: LibraryWrite,
-          Result: StorageRow,
+          Result: Schema.Struct({ id: Library.fields.id }),
           execute: ({ roots: _roots, ...library }) => sql`
             insert into
               library ${sql.insert(library)}
             returning
-              id,
-              type,
-              name,
-              "storagePluginId",
-              "storagePluginSettings"
+              id
           `,
         }),
 
         update: SqlSchema.findOne({
           Request: Schema.Struct({ id: Library.fields.id, ...LibraryWrite.fields }),
-          Result: StorageRow,
+          Result: Schema.Struct({ id: Library.fields.id }),
           execute: ({ id, roots: _roots, ...library }) => sql`
             update library
             set
@@ -198,11 +161,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
             where
               id = ${id}
             returning
-              id,
-              type,
-              name,
-              "storagePluginId",
-              "storagePluginSettings"
+              id
           `,
         }),
 
@@ -229,9 +188,9 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
           queries.list(request).pipe(Effect.orDie),
         create: Effect.fnUntraced(
           function* (request: Parameters<typeof queries.create>[0]) {
-            const storageKey = yield* queries.create(request);
-            const roots = yield* replaceRoots({ id: storageKey.library.id, roots: request.roots });
-            return { storageKey, roots };
+            const library = yield* queries.create(request);
+            yield* replaceRoots({ ...library, roots: request.roots });
+            return yield* queries.getById(library);
           },
           sql.withTransaction,
           (effect, request) =>
@@ -248,9 +207,9 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         ),
         update: Effect.fnUntraced(
           function* (request: Parameters<typeof queries.update>[0]) {
-            const storageKey = yield* queries.update(request);
-            const roots = yield* replaceRoots({ id: storageKey.library.id, roots: request.roots });
-            return { storageKey, roots };
+            const library = yield* queries.update(request);
+            yield* replaceRoots({ ...library, roots: request.roots });
+            return yield* queries.getById(library);
           },
           sql.withTransaction,
           (effect, request) =>
