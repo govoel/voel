@@ -308,11 +308,7 @@ export class AudiobookContributorMap extends SoftDeletable.extend<AudiobookContr
 export class Library extends Timestamped.extend<Library>(
   '@repo/spec-api/domains/library/schema/Library'
 )({
-  id: DbModel.Field({
-    select: PluginLibrary.fields.id,
-    create: PluginLibrary.fields.id,
-    json: PluginLibrary.fields.id,
-  }),
+  id: Model.GeneratedByDb(PluginLibrary.fields.id),
   type: DbModel.Field({
     select: PluginLibrary.fields.type,
     create: PluginLibrary.fields.type,

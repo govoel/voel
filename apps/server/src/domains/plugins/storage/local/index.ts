@@ -24,26 +24,60 @@ import {
   String,
 } from 'effect';
 
-const settingsSchema = ({ path }: { readonly path: Path.Path }) =>
-  Schema.Struct({
-    roots: Schema.Array(
-      Schema.NonEmptyString.check(
-        Schema.makeFilter(Predicate.not(String.includes('\0')), {
-          message: 'Directories must not contain NUL characters',
-        }),
-        Schema.makeFilter((location) => path.isAbsolute(location), {
-          message: 'Directories must be absolute paths',
-        })
-      )
+class LocalStorageSettings extends Schema.Struct({
+  roots: Schema.Array(
+    Schema.NonEmptyString.check(
+      Schema.makeFilter(Predicate.not(String.includes('\0')), {
+        message: 'Directories must not contain NUL characters',
+      })
     ).pipe(
-      Schema.decodeTo(Schema.Array(Schema.NonEmptyString), {
-        decode: SchemaGetter.transform((roots) =>
-          Array.dedupe(Array.map(roots, (root) => path.resolve(root)))
+      Schema.decodeTo(Schema.NonEmptyString, {
+        decode: SchemaGetter.checkEffect((location) =>
+          Effect.map(
+            Path.Path,
+            (path) => path.isAbsolute(location) || 'Directories must be absolute paths'
+          )
         ),
         encode: SchemaGetter.passthrough(),
       })
+    )
+  ).pipe(
+    Schema.decodeTo(Schema.Array(Schema.NonEmptyString), {
+      decode: SchemaGetter.transformEffect((roots) =>
+        Effect.map(Path.Path, (path) =>
+          Array.dedupe(Array.map(roots, (root) => path.resolve(root)))
+        )
+      ),
+      encode: SchemaGetter.passthrough(),
+    })
+  ),
+}) {
+  public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
+}
+
+class LocalMediaFileLocation extends Schema.NonEmptyString.check(
+  Schema.makeFilter(Predicate.not(String.includes('\0')), {
+    message: 'Library file locations must not contain NUL characters',
+  })
+).pipe(
+  Schema.decodeTo(Schema.NonEmptyString, {
+    decode: SchemaGetter.checkEffect((location) =>
+      Effect.map(
+        Path.Path,
+        (path) => path.isAbsolute(location) || 'Library file locations must be absolute paths'
+      )
     ),
-  });
+    encode: SchemaGetter.passthrough(),
+  }),
+  Schema.decodeTo(StorageMediaFileLocation, {
+    decode: SchemaGetter.transformEffect((location) =>
+      Effect.map(Path.Path, (path) => path.resolve(location))
+    ),
+    encode: SchemaGetter.passthrough(),
+  })
+) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+}
 
 class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
   '@repo/server/domains/plugins/storage/local/LocalStoragePlugin',
@@ -52,30 +86,16 @@ class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
       settings,
     }: Parameters<StoragePluginModule['storage']['layer']>[0]) {
       const path = yield* Path.Path;
-      yield* Schema.decodeUnknownEffect(settingsSchema({ path }))(settings).pipe(
+      yield* LocalStorageSettings.decodeUnknownEffect(settings).pipe(
         Effect.catchTags({
           SchemaError: () =>
             StoragePluginConstructionError.make({ message: 'Invalid local storage settings' }),
         })
       );
-      const decodeMediaFileLocation = Schema.decodeEffect(
-        Schema.NonEmptyString.check(
-          Schema.makeFilter(Predicate.not(String.includes('\0')), {
-            message: 'Library file locations must not contain NUL characters',
-          }),
-          Schema.makeFilter((location) => path.isAbsolute(location), {
-            message: 'Library file locations must be absolute paths',
-          })
-        ).pipe(
-          Schema.decodeTo(StorageMediaFileLocation, {
-            decode: SchemaGetter.transform((location) => path.resolve(location)),
-            encode: SchemaGetter.passthrough(),
-          })
-        )
-      );
       return StoragePlugin.of({
         decodeMediaFileLocation: ({ location }) =>
-          decodeMediaFileLocation(location).pipe(
+          LocalMediaFileLocation.decodeEffect(location).pipe(
+            Effect.provideService(Path.Path, path),
             Effect.catchTags({
               SchemaError: (error) =>
                 StorageLocationValidationError.make({ message: error.message }),
@@ -95,11 +115,11 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
   {
     make: Effect.gen(function* () {
       const path = yield* Path.Path;
-      const decode = Schema.decodeUnknownEffect(settingsSchema({ path }));
       return StoragePluginSettings.of({
         getForm: Effect.fnUntraced(function* ({ current }) {
           const settings = Option.isSome(current)
-            ? yield* decode(current.value).pipe(
+            ? yield* LocalStorageSettings.decodeUnknownEffect(current.value).pipe(
+                Effect.provideService(Path.Path, path),
                 Effect.catchTags({
                   SchemaError: () =>
                     StoragePluginSettingsError.make({
@@ -120,7 +140,8 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
           ]);
         }),
         decodeFormSubmission: ({ input }) =>
-          decode(input).pipe(
+          LocalStorageSettings.decodeUnknownEffect(input).pipe(
+            Effect.provideService(Path.Path, path),
             Effect.catchTags({
               SchemaError: () =>
                 StoragePluginInvalidSettingsError.make({

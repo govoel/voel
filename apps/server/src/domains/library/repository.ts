@@ -11,11 +11,6 @@ import {
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
-class LibraryWrite extends Schema.Struct({
-  ...Library.jsonCreate.fields,
-  storagePluginSettings: StoragePluginSettingsPersisted.fromJsonString,
-}) {}
-
 class LibraryRow extends Schema.Struct({
   id: Schema.toEncoded(Library.fields.id),
   type: Schema.toEncoded(Library.fields.type),
@@ -106,7 +101,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
 
         create: SqlSchema.findOne({
-          Request: LibraryWrite,
+          Request: Library.create,
           Result: LibraryRow,
           execute: (library) => sql`
             insert into
@@ -117,7 +112,7 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
 
         update: SqlSchema.findOne({
-          Request: Schema.Struct({ id: Library.fields.id, ...LibraryWrite.fields }),
+          Request: Schema.Struct({ id: Library.fields.id, ...Library.create.fields }),
           Result: LibraryRow,
           execute: ({ id, ...library }) => sql`
             update library
