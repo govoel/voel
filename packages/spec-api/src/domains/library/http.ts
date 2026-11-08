@@ -1,5 +1,4 @@
 import {
-  StoragePluginConstructionError,
   StoragePluginInvalidSettingsError,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
@@ -35,16 +34,6 @@ export class LibraryInput extends Schema.Struct({
   storagePluginSettings: StoragePluginSettingsInput,
 }) {}
 
-const writeErrors = [
-  LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
-  StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-  StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
-  StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-  StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
-  PluginLoadError.pipe(HttpApiSchema.status(500)),
-  StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
-];
-
 export const LibraryApi = HttpApiGroup.make('library')
   .add(
     HttpApiEndpoint.get('list', '/api/libraries', {
@@ -72,14 +61,29 @@ export const LibraryApi = HttpApiGroup.make('library')
     HttpApiEndpoint.post('create', '/api/libraries', {
       payload: LibraryInput,
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: writeErrors,
+      error: [
+        LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+        PluginLoadError.pipe(HttpApiSchema.status(500)),
+        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+      ],
     }),
 
     HttpApiEndpoint.put('update', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),
       payload: LibraryInput,
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: [LibraryNotFoundError.pipe(HttpApiSchema.status(404)), ...writeErrors],
+      error: [
+        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
+        LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+        PluginLoadError.pipe(HttpApiSchema.status(500)),
+        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+      ],
     }),
 
     HttpApiEndpoint.post(

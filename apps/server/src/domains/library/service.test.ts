@@ -86,6 +86,48 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
 
 it.layer(testLayer)('library service without transport', (iit) => {
   iit.effect(
+    'saves valid settings without constructing unavailable storage on create or update',
+    Effect.fnUntraced(function* () {
+      const service = yield* LibraryService;
+      const repository = yield* LibraryRepository;
+      const stores = yield* StoragePluginMap;
+      const input = {
+        name: Library.fields.name.make('Unavailable storage'),
+        type: Library.fields.type.make('movie'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: 'unavailable' }),
+      };
+      const library = yield* service.create(input);
+      const created = yield* repository.getById(library);
+      expect(created.storageKey.settings).toEqual({ prefix: 'unavailable' });
+      const initialKeys = yield* cacheKeys(library);
+      expect(initialKeys).toEqual([]);
+
+      const replacement = {
+        ...input,
+        ...library,
+        name: Library.fields.name.make('Updated unavailable storage'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:other'),
+      };
+      yield* service.update(replacement);
+      const updated = yield* repository.getById(library);
+      expect(updated).toMatchObject({
+        name: replacement.name,
+        storageKey: {
+          storagePluginId: replacement.storagePluginId,
+          settings: { prefix: 'unavailable' },
+        },
+      });
+      const updatedKeys = yield* cacheKeys(library);
+      expect(updatedKeys).toEqual([]);
+      const construction = yield* stores
+        .acquire(updated.storageKey)
+        .pipe(Effect.scoped, Effect.flip);
+      expect(construction).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+    })
+  );
+
+  iit.effect(
     'shares settings editors across previews, creation, and edits with current library inputs',
     Effect.fnUntraced(function* () {
       const service = yield* LibraryService;
@@ -209,21 +251,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       expect(target.keys).toHaveLength(2);
       expect(target.editor).toBe(unrelated.editor);
 
-      const retainedKeys =
-        operation === 'update'
-          ? [
-              ...target.keys,
-              StoragePluginKey.make({
-                storagePluginId: target.row.storageKey.storagePluginId,
-                library: {
-                  id: target.row.id,
-                  type: target.row.type,
-                  name: Library.fields.name.make(`Updated ${target.library.id}`),
-                },
-                settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
-              }),
-            ]
-          : target.keys;
+      const retainedKeys = target.keys;
       const change = mutate({ ...target.library, operation });
       yield* sql
         .withTransaction(change.pipe(Effect.andThen(Effect.fail('outer rollback'))))
@@ -349,22 +377,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
         expect(Exit.hasInterrupts(requestExit)).toBe(true);
         yield* drainScheduler;
         const cacheKeysResult = yield* cacheKeys(target.library);
-        expect(cacheKeysResult).toEqual(
-          boundary === 'commit'
-            ? []
-            : [
-                ...target.keys,
-                StoragePluginKey.make({
-                  storagePluginId: target.row.storageKey.storagePluginId,
-                  library: {
-                    id: target.row.id,
-                    type: target.row.type,
-                    name: Library.fields.name.make(`Updated ${target.library.id}`),
-                  },
-                  settings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
-                }),
-              ]
-        );
+        expect(cacheKeysResult).toEqual(boundary === 'commit' ? [] : target.keys);
         expect((yield* repository.getById(target.library)).storageKey.settings).toEqual({
           prefix: boundary === 'commit' ? '/updated' : '/initial',
         });

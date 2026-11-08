@@ -6,7 +6,6 @@ import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/librar
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
-import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 export class LibraryService extends Context.Service<LibraryService>()(
   '@repo/server/domains/library/service/LibraryService',
@@ -104,7 +103,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
               storagePluginId: request.storagePluginId,
               storagePluginSettings: settings,
             });
-            yield* stores.acquire(created.storageKey);
             return { id: created.id };
           },
           sql.withTransaction,
@@ -131,13 +129,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
                   : Option.none(),
               input: request.storagePluginSettings,
             });
-            yield* stores.acquire(
-              StoragePluginKey.make({
-                library: { id: request.id, type: request.type, name: request.name },
-                storagePluginId: request.storagePluginId,
-                settings,
-              })
-            );
             const updated = yield* repository.update({
               ...request,
               storagePluginSettings: settings,

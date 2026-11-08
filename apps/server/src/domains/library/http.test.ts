@@ -34,7 +34,7 @@ import { LibraryHandlersLayerNoDeps } from '#src/domains/library/http.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
 import { PluginFixture, TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
-import { StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
+import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
 import { ApiRoutesLayerNoDeps } from '#src/http.ts';
 import { makeAuthedClient } from '#src/testing/http.ts';
 
@@ -153,11 +153,11 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           params: library,
           payload: {
             ...payload,
-            storagePluginSettings: StoragePluginSettingsInput.make({ root: 'unavailable' }),
+            storagePluginSettings: StoragePluginSettingsInput.make({ root: 123 }),
           },
         })
         .pipe(Effect.flip);
-      expect(rejected).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+      expect(rejected).toMatchObject({ _tag: 'StoragePluginInvalidSettingsError' });
       const after = yield* client.library.get({ params: library });
       expect(after).toEqual(healthy);
     })
@@ -235,6 +235,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/background' }),
       };
       const library = yield* client.library.create({ payload });
+      const repository = yield* LibraryRepository;
+      const stores = yield* StoragePluginMap;
+      const row = yield* repository.getById(library);
+      yield* stores.acquire(row.storageKey).pipe(Effect.scoped);
 
       const started = yield* Latch.make();
       const release = yield* Latch.make();
