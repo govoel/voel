@@ -6,6 +6,7 @@ import { noContextServiceSecondTypeArgumentRule } from './rules/no-context-servi
 import { noEffectNamespaceImportRule } from './rules/no-effect-namespace-import.mts';
 import { noSchemaStructAssignmentRule } from './rules/no-schema-struct-assignment.mts';
 import { preferFnUntracedRule } from './rules/prefer-fn-untraced.mts';
+import { requireExplicitModelFieldsRule } from './rules/require-explicit-model-fields.mts';
 import { schemaClassBrandRule } from './rules/schema-class-brand.mts';
 
 const plugin = eslintCompatPlugin({
@@ -17,6 +18,7 @@ const plugin = eslintCompatPlugin({
     'no-effect-namespace-import': noEffectNamespaceImportRule,
     'no-schema-struct-assignment': noSchemaStructAssignmentRule,
     'prefer-fn-untraced': preferFnUntracedRule,
+    'require-explicit-model-fields': requireExplicitModelFieldsRule,
     'schema-class-brand': schemaClassBrandRule,
   },
 });
