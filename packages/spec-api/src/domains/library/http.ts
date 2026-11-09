@@ -3,7 +3,6 @@ import {
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
   StoragePluginSettingsForm,
-  StoragePluginSettingsInput,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from 'effect/http-api';
@@ -25,13 +24,6 @@ class LibraryResponse extends Schema.Struct({
   name: Library.json.fields.name,
   storagePluginId: Library.json.fields.storagePluginId,
   storagePluginSettings: Library.json.fields.storagePluginSettings,
-}) {}
-
-export class LibraryInput extends Schema.Struct({
-  name: Library.jsonCreate.fields.name,
-  type: Library.jsonCreate.fields.type,
-  storagePluginId: Library.jsonCreate.fields.storagePluginId,
-  storagePluginSettings: StoragePluginSettingsInput,
 }) {}
 
 export const LibraryApi = HttpApiGroup.make('library')
@@ -59,7 +51,7 @@ export const LibraryApi = HttpApiGroup.make('library')
     }),
 
     HttpApiEndpoint.post('create', '/api/libraries', {
-      payload: LibraryInput,
+      payload: Library.jsonCreate,
       success: Schema.Struct({ id: Library.json.fields.id }),
       error: [
         LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
@@ -73,7 +65,7 @@ export const LibraryApi = HttpApiGroup.make('library')
 
     HttpApiEndpoint.put('update', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: LibraryInput,
+      payload: Library.jsonUpdate,
       success: Schema.Struct({ id: Library.json.fields.id }),
       error: [
         LibraryNotFoundError.pipe(HttpApiSchema.status(404)),

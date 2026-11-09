@@ -3,6 +3,7 @@ import {
   StorageMediaFileLocation,
   StoragePluginConstructionError,
   StoragePluginSettingsConstructionError,
+  StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
@@ -314,6 +315,7 @@ export class Library extends Timestamped.extend<Library>(
     create: PluginLibrary.fields.type,
     json: PluginLibrary.fields.type,
     jsonCreate: PluginLibrary.fields.type,
+    jsonUpdate: PluginLibrary.fields.type,
   }),
   name: DbModel.Field({
     select: PluginLibrary.fields.name,
@@ -327,12 +329,14 @@ export class Library extends Timestamped.extend<Library>(
     create: StoragePluginId,
     json: StoragePluginId,
     jsonCreate: StoragePluginId,
+    jsonUpdate: StoragePluginId,
   }),
   storagePluginSettings: DbModel.Field({
     select: StoragePluginSettingsPersisted.fromJsonString,
     create: StoragePluginSettingsPersisted.fromJsonString,
     json: StoragePluginSettingsPersisted,
-    jsonCreate: StoragePluginSettingsPersisted,
+    jsonCreate: StoragePluginSettingsInput,
+    jsonUpdate: StoragePluginSettingsInput,
   }),
 }) {}
 

@@ -1,6 +1,5 @@
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
-import type { LibraryInput } from '@repo/spec-api/domains/library/http.ts';
 import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
@@ -90,7 +89,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           });
         }, Effect.scoped),
         create: Effect.fnUntraced(
-          function* (request: typeof LibraryInput.Type) {
+          function* (request: typeof Library.jsonCreate.Type) {
             const editor = yield* editors.acquire(request.storagePluginId);
             const settings = yield* editor.decodeFormSubmission({
               library: { name: request.name, type: request.type },
@@ -118,7 +117,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
           });
         }, Effect.scoped),
         update: Effect.fnUntraced(
-          function* (request: typeof LibraryInput.Type & Pick<Library, 'id'>) {
+          function* (request: typeof Library.jsonUpdate.Type & Pick<Library, 'id'>) {
             const row = yield* repository.getById({ id: request.id });
             const editor = yield* editors.acquire(request.storagePluginId);
             const settings = yield* editor.decodeFormSubmission({
