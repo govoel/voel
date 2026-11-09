@@ -101,7 +101,12 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
 
         create: SqlSchema.findOne({
-          Request: Library.create,
+          Request: Schema.Struct({
+            name: Library.create.fields.name,
+            type: Library.create.fields.type,
+            storagePluginId: Library.create.fields.storagePluginId,
+            storagePluginSettings: Library.create.fields.storagePluginSettings,
+          }),
           Result: LibraryRow,
           execute: (library) => sql`
             insert into
@@ -112,7 +117,13 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
 
         update: SqlSchema.findOne({
-          Request: Schema.Struct({ id: Library.fields.id, ...Library.create.fields }),
+          Request: Schema.Struct({
+            id: Library.fields.id,
+            name: Library.create.fields.name,
+            type: Library.create.fields.type,
+            storagePluginId: Library.create.fields.storagePluginId,
+            storagePluginSettings: Library.create.fields.storagePluginSettings,
+          }),
           Result: LibraryRow,
           execute: ({ id, ...library }) => sql`
             update library

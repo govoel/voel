@@ -51,7 +51,12 @@ export const LibraryApi = HttpApiGroup.make('library')
     }),
 
     HttpApiEndpoint.post('create', '/api/libraries', {
-      payload: Library.jsonCreate,
+      payload: Schema.Struct({
+        name: Library.jsonCreate.fields.name,
+        type: Library.jsonCreate.fields.type,
+        storagePluginId: Library.jsonCreate.fields.storagePluginId,
+        storagePluginSettings: Library.jsonCreate.fields.storagePluginSettings,
+      }),
       success: Schema.Struct({ id: Library.json.fields.id }),
       error: [
         LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
@@ -65,7 +70,12 @@ export const LibraryApi = HttpApiGroup.make('library')
 
     HttpApiEndpoint.put('update', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: Library.jsonUpdate,
+      payload: Schema.Struct({
+        name: Library.jsonUpdate.fields.name,
+        type: Library.jsonUpdate.fields.type,
+        storagePluginId: Library.jsonUpdate.fields.storagePluginId,
+        storagePluginSettings: Library.jsonUpdate.fields.storagePluginSettings,
+      }),
       success: Schema.Struct({ id: Library.json.fields.id }),
       error: [
         LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
