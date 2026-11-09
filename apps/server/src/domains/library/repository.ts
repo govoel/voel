@@ -122,7 +122,11 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
         }),
 
         create: SqlSchema.findOne({
-          Request: Library.jsonCreate,
+          Request: Schema.Struct({
+            name: Library.jsonCreate.fields.name,
+            type: Library.jsonCreate.fields.type,
+            storagePlugin: Library.jsonCreate.fields.storagePlugin,
+          }),
           Result: Schema.Struct({ id: Library.fields.id }),
           execute: (request) => sql`
             insert into

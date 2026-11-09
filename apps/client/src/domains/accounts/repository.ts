@@ -106,7 +106,16 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
           `,
         }),
         upsert: SqlSchema.findOne({
-          Request: DbAccount.upsert.pipe(Schema.middlewareEncoding(Effect.provideContext(crypto))),
+          Request: Schema.Struct({
+            serverUrl: DbAccount.upsert.fields.serverUrl,
+            userId: DbAccount.upsert.fields.userId,
+            username: DbAccount.upsert.fields.username,
+            name: DbAccount.upsert.fields.name,
+            email: DbAccount.upsert.fields.email,
+            role: DbAccount.upsert.fields.role,
+            profilePicture: DbAccount.upsert.fields.profilePicture,
+            authStorage: DbAccount.upsert.fields.authStorage,
+          }).pipe(Schema.middlewareEncoding(Effect.provideContext(crypto))),
           Result: AccountKey,
           execute: (account) => sql`
             insert into
@@ -153,7 +162,13 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
         updateProfile: SqlSchema.void({
           Request: Schema.Struct({
             key: AccountKey,
-            profile: Schema.Struct(Struct.omit(DbAccount.update.fields, ['serverUrl', 'userId'])),
+            profile: Schema.Struct({
+              username: DbAccount.update.fields.username,
+              name: DbAccount.update.fields.name,
+              email: DbAccount.update.fields.email,
+              role: DbAccount.update.fields.role,
+              profilePicture: DbAccount.update.fields.profilePicture,
+            }),
           }),
           execute: ({ key, profile }) => sql`
             update account

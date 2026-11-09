@@ -35,6 +35,7 @@
     "effect-conventions/no-effect-namespace-import": "error",
     "effect-conventions/no-schema-struct-assignment": "error",
     "effect-conventions/prefer-fn-untraced": "error",
+    "effect-conventions/require-explicit-model-fields": "error",
     "effect-conventions/schema-class-brand": "error",
 
     "eslint/no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
