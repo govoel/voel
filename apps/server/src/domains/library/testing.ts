@@ -106,19 +106,10 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
             Effect.sync(() =>
               StoragePluginSettings.of({
                 getForm: Effect.fnUntraced(function* ({ library, current }) {
-                  if (controls.settingsError) {
-                    return yield* StoragePluginSettingsError.make({
-                      message: 'Settings unavailable',
-                    });
-                  }
                   const settings = Option.isSome(current)
                     ? yield* Persisted.decodeUnknownEffect(current.value).pipe(
                         Effect.catchTags({
-                          SchemaError: () =>
-                            StoragePluginSettingsError.make({
-                              message:
-                                'Storage plugin could not build the settings form from the current settings',
-                            }),
+                          SchemaError: () => Effect.succeed({ prefix: '' }),
                         })
                       )
                     : { prefix: '' };

@@ -922,9 +922,9 @@ it.effect.each(['storage', 'settings'] as const)(
   })
 );
 
-it.effect.each(['typed failure', 'synchronous throw'] as const)(
-  'preserves a method %s and restores the caller context',
-  Effect.fnUntraced(function* (outcome) {
+it.effect(
+  'preserves plugin failures and defects without changing caller services or metadata',
+  Effect.fnUntraced(function* () {
     const error = StoragePluginSettingsError.make({ message: 'settings unavailable' });
     const defect = new Error('synchronous plugin defect');
     const module = {
@@ -934,12 +934,9 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
           StoragePluginSettings,
           StoragePluginSettings.of({
             getForm: () => {
-              if (outcome === 'synchronous throw') {
-                throw defect;
-              }
-              return error;
+              throw defect;
             },
-            decodeFormSubmission: () => Effect.succeed(request.settings),
+            decodeFormSubmission: () => error,
           })
         ),
       },
@@ -949,14 +946,24 @@ it.effect.each(['typed failure', 'synchronous throw'] as const)(
       const editors = yield* StoragePluginSettingsMap;
       const settings = yield* editors.acquire(request.storagePluginId);
       yield* Effect.gen(function* () {
-        const before = yield* Effect.context();
-        const operation = settings.getForm({ library: libraryMetadata, current: Option.none() });
-        const exit = yield* Effect.exit(operation);
-        expect(exit).toEqual(outcome === 'typed failure' ? Exit.fail(error) : Exit.die(defect));
-        const services = yield* Effect.context();
-        expect(services).toBe(before);
-        const privateService = yield* PrivateService;
-        expect(privateService).toBe('caller-private');
+        const before = yield* snapshotContext;
+        const submission = yield* settings
+          .decodeFormSubmission({
+            library: libraryMetadata,
+            current: Option.none(),
+            input: StoragePluginSettingsInput.make({}),
+          })
+          .pipe(Effect.exit);
+        expect(submission).toEqual(Exit.fail(error));
+        const afterSubmission = yield* snapshotContext;
+        expect(afterSubmission).toEqual(before);
+
+        const form = yield* settings
+          .getForm({ library: libraryMetadata, current: Option.none() })
+          .pipe(Effect.exit);
+        expect(form).toEqual(Exit.die(defect));
+        const afterForm = yield* snapshotContext;
+        expect(afterForm).toEqual(before);
       }).pipe(
         Effect.provideService(PrivateService, 'caller-private'),
         Effect.annotateLogs({ request: 'caller' }),

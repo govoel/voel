@@ -657,74 +657,81 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
     )
   );
 
+  iit.effect(
+    'opens default forms for incompatible saved settings so they can be replaced',
+    Effect.fnUntraced(function* () {
+      const { client } = yield* makeWireTransport(
+        Option.some({ username: 'wire_incompatible_settings', role: 'admin' })
+      );
+      const repository = yield* LibraryRepository;
+      const input = {
+        ...createInput('Incompatible local settings'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/replacement'] }),
+      };
+      const original = StoragePluginSettingsPersisted.make({ prefix: '/another-plugin' });
+      const library = yield* repository.create({ ...input, storagePluginSettings: original });
+      const savedForm = yield* client.library.getStoragePluginSettingsForm({ params: library });
+      const draftForm = yield* client.library.getDraftStoragePluginSettingsForm({
+        payload: { ...input, id: Option.some(library.id) },
+      });
+      expect(savedForm).toMatchObject([{ name: 'roots', initialValue: [] }]);
+      expect(draftForm).toEqual(savedForm);
+      const afterPreview = yield* repository.getById(library);
+      expect(afterPreview).toEqual(library);
+      yield* client.library.update({ params: library, payload: input });
+      const updated = yield* client.library.get({ params: library });
+      expect(updated.storagePluginSettings).toEqual({ roots: ['/replacement'] });
+      yield* client.library.delete({ params: library });
+    })
+  );
+
   iit.effect.each([
     [
       'invalid submission',
-      'PUT',
       422,
       'StoragePluginInvalidSettingsError',
       'Submitted storage plugin settings failed validation',
     ],
-    ['operational GET', 'GET', 500, 'StoragePluginSettingsError', 'Settings unavailable'],
-    ['operational PUT', 'PUT', 500, 'StoragePluginSettingsError', 'Settings unavailable'],
-    [
-      'invalid current settings',
-      'GET',
-      500,
-      'StoragePluginSettingsError',
-      'Storage plugin could not build the settings form from the current settings',
-    ],
+    ['operational PUT', 500, 'StoragePluginSettingsError', 'Settings unavailable'],
   ] as const)(
     'distinguishes submitted settings validation from operational failures: %s',
-    Effect.fnUntraced(function* ([scenario, method, status, tag, message]) {
+    Effect.fnUntraced(function* ([scenario, status, tag, message]) {
       const { client, http } = yield* makeWireTransport(
         Option.some({ username: 'wire_settings', role: 'admin' })
       );
       const fixture = yield* PluginFixture;
-      const repository = yield* LibraryRepository;
-      const library = yield* Effect.acquireRelease(
-        client.library.create({
-          payload: createInput(`HTTP settings ${scenario}`, 'npm:test'),
-        }),
-        (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
+      const payload = createInput(`HTTP settings ${scenario}`, 'npm:test');
+      const library = yield* Effect.acquireRelease(client.library.create({ payload }), (created) =>
+        client.library.delete({ params: created }).pipe(Effect.orDie)
       );
-      const original = StoragePluginSettingsPersisted.make(
-        scenario === 'invalid current settings' ? {} : { prefix: '/original' }
-      );
-      yield* repository.update({
-        ...createRecord(`HTTP settings ${scenario}`, 'npm:test'),
-        ...library,
-        storagePluginSettings: original,
-      });
+      const before = yield* client.library.get({ params: library });
       const { settingsError } = fixture.controls;
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
           fixture.controls.settingsError = settingsError;
         })
       );
-      fixture.controls.settingsError =
-        scenario === 'operational GET' || scenario === 'operational PUT';
+      fixture.controls.settingsError = scenario === 'operational PUT';
       const input = StoragePluginSettingsInput.make({
         root:
           scenario === 'invalid submission' ? { secret: 'submitted-settings-secret' } : '/updated',
       });
       const path = `http://localhost/api/libraries/${library.id}`;
       const response = yield* http.execute(
-        method === 'GET'
-          ? HttpClientRequest.get(`${path}/plugins/storage/settings-form`)
-          : HttpClientRequest.put(path).pipe(
-              HttpClientRequest.bodyJsonUnsafe({
-                ...createInput(`HTTP settings ${scenario}`, 'npm:test'),
-                storagePluginSettings: input,
-              })
-            )
+        HttpClientRequest.put(path).pipe(
+          HttpClientRequest.bodyJsonUnsafe({
+            ...payload,
+            name: 'Rejected settings update',
+            type: 'show',
+            storagePluginSettings: input,
+          })
+        )
       );
       expect(response.status).toBe(status);
       const body = yield* response.json;
       expect(body).toEqual({ _tag: tag, message });
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        original
-      );
+      const after = yield* client.library.get({ params: library });
+      expect(after).toEqual(before);
     })
   );
 
@@ -735,19 +742,13 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         Option.some({ username: 'wire_malformed_settings', role: 'admin' })
       );
       const fixture = yield* PluginFixture;
-      const repository = yield* LibraryRepository;
       const library = yield* Effect.acquireRelease(
         client.library.create({
           payload: createInput(`HTTP settings ${scenario}`, 'npm:test'),
         }),
         (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
       );
-      const original = StoragePluginSettingsPersisted.make({ prefix: '/original' });
-      yield* repository.update({
-        ...createRecord(`HTTP settings ${scenario}`, 'npm:test'),
-        ...library,
-        storagePluginSettings: original,
-      });
+      const before = yield* client.library.get({ params: library });
       const { invalidForm, invalidPersisted } = fixture.controls;
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
@@ -772,9 +773,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       expect(response.status).toBe(500);
       const text = yield* response.text;
       expect(text).toBe('');
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        original
-      );
+      const after = yield* client.library.get({ params: library });
+      expect(after).toEqual(before);
     })
   );
 

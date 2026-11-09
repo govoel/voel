@@ -102,7 +102,6 @@ export const LibraryApi = HttpApiGroup.make('library')
         error: [
           LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
           StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-          StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
           PluginLoadError.pipe(HttpApiSchema.status(500)),
           StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
         ],
@@ -118,7 +117,6 @@ export const LibraryApi = HttpApiGroup.make('library')
         error: [
           LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
           StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-          StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
           PluginLoadError.pipe(HttpApiSchema.status(500)),
           StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
         ],

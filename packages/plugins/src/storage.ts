@@ -157,12 +157,13 @@ export class StoragePluginSettings extends Context.Service<
     /**
      * Unbranded UI descriptors and secret-free initial values; no validation rules.
      * The host validates the form and brands its field names.
-     * Invalid current settings and operational failures use StoragePluginSettingsError.
+     * Infallible: populate compatible current values and use defaults otherwise.
+     * Incompatible saved settings must not prevent users from opening the form to replace them.
      */
     readonly getForm: (request: {
       readonly library: Pick<typeof Library.Type, 'name' | 'type'>;
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
-    }) => Effect.Effect<typeof StoragePluginSettingsForm.Encoded, StoragePluginSettingsError>;
+    }) => Effect.Effect<typeof StoragePluginSettingsForm.Encoded>;
 
     /**
      * Schema-validate input, using current as needed, into complete, secret-free JSON.

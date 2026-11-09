@@ -5,7 +5,6 @@ import {
   StoragePlugin,
   StoragePluginInvalidSettingsError,
   StoragePluginSettings,
-  StoragePluginSettingsError,
 } from '@govoel/plugins/storage';
 import {
   Array,
@@ -107,10 +106,7 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
             ? yield* LocalStorageSettings.decodeUnknownEffect(current.value).pipe(
                 Effect.provideService(Path.Path, path),
                 Effect.catchTags({
-                  SchemaError: () =>
-                    StoragePluginSettingsError.make({
-                      message: 'Invalid current local storage settings',
-                    }),
+                  SchemaError: () => Effect.succeed({ roots: [] }),
                 })
               )
             : { roots: [] };

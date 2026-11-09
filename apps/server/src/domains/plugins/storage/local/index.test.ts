@@ -1,11 +1,7 @@
 import { BunPath } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
 import { Library } from '@govoel/plugins/library';
-import {
-  StoragePluginSettings,
-  StoragePluginSettingsInput,
-  StoragePluginSettingsPersisted,
-} from '@govoel/plugins/storage';
+import { StoragePluginSettings, StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Effect, Layer, Option } from 'effect';
 
 import local from '#src/domains/plugins/storage/local/index.ts';
@@ -25,7 +21,7 @@ it.effect.each([
   { roots: ['relative'] },
   { roots: ['/audio', '/nul\0'] },
 ])(
-  'rejects malformed local source configuration at submission and editing: %j',
+  'rejects malformed local directory submissions: %j',
   Effect.fnUntraced(
     function* (value) {
       const editor = yield* StoragePluginSettings;
@@ -37,11 +33,6 @@ it.effect.each([
         })
         .pipe(Effect.flip);
       expect(submitted).toMatchObject({ _tag: 'StoragePluginInvalidSettingsError' });
-      const persisted = StoragePluginSettingsPersisted.make(value);
-      const form = yield* editor
-        .getForm({ library, current: Option.some(persisted) })
-        .pipe(Effect.flip);
-      expect(form).toMatchObject({ _tag: 'StoragePluginSettingsError' });
     },
     Effect.scoped,
     Effect.provide(local.storage.layerSettings.pipe(Layer.provideMerge(BunPath.layer)))
