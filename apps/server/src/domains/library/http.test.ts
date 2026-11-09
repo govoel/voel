@@ -96,7 +96,9 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           roots: ['/books/../audio', '/audio/./', '/movies'],
         }),
       };
-      const draft = yield* client.library.getDraftStoragePluginSettingsForm({ payload: input });
+      const draft = yield* client.library.getDraftStoragePluginSettingsForm({
+        payload: { ...input, id: Option.none() },
+      });
       expect(draft).toMatchObject([{ kind: 'TextListField', name: 'roots', initialValue: [] }]);
       const library = yield* client.library.create({ payload: input });
       const created = yield* client.library.get({ params: library });
@@ -471,13 +473,62 @@ const makeWireTransport = Effect.fnUntraced(function* (
 
 it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   iit.effect(
+    'previews persisted settings with draft metadata across plugin versions without saving',
+    Effect.fnUntraced(function* () {
+      const { client, http } = yield* makeWireTransport(
+        Option.some({ username: 'wire_version_draft', role: 'admin' })
+      );
+      const input = createInput('Plugin version draft', 'npm:test@1');
+      const library = yield* client.library.create({ payload: input });
+      const before = yield* client.library.get({ params: library });
+      const draft = {
+        ...input,
+        id: Option.some(library.id),
+        name: Library.fields.name.make('Renamed plugin version draft'),
+        type: Library.fields.type.make('audiobook'),
+      };
+      for (const pluginId of ['npm:test@1', 'npm:test@2'] as const) {
+        const form = yield* client.library.getDraftStoragePluginSettingsForm({
+          payload: { ...draft, storagePluginId: Library.fields.storagePluginId.make(pluginId) },
+        });
+        expect(form).toMatchObject([{ label: draft.name, initialValue: '/initial' }]);
+      }
+      const afterPreview = yield* client.library.get({ params: library });
+      expect(afterPreview).toEqual(before);
+      yield* client.library.update({
+        params: library,
+        payload: {
+          ...input,
+          storagePluginId: Library.fields.storagePluginId.make('npm:test@2'),
+          storagePluginSettings: StoragePluginSettingsInput.make({ root: '/updated' }),
+        },
+      });
+      const updatedForm = yield* client.library.getDraftStoragePluginSettingsForm({
+        payload: { ...draft, storagePluginId: Library.fields.storagePluginId.make('npm:test@2') },
+      });
+      expect(updatedForm).toMatchObject([{ label: draft.name, initialValue: '/updated' }]);
+      yield* client.library.delete({ params: library });
+      const missing = yield* http.execute(
+        HttpClientRequest.post('http://localhost/api/libraries/plugins/storage/settings-form').pipe(
+          HttpClientRequest.bodyJsonUnsafe({ ...input, id: library.id })
+        )
+      );
+      expect(missing.status).toBe(404);
+      const missingBody = yield* missing.json;
+      expect(missingBody).toMatchObject({ _tag: 'LibraryNotFoundError', id: library.id });
+    })
+  );
+
+  iit.effect(
     'serves draft forms and validates settings before creation over HTTP',
     Effect.fnUntraced(function* () {
       const { client } = yield* makeWireTransport(
         Option.some({ username: 'wire_draft', role: 'admin' })
       );
       const input = createInput('Draft HTTP', 'npm:test');
-      const draftForm = yield* client.library.getDraftStoragePluginSettingsForm({ payload: input });
+      const draftForm = yield* client.library.getDraftStoragePluginSettingsForm({
+        payload: { ...input, id: Option.none() },
+      });
       expect(draftForm).toMatchObject([{ label: 'Draft HTTP', initialValue: '' }]);
       for (const payload of [
         { ...input, storagePluginSettings: StoragePluginSettingsInput.make({ root: 123 }) },

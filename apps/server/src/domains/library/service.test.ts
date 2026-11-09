@@ -149,7 +149,10 @@ it.layer(testLayer)('library service without transport', (iit) => {
         type: Library.fields.type.make('movie'),
         storagePluginId: Library.fields.storagePluginId.make('npm:test'),
       };
-      const preview = yield* service.getDraftStoragePluginSettingsForm(request);
+      const preview = yield* service.getDraftStoragePluginSettingsForm({
+        ...request,
+        id: Option.none(),
+      });
       expect(preview).toMatchObject([{ label: request.name, initialValue: '' }]);
       const editors = yield* StoragePluginSettingsMap;
       const editor = yield* editors.acquire(request.storagePluginId).pipe(Effect.scoped);
@@ -395,7 +398,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
   );
 
   iit.effect(
-    'passes submitted metadata and only the selected plugin current settings to its editor',
+    'passes submitted metadata and persisted settings to the selected plugin across plugin changes',
     Effect.fnUntraced(function* () {
       const service = yield* LibraryService;
       const fixture = yield* PluginFixture;
@@ -420,7 +423,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
         ...library,
         name: Library.fields.name.make('Remote'),
         type: Library.fields.type.make('audiobook'),
-        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test@1'),
         storagePluginSettings: StoragePluginSettingsInput.make({ root: '/remote' }),
       };
       yield* service.update(input);
@@ -430,23 +433,26 @@ it.layer(testLayer)('library service without transport', (iit) => {
       });
       yield* service.update({
         ...input,
-        storagePluginId: Library.fields.storagePluginId.make('npm:other'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test@2'),
       });
       expect(
         Array.map(submissions, ({ library: metadata, current }) => ({ library: metadata, current }))
       ).toEqual([
-        { library: { name: 'Remote', type: 'audiobook' }, current: Option.none() },
+        { library: { name: 'Remote', type: 'audiobook' }, current: Option.some({ roots: [] }) },
         {
           library: { name: 'Remote', type: 'audiobook' },
           current: Option.some({ prefix: '/remote' }),
         },
-        { library: { name: 'Remote', type: 'audiobook' }, current: Option.none() },
+        {
+          library: { name: 'Remote', type: 'audiobook' },
+          current: Option.some({ prefix: '/changed' }),
+        },
       ]);
       const updated = yield* service.get(library);
       expect(updated).toMatchObject({
         name: 'Remote',
         type: 'audiobook',
-        storagePluginId: 'npm:other',
+        storagePluginId: 'npm:test@2',
         storagePluginSettings: { prefix: '/remote' },
       });
     })

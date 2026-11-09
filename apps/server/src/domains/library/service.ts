@@ -80,12 +80,21 @@ export class LibraryService extends Context.Service<LibraryService>()(
           };
         }),
         getDraftStoragePluginSettingsForm: Effect.fnUntraced(function* (
-          request: Pick<Library, 'name' | 'type' | 'storagePluginId'>
+          request: Pick<Library, 'name' | 'type' | 'storagePluginId'> & {
+            readonly id: Option.Option<Library['id']>;
+          }
         ) {
+          const current = yield* Option.match(request.id, {
+            onNone: () => Effect.succeedNone,
+            onSome: (id) =>
+              repository
+                .getById({ id })
+                .pipe(Effect.map((row) => Option.some(row.storageKey.settings))),
+          });
           const editor = yield* editors.acquire(request.storagePluginId);
           return yield* editor.getForm({
             library: { name: request.name, type: request.type },
-            current: Option.none(),
+            current,
           });
         }, Effect.scoped),
         create: Effect.fnUntraced(
@@ -122,10 +131,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
             const editor = yield* editors.acquire(request.storagePluginId);
             const settings = yield* editor.decodeFormSubmission({
               library: { name: request.name, type: request.type },
-              current:
-                row.storageKey.storagePluginId === request.storagePluginId
-                  ? Option.some(row.storageKey.settings)
-                  : Option.none(),
+              current: Option.some(row.storageKey.settings),
               input: request.storagePluginSettings,
             });
             const updated = yield* repository.update({

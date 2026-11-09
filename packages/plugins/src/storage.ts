@@ -144,8 +144,9 @@ export class StoragePlugin extends Context.Service<
  * One instance is shared across libraries and concurrent invocations. Keep
  * library-specific state in method inputs rather than on the shared service.
  *
- * Neither method writes settings. `current` is server-loaded JSON for this plugin:
- * None means setup; Some means a persisted value (which must be decoded by the plugin).
+ * Neither method writes settings. `current` is server-loaded JSON for the library:
+ * None means setup; Some means a persisted value, possibly from another plugin or version.
+ * The selected plugin must decode, transform, reject, or ignore that value as appropriate.
  * Plugins translate schema failures into client-safe errors; malformed successful outputs
  * violate the contract and are reported as defects by the host.
  */

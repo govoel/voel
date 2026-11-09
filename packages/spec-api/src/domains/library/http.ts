@@ -93,12 +93,14 @@ export const LibraryApi = HttpApiGroup.make('library')
       '/api/libraries/plugins/storage/settings-form',
       {
         payload: Schema.Struct({
+          id: Schema.OptionFromOptionalKey(Library.json.fields.id),
           name: Library.jsonCreate.fields.name,
           type: Library.jsonCreate.fields.type,
           storagePluginId: Library.jsonCreate.fields.storagePluginId,
         }),
         success: StoragePluginSettingsForm,
         error: [
+          LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
           StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
           StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
           PluginLoadError.pipe(HttpApiSchema.status(500)),
