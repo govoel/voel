@@ -18,21 +18,23 @@ const textInputPurpose = Schema.Literals(['text', 'name', 'username', 'email', '
  */
 export class StoragePluginSettingsForm extends Schema.Array(
   Schema.Union([
-    Schema.TaggedStruct('TextField', {
+    Schema.Struct({
+      kind: Schema.Literal('TextField'),
       name: StoragePluginSettingsFieldName,
       label: Schema.NonEmptyString,
       placeholder: Schema.String,
       purpose: textInputPurpose,
       initialValue: Schema.String,
     }),
-    Schema.TaggedStruct('TextListField', {
+    Schema.Struct({
+      kind: Schema.Literal('TextListField'),
       name: StoragePluginSettingsFieldName,
       label: Schema.NonEmptyString,
       placeholder: Schema.String,
       purpose: textInputPurpose,
       initialValue: Schema.Array(Schema.String),
     }),
-  ])
+  ]).pipe(Schema.toTaggedUnion('kind'))
 ).check(
   Schema.makeFilter(
     (fields) => Array.dedupe(Array.map(fields, ({ name }) => name)).length === fields.length,
@@ -52,7 +54,7 @@ export const StoragePluginSettingsInput = Schema.Json.pipe(
 export type StoragePluginSettingsInput = typeof StoragePluginSettingsInput.Type;
 
 /**
- * Replicated, secret-free JSON; plugins validate and encode before branding.
+ * Replicated, secret-free JSON; the host validates and brands plugin output.
  * This brand checks JSON structure, not whether values contain secrets.
  */
 export class StoragePluginSettingsPersisted extends Schema.Json.pipe(
@@ -152,17 +154,18 @@ export class StoragePluginSettings extends Context.Service<
   // oxlint-disable-next-line effect-conventions/no-context-service-second-type-argument -- plugins implement this contract
   {
     /**
-     * UI fields and secret-free initial values; no validation rules.
+     * Unbranded UI descriptors and secret-free initial values; no validation rules.
+     * The host validates the form and brands its field names.
      * Invalid current settings and operational failures use StoragePluginSettingsError.
      */
     readonly getForm: (request: {
       readonly library: Pick<typeof Library.Type, 'name' | 'type'>;
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
-    }) => Effect.Effect<typeof StoragePluginSettingsForm.Type, StoragePluginSettingsError>;
+    }) => Effect.Effect<typeof StoragePluginSettingsForm.Encoded, StoragePluginSettingsError>;
 
     /**
      * Schema-validate input, using current as needed, into complete, secret-free JSON.
-     * Input and persisted shapes may differ. The host validates JSON before saving.
+     * Input and persisted shapes may differ. The host validates and brands JSON before saving.
      * Reject submitted input with StoragePluginInvalidSettingsError; invalid current
      * settings and operational failures use StoragePluginSettingsError.
      */
@@ -171,7 +174,7 @@ export class StoragePluginSettings extends Context.Service<
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
       readonly input: StoragePluginSettingsInput;
     }) => Effect.Effect<
-      typeof StoragePluginSettingsPersisted.Type,
+      Schema.Json,
       StoragePluginInvalidSettingsError | StoragePluginSettingsError
     >;
   }

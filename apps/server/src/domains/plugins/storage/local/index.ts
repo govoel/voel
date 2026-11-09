@@ -1,4 +1,4 @@
-import type { StoragePluginModule } from '@govoel/plugins/storage';
+import type { StoragePluginModule, StoragePluginSettingsForm } from '@govoel/plugins/storage';
 import {
   StorageLocationValidationError,
   StorageMediaFileLocation,
@@ -6,9 +6,6 @@ import {
   StoragePluginInvalidSettingsError,
   StoragePluginSettings,
   StoragePluginSettingsError,
-  StoragePluginSettingsFieldName,
-  StoragePluginSettingsForm,
-  StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
 import {
   Array,
@@ -117,16 +114,16 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
                 })
               )
             : { roots: [] };
-          return StoragePluginSettingsForm.make([
+          return [
             {
-              _tag: 'TextListField',
+              kind: 'TextListField',
               purpose: 'text',
-              name: StoragePluginSettingsFieldName.make('roots'),
+              name: 'roots',
               label: 'Directories',
               placeholder: '/path/to/media',
               initialValue: settings.roots,
             },
-          ]);
+          ] satisfies typeof StoragePluginSettingsForm.Encoded;
         }),
         decodeFormSubmission: ({ input }) =>
           LocalStorageSettings.decodeUnknownEffect(input).pipe(
@@ -136,8 +133,7 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
                 StoragePluginInvalidSettingsError.make({
                   message: 'Directories must be non-empty absolute paths without NUL characters',
                 }),
-            }),
-            Effect.map((settings) => StoragePluginSettingsPersisted.make(settings))
+            })
           ),
       });
     }),

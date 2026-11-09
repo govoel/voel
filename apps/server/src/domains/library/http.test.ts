@@ -97,13 +97,13 @@ it.layer(testLayer)('library lifecycle', (iit) => {
         }),
       };
       const draft = yield* client.library.getDraftStoragePluginSettingsForm({ payload: input });
-      expect(draft).toMatchObject([{ _tag: 'TextListField', name: 'roots', initialValue: [] }]);
+      expect(draft).toMatchObject([{ kind: 'TextListField', name: 'roots', initialValue: [] }]);
       const library = yield* client.library.create({ payload: input });
       const created = yield* client.library.get({ params: library });
       expect(created.storagePluginSettings).toEqual({ roots: ['/audio', '/movies'] });
       const form = yield* client.library.getStoragePluginSettingsForm({ params: library });
       expect(form).toMatchObject([
-        { _tag: 'TextListField', name: 'roots', initialValue: ['/audio', '/movies'] },
+        { kind: 'TextListField', name: 'roots', initialValue: ['/audio', '/movies'] },
       ]);
       yield* client.library.update({ params: library, payload: input });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(

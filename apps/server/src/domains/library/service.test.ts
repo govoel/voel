@@ -54,7 +54,6 @@ const cacheKeys = Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
 
 const warmLibrary = Effect.fnUntraced(function* (name: string) {
   const repository = yield* LibraryRepository;
-  const editors = yield* StoragePluginSettingsMap;
   const stores = yield* StoragePluginMap;
   const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
   const created = yield* repository.create({
@@ -65,6 +64,7 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   });
   const library = { id: created.id };
   const row = created;
+  const editors = yield* StoragePluginSettingsMap;
   const editor = yield* editors.acquire(row.storageKey.storagePluginId).pipe(Effect.scoped);
   const metadata = { id: row.id, type: row.type, name: row.name };
   for (const snapshot of [
@@ -132,7 +132,6 @@ it.layer(testLayer)('library service without transport', (iit) => {
     Effect.fnUntraced(function* () {
       const service = yield* LibraryService;
       const repository = yield* LibraryRepository;
-      const editors = yield* StoragePluginSettingsMap;
       const fixture = yield* PluginFixture;
       const submissions: Array<Parameters<typeof fixture.controls.beforeDecode>[0]> = [];
       const { beforeDecode } = fixture.controls;
@@ -152,6 +151,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
       };
       const preview = yield* service.getDraftStoragePluginSettingsForm(request);
       expect(preview).toMatchObject([{ label: request.name, initialValue: '' }]);
+      const editors = yield* StoragePluginSettingsMap;
       const editor = yield* editors.acquire(request.storagePluginId).pipe(Effect.scoped);
       const library = yield* service.create({
         ...request,
@@ -220,20 +220,20 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const storage = yield* stores.acquire(storageKey);
       const acquireResult2 = yield* stores.acquire(listedStorageKey);
       expect(acquireResult2).toBe(storage);
-      const contextEffectOptionResult = yield* editors.contextEffectOption(
+      const cachedEditor = yield* editors.contextEffectOption(
         configured.storageKey.storagePluginId
       );
-      expect(Option.isSome(contextEffectOptionResult)).toBe(true);
+      expect(Option.isSome(cachedEditor)).toBe(true);
       const contextEffectOptionResult2 = yield* stores.contextEffectOption(listedStorageKey);
       expect(Option.isSome(contextEffectOptionResult2)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'healthy' });
 
       yield* editors.invalidate(listed.storageKey.storagePluginId);
       yield* stores.invalidate(listedStorageKey);
-      const contextEffectOptionResult3 = yield* editors.contextEffectOption(
+      const invalidatedEditor = yield* editors.contextEffectOption(
         configured.storageKey.storagePluginId
       );
-      expect(Option.isNone(contextEffectOptionResult3)).toBe(true);
+      expect(Option.isNone(invalidatedEditor)).toBe(true);
       const contextEffectOptionResult4 = yield* stores.contextEffectOption(storageKey);
       expect(Option.isNone(contextEffectOptionResult4)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });

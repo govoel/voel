@@ -150,64 +150,79 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
   );
 }
 
+class StoragePluginSettingsEditor extends Context.Service<StoragePluginSettingsEditor>()(
+  '@repo/server/domains/plugins/storage/StoragePluginSettingsEditor',
+  {
+    make: Effect.fnUntraced(function* ({ storagePluginId }: Pick<Library, 'storagePluginId'>) {
+      const buildPlugin = yield* StoragePluginBuilder;
+      const { context, invoke } = yield* buildPlugin({
+        storagePluginId,
+        makeLayer: (module) => module.storage.layerSettings,
+      });
+      const settings = Context.get(context, StoragePluginSettings);
+      return {
+        getForm: ({ library, current }: Parameters<typeof settings.getForm>[0]) =>
+          invoke(() =>
+            settings
+              .getForm({
+                library: { name: library.name, type: library.type },
+                current,
+              })
+              .pipe(
+                Effect.flatMap((form) =>
+                  StoragePluginSettingsForm.decodeEffect(form).pipe(
+                    Effect.catchTags({ SchemaError: Effect.die })
+                  )
+                )
+              )
+          ),
+        decodeFormSubmission: ({
+          library,
+          current,
+          input,
+        }: Parameters<typeof settings.decodeFormSubmission>[0]) =>
+          invoke(() =>
+            settings
+              .decodeFormSubmission({
+                library: { name: library.name, type: library.type },
+                current,
+                input,
+              })
+              .pipe(
+                Effect.flatMap((persisted) =>
+                  StoragePluginSettingsPersisted.decodeEffect(persisted).pipe(
+                    Effect.catchTags({ SchemaError: Effect.die })
+                  )
+                )
+              )
+          ),
+      };
+    }),
+  }
+) {
+  public static readonly layerNoDeps = (request: Parameters<typeof this.make>[0]) =>
+    Layer.effect(this, this.make(request));
+
+  public static readonly layer = (request: Parameters<typeof this.make>[0]) =>
+    this.layerNoDeps(request).pipe(Layer.provide(StoragePluginBuilder.layer));
+}
+
 export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginSettingsMap',
   {
-    make: Effect.gen(function* () {
-      const buildPlugin = yield* StoragePluginBuilder;
-      const map = yield* LayerMap.make(
-        (storagePluginId: Library['storagePluginId']) =>
-          Layer.effect(
-            StoragePluginSettings,
-            Effect.gen(function* () {
-              const { context, invoke } = yield* buildPlugin({
-                storagePluginId,
-                makeLayer: (module) => module.storage.layerSettings,
-              });
-              const settings = Context.get(context, StoragePluginSettings);
-              return StoragePluginSettings.of({
-                getForm: ({ library, current }) =>
-                  invoke(() =>
-                    settings
-                      .getForm({
-                        library: { name: library.name, type: library.type },
-                        current,
-                      })
-                      .pipe(
-                        Effect.flatMap((form) =>
-                          StoragePluginSettingsForm.decodeEffect(form).pipe(
-                            Effect.catchTags({ SchemaError: Effect.die })
-                          )
-                        )
-                      )
-                  ),
-                decodeFormSubmission: ({ library, current, input }) =>
-                  invoke(() =>
-                    settings
-                      .decodeFormSubmission({
-                        library: { name: library.name, type: library.type },
-                        current,
-                        input,
-                      })
-                      .pipe(
-                        Effect.flatMap((persisted) =>
-                          StoragePluginSettingsPersisted.decodeEffect(persisted).pipe(
-                            Effect.catchTags({ SchemaError: Effect.die })
-                          )
-                        )
-                      )
-                  ),
-              });
-            })
-          ),
-        { idleTimeToLive: '5 minutes' }
-      );
-      return {
+    make: LayerMap.make(
+      (storagePluginId: Library['storagePluginId']) =>
+        StoragePluginSettingsEditor.layerNoDeps({ storagePluginId }),
+      { idleTimeToLive: '5 minutes' }
+    ).pipe(
+      Effect.map((map) => ({
         ...map,
         acquire: (storagePluginId: Library['storagePluginId']) =>
-          map.contextEffect(storagePluginId).pipe(Effect.map(Context.get(StoragePluginSettings))),
-      };
-    }),
+          map
+            .contextEffect(storagePluginId)
+            .pipe(Effect.map(Context.get(StoragePluginSettingsEditor))),
+      }))
+    ),
   }
 ) {
   public static readonly layerNoDeps = Layer.effect(this, this.make);

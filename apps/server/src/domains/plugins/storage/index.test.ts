@@ -1,6 +1,10 @@
 import { expect, it } from '@effect/vitest';
 import { Library } from '@govoel/plugins/library';
-import type { StoragePluginModule } from '@govoel/plugins/storage';
+import type {
+  StoragePluginModule,
+  StoragePluginSettingsFieldName,
+  StoragePluginSettingsForm,
+} from '@govoel/plugins/storage';
 import {
   StorageLocationValidationError,
   StorageMediaFileLocation,
@@ -9,8 +13,6 @@ import {
   StoragePluginSettings,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
-  StoragePluginSettingsFieldName,
-  StoragePluginSettingsForm,
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
@@ -74,9 +76,9 @@ const settingsLayer = Layer.succeed(StoragePluginSettings, {
   getForm: () =>
     Effect.succeed([
       {
-        _tag: 'TextField',
+        kind: 'TextField',
         purpose: 'text',
-        name: StoragePluginSettingsFieldName.make('directory'),
+        name: 'directory',
         label: 'Directory',
         placeholder: '',
         initialValue: '/library',
@@ -188,16 +190,16 @@ it.effect('shares a settings editor per plugin while keeping library inputs per 
             getForm: ({ library, current }) =>
               Effect.succeed([
                 {
-                  _tag: 'TextField',
+                  kind: 'TextField',
                   purpose: 'text',
-                  name: StoragePluginSettingsFieldName.make('directory'),
+                  name: 'directory',
                   label: library.name,
                   placeholder: '',
                   initialValue: Option.isSome(current) ? '/configured' : '',
                 },
               ]),
             decodeFormSubmission: ({ library, input }) =>
-              Effect.succeed(StoragePluginSettingsPersisted.make({ name: library.name, input })),
+              Effect.succeed({ name: library.name, input }),
           });
         })
       ),
@@ -259,7 +261,20 @@ it.effect(
         const settings = yield* editors.acquire(request.storagePluginId);
         return yield* settings.getForm({ library: libraryMetadata, current: Option.none() });
       }).pipe(Effect.provide(StoragePluginSettingsMap.layer));
-      expect(form).toMatchObject([{ _tag: 'TextListField', name: 'roots', initialValue: [] }]);
+      const fieldName: typeof StoragePluginSettingsFieldName.Type = Option.getOrThrow(
+        Array.head(form)
+      ).name;
+      expect(fieldName).toBe('roots');
+      expect(form).toEqual([
+        {
+          kind: 'TextListField',
+          purpose: 'text',
+          name: 'roots',
+          label: 'Directories',
+          placeholder: '/path/to/media',
+          initialValue: [],
+        },
+      ]);
     },
     Effect.scoped,
     Effect.provide([StoragePluginMap.layer, StoragePluginModuleMap.layerNoDeps]),
@@ -355,18 +370,18 @@ it.effect(
           layer: () => storageLayer,
           layerSettings: Layer.succeed(StoragePluginSettings, {
             getForm: () => {
-              const field = StoragePluginSettingsForm.value.make({
-                _tag: 'TextField',
+              const field = {
+                kind: 'TextField',
                 purpose: 'text',
-                name: StoragePluginSettingsFieldName.make('directory'),
+                name: 'directory',
                 label: 'Directory',
                 placeholder: '',
                 initialValue: '',
-              });
+              } satisfies (typeof StoragePluginSettingsForm.Encoded)[number];
               return Effect.succeed([
                 field,
                 {
-                  _tag: 'TextListField',
+                  kind: 'TextListField',
                   purpose: 'text',
                   name: field.name,
                   label: 'Directories',
@@ -375,12 +390,47 @@ it.effect(
                 },
               ]);
             },
-            decodeFormSubmission: () => {
-              const value = { value: 0 };
-              const settings = StoragePluginSettingsPersisted.make(value);
-              value.value = Number.NaN;
-              return Effect.succeed(settings);
-            },
+            decodeFormSubmission: () => Effect.succeed({ value: Number.NaN }),
+          }),
+        },
+      })
+    )
+  )
+);
+
+it.effect(
+  'rejects invalid unbranded field names returned by plugins',
+  Effect.fnUntraced(
+    function* () {
+      const editors = yield* StoragePluginSettingsMap;
+      const settings = yield* editors.acquire(request.storagePluginId);
+      const exit = yield* settings
+        .getForm({ library: libraryMetadata, current: Option.none() })
+        .pipe(Effect.exit);
+      expect(Exit.hasDies(exit)).toBe(true);
+      expect(Exit.findDefect(exit)).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'SchemaError' },
+      });
+    },
+    Effect.scoped,
+    Effect.provide(
+      makeMaps({
+        storage: {
+          layer: () => storageLayer,
+          layerSettings: Layer.succeed(StoragePluginSettings, {
+            getForm: () =>
+              Effect.succeed([
+                {
+                  kind: 'TextField',
+                  purpose: 'text',
+                  name: 'directory.path',
+                  label: 'Directory',
+                  placeholder: '',
+                  initialValue: '',
+                },
+              ]),
+            decodeFormSubmission: () => Effect.succeed({}),
           }),
         },
       })
@@ -745,15 +795,15 @@ it.effect(
               const snapshotContext3 = yield* snapshotContext;
               observed.push(snapshotContext3);
               return [
-                StoragePluginSettingsForm.value.make({
-                  _tag: 'TextField',
+                {
+                  kind: 'TextField',
                   purpose: 'text',
-                  name: StoragePluginSettingsFieldName.make('directory'),
+                  name: 'directory',
                   label: library.name,
                   placeholder: '',
                   initialValue: '',
-                }),
-              ];
+                },
+              ] satisfies typeof StoragePluginSettingsForm.Encoded;
             }),
             decodeFormSubmission: () => Effect.succeed(request.settings),
           })
@@ -866,7 +916,7 @@ it.effect.each(['storage', 'settings'] as const)(
       const editors = yield* StoragePluginSettingsMap;
       yield* component === 'storage'
         ? stores.contextEffect(storageRequest)
-        : editors.contextEffect(request.storagePluginId);
+        : editors.acquire(request.storagePluginId);
       expect.unreachable('Construction must remain pending until map shutdown');
     }).pipe(
       Effect.scoped,
@@ -990,9 +1040,9 @@ it.effect.each(['successful', 'failed'] as const)(
     yield* Effect.gen(function* () {
       yield* Effect.gen(function* () {
         const stores = yield* StoragePluginMap;
-        const editors = yield* StoragePluginSettingsMap;
         const storage = yield* stores.contextEffect(storageRequest).pipe(Effect.exit);
-        const settings = yield* editors.contextEffect(request.storagePluginId).pipe(Effect.exit);
+        const editors = yield* StoragePluginSettingsMap;
+        const settings = yield* editors.acquire(request.storagePluginId).pipe(Effect.exit);
         if (outcome === 'failed') {
           expect(storage).toEqual(Exit.fail(storageError));
           expect(settings).toEqual(Exit.fail(settingsError));
@@ -1000,8 +1050,7 @@ it.effect.each(['successful', 'failed'] as const)(
         } else {
           const storage2 = yield* storage;
           const plugin = Context.get(storage2, StoragePlugin);
-          const settings2 = yield* settings;
-          const editor = Context.get(settings2, StoragePluginSettings);
+          const editor = yield* settings;
           const decodeMediaFileLocationResult = yield* plugin.decodeMediaFileLocation({
             location: '/constructed',
           });

@@ -1,5 +1,5 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import type { StoragePluginModule } from '@govoel/plugins/storage';
+import type { StoragePluginModule, StoragePluginSettingsForm } from '@govoel/plugins/storage';
 import {
   StorageMediaFileLocation,
   StoragePlugin,
@@ -7,8 +7,6 @@ import {
   StoragePluginInvalidSettingsError,
   StoragePluginSettings,
   StoragePluginSettingsError,
-  StoragePluginSettingsFieldName,
-  StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
 import { Context, Effect, Layer, Option, Scheduler, Schema, String } from 'effect';
 import { FetchHttpClient } from 'effect/http';
@@ -127,13 +125,13 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                       )
                     : { prefix: '' };
                   const field = {
-                    _tag: 'TextField' as const,
-                    purpose: 'text' as const,
-                    name: StoragePluginSettingsFieldName.make('root'),
+                    kind: 'TextField',
+                    purpose: 'text',
+                    name: 'root',
                     label: library.name,
                     placeholder: '',
                     initialValue: settings.prefix,
-                  };
+                  } satisfies (typeof StoragePluginSettingsForm.Encoded)[number];
                   return controls.invalidForm ? [field, field] : [field];
                 }),
                 decodeFormSubmission: (request) =>
@@ -155,12 +153,9 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                     ),
                     Effect.map(({ root }) => {
                       if (controls.invalidPersisted) {
-                        const value = { prefix: String.trim(root), version: 1 };
-                        const settings = StoragePluginSettingsPersisted.make(value);
-                        value.version = Number.NaN;
-                        return settings;
+                        return { prefix: String.trim(root), version: Number.NaN };
                       }
-                      return StoragePluginSettingsPersisted.make({ prefix: String.trim(root) });
+                      return { prefix: String.trim(root) };
                     })
                   ),
               })
