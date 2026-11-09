@@ -25,7 +25,7 @@ it.effect.each([
   { roots: ['relative'] },
   { roots: ['/audio', '/nul\0'] },
 ])(
-  'rejects malformed local source configuration at submission, editing, and construction: %j',
+  'rejects malformed local source configuration at submission and editing: %j',
   Effect.fnUntraced(
     function* (value) {
       const editor = yield* StoragePluginSettings;
@@ -42,10 +42,6 @@ it.effect.each([
         .getForm({ library, current: Option.some(persisted) })
         .pipe(Effect.flip);
       expect(form).toMatchObject({ _tag: 'StoragePluginSettingsError' });
-      const construction = yield* Layer.build(
-        local.storage.layer({ library, settings: persisted })
-      ).pipe(Effect.flip);
-      expect(construction).toMatchObject({ _tag: 'StoragePluginConstructionError' });
     },
     Effect.scoped,
     Effect.provide(local.storage.layerSettings.pipe(Layer.provideMerge(BunPath.layer)))

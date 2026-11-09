@@ -184,7 +184,7 @@ export class StoragePluginSettings extends Context.Service<
 export interface StoragePluginModule {
   readonly storage: {
     /**
-     * Decode persisted settings with the plugin's codec, then build storage.
+     * Build storage using the library and any settings it needs.
      */
     readonly layer: (request: {
       readonly library: typeof Library.Type;

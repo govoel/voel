@@ -3,7 +3,6 @@ import {
   StorageLocationValidationError,
   StorageMediaFileLocation,
   StoragePlugin,
-  StoragePluginConstructionError,
   StoragePluginInvalidSettingsError,
   StoragePluginSettings,
   StoragePluginSettingsError,
@@ -82,16 +81,8 @@ class LocalMediaFileLocation extends Schema.NonEmptyString.check(
 class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
   '@repo/server/domains/plugins/storage/local/LocalStoragePlugin',
   {
-    make: Effect.fnUntraced(function* ({
-      settings,
-    }: Parameters<StoragePluginModule['storage']['layer']>[0]) {
+    make: Effect.gen(function* () {
       const path = yield* Path.Path;
-      yield* LocalStorageSettings.decodeUnknownEffect(settings).pipe(
-        Effect.catchTags({
-          SchemaError: () =>
-            StoragePluginConstructionError.make({ message: 'Invalid local storage settings' }),
-        })
-      );
       return StoragePlugin.of({
         decodeMediaFileLocation: ({ location }) =>
           LocalMediaFileLocation.decodeEffect(location).pipe(
@@ -105,9 +96,7 @@ class LocalStoragePlugin extends Context.Service<LocalStoragePlugin>()(
     }),
   }
 ) {
-  public static readonly layer = (
-    request: Parameters<StoragePluginModule['storage']['layer']>[0]
-  ) => Layer.effect(StoragePlugin, this.make(request));
+  public static readonly layer = () => Layer.effect(StoragePlugin, this.make);
 }
 
 class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSettings>()(
