@@ -22,10 +22,8 @@ import {
   StoragePluginSettingsMap,
 } from '#src/domains/plugins/storage/index.ts';
 
-export class Input extends Schema.Struct({ root: Schema.NonEmptyString }) {
+class Input extends Schema.Struct({ root: Schema.NonEmptyString }) {
   public static readonly decodeUnknownEffect = Schema.decodeUnknownEffect(this);
-
-  public static readonly is = Schema.is(this);
 }
 
 class Persisted extends Schema.Struct({ prefix: Schema.NonEmptyString }) {

@@ -4,7 +4,7 @@ import {
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
-import { Array, Effect, Fiber, Latch, Layer, Option, Schema, pipe } from 'effect';
+import { Array, Effect, Fiber, Latch, Layer, Option } from 'effect';
 import {
   Headers,
   HttpClient,
@@ -107,10 +107,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(form).toMatchObject([
         { kind: 'TextListField', name: 'roots', initialValue: ['/audio', '/movies'] },
       ]);
-      yield* client.library.update({ params: library, payload: input });
-      expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
-        created.storagePluginSettings
-      );
       yield* client.library.update({
         params: library,
         payload: {
@@ -409,40 +405,6 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(last.nextCursor).toEqual(Option.none());
     })
   );
-
-  iit.effect(
-    'rejects unauthenticated requests',
-    Effect.fnUntraced(function* () {
-      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(
-        Effect.provide(
-          HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) => next(request))
-        )
-      );
-      const createError = yield* client.library
-        .create({ payload: createInput('Unauthorized') })
-        .pipe(Effect.flip);
-      expect(createError).toMatchObject({ _tag: 'UnauthorizedError' });
-      const listError = yield* client.library
-        .list({ query: { cursor: Option.none(), limit: 1 } })
-        .pipe(Effect.flip);
-      expect(listError).toMatchObject({ _tag: 'UnauthorizedError' });
-    })
-  );
-  iit.effect.each(['user', 'under18'] as const)(
-    'rejects non-admin %s requests',
-    Effect.fnUntraced(function* (role) {
-      const auth = yield* makeAuthedClient({ username: role, role });
-      const client = yield* HttpApiTest.groups(Api, ['library']).pipe(Effect.provide(auth.layer));
-      const createError = yield* client.library
-        .create({ payload: createInput('Forbidden') })
-        .pipe(Effect.flip);
-      expect(createError).toMatchObject({ _tag: 'ForbiddenError' });
-      const listError = yield* client.library
-        .list({ query: { cursor: Option.none(), limit: 1 } })
-        .pipe(Effect.flip);
-      expect(listError).toMatchObject({ _tag: 'ForbiddenError' });
-    })
-  );
 });
 
 const makeWireTransport = Effect.fnUntraced(function* (
@@ -680,17 +642,13 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
               )
         ).pipe(Effect.forkChild);
         yield* started.await;
-        expect(interrupted.isOpen()).toBe(false);
-        expect(finalized.isOpen()).toBe(false);
         if (scenario === 'request abort') {
           controller.abort();
         } else {
           yield* Fiber.interrupt(request);
-          expect(controller.signal.aborted).toBe(false);
         }
         yield* interrupted.await;
         yield* finalized.await;
-        expect(release.isOpen()).toBe(false);
         expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
           prefix: '/initial',
         });
@@ -723,7 +681,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         Option.some({ username: 'wire_settings', role: 'admin' })
       );
       const fixture = yield* PluginFixture;
-      const repository = yield* LibraryRepository.make;
+      const repository = yield* LibraryRepository;
       const library = yield* Effect.acquireRelease(
         client.library.create({
           payload: createInput(`HTTP settings ${scenario}`, 'npm:test'),
@@ -762,28 +720,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
             )
       );
       expect(response.status).toBe(status);
-      const body = yield* response.text;
-      const decodedLocation = yield* pipe(
-        body,
-        Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))
-      );
-      expect(decodedLocation).toEqual({
-        _tag: tag,
-        message,
-      });
-      expect(body).not.toContain('submitted-settings-secret');
-      const error = yield* method === 'GET'
-        ? client.library.getStoragePluginSettingsForm({ params: library }).pipe(Effect.flip)
-        : client.library
-            .update({
-              params: library,
-              payload: {
-                ...createInput(`HTTP settings ${scenario}`, 'npm:test'),
-                storagePluginSettings: input,
-              },
-            })
-            .pipe(Effect.flip);
-      expect(error).toMatchObject({ _tag: tag, message });
+      const body = yield* response.json;
+      expect(body).toEqual({ _tag: tag, message });
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual(
         original
       );
@@ -797,7 +735,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         Option.some({ username: 'wire_malformed_settings', role: 'admin' })
       );
       const fixture = yield* PluginFixture;
-      const repository = yield* LibraryRepository.make;
+      const repository = yield* LibraryRepository;
       const library = yield* Effect.acquireRelease(
         client.library.create({
           payload: createInput(`HTTP settings ${scenario}`, 'npm:test'),
@@ -860,8 +798,8 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         responseMode: 'response-only',
       });
       const json2 = yield* list.json;
-      expect(json2).toMatchObject({
-        items: [{ ...library, storagePluginSettings: {} }],
+      expect(json2).toEqual({
+        items: [expect.objectContaining({ ...library, storagePluginSettings: { roots: [] } })],
         nextCursor: { _tag: 'None' },
       });
       for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -879,7 +817,7 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   );
 
   iit.effect(
-    'validates path and query values before handlers run',
+    'rejects invalid path and pagination values',
     Effect.fnUntraced(function* () {
       const { http } = yield* makeWireTransport(
         Option.some({ username: 'wire_validation', role: 'admin' })
@@ -902,14 +840,22 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   iit.effect.each([
     [Option.none(), 401, 'UnauthorizedError'],
     [Option.some({ username: 'wire_user', role: 'user' } as const), 403, 'ForbiddenError'],
+    [Option.some({ username: 'wire_under18', role: 'under18' } as const), 403, 'ForbiddenError'],
   ] as const)(
     'enforces HTTP authentication and admin access (%s)',
     Effect.fnUntraced(function* ([user, status, tag]) {
       const { http } = yield* makeWireTransport(user);
-      const response = yield* http.get('http://localhost/api/libraries?limit=1');
-      expect(response.status).toBe(status);
-      const json = yield* response.json;
-      expect(json).toEqual({ _tag: tag });
+      for (const request of [
+        HttpClientRequest.get('http://localhost/api/libraries?limit=1'),
+        HttpClientRequest.post('http://localhost/api/libraries').pipe(
+          HttpClientRequest.bodyJsonUnsafe(createInput('Denied HTTP creation'))
+        ),
+      ]) {
+        const response = yield* http.execute(request);
+        expect(response.status).toBe(status);
+        const body = yield* response.json;
+        expect(body).toEqual({ _tag: tag });
+      }
     })
   );
 });

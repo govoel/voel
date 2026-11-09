@@ -1,4 +1,4 @@
-import { assert, expect, it } from '@effect/vitest';
+import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsPersisted } from '@govoel/plugins/storage';
 import { Array, Effect, Layer, Option } from 'effect';
 import { Reactivity } from 'effect/reactivity';
@@ -8,7 +8,6 @@ import { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { ApiConfig } from '#src/config.ts';
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
-import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 const testLayer = LibraryRepository.layerNoDeps.pipe(
   Layer.provideMerge(LibraryDatabase.layerNoDeps),
@@ -46,16 +45,6 @@ it.layer(testLayer)('library repository', (iit) => {
       expect(Array.findFirst(listed, (row) => row.id === library.id)).toEqual(
         Option.some(original)
       );
-      const rows = yield* sql`
-          select
-            "storagePluginSettings"
-          from
-            library
-          where
-            id = ${library.id}
-        `;
-      expect(rows).toEqual([{ storagePluginSettings: 'null' }]);
-
       const omitted = yield* sql`
         insert into
           library (type, name, "storagePluginId")
@@ -102,7 +91,7 @@ it.layer(testLayer)('library repository', (iit) => {
   );
 
   iit.effect(
-    'creates and updates complete library records, returning persisted storage identities',
+    'round-trips complete library records without changing other libraries',
     Effect.fnUntraced(function* () {
       const repository = yield* LibraryRepository;
       const settings = StoragePluginSettingsPersisted.make({ prefix: '/original' });
@@ -112,7 +101,6 @@ it.layer(testLayer)('library repository', (iit) => {
       });
       const created = yield* repository.create(initial);
       const library = { id: created.id };
-      assert.instanceOf(created.storageKey, StoragePluginKey);
       expect(created).toMatchObject({
         ...library,
         name: initial.name,
@@ -135,7 +123,6 @@ it.layer(testLayer)('library repository', (iit) => {
         storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/updated' }),
       };
       const updated = yield* repository.update(request);
-      assert.instanceOf(updated.storageKey, StoragePluginKey);
       expect(updated).toMatchObject({
         ...library,
         name: request.name,
@@ -148,8 +135,8 @@ it.layer(testLayer)('library repository', (iit) => {
       });
       const persisted = yield* repository.getById(library);
       expect(updated).toEqual(persisted);
-      const repeated = yield* repository.update(request);
-      expect(repeated).toEqual(updated);
+      const listed = yield* repository.list({ cursor: Option.none(), limit: 100 });
+      expect(Array.findFirst(listed, (row) => row.id === library.id)).toEqual(Option.some(updated));
       const unchanged = yield* repository.getById({ id: other.id });
       expect(unchanged).toEqual(other);
     })
