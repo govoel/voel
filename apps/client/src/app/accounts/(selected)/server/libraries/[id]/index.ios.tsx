@@ -1,11 +1,10 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
-import { Array } from 'effect';
+import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
-import { ErrorBoundary as ExpoErrorBoundary, Stack, useRouter } from 'expo-router';
-import type { ErrorBoundaryProps } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 
 import { LibraryParams } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
@@ -23,7 +22,7 @@ import {
   libraryStorageErrors,
   serverLibraryAtom,
 } from '#src/domains/library/management.ts';
-import { InvalidRouteParamsError, useRouteParams } from '#src/hooks/use-route-params.ts';
+import { useRouteParams } from '#src/hooks/use-route-params.ts';
 
 const LibraryList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -84,9 +83,8 @@ const LoadedLibrary = ({
   );
 };
 
-export default function ServerLibraryScreen() {
+const LibraryDetails = ({ id }: typeof LibraryParams.Type) => {
   const account = useSelectedAccount();
-  const { id } = useRouteParams(LibraryParams);
   const query = serverLibraryAtom({ account, id });
   const state = useAtomValue(query);
   const refresh = useAtomRefresh(query);
@@ -131,33 +129,34 @@ export default function ServerLibraryScreen() {
       </Host>
     </>
   );
-}
-
-export const ErrorBoundary = (props: ErrorBoundaryProps) => {
-  const router = useRouter();
-  if (!InvalidRouteParamsError.is(props.error)) {
-    return <ExpoErrorBoundary {...props} />;
-  }
-  return (
-    <>
-      <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
-      <Host style={{ flex: 1 }}>
-        <List modifiers={[frame({ maxHeight: Infinity })]}>
-          <Section>
-            <Text>This link is invalid.</Text>
-            <Button
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace('/');
-                }
-              }}>
-              <Text>Back</Text>
-            </Button>
-          </Section>
-        </List>
-      </Host>
-    </>
-  );
 };
+
+export default function ServerLibraryScreen() {
+  const params = useRouteParams(LibraryParams);
+  const router = useRouter();
+  return Result.match(params, {
+    onFailure: () => (
+      <>
+        <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
+        <Host style={{ flex: 1 }}>
+          <List modifiers={[frame({ maxHeight: Infinity })]}>
+            <Section>
+              <Text>This link is invalid.</Text>
+              <Button
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/');
+                  }
+                }}>
+                <Text>Back</Text>
+              </Button>
+            </Section>
+          </List>
+        </Host>
+      </>
+    ),
+    onSuccess: ({ id }) => <LibraryDetails key={id} id={id} />,
+  });
+}

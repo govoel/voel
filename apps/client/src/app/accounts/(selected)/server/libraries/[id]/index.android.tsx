@@ -2,11 +2,10 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Array } from 'effect';
+import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
-import { ErrorBoundary as ExpoErrorBoundary, useRouter } from 'expo-router';
-import type { ErrorBoundaryProps } from 'expo-router';
+import { useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 
 import { LibraryParams } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
@@ -28,7 +27,7 @@ import {
   libraryStorageErrors,
   serverLibraryAtom,
 } from '#src/domains/library/management.ts';
-import { InvalidRouteParamsError, useRouteParams } from '#src/hooks/use-route-params.ts';
+import { useRouteParams } from '#src/hooks/use-route-params.ts';
 
 const LibraryList = ({ children }: PropsWithChildren) => (
   <LazyColumn contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
@@ -104,9 +103,8 @@ const LoadedLibrary = ({
   );
 };
 
-export default function ServerLibraryScreen() {
+const LibraryDetails = ({ id }: typeof LibraryParams.Type) => {
   const account = useSelectedAccount();
-  const { id } = useRouteParams(LibraryParams);
   const query = serverLibraryAtom({ account, id });
   const state = useAtomValue(query);
   const refresh = useAtomRefresh(query);
@@ -142,42 +140,43 @@ export default function ServerLibraryScreen() {
       })}
     </AndroidAccountsSheet>
   );
-}
-
-export const ErrorBoundary = (props: ErrorBoundaryProps) => {
-  const router = useRouter();
-  if (!InvalidRouteParamsError.is(props.error)) {
-    return <ExpoErrorBoundary {...props} />;
-  }
-  return (
-    <AndroidAccountsSheet>
-      <LazyColumn
-        contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
-        <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
-          Invalid Link
-        </Text>
-        <SegmentedList>
-          <SegmentedListItem index={0} count={2} enabled={false}>
-            <SegmentedListItem.HeadlineContent>
-              <Text>This link is invalid.</Text>
-            </SegmentedListItem.HeadlineContent>
-          </SegmentedListItem>
-          <SegmentedListItem
-            index={1}
-            count={2}
-            onClick={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace('/');
-              }
-            }}>
-            <SegmentedListItem.HeadlineContent>
-              <Text>Back</Text>
-            </SegmentedListItem.HeadlineContent>
-          </SegmentedListItem>
-        </SegmentedList>
-      </LazyColumn>
-    </AndroidAccountsSheet>
-  );
 };
+
+export default function ServerLibraryScreen() {
+  const params = useRouteParams(LibraryParams);
+  const router = useRouter();
+  return Result.match(params, {
+    onFailure: () => (
+      <AndroidAccountsSheet>
+        <LazyColumn
+          contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+          <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+            Invalid Link
+          </Text>
+          <SegmentedList>
+            <SegmentedListItem index={0} count={2} enabled={false}>
+              <SegmentedListItem.HeadlineContent>
+                <Text>This link is invalid.</Text>
+              </SegmentedListItem.HeadlineContent>
+            </SegmentedListItem>
+            <SegmentedListItem
+              index={1}
+              count={2}
+              onClick={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/');
+                }
+              }}>
+              <SegmentedListItem.HeadlineContent>
+                <Text>Back</Text>
+              </SegmentedListItem.HeadlineContent>
+            </SegmentedListItem>
+          </SegmentedList>
+        </LazyColumn>
+      </AndroidAccountsSheet>
+    ),
+    onSuccess: ({ id }) => <LibraryDetails key={id} id={id} />,
+  });
+}
