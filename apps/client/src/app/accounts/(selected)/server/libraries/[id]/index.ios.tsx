@@ -4,10 +4,11 @@ import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
 import { Array } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { ErrorBoundary as ExpoErrorBoundary, Stack, useRouter } from 'expo-router';
+import type { ErrorBoundaryProps } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 
-import { serverLibraryAtom } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
+import { LibraryParams } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
 import { DetailRows } from '#src/components/detail-rows';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
@@ -20,7 +21,9 @@ import {
   libraryFailureMessage,
   libraryStorageDetails,
   libraryStorageErrors,
+  serverLibraryAtom,
 } from '#src/domains/library/management.ts';
+import { InvalidRouteParamsError, useRouteParams } from '#src/hooks/use-route-params.ts';
 
 const LibraryList = ({ children }: PropsWithChildren) => (
   <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -83,7 +86,7 @@ const LoadedLibrary = ({
 
 export default function ServerLibraryScreen() {
   const account = useSelectedAccount();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useRouteParams(LibraryParams);
   const query = serverLibraryAtom({ account, id });
   const state = useAtomValue(query);
   const refresh = useAtomRefresh(query);
@@ -129,3 +132,32 @@ export default function ServerLibraryScreen() {
     </>
   );
 }
+
+export const ErrorBoundary = (props: ErrorBoundaryProps) => {
+  const router = useRouter();
+  if (!InvalidRouteParamsError.is(props.error)) {
+    return <ExpoErrorBoundary {...props} />;
+  }
+  return (
+    <>
+      <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
+      <Host style={{ flex: 1 }}>
+        <List modifiers={[frame({ maxHeight: Infinity })]}>
+          <Section>
+            <Text>This link is invalid.</Text>
+            <Button
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/');
+                }
+              }}>
+              <Text>Back</Text>
+            </Button>
+          </Section>
+        </List>
+      </Host>
+    </>
+  );
+};

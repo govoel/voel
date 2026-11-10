@@ -33,15 +33,12 @@ export const listLibrariesAtom = Atom.family((account: AccountKey) =>
   )
 );
 
-const LibraryRouteId = Schema.FiniteFromString.pipe(Schema.decodeTo(Library.fields.id));
-
 export const serverLibraryAtom = Atom.family(
-  ({ account, id }: { readonly account: AccountKey; readonly id: string }) =>
+  ({ account, id }: { readonly account: AccountKey; readonly id: typeof Library.fields.id.Type }) =>
     AppRuntime.atom(
       Effect.fnUntraced(function* () {
-        const libraryId = yield* Schema.decodeEffect(LibraryRouteId)(id);
         const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-        return yield* client.library.get({ params: { id: libraryId } });
+        return yield* client.library.get({ params: { id } });
       })
     ).pipe(
       Atom.withReactivity(['library']),
@@ -79,7 +76,7 @@ export const libraryFailureMessage = ({
       UnauthorizedError: () => 'Your session has expired. Sign in again.',
       ForbiddenError: () => 'Only server administrators can manage libraries.',
       LibraryNotFoundError: () => 'This library no longer exists.',
-      SchemaError: () => 'The library ID or server response is invalid.',
+      SchemaError: () => 'The server returned an invalid library response.',
       HttpClientError: () => 'Unable to reach the server. Check your connection and try again.',
       BetterAuthClientInitializationError: (failure) => authFailureMessage({ error: failure }),
     }),

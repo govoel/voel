@@ -69,7 +69,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(new Set(Array.map(second.items, (item) => item.id)).size).toBe(21);
         expect(second.done).toBe(true);
         const target = Option.getOrThrow(Array.head(first.items));
-        const detail = serverLibraryAtom({ account: account.key, id: String(target.id) });
+        const detail = serverLibraryAtom({ account: account.key, id: target.id });
         yield* Atom.mount(detail);
         const loaded = yield* Atom.getResult(detail);
         expect(loaded).toMatchObject({
@@ -108,8 +108,8 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const secondClient = yield* clients.acquire(second.key);
         const other = yield* secondClient.library.create({ payload: createInput('Second server') });
         expect(other.id).toEqual(created.id);
-        const firstDetail = serverLibraryAtom({ account: first.key, id: String(created.id) });
-        const secondDetail = serverLibraryAtom({ account: second.key, id: String(other.id) });
+        const firstDetail = serverLibraryAtom({ account: first.key, id: created.id });
+        const secondDetail = serverLibraryAtom({ account: second.key, id: other.id });
         expect((yield* Atom.getResult(firstDetail)).name).toBe('First server');
         expect((yield* Atom.getResult(secondDetail)).name).toBe('Second server');
         yield* deleteLibrary({ account: first.key, input: created });
@@ -123,7 +123,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
   );
 
   iit.effect(
-    'reports non-admin access and rejects invalid route IDs',
+    'rejects non-admin access to library lists and details',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
@@ -131,12 +131,13 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const [, user] = yield* signInTestServerUsers(manager, server);
         const denied = yield* Atom.getResult(listLibrariesAtom(user.key)).pipe(Effect.flip);
         expect(denied).toBeInstanceOf(ForbiddenError);
-        for (const id of ['not-an-id', '-1', '1.5', 'Infinity']) {
-          const invalid = yield* Atom.getResult(serverLibraryAtom({ account: user.key, id })).pipe(
-            Effect.flip
-          );
-          expect(invalid).toMatchObject({ _tag: 'SchemaError' });
-        }
+        const detailDenied = yield* Atom.getResult(
+          serverLibraryAtom({
+            account: user.key,
+            id: Library.fields.id.make(1),
+          })
+        ).pipe(Effect.flip);
+        expect(detailDenied).toBeInstanceOf(ForbiddenError);
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )
