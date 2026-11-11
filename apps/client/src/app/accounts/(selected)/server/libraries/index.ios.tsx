@@ -13,12 +13,13 @@ import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
 
+import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
+
 import { listLibrariesAtom } from '#src/app/accounts/(selected)/server/libraries/index.ts';
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
-import { StorageStatus } from '#src/domains/library/components/storage-status';
 import {
   libraryFailureMessage,
   mediaTypeLabel,
@@ -140,3 +141,28 @@ export default function ServerLibrariesScreen() {
     </>
   );
 }
+
+const StorageStatus = ({ status }: { readonly status: typeof StoragePluginStatus.Type }) => {
+  const appearance = Match.value(status).pipe(
+    Match.literalsExhaustive({
+      healthy: () => ({
+        name: 'checkmark' as const,
+        style: { type: 'hierarchical' as const, style: 'secondary' as const },
+      }),
+      unknown: () => ({
+        name: 'questionmark.circle' as const,
+        style: { type: 'hierarchical' as const, style: 'secondary' as const },
+      }),
+      unhealthy: () => ({ name: 'exclamationmark.triangle' as const, style: 'orange' as const }),
+    })
+  );
+  return (
+    <Icon
+      name={appearance.name}
+      modifiers={[
+        accessibilityLabel(storageStatusLabel({ status })),
+        foregroundStyle(appearance.style),
+      ]}
+    />
+  );
+};

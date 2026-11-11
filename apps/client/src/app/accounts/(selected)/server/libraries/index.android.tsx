@@ -1,11 +1,16 @@
 import { useAtom, useAtomRefresh } from '@effect/atom-react';
 import Add from '@expo/material-symbols/add.xml';
+import Check from '@expo/material-symbols/check.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+import Help from '@expo/material-symbols/help.xml';
+import Warning from '@expo/material-symbols/warning.xml';
 import { Box, Column, FloatingActionButton, Icon, LazyColumn, Row } from '@expo/ui/jetpack-compose';
 import { fillMaxSize, onSizeChanged, padding, semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { Match } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
+
+import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
 
 import { listLibrariesAtom } from '#src/app/accounts/(selected)/server/libraries/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
@@ -16,11 +21,11 @@ import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
-import { StorageStatus } from '#src/domains/library/components/storage-status';
 import {
   libraryFailureMessage,
   mediaTypeLabel,
   storageProviderLabel,
+  storageStatusLabel,
 } from '#src/domains/library/management.ts';
 
 export default function ServerLibrariesScreen() {
@@ -149,3 +154,15 @@ export default function ServerLibrariesScreen() {
     </AndroidAccountsSheet>
   );
 }
+
+const StorageStatus = ({ status }: { readonly status: typeof StoragePluginStatus.Type }) => {
+  const colors = useMaterialColors();
+  const appearance = Match.value(status).pipe(
+    Match.literalsExhaustive({
+      healthy: () => ({ source: Check, tint: colors.onSurfaceVariant }),
+      unknown: () => ({ source: Help, tint: colors.onSurfaceVariant }),
+      unhealthy: () => ({ source: Warning, tint: colors.error }),
+    })
+  );
+  return <Icon {...appearance} size={20} contentDescription={storageStatusLabel({ status })} />;
+};

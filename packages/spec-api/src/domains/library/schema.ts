@@ -440,4 +440,4 @@ export const StoragePluginHealth = Schema.Union([
       ])
     ),
   }),
-]);
+]).pipe(Schema.toTaggedUnion('status'));

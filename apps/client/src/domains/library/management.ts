@@ -2,6 +2,7 @@ import { Array, Effect, Match, Option, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import type { Library, StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
+import { StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
@@ -135,12 +136,11 @@ export const libraryStorageErrors = ({
 }: {
   readonly library: Atom.Success<ReturnType<typeof serverLibraryAtom>>;
 }) =>
-  Match.value(library.storagePluginHealth).pipe(
-    Match.discriminator('status')('healthy', 'unknown', () => []),
-    Match.discriminator('status')('unhealthy', ({ errors }) =>
+  StoragePluginHealth.match(library.storagePluginHealth, {
+    healthy: () => [],
+    unknown: () => [],
+    unhealthy: ({ errors }) =>
       Array.dedupe(
         Array.map(errors, (error) => error.message || 'Unable to construct the storage plugin.')
-      )
-    ),
-    Match.exhaustive
-  );
+      ),
+  });
