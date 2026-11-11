@@ -3,18 +3,19 @@ import {
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
-import { Array, Effect, Exit, Fiber, Latch, Layer, Match, Option } from 'effect';
+import { Array, Effect, Exit, Fiber, Latch, Layer, Match, Option, Schema } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, Statement } from 'effect/sql';
 
-import { Library } from '@repo/spec-api/domains/library/schema.ts';
+import { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
+import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiConfig } from '#src/config.ts';
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
 import { PluginFixture, TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
-import { StoragePluginMap } from '#src/domains/plugins/storage/index.ts';
+import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
 import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 const testLayer = LibraryService.layerNoDeps.pipe(
@@ -83,7 +84,48 @@ const warmLibrary = Effect.fnUntraced(function* (name: string) {
   return { library, row, storage: yield* activeStorageFor(library) };
 });
 
+it.each([
+  { count: 0, valid: false },
+  { count: 1, valid: true },
+  { count: 2, valid: true },
+  { count: 3, valid: false },
+])('validates unhealthy storage with $count errors', ({ count, valid }) => {
+  const error = PluginLoadError.make({ message: 'Plugin unavailable' });
+  expect(
+    Schema.is(StoragePluginHealth)({
+      status: 'unhealthy',
+      errors: globalThis.Array.from({ length: count }, () => error),
+    })
+  ).toBe(valid);
+});
+
 it.layer(testLayer)('library service without transport', (iit) => {
+  iit.effect(
+    'reports both cached failures when the settings editor and storage plugin fail',
+    Effect.fnUntraced(function* () {
+      const repository = yield* LibraryRepository;
+      const service = yield* LibraryService;
+      const editors = yield* StoragePluginSettingsMap;
+      const stores = yield* StoragePluginMap;
+      const row = yield* repository.create({
+        name: Library.fields.name.make('Missing plugin'),
+        type: Library.fields.type.make('movie'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:missing'),
+        storagePluginSettings: StoragePluginSettingsPersisted.make({ prefix: '/initial' }),
+      });
+      const editorError = yield* editors
+        .acquire(row.storageKey.storagePluginId)
+        .pipe(Effect.scoped, Effect.flip);
+      const storeError = yield* stores.acquire(row.storageKey).pipe(Effect.scoped, Effect.flip);
+      const { storagePluginHealth } = yield* service.get({ id: row.id });
+      expect(storagePluginHealth).toEqual({
+        status: 'unhealthy',
+        errors: [editorError, storeError],
+      });
+      expect(Schema.is(StoragePluginHealth)(storagePluginHealth)).toBe(true);
+    })
+  );
+
   iit.effect(
     'saves valid settings without constructing unavailable storage on create or update',
     Effect.fnUntraced(function* () {

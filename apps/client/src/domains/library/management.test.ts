@@ -139,7 +139,18 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
               ...custom,
               storagePluginHealth: {
                 status: 'unhealthy',
-                errors: [failure, failure, PluginLoadError.make({ message: '' })],
+                errors: [failure, failure],
+              },
+            },
+          })
+        ).toEqual(['Plugin unavailable']);
+        expect(
+          libraryStorageErrors({
+            library: {
+              ...custom,
+              storagePluginHealth: {
+                status: 'unhealthy',
+                errors: [failure, PluginLoadError.make({ message: '' })],
               },
             },
           })

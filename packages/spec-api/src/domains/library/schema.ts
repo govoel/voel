@@ -425,19 +425,22 @@ export class LibraryNameConflictError extends Schema.TaggedError<
 /** Cached construction state of storage and its settings editor, not a live health probe. */
 export const StoragePluginStatus = Schema.Literals(['unknown', 'healthy', 'unhealthy']);
 
+const StoragePluginHealthError = Schema.Union([
+  PluginLoadError,
+  StoragePluginLoadError,
+  StoragePluginConstructionError,
+  StoragePluginSettingsConstructionError,
+]);
+
 /** Any cached failure wins; healthy means at least one current component was built successfully. */
 export const StoragePluginHealth = Schema.Union([
   Schema.Struct({ status: Schema.Literal('unknown') }),
   Schema.Struct({ status: Schema.Literal('healthy') }),
   Schema.Struct({
     status: Schema.Literal('unhealthy'),
-    errors: Schema.NonEmptyArray(
-      Schema.Union([
-        PluginLoadError,
-        StoragePluginLoadError,
-        StoragePluginConstructionError,
-        StoragePluginSettingsConstructionError,
-      ])
-    ),
+    errors: Schema.Union([
+      Schema.Tuple([StoragePluginHealthError]),
+      Schema.Tuple([StoragePluginHealthError, StoragePluginHealthError]),
+    ]),
   }),
 ]).pipe(Schema.toTaggedUnion('status'));

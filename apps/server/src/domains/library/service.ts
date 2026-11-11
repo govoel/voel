@@ -1,4 +1,4 @@
-import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
+import { Array, Context, Effect, Layer, Option, RcMap, Result } from 'effect';
 
 import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 
@@ -28,21 +28,30 @@ export class LibraryService extends Context.Service<LibraryService>()(
       const health = Effect.fnUntraced(function* (
         row: Effect.Success<ReturnType<typeof repository.getById>>
       ) {
-        const [cached, failures] = yield* Effect.partition(
+        const [editor, store] = yield* Effect.all(
           [
-            editors
-              .contextEffectOption(row.storageKey.storagePluginId)
-              .pipe(Effect.map(Option.isSome)),
-            stores.contextEffectOption(row.storageKey).pipe(Effect.map(Option.isSome)),
+            editors.contextEffectOption(row.storageKey.storagePluginId),
+            stores.contextEffectOption(row.storageKey),
           ],
-          (check) => Unify.unify(check),
-          { concurrency: 'unbounded' }
+          { concurrency: 'unbounded', mode: 'result' }
         );
 
-        return Array.match(failures, {
-          onEmpty: () => ({ status: Array.some(cached, Boolean) ? 'healthy' : 'unknown' }) as const,
-          onNonEmpty: (errors) => ({ status: 'unhealthy', errors }) as const,
-        }) satisfies typeof StoragePluginHealth.Type;
+        if (Result.isFailure(editor)) {
+          return {
+            status: 'unhealthy',
+            errors: Result.isFailure(store) ? [editor.failure, store.failure] : [editor.failure],
+          } as const satisfies typeof StoragePluginHealth.Type;
+        }
+        if (Result.isFailure(store)) {
+          return {
+            status: 'unhealthy',
+            errors: [store.failure],
+          } as const satisfies typeof StoragePluginHealth.Type;
+        }
+        return {
+          status:
+            Option.isSome(editor.success) || Option.isSome(store.success) ? 'healthy' : 'unknown',
+        } as const satisfies typeof StoragePluginHealth.Type;
       }, Effect.scoped);
 
       const launchStorageRetirement = Effect.fnUntraced(
