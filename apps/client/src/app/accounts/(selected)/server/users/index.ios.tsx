@@ -81,7 +81,10 @@ export default function ServerUsersScreen() {
                   kind="error"
                   message={Match.value(error).pipe(
                     Match.tag('NoSuchElementError', () => 'Unable to load users.'),
-                    Match.orElse((failure) => authFailureMessage({ error: failure }))
+                    Match.tag('AuthError', 'BetterAuthClientInitializationError', (failure) =>
+                      authFailureMessage({ error: failure })
+                    ),
+                    Match.exhaustive
                   )}
                   onRetry={refresh}
                   retrying={users.waiting}

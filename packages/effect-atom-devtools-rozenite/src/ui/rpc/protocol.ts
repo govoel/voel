@@ -1,5 +1,5 @@
 import type { RozeniteDevToolsClient } from '@rozenite/plugin-bridge';
-import { Effect, Option, Queue, Random, Schema } from 'effect';
+import { Effect, Match, Option, Queue, Random, Schema } from 'effect';
 import { RpcClient, RpcClientError } from 'effect/rpc';
 import type { RpcMessage } from 'effect/rpc';
 
@@ -79,11 +79,16 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
             return;
           }
 
-          if (message._tag === 'Exit') {
-            activeRequests.delete(message.requestId);
-          } else if (message._tag === 'Defect' || message._tag === 'ClientProtocolError') {
-            activeRequests.clear();
-          }
+          Match.value(message).pipe(
+            Match.tag('Exit', ({ requestId }) => {
+              activeRequests.delete(requestId);
+            }),
+            Match.tag('Defect', 'ClientProtocolError', () => {
+              activeRequests.clear();
+            }),
+            Match.tag('Chunk', 'Pong', 'Request', () => void 0),
+            Match.exhaustive
+          );
 
           yield* broadcastResponse(message);
         }),
@@ -99,13 +104,19 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
         send: (_clientId, request) =>
           Effect.try({
             try: () => {
-              if (request._tag === 'Request') {
-                activeRequests.set(request.id, request);
-              } else if (request._tag === 'Interrupt') {
-                activeRequests.delete(request.requestId);
-              } else if (request._tag === 'Eof') {
-                activeRequests.clear();
-              }
+              Match.value(request).pipe(
+                Match.tag('Request', (message) => {
+                  activeRequests.set(message.id, message);
+                }),
+                Match.tag('Interrupt', ({ requestId }) => {
+                  activeRequests.delete(requestId);
+                }),
+                Match.tag('Eof', () => {
+                  activeRequests.clear();
+                }),
+                Match.tag('Ack', 'Ping', () => void 0),
+                Match.exhaustive
+              );
 
               sendClientMessage(
                 RpcBridgeClientMessage.Request({
@@ -115,9 +126,13 @@ export const makeRpcClientProtocol = (bridgeClient: RozeniteDevToolsClient<RpcBr
               );
             },
             catch: (cause: unknown) => {
-              if (request._tag === 'Request') {
-                activeRequests.delete(request.id);
-              }
+              Match.value(request).pipe(
+                Match.tag('Request', ({ id }) => {
+                  activeRequests.delete(id);
+                }),
+                Match.tag('Interrupt', 'Eof', 'Ack', 'Ping', () => void 0),
+                Match.exhaustive
+              );
 
               return RpcClientError.RpcClientError.make({
                 reason: RpcClientError.RpcClientDefect.make({

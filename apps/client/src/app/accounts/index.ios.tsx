@@ -8,7 +8,7 @@ import {
   headerProminence,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { Option } from 'effect';
+import { Match, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
@@ -30,6 +30,7 @@ import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();
@@ -251,12 +252,17 @@ export default function AccountsScreen() {
                 ) : null}
               </>
             ),
-            onError: () => (
+            onError: (error) => (
               <AccountsList>
                 <Section title="Switch Account">
                   <ListState
                     kind="error"
-                    message="Unable to load accounts."
+                    message={Match.value(error).pipe(
+                      Match.tagsExhaustive({
+                        NoSuchElementError: () => 'Unable to load accounts.',
+                        AccountDatabaseError: (failure) => authFailureMessage({ error: failure }),
+                      })
+                    )}
                     onRetry={refreshAccounts}
                     retrying={accounts.waiting}
                   />

@@ -205,11 +205,16 @@ export default function ProfileScreen() {
             <ListState kind="loading" />
           </ProfileList>
         ),
-        onError: () => (
+        onError: (error) => (
           <ProfileList>
             <ListState
               kind="error"
-              message="Unable to load your profile."
+              message={Match.value(error).pipe(
+                Match.tagsExhaustive({
+                  NoSuchElementError: () => 'Unable to load your profile.',
+                  AccountDatabaseError: (failure) => authFailureMessage({ error: failure }),
+                })
+              )}
               onRetry={refresh}
               retrying={state.waiting}
             />
