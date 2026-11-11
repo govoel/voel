@@ -1,6 +1,6 @@
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Effect, Layer, Option, Stream } from 'effect';
+import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
@@ -48,6 +48,32 @@ const createInput = (name: string) => ({
 
 it.layer(TestServerControllerClient.layer)('library management', (iit) => {
   iit.effect(
+    'reports an empty stream initially and after deleting the last library, and recovers on refresh',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account.key));
+        const query = listLibrariesAtom(account.key);
+        yield* Atom.mount(query);
+        const empty = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
+        expect(empty).toBeInstanceOf(Cause.NoSuchElementError);
+
+        const created = yield* client.library.create({ payload: createInput('Only library') });
+        yield* Atom.refresh(query);
+        const populated = yield* Atom.getResult(query, { suspendOnWaiting: true });
+        expect(populated.items).toMatchObject([{ id: created.id, name: 'Only library' }]);
+
+        yield* deleteLibrary({ account: account.key, id: created.id });
+        const deleted = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
+        expect(deleted).toBeInstanceOf(Cause.NoSuchElementError);
+      },
+      (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
+    )
+  );
+
+  iit.effect(
     'paginates libraries and refreshes mounted queries after an idempotent deletion',
     Effect.fnUntraced(
       function* () {
@@ -67,7 +93,10 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const second = yield* Atom.getResult(query, { suspendOnWaiting: true });
         expect(second.items).toHaveLength(21);
         expect(new Set(Array.map(second.items, (item) => item.id)).size).toBe(21);
-        expect(second.done).toBe(true);
+        expect(second.done).toBe(false);
+        yield* Atom.set(query, void 0);
+        const completed = yield* Atom.getResult(query, { suspendOnWaiting: true });
+        expect(completed).toEqual({ items: second.items, done: true });
         const target = Option.getOrThrow(Array.head(first.items));
         const detail = serverLibraryAtom({ account: account.key, id: target.id });
         yield* Atom.mount(detail);
@@ -77,8 +106,8 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           name: target.name,
           storagePluginHealth: { status: 'healthy' },
         });
-        yield* deleteLibrary({ account: account.key, input: { id: target.id } });
-        yield* deleteLibrary({ account: account.key, input: { id: target.id } });
+        yield* deleteLibrary({ account: account.key, id: target.id });
+        yield* deleteLibrary({ account: account.key, id: target.id });
         const changed = yield* Atom.toStreamResult(query).pipe(
           Stream.filter((page) => !Array.some(page.items, (item) => item.id === target.id)),
           Stream.runHead
@@ -112,7 +141,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const secondDetail = serverLibraryAtom({ account: second.key, id: other.id });
         expect((yield* Atom.getResult(firstDetail)).name).toBe('First server');
         expect((yield* Atom.getResult(secondDetail)).name).toBe('Second server');
-        yield* deleteLibrary({ account: first.key, input: created });
+        yield* deleteLibrary({ account: first.key, id: created.id });
         expect((yield* secondClient.library.get({ params: other })).name).toBe('Second server');
         expect(
           (yield* firstClient.library.list({ query: { limit: 20, cursor: Option.none() } })).items

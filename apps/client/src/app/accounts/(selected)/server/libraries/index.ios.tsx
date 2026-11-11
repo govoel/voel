@@ -9,6 +9,7 @@ import {
   headerProminence,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
+import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
 
@@ -52,52 +53,45 @@ export default function ServerLibrariesScreen() {
               onInitial: () => <ListState kind="loading" />,
               onSuccess: ({ value: page, waiting }) => (
                 <>
-                  {page.items.length === 0 && page.done ? (
-                    <ListState
-                      kind="empty"
-                      message="No libraries yet. Create a library to get started."
-                    />
-                  ) : (
-                    <List.ForEach data={page.items} keyExtractor={(library) => String(library.id)}>
-                      {({ item }) => (
-                        <Button
-                          modifiers={[
-                            tint('primary'),
-                            accessibilityLabel(
-                              `${item.name}, ${mediaTypeLabel(item)}, ${storageProviderLabel(item)}, ${storageStatusLabel({ status: item.storagePluginStatus })}`
-                            ),
-                          ]}
-                          onPress={() => {
-                            router.push({
-                              pathname: '/accounts/server/libraries/[id]',
-                              params: { id: item.id },
-                            });
-                          }}>
-                          <HStack>
-                            <VStack alignment="leading" spacing={2}>
-                              <Text>{item.name}</Text>
-                              <Text
-                                variant="caption"
-                                modifiers={[
-                                  foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                                ]}>
-                                {mediaTypeLabel(item)} · {storageProviderLabel(item)}
-                              </Text>
-                            </VStack>
-                            <Spacer />
-                            <StorageStatus status={item.storagePluginStatus} />
-                            <Icon
-                              name="chevron.right"
+                  <List.ForEach data={page.items} keyExtractor={(library) => String(library.id)}>
+                    {({ item }) => (
+                      <Button
+                        modifiers={[
+                          tint('primary'),
+                          accessibilityLabel(
+                            `${item.name}, ${mediaTypeLabel(item)}, ${storageProviderLabel(item)}, ${storageStatusLabel({ status: item.storagePluginStatus })}`
+                          ),
+                        ]}
+                        onPress={() => {
+                          router.push({
+                            pathname: '/accounts/server/libraries/[id]',
+                            params: { id: item.id },
+                          });
+                        }}>
+                        <HStack>
+                          <VStack alignment="leading" spacing={2}>
+                            <Text>{item.name}</Text>
+                            <Text
+                              variant="caption"
                               modifiers={[
-                                font({ textStyle: 'footnote', weight: 'semibold' }),
                                 foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                              ]}
-                            />
-                          </HStack>
-                        </Button>
-                      )}
-                    </List.ForEach>
-                  )}
+                              ]}>
+                              {mediaTypeLabel(item)} · {storageProviderLabel(item)}
+                            </Text>
+                          </VStack>
+                          <Spacer />
+                          <StorageStatus status={item.storagePluginStatus} />
+                          <Icon
+                            name="chevron.right"
+                            modifiers={[
+                              font({ textStyle: 'footnote', weight: 'semibold' }),
+                              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                            ]}
+                          />
+                        </HStack>
+                      </Button>
+                    )}
+                  </List.ForEach>
                   <PaginationFooter
                     key={page.items.length}
                     page={page}
@@ -106,14 +100,23 @@ export default function ServerLibrariesScreen() {
                   />
                 </>
               ),
-              onError: (error) => (
-                <ListState
-                  kind="error"
-                  message={libraryFailureMessage({ error })}
-                  onRetry={refresh}
-                  retrying={libraries.waiting}
-                />
-              ),
+              onError: (error) =>
+                Match.value(error).pipe(
+                  Match.tag('NoSuchElementError', () => (
+                    <ListState
+                      kind="empty"
+                      message="No libraries yet. Create a library to get started."
+                    />
+                  )),
+                  Match.orElse((failure) => (
+                    <ListState
+                      kind="error"
+                      message={libraryFailureMessage({ error: failure })}
+                      onRetry={refresh}
+                      retrying={libraries.waiting}
+                    />
+                  ))
+                ),
               onDefect: () => (
                 <ListState
                   kind="error"

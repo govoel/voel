@@ -14,7 +14,6 @@ import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import {
-  LibraryIdInput,
   deleteLibrary,
   libraryDetails,
   libraryFailureMessage,
@@ -68,9 +67,7 @@ const LoadedLibrary = ({
               <Text>Delete library</Text>
             </Button>
           )}
-          onSubmit={({ value: input }) => deleteLibrary({ account, input })}
-          schema={LibraryIdInput}
-          defaultValues={{ id: library.id }}
+          onSubmit={() => deleteLibrary({ account, id: library.id })}
           title="Delete library"
           confirmLabel="Delete"
           message={`Delete “${library.name}” from this server? This cannot be undone.`}

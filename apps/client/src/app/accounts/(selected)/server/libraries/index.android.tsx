@@ -3,6 +3,7 @@ import Add from '@expo/material-symbols/add.xml';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Box, Column, FloatingActionButton, Icon, LazyColumn, Row } from '@expo/ui/jetpack-compose';
 import { fillMaxSize, onSizeChanged, padding, semantics } from '@expo/ui/jetpack-compose/modifiers';
+import { Match } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
 
@@ -49,48 +50,39 @@ export default function ServerLibrariesScreen() {
             onInitial: () => <ListState kind="loading" />,
             onSuccess: ({ value: page, waiting }) => (
               <>
-                {page.items.length === 0 && page.done ? (
-                  <ListState
-                    kind="empty"
-                    message="No libraries yet. Create a library to get started."
-                  />
-                ) : (
-                  <LazyColumn.Items
-                    data={page.items}
-                    keyExtractor={(library) => String(library.id)}>
-                    {({ item, index }) => (
-                      <SegmentedListItem
-                        index={index}
-                        count={page.items.length}
-                        modifiers={[
-                          padding(0, 0, 0, index < page.items.length - 1 ? Spacing.half : 0),
-                        ]}
-                        onClick={() => {
-                          router.push({
-                            pathname: '/accounts/server/libraries/[id]',
-                            params: { id: item.id },
-                          });
-                        }}>
-                        <SegmentedListItem.HeadlineContent>
-                          <Text>{item.name}</Text>
-                        </SegmentedListItem.HeadlineContent>
-                        <SegmentedListItem.SupportingContent>
-                          <Text variant="caption" color={onSurfaceVariant}>
-                            {mediaTypeLabel(item)} · {storageProviderLabel(item)}
-                          </Text>
-                        </SegmentedListItem.SupportingContent>
-                        <SegmentedListItem.TrailingContent>
-                          <Row
-                            verticalAlignment="center"
-                            horizontalArrangement={{ spacedBy: Spacing.two }}>
-                            <StorageStatus status={item.storagePluginStatus} />
-                            <Icon source={ChevronRight} size={24} tint={onSurfaceVariant} />
-                          </Row>
-                        </SegmentedListItem.TrailingContent>
-                      </SegmentedListItem>
-                    )}
-                  </LazyColumn.Items>
-                )}
+                <LazyColumn.Items data={page.items} keyExtractor={(library) => String(library.id)}>
+                  {({ item, index }) => (
+                    <SegmentedListItem
+                      index={index}
+                      count={page.items.length}
+                      modifiers={[
+                        padding(0, 0, 0, index < page.items.length - 1 ? Spacing.half : 0),
+                      ]}
+                      onClick={() => {
+                        router.push({
+                          pathname: '/accounts/server/libraries/[id]',
+                          params: { id: item.id },
+                        });
+                      }}>
+                      <SegmentedListItem.HeadlineContent>
+                        <Text>{item.name}</Text>
+                      </SegmentedListItem.HeadlineContent>
+                      <SegmentedListItem.SupportingContent>
+                        <Text variant="caption" color={onSurfaceVariant}>
+                          {mediaTypeLabel(item)} · {storageProviderLabel(item)}
+                        </Text>
+                      </SegmentedListItem.SupportingContent>
+                      <SegmentedListItem.TrailingContent>
+                        <Row
+                          verticalAlignment="center"
+                          horizontalArrangement={{ spacedBy: Spacing.two }}>
+                          <StorageStatus status={item.storagePluginStatus} />
+                          <Icon source={ChevronRight} size={24} tint={onSurfaceVariant} />
+                        </Row>
+                      </SegmentedListItem.TrailingContent>
+                    </SegmentedListItem>
+                  )}
+                </LazyColumn.Items>
                 {!page.done ? (
                   <Column modifiers={[padding(0, Spacing.two, 0, 0)]}>
                     <PaginationFooter
@@ -103,14 +95,23 @@ export default function ServerLibrariesScreen() {
                 ) : null}
               </>
             ),
-            onError: (error) => (
-              <ListState
-                kind="error"
-                message={libraryFailureMessage({ error })}
-                onRetry={refresh}
-                retrying={libraries.waiting}
-              />
-            ),
+            onError: (error) =>
+              Match.value(error).pipe(
+                Match.tag('NoSuchElementError', () => (
+                  <ListState
+                    kind="empty"
+                    message="No libraries yet. Create a library to get started."
+                  />
+                )),
+                Match.orElse((failure) => (
+                  <ListState
+                    kind="error"
+                    message={libraryFailureMessage({ error: failure })}
+                    onRetry={refresh}
+                    retrying={libraries.waiting}
+                  />
+                ))
+              ),
             onDefect: () => (
               <ListState
                 kind="error"

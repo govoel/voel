@@ -1,8 +1,7 @@
-import { Array, Effect, Match, Option, Schema, Stream } from 'effect';
+import { Array, Effect, Match, Option, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
-import { Library } from '@repo/spec-api/domains/library/schema.ts';
-import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
+import type { Library, StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
@@ -18,15 +17,11 @@ export const listLibrariesAtom = Atom.family((account: AccountKey) =>
         Option.none<typeof Library.fields.id.Type>(),
         Effect.fnUntraced(function* (cursor) {
           const page = yield* client.library.list({ query: { cursor, limit: 20 } });
-          return [[page], Option.map(page.nextCursor, Option.some)] as const;
+          return [page.items, Option.map(page.nextCursor, Option.some)] as const;
         })
       );
     }, Stream.unwrap)
   ).pipe(
-    Atom.mapResult(({ items: pages }) => ({
-      items: Array.flatMap(pages, (page) => page.items),
-      done: Option.isNone(Array.lastNonEmpty(pages).nextCursor),
-    })),
     Atom.withReactivity(['library']),
     swr({ staleTime: 10_000, revalidateOnMount: true, revalidateOnFocus: true }),
     Atom.withLabel('listLibrariesAtom')
@@ -47,18 +42,16 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
-export class LibraryIdInput extends Schema.Struct({ id: Library.fields.id }) {}
-
 export const deleteLibrary = Effect.fnUntraced(
   function* ({
     account,
-    input,
+    id,
   }: {
     readonly account: AccountKey;
-    readonly input: typeof LibraryIdInput.Type;
+    readonly id: typeof Library.fields.id.Type;
   }) {
     const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-    yield* client.library.delete({ params: input });
+    yield* client.library.delete({ params: { id } });
   },
   Reactivity.mutation(['library'])
 );

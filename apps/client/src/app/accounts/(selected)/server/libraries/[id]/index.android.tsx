@@ -19,7 +19,6 @@ import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import {
-  LibraryIdInput,
   deleteLibrary,
   libraryDetails,
   libraryFailureMessage,
@@ -88,9 +87,7 @@ const LoadedLibrary = ({
               </SegmentedListItem.HeadlineContent>
             </SegmentedListItem>
           )}
-          onSubmit={({ value: input }) => deleteLibrary({ account, input })}
-          schema={LibraryIdInput}
-          defaultValues={{ id: library.id }}
+          onSubmit={() => deleteLibrary({ account, id: library.id })}
           title="Delete library"
           confirmLabel="Delete"
           message={`Delete “${library.name}” from this server? This cannot be undone.`}
