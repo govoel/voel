@@ -1,15 +1,7 @@
 import type { ComponentType } from 'react';
 
-export type ListStateComponent = ComponentType<
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'empty'; readonly message: string }
-  | { readonly kind: 'message'; readonly message: string }
-  | {
-      readonly kind: 'error';
-      readonly message: string;
-      readonly onRetry: () => void;
-      readonly retrying: boolean;
-    }
->;
+import type { ListStateProps } from '#src/components/list-state/schema.ts';
+
+export type ListStateComponent = ComponentType<typeof ListStateProps.Type>;
 
 export declare const ListState: ListStateComponent;

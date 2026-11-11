@@ -1,38 +1,36 @@
 import { Button, HStack, ProgressView } from '@expo/ui/swift-ui';
 import { containerRelativeFrame, disabled, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
-import { Match } from 'effect';
 
 import type { ListStateComponent } from '#src/components/list-state';
+import { ListStateProps } from '#src/components/list-state/schema.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
-export const ListState = ((state) =>
-  Match.value(state).pipe(
-    Match.discriminator('kind')('loading', () => (
-      <ProgressView
-        modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
-      />
-    )),
-    Match.discriminator('kind')('empty', 'message', 'error', (props) => (
-      <>
-        <Text
-          modifiers={[
-            foregroundStyle({
-              type: 'hierarchical',
-              style: props.kind === 'empty' ? 'secondary' : 'primary',
-            }),
-          ]}>
-          {props.message}
-        </Text>
-        {props.kind === 'error' ? (
-          <Button onPress={props.onRetry} modifiers={[disabled(props.retrying)]}>
-            <HStack alignment="center" spacing={Spacing.one}>
-              {props.retrying ? <ProgressView /> : null}
-              <Text>Retry</Text>
-            </HStack>
-          </Button>
-        ) : null}
-      </>
-    )),
-    Match.exhaustive
-  )) satisfies ListStateComponent;
+export const ListState = ListStateProps.match({
+  loading: () => (
+    <ProgressView
+      modifiers={[containerRelativeFrame({ axes: 'horizontal', alignment: 'center' })]}
+    />
+  ),
+  empty: ({ message }) => (
+    <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+      {message}
+    </Text>
+  ),
+  message: ({ message }) => (
+    <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>{message}</Text>
+  ),
+  error: (props) => (
+    <>
+      <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>
+        {props.message}
+      </Text>
+      <Button onPress={props.onRetry} modifiers={[disabled(props.retrying)]}>
+        <HStack alignment="center" spacing={Spacing.one}>
+          {props.retrying ? <ProgressView /> : null}
+          <Text>Retry</Text>
+        </HStack>
+      </Button>
+    </>
+  ),
+}) satisfies ListStateComponent;
