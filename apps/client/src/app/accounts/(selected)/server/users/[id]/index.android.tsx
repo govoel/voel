@@ -9,7 +9,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 
 import type { AuthUser } from '@repo/auth-api/shared.ts';
-import { AuthUserIdInput } from '@repo/auth-api/shared.ts';
 
 import {
   deleteServerUser,
@@ -206,9 +205,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
                       </SegmentedListItem.HeadlineContent>
                     </SegmentedListItem>
                   )}
-                  onSubmit={({ value: input }) => revokeServerUserSessions({ account, input })}
-                  schema={AuthUserIdInput}
-                  defaultValues={{ userId: user.id }}
+                  onSubmit={() => revokeServerUserSessions({ account, userId: user.id })}
                   title="Sign out all devices"
                   confirmLabel="Sign out"
                   message={`Sign out all devices for @${user.username}? They will need to sign in again.`}
@@ -292,9 +289,7 @@ const LoadedUser = ({
                     </SegmentedListItem.HeadlineContent>
                   </SegmentedListItem>
                 )}
-                onSubmit={({ value: input }) => deleteServerUser({ account, input })}
-                schema={AuthUserIdInput}
-                defaultValues={{ userId: user.id }}
+                onSubmit={() => deleteServerUser({ account, userId: user.id })}
                 title="Delete user"
                 confirmLabel="Delete"
                 message={`Permanently delete @${user.username} (${user.email}) from this server? Their credentials and sessions will be removed. This cannot be undone.`}
