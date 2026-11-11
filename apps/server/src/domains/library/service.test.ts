@@ -186,9 +186,8 @@ it.layer(testLayer)('library service without transport', (iit) => {
             expect(error._tag).toBe('LibraryNotFoundError');
           })
         ),
-        Match.whenOr(
-          'rename',
-          'settings',
+        Match.when(
+          'update',
           Effect.fnUntraced(function* () {
             const row = yield* repository.getById(target.library);
             expect(row.name).toBe(`Updated ${target.library.id}`);
