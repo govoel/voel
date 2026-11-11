@@ -4,7 +4,7 @@ import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import UnfoldMore from '@expo/material-symbols/unfold_more.xml';
 import { Column, Icon } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Option } from 'effect';
+import { Match, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
@@ -29,6 +29,7 @@ import {
   accountsSheetIsInvalidSession,
   accountsSheetIsMustPickAccount,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 
 const StackNavigationRow = ({
   index,
@@ -246,12 +247,17 @@ export default function AccountsScreen() {
               ) : null}
             </>
           ),
-          onError: () => (
+          onError: (error) => (
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
               <Text variant="h3">Switch Account</Text>
               <ListState
                 kind="error"
-                message="Unable to load accounts."
+                message={Match.value(error).pipe(
+                  Match.tagsExhaustive({
+                    NoSuchElementError: () => 'Unable to load accounts.',
+                    AccountDatabaseError: (failure) => authFailureMessage({ error: failure }),
+                  })
+                )}
                 onRetry={refreshAccounts}
                 retrying={accounts.waiting}
               />

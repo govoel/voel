@@ -229,7 +229,9 @@ describe('AccountRepository', () => {
         .upsertActive({ ...makeAccount('first'), authStorage: { voel_cookie: 'replacement' } })
         .pipe(Effect.exit);
       expect(Exit.hasFails(exit)).toBe(false);
-      expect(Result.getOrThrow(Exit.findDefect(exit))).toMatchObject({ _tag: 'SqlError' });
+      expect(Schema.is(SqlError.SqlErrorReason)(Result.getOrThrow(Exit.findDefect(exit)))).toBe(
+        true
+      );
       const list = yield* repository.list;
       expect(list).toEqual(before);
       const readAuthStorageResult = yield* repository.readAuthStorage(first);

@@ -1,14 +1,10 @@
 import { useAtomSuspense } from '@effect/atom-react';
-import { Equal, Option, String, pipe } from 'effect';
+import { Equal, Match, Option, String, pipe } from 'effect';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import type { AccountsSheet } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import {
-  accountsSheetAtom,
-  accountsSheetIsIdle,
-  accountsSheetIsOnboarding,
-} from '#src/domains/accounts/components/auto-presenter/model.ts';
+import { accountsSheetAtom } from '#src/domains/accounts/components/auto-presenter/model.ts';
 
 export const AccountsAutoPresenter = () => {
   const router = useRouter();
@@ -19,29 +15,34 @@ export const AccountsAutoPresenter = () => {
   const lastPresentedRef = useRef<Option.Option<AccountsSheet>>(Option.none());
 
   useEffect(() => {
-    if (accountsSheetIsIdle(sheet.value) || accountsSheetIsOnboarding(sheet.value)) {
-      lastPresentedRef.current = Option.none();
-      return;
-    }
+    Match.value(sheet.value).pipe(
+      Match.tag('Idle', 'Onboarding', () => {
+        lastPresentedRef.current = Option.none();
+        return void 0;
+      }),
+      Match.tag('MustPickAccount', 'InvalidSession', (selection) => {
+        if (pathname === '/accounts' || pipe(pathname, String.startsWith('/accounts/'))) {
+          lastPresentedRef.current = Option.some(selection);
+          return void 0;
+        }
 
-    if (pathname === '/accounts' || pipe(pathname, String.startsWith('/accounts/'))) {
-      lastPresentedRef.current = Option.some(sheet.value);
-      return;
-    }
+        if (pathname === '/sign-in' || pathname === '/server-setup') {
+          return void 0;
+        }
 
-    if (pathname === '/sign-in' || pathname === '/server-setup') {
-      return;
-    }
+        if (
+          Option.isSome(lastPresentedRef.current) &&
+          Equal.equals(lastPresentedRef.current.value, selection)
+        ) {
+          return void 0;
+        }
 
-    if (
-      Option.isSome(lastPresentedRef.current) &&
-      Equal.equals(lastPresentedRef.current.value, sheet.value)
-    ) {
-      return;
-    }
-
-    lastPresentedRef.current = Option.some(sheet.value);
-    router.push('/accounts', { withAnchor: true });
+        lastPresentedRef.current = Option.some(selection);
+        router.push('/accounts', { withAnchor: true });
+        return void 0;
+      }),
+      Match.exhaustive
+    );
   }, [sheet, router, pathname]);
 
   return null;

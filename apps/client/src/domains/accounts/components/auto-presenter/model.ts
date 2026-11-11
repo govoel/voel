@@ -16,8 +16,6 @@ export type AccountsSheet =
 
 export const AccountsSheet = Data.taggedEnum<AccountsSheet>();
 
-export const accountsSheetIsIdle = AccountsSheet.$is('Idle');
-export const accountsSheetIsOnboarding = AccountsSheet.$is('Onboarding');
 export const accountsSheetIsMustPickAccount = AccountsSheet.$is('MustPickAccount');
 export const accountsSheetIsInvalidSession = AccountsSheet.$is('InvalidSession');
 

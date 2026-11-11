@@ -213,7 +213,9 @@ it.layer(testLayer)('library service without transport', (iit) => {
             expect(error._tag).toBe('LibraryNotFoundError');
           })
         ),
-        Match.orElse(
+        Match.whenOr(
+          'rename',
+          'settings',
           Effect.fnUntraced(function* () {
             const row = yield* repository.getById(target.library);
             expect(row.settingsKey.library.name).toBe(
@@ -223,7 +225,8 @@ it.layer(testLayer)('library service without transport', (iit) => {
               Option.some({ prefix: operation === 'settings' ? '/updated' : '/initial' })
             );
           })
-        )
+        ),
+        Match.exhaustive
       );
     })
   );

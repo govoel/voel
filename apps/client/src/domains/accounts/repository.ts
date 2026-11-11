@@ -226,7 +226,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
             },
-            (_reason, cause) => Effect.die(cause)
+            Effect.die
           ),
           Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         );
@@ -243,7 +243,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
             },
-            (_reason, cause) => Effect.die(cause)
+            Effect.die
           ),
           Effect.catchTags({ SchemaError: Effect.die })
         ),
@@ -254,7 +254,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
             },
-            (_reason, cause) => Effect.die(cause)
+            Effect.die
           ),
           Effect.catchTags({ SchemaError: Effect.die })
         ),
@@ -266,7 +266,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
                 ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
                 LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               },
-              (_reason, cause) => Effect.die(cause)
+              Effect.die
             ),
             Effect.catchTags({ SchemaError: Effect.die })
           ),
@@ -287,7 +287,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
             },
-            (_reason, cause) => Effect.die(cause)
+            Effect.die
           ),
           Effect.catchTags({ SchemaError: Effect.die })
         ),
@@ -306,7 +306,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
             },
-            (_reason, cause) => Effect.die(cause)
+            Effect.die
           ),
           Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         ),
@@ -320,7 +320,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
                 ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
                 LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               },
-              (_reason, cause) => Effect.die(cause)
+              Effect.die
             ),
             Effect.catchTags({ SchemaError: Effect.die })
           ),
@@ -334,7 +334,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
                 ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
                 LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               },
-              (_reason, cause) => Effect.die(cause)
+              Effect.die
             ),
             Effect.catchTags({ SchemaError: Effect.die })
           ),
@@ -361,7 +361,7 @@ export class AccountRepository extends Context.Service<AccountRepository>()(
               ConnectionError: (_reason, cause) => AccountDatabaseError.make({ cause }),
               LockTimeoutError: (_reason, cause) => AccountDatabaseError.make({ cause }),
             },
-            (_reason, cause) => Effect.die(cause)
+            Effect.die
           ),
           Effect.catchTag('SchemaError', (cause) => AccountCredentialsError.make({ cause }))
         ),
