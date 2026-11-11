@@ -15,13 +15,13 @@ import { Stack, useRouter } from 'expo-router';
 
 import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
 
-import { listLibrariesAtom } from '#src/app/accounts/(selected)/server/libraries/index.ts';
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import {
   libraryFailureMessage,
+  listLibrariesAtom,
   mediaTypeLabel,
   storageProviderLabel,
   storageStatusLabel,

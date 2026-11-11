@@ -128,6 +128,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const client = yield* makeClient;
       const repository = yield* LibraryRepository;
       const editors = yield* StoragePluginSettingsMap;
+      const stores = yield* StoragePluginMap;
       yield* editors.invalidate(Library.fields.storagePluginId.make('npm:missing'));
       const record = yield* repository.create(createRecord('Missing plugin', 'npm:missing'));
       const library = { id: record.id };
@@ -141,6 +142,15 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(failed.storagePluginHealth).toMatchObject({
         status: 'unhealthy',
         errors: [{ _tag: 'PluginLoadError' }],
+      });
+      yield* stores.acquire(record.storageKey).pipe(Effect.scoped, Effect.flip);
+      const bothFailed = yield* client.library.get({ params: library });
+      expect(bothFailed.storagePluginHealth).toEqual({
+        status: 'unhealthy',
+        errors: [
+          expect.objectContaining({ _tag: 'PluginLoadError', message: 'Plugin unavailable' }),
+          expect.objectContaining({ _tag: 'PluginLoadError', message: 'Plugin unavailable' }),
+        ],
       });
       const payload = createInput('Healthy plugin', 'npm:test');
       yield* client.library.update({ params: library, payload });

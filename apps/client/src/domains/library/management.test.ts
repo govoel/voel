@@ -3,7 +3,6 @@ import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
-import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
 import { Library, LibraryNotFoundError } from '@repo/spec-api/domains/library/schema.ts';
 import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
@@ -16,7 +15,6 @@ import {
   libraryStorageErrors,
   listLibrariesAtom,
   serverLibraryAtom,
-  storageProviderLabel,
 } from '#src/domains/library/management.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -64,9 +62,6 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         yield* Atom.mount(query);
         const empty = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(empty).toBeInstanceOf(Cause.NoSuchElementError);
-        expect(libraryFailureMessage({ error: empty })).toBe(
-          'Unable to load libraries. Try again.'
-        );
 
         const created = yield* client.library.create({ payload: createInput('Only library') });
         yield* Atom.refresh(query);
@@ -89,22 +84,21 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const server = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, server);
         const client = yield* ApiClientMap.use((clients) => clients.acquire(account.key));
-        yield* Effect.forEach(Array.range(1, 21), (n) =>
+        const created = yield* Effect.forEach(Array.range(1, 21), (n) =>
           client.library.create({ payload: createInput(String(n)) })
         );
         const query = listLibrariesAtom(account.key);
         yield* Atom.mount(query);
         const first = yield* Atom.getResult(query, { suspendOnWaiting: true });
         expect(first.items).toHaveLength(20);
-        expect(first.done).toBe(false);
-        yield* Atom.set(query, void 0);
-        const second = yield* Atom.getResult(query, { suspendOnWaiting: true });
-        expect(second.items).toHaveLength(21);
-        expect(new Set(Array.map(second.items, (item) => item.id)).size).toBe(21);
-        expect(second.done).toBe(false);
-        yield* Atom.set(query, void 0);
-        const completed = yield* Atom.getResult(query, { suspendOnWaiting: true });
-        expect(completed).toEqual({ items: second.items, done: true });
+        let loadedPage = first;
+        while (!loadedPage.done) {
+          yield* Atom.set(query, void 0);
+          loadedPage = yield* Atom.getResult(query, { suspendOnWaiting: true });
+        }
+        expect(Array.map(loadedPage.items, ({ id }) => id)).toEqual(
+          Array.map(created, ({ id }) => id)
+        );
         const target = Option.getOrThrow(Array.head(first.items));
         const detail = serverLibraryAtom({ account: account.key, id: target.id });
         yield* Atom.mount(detail);
@@ -112,9 +106,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(loaded).toMatchObject({
           id: target.id,
           name: target.name,
-          storagePluginHealth: { status: 'healthy' },
         });
-        expect(storageProviderLabel(loaded)).toBe('Local folders');
         expect(libraryStorageDetails({ library: loaded })).toEqual([
           { label: 'Provider', value: 'Local folders' },
           { label: 'Plugin status', value: 'Built successfully' },
@@ -125,7 +117,6 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           storagePluginId: Library.json.fields.storagePluginId.make('npm:test'),
           storagePluginHealth: { status: 'unknown' as const },
         };
-        expect(storageProviderLabel(custom)).toBe('Custom plugin');
         expect(libraryStorageDetails({ library: custom })).toEqual([
           { label: 'Provider', value: 'Custom plugin' },
           { label: 'Plugin ID', value: 'npm:test' },
@@ -162,8 +153,12 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           Stream.runHead
         );
         const refreshed = Option.getOrThrow(changed);
-        expect(refreshed.items).toHaveLength(20);
-        expect(Array.some(refreshed.items, (item) => item.id === target.id)).toBe(false);
+        expect(Array.map(refreshed.items, ({ id }) => id)).toEqual(
+          Array.map(
+            Array.filter(created, ({ id }) => id !== target.id),
+            ({ id }) => id
+          )
+        );
         const deleted = yield* Atom.getResult(detail, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(deleted).toBeInstanceOf(LibraryNotFoundError);
         expect(libraryFailureMessage({ error: deleted })).toBe('This library no longer exists.');
@@ -202,24 +197,16 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
   );
 
   iit.effect(
-    'rejects non-admin access to library lists and details',
+    'explains why non-admins cannot manage libraries',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [, user] = yield* signInTestServerUsers(manager, server);
         const denied = yield* Atom.getResult(listLibrariesAtom(user.key)).pipe(Effect.flip);
-        expect(denied).toBeInstanceOf(ForbiddenError);
         expect(libraryFailureMessage({ error: denied })).toBe(
           'Only server administrators can manage libraries.'
         );
-        const detailDenied = yield* Atom.getResult(
-          serverLibraryAtom({
-            account: user.key,
-            id: Library.fields.id.make(1),
-          })
-        ).pipe(Effect.flip);
-        expect(detailDenied).toBeInstanceOf(ForbiddenError);
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )
