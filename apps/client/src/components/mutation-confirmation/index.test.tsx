@@ -159,33 +159,42 @@ it('survives removal of its initiating subtree and navigates only after native d
   expect(screen.queryByText('Remove Alice')).toBeNull();
 });
 
-it('keeps failure feedback and retry available after its trigger disappears', async () => {
+it('keeps the opened account and target through selection rerenders, failure, and retry after unmount', async () => {
+  const original = {
+    account: { serverUrl: 'https://alice.example.test', userId: 'alice' },
+    userId: 'first-target',
+  };
+  const replacement = {
+    account: { serverUrl: 'https://bob.example.test', userId: 'bob' },
+    userId: 'second-target',
+  };
   let attempts = 0;
-  const remove = () =>
-    Effect.suspend(() => {
-      attempts += 1;
-      return attempts === 1 ? OperationFailure.make({}) : Effect.void;
-    });
-  const Screen = () => {
-    const [triggerVisible, setTriggerVisible] = useState(true);
+  const execute = vi.fn((_target: typeof original) => {
+    attempts += 1;
+    return attempts === 1 ? OperationFailure.make({}) : Effect.void;
+  });
+  const onSuccess = vi.fn();
+  const Screen = ({
+    selection,
+    visible = true,
+  }: {
+    readonly selection: typeof original;
+    readonly visible?: boolean;
+  }) => {
+    const { account, userId } = selection;
     return (
       <MutationConfirmationProvider>
-        <Pressable
-          role="button"
-          onPress={() => {
-            setTriggerVisible(false);
-          }}>
-          <Text>Switch account</Text>
-        </Pressable>
-        {triggerVisible ? (
+        <Text>{`Selected ${account.userId}: ${userId}`}</Text>
+        {visible ? (
           <MutationConfirmation
-            onSubmit={remove}
-            title="Remove Alice"
-            message="Remove this account"
-            onFailure={() => 'Could not remove Alice. Try again.'}
-            trigger={({ open }) => (
-              <Pressable role="button" onPress={open}>
-                <Text>Open removal</Text>
+            onSubmit={() => Effect.suspend(() => execute({ account, userId }))}
+            title={`Delete ${userId}`}
+            message="Delete this user"
+            onFailure={() => `Could not delete ${userId}`}
+            onSuccess={onSuccess}
+            trigger={({ open, busy }) => (
+              <Pressable role="button" disabled={busy} onPress={open}>
+                <Text>Open deletion</Text>
               </Pressable>
             )}
           />
@@ -193,13 +202,21 @@ it('keeps failure feedback and retry available after its trigger disappears', as
       </MutationConfirmationProvider>
     );
   };
-  await render(<Screen />);
-  await fireEvent.press(screen.getByText('Open removal'));
-  await fireEvent.press(screen.getByText('Switch account'));
+  const view = await render(<Screen selection={original} />);
+  await fireEvent.press(screen.getByText('Open deletion'));
+  await view.rerender(<Screen selection={replacement} />);
+  expect(screen.getByText('Selected bob: second-target')).toBeVisible();
+  expect(screen.getByText('Delete first-target')).toBeVisible();
+  expect(screen.queryByText('Delete second-target')).toBeNull();
   await fireEvent.press(screen.getByText('Confirm'));
-  await screen.findByText('Could not remove Alice. Try again.');
+  await screen.findByText('Could not delete first-target');
+  expect(execute).toHaveBeenCalledExactlyOnceWith(original);
+  await view.rerender(<Screen selection={replacement} visible={false} />);
   await fireEvent.press(screen.getByText('Confirm'));
   await screen.findByText('Finish native dismissal');
+  expect(execute.mock.calls).toEqual([[original], [original]]);
+  expect(onSuccess).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByText('Finish native dismissal'));
-  expect(screen.queryByText('Remove Alice')).toBeNull();
+  expect(onSuccess).toHaveBeenCalledOnce();
+  expect(screen.queryByText('Delete first-target')).toBeNull();
 });

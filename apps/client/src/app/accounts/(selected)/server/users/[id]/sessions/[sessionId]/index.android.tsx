@@ -6,7 +6,6 @@ import { AsyncResult } from 'effect/reactivity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import type { AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
-import { AuthAdminRevokeSessionInput } from '@repo/auth-api/shared.ts';
 
 import {
   revokeServerUserSession,
@@ -72,9 +71,7 @@ const SessionContent = ({
                       </SegmentedListItem.HeadlineContent>
                     </SegmentedListItem>
                   )}
-                  onSubmit={({ value: input }) => revokeServerUserSession({ account, input })}
-                  schema={AuthAdminRevokeSessionInput}
-                  defaultValues={{ sessionToken: session.token }}
+                  onSubmit={() => revokeServerUserSession({ account, sessionToken: session.token })}
                   title="Sign out"
                   message="This session will need to sign in again."
                   onSuccess={() => {

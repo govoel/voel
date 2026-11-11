@@ -6,7 +6,6 @@ import { AsyncResult } from 'effect/reactivity';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
-import { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
 
 import { ownSessionsAtom, revokeOwnSession } from '#src/app/accounts/(selected)/profile/index.ts';
 import { ownSessionAtom } from '#src/app/accounts/(selected)/profile/sessions/[id]/index.ts';
@@ -72,9 +71,7 @@ const SessionContent = ({ id }: { id: typeof AuthDeviceSession.fields.id.Type })
                       <Text>Sign out</Text>
                     </Button>
                   )}
-                  onSubmit={({ value: input }) => revokeOwnSession({ account, input })}
-                  schema={AuthRevokeSessionInput}
-                  defaultValues={{ token: session.token }}
+                  onSubmit={() => revokeOwnSession({ account, token: session.token })}
                   title="Sign out"
                   message="This session will need to sign in again."
                   onSuccess={() => {

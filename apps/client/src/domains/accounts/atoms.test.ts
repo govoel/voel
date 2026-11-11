@@ -18,6 +18,8 @@ import { ownSessionsAtom, revokeOwnSession } from '#src/app/accounts/(selected)/
 import { ownSessionAtom } from '#src/app/accounts/(selected)/profile/sessions/[id]/index.ts';
 import {
   deleteServerUser,
+  revokeServerUserSession,
+  revokeServerUserSessions,
   serverUserAtom,
   serverUserSessionsAtom,
 } from '#src/app/accounts/(selected)/server/users/[id]/index.ts';
@@ -649,7 +651,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const target = Option.getOrThrow(
           Array.findFirst(allUsers.items, (user) => user.username !== testServer.adminUsername)
         );
-        yield* deleteServerUser({ account: key, input: { userId: target.id } });
+        yield* deleteServerUser({ account: key, userId: target.id });
         const { drainScheduler } = yield* TestScheduler;
         yield* drainScheduler;
         const refreshed = yield* Atom.getResult(listUsersAtom(key), { suspendOnWaiting: true });
@@ -698,7 +700,7 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
         const victim = Option.getOrThrow(
           Array.findFirst(page.items, (user) => user.username !== firstServer.adminUsername)
         );
-        yield* deleteServerUser({ account: firstKey, input: { userId: victim.id } });
+        yield* deleteServerUser({ account: firstKey, userId: victim.id });
         const secondClient = yield* AuthClientMap.use((clients) => clients.acquire(secondKey));
         expect((yield* secondClient.admin.listUsers({ limit: 20, offset: 0 })).users).toHaveLength(
           3
@@ -724,33 +726,35 @@ it.layer(TestServerControllerClient.layer)('listUsersAtom', (iit) => {
 
 it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
   iit.effect(
-    'refreshes the admin session query through its session detail projection',
+    'revoking all user sessions refreshes the admin list and session detail projection',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
-        const server = yield* setupTestServerWithUsers({ userCount: 1 });
-        const [account] = yield* signInTestServerUsers(manager, server);
+        const server = yield* setupTestServerWithUsers({ userCount: 2 });
+        const [account, target] = yield* signInTestServerUsers(manager, server);
         const { key } = account;
         const client = yield* AuthClientMap.use((clients) => clients.acquire(key));
-        const current = yield* client.readSession;
-        const listSessions = yield* client.listSessions;
-        const other = Option.getOrThrow(
-          Array.findFirst(listSessions, (session) => session.id !== current.session.id)
-        );
+        const { sessions } = yield* client.admin.listUserSessions({ userId: target.key.userId });
+        const other = Option.getOrThrow(Array.head(sessions));
+        const list = serverUserSessionsAtom({ account: key, userId: target.key.userId });
         const detail = serverUserSessionAtom({
           account: key,
-          userId: key.userId,
+          userId: target.key.userId,
           sessionId: other.id,
         });
+        yield* Atom.mount(list);
         yield* Atom.mount(detail);
         const detailResult = yield* Atom.getResult(detail);
         expect(Option.getOrThrow(detailResult)).toMatchObject({
           id: other.id,
-          isOtherUser: false,
+          isOtherUser: true,
         });
 
-        yield* client.admin.revokeUserSession({ sessionToken: other.token });
-        yield* Atom.refresh(detail);
+        yield* revokeServerUserSessions({ account: key, userId: target.key.userId });
+        const { drainScheduler } = yield* TestScheduler;
+        yield* drainScheduler;
+        const refreshed = yield* Atom.getResult(list, { suspendOnWaiting: true });
+        expect(refreshed).toEqual({ sessions: [] });
         const detailResult2 = yield* Atom.getResult(detail, { suspendOnWaiting: true });
         expect(detailResult2).toEqual(Option.none());
       },
@@ -788,7 +792,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
         expect(serverUserResult).toMatchObject({ id: target.id, isOtherUser: true });
         const { drainScheduler } = yield* TestScheduler;
 
-        yield* deleteServerUser({ account: key, input: { userId: target.id } });
+        yield* deleteServerUser({ account: key, userId: target.id });
         yield* drainScheduler;
         const detailResult = yield* Atom.getResult(detail, { suspendOnWaiting: true });
         expect(detailResult).toMatchObject({
@@ -800,9 +804,7 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
 
         yield* deleteServerUser({
           account: key,
-          input: {
-            userId: AccountKey.fields.userId.make('missing-user'),
-          },
+          userId: AccountKey.fields.userId.make('missing-user'),
         }).pipe(Effect.flip);
         yield* drainScheduler;
         expect(
@@ -813,76 +815,86 @@ it.layer(TestServerControllerClient.layer)('auth query invalidation', (iit) => {
     )
   );
 
-  iit.effect(
-    'revoking a device session refreshes both own and admin session queries',
-    Effect.fnUntraced(
-      function* () {
-        const manager = yield* AccountManager;
-        const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
-        const [account] = yield* signInTestServerUsers(manager, testServer);
-        const client = yield* AuthClientMap.use((authClients) => authClients.acquire(account.key));
-        const { key } = account;
-        const session = yield* client.readSession;
-        const adminSessions = serverUserSessionsAtom({ account: key, userId: account.key.userId });
-        yield* Atom.mount(ownSessionsAtom(key));
-        yield* Atom.mount(adminSessions);
-        expect(
-          (yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true })).sessions.length
-        ).toBeGreaterThan(1);
-        yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
-        const listSessions = yield* client.listSessions;
-        const other = Option.getOrThrow(
-          Array.findFirst(listSessions, (item) => item.id !== session.session.id)
-        );
-        const ownDetail = ownSessionAtom({ account: key, id: other.id });
-        const adminDetail = serverUserSessionAtom({
-          account: key,
-          userId: account.key.userId,
-          sessionId: other.id,
-        });
-        yield* Atom.mount(ownDetail);
-        yield* Atom.mount(adminDetail);
-        const ownDetailResult = yield* Atom.getResult(ownDetail, { suspendOnWaiting: true });
-        expect(Option.getOrThrow(ownDetailResult)).toMatchObject({
-          session: { id: other.id },
-          isCurrent: false,
-        });
-        const adminDetailResult = yield* Atom.getResult(adminDetail, { suspendOnWaiting: true });
-        expect(Option.getOrThrow(adminDetailResult)).toMatchObject({
-          id: other.id,
-          isOtherUser: false,
-        });
-
-        yield* revokeOwnSession({ account: key, input: { token: other.token } });
-        const { drainScheduler } = yield* TestScheduler;
-        yield* drainScheduler;
-        const own = yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true });
-        const admin = yield* Atom.getResult(
-          serverUserSessionsAtom({ account: key, userId: account.key.userId }),
-          { suspendOnWaiting: true }
-        );
-        expect(Array.some(own.sessions, (item) => item.id === other.id)).toBe(false);
-        expect(Array.some(admin.sessions, (item) => item.id === other.id)).toBe(false);
-        const ownSessionResult = yield* Atom.getResult(
-          ownSessionAtom({ account: key, id: other.id }),
-          {
-            suspendOnWaiting: true,
-          }
-        );
-        expect(ownSessionResult).toEqual(Option.none());
-        const serverUserSessionResult = yield* Atom.getResult(
-          serverUserSessionAtom({
+  for (const action of ['own', 'admin'] as const) {
+    iit.effect(
+      `revoking a device session via ${action} action refreshes own and admin queries`,
+      Effect.fnUntraced(
+        function* () {
+          const manager = yield* AccountManager;
+          const testServer = yield* setupTestServerWithUsers({ userCount: 1 });
+          const [account] = yield* signInTestServerUsers(manager, testServer);
+          const client = yield* AuthClientMap.use((authClients) =>
+            authClients.acquire(account.key)
+          );
+          const { key } = account;
+          const session = yield* client.readSession;
+          const adminSessions = serverUserSessionsAtom({
+            account: key,
+            userId: account.key.userId,
+          });
+          yield* Atom.mount(ownSessionsAtom(key));
+          yield* Atom.mount(adminSessions);
+          expect(
+            (yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true })).sessions
+              .length
+          ).toBeGreaterThan(1);
+          yield* Atom.getResult(adminSessions, { suspendOnWaiting: true });
+          const listSessions = yield* client.listSessions;
+          const other = Option.getOrThrow(
+            Array.findFirst(listSessions, (item) => item.id !== session.session.id)
+          );
+          const ownDetail = ownSessionAtom({ account: key, id: other.id });
+          const adminDetail = serverUserSessionAtom({
             account: key,
             userId: account.key.userId,
             sessionId: other.id,
-          }),
-          { suspendOnWaiting: true }
-        );
-        expect(serverUserSessionResult).toEqual(Option.none());
-      },
-      (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
-    )
-  );
+          });
+          yield* Atom.mount(ownDetail);
+          yield* Atom.mount(adminDetail);
+          const ownDetailResult = yield* Atom.getResult(ownDetail, { suspendOnWaiting: true });
+          expect(Option.getOrThrow(ownDetailResult)).toMatchObject({
+            session: { id: other.id },
+            isCurrent: false,
+          });
+          const adminDetailResult = yield* Atom.getResult(adminDetail, { suspendOnWaiting: true });
+          expect(Option.getOrThrow(adminDetailResult)).toMatchObject({
+            id: other.id,
+            isOtherUser: false,
+          });
+
+          yield* action === 'own'
+            ? revokeOwnSession({ account: key, token: other.token })
+            : revokeServerUserSession({ account: key, sessionToken: other.token });
+          const { drainScheduler } = yield* TestScheduler;
+          yield* drainScheduler;
+          const own = yield* Atom.getResult(ownSessionsAtom(key), { suspendOnWaiting: true });
+          const admin = yield* Atom.getResult(
+            serverUserSessionsAtom({ account: key, userId: account.key.userId }),
+            { suspendOnWaiting: true }
+          );
+          expect(Array.some(own.sessions, (item) => item.id === other.id)).toBe(false);
+          expect(Array.some(admin.sessions, (item) => item.id === other.id)).toBe(false);
+          const ownSessionResult = yield* Atom.getResult(
+            ownSessionAtom({ account: key, id: other.id }),
+            {
+              suspendOnWaiting: true,
+            }
+          );
+          expect(ownSessionResult).toEqual(Option.none());
+          const serverUserSessionResult = yield* Atom.getResult(
+            serverUserSessionAtom({
+              account: key,
+              userId: account.key.userId,
+              sessionId: other.id,
+            }),
+            { suspendOnWaiting: true }
+          );
+          expect(serverUserSessionResult).toEqual(Option.none());
+        },
+        (effect) => effect.pipe(Effect.provide(makeAccountsAtomsTestLayer()))
+      )
+    );
+  }
 });
 
 it.layer(TestServerControllerClient.layer)('accountAtom', (iit) => {

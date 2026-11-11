@@ -1,12 +1,7 @@
 import { DateTime, Effect, Schema } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
-import type {
-  AuthAdminRevokeSessionInput,
-  AuthAdminUserDetails,
-  AuthUser,
-  AuthUserIdInput,
-} from '@repo/auth-api/shared.ts';
+import type { AuthAdminUserDetails, AuthDeviceSession, AuthUser } from '@repo/auth-api/shared.ts';
 import {
   AuthAdminUpdateUserInput,
   AuthSetRoleInput,
@@ -90,13 +85,13 @@ const setServerUserPassword = Effect.fnUntraced(
 export const deleteServerUser = Effect.fnUntraced(
   function* ({
     account,
-    input,
+    userId,
   }: {
     readonly account: AccountKey;
-    readonly input: typeof AuthUserIdInput.Type;
+    readonly userId: typeof AuthUser.fields.id.Type;
   }) {
     const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-    yield* client.admin.removeUser(input);
+    yield* client.admin.removeUser({ userId });
   },
   Reactivity.mutation(['auth.users', 'auth.sessions'])
 );
@@ -123,26 +118,26 @@ export const serverUserSessionsAtom = Atom.family(
 export const revokeServerUserSession = Effect.fnUntraced(
   function* ({
     account,
-    input,
+    sessionToken,
   }: {
     readonly account: AccountKey;
-    readonly input: typeof AuthAdminRevokeSessionInput.Type;
+    readonly sessionToken: typeof AuthDeviceSession.fields.token.Type;
   }) {
     const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-    yield* client.admin.revokeUserSession(input);
+    yield* client.admin.revokeUserSession({ sessionToken });
   },
   Reactivity.mutation(['auth.sessions'])
 );
 export const revokeServerUserSessions = Effect.fnUntraced(
   function* ({
     account,
-    input,
+    userId,
   }: {
     readonly account: AccountKey;
-    readonly input: typeof AuthUserIdInput.Type;
+    readonly userId: typeof AuthUser.fields.id.Type;
   }) {
     const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-    yield* client.admin.revokeUserSessions(input);
+    yield* client.admin.revokeUserSessions({ userId });
   },
   Reactivity.mutation(['auth.sessions'])
 );

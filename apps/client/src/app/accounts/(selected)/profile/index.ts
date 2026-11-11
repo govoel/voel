@@ -1,7 +1,7 @@
 import { Effect, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
-import type { AuthRevokeSessionInput } from '@repo/auth-api/shared.ts';
+import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
 import { AuthChangePasswordInput, AuthSignUpInput } from '@repo/auth-api/shared.ts';
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
@@ -148,13 +148,13 @@ export const ownSessionsAtom = Atom.family((account: AccountKey) =>
 export const revokeOwnSession = Effect.fnUntraced(
   function* ({
     account,
-    input,
+    token,
   }: {
     readonly account: AccountKey;
-    readonly input: typeof AuthRevokeSessionInput.Type;
+    readonly token: typeof AuthDeviceSession.fields.token.Type;
   }) {
     const client = yield* AuthClientMap.use((clients) => clients.acquire(account));
-    yield* client.revokeSession(input);
+    yield* client.revokeSession({ token });
   },
   Reactivity.mutation(['auth.sessions'])
 );

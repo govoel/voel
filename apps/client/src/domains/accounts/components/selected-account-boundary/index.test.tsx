@@ -250,7 +250,7 @@ const AccountContent = () => {
     onSubmit: () =>
       deleteServerUser({
         account,
-        input: { userId: AccountKey.fields.userId.make('missing-user') },
+        userId: AccountKey.fields.userId.make('missing-user'),
       }),
     onFailure: () => 'Could not delete user',
   });
